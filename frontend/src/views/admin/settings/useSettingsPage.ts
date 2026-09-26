@@ -15,10 +15,7 @@ import {
   normalizeAccountSchedulingThresholdsMap,
   sanitizeAccountSchedulingThresholdsMap,
   SCHEDULING_THRESHOLD_PLATFORMS,
-  defaultWeChatConnectScopesForMode,
-  deriveWeChatConnectStoredMode,
   normalizeDefaultSubscriptionSettings,
-  resolveWeChatConnectModeCapabilities,
 } from "@/api/admin/settings";
 import type {
   AuthSourceDefaultsState,
@@ -26,7 +23,6 @@ import type {
   SystemSettings,
   UpdateSettingsRequest,
   OpenAIFastPolicyRule,
-  WeChatConnectMode,
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
   WebSearchTestResult,
@@ -39,7 +35,6 @@ import type {
 import type { ProviderInstance, SubscriptionPlan } from "@/types/payment";
 import { adminPaymentAPI } from "@/api/admin/payment";
 import PaymentProviderDialog from "@/components/admin/payment/providers/PaymentProviderDialog.vue";
-import { useClipboard } from "@/composables/useClipboard";
 import {
   useStepUp,
   isStepUpCancelled,
@@ -86,13 +81,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式"
       : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
   );
-
-
-
-
-
-
-  const { copyToClipboard } = useClipboard();
 
   const loading = ref(true);
   const loadFailed = ref(false);
@@ -629,9 +617,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
 
   type SettingsForm = Omit<
     SystemSettings,
-    | "wechat_connect_open_enabled"
-    | "wechat_connect_mp_enabled"
-    | "wechat_connect_mobile_enabled"
     // A6-4：这几项挪到了功能页（渠道健康 / 审查），设置页不再读写
     | "channel_monitor_hide_throughput"
     | "channel_monitor_hide_user_ranking"
@@ -644,18 +629,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     tencent_captcha_cloud_secret_id: string;
     tencent_captcha_cloud_secret_key: string;
     aliyun_captcha_access_key_secret: string;
-    linuxdo_connect_client_secret: string;
-    dingtalk_connect_client_secret: string;
-    wechat_connect_app_secret: string;
-    wechat_connect_open_app_secret: string;
-    wechat_connect_mp_app_secret: string;
-    wechat_connect_mobile_app_secret: string;
-    wechat_connect_open_enabled: boolean;
-    wechat_connect_mp_enabled: boolean;
-    wechat_connect_mobile_enabled: boolean;
-    oidc_connect_client_secret: string;
-    github_oauth_client_secret: string;
-    google_oauth_client_secret: string;
     force_email_on_third_party_signup: boolean;
     account_scheduling_thresholds: ReturnType<typeof normalizeAccountSchedulingThresholdsMap>;
   };
@@ -757,87 +730,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     aliyun_captcha_region: "cn",
     api_key_acl_trust_forwarded_ip: true,
     forwarded_client_ip_headers: [],
-    // LinuxDo Connect OAuth 登录
-    linuxdo_connect_enabled: false,
-    linuxdo_connect_client_id: "",
-    linuxdo_connect_client_secret: "",
-    linuxdo_connect_client_secret_configured: false,
-    linuxdo_connect_redirect_url: "",
-    // DingTalk Connect OAuth 登录
-    dingtalk_connect_enabled: false,
-    dingtalk_connect_client_id: "",
-    dingtalk_connect_client_secret: "",
-    dingtalk_connect_client_secret_configured: false,
-    dingtalk_connect_redirect_url: "",
-    dingtalk_connect_corp_restriction_policy: "none",
-    dingtalk_connect_internal_corp_id: "",
-    dingtalk_connect_bypass_registration: false,
-    dingtalk_connect_sync_corp_email: false,
-    dingtalk_connect_sync_display_name: false,
-    dingtalk_connect_sync_dept: false,
-    dingtalk_connect_sync_corp_email_attr_key: "dingtalk_email",
-    dingtalk_connect_sync_display_name_attr_key: "dingtalk_name",
-    dingtalk_connect_sync_dept_attr_key: "dingtalk_department",
-    dingtalk_connect_sync_corp_email_attr_name: localText("钉钉企业邮箱", "DingTalk Corporate Email"),
-    dingtalk_connect_sync_display_name_attr_name: localText("钉钉姓名", "DingTalk Name"),
-    dingtalk_connect_sync_dept_attr_name: localText("钉钉部门", "DingTalk Department"),
-    wechat_connect_enabled: false,
-    wechat_connect_app_id: "",
-    wechat_connect_app_secret: "",
-    wechat_connect_app_secret_configured: false,
-    wechat_connect_open_app_id: "",
-    wechat_connect_open_app_secret: "",
-    wechat_connect_open_app_secret_configured: false,
-    wechat_connect_mp_app_id: "",
-    wechat_connect_mp_app_secret: "",
-    wechat_connect_mp_app_secret_configured: false,
-    wechat_connect_mobile_app_id: "",
-    wechat_connect_mobile_app_secret: "",
-    wechat_connect_mobile_app_secret_configured: false,
-    wechat_connect_open_enabled: false,
-    wechat_connect_mp_enabled: false,
-    wechat_connect_mobile_enabled: false,
-    wechat_connect_mode: "open",
-    wechat_connect_scopes: "snsapi_login",
-    wechat_connect_redirect_url: "",
-    wechat_connect_frontend_redirect_url: "/auth/wechat/callback",
-    // Generic OIDC OAuth 登录
-    oidc_connect_enabled: false,
-    oidc_connect_provider_name: "OIDC",
-    oidc_connect_client_id: "",
-    oidc_connect_client_secret: "",
-    oidc_connect_client_secret_configured: false,
-    oidc_connect_issuer_url: "",
-    oidc_connect_discovery_url: "",
-    oidc_connect_authorize_url: "",
-    oidc_connect_token_url: "",
-    oidc_connect_userinfo_url: "",
-    oidc_connect_jwks_url: "",
-    oidc_connect_scopes: "openid email profile",
-    oidc_connect_redirect_url: "",
-    oidc_connect_frontend_redirect_url: "/auth/oidc/callback",
-    oidc_connect_token_auth_method: "client_secret_post",
-    oidc_connect_use_pkce: false,
-    oidc_connect_validate_id_token: false,
-    oidc_connect_allowed_signing_algs: "RS256,ES256,PS256",
-    oidc_connect_clock_skew_seconds: 120,
-    oidc_connect_require_email_verified: false,
-    oidc_connect_userinfo_email_path: "",
-    oidc_connect_userinfo_id_path: "",
-    oidc_connect_userinfo_username_path: "",
-    // GitHub / Google 邮箱快捷登录
-    github_oauth_enabled: false,
-    github_oauth_client_id: "",
-    github_oauth_client_secret: "",
-    github_oauth_client_secret_configured: false,
-    github_oauth_redirect_url: "",
-    github_oauth_frontend_redirect_url: "/auth/oauth/callback",
-    google_oauth_enabled: false,
-    google_oauth_client_id: "",
-    google_oauth_client_secret: "",
-    google_oauth_client_secret_configured: false,
-    google_oauth_redirect_url: "",
-    google_oauth_frontend_redirect_url: "/auth/oauth/callback",
     grok_default_text_model: "grok-4.5",
     grok_cross_client_model_map_enabled: false,
     grok_default_base_url_mode: "cli",
@@ -1417,133 +1309,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   const currentOrigin =
     typeof window !== "undefined" ? window.location.origin : "";
 
-  function buildApiCallbackUrl(path: string): string {
-    const base = (form.api_base_url || currentOrigin).replace(/\/+$/, "");
-    const apiRoot = base.endsWith("/api/v1") ? base : `${base}/api/v1`;
-    return `${apiRoot}${path.startsWith("/") ? path : `/${path}`}`;
-  }
-
-  // LinuxDo OAuth redirect URL suggestion
-  const linuxdoRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/linuxdo/callback");
-  });
-
-  async function setAndCopyLinuxdoRedirectUrl() {
-    const url = linuxdoRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.linuxdo_connect_redirect_url = url;
-    await copyToClipboard(
-      url,
-      t("admin.settings.linuxdo.redirectUrlSetAndCopied"),
-    );
-  }
-
-  type EmailOAuthProvider = "github" | "google";
-
-  const githubOAuthRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/github/callback");
-  });
-
-  const googleOAuthRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/google/callback");
-  });
-
-  async function setAndCopyEmailOAuthRedirectUrl(provider: EmailOAuthProvider) {
-    const url =
-      provider === "github"
-        ? githubOAuthRedirectUrlSuggestion.value
-        : googleOAuthRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    if (provider === "github") {
-      form.github_oauth_redirect_url = url;
-    } else {
-      form.google_oauth_redirect_url = url;
-    }
-    await copyToClipboard(
-      url,
-      localText("回调地址已写入并复制。", "Callback URL set and copied."),
-    );
-  }
-
-  const wechatRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/wechat/callback");
-  });
-
-  function syncWeChatConnectMode(preferredMode?: WeChatConnectMode) {
-    if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-      if (preferredMode === "mobile") {
-        form.wechat_connect_mp_enabled = false;
-      } else {
-        form.wechat_connect_mobile_enabled = false;
-      }
-    }
-
-    const capabilities = resolveWeChatConnectModeCapabilities(
-      form.wechat_connect_open_enabled,
-      form.wechat_connect_mp_enabled,
-      form.wechat_connect_mobile_enabled,
-      form.wechat_connect_mode,
-    );
-    form.wechat_connect_open_enabled = capabilities.openEnabled;
-    form.wechat_connect_mp_enabled = capabilities.mpEnabled;
-    form.wechat_connect_mobile_enabled = capabilities.mobileEnabled;
-    form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-      capabilities.openEnabled,
-      capabilities.mpEnabled,
-      capabilities.mobileEnabled,
-      form.wechat_connect_mode,
-    );
-    form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-      form.wechat_connect_mode,
-    );
-  }
-
-  function handleWeChatOpenEnabledChange(value: boolean) {
-    form.wechat_connect_open_enabled = value;
-    syncWeChatConnectMode(value ? "open" : undefined);
-  }
-
-  function handleWeChatMPEnabledChange(value: boolean) {
-    form.wechat_connect_mp_enabled = value;
-    if (value) {
-      form.wechat_connect_mobile_enabled = false;
-    }
-    syncWeChatConnectMode(value ? "mp" : undefined);
-  }
-
-  function handleWeChatMobileEnabledChange(value: boolean) {
-    form.wechat_connect_mobile_enabled = value;
-    if (value) {
-      form.wechat_connect_mp_enabled = false;
-    }
-    syncWeChatConnectMode(value ? "mobile" : undefined);
-  }
-
-  async function setAndCopyWeChatRedirectUrl() {
-    const url = wechatRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.wechat_connect_redirect_url = url;
-    await copyToClipboard(
-      url,
-      t("admin.settings.wechatConnect.redirectUrlSetAndCopied"),
-    );
-  }
-
-  const oidcRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/oidc/callback");
-  });
-
-  async function setAndCopyOIDCRedirectUrl() {
-    const url = oidcRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.oidc_connect_redirect_url = url;
-    await copyToClipboard(url, t("admin.settings.oidc.redirectUrlSetAndCopied"));
-  }
-
   // Custom menu item management
   function addMenuItem() {
     form.custom_menu_items.push({
@@ -1812,66 +1577,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       form.tencent_captcha_cloud_secret_id = "";
       form.tencent_captcha_cloud_secret_key = "";
       form.aliyun_captcha_access_key_secret = "";
-      form.linuxdo_connect_client_secret = "";
-      form.dingtalk_connect_client_secret = "";
-      form.github_oauth_client_secret = "";
-      form.google_oauth_client_secret = "";
-      form.wechat_connect_app_secret = "";
-      form.wechat_connect_open_app_secret = "";
-      form.wechat_connect_mp_app_secret = "";
-      form.wechat_connect_mobile_app_secret = "";
-      const wechatCapabilities = resolveWeChatConnectModeCapabilities(
-        settings.wechat_connect_open_enabled,
-        settings.wechat_connect_mp_enabled,
-        settings.wechat_connect_mobile_enabled,
-        settings.wechat_connect_mode,
-      );
-      form.wechat_connect_open_enabled = wechatCapabilities.openEnabled;
-      form.wechat_connect_mp_enabled = wechatCapabilities.mpEnabled;
-      form.wechat_connect_mobile_enabled = wechatCapabilities.mobileEnabled;
-      form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-        wechatCapabilities.openEnabled,
-        wechatCapabilities.mpEnabled,
-        wechatCapabilities.mobileEnabled,
-        settings.wechat_connect_mode,
-      );
-      const legacyWeChatAppID = String(settings.wechat_connect_app_id || "").trim();
-      const legacyWeChatSecretConfigured = Boolean(
-        settings.wechat_connect_app_secret_configured,
-      );
-      if (!form.wechat_connect_open_app_id && wechatCapabilities.openEnabled) {
-        form.wechat_connect_open_app_id = legacyWeChatAppID;
-      }
-      if (!form.wechat_connect_mp_app_id && wechatCapabilities.mpEnabled) {
-        form.wechat_connect_mp_app_id = legacyWeChatAppID;
-      }
-      if (!form.wechat_connect_mobile_app_id && wechatCapabilities.mobileEnabled) {
-        form.wechat_connect_mobile_app_id = legacyWeChatAppID;
-      }
-      if (
-        !form.wechat_connect_open_app_secret_configured &&
-        wechatCapabilities.openEnabled
-      ) {
-        form.wechat_connect_open_app_secret_configured =
-          legacyWeChatSecretConfigured;
-      }
-      if (
-        !form.wechat_connect_mp_app_secret_configured &&
-        wechatCapabilities.mpEnabled
-      ) {
-        form.wechat_connect_mp_app_secret_configured = legacyWeChatSecretConfigured;
-      }
-      if (
-        !form.wechat_connect_mobile_app_secret_configured &&
-        wechatCapabilities.mobileEnabled
-      ) {
-        form.wechat_connect_mobile_app_secret_configured =
-          legacyWeChatSecretConfigured;
-      }
-      form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-        form.wechat_connect_mode,
-      );
-      form.oidc_connect_client_secret = "";
 
       // Load OpenAI fast/flex policy rules from bulk settings.
       // 仅当 payload 真的包含该字段时填充并标记为已加载；否则保持表单空值，
@@ -2031,15 +1736,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           );
       }
 
-      if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-        appStore.showError(
-          localText(
-            "公众号和移动应用不能同时启用。",
-            "Official Account and Mobile App cannot be enabled at the same time.",
-          ),
-        );
-        return false;
-      }
       // Validate URL fields — novalidate disables browser-native checks, so we validate here
       const isValidHttpUrl = (url: string): boolean => {
         if (!url) return true;
@@ -2053,13 +1749,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
       if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
       if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
-      syncWeChatConnectMode();
-      const wechatStoredMode = deriveWeChatConnectStoredMode(
-        form.wechat_connect_open_enabled,
-        form.wechat_connect_mp_enabled,
-        form.wechat_connect_mobile_enabled,
-        form.wechat_connect_mode,
-      );
       const claudeOAuthSystemPromptBlocksJSON =
         serializeClaudeOAuthSystemPromptBlocksToJSON(
           claudeOAuthSystemPromptBlocks.value,
@@ -2128,93 +1817,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         aliyun_captcha_region: form.aliyun_captcha_region,
         api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
         forwarded_client_ip_headers: form.forwarded_client_ip_headers,
-        linuxdo_connect_enabled: form.linuxdo_connect_enabled,
-        linuxdo_connect_client_id: form.linuxdo_connect_client_id,
-        linuxdo_connect_client_secret:
-          form.linuxdo_connect_client_secret || undefined,
-        linuxdo_connect_redirect_url: form.linuxdo_connect_redirect_url,
-        dingtalk_connect_enabled: form.dingtalk_connect_enabled,
-        dingtalk_connect_client_id: form.dingtalk_connect_client_id,
-        dingtalk_connect_client_secret:
-          form.dingtalk_connect_client_secret || undefined,
-        dingtalk_connect_redirect_url: form.dingtalk_connect_redirect_url,
-        dingtalk_connect_corp_restriction_policy:
-          form.dingtalk_connect_corp_restriction_policy,
-        dingtalk_connect_internal_corp_id: form.dingtalk_connect_internal_corp_id,
-        dingtalk_connect_bypass_registration: form.dingtalk_connect_bypass_registration,
-        dingtalk_connect_sync_corp_email: form.dingtalk_connect_sync_corp_email,
-        dingtalk_connect_sync_display_name: form.dingtalk_connect_sync_display_name,
-        dingtalk_connect_sync_dept: form.dingtalk_connect_sync_dept,
-        dingtalk_connect_sync_corp_email_attr_key: form.dingtalk_connect_sync_corp_email_attr_key,
-        dingtalk_connect_sync_display_name_attr_key: form.dingtalk_connect_sync_display_name_attr_key,
-        dingtalk_connect_sync_dept_attr_key: form.dingtalk_connect_sync_dept_attr_key,
-        dingtalk_connect_sync_corp_email_attr_name: form.dingtalk_connect_sync_corp_email_attr_name,
-        dingtalk_connect_sync_display_name_attr_name: form.dingtalk_connect_sync_display_name_attr_name,
-        dingtalk_connect_sync_dept_attr_name: form.dingtalk_connect_sync_dept_attr_name,
-        wechat_connect_enabled: form.wechat_connect_enabled,
-        wechat_connect_app_id:
-          form.wechat_connect_open_app_id ||
-          form.wechat_connect_mp_app_id ||
-          form.wechat_connect_mobile_app_id ||
-          form.wechat_connect_app_id,
-        wechat_connect_app_secret: form.wechat_connect_app_secret || undefined,
-        wechat_connect_open_app_id: form.wechat_connect_open_app_id,
-        wechat_connect_open_app_secret:
-          form.wechat_connect_open_app_secret || undefined,
-        wechat_connect_mp_app_id: form.wechat_connect_mp_app_id,
-        wechat_connect_mp_app_secret:
-          form.wechat_connect_mp_app_secret || undefined,
-        wechat_connect_mobile_app_id: form.wechat_connect_mobile_app_id,
-        wechat_connect_mobile_app_secret:
-          form.wechat_connect_mobile_app_secret || undefined,
-        wechat_connect_open_enabled: form.wechat_connect_open_enabled,
-        wechat_connect_mp_enabled: form.wechat_connect_mp_enabled,
-        wechat_connect_mobile_enabled: form.wechat_connect_mobile_enabled,
-        wechat_connect_mode: wechatStoredMode,
-        wechat_connect_scopes:
-          defaultWeChatConnectScopesForMode(wechatStoredMode),
-        wechat_connect_redirect_url: form.wechat_connect_redirect_url,
-        wechat_connect_frontend_redirect_url:
-          form.wechat_connect_frontend_redirect_url,
-        oidc_connect_enabled: form.oidc_connect_enabled,
-        oidc_connect_provider_name: form.oidc_connect_provider_name,
-        oidc_connect_client_id: form.oidc_connect_client_id,
-        oidc_connect_client_secret: form.oidc_connect_client_secret || undefined,
-        oidc_connect_issuer_url: form.oidc_connect_issuer_url,
-        oidc_connect_discovery_url: form.oidc_connect_discovery_url,
-        oidc_connect_authorize_url: form.oidc_connect_authorize_url,
-        oidc_connect_token_url: form.oidc_connect_token_url,
-        oidc_connect_userinfo_url: form.oidc_connect_userinfo_url,
-        oidc_connect_jwks_url: form.oidc_connect_jwks_url,
-        oidc_connect_scopes: form.oidc_connect_scopes,
-        oidc_connect_redirect_url: form.oidc_connect_redirect_url,
-        oidc_connect_frontend_redirect_url:
-          form.oidc_connect_frontend_redirect_url,
-        oidc_connect_token_auth_method: form.oidc_connect_token_auth_method,
-        oidc_connect_use_pkce: form.oidc_connect_use_pkce,
-        oidc_connect_validate_id_token: form.oidc_connect_validate_id_token,
-        oidc_connect_allowed_signing_algs: form.oidc_connect_allowed_signing_algs,
-        oidc_connect_clock_skew_seconds: form.oidc_connect_clock_skew_seconds,
-        oidc_connect_require_email_verified:
-          form.oidc_connect_require_email_verified,
-        oidc_connect_userinfo_email_path: form.oidc_connect_userinfo_email_path,
-        oidc_connect_userinfo_id_path: form.oidc_connect_userinfo_id_path,
-        oidc_connect_userinfo_username_path:
-          form.oidc_connect_userinfo_username_path,
-        github_oauth_enabled: form.github_oauth_enabled,
-        github_oauth_client_id: form.github_oauth_client_id,
-        github_oauth_client_secret:
-          form.github_oauth_client_secret || undefined,
-        github_oauth_redirect_url: form.github_oauth_redirect_url,
-        github_oauth_frontend_redirect_url:
-          form.github_oauth_frontend_redirect_url,
-        google_oauth_enabled: form.google_oauth_enabled,
-        google_oauth_client_id: form.google_oauth_client_id,
-        google_oauth_client_secret:
-          form.google_oauth_client_secret || undefined,
-        google_oauth_redirect_url: form.google_oauth_redirect_url,
-        google_oauth_frontend_redirect_url:
-          form.google_oauth_frontend_redirect_url,
         grok_default_text_model:
           form.grok_default_text_model.trim() || "grok-4.5",
         grok_cross_client_model_map_enabled:
@@ -2382,34 +1984,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       smtpPasswordManuallyEdited.value = false;
       form.turnstile_secret_key = "";
       form.aliyun_captcha_access_key_secret = "";
-      form.linuxdo_connect_client_secret = "";
-      form.dingtalk_connect_client_secret = "";
-      form.github_oauth_client_secret = "";
-      form.google_oauth_client_secret = "";
-      form.wechat_connect_app_secret = "";
-      form.wechat_connect_open_app_secret = "";
-      form.wechat_connect_mp_app_secret = "";
-      form.wechat_connect_mobile_app_secret = "";
-      const updatedWechatCapabilities = resolveWeChatConnectModeCapabilities(
-        updated.wechat_connect_open_enabled,
-        updated.wechat_connect_mp_enabled,
-        updated.wechat_connect_mobile_enabled,
-        updated.wechat_connect_mode,
-      );
-      form.wechat_connect_open_enabled = updatedWechatCapabilities.openEnabled;
-      form.wechat_connect_mp_enabled = updatedWechatCapabilities.mpEnabled;
-      form.wechat_connect_mobile_enabled =
-        updatedWechatCapabilities.mobileEnabled;
-      form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-        updatedWechatCapabilities.openEnabled,
-        updatedWechatCapabilities.mpEnabled,
-        updatedWechatCapabilities.mobileEnabled,
-        updated.wechat_connect_mode,
-      );
-      form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-        form.wechat_connect_mode,
-      );
-      form.oidc_connect_client_secret = "";
       // Refresh OpenAI fast/flex policy from server response
       if (
         updated.openai_fast_policy_settings &&
@@ -3429,27 +3003,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     markAllClean();
   });
 
-  // bypass_registration 与身份同步三开关仅在 internal_only 模式下生效。切换 policy 到其它值时，
-  // 立即把相关字段重置为 false，避免保存请求里残留旧值。后端 admin handler 与
-  // 配置加载层都有 coerce 兜底，这里是 UX 层的同步而非安全防线。
-  watch(
-    () => form.dingtalk_connect_corp_restriction_policy,
-    (policy) => {
-      if (policy !== "internal_only") {
-        if (form.dingtalk_connect_bypass_registration) form.dingtalk_connect_bypass_registration = false;
-        if (form.dingtalk_connect_sync_corp_email) form.dingtalk_connect_sync_corp_email = false;
-        if (form.dingtalk_connect_sync_display_name) form.dingtalk_connect_sync_display_name = false;
-        if (form.dingtalk_connect_sync_dept) form.dingtalk_connect_sync_dept = false;
-      }
-    },
-  );
-
   // =========================
   // A6-2 每节保存
   // =========================
   // 同一时间只有当前小节可能有改动：切走时有改动会先问「放弃 / 留下」，放弃就恢复成已保存的值。
   // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）：saveSettings 里
-  // 有跨小节的校验与规整（分页、条款文档、人机验证、OAuth 回调……），按节拆请求体风险大、收益小。
+  // 有跨小节的校验与规整（分页、条款文档、人机验证……），按节拆请求体风险大、收益小。
   // （后端本身支持只发部分字段：没发送的值类型字段不写库，见 setting_handler_update.go omittedSettingKeys。）
   // 改动判断：每块状态与「上次加载 / 保存后的基线」比较。
 
@@ -3652,8 +3211,6 @@ return {
     forwardedClientIpHeaderDraft,
     getBetaDisplayName,
     getClaudeOAuthPresetLabel,
-    githubOAuthRedirectUrlSuggestion,
-    googleOAuthRedirectUrlSuggestion,
     handleDeleteProvider,
     handleForwardedClientIpHeaderKeydown,
     handleForwardedClientIpHeaderPaste,
@@ -3664,15 +3221,10 @@ return {
     handleSaveProvider,
     handleToggleField,
     handleToggleType,
-    handleWeChatMPEnabledChange,
-    handleWeChatMobileEnabledChange,
-    handleWeChatOpenEnabledChange,
     hasAnyPaymentTypeEnabled,
     hasOpenAIFastPolicyTargetModels,
     isPaymentTypeEnabled,
     isSectionDirty,
-    isZhLocale,
-    linuxdoRedirectUrlSuggestion,
     loadBalanceOptions,
     loadFailed,
     loadProviders,
@@ -3683,7 +3235,6 @@ return {
     moveClaudeOAuthSystemPromptBlock,
     moveMenuItem,
     newAdminApiKey,
-    oidcRedirectUrlSuggestion,
     ollamaCloudUsageForm,
     ollamaCloudUsageLoading,
     openCreateProvider,
@@ -3738,10 +3289,6 @@ return {
     selectCaptchaProvider,
     sendTestEmail,
     sendingTestEmail,
-    setAndCopyEmailOAuthRedirectUrl,
-    setAndCopyLinuxdoRedirectUrl,
-    setAndCopyOIDCRedirectUrl,
-    setAndCopyWeChatRedirectUrl,
     settingsStepUp,
     showDeleteProviderDialog,
     showProviderDialog,
@@ -3763,7 +3310,6 @@ return {
     upstreamBillingProbeLoading,
     webSearchConfig,
     webSearchProxies,
-    wechatRedirectUrlSuggestion,
     wsTestDialogOpen,
     wsTestLoading,
     wsTestQuery,

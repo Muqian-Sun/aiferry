@@ -190,20 +190,12 @@ type BindableProvider = Exclude<UserAuthProvider, 'email'>
 const props = withDefaults(
   defineProps<{
     user: User | null
-    linuxdoEnabled?: boolean
-    dingtalkEnabled?: boolean
-    oidcEnabled?: boolean
-    oidcProviderName?: string
     wechatEnabled?: boolean
     wechatOpenEnabled?: boolean
     wechatMpEnabled?: boolean
     compact?: boolean
   }>(),
   {
-    linuxdoEnabled: false,
-    dingtalkEnabled: false,
-    oidcEnabled: false,
-    oidcProviderName: 'OIDC',
     wechatEnabled: false,
     wechatOpenEnabled: undefined,
     wechatMpEnabled: undefined,
@@ -312,6 +304,7 @@ const wechatOAuthSettings = computed<WeChatOAuthPublicSettings | null>(() => {
 })
 
 const resolvedWeChatBinding = computed(() => resolveWeChatOAuthStartStrict(wechatOAuthSettings.value))
+const wechatBindingEnabled = computed(() => resolvedWeChatBinding.value.mode !== null)
 
 function normalizeBindingStatus(binding: boolean | UserAuthBindingStatus | undefined): boolean | null {
   if (typeof binding === 'boolean') {
@@ -369,19 +362,6 @@ function getDisplayableEmail(user: User | null | undefined): string {
   return email
 }
 
-function isProviderEnabledForBinding(provider: BindableProvider): boolean {
-  if (provider === 'linuxdo') {
-    return props.linuxdoEnabled
-  }
-  if (provider === 'dingtalk') {
-    return props.dingtalkEnabled
-  }
-  if (provider === 'oidc') {
-    return props.oidcEnabled
-  }
-  return resolvedWeChatBinding.value.mode !== null
-}
-
 const providerItems = computed(() => [
   {
     provider: 'email' as const,
@@ -392,45 +372,12 @@ const providerItems = computed(() => [
     details: getBindingDetails('email'),
   },
   {
-    provider: 'linuxdo' as const,
-    label: t('profile.authBindings.providers.linuxdo'),
-    bound: getBindingStatus('linuxdo'),
-    canBind:
-      !getBindingStatus('linuxdo') &&
-      isProviderEnabledForBinding('linuxdo') &&
-      (getBindingDetails('linuxdo')?.can_bind ?? true),
-    canUnbind: Boolean(getBindingStatus('linuxdo') && getBindingDetails('linuxdo')?.can_unbind),
-    details: getBindingDetails('linuxdo'),
-  },
-  {
-    provider: 'dingtalk' as const,
-    label: t('profile.authBindings.providers.dingtalk'),
-    bound: getBindingStatus('dingtalk'),
-    canBind:
-      !getBindingStatus('dingtalk') &&
-      isProviderEnabledForBinding('dingtalk') &&
-      (getBindingDetails('dingtalk')?.can_bind ?? true),
-    canUnbind: Boolean(getBindingStatus('dingtalk') && getBindingDetails('dingtalk')?.can_unbind),
-    details: getBindingDetails('dingtalk'),
-  },
-  {
-    provider: 'oidc' as const,
-    label: t('profile.authBindings.providers.oidc', { providerName: props.oidcProviderName }),
-    bound: getBindingStatus('oidc'),
-    canBind:
-      !getBindingStatus('oidc') &&
-      isProviderEnabledForBinding('oidc') &&
-      (getBindingDetails('oidc')?.can_bind ?? true),
-    canUnbind: Boolean(getBindingStatus('oidc') && getBindingDetails('oidc')?.can_unbind),
-    details: getBindingDetails('oidc'),
-  },
-  {
     provider: 'wechat' as const,
     label: t('profile.authBindings.providers.wechat'),
     bound: getBindingStatus('wechat'),
     canBind:
       !getBindingStatus('wechat') &&
-      isProviderEnabledForBinding('wechat') &&
+      wechatBindingEnabled.value &&
       (getBindingDetails('wechat')?.can_bind ?? true),
     canUnbind: Boolean(getBindingStatus('wechat') && getBindingDetails('wechat')?.can_unbind),
     details: getBindingDetails('wechat'),
@@ -440,7 +387,7 @@ const providerItems = computed(() => [
 /** 站点没开、用户也没绑过的第三方不列（只剩一行「未绑定」、没有任何可点的动作）；邮箱恒列，绑过的留着好解绑 */
 const visibleProviderItems = computed(() =>
   providerItems.value.filter(
-    (item) => item.provider === 'email' || item.bound || isProviderEnabledForBinding(item.provider)
+    (item) => item.provider === 'email' || item.bound || wechatBindingEnabled.value
   )
 )
 

@@ -171,7 +171,7 @@ func TestGetAccountQuotaNotifyEmails_FirstAdmin(t *testing.T) {
 	none, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{err: ErrUserNotFound})
 	require.Empty(t, none.getAccountQuotaNotifyEmails(context.Background()))
 
-	synthetic, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{user: &User{Email: "7" + OIDCConnectSyntheticEmailDomain}})
+	synthetic, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{user: &User{Email: "7" + WeChatConnectSyntheticEmailDomain}})
 	require.Empty(t, synthetic.getAccountQuotaNotifyEmails(context.Background()))
 }
 

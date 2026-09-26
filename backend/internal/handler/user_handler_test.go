@@ -197,7 +197,6 @@ func TestUserHandlerUpdateProfileReturnsAvatarURL(t *testing.T) {
 func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	verifiedAt := time.Date(2026, 4, 20, 8, 30, 0, 0, time.UTC)
 	repo := &userHandlerRepoStub{
 		user: &service.User{
 			ID:       11,
@@ -206,27 +205,10 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 			Role:     service.RoleUser,
 			Status:   service.StatusActive,
 		},
-		identities: []service.UserAuthIdentityRecord{
-			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-123456",
-				VerifiedAt:      &verifiedAt,
-				Metadata: map[string]any{
-					"username": "linuxdo-handle",
-				},
-			},
-			{
-				ProviderType:    "oidc",
-				ProviderKey:     "https://issuer.example.com",
-				ProviderSubject: "oidc-user-abc",
-				Metadata: map[string]any{
-					"suggested_display_name": "OIDC Display",
-				},
-			},
-		},
 	}
-	handler := NewUserHandler(service.NewUserService(repo, nil, nil, nil), nil, nil, nil, nil)
+	// 「绑定微信」入口只在部署配置开了微信登录时给出。
+	cfg := &config.Config{WeChat: wechatOAuthTestConfig("open", "wx-open-app", "wx-open-secret", "/auth/wechat/callback")}
+	handler := NewUserHandler(service.NewUserService(repo, cfg, nil, nil), nil, nil, nil, nil)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -246,17 +228,6 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 					BoundCount  int    `json:"bound_count"`
 					DisplayName string `json:"display_name"`
 				} `json:"email"`
-				LinuxDo struct {
-					Bound       bool   `json:"bound"`
-					BoundCount  int    `json:"bound_count"`
-					DisplayName string `json:"display_name"`
-					ProviderKey string `json:"provider_key"`
-				} `json:"linuxdo"`
-				OIDC struct {
-					Bound       bool   `json:"bound"`
-					DisplayName string `json:"display_name"`
-					ProviderKey string `json:"provider_key"`
-				} `json:"oidc"`
 				WeChat struct {
 					Bound         bool   `json:"bound"`
 					CanBind       bool   `json:"can_bind"`
@@ -270,13 +241,6 @@ func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 	require.True(t, resp.Data.Identities.Email.Bound)
 	require.Equal(t, 1, resp.Data.Identities.Email.BoundCount)
 	require.Equal(t, "identity@example.com", resp.Data.Identities.Email.DisplayName)
-	require.True(t, resp.Data.Identities.LinuxDo.Bound)
-	require.Equal(t, 1, resp.Data.Identities.LinuxDo.BoundCount)
-	require.Equal(t, "linuxdo-handle", resp.Data.Identities.LinuxDo.DisplayName)
-	require.Equal(t, "linuxdo", resp.Data.Identities.LinuxDo.ProviderKey)
-	require.True(t, resp.Data.Identities.OIDC.Bound)
-	require.Equal(t, "OIDC Display", resp.Data.Identities.OIDC.DisplayName)
-	require.Equal(t, "https://issuer.example.com", resp.Data.Identities.OIDC.ProviderKey)
 	require.False(t, resp.Data.Identities.WeChat.Bound)
 	require.True(t, resp.Data.Identities.WeChat.CanBind)
 	require.Contains(t, resp.Data.Identities.WeChat.BindStartPath, "/api/v1/auth/oauth/wechat/bind/start")
@@ -290,21 +254,21 @@ func TestUserHandlerGetProfileReturnsLegacyCompatibilityFields(t *testing.T) {
 		user: &service.User{
 			ID:           21,
 			Email:        "legacy-profile@example.com",
-			Username:     "linuxdo-handle",
+			Username:     "wechat-handle",
 			Role:         service.RoleUser,
 			Status:       service.StatusActive,
-			AvatarURL:    "https://cdn.example.com/linuxdo.png",
+			AvatarURL:    "https://cdn.example.com/wechat.png",
 			AvatarSource: "remote_url",
 		},
 		identities: []service.UserAuthIdentityRecord{
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-21",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-main",
+				ProviderSubject: "wechat-subject-21",
 				VerifiedAt:      &verifiedAt,
 				Metadata: map[string]any{
-					"username":   "linuxdo-handle",
-					"avatar_url": "https://cdn.example.com/linuxdo.png",
+					"username":   "wechat-handle",
+					"avatar_url": "https://cdn.example.com/wechat.png",
 				},
 			},
 		},
@@ -327,22 +291,20 @@ func TestUserHandlerGetProfileReturnsLegacyCompatibilityFields(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
 	require.Equal(t, true, resp.Data["email_bound"])
-	require.Equal(t, true, resp.Data["linuxdo_bound"])
-	require.Equal(t, false, resp.Data["oidc_bound"])
-	require.Equal(t, false, resp.Data["wechat_bound"])
-	require.Equal(t, "https://cdn.example.com/linuxdo.png", resp.Data["avatar_url"])
+	require.Equal(t, true, resp.Data["wechat_bound"])
+	require.Equal(t, "https://cdn.example.com/wechat.png", resp.Data["avatar_url"])
 
 	avatarSource, ok := resp.Data["avatar_source"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "linuxdo", avatarSource["provider"])
-	require.Equal(t, "linuxdo", avatarSource["source"])
+	require.Equal(t, "wechat", avatarSource["provider"])
+	require.Equal(t, "wechat", avatarSource["source"])
 
 	authBindings, ok := resp.Data["auth_bindings"].(map[string]any)
 	require.True(t, ok)
-	linuxdoBinding, ok := authBindings["linuxdo"].(map[string]any)
+	wechatBinding, ok := authBindings["wechat"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, true, linuxdoBinding["bound"])
-	require.Equal(t, "linuxdo", linuxdoBinding["provider"])
+	require.Equal(t, true, wechatBinding["bound"])
+	require.Equal(t, "wechat", wechatBinding["provider"])
 
 	identityBindings, ok := resp.Data["identity_bindings"].(map[string]any)
 	require.True(t, ok)
@@ -351,16 +313,16 @@ func TestUserHandlerGetProfileReturnsLegacyCompatibilityFields(t *testing.T) {
 	require.Equal(t, true, emailBinding["bound"])
 	require.Equal(t, "profile.authBindings.notes.emailManagedFromProfile", emailBinding["note_key"])
 
-	linuxdoCompatBinding, ok := identityBindings["linuxdo"].(map[string]any)
+	wechatCompatBinding, ok := identityBindings["wechat"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "profile.authBindings.notes.canUnbind", linuxdoCompatBinding["note_key"])
+	require.Equal(t, "profile.authBindings.notes.canUnbind", wechatCompatBinding["note_key"])
 
 	profileSources, ok := resp.Data["profile_sources"].(map[string]any)
 	require.True(t, ok)
 	usernameSource, ok := profileSources["username"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "linuxdo", usernameSource["provider"])
-	require.Equal(t, "linuxdo", usernameSource["source"])
+	require.Equal(t, "wechat", usernameSource["provider"])
+	require.Equal(t, "wechat", usernameSource["source"])
 }
 
 func TestUserHandlerGetProfileDoesNotInferEditedProfileSourcesWithoutMatchingIdentityMetadata(t *testing.T) {
@@ -378,12 +340,12 @@ func TestUserHandlerGetProfileDoesNotInferEditedProfileSourcesWithoutMatchingIde
 		},
 		identities: []service.UserAuthIdentityRecord{
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-22",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-main",
+				ProviderSubject: "wechat-subject-22",
 				Metadata: map[string]any{
-					"username":   "linuxdo-handle",
-					"avatar_url": "https://cdn.example.com/linuxdo.png",
+					"username":   "wechat-handle",
+					"avatar_url": "https://cdn.example.com/wechat.png",
 				},
 			},
 		},
@@ -517,7 +479,7 @@ func TestUserHandlerBindEmailIdentityReturnsProfileResponse(t *testing.T) {
 	repo := &userHandlerRepoStub{
 		user: &service.User{
 			ID:       11,
-			Email:    "legacy-user" + service.LinuxDoConnectSyntheticEmailDomain,
+			Email:    "legacy-user" + service.WeChatConnectSyntheticEmailDomain,
 			Username: "legacy-user",
 			Role:     service.RoleUser,
 			Status:   service.StatusActive,
@@ -583,11 +545,11 @@ func TestUserHandlerUnbindIdentityReturnsUpdatedProfile(t *testing.T) {
 				ProviderSubject: "identity@example.com",
 			},
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-21",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-main",
+				ProviderSubject: "wechat-subject-21",
 				Metadata: map[string]any{
-					"username": "linuxdo-handle",
+					"username": "wechat-handle",
 				},
 			},
 		},
@@ -596,14 +558,14 @@ func TestUserHandlerUnbindIdentityReturnsUpdatedProfile(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/linuxdo", nil)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/wechat", nil)
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 21})
-	c.Params = gin.Params{{Key: "provider", Value: "linuxdo"}}
+	c.Params = gin.Params{{Key: "provider", Value: "wechat"}}
 
 	handler.UnbindIdentity(c)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Equal(t, []string{"linuxdo"}, repo.unbound)
+	require.Equal(t, []string{"wechat"}, repo.unbound)
 
 	var resp struct {
 		Code int            `json:"code"`
@@ -614,9 +576,9 @@ func TestUserHandlerUnbindIdentityReturnsUpdatedProfile(t *testing.T) {
 
 	authBindings, ok := resp.Data["auth_bindings"].(map[string]any)
 	require.True(t, ok)
-	linuxdoBinding, ok := authBindings["linuxdo"].(map[string]any)
+	wechatBinding, ok := authBindings["wechat"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, false, linuxdoBinding["bound"])
+	require.Equal(t, false, wechatBinding["bound"])
 }
 
 func TestUserHandlerUnbindIdentityRevokesAllUserSessionsWhenAuthServiceConfigured(t *testing.T) {
@@ -638,9 +600,9 @@ func TestUserHandlerUnbindIdentityRevokesAllUserSessionsWhenAuthServiceConfigure
 				ProviderSubject: "identity@example.com",
 			},
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-23",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-main",
+				ProviderSubject: "wechat-subject-23",
 			},
 		},
 	}
@@ -656,9 +618,9 @@ func TestUserHandlerUnbindIdentityRevokesAllUserSessionsWhenAuthServiceConfigure
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/linuxdo", nil)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/wechat", nil)
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 23})
-	c.Params = gin.Params{{Key: "provider", Value: "linuxdo"}}
+	c.Params = gin.Params{{Key: "provider", Value: "wechat"}}
 
 	handler.UnbindIdentity(c)
 
@@ -703,9 +665,9 @@ func TestUserHandlerUnbindIdentityDoesNotRevokeSessionsWhenNothingWasUnbound(t *
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/linuxdo", nil)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/v1/user/account-bindings/wechat", nil)
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 24})
-	c.Params = gin.Params{{Key: "provider", Value: "linuxdo"}}
+	c.Params = gin.Params{{Key: "provider", Value: "wechat"}}
 
 	handler.UnbindIdentity(c)
 

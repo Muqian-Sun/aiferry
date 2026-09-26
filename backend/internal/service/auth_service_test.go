@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsReservedEmail_DingTalkDomain(t *testing.T) {
-	require.True(t, isReservedEmail("dingtalk-123@dingtalk-connect.invalid"))
-	require.True(t, isReservedEmail("DINGTALK-456@DINGTALK-CONNECT.INVALID")) // case-insensitive
-	require.False(t, isReservedEmail("real@dingtalk.com"))
+func TestIsReservedEmail_WeChatSyntheticDomain(t *testing.T) {
+	require.True(t, isReservedEmail("wechat-123@wechat-connect.invalid"))
+	require.True(t, isReservedEmail("WECHAT-456@WECHAT-CONNECT.INVALID")) // case-insensitive
+	require.False(t, isReservedEmail("real@wechat.com"))
 }

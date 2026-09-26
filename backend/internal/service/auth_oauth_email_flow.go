@@ -19,7 +19,7 @@ func normalizeOAuthSignupSource(signupSource string) string {
 	switch signupSource {
 	case "", "email":
 		return "email"
-	case "linuxdo", "wechat", "oidc", "github", "google", "dingtalk":
+	case "wechat", "github", "google":
 		return signupSource
 	default:
 		return "email"
@@ -109,7 +109,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 	if s == nil {
 		return nil, nil, ErrServiceUnavailable
 	}
-	if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
+	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 		return nil, nil, ErrRegDisabled
 	}
 
@@ -191,7 +191,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 	if s == nil {
 		return nil, nil, ErrServiceUnavailable
 	}
-	if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
+	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 		return nil, nil, ErrRegDisabled
 	}
 

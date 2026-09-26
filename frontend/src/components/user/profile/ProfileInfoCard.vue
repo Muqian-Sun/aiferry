@@ -81,13 +81,9 @@ import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   user: User | null
-  /** OIDC 提供方名，用于「资料来源」提示文案 */
-  oidcProviderName?: string
-}>(), {
-  oidcProviderName: 'OIDC',
-})
+}>()
 
 const { t } = useI18n()
 
@@ -152,9 +148,6 @@ const memberSinceLabel = computed(() => {
 
 const providerLabels = computed<Record<UserAuthProvider, string>>(() => ({
   email: t('profile.authBindings.providers.email'),
-  linuxdo: t('profile.authBindings.providers.linuxdo'),
-  dingtalk: t('profile.authBindings.providers.dingtalk'),
-  oidc: t('profile.authBindings.providers.oidc', { providerName: props.oidcProviderName }),
   wechat: t('profile.authBindings.providers.wechat'),
   github: 'GitHub',
   google: 'Google'
@@ -164,15 +157,11 @@ function normalizeProvider(value: string): UserAuthProvider | null {
   const normalized = value.trim().toLowerCase()
   if (
     normalized === 'email' ||
-    normalized === 'linuxdo' ||
     normalized === 'wechat' ||
     normalized === 'github' ||
     normalized === 'google'
   ) {
     return normalized
-  }
-  if (normalized === 'oidc' || normalized.startsWith('oidc:') || normalized.startsWith('oidc/')) {
-    return 'oidc'
   }
   return null
 }

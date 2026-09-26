@@ -135,7 +135,7 @@ func TestAuthServiceBindEmailIdentity_UpdatesEmailAndAppliesFirstBindDefaults(t 
 
 	ctx := context.Background()
 	user, err := client.User.Create().
-		SetEmail("legacy-user" + service.LinuxDoConnectSyntheticEmailDomain).
+		SetEmail("legacy-user" + service.WeChatConnectSyntheticEmailDomain).
 		SetUsername("legacy-user").
 		SetPasswordHash("old-hash").
 		SetBalance(2.5).
@@ -187,7 +187,7 @@ func TestAuthServiceBindEmailIdentity_RejectsExistingEmailOnAnotherUser(t *testi
 
 	ctx := context.Background()
 	sourceUser, err := client.User.Create().
-		SetEmail("source-user" + service.OIDCConnectSyntheticEmailDomain).
+		SetEmail("source-user" + service.WeChatConnectSyntheticEmailDomain).
 		SetUsername("source-user").
 		SetPasswordHash("old-hash").
 		SetBalance(1).
@@ -213,7 +213,7 @@ func TestAuthServiceBindEmailIdentity_RejectsExistingEmailOnAnotherUser(t *testi
 
 	storedUser, err := client.User.Get(ctx, sourceUser.ID)
 	require.NoError(t, err)
-	require.Equal(t, "source-user"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
+	require.Equal(t, "source-user"+service.WeChatConnectSyntheticEmailDomain, storedUser.Email)
 	require.Equal(t, 0, countProviderGrantRecords(t, client, sourceUser.ID, "email", "first_bind"))
 }
 
@@ -231,7 +231,7 @@ func TestAuthServiceBindEmailIdentity_RejectsAliasOfExistingEmailOnAnotherUser(t
 	sourceUser := createEmailBindTestUser(
 		t,
 		client,
-		"source-user"+service.OIDCConnectSyntheticEmailDomain,
+		"source-user"+service.WeChatConnectSyntheticEmailDomain,
 		"source-user",
 		"old-hash",
 	)
@@ -253,7 +253,7 @@ func TestAuthServiceBindEmailIdentity_RejectsAliasOfExistingEmailOnAnotherUser(t
 
 	storedUser, err := client.User.Get(ctx, sourceUser.ID)
 	require.NoError(t, err)
-	require.Equal(t, "source-user"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
+	require.Equal(t, "source-user"+service.WeChatConnectSyntheticEmailDomain, storedUser.Email)
 	require.Equal(t, "old-hash", storedUser.PasswordHash)
 }
 
@@ -272,14 +272,14 @@ func TestAuthServiceBindEmailIdentity_AllowsOnlyOneConcurrentAliasVariant(t *tes
 	first := createEmailBindTestUser(
 		t,
 		client,
-		"first-"+unique+service.OIDCConnectSyntheticEmailDomain,
+		"first-"+unique+service.WeChatConnectSyntheticEmailDomain,
 		"first-"+unique,
 		"old-hash",
 	)
 	second := createEmailBindTestUser(
 		t,
 		client,
-		"second-"+unique+service.OIDCConnectSyntheticEmailDomain,
+		"second-"+unique+service.WeChatConnectSyntheticEmailDomain,
 		"second-"+unique,
 		"old-hash",
 	)
@@ -371,7 +371,7 @@ func TestAuthServiceBindEmailIdentity_RollsBackWhenFirstBindDefaultsFail(t *test
 	}, cache, assigner)
 
 	ctx := context.Background()
-	originalEmail := "legacy-rollback" + service.LinuxDoConnectSyntheticEmailDomain
+	originalEmail := "legacy-rollback" + service.WeChatConnectSyntheticEmailDomain
 	user, err := client.User.Create().
 		SetEmail(originalEmail).
 		SetUsername("legacy-rollback").
@@ -432,7 +432,7 @@ func TestAuthServiceBindEmailIdentity_RejectsReservedEmail(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "reserved"+service.LinuxDoConnectSyntheticEmailDomain, "123456", "new-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "reserved"+service.WeChatConnectSyntheticEmailDomain, "123456", "new-password")
 	require.ErrorIs(t, err, service.ErrEmailReserved)
 	require.Nil(t, updatedUser)
 }
@@ -591,7 +591,7 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 	refreshTokenCache := newEmailBindRefreshTokenCacheStub()
 	userRepo := newEmailBindUserRepoStub(&service.User{
 		ID:           41,
-		Email:        "legacy-user" + service.OIDCConnectSyntheticEmailDomain,
+		Email:        "legacy-user" + service.WeChatConnectSyntheticEmailDomain,
 		Username:     "legacy-user",
 		PasswordHash: "old-hash",
 		Role:         service.RoleUser,
@@ -611,7 +611,7 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 
 	oldTokenPair, err := svc.GenerateTokenPair(ctx, &service.User{
 		ID:           41,
-		Email:        "legacy-user" + service.OIDCConnectSyntheticEmailDomain,
+		Email:        "legacy-user" + service.WeChatConnectSyntheticEmailDomain,
 		Role:         service.RoleUser,
 		Status:       service.StatusActive,
 		TokenVersion: 4,
@@ -645,7 +645,7 @@ func TestAuthServiceEmailIdentityBinding_RejectsEmailOutsideRegistrationSuffixWh
 	}
 	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
-	user := createEmailBindTestUser(t, client, "legacy-user"+service.OIDCConnectSyntheticEmailDomain, "legacy-user", "old-hash")
+	user := createEmailBindTestUser(t, client, "legacy-user"+service.WeChatConnectSyntheticEmailDomain, "legacy-user", "old-hash")
 
 	err := svc.SendEmailIdentityBindCode(ctx, user.ID, "intruder@example.com")
 	require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
@@ -657,7 +657,7 @@ func TestAuthServiceEmailIdentityBinding_RejectsEmailOutsideRegistrationSuffixWh
 
 	storedUser, err := client.User.Get(ctx, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, "legacy-user"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
+	require.Equal(t, "legacy-user"+service.WeChatConnectSyntheticEmailDomain, storedUser.Email)
 }
 
 func TestAuthServiceBindEmailIdentity_AllowsEmailInsideRegistrationSuffixWhitelist(t *testing.T) {
@@ -671,7 +671,7 @@ func TestAuthServiceBindEmailIdentity_AllowsEmailInsideRegistrationSuffixWhiteli
 	}
 	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
-	user := createEmailBindTestUser(t, client, "legacy-qq"+service.LinuxDoConnectSyntheticEmailDomain, "legacy-qq", "old-hash")
+	user := createEmailBindTestUser(t, client, "legacy-qq"+service.WeChatConnectSyntheticEmailDomain, "legacy-qq", "old-hash")
 
 	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, " Member@QQ.com ", "123456", "new-password")
 	require.NoError(t, err)
@@ -694,7 +694,7 @@ func TestAuthServiceBindEmailIdentity_AllowsAnyEmailWhenRegistrationSuffixWhitel
 	}
 	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
-	user := createEmailBindTestUser(t, client, "legacy-empty"+service.LinuxDoConnectSyntheticEmailDomain, "legacy-empty", "old-hash")
+	user := createEmailBindTestUser(t, client, "legacy-empty"+service.WeChatConnectSyntheticEmailDomain, "legacy-empty", "old-hash")
 
 	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "anyone@gmail.com", "123456", "new-password")
 	require.NoError(t, err)

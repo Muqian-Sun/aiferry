@@ -171,29 +171,6 @@ vi.mock("vue-router", async () => {
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   const translations: Record<string, string> = {
-    "admin.settings.wechatConnect.title": "微信登录",
-    "admin.settings.wechatConnect.description": "用于微信开放平台或公众号/小程序的第三方登录配置。",
-    "admin.settings.wechatConnect.enabledLabel": "启用微信登录",
-    "admin.settings.wechatConnect.enabledHint": "开启后可使用微信第三方登录回调与授权配置。",
-    "admin.settings.wechatConnect.appIdLabel": "AppID",
-    "admin.settings.wechatConnect.appIdPlaceholder": "微信开放平台 AppID",
-    "admin.settings.wechatConnect.appSecretLabel": "AppSecret",
-    "admin.settings.wechatConnect.appSecretConfiguredPlaceholder": "密钥已配置，留空以保留当前值。",
-    "admin.settings.wechatConnect.appSecretPlaceholder": "微信开放平台 AppSecret",
-    "admin.settings.wechatConnect.appSecretConfiguredHint": "密钥已配置，留空以保留当前值。",
-    "admin.settings.wechatConnect.appSecretHint": "填写后会覆盖当前微信密钥。",
-    "admin.settings.wechatConnect.modeLabel": "模式",
-    "admin.settings.wechatConnect.openModeLabel": "非微信环境使用开放平台",
-    "admin.settings.wechatConnect.openModeHint": "浏览器不在微信内时，自动走开放平台扫码授权。",
-    "admin.settings.wechatConnect.mpModeLabel": "微信环境使用公众号",
-    "admin.settings.wechatConnect.mpModeHint": "浏览器在微信内时，自动走公众号授权。",
-    "admin.settings.wechatConnect.redirectUrlLabel": "回调地址",
-    "admin.settings.wechatConnect.redirectUrlPlaceholder": "https://your-site.com/api/v1/auth/oauth/wechat/callback",
-    "admin.settings.wechatConnect.generateAndCopy": "使用当前站点生成并复制",
-    "admin.settings.wechatConnect.redirectUrlSetAndCopied": "已使用当前站点生成回调地址并复制到剪贴板",
-    "admin.settings.wechatConnect.frontendRedirectUrlLabel": "前端回调地址",
-    "admin.settings.wechatConnect.frontendRedirectUrlPlaceholder": "/auth/wechat/callback",
-    "admin.settings.wechatConnect.frontendRedirectUrlHint": "通常用于前端路由回调地址，需与后端配置保持一致。",
     "admin.settings.authSourceDefaults.title": "认证来源默认值",
     "admin.settings.authSourceDefaults.description": "按注册来源配置新用户默认余额、并发、订阅与授权策略。",
     "admin.settings.authSourceDefaults.requireEmailLabel": "第三方注册强制补充邮箱",
@@ -399,42 +376,6 @@ const baseSettingsResponse = {
   tencent_captcha_cloud_secret_key_configured: false,
   api_key_acl_trust_forwarded_ip: true,
   forwarded_client_ip_headers: [],
-  linuxdo_connect_enabled: false,
-  linuxdo_connect_client_id: "",
-  linuxdo_connect_client_secret_configured: false,
-  linuxdo_connect_redirect_url: "",
-  wechat_connect_enabled: true,
-  wechat_connect_app_id: "wx-app-id-123",
-  wechat_connect_app_secret_configured: true,
-  wechat_connect_open_enabled: false,
-  wechat_connect_mp_enabled: true,
-  wechat_connect_mode: "mp",
-  wechat_connect_scopes: "",
-  wechat_connect_redirect_url:
-    "https://admin.example.com/api/v1/auth/oauth/wechat/callback",
-  wechat_connect_frontend_redirect_url: "/auth/wechat/callback",
-  oidc_connect_enabled: false,
-  oidc_connect_provider_name: "OIDC",
-  oidc_connect_client_id: "",
-  oidc_connect_client_secret_configured: false,
-  oidc_connect_issuer_url: "",
-  oidc_connect_discovery_url: "",
-  oidc_connect_authorize_url: "",
-  oidc_connect_token_url: "",
-  oidc_connect_userinfo_url: "",
-  oidc_connect_jwks_url: "",
-  oidc_connect_scopes: "openid email profile",
-  oidc_connect_redirect_url: "",
-  oidc_connect_frontend_redirect_url: "/auth/oidc/callback",
-  oidc_connect_token_auth_method: "client_secret_post",
-  oidc_connect_use_pkce: true,
-  oidc_connect_validate_id_token: true,
-  oidc_connect_allowed_signing_algs: "RS256,ES256,PS256",
-  oidc_connect_clock_skew_seconds: 120,
-  oidc_connect_require_email_verified: false,
-  oidc_connect_userinfo_email_path: "",
-  oidc_connect_userinfo_id_path: "",
-  oidc_connect_userinfo_username_path: "",
   grok_default_text_model: "grok-4.5",
   grok_cross_client_model_map_enabled: false,
   enable_identity_patch: false,
@@ -780,28 +721,6 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.text()).not.toContain("支付来源");
   });
 
-  it("shows valid passkey RP configuration and persists the sign-in toggle", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const settings = wrapper.get('[data-testid="passkey-settings"]');
-    const toggle = settings.get('[data-testid="passkey-toggle"]');
-    expect(toggle.attributes("disabled")).toBeUndefined();
-    expect(settings.text()).toContain("sub3.nebula-spaces.com");
-    expect(settings.text()).toContain("https://sub3.nebula-spaces.com");
-    expect(settings.text()).not.toContain("webauthn.enabled");
-
-    await toggle.setValue(false);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ passkey_enabled: false }),
-    );
-  });
-
   it("人机验证切换到腾讯天御并保存四项配置", async () => {
     const wrapper = mountView();
     await flushPromises();
@@ -946,31 +865,6 @@ describe("admin SettingsView payment visible method controls", () => {
         aliyun_captcha_enabled: false,
       }),
     );
-  });
-
-  it("disables passkey sign-in when the RP configuration is unavailable", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      passkey_enabled: false,
-      passkey_configured: false,
-      passkey_rp_id: "",
-      passkey_rp_origins: [],
-    });
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const settings = wrapper.get('[data-testid="passkey-settings"]');
-    expect(settings.get('[data-testid="passkey-toggle"]').attributes("disabled")).toBeDefined();
-    const status = settings.get('[data-testid="passkey-config-status"]');
-    expect(status.text()).toContain(
-      "admin.settings.security.passkeyNotConfigured",
-    );
-    expect(status.text()).toContain("webauthn.enabled");
-    expect(status.text()).toContain("webauthn.rp_id");
-    expect(status.text()).toContain("webauthn.rp_origins");
-    expect(status.text()).toContain("然后重启服务");
   });
 
   it("loads, edits, validates, and saves forwarded client-IP headers", async () => {
@@ -1479,7 +1373,7 @@ describe("admin SettingsView payment visible method controls", () => {
   });
 });
 
-describe("admin SettingsView wechat connect controls", () => {
+describe("admin SettingsView auth source defaults", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
@@ -1561,118 +1455,6 @@ describe("admin SettingsView wechat connect controls", () => {
     adminSettingsFetch.mockResolvedValue(undefined);
   });
 
-  it("loads and echoes WeChat Connect fields from the backend payload", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    expect(
-      (
-        wrapper.get('[data-testid="wechat-connect-mp-app-id"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("wx-app-id-123");
-    expect(
-      (
-        wrapper.get('[data-testid="wechat-connect-open-enabled"]')
-          .element as HTMLInputElement
-      ).checked,
-    ).toBe(false);
-    expect(
-      (
-        wrapper.get('[data-testid="wechat-connect-mp-enabled"]')
-          .element as HTMLInputElement
-      ).checked,
-    ).toBe(true);
-    expect(wrapper.find('[data-testid="wechat-connect-scopes"]').exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper
-        .get('[data-testid="wechat-connect-mp-app-secret"]')
-        .attributes("placeholder"),
-    ).toContain("密钥已配置");
-    expect(
-      (
-        wrapper.get('[data-testid="wechat-connect-frontend-redirect-url"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("/auth/wechat/callback");
-  });
-
-  it("links GitHub OAuth Apps guide to GitHub developer settings", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      github_oauth_enabled: true,
-    });
-
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const link = wrapper.get('[data-testid="github-oauth-apps-guide-link"]');
-    expect(link.text()).toContain("OAuth Apps");
-    expect(link.attributes("href")).toBe("https://github.com/settings/developers");
-    expect(link.attributes("target")).toBe("_blank");
-    expect(link.attributes("rel")).toContain("noopener");
-  });
-
-  it("saves WeChat Connect fields using the backend contract and clears the secret after save", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    await wrapper
-      .get('[data-testid="wechat-connect-mp-app-id"]')
-      .setValue("wx-app-id-updated");
-    await wrapper
-      .get('[data-testid="wechat-connect-mp-app-secret"]')
-      .setValue("new-secret");
-    await wrapper
-      .get('[data-testid="wechat-connect-open-enabled"]')
-      .setValue(true);
-    await wrapper
-      .get('[data-testid="wechat-connect-mp-enabled"]')
-      .setValue(true);
-    await wrapper
-      .get('[data-testid="wechat-connect-redirect-url"]')
-      .setValue("https://admin.example.com/api/v1/auth/oauth/wechat/callback");
-    await wrapper
-      .get('[data-testid="wechat-connect-frontend-redirect-url"]')
-      .setValue("/auth/wechat/callback");
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledTimes(1);
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        wechat_connect_enabled: true,
-        wechat_connect_app_id: "wx-app-id-updated",
-        wechat_connect_open_enabled: true,
-        wechat_connect_mp_enabled: true,
-        wechat_connect_mp_app_id: "wx-app-id-updated",
-        wechat_connect_mp_app_secret: "new-secret",
-        wechat_connect_redirect_url:
-          "https://admin.example.com/api/v1/auth/oauth/wechat/callback",
-        wechat_connect_frontend_redirect_url: "/auth/wechat/callback",
-      }),
-    );
-    expect(
-      (
-        wrapper.get('[data-testid="wechat-connect-mp-app-secret"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("");
-    expect(
-      wrapper
-        .get('[data-testid="wechat-connect-mp-app-secret"]')
-        .attributes("placeholder"),
-    ).toContain("密钥已配置");
-  });
-
   it("collapses auth source defaults until the source is enabled", async () => {
     const wrapper = mountView();
 
@@ -1698,29 +1480,5 @@ describe("admin SettingsView wechat connect controls", () => {
       wrapper.find('[data-testid="auth-source-email-panel"]').exists(),
     ).toBe(true);
     expect(wrapper.text()).toContain("首次绑定时授权");
-  });
-
-  it("preserves optional OIDC compatibility flags instead of forcing them on save", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      oidc_connect_enabled: true,
-      oidc_connect_use_pkce: false,
-      oidc_connect_validate_id_token: false,
-    });
-
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledTimes(1);
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        oidc_connect_use_pkce: false,
-        oidc_connect_validate_id_token: false,
-      }),
-    );
   });
 });

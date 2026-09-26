@@ -3,13 +3,13 @@
     <div class="space-y-6">
       <div class="text-center">
         <h1 class="auth-title">
-          {{ t('auth.oidc.callbackTitle', { providerName }) }}
+          {{ t('auth.oauthFlow.callbackTitle', { providerName }) }}
         </h1>
         <p class="auth-lead">
           {{
             isProcessing
-              ? t('auth.oidc.callbackProcessing', { providerName })
-              : t('auth.oidc.callbackHint')
+              ? t('auth.oauthFlow.callbackProcessing', { providerName })
+              : t('auth.oauthFlow.callbackHint')
           }}
         </p>
       </div>
@@ -79,7 +79,7 @@
 
           <template v-if="needsInvitation">
             <p class="text-sm text-af-ink-2">
-              {{ t('auth.oidc.invitationRequired', { providerName }) }}
+              {{ t('auth.oauthFlow.invitationRequired', { providerName }) }}
             </p>
             <div>
               <input
@@ -98,8 +98,8 @@
             >
               {{
                 isSubmitting
-                  ? t('auth.oidc.completing')
-                : t('auth.oidc.completeRegistration')
+                  ? t('auth.oauthFlow.completing')
+                : t('auth.oauthFlow.completeRegistration')
               }}
             </button>
 
@@ -819,7 +819,7 @@ async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redi
   }
 
   if (!isOAuthLoginCompletion(completion)) {
-    throw new Error(t('auth.oidc.callbackMissingToken'))
+    throw new Error(t('auth.oauthFlow.callbackMissingToken'))
   }
 
   persistOAuthTokenContext(completion)
@@ -891,7 +891,7 @@ async function handleSubmitInvitation() {
   } catch (e: unknown) {
     const err = e as { message?: string; response?: { data?: { message?: string } } }
     invitationError.value =
-      err.response?.data?.message || err.message || t('auth.oidc.completeRegistrationFailed')
+      err.response?.data?.message || err.message || t('auth.oauthFlow.completeRegistrationFailed')
   } finally {
     isSubmitting.value = false
   }

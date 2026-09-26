@@ -169,11 +169,11 @@ func readOAuthPendingSessionCookie(c *gin.Context) (string, error) {
 func redirectToFrontendCallback(c *gin.Context, frontendCallback string) {
 	u, err := url.Parse(frontendCallback)
 	if err != nil {
-		c.Redirect(http.StatusFound, linuxDoOAuthDefaultRedirectTo)
+		c.Redirect(http.StatusFound, oauthDefaultRedirectTo)
 		return
 	}
 	if u.Scheme != "" && !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
-		c.Redirect(http.StatusFound, linuxDoOAuthDefaultRedirectTo)
+		c.Redirect(http.StatusFound, oauthDefaultRedirectTo)
 		return
 	}
 	u.Fragment = ""
@@ -488,16 +488,8 @@ func (h *AuthHandler) findOAuthIdentityUser(ctx context.Context, identity servic
 	return findActiveUserByID(ctx, client, record.UserID)
 }
 
-func (h *AuthHandler) BindLinuxDoOAuthLogin(c *gin.Context) { h.bindPendingOAuthLogin(c, "linuxdo") }
-func (h *AuthHandler) BindOIDCOAuthLogin(c *gin.Context)    { h.bindPendingOAuthLogin(c, "oidc") }
 func (h *AuthHandler) BindWeChatOAuthLogin(c *gin.Context)  { h.bindPendingOAuthLogin(c, "wechat") }
 func (h *AuthHandler) BindPendingOAuthLogin(c *gin.Context) { h.bindPendingOAuthLogin(c, "") }
-
-func (h *AuthHandler) CreateLinuxDoOAuthAccount(c *gin.Context) {
-	h.createPendingOAuthAccount(c, "linuxdo")
-}
-
-func (h *AuthHandler) CreateOIDCOAuthAccount(c *gin.Context) { h.createPendingOAuthAccount(c, "oidc") }
 
 func (h *AuthHandler) CreateWeChatOAuthAccount(c *gin.Context) {
 	h.createPendingOAuthAccount(c, "wechat")
@@ -726,59 +718,15 @@ func findUserByNormalizedEmail(ctx context.Context, client *dbent.Client, email 
 	return matches[0], nil
 }
 
-func ensurePendingOAuthRegistrationIdentityAvailable(ctx context.Context, client *dbent.Client, session *dbent.PendingAuthSession) error {
-	if client == nil || session == nil {
-		return infraerrors.BadRequest("PENDING_AUTH_SESSION_INVALID", "pending auth registration context is invalid")
-	}
-
-	identity, err := client.AuthIdentity.Query().
-		Where(
-			authidentity.ProviderTypeEQ(strings.TrimSpace(session.ProviderType)),
-			authidentity.ProviderKeyEQ(strings.TrimSpace(session.ProviderKey)),
-			authidentity.ProviderSubjectEQ(strings.TrimSpace(session.ProviderSubject)),
-		).
-		Only(ctx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	if identity == nil || identity.UserID <= 0 {
-		return nil
-	}
-
-	activeOwner, err := findActiveUserByID(ctx, client, identity.UserID)
-	if err != nil {
-		return err
-	}
-	if activeOwner != nil {
-		return infraerrors.Conflict("AUTH_IDENTITY_OWNERSHIP_CONFLICT", "auth identity already belongs to another user")
-	}
-	return nil
-}
-
 func oauthIdentityIssuer(session *dbent.PendingAuthSession) *string {
 	if session == nil {
 		return nil
 	}
-	switch strings.TrimSpace(session.ProviderType) {
-	case "oidc":
-		issuer := strings.TrimSpace(session.ProviderKey)
-		if issuer == "" {
-			issuer = pendingSessionStringValue(session.UpstreamIdentityClaims, "issuer")
-		}
-		if issuer == "" {
-			return nil
-		}
-		return &issuer
-	default:
-		issuer := pendingSessionStringValue(session.UpstreamIdentityClaims, "issuer")
-		if issuer == "" {
-			return nil
-		}
-		return &issuer
+	issuer := pendingSessionStringValue(session.UpstreamIdentityClaims, "issuer")
+	if issuer == "" {
+		return nil
 	}
+	return &issuer
 }
 
 func ensurePendingOAuthIdentityForUser(ctx context.Context, tx *dbent.Tx, session *dbent.PendingAuthSession, userID int64) (*dbent.AuthIdentity, error) {
@@ -1260,38 +1208,6 @@ func consumePendingOAuthBrowserSessionTx(
 	return nil
 }
 
-func applyPendingOAuthAdoptionAndConsumeSession(
-	ctx context.Context,
-	client *dbent.Client,
-	authService *service.AuthService,
-	userService *service.UserService,
-	session *dbent.PendingAuthSession,
-	decision *dbent.IdentityAdoptionDecision,
-	userID int64,
-) error {
-	if client == nil {
-		return infraerrors.ServiceUnavailable("PENDING_AUTH_NOT_READY", "pending auth service is not ready")
-	}
-	if session == nil || userID <= 0 {
-		return infraerrors.BadRequest("PENDING_AUTH_SESSION_INVALID", "pending auth registration context is invalid")
-	}
-
-	tx, err := client.Tx(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := applyPendingOAuthAdoption(txCtx, client, authService, userService, session, decision, &userID); err != nil {
-		return err
-	}
-	if err := consumePendingOAuthBrowserSessionTx(txCtx, tx, session); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
 func applyPendingOAuthAdoption(
 	ctx context.Context,
 	client *dbent.Client,
@@ -1452,19 +1368,6 @@ func clearOAuthLogoutCookies(c *gin.Context) {
 	clearOAuthPendingSessionCookie(c, secureCookie)
 	clearOAuthPendingBrowserCookie(c, secureCookie)
 	clearOAuthBindAccessTokenCookie(c, secureCookie)
-
-	clearCookie(c, linuxDoOAuthStateCookieName, secureCookie)
-	clearCookie(c, linuxDoOAuthVerifierCookie, secureCookie)
-	clearCookie(c, linuxDoOAuthRedirectCookie, secureCookie)
-	clearCookie(c, linuxDoOAuthIntentCookieName, secureCookie)
-	clearCookie(c, linuxDoOAuthBindUserCookieName, secureCookie)
-
-	oidcClearCookie(c, oidcOAuthStateCookieName, secureCookie)
-	oidcClearCookie(c, oidcOAuthVerifierCookie, secureCookie)
-	oidcClearCookie(c, oidcOAuthRedirectCookie, secureCookie)
-	oidcClearCookie(c, oidcOAuthNonceCookie, secureCookie)
-	oidcClearCookie(c, oidcOAuthIntentCookieName, secureCookie)
-	oidcClearCookie(c, oidcOAuthBindUserCookieName, secureCookie)
 
 	wechatClearCookie(c, wechatOAuthStateCookieName, secureCookie)
 	wechatClearCookie(c, wechatOAuthRedirectCookieName, secureCookie)
@@ -1629,8 +1532,6 @@ func (h *AuthHandler) bindPendingOAuthLogin(c *gin.Context, provider string) {
 	}
 
 	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
-	// bindPendingOAuthLogin = 绑定已有账户登录，不动 users.username（用户已有自己的名字）
-	h.maybeSyncDingTalkAfterLogin(c.Request.Context(), session, user.ID)
 	tokenPair, err := h.authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {
 		response.InternalError(c, "Failed to generate token pair")
@@ -1834,8 +1735,6 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 	}
 
 	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
-	// createPendingOAuthAccount = 注册新账户，需要把钉钉昵称同步到 users.username 作为初始值
-	h.maybeSyncDingTalkAfterRegistration(c.Request.Context(), session, user.ID)
 	clearCookies()
 	writeOAuthTokenPairResponse(c, tokenPair)
 }

@@ -79,12 +79,9 @@ func newOAuthCaptchaTestHandler(enabled bool) (*AuthHandler, *oauthCaptchaVerifi
 
 func oauthStartHandlers() map[string]func(*AuthHandler, *gin.Context) {
 	return map[string]func(*AuthHandler, *gin.Context){
-		"github":   func(h *AuthHandler, c *gin.Context) { h.GitHubOAuthStart(c) },
-		"google":   func(h *AuthHandler, c *gin.Context) { h.GoogleOAuthStart(c) },
-		"linuxdo":  func(h *AuthHandler, c *gin.Context) { h.LinuxDoOAuthStart(c) },
-		"dingtalk": func(h *AuthHandler, c *gin.Context) { h.DingTalkOAuthStart(c) },
-		"wechat":   func(h *AuthHandler, c *gin.Context) { h.WeChatOAuthStart(c) },
-		"oidc":     func(h *AuthHandler, c *gin.Context) { h.OIDCOAuthStart(c) },
+		"github": func(h *AuthHandler, c *gin.Context) { h.GitHubOAuthStart(c) },
+		"google": func(h *AuthHandler, c *gin.Context) { h.GoogleOAuthStart(c) },
+		"wechat": func(h *AuthHandler, c *gin.Context) { h.WeChatOAuthStart(c) },
 	}
 }
 
@@ -156,7 +153,7 @@ func TestOAuthBindingPathRemainsOutsideTencentGate(t *testing.T) {
 	handler := &AuthHandler{}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/bind/start", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/wechat/bind/start", nil)
 
 	require.True(t, handler.requireActionCaptchaForOAuthLoginStart(c))
 	require.Equal(t, http.StatusOK, recorder.Code)

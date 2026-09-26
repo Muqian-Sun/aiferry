@@ -120,18 +120,20 @@ func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
-		values: map[string]string{
-			service.SettingKeyWeChatConnectEnabled:             "true",
-			service.SettingKeyWeChatConnectAppID:               "wx-mp-app",
-			service.SettingKeyWeChatConnectAppSecret:           "wx-mp-secret",
-			service.SettingKeyWeChatConnectMode:                "mp",
-			service.SettingKeyWeChatConnectScopes:              "snsapi_base",
-			service.SettingKeyWeChatConnectOpenEnabled:         "true",
-			service.SettingKeyWeChatConnectMPEnabled:           "true",
-			service.SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-			service.SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+		values: map[string]string{},
+	}, &config.Config{
+		WeChat: config.WeChatConnectConfig{
+			Enabled:             true,
+			AppID:               "wx-mp-app",
+			AppSecret:           "wx-mp-secret",
+			Mode:                "mp",
+			Scopes:              "snsapi_base",
+			OpenEnabled:         true,
+			MPEnabled:           true,
+			RedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
+			FrontendRedirectURL: "/auth/wechat/callback",
 		},
-	}, &config.Config{}), "test-version")
+	}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

@@ -35,7 +35,6 @@ func TestEmailOAuthCallbackExistingEmailLogsInWhenInvitationEnabled(t *testing.T
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/google/callback", nil)
 
 	handler.emailOAuthCallbackWithProfile(c, "google", config.EmailOAuthProviderConfig{
-		Enabled:             true,
 		ClientID:            "google-client",
 		ClientSecret:        "google-secret",
 		RedirectURL:         "https://app.example/api/v1/auth/oauth/google/callback",
@@ -84,7 +83,6 @@ func TestEmailOAuthCallbackCreatesPasswordRegistrationSessionForNewEmail(t *test
 	c.Request = req
 
 	handler.emailOAuthCallbackWithProfile(c, "github", config.EmailOAuthProviderConfig{
-		Enabled:             true,
 		ClientID:            "github-client",
 		ClientSecret:        "github-secret",
 		RedirectURL:         "https://app.example/api/v1/auth/oauth/github/callback",

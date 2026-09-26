@@ -23,21 +23,21 @@ func TestAuthHandlerGetCurrentUserReturnsProfileCompatibilityFields(t *testing.T
 		user: &service.User{
 			ID:           31,
 			Email:        "me@example.com",
-			Username:     "linuxdo-handle",
+			Username:     "wechat-handle",
 			Role:         service.RoleUser,
 			Status:       service.StatusActive,
-			AvatarURL:    "https://cdn.example.com/linuxdo.png",
+			AvatarURL:    "https://cdn.example.com/wechat.png",
 			AvatarSource: "remote_url",
 		},
 		identities: []service.UserAuthIdentityRecord{
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-31",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-main",
+				ProviderSubject: "wechat-subject-31",
 				VerifiedAt:      &verifiedAt,
 				Metadata: map[string]any{
-					"username":   "linuxdo-handle",
-					"avatar_url": "https://cdn.example.com/linuxdo.png",
+					"username":   "wechat-handle",
+					"avatar_url": "https://cdn.example.com/wechat.png",
 				},
 			},
 		},
@@ -63,24 +63,24 @@ func TestAuthHandlerGetCurrentUserReturnsProfileCompatibilityFields(t *testing.T
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
 	require.Equal(t, true, resp.Data["email_bound"])
-	require.Equal(t, true, resp.Data["linuxdo_bound"])
-	require.Equal(t, "https://cdn.example.com/linuxdo.png", resp.Data["avatar_url"])
+	require.Equal(t, true, resp.Data["wechat_bound"])
+	require.Equal(t, "https://cdn.example.com/wechat.png", resp.Data["avatar_url"])
 
 	authBindings, ok := resp.Data["auth_bindings"].(map[string]any)
 	require.True(t, ok)
-	linuxdoBinding, ok := authBindings["linuxdo"].(map[string]any)
+	wechatBinding, ok := authBindings["wechat"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, true, linuxdoBinding["bound"])
+	require.Equal(t, true, wechatBinding["bound"])
 
 	avatarSource, ok := resp.Data["avatar_source"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "linuxdo", avatarSource["provider"])
-	require.Equal(t, "linuxdo", avatarSource["source"])
+	require.Equal(t, "wechat", avatarSource["provider"])
+	require.Equal(t, "wechat", avatarSource["source"])
 
 	profileSources, ok := resp.Data["profile_sources"].(map[string]any)
 	require.True(t, ok)
 	usernameSource, ok := profileSources["username"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "linuxdo", usernameSource["provider"])
-	require.Equal(t, "linuxdo", usernameSource["source"])
+	require.Equal(t, "wechat", usernameSource["provider"])
+	require.Equal(t, "wechat", usernameSource["source"])
 }

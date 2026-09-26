@@ -25,7 +25,7 @@ vi.mock('vue-i18n', async () => {
         if (key === 'auth.wechatProviderName') {
           return 'Mock WeChat'
         }
-        if (key === 'auth.oidc.signIn') {
+        if (key === 'auth.oauthFlow.signIn') {
           return `Continue with ${params?.providerName ?? ''}`.trim()
         }
         if (key === 'auth.oauthFlow.wechatSystemBrowserOnly') {
@@ -75,10 +75,7 @@ function buildPublicSettings(overrides: Partial<WeChatPublicSettings> = {}): WeC
     table_page_size_options: [10, 20, 50, 100],
     custom_menu_items: [],
     custom_endpoints: [],
-    linuxdo_oauth_enabled: false,
     wechat_oauth_enabled: true,
-    oidc_oauth_enabled: false,
-    oidc_oauth_provider_name: 'OIDC',
     backend_mode_enabled: false,
     version: 'test',
     balance_low_notify_enabled: false,

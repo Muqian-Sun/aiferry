@@ -86,16 +86,9 @@ export type PaymentVisibleMethodSource =
   | "easypay_alipay"
   | "official_wxpay"
   | "easypay_wxpay";
-export type WeChatConnectMode = "open" | "mp" | "mobile";
 
 export interface PaymentVisibleMethodSourceOption {
   value: PaymentVisibleMethodSource;
-  labelZh: string;
-  labelEn: string;
-}
-
-export interface WeChatConnectModeOption {
-  value: WeChatConnectMode;
   labelZh: string;
   labelEn: string;
 }
@@ -163,32 +156,6 @@ const PAYMENT_VISIBLE_METHOD_SOURCE_ALIASES: Record<
     easypay_wxpay: "easypay_wxpay",
     easypay: "easypay_wxpay",
   },
-};
-const WECHAT_CONNECT_MODE_OPTIONS: WeChatConnectModeOption[] = [
-  { value: "open", labelZh: "PC 应用", labelEn: "PC App" },
-  {
-    value: "mp",
-    labelZh: "公众号",
-    labelEn: "Official Account",
-  },
-  {
-    value: "mobile",
-    labelZh: "移动应用",
-    labelEn: "Mobile App",
-  },
-];
-const WECHAT_CONNECT_MODE_ALIASES: Record<string, WeChatConnectMode> = {
-  open: "open",
-  open_platform: "open",
-  official: "open",
-  wx_open: "open",
-  mp: "mp",
-  official_account: "mp",
-  wechat_mp: "mp",
-  mini_program: "mp",
-  mobile: "mobile",
-  mobile_app: "mobile",
-  native_app: "mobile",
 };
 
 export function normalizeDefaultSubscriptionSettings(
@@ -283,70 +250,6 @@ export function normalizePaymentVisibleMethodSource(
   if (!normalized) return "";
 
   return PAYMENT_VISIBLE_METHOD_SOURCE_ALIASES[method][normalized] ?? "";
-}
-
-export function getWeChatConnectModeOptions(): WeChatConnectModeOption[] {
-  return WECHAT_CONNECT_MODE_OPTIONS;
-}
-
-export function normalizeWeChatConnectMode(source: unknown): WeChatConnectMode {
-  if (typeof source !== "string") return "open";
-
-  const normalized = source.trim().toLowerCase();
-  if (!normalized) return "open";
-
-  return WECHAT_CONNECT_MODE_ALIASES[normalized] ?? "open";
-}
-
-export function defaultWeChatConnectScopesForMode(mode: unknown): string {
-  switch (normalizeWeChatConnectMode(mode)) {
-    case "mp":
-      return "snsapi_userinfo";
-    case "mobile":
-      return "";
-    default:
-      return "snsapi_login";
-  }
-}
-
-export function resolveWeChatConnectModeCapabilities(
-  openEnabled: unknown,
-  mpEnabled: unknown,
-  mobileEnabled: unknown,
-  legacyMode: unknown,
-): { openEnabled: boolean; mpEnabled: boolean; mobileEnabled: boolean } {
-  if (
-    typeof openEnabled === "boolean" ||
-    typeof mpEnabled === "boolean" ||
-    typeof mobileEnabled === "boolean"
-  ) {
-    return {
-      openEnabled: openEnabled === true,
-      mpEnabled: mpEnabled === true,
-      mobileEnabled: mobileEnabled === true,
-    };
-  }
-
-  switch (normalizeWeChatConnectMode(legacyMode)) {
-    case "mp":
-      return { openEnabled: false, mpEnabled: true, mobileEnabled: false };
-    case "mobile":
-      return { openEnabled: false, mpEnabled: false, mobileEnabled: true };
-    default:
-      return { openEnabled: true, mpEnabled: false, mobileEnabled: false };
-  }
-}
-
-export function deriveWeChatConnectStoredMode(
-  openEnabled: boolean,
-  mpEnabled: boolean,
-  mobileEnabled: boolean,
-  legacyMode: unknown,
-): WeChatConnectMode {
-  if (mpEnabled) return "mp";
-  if (mobileEnabled) return "mobile";
-  if (openEnabled) return "open";
-  return normalizeWeChatConnectMode(legacyMode);
 }
 
 /**
@@ -445,82 +348,6 @@ export interface SystemSettings {
   aliyun_captcha_region: string;
   api_key_acl_trust_forwarded_ip: boolean;
   forwarded_client_ip_headers: string[];
-
-  // LinuxDo Connect OAuth settings
-  linuxdo_connect_enabled: boolean;
-  linuxdo_connect_client_id: string;
-  linuxdo_connect_client_secret_configured: boolean;
-  linuxdo_connect_redirect_url: string;
-
-  // DingTalk Connect OAuth settings
-  dingtalk_connect_enabled: boolean;
-  dingtalk_connect_client_id: string;
-  dingtalk_connect_client_secret_configured: boolean;
-  dingtalk_connect_redirect_url: string;
-  dingtalk_connect_corp_restriction_policy: string;
-  dingtalk_connect_internal_corp_id: string;
-  dingtalk_connect_bypass_registration: boolean;
-  dingtalk_connect_sync_corp_email: boolean;
-  dingtalk_connect_sync_display_name: boolean;
-  dingtalk_connect_sync_dept: boolean;
-  dingtalk_connect_sync_corp_email_attr_key: string;
-  dingtalk_connect_sync_display_name_attr_key: string;
-  dingtalk_connect_sync_dept_attr_key: string;
-  dingtalk_connect_sync_corp_email_attr_name: string;
-  dingtalk_connect_sync_display_name_attr_name: string;
-  dingtalk_connect_sync_dept_attr_name: string;
-
-  // WeChat Connect OAuth settings
-  wechat_connect_enabled: boolean;
-  wechat_connect_app_id: string;
-  wechat_connect_app_secret_configured: boolean;
-  wechat_connect_open_app_id?: string;
-  wechat_connect_open_app_secret_configured?: boolean;
-  wechat_connect_mp_app_id?: string;
-  wechat_connect_mp_app_secret_configured?: boolean;
-  wechat_connect_mobile_app_id?: string;
-  wechat_connect_mobile_app_secret_configured?: boolean;
-  wechat_connect_open_enabled?: boolean;
-  wechat_connect_mp_enabled?: boolean;
-  wechat_connect_mobile_enabled?: boolean;
-  wechat_connect_mode: string;
-  wechat_connect_scopes: string;
-  wechat_connect_redirect_url: string;
-  wechat_connect_frontend_redirect_url: string;
-
-  // Generic OIDC OAuth settings
-  oidc_connect_enabled: boolean;
-  oidc_connect_provider_name: string;
-  oidc_connect_client_id: string;
-  oidc_connect_client_secret_configured: boolean;
-  oidc_connect_issuer_url: string;
-  oidc_connect_discovery_url: string;
-  oidc_connect_authorize_url: string;
-  oidc_connect_token_url: string;
-  oidc_connect_userinfo_url: string;
-  oidc_connect_jwks_url: string;
-  oidc_connect_scopes: string;
-  oidc_connect_redirect_url: string;
-  oidc_connect_frontend_redirect_url: string;
-  oidc_connect_token_auth_method: string;
-  oidc_connect_use_pkce: boolean;
-  oidc_connect_validate_id_token: boolean;
-  oidc_connect_allowed_signing_algs: string;
-  oidc_connect_clock_skew_seconds: number;
-  oidc_connect_require_email_verified: boolean;
-  oidc_connect_userinfo_email_path: string;
-  oidc_connect_userinfo_id_path: string;
-  oidc_connect_userinfo_username_path: string;
-  github_oauth_enabled: boolean;
-  github_oauth_client_id: string;
-  github_oauth_client_secret_configured: boolean;
-  github_oauth_redirect_url: string;
-  github_oauth_frontend_redirect_url: string;
-  google_oauth_enabled: boolean;
-  google_oauth_client_id: string;
-  google_oauth_client_secret_configured: boolean;
-  google_oauth_redirect_url: string;
-  google_oauth_frontend_redirect_url: string;
 
   grok_default_text_model: string;
   grok_cross_client_model_map_enabled: boolean;
@@ -723,74 +550,6 @@ export interface UpdateSettingsRequest {
   aliyun_captcha_region?: string;
   api_key_acl_trust_forwarded_ip?: boolean;
   forwarded_client_ip_headers?: string[];
-  linuxdo_connect_enabled?: boolean;
-  linuxdo_connect_client_id?: string;
-  linuxdo_connect_client_secret?: string;
-  linuxdo_connect_redirect_url?: string;
-  dingtalk_connect_enabled?: boolean;
-  dingtalk_connect_client_id?: string;
-  dingtalk_connect_client_secret?: string;
-  dingtalk_connect_redirect_url?: string;
-  dingtalk_connect_corp_restriction_policy?: string;
-  dingtalk_connect_internal_corp_id?: string;
-  dingtalk_connect_bypass_registration?: boolean;
-  dingtalk_connect_sync_corp_email?: boolean;
-  dingtalk_connect_sync_display_name?: boolean;
-  dingtalk_connect_sync_dept?: boolean;
-  dingtalk_connect_sync_corp_email_attr_key?: string;
-  dingtalk_connect_sync_display_name_attr_key?: string;
-  dingtalk_connect_sync_dept_attr_key?: string;
-  dingtalk_connect_sync_corp_email_attr_name?: string;
-  dingtalk_connect_sync_display_name_attr_name?: string;
-  dingtalk_connect_sync_dept_attr_name?: string;
-  wechat_connect_enabled?: boolean;
-  wechat_connect_app_id?: string;
-  wechat_connect_app_secret?: string;
-  wechat_connect_open_app_id?: string;
-  wechat_connect_open_app_secret?: string;
-  wechat_connect_mp_app_id?: string;
-  wechat_connect_mp_app_secret?: string;
-  wechat_connect_mobile_app_id?: string;
-  wechat_connect_mobile_app_secret?: string;
-  wechat_connect_open_enabled?: boolean;
-  wechat_connect_mp_enabled?: boolean;
-  wechat_connect_mobile_enabled?: boolean;
-  wechat_connect_mode?: string;
-  wechat_connect_scopes?: string;
-  wechat_connect_redirect_url?: string;
-  wechat_connect_frontend_redirect_url?: string;
-  oidc_connect_enabled?: boolean;
-  oidc_connect_provider_name?: string;
-  oidc_connect_client_id?: string;
-  oidc_connect_client_secret?: string;
-  oidc_connect_issuer_url?: string;
-  oidc_connect_discovery_url?: string;
-  oidc_connect_authorize_url?: string;
-  oidc_connect_token_url?: string;
-  oidc_connect_userinfo_url?: string;
-  oidc_connect_jwks_url?: string;
-  oidc_connect_scopes?: string;
-  oidc_connect_redirect_url?: string;
-  oidc_connect_frontend_redirect_url?: string;
-  oidc_connect_token_auth_method?: string;
-  oidc_connect_use_pkce?: boolean;
-  oidc_connect_validate_id_token?: boolean;
-  oidc_connect_allowed_signing_algs?: string;
-  oidc_connect_clock_skew_seconds?: number;
-  oidc_connect_require_email_verified?: boolean;
-  oidc_connect_userinfo_email_path?: string;
-  oidc_connect_userinfo_id_path?: string;
-  oidc_connect_userinfo_username_path?: string;
-  github_oauth_enabled?: boolean;
-  github_oauth_client_id?: string;
-  github_oauth_client_secret?: string;
-  github_oauth_redirect_url?: string;
-  github_oauth_frontend_redirect_url?: string;
-  google_oauth_enabled?: boolean;
-  google_oauth_client_id?: string;
-  google_oauth_client_secret?: string;
-  google_oauth_redirect_url?: string;
-  google_oauth_frontend_redirect_url?: string;
   grok_default_text_model?: string;
   grok_cross_client_model_map_enabled?: boolean;
   grok_default_base_url_mode?: string;

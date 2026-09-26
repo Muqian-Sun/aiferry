@@ -203,7 +203,7 @@ func TestRegisterOAuthEmailAccountRollsBackCreatedUserWhenTokenPairGenerationFai
 		"secret-123",
 		"246810",
 		"INVITE123",
-		"oidc",
+		"github",
 	)
 
 	require.Nil(t, tokenPair)
@@ -263,14 +263,14 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 		"secret-123",
 		"246810",
 		"",
-		" OIDC ",
+		" GitHub ",
 	)
 
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
 	require.NotNil(t, user)
 	require.Len(t, userRepo.created, 1)
-	require.Equal(t, "oidc", userRepo.created[0].SignupSource)
+	require.Equal(t, "github", userRepo.created[0].SignupSource)
 }
 
 func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T) {

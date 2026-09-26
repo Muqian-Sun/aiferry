@@ -32,9 +32,9 @@ func (s *UserRepoSuite) TestCreate_CreatesEmailAuthIdentityForNormalEmail() {
 	s.Require().Equal(user.ID, identity.UserID)
 }
 
-func (s *UserRepoSuite) TestCreate_SkipsEmailAuthIdentityForSyntheticLinuxDoEmail() {
+func (s *UserRepoSuite) TestCreate_SkipsEmailAuthIdentityForSyntheticWeChatEmail() {
 	user := &service.User{
-		Email:        "linuxdo-legacy-user@linuxdo-connect.invalid",
+		Email:        "wechat-legacy-user@wechat-connect.invalid",
 		PasswordHash: "test-password-hash",
 		Role:         service.RoleUser,
 		Status:       service.StatusActive,

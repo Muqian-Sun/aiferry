@@ -314,7 +314,7 @@ func TestAuthService_Register_ReservedEmail(t *testing.T) {
 	repo := &userRepoStub{}
 	service := newAuthService(repo, map[string]string{}, nil)
 
-	_, _, err := service.Register(context.Background(), "linuxdo-123@linuxdo-connect.invalid", "password")
+	_, _, err := service.Register(context.Background(), "wechat-123@wechat-connect.invalid", "password")
 	require.ErrorIs(t, err, ErrEmailReserved)
 }
 
@@ -607,20 +607,20 @@ func TestAuthService_Register_GrantOnSignupMergesSourceOverridesWithGlobalDefaul
 	require.Equal(t, 5, assigner.calls[0].ValidityDays)
 }
 
-func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesLinuxDoAuthSourceDefaultsOnSignup(t *testing.T) {
+func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesWeChatAuthSourceDefaultsOnSignup(t *testing.T) {
 	repo := &userRepoStub{nextID: 61}
 	assigner := &defaultSubscriptionAssignerStub{}
 	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                  `[{"plan_id":81,"validity_days":1}]`,
-		SettingKeyAuthSourceDefaultLinuxDoBalance:       "21.75",
-		SettingKeyAuthSourceDefaultLinuxDoConcurrency:   "9",
-		SettingKeyAuthSourceDefaultLinuxDoSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup: "true",
+		SettingKeyDefaultSubscriptions:                 `[{"plan_id":81,"validity_days":1}]`,
+		SettingKeyAuthSourceDefaultWeChatBalance:       "21.75",
+		SettingKeyAuthSourceDefaultWeChatConcurrency:   "9",
+		SettingKeyAuthSourceDefaultWeChatSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
+		SettingKeyAuthSourceDefaultWeChatGrantOnSignup: "true",
 	}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 
-	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), "linuxdo-123@linuxdo-connect.invalid", "linuxdo_user", "", "", "linuxdo")
+	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), "wechat-123@wechat-connect.invalid", "wechat_user", "", "", "wechat")
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
 	require.NotNil(t, user)
@@ -636,8 +636,8 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesLinuxDoAuthSourceDefa
 func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantAgain(t *testing.T) {
 	existing := &User{
 		ID:           88,
-		Email:        "linuxdo-123@linuxdo-connect.invalid",
-		Username:     "existing-linuxdo",
+		Email:        "wechat-123@wechat-connect.invalid",
+		Username:     "existing-wechat",
 		Role:         RoleUser,
 		Status:       StatusActive,
 		Balance:      4,
@@ -647,15 +647,15 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 	repo := &userRepoStub{user: existing}
 	assigner := &defaultSubscriptionAssignerStub{}
 	service := newAuthService(repo, map[string]string{
-		SettingKeyAuthSourceDefaultLinuxDoBalance:       "21.75",
-		SettingKeyAuthSourceDefaultLinuxDoConcurrency:   "9",
-		SettingKeyAuthSourceDefaultLinuxDoSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup: "true",
+		SettingKeyAuthSourceDefaultWeChatBalance:       "21.75",
+		SettingKeyAuthSourceDefaultWeChatConcurrency:   "9",
+		SettingKeyAuthSourceDefaultWeChatSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
+		SettingKeyAuthSourceDefaultWeChatGrantOnSignup: "true",
 	}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 
-	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), existing.Email, "linuxdo_user", "", "", "linuxdo")
+	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), existing.Email, "wechat_user", "", "", "wechat")
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
 	require.Equal(t, existing.ID, user.ID)
@@ -663,100 +663,4 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 	require.Equal(t, 1, user.Concurrency)
 	require.Empty(t, repo.created)
 	require.Empty(t, assigner.calls)
-}
-
-// newAuthServiceWithDingTalkCfg 构建一个含完整 DingTalk config 的 AuthService，
-// 用于测试 canBypassRegistrationDisabledForOAuth。
-func newAuthServiceWithDingTalkCfg(settings map[string]string, dtCfg config.DingTalkConnectConfig) *AuthService {
-	cfg := &config.Config{
-		JWT:      config.JWTConfig{Secret: "test-secret", ExpireHour: 1},
-		Default:  config.DefaultConfig{UserBalance: 3.5, UserConcurrency: 2},
-		DingTalk: dtCfg,
-	}
-	settingService := NewSettingService(&settingRepoStub{values: settings}, cfg)
-	return NewAuthService(nil, nil, nil, nil, cfg, settingService, nil, nil, nil, nil, nil)
-}
-
-// minDingTalkURLs 返回一个包含必填字段的基础 DingTalkConnectConfig（不设 Enabled/BypassRegistration/Policy）。
-func minDingTalkURLs() config.DingTalkConnectConfig {
-	return config.DingTalkConnectConfig{
-		ClientID:            "test-client",
-		ClientSecret:        "test-secret",
-		AuthorizeURL:        "https://example.com/oauth2/auth",
-		TokenURL:            "https://example.com/oauth2/token",
-		UserInfoURL:         "https://example.com/oauth2/userinfo",
-		RedirectURL:         "https://example.com/callback",
-		FrontendRedirectURL: "https://example.com/auth/callback",
-		DingTalkAppKind:     "internal_app",
-		AppType:             "internal",
-	}
-}
-
-func TestCanBypassRegistrationDisabledForOAuth(t *testing.T) {
-	cases := []struct {
-		name         string
-		signupSource string
-		settings     map[string]string
-		dtCfg        config.DingTalkConnectConfig
-		want         bool
-	}{
-		{
-			name:         "non-dingtalk source → false",
-			signupSource: "linuxdo",
-			settings:     map[string]string{},
-			dtCfg:        minDingTalkURLs(),
-			want:         false,
-		},
-		{
-			name:         "dingtalk but cfg.Enabled=false → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "false",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled but BypassRegistration=false → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "false",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled + bypass=true but policy=none → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "none",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled + bypass=true + policy=internal_only → true",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  true,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			svc := newAuthServiceWithDingTalkCfg(tc.settings, tc.dtCfg)
-			got := svc.canBypassRegistrationDisabledForOAuth(context.Background(), tc.signupSource)
-			require.Equal(t, tc.want, got)
-		})
-	}
 }

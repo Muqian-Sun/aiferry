@@ -13,7 +13,7 @@
 
       <div v-else-if="needsRegistrationCompletion" class="rounded-lg border border-af-hairline bg-af-sheet p-6">
         <h1 class="text-lg font-semibold text-af-ink">
-          {{ t('auth.oidc.callbackTitle', { providerName }) }}
+          {{ t('auth.oauthFlow.callbackTitle', { providerName }) }}
         </h1>
         <p class="mt-2 text-sm text-af-ink-2">
           {{ registrationHint }}
@@ -74,7 +74,7 @@
             :disabled="isSubmitting || !canSubmitRegistration"
             @click="handleSubmitRegistration"
           >
-            {{ isSubmitting ? t('common.processing') : t('auth.oidc.completeRegistration') }}
+            {{ isSubmitting ? t('common.processing') : t('auth.oauthFlow.completeRegistration') }}
           </button>
         </div>
       </div>
@@ -213,8 +213,8 @@ const providerName = computed(() =>
 )
 const registrationHint = computed(() =>
   invitationRequired.value
-    ? t('auth.oidc.invitationRequired', { providerName: providerName.value })
-    : t('auth.oidc.completeRegistration')
+    ? t('auth.oauthFlow.invitationRequired', { providerName: providerName.value })
+    : t('auth.oauthFlow.completeRegistration')
 )
 const canSubmitRegistration = computed(() => {
   if (!registrationEmail.value.trim()) return false
@@ -362,7 +362,7 @@ async function handleSubmitRegistration() {
   } catch (e: unknown) {
     const err = e as { message?: string; response?: { data?: { message?: string } } }
     registrationError.value =
-      err.response?.data?.message || err.message || t('auth.oidc.completeRegistrationFailed')
+      err.response?.data?.message || err.message || t('auth.oauthFlow.completeRegistrationFailed')
   } finally {
     isSubmitting.value = false
   }

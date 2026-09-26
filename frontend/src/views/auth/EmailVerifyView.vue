@@ -497,10 +497,6 @@ function shouldBypassRegistrationEmailPolicy(): boolean {
 
 function resolvePendingOAuthCallbackRoute(provider: string): string {
   switch (provider.trim().toLowerCase()) {
-    case 'linuxdo':
-      return '/auth/linuxdo/callback'
-    case 'oidc':
-      return '/auth/oidc/callback'
     case 'wechat':
       return '/auth/wechat/callback'
     default:

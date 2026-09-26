@@ -121,8 +121,8 @@ func TestAdminServiceBindUserAuthIdentityRejectsOtherOwner(t *testing.T) {
 
 	_, err = client.AuthIdentity.Create().
 		SetUserID(owner.ID).
-		SetProviderType("oidc").
-		SetProviderKey("https://issuer.example").
+		SetProviderType("wechat").
+		SetProviderKey("wechat-open").
 		SetProviderSubject("subject-1").
 		Save(ctx)
 	require.NoError(t, err)
@@ -133,8 +133,8 @@ func TestAdminServiceBindUserAuthIdentityRejectsOtherOwner(t *testing.T) {
 	}
 
 	_, err = svc.BindUserAuthIdentity(ctx, target.ID, AdminBindAuthIdentityInput{
-		ProviderType:    "oidc",
-		ProviderKey:     "https://issuer.example",
+		ProviderType:    "wechat",
+		ProviderKey:     "wechat-open",
 		ProviderSubject: "subject-1",
 	})
 	require.Error(t, err)
@@ -159,16 +159,16 @@ func TestAdminServiceBindUserAuthIdentityIsIdempotentForSameUser(t *testing.T) {
 	}
 
 	first, err := svc.BindUserAuthIdentity(ctx, user.ID, AdminBindAuthIdentityInput{
-		ProviderType:    "oidc",
-		ProviderKey:     "https://issuer.example",
+		ProviderType:    "wechat",
+		ProviderKey:     "wechat-open",
 		ProviderSubject: "subject-2",
 		Metadata:        map[string]any{"source": "first"},
 	})
 	require.NoError(t, err)
 
 	second, err := svc.BindUserAuthIdentity(ctx, user.ID, AdminBindAuthIdentityInput{
-		ProviderType:    "oidc",
-		ProviderKey:     "https://issuer.example",
+		ProviderType:    "wechat",
+		ProviderKey:     "wechat-open",
 		ProviderSubject: "subject-2",
 		Metadata:        map[string]any{"source": "second"},
 	})
@@ -178,8 +178,8 @@ func TestAdminServiceBindUserAuthIdentityIsIdempotentForSameUser(t *testing.T) {
 
 	identities, err := client.AuthIdentity.Query().
 		Where(
-			authidentity.ProviderTypeEQ("oidc"),
-			authidentity.ProviderKeyEQ("https://issuer.example"),
+			authidentity.ProviderTypeEQ("wechat"),
+			authidentity.ProviderKeyEQ("wechat-open"),
 			authidentity.ProviderSubjectEQ("subject-2"),
 		).
 		All(ctx)

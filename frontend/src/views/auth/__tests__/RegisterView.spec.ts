@@ -19,9 +19,7 @@ const publicSettings = {
   turnstile_site_key: 'site-key',
   site_name: 'Sub2API',
   registration_email_suffix_whitelist: [],
-  linuxdo_oauth_enabled: false,
   wechat_oauth_enabled: false,
-  oidc_oauth_enabled: false,
   github_oauth_enabled: false,
   google_oauth_enabled: false
 }
@@ -75,9 +73,7 @@ function mountRegister() {
         },
         LoginAgreementPrompt: true,
         EmailOAuthButtons: true,
-        LinuxDoOAuthSection: true,
         WechatOAuthSection: true,
-        OidcOAuthSection: true,
         RouterLink: true,
         transition: false
       }

@@ -1,12 +1,12 @@
 /**
- * 系统设置的小节（A6，muqian 2026-09-25 定：13 节，比方案多一节「安全」放管理 API Key / 客户端 IP / 面板限流）。
+ * 系统设置的小节（A6，muqian 2026-09-25 定：13 节，比方案多一节「安全」放管理 API Key / 客户端 IP / 面板限流；
+ * 2026-09-26 删「第三方登录」一节——第三方登录只认部署配置，后台不再能配）。
  * 每节一个地址 /settings/<key>；二级导航按组排列。
  */
 import type { Component } from 'vue'
 import SiteSection from './sections/SiteSection.vue'
 import AgreementSection from './sections/AgreementSection.vue'
 import RegistrationSection from './sections/RegistrationSection.vue'
-import OAuthSection from './sections/OAuthSection.vue'
 import DefaultsSection from './sections/DefaultsSection.vue'
 import SecuritySection from './sections/SecuritySection.vue'
 import CooldownSection from './sections/CooldownSection.vue'
@@ -19,7 +19,7 @@ import FeaturesSection from './sections/FeaturesSection.vue'
 
 export const SETTINGS_SECTION_GROUPS = [
   { key: 'site', sections: ['site', 'agreement'] },
-  { key: 'users', sections: ['registration', 'oauth', 'defaults'] },
+  { key: 'users', sections: ['registration', 'defaults'] },
   { key: 'security', sections: ['security'] },
   { key: 'gateway', sections: ['cooldown', 'forwarding', 'clients', 'upstream'] },
   { key: 'payment', sections: ['payment'] },
@@ -37,7 +37,6 @@ export const SECTION_COMPONENTS: Record<SettingsSectionKey, Component> = {
   site: SiteSection,
   agreement: AgreementSection,
   registration: RegistrationSection,
-  oauth: OAuthSection,
   defaults: DefaultsSection,
   security: SecuritySection,
   cooldown: CooldownSection,

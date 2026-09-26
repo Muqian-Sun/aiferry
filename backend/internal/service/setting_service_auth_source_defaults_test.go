@@ -61,12 +61,12 @@ func (s *authSourceDefaultsRepoStub) Delete(ctx context.Context, key string) err
 func TestSettingService_GetAuthSourceDefaultSettings_ParsesValuesAndDefaults(t *testing.T) {
 	repo := &authSourceDefaultsRepoStub{
 		values: map[string]string{
-			SettingKeyAuthSourceDefaultEmailBalance:            "12.5",
-			SettingKeyAuthSourceDefaultEmailConcurrency:        "7",
-			SettingKeyAuthSourceDefaultEmailSubscriptions:      `[{"plan_id":11,"validity_days":30}]`,
-			SettingKeyAuthSourceDefaultEmailGrantOnSignup:      "false",
-			SettingKeyAuthSourceDefaultLinuxDoGrantOnFirstBind: "true",
-			SettingKeyForceEmailOnThirdPartySignup:             "true",
+			SettingKeyAuthSourceDefaultEmailBalance:           "12.5",
+			SettingKeyAuthSourceDefaultEmailConcurrency:       "7",
+			SettingKeyAuthSourceDefaultEmailSubscriptions:     `[{"plan_id":11,"validity_days":30}]`,
+			SettingKeyAuthSourceDefaultEmailGrantOnSignup:     "false",
+			SettingKeyAuthSourceDefaultWeChatGrantOnFirstBind: "true",
+			SettingKeyForceEmailOnThirdPartySignup:            "true",
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
@@ -78,14 +78,8 @@ func TestSettingService_GetAuthSourceDefaultSettings_ParsesValuesAndDefaults(t *
 	require.Equal(t, []DefaultSubscriptionSetting{{PlanID: 11, ValidityDays: 30}}, got.Email.Subscriptions)
 	require.False(t, got.Email.GrantOnSignup)
 	require.False(t, got.Email.GrantOnFirstBind)
-	require.Equal(t, 0.0, got.LinuxDo.Balance)
-	require.Equal(t, 5, got.LinuxDo.Concurrency)
-	require.Equal(t, []DefaultSubscriptionSetting{}, got.LinuxDo.Subscriptions)
-	require.False(t, got.LinuxDo.GrantOnSignup)
-	require.True(t, got.LinuxDo.GrantOnFirstBind)
-	require.Equal(t, 5, got.OIDC.Concurrency)
 	require.Equal(t, 5, got.WeChat.Concurrency)
-	require.False(t, got.OIDC.GrantOnSignup)
+	require.True(t, got.WeChat.GrantOnFirstBind)
 	require.False(t, got.WeChat.GrantOnSignup)
 	require.True(t, got.ForceEmailOnThirdPartySignup)
 }
@@ -100,20 +94,6 @@ func TestSettingService_UpdateAuthSourceDefaultSettings_PersistsAllKeys(t *testi
 			Concurrency:      3,
 			Subscriptions:    []DefaultSubscriptionSetting{{PlanID: 21, ValidityDays: 14}},
 			GrantOnSignup:    false,
-			GrantOnFirstBind: true,
-		},
-		LinuxDo: ProviderDefaultGrantSettings{
-			Balance:          2,
-			Concurrency:      4,
-			Subscriptions:    []DefaultSubscriptionSetting{{PlanID: 22, ValidityDays: 30}},
-			GrantOnSignup:    true,
-			GrantOnFirstBind: false,
-		},
-		OIDC: ProviderDefaultGrantSettings{
-			Balance:          3,
-			Concurrency:      5,
-			Subscriptions:    []DefaultSubscriptionSetting{{PlanID: 23, ValidityDays: 60}},
-			GrantOnSignup:    true,
 			GrantOnFirstBind: true,
 		},
 		WeChat: ProviderDefaultGrantSettings{

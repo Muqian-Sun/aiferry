@@ -31,24 +31,6 @@ func generateMenuItemID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func scopesContainOpenID(scopes string) bool {
-	for _, scope := range strings.Fields(strings.ToLower(strings.TrimSpace(scopes))) {
-		if scope == "openid" {
-			return true
-		}
-	}
-	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
 // SettingHandler 系统设置处理器
 type SettingHandler struct {
 	settingService           *service.SettingService
@@ -58,14 +40,13 @@ type SettingHandler struct {
 	opsService               *service.OpsService
 	paymentConfigService     *service.PaymentConfigService
 	paymentService           *service.PaymentService
-	userAttributeService     *service.UserAttributeService
 	notificationEmailService *service.NotificationEmailService
 	totpService              *service.TotpService
 	userService              *service.UserService
 }
 
 // NewSettingHandler 创建系统设置处理器
-func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, userAttributeService *service.UserAttributeService) *SettingHandler {
+func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService) *SettingHandler {
 	return &SettingHandler{
 		settingService:       settingService,
 		emailService:         emailService,
@@ -73,7 +54,6 @@ func NewSettingHandler(settingService *service.SettingService, emailService *ser
 		opsService:           opsService,
 		paymentConfigService: paymentConfigService,
 		paymentService:       paymentService,
-		userAttributeService: userAttributeService,
 	}
 }
 
@@ -147,74 +127,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AliyunCaptchaSceneID:                   settings.AliyunCaptchaSceneID,
 		AliyunCaptchaPrefix:                    settings.AliyunCaptchaPrefix,
 		AliyunCaptchaRegion:                    settings.AliyunCaptchaRegion,
-		LinuxDoConnectEnabled:                  settings.LinuxDoConnectEnabled,
-		LinuxDoConnectClientID:                 settings.LinuxDoConnectClientID,
-		LinuxDoConnectClientSecretConfigured:   settings.LinuxDoConnectClientSecretConfigured,
-		LinuxDoConnectRedirectURL:              settings.LinuxDoConnectRedirectURL,
-		DingTalkConnectEnabled:                 settings.DingTalkConnectEnabled,
-		DingTalkConnectClientID:                settings.DingTalkConnectClientID,
-		DingTalkConnectClientSecretConfigured:  settings.DingTalkConnectClientSecretConfigured,
-		DingTalkConnectRedirectURL:             settings.DingTalkConnectRedirectURL,
-		DingTalkConnectCorpRestrictionPolicy:   settings.DingTalkConnectCorpRestrictionPolicy,
-		DingTalkConnectInternalCorpID:          settings.DingTalkConnectInternalCorpID,
-		DingTalkConnectBypassRegistration:      settings.DingTalkConnectBypassRegistration,
-		DingTalkConnectSyncCorpEmail:           settings.DingTalkConnectSyncCorpEmail,
-		DingTalkConnectSyncDisplayName:         settings.DingTalkConnectSyncDisplayName,
-		DingTalkConnectSyncDept:                settings.DingTalkConnectSyncDept,
-		DingTalkConnectSyncCorpEmailAttrKey:    settings.DingTalkConnectSyncCorpEmailAttrKey,
-		DingTalkConnectSyncDisplayNameAttrKey:  settings.DingTalkConnectSyncDisplayNameAttrKey,
-		DingTalkConnectSyncDeptAttrKey:         settings.DingTalkConnectSyncDeptAttrKey,
-		DingTalkConnectSyncCorpEmailAttrName:   settings.DingTalkConnectSyncCorpEmailAttrName,
-		DingTalkConnectSyncDisplayNameAttrName: settings.DingTalkConnectSyncDisplayNameAttrName,
-		DingTalkConnectSyncDeptAttrName:        settings.DingTalkConnectSyncDeptAttrName,
-		WeChatConnectEnabled:                   settings.WeChatConnectEnabled,
-		WeChatConnectAppID:                     settings.WeChatConnectAppID,
-		WeChatConnectAppSecretConfigured:       settings.WeChatConnectAppSecretConfigured,
-		WeChatConnectOpenAppID:                 settings.WeChatConnectOpenAppID,
-		WeChatConnectOpenAppSecretConfigured:   settings.WeChatConnectOpenAppSecretConfigured,
-		WeChatConnectMPAppID:                   settings.WeChatConnectMPAppID,
-		WeChatConnectMPAppSecretConfigured:     settings.WeChatConnectMPAppSecretConfigured,
-		WeChatConnectMobileAppID:               settings.WeChatConnectMobileAppID,
-		WeChatConnectMobileAppSecretConfigured: settings.WeChatConnectMobileAppSecretConfigured,
-		WeChatConnectOpenEnabled:               settings.WeChatConnectOpenEnabled,
-		WeChatConnectMPEnabled:                 settings.WeChatConnectMPEnabled,
-		WeChatConnectMobileEnabled:             settings.WeChatConnectMobileEnabled,
-		WeChatConnectMode:                      settings.WeChatConnectMode,
-		WeChatConnectScopes:                    settings.WeChatConnectScopes,
-		WeChatConnectRedirectURL:               settings.WeChatConnectRedirectURL,
-		WeChatConnectFrontendRedirectURL:       settings.WeChatConnectFrontendRedirectURL,
-		OIDCConnectEnabled:                     settings.OIDCConnectEnabled,
-		OIDCConnectProviderName:                settings.OIDCConnectProviderName,
-		OIDCConnectClientID:                    settings.OIDCConnectClientID,
-		OIDCConnectClientSecretConfigured:      settings.OIDCConnectClientSecretConfigured,
-		OIDCConnectIssuerURL:                   settings.OIDCConnectIssuerURL,
-		OIDCConnectDiscoveryURL:                settings.OIDCConnectDiscoveryURL,
-		OIDCConnectAuthorizeURL:                settings.OIDCConnectAuthorizeURL,
-		OIDCConnectTokenURL:                    settings.OIDCConnectTokenURL,
-		OIDCConnectUserInfoURL:                 settings.OIDCConnectUserInfoURL,
-		OIDCConnectJWKSURL:                     settings.OIDCConnectJWKSURL,
-		OIDCConnectScopes:                      settings.OIDCConnectScopes,
-		OIDCConnectRedirectURL:                 settings.OIDCConnectRedirectURL,
-		OIDCConnectFrontendRedirectURL:         settings.OIDCConnectFrontendRedirectURL,
-		OIDCConnectTokenAuthMethod:             settings.OIDCConnectTokenAuthMethod,
-		OIDCConnectUsePKCE:                     settings.OIDCConnectUsePKCE,
-		OIDCConnectValidateIDToken:             settings.OIDCConnectValidateIDToken,
-		OIDCConnectAllowedSigningAlgs:          settings.OIDCConnectAllowedSigningAlgs,
-		OIDCConnectClockSkewSeconds:            settings.OIDCConnectClockSkewSeconds,
-		OIDCConnectRequireEmailVerified:        settings.OIDCConnectRequireEmailVerified,
-		OIDCConnectUserInfoEmailPath:           settings.OIDCConnectUserInfoEmailPath,
-		OIDCConnectUserInfoIDPath:              settings.OIDCConnectUserInfoIDPath,
-		OIDCConnectUserInfoUsernamePath:        settings.OIDCConnectUserInfoUsernamePath,
-		GitHubOAuthEnabled:                     settings.GitHubOAuthEnabled,
-		GitHubOAuthClientID:                    settings.GitHubOAuthClientID,
-		GitHubOAuthClientSecretConfigured:      settings.GitHubOAuthClientSecretConfigured,
-		GitHubOAuthRedirectURL:                 settings.GitHubOAuthRedirectURL,
-		GitHubOAuthFrontendRedirectURL:         settings.GitHubOAuthFrontendRedirectURL,
-		GoogleOAuthEnabled:                     settings.GoogleOAuthEnabled,
-		GoogleOAuthClientID:                    settings.GoogleOAuthClientID,
-		GoogleOAuthClientSecretConfigured:      settings.GoogleOAuthClientSecretConfigured,
-		GoogleOAuthRedirectURL:                 settings.GoogleOAuthRedirectURL,
-		GoogleOAuthFrontendRedirectURL:         settings.GoogleOAuthFrontendRedirectURL,
 		DefaultConcurrency:                     settings.DefaultConcurrency,
 		DefaultBalance:                         settings.DefaultBalance,
 		RiskControlEnabled:                     settings.RiskControlEnabled,
@@ -363,21 +275,6 @@ func systemSettingsResponseData(settings dto.SystemSettings, authSourceDefaults 
 	data["auth_source_default_email_subscriptions"] = authSourceDefaults.Email.Subscriptions
 	data["auth_source_default_email_grant_on_signup"] = authSourceDefaults.Email.GrantOnSignup
 	data["auth_source_default_email_grant_on_first_bind"] = authSourceDefaults.Email.GrantOnFirstBind
-	data["auth_source_default_linuxdo_balance"] = authSourceDefaults.LinuxDo.Balance
-	data["auth_source_default_linuxdo_concurrency"] = authSourceDefaults.LinuxDo.Concurrency
-	data["auth_source_default_linuxdo_subscriptions"] = authSourceDefaults.LinuxDo.Subscriptions
-	data["auth_source_default_linuxdo_grant_on_signup"] = authSourceDefaults.LinuxDo.GrantOnSignup
-	data["auth_source_default_linuxdo_grant_on_first_bind"] = authSourceDefaults.LinuxDo.GrantOnFirstBind
-	data["auth_source_default_dingtalk_balance"] = authSourceDefaults.DingTalk.Balance
-	data["auth_source_default_dingtalk_concurrency"] = authSourceDefaults.DingTalk.Concurrency
-	data["auth_source_default_dingtalk_subscriptions"] = authSourceDefaults.DingTalk.Subscriptions
-	data["auth_source_default_dingtalk_grant_on_signup"] = authSourceDefaults.DingTalk.GrantOnSignup
-	data["auth_source_default_dingtalk_grant_on_first_bind"] = authSourceDefaults.DingTalk.GrantOnFirstBind
-	data["auth_source_default_oidc_balance"] = authSourceDefaults.OIDC.Balance
-	data["auth_source_default_oidc_concurrency"] = authSourceDefaults.OIDC.Concurrency
-	data["auth_source_default_oidc_subscriptions"] = authSourceDefaults.OIDC.Subscriptions
-	data["auth_source_default_oidc_grant_on_signup"] = authSourceDefaults.OIDC.GrantOnSignup
-	data["auth_source_default_oidc_grant_on_first_bind"] = authSourceDefaults.OIDC.GrantOnFirstBind
 	data["auth_source_default_wechat_balance"] = authSourceDefaults.WeChat.Balance
 	data["auth_source_default_wechat_concurrency"] = authSourceDefaults.WeChat.Concurrency
 	data["auth_source_default_wechat_subscriptions"] = authSourceDefaults.WeChat.Subscriptions

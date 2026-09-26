@@ -712,9 +712,6 @@ export default {
       },
       providers: {
         email: 'Email',
-        linuxdo: 'LinuxDo',
-        dingtalk: 'DingTalk',
-        oidc: '{providerName}',
         wechat: 'WeChat',
       },
       notes: {

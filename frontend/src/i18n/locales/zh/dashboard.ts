@@ -713,9 +713,6 @@ export default {
       },
       providers: {
         email: '邮箱',
-        linuxdo: 'LinuxDo',
-        dingtalk: '钉钉',
-        oidc: '{providerName}',
         wechat: '微信',
       },
       notes: {

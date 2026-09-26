@@ -294,7 +294,7 @@ func TestCollectBalanceNotifyRecipients_AccountEmailAloneStillNotified(t *testin
 func TestCollectBalanceNotifyRecipients_SkipsSyntheticAccountEmail(t *testing.T) {
 	s := &BalanceNotifyService{}
 	u := &User{
-		Email: "12345" + LinuxDoConnectSyntheticEmailDomain,
+		Email: "12345" + WeChatConnectSyntheticEmailDomain,
 		BalanceNotifyExtraEmails: []NotifyEmailEntry{
 			{Email: "extra@example.com", Verified: true},
 		},

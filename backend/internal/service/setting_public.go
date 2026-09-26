@@ -119,33 +119,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAliyunCaptchaSceneID,
 		SettingKeyAliyunCaptchaPrefix,
 		SettingKeyAliyunCaptchaRegion,
-		SettingKeyLinuxDoConnectEnabled,
-		SettingKeyDingTalkConnectEnabled,
-		SettingKeyWeChatConnectEnabled,
-		SettingKeyWeChatConnectAppID,
-		SettingKeyWeChatConnectAppSecret,
-		SettingKeyWeChatConnectOpenAppID,
-		SettingKeyWeChatConnectOpenAppSecret,
-		SettingKeyWeChatConnectMPAppID,
-		SettingKeyWeChatConnectMPAppSecret,
-		SettingKeyWeChatConnectMobileAppID,
-		SettingKeyWeChatConnectMobileAppSecret,
-		SettingKeyWeChatConnectOpenEnabled,
-		SettingKeyWeChatConnectMPEnabled,
-		SettingKeyWeChatConnectMobileEnabled,
-		SettingKeyWeChatConnectMode,
-		SettingKeyWeChatConnectScopes,
-		SettingKeyWeChatConnectRedirectURL,
-		SettingKeyWeChatConnectFrontendRedirectURL,
 		SettingPaymentEnabled,
-		SettingKeyOIDCConnectEnabled,
-		SettingKeyOIDCConnectProviderName,
-		SettingKeyGitHubOAuthEnabled,
-		SettingKeyGitHubOAuthClientID,
-		SettingKeyGitHubOAuthClientSecret,
-		SettingKeyGoogleOAuthEnabled,
-		SettingKeyGoogleOAuthClientID,
-		SettingKeyGoogleOAuthClientSecret,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
@@ -161,34 +135,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		return nil, fmt.Errorf("get public settings: %w", err)
 	}
 
-	linuxDoEnabled := false
-	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
-		linuxDoEnabled = raw == "true"
-	} else {
-		linuxDoEnabled = s.cfg != nil && s.cfg.LinuxDo.Enabled
-	}
-	dingTalkEnabled := false
-	if raw, ok := settings[SettingKeyDingTalkConnectEnabled]; ok {
-		dingTalkEnabled = raw == "true"
-	} else {
-		dingTalkEnabled = s.cfg != nil && s.cfg.DingTalk.Enabled
-	}
-	oidcEnabled := false
-	if raw, ok := settings[SettingKeyOIDCConnectEnabled]; ok {
-		oidcEnabled = raw == "true"
-	} else {
-		oidcEnabled = s.cfg != nil && s.cfg.OIDC.Enabled
-	}
-	oidcProviderName := strings.TrimSpace(settings[SettingKeyOIDCConnectProviderName])
-	if oidcProviderName == "" && s.cfg != nil {
-		oidcProviderName = strings.TrimSpace(s.cfg.OIDC.ProviderName)
-	}
-	if oidcProviderName == "" {
-		oidcProviderName = "OIDC"
-	}
-	gitHubEnabled := s.emailOAuthPublicEnabled(settings, "github")
-	googleEnabled := s.emailOAuthPublicEnabled(settings, "google")
-	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilitiesFromSettings(settings)
+	// 第三方登录只认部署配置（setting_oauth.go）
+	gitHubEnabled := emailOAuthEnabled(s.effectiveEmailOAuthConfig("github"))
+	googleEnabled := emailOAuthEnabled(s.effectiveEmailOAuthConfig("google"))
+	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilities()
 
 	// 邮箱验证、忘记密码都跟着 SMTP 走（能发信才开）
 	emailVerifyEnabled := s.smtpConfigured()
@@ -236,16 +186,12 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		TablePageSizeOptions:        TablePageSizeOptions(),
 		CustomMenuItems:             "[]",
 		CustomEndpoints:             "[]",
-		LinuxDoOAuthEnabled:         linuxDoEnabled,
-		DingTalkOAuthEnabled:        dingTalkEnabled,
 		WeChatOAuthEnabled:          weChatEnabled,
 		WeChatOAuthOpenEnabled:      weChatOpenEnabled,
 		WeChatOAuthMPEnabled:        weChatMPEnabled,
 		WeChatOAuthMobileEnabled:    weChatMobileEnabled,
 		BackendModeEnabled:          BackendModeEnabled,
 		PaymentEnabled:              settings[SettingPaymentEnabled] == "true",
-		OIDCOAuthEnabled:            oidcEnabled,
-		OIDCOAuthProviderName:       oidcProviderName,
 		GitHubOAuthEnabled:          gitHubEnabled,
 		GoogleOAuthEnabled:          googleEnabled,
 		BalanceLowNotifyEnabled:     notifyEnabled,
@@ -426,14 +372,10 @@ type PublicSettingsInjectionPayload struct {
 	TablePageSizeOptions                []int                    `json:"table_page_size_options"`
 	CustomMenuItems                     json.RawMessage          `json:"custom_menu_items"`
 	CustomEndpoints                     json.RawMessage          `json:"custom_endpoints"`
-	LinuxDoOAuthEnabled                 bool                     `json:"linuxdo_oauth_enabled"`
-	DingTalkOAuthEnabled                bool                     `json:"dingtalk_oauth_enabled"`
 	WeChatOAuthEnabled                  bool                     `json:"wechat_oauth_enabled"`
 	WeChatOAuthOpenEnabled              bool                     `json:"wechat_oauth_open_enabled"`
 	WeChatOAuthMPEnabled                bool                     `json:"wechat_oauth_mp_enabled"`
 	WeChatOAuthMobileEnabled            bool                     `json:"wechat_oauth_mobile_enabled"`
-	OIDCOAuthEnabled                    bool                     `json:"oidc_oauth_enabled"`
-	OIDCOAuthProviderName               string                   `json:"oidc_oauth_provider_name"`
 	GitHubOAuthEnabled                  bool                     `json:"github_oauth_enabled"`
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
@@ -511,14 +453,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		TablePageSizeOptions:                settings.TablePageSizeOptions,
 		CustomMenuItems:                     filterUserVisibleMenuItems(settings.CustomMenuItems),
 		CustomEndpoints:                     safeRawJSONArray(settings.CustomEndpoints),
-		LinuxDoOAuthEnabled:                 settings.LinuxDoOAuthEnabled,
-		DingTalkOAuthEnabled:                settings.DingTalkOAuthEnabled,
 		WeChatOAuthEnabled:                  settings.WeChatOAuthEnabled,
 		WeChatOAuthOpenEnabled:              settings.WeChatOAuthOpenEnabled,
 		WeChatOAuthMPEnabled:                settings.WeChatOAuthMPEnabled,
 		WeChatOAuthMobileEnabled:            settings.WeChatOAuthMobileEnabled,
-		OIDCOAuthEnabled:                    settings.OIDCOAuthEnabled,
-		OIDCOAuthProviderName:               settings.OIDCOAuthProviderName,
 		GitHubOAuthEnabled:                  settings.GitHubOAuthEnabled,
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
