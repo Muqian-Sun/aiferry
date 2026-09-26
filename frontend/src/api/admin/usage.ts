@@ -36,6 +36,8 @@ export interface SimpleApiKey {
   id: number
   name: string
   user_id: number
+  /** 所属用户邮箱：同名密钥靠它区分（管理站不显示内部 id） */
+  user_email: string
 }
 
 export interface UsageCleanupFilters {

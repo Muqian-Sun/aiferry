@@ -558,8 +558,10 @@ func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector
 }
 
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
+// 带出所属用户：管理站选密钥时同名密钥靠用户邮箱区分（不显示内部 id）。
+// 删用户会连带删其密钥，活跃密钥的所属用户一定未删，不必穿透软删除。
 func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
-	q := r.activeQuery()
+	q := r.activeQuery().WithUser()
 	if userID > 0 {
 		q = q.Where(apikey.UserIDEQ(userID))
 	}

@@ -10,77 +10,25 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <!-- Left: filters (allowed to wrap to multiple rows) -->
       <div class="flex flex-1 flex-wrap items-center gap-2">
-        <!-- User Search -->
-        <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('admin.usage.userFilter')">
-          <input
-            v-model="userKeyword"
-            type="text"
-            class="input pr-8"
-            :placeholder="t('admin.usage.searchUserPlaceholder')"
-            @input="debounceUserSearch"
-            @focus="showUserDropdown = true"
-          />
-          <button
-            v-if="filters.user_id"
-            type="button"
-            @click="clearUser"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
-            aria-label="Clear user filter"
-          >
-            ✕
-          </button>
-          <div
-            v-if="showUserDropdown && (userResults.length > 0 || userKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-af-sheet shadow-lg"
-          >
-            <button
-              v-for="u in userResults"
-              :key="u.id"
-              type="button"
-              @click="selectUser(u)"
-              class="w-full px-4 py-2 text-left hover:bg-af-sunken"
-            >
-              <span>{{ u.email }}<span v-if="u.deleted" class="ml-1 text-xs text-af-ink-3">（{{ t('admin.usage.userDeletedBadge') }}）</span></span>
-              <span class="ml-2 text-xs text-af-ink-3">#{{ u.id }}</span>
-            </button>
-          </div>
-        </div>
+        <!-- 用户 / 密钥 / 渠道：按名字搜索选择（EntityPicker，站内其它页面同一个组件），界面不出现内部 id -->
+        <EntityPicker
+          ref="userPickerRef"
+          kind="user"
+          class="usage-filter-dropdown w-full sm:w-48"
+          :title="t('admin.usage.userFilter')"
+          :model-value="filters.user_id"
+          @update:model-value="onUserChange"
+        />
 
-        <!-- API Key Search -->
-        <div ref="apiKeySearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('usage.apiKeyFilter')">
-          <input
-            v-model="apiKeyKeyword"
-            type="text"
-            class="input pr-8"
-            :placeholder="t('admin.usage.searchApiKeyPlaceholder')"
-            @input="debounceApiKeySearch"
-            @focus="onApiKeyFocus"
-          />
-          <button
-            v-if="filters.api_key_id"
-            type="button"
-            @click="onClearApiKey"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
-            aria-label="Clear API key filter"
-          >
-            ✕
-          </button>
-          <div
-            v-if="showApiKeyDropdown && apiKeyResults.length > 0"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-af-sheet shadow-lg"
-          >
-            <button
-              v-for="k in apiKeyResults"
-              :key="k.id"
-              type="button"
-              @click="selectApiKey(k)"
-              class="w-full px-4 py-2 text-left hover:bg-af-sunken"
-            >
-              <span class="truncate">{{ k.name || `#${k.id}` }}</span>
-              <span class="ml-2 text-xs text-af-ink-3">#{{ k.id }}</span>
-            </button>
-          </div>
-        </div>
+        <!-- 先选了用户时只列该用户的密钥 -->
+        <EntityPicker
+          kind="apiKey"
+          class="usage-filter-dropdown w-full sm:w-48"
+          :title="t('usage.apiKeyFilter')"
+          :user-id="filters.user_id"
+          :model-value="filters.api_key_id"
+          @update:model-value="onApiKeyChange"
+        />
 
         <!-- Model Filter -->
         <div class="w-full sm:w-48" :title="t('usage.model')">
@@ -88,40 +36,13 @@
         </div>
 
         <!-- Channel Filter -->
-        <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('admin.usage.account')">
-          <input
-            v-model="accountKeyword"
-            type="text"
-            class="input pr-8"
-            :placeholder="t('admin.usage.searchAccountPlaceholder')"
-            @input="debounceAccountSearch"
-            @focus="showAccountDropdown = true"
-          />
-          <button
-            v-if="filters.account_id"
-            type="button"
-            @click="clearAccount"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
-            aria-label="Clear account filter"
-          >
-            ✕
-          </button>
-          <div
-            v-if="showAccountDropdown && (accountResults.length > 0 || accountKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-af-sheet shadow-lg"
-          >
-            <button
-              v-for="a in accountResults"
-              :key="a.id"
-              type="button"
-              @click="selectAccount(a)"
-              class="w-full px-4 py-2 text-left hover:bg-af-sunken"
-            >
-              <span class="truncate">{{ a.name }}</span>
-              <span class="ml-2 text-xs text-af-ink-3">#{{ a.id }}</span>
-            </button>
-          </div>
-        </div>
+        <EntityPicker
+          kind="channel"
+          class="usage-filter-dropdown w-full sm:w-48"
+          :title="t('admin.usage.account')"
+          :model-value="filters.account_id"
+          @update:model-value="onAccountChange"
+        />
 
         <button
           v-if="mode !== 'cleanup'"
@@ -192,14 +113,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, toRef, watch, computed } from 'vue'
+import { ref, toRef, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
-import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
 
 type ModelValue = Record<string, any>
 
@@ -233,29 +153,7 @@ const emit = defineEmits([
 const { t } = useI18n()
 const filters = toRef(props, 'modelValue')
 
-const userSearchRef = ref<HTMLElement | null>(null)
-const apiKeySearchRef = ref<HTMLElement | null>(null)
-const accountSearchRef = ref<HTMLElement | null>(null)
-
-const userKeyword = ref('')
-const userResults = ref<SimpleUser[]>([])
-const showUserDropdown = ref(false)
-let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
-let userSearchSequence = 0
-
-const apiKeyKeyword = ref('')
-const apiKeyResults = ref<SimpleApiKey[]>([])
-const showApiKeyDropdown = ref(false)
-let apiKeySearchTimeout: ReturnType<typeof setTimeout> | null = null
-
-interface SimpleAccount {
-  id: number
-  name: string
-}
-const accountKeyword = ref('')
-const accountResults = ref<SimpleAccount[]>([])
-const showAccountDropdown = ref(false)
-let accountSearchTimeout: ReturnType<typeof setTimeout> | null = null
+const userPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)
 
 const modelOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allModels') },
@@ -336,148 +234,21 @@ const activeMoreCount = computed(() => {
   }).length
 })
 
-const clearPendingUserSearch = () => {
-  if (userSearchTimeout) {
-    clearTimeout(userSearchTimeout)
-    userSearchTimeout = null
-  }
-  userSearchSequence += 1
-}
-
-const debounceUserSearch = () => {
-  clearPendingUserSearch()
-  const query = userKeyword.value.trim()
-  if (!query) {
-    userResults.value = []
-    return
-  }
-
-  const sequence = userSearchSequence
-  userSearchTimeout = setTimeout(async () => {
-    userSearchTimeout = null
-    try {
-      const results = await adminAPI.usage.searchUsers(query)
-      if (sequence === userSearchSequence) {
-        userResults.value = results.sort((a, b) => Number(a.deleted) - Number(b.deleted))
-      }
-    } catch {
-      if (sequence === userSearchSequence) {
-        userResults.value = []
-      }
-    }
-  }, 300)
-}
-
-const debounceApiKeySearch = () => {
-  if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
-  apiKeySearchTimeout = setTimeout(async () => {
-    try {
-      apiKeyResults.value = await adminAPI.usage.searchApiKeys(
-        filters.value.user_id,
-        apiKeyKeyword.value || ''
-      )
-    } catch {
-      apiKeyResults.value = []
-    }
-  }, 300)
-}
-
-const selectUser = async (u: SimpleUser) => {
-  clearPendingUserSearch()
-  userKeyword.value = u.email
-  showUserDropdown.value = false
-  filters.value.user_id = u.id
-  clearApiKey()
-
-  // Auto-load API keys for this user
-  try {
-    apiKeyResults.value = await adminAPI.usage.searchApiKeys(u.id, '')
-  } catch {
-    apiKeyResults.value = []
-  }
-
-  emitChange()
-}
-
-const clearUser = () => {
-  clearPendingUserSearch()
-  userKeyword.value = ''
-  userResults.value = []
-  showUserDropdown.value = false
-  filters.value.user_id = undefined
-  clearApiKey()
-  emitChange()
-}
-
-const selectApiKey = (k: SimpleApiKey) => {
-  apiKeyKeyword.value = k.name || String(k.id)
-  showApiKeyDropdown.value = false
-  filters.value.api_key_id = k.id
-  emitChange()
-}
-
-const clearApiKey = () => {
-  apiKeyKeyword.value = ''
-  apiKeyResults.value = []
-  showApiKeyDropdown.value = false
+// 换了用户：原来选的密钥不一定属于新用户，一并清掉
+const onUserChange = (userId: number | undefined) => {
+  filters.value.user_id = userId
   filters.value.api_key_id = undefined
-}
-
-const onClearApiKey = () => {
-  clearApiKey()
   emitChange()
 }
 
-const debounceAccountSearch = () => {
-  if (accountSearchTimeout) clearTimeout(accountSearchTimeout)
-  accountSearchTimeout = setTimeout(async () => {
-    if (!accountKeyword.value) {
-      accountResults.value = []
-      return
-    }
-    try {
-      const res = await adminAPI.accounts.list(1, 20, { search: accountKeyword.value })
-      accountResults.value = res.items.map((a) => ({ id: a.id, name: a.name }))
-    } catch {
-      accountResults.value = []
-    }
-  }, 300)
-}
-
-const selectAccount = (a: SimpleAccount) => {
-  accountKeyword.value = a.name
-  showAccountDropdown.value = false
-  filters.value.account_id = a.id
+const onApiKeyChange = (apiKeyId: number | undefined) => {
+  filters.value.api_key_id = apiKeyId
   emitChange()
 }
 
-const clearAccount = () => {
-  accountKeyword.value = ''
-  accountResults.value = []
-  showAccountDropdown.value = false
-  filters.value.account_id = undefined
+const onAccountChange = (accountId: number | undefined) => {
+  filters.value.account_id = accountId
   emitChange()
-}
-
-const onApiKeyFocus = () => {
-  showApiKeyDropdown.value = true
-  // Trigger search if no results yet
-  if (apiKeyResults.value.length === 0) {
-    debounceApiKeySearch()
-  }
-}
-
-const onDocumentClick = (e: MouseEvent) => {
-  const target = e.target as Node | null
-  if (!target) return
-
-  const clickedInsideUser = userSearchRef.value?.contains(target) ?? false
-  const clickedInsideApiKey = apiKeySearchRef.value?.contains(target) ?? false
-  const clickedInsideAccount = accountSearchRef.value?.contains(target) ?? false
-
-  if (!clickedInsideUser) showUserDropdown.value = false
-  if (!clickedInsideApiKey) showApiKeyDropdown.value = false
-  if (!clickedInsideAccount) showAccountDropdown.value = false
 }
 
 watch(
@@ -496,55 +267,10 @@ watch(
   { immediate: true }
 )
 
-watch(
-  () => filters.value.user_id,
-  (userId) => {
-    if (!userId) {
-      clearPendingUserSearch()
-      userKeyword.value = ''
-      userResults.value = []
-    }
-  }
-)
+// 供外部(如路由带进来的 user_id)在程序化设置 user_id 后回显选中的用户邮箱
+const setUserKeyword = (email: string) => userPickerRef.value?.setKeyword(email)
 
-watch(
-  () => filters.value.api_key_id,
-  (apiKeyId) => {
-    if (!apiKeyId) {
-      apiKeyKeyword.value = ''
-      apiKeyResults.value = []
-    }
-  }
-)
-
-watch(
-  () => filters.value.account_id,
-  (accountId) => {
-    if (!accountId) {
-      accountKeyword.value = ''
-      accountResults.value = []
-    }
-  }
-)
-
-onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
-})
-
-onUnmounted(() => {
-  clearPendingUserSearch()
-  document.removeEventListener('click', onDocumentClick)
-})
-
-// 供外部(如用户排行下钻)在程序化设置 user_id 后回显选中的用户邮箱
-const setUserKeyword = (email: string) => {
-  clearPendingUserSearch()
-  userKeyword.value = email
-  userResults.value = []
-  showUserDropdown.value = false
-}
-
-const getUserSearchRevision = () => userSearchSequence
+const getUserSearchRevision = () => userPickerRef.value?.getRevision() ?? 0
 
 defineExpose({ getUserSearchRevision, setUserKeyword })
 </script>
