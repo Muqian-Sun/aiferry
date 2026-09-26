@@ -124,7 +124,7 @@ func TestParsePaymentConfig(t *testing.T) {
 	t.Run("all values populated", func(t *testing.T) {
 		t.Parallel()
 		vals := map[string]string{
-			SettingPaymentEnabled:                "true",
+			"payment_enabled":                    "true", // 旧设置行：开关由代码决定，不读它
 			SettingMinRechargeAmount:             "5.00",
 			SettingMaxRechargeAmount:             "1000.00",
 			SettingDailyRechargeLimit:            "5000.00",
@@ -138,8 +138,9 @@ func TestParsePaymentConfig(t *testing.T) {
 		}
 		cfg := svc.parsePaymentConfig(vals)
 
-		if !cfg.Enabled {
-			t.Fatal("expected Enabled=true")
+		// 支付开关写死在代码里（site_features.go），库里写 true 也不算数
+		if cfg.Enabled != PaymentEnabled {
+			t.Fatalf("Enabled = %v, want code constant %v", cfg.Enabled, PaymentEnabled)
 		}
 		if cfg.MinAmount != 5 {
 			t.Fatalf("MinAmount = %v, want 5", cfg.MinAmount)
@@ -485,8 +486,8 @@ func TestUpdatePaymentConfig_OmittedVisibleMethodRoutingIsPreserved(t *testing.T
 	repo := &paymentConfigSettingRepoStub{values: initial}
 	svc := &PaymentConfigService{settingRepo: repo}
 
-	enabled := true
-	err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{Enabled: &enabled})
+	minAmount := 5.0
+	err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{MinAmount: &minAmount})
 	if err != nil {
 		t.Fatalf("UpdatePaymentConfig returned error: %v", err)
 	}
@@ -505,8 +506,8 @@ func TestUpdatePaymentConfig_OmittedVisibleMethodRoutingIsPreserved(t *testing.T
 			t.Fatalf("visible method setting %q = %q, want preserved value %q", key, repo.values[key], wantVisibleMethods[key])
 		}
 	}
-	if repo.updates[SettingPaymentEnabled] != "true" {
-		t.Fatalf("payment enabled update = %q, want true", repo.updates[SettingPaymentEnabled])
+	if repo.updates[SettingMinRechargeAmount] == "" {
+		t.Fatalf("min recharge amount was not written: %v", repo.updates)
 	}
 }
 

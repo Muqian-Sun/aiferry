@@ -230,23 +230,6 @@ func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	require.Nil(t, repo.updates)
 }
 
-func TestSettingService_UpdateSettings_PaymentVisibleMethods(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		PaymentVisibleMethodAlipaySource:  "alipay",
-		PaymentVisibleMethodWxpaySource:   "easypay",
-		PaymentVisibleMethodAlipayEnabled: true,
-		PaymentVisibleMethodWxpayEnabled:  false,
-	})
-	require.NoError(t, err)
-	require.Equal(t, VisibleMethodSourceOfficialAlipay, repo.updates[SettingPaymentVisibleMethodAlipaySource])
-	require.Equal(t, VisibleMethodSourceEasyPayWechat, repo.updates[SettingPaymentVisibleMethodWxpaySource])
-	require.Equal(t, "true", repo.updates[SettingPaymentVisibleMethodAlipayEnabled])
-	require.Equal(t, "false", repo.updates[SettingPaymentVisibleMethodWxpayEnabled])
-}
-
 func TestSettingService_UpdateSettings_AntigravityUserAgentVersion(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
@@ -280,18 +263,6 @@ func TestSettingService_GetAntigravityUserAgentVersion_Precedence(t *testing.T) 
 
 		require.Equal(t, antigravity.GetDefaultUserAgentVersion(), svc.GetAntigravityUserAgentVersion(context.Background()))
 	})
-}
-
-func TestSettingService_UpdateSettings_RejectsInvalidPaymentVisibleMethodSource(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		PaymentVisibleMethodAlipaySource: "not-a-provider",
-	})
-	require.Error(t, err)
-	require.Equal(t, "INVALID_PAYMENT_VISIBLE_METHOD_SOURCE", infraerrors.Reason(err))
-	require.Nil(t, repo.updates)
 }
 
 func TestSettingService_PasskeyFollowsDeploymentConfig(t *testing.T) {

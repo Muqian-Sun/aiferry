@@ -77,41 +77,12 @@ type SystemSettings struct {
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
 
-	// Payment visible method routing
-	PaymentVisibleMethodAlipaySource  string `json:"payment_visible_method_alipay_source"`
-	PaymentVisibleMethodWxpaySource   string `json:"payment_visible_method_wxpay_source"`
-	PaymentVisibleMethodAlipayEnabled bool   `json:"payment_visible_method_alipay_enabled"`
-	PaymentVisibleMethodWxpayEnabled  bool   `json:"payment_visible_method_wxpay_enabled"`
-
 	// OpenAI account scheduling
 
-	// Payment configuration
-	PaymentEnabled           bool     `json:"payment_enabled"`
-	PaymentMinAmount         float64  `json:"payment_min_amount"`
-	PaymentMaxAmount         float64  `json:"payment_max_amount"`
-	PaymentDailyLimit        float64  `json:"payment_daily_limit"`
-	PaymentOrderTimeoutMin   int      `json:"payment_order_timeout_minutes"`
-	PaymentMaxPendingOrders  int      `json:"payment_max_pending_orders"`
-	PaymentEnabledTypes      []string `json:"payment_enabled_types"`
-	PaymentUSDToCNYRate      float64  `json:"payment_usd_to_cny_rate"`
-	PaymentRechargeFeeRate   float64  `json:"payment_recharge_fee_rate"`
-	PaymentLoadBalanceStrat  string   `json:"payment_load_balance_strategy"`
-	PaymentProductNamePrefix string   `json:"payment_product_name_prefix"`
-	PaymentProductNameSuffix string   `json:"payment_product_name_suffix"`
-	PaymentHelpImageURL      string   `json:"payment_help_image_url"`
-	PaymentHelpText          string   `json:"payment_help_text"`
-
 	// Cancel rate limit
-	PaymentCancelRateLimitEnabled bool   `json:"payment_cancel_rate_limit_enabled"`
-	PaymentCancelRateLimitMax     int    `json:"payment_cancel_rate_limit_max"`
-	PaymentCancelRateLimitWindow  int    `json:"payment_cancel_rate_limit_window"`
-	PaymentCancelRateLimitUnit    string `json:"payment_cancel_rate_limit_unit"`
-	PaymentCancelRateLimitMode    string `json:"payment_cancel_rate_limit_window_mode"`
 
 	// Force Alipay mobile clients to use QR code payment instead of mobile redirect
-	PaymentAlipayForceQRCode bool `json:"payment_alipay_force_qrcode"`
 	// Use Alipay face-to-face precreate and an app deep link on mobile clients.
-	PaymentAlipayMobilePrecreateDeepLink bool `json:"payment_alipay_mobile_precreate_deep_link"`
 
 	// 余额、订阅到期与账号限额通知
 

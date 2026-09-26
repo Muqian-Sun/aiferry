@@ -472,14 +472,10 @@ func TestAPIContracts(t *testing.T) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
 
-					service.SettingKeyOpsMonitoringEnabled:           "false",
-					service.SettingKeyOpsRealtimeMonitoringEnabled:   "true",
-					service.SettingKeyOpsQueryModeDefault:            "auto",
-					service.SettingKeyOpsMetricsIntervalSeconds:      "60",
-					service.SettingPaymentVisibleMethodAlipaySource:  service.VisibleMethodSourceEasyPayAlipay,
-					service.SettingPaymentVisibleMethodWxpaySource:   service.VisibleMethodSourceOfficialWechat,
-					service.SettingPaymentVisibleMethodAlipayEnabled: "true",
-					service.SettingPaymentVisibleMethodWxpayEnabled:  "false",
+					service.SettingKeyOpsMonitoringEnabled:         "false",
+					service.SettingKeyOpsRealtimeMonitoringEnabled: "true",
+					service.SettingKeyOpsQueryModeDefault:          "auto",
+					service.SettingKeyOpsMetricsIntervalSeconds:    "60",
 				})
 			},
 			method:     http.MethodGet,
@@ -522,10 +518,6 @@ func TestAPIContracts(t *testing.T) {
 					"enable_fingerprint_unification": true,
 					"enable_metadata_passthrough": false,
 					"web_search_emulation_enabled": false,
-					"payment_visible_method_alipay_source": "easypay_alipay",
-					"payment_visible_method_wxpay_source": "official_wxpay",
-					"payment_visible_method_alipay_enabled": true,
-					"payment_visible_method_wxpay_enabled": false,
 					"openai_ttft_mode": "semantic",
 					"openai_codex_user_agent":           "",
 					"openai_codex_client_version":       "",
@@ -534,27 +526,6 @@ func TestAPIContracts(t *testing.T) {
 					"openai_fast_policy_settings": {
 						"rules": []
 					},
-					"payment_enabled": false,
-					"payment_min_amount": 0,
-					"payment_max_amount": 0,
-					"payment_daily_limit": 0,
-					"payment_order_timeout_minutes": 0,
-					"payment_max_pending_orders": 0,
-					"payment_usd_to_cny_rate": 0,
-					"payment_recharge_fee_rate": 0,
-					"payment_load_balance_strategy": "",
-					"payment_product_name_prefix": "",
-					"payment_product_name_suffix": "",
-					"payment_help_image_url": "",
-					"payment_help_text": "",
-					"payment_enabled_types": null,
-					"payment_cancel_rate_limit_enabled": false,
-					"payment_cancel_rate_limit_max": 0,
-					"payment_cancel_rate_limit_window": 0,
-					"payment_cancel_rate_limit_unit": "",
-					"payment_cancel_rate_limit_window_mode": "",
-					"payment_alipay_force_qrcode": false,
-					"payment_alipay_mobile_precreate_deep_link": false,
 					"account_scheduling_thresholds": {"anthropic":100,"grok":100,"openai":100},
 					"channel_monitor_enabled": true,
 					"channel_monitor_mode": "v2",
@@ -679,7 +650,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, redeemService, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
-	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil)
+	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil)
 	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	jwtAuth := func(c *gin.Context) {

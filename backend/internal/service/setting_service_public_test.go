@@ -139,6 +139,24 @@ func TestSettingService_GetPublicSettings_ForceEmailOnThirdPartySignupComesFromC
 	require.Equal(t, ForceEmailOnThirdPartySignup, settings.ForceEmailOnThirdPartySignup)
 }
 
+// 在线支付开关由代码决定（写死关）：库里旧的 payment_enabled 开着也不生效。
+func TestSettingService_GetPublicSettings_PaymentEnabledComesFromCode(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			"payment_enabled": "true",
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, PaymentEnabled, settings.PaymentEnabled)
+	require.False(t, settings.PaymentEnabled)
+
+	payment := &PaymentConfigService{settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{"payment_enabled": "true"}}}
+	require.False(t, payment.IsPaymentEnabled(context.Background()))
+}
+
 // 「允许用户查看自己的错误请求」由代码决定：库里旧开关开着也不生效。
 func TestSettingService_AllowUserViewErrorRequestsComesFromCode(t *testing.T) {
 	repo := &settingPublicRepoStub{

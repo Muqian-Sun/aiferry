@@ -66,6 +66,10 @@ const (
 	ForceEmailOnThirdPartySignup = false
 )
 
+// PaymentEnabled 在线支付写死关（2026-09-26 定）：下单、支付页、后台支付设置都不出现，
+// 支付代码与支付配置接口保留，开支付时改这里再把后台那一节接回来。
+const PaymentEnabled = false
+
 // 新用户默认值（2026-09-26 定：写进代码，后台不再能改；不按注册来源区分，也不在首次绑定第三方时额外发放）。
 const (
 	// NewUserConcurrency 新用户默认并发。

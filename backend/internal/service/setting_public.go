@@ -109,7 +109,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingPaymentEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
@@ -183,7 +182,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMPEnabled:        weChatMPEnabled,
 		WeChatOAuthMobileEnabled:    weChatMobileEnabled,
 		BackendModeEnabled:          BackendModeEnabled,
-		PaymentEnabled:              settings[SettingPaymentEnabled] == "true",
+		PaymentEnabled:              PaymentEnabled,
 		GitHubOAuthEnabled:          gitHubEnabled,
 		GoogleOAuthEnabled:          googleEnabled,
 		BalanceLowNotifyEnabled:     notifyEnabled,
