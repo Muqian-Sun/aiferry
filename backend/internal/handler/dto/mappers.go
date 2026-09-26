@@ -534,7 +534,7 @@ func AccountSummaryFromService(a *service.Account) *AccountSummary {
 }
 
 func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
-	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、account、upstream_model）。
+	// 普通用户 DTO：严禁包含管理员字段（例如 account_id、account、upstream_model、session_id）。
 	requestType := l.EffectiveRequestType()
 	stream, openAIWSMode := service.ApplyLegacyRequestFields(requestType, l.Stream, l.OpenAIWSMode)
 	requestedModel := l.RequestedModel
@@ -545,7 +545,6 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ID:                        l.ID,
 		UserID:                    l.UserID,
 		APIKeyID:                  l.APIKeyID,
-		AccountID:                 l.AccountID,
 		RequestID:                 l.RequestID,
 		Model:                     requestedModel,
 		ServiceTier:               l.ServiceTier,
@@ -586,7 +585,6 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		MediaType:                 l.MediaType,
 		UserAgent:                 l.UserAgent,
 		IPAddress:                 l.IPAddress,
-		SessionID:                 l.SessionID,
 		CacheTTLOverridden:        l.CacheTTLOverridden,
 		BillingMode:               l.BillingMode,
 		CreatedAt:                 l.CreatedAt,
@@ -612,10 +610,11 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	if l == nil {
 		return nil
 	}
-	usageLog := usageLogFromServiceUser(l)
-	usageLog.UpstreamEndpoint = l.UpstreamEndpoint
 	return &AdminUsageLog{
-		UsageLog:                usageLog,
+		UsageLog:                usageLogFromServiceUser(l),
+		AccountID:               l.AccountID,
+		UpstreamEndpoint:        l.UpstreamEndpoint,
+		SessionID:               l.SessionID,
 		UpstreamModel:           l.UpstreamModel,
 		UpstreamReasoningEffort: adminUpstreamReasoningEffort(l),
 		UpstreamResponseModel:   l.UpstreamResponseModel,

@@ -116,7 +116,6 @@ func TestUsageLogFromService_IncludesServiceTierForUserAndAdmin(t *testing.T) {
 	require.Equal(t, serviceTier, *userDTO.ServiceTier)
 	require.NotNil(t, userDTO.InboundEndpoint)
 	require.Equal(t, inboundEndpoint, *userDTO.InboundEndpoint)
-	require.Nil(t, userDTO.UpstreamEndpoint)
 	require.NotNil(t, adminDTO.ServiceTier)
 	require.Equal(t, serviceTier, *adminDTO.ServiceTier)
 	require.NotNil(t, adminDTO.InboundEndpoint)
@@ -328,4 +327,35 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 
 func f64Ptr(value float64) *float64 {
 	return &value
+}
+
+// 用户接口不能让人看出请求走了哪个渠道：渠道 id、会话 id、上游端点只出现在管理员 DTO 的 JSON 里。
+func TestUsageLogFromService_UserJSONOmitsChannelSessionAndUpstreamEndpoint(t *testing.T) {
+	t.Parallel()
+
+	sessionID := "sess_1"
+	upstreamEndpoint := "/v1/responses"
+	log := &service.UsageLog{
+		RequestID:        "req_leak",
+		Model:            "gpt-5.4",
+		AccountID:        42,
+		SessionID:        &sessionID,
+		UpstreamEndpoint: &upstreamEndpoint,
+	}
+
+	userJSON, err := json.Marshal(UsageLogFromService(log))
+	require.NoError(t, err)
+	var userFields map[string]any
+	require.NoError(t, json.Unmarshal(userJSON, &userFields))
+	for _, key := range []string{"account_id", "session_id", "upstream_endpoint"} {
+		require.NotContains(t, userFields, key)
+	}
+
+	adminJSON, err := json.Marshal(UsageLogFromServiceAdmin(log))
+	require.NoError(t, err)
+	var adminFields map[string]any
+	require.NoError(t, json.Unmarshal(adminJSON, &adminFields))
+	require.EqualValues(t, 42, adminFields["account_id"])
+	require.Equal(t, sessionID, adminFields["session_id"])
+	require.Equal(t, upstreamEndpoint, adminFields["upstream_endpoint"])
 }
