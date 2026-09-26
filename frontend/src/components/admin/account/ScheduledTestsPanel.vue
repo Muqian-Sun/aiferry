@@ -467,7 +467,7 @@
 import { onMounted, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import InlineShell from '@/components/admin/list/InlineShell.vue'
+import InlineShell from '@/components/common/InlineShell.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'

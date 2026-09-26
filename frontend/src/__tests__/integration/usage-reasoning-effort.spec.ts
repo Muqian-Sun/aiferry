@@ -144,6 +144,7 @@ vi.mock('vue-i18n', async () => {
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
+  useRouter: () => ({ replace: vi.fn().mockResolvedValue(undefined) }),
 }))
 
 const layoutStub = { template: '<div><slot name="actions" /><slot name="tabs" /><slot /></div>' }

@@ -50,8 +50,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import PopoverMenu from './PopoverMenu.vue'
-import MenuItem from './MenuItem.vue'
+import PopoverMenu from '@/components/common/PopoverMenu.vue'
+import MenuItem from '@/components/common/MenuItem.vue'
 import type { RowAction } from './types'
 
 const props = defineProps<{ actions: RowAction[] }>()
