@@ -472,7 +472,6 @@ func TestAPIContracts(t *testing.T) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
 
-					service.SettingKeyOpsMonitoringEnabled:         "false",
 					service.SettingKeyOpsRealtimeMonitoringEnabled: "true",
 					service.SettingKeyOpsQueryModeDefault:          "auto",
 					service.SettingKeyOpsMetricsIntervalSeconds:    "60",
@@ -527,7 +526,6 @@ func TestAPIContracts(t *testing.T) {
 						"rules": []
 					},
 					"account_scheduling_thresholds": {"anthropic":100,"grok":100,"openai":100},
-					"channel_monitor_enabled": true,
 					"channel_monitor_mode": "v2",
 					"channel_monitor_hide_throughput": true,
 					"channel_monitor_show_quota": false,

@@ -39,13 +39,11 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyIdentityPatchPrompt: "",
 
 		// Ops monitoring defaults (vNext)
-		SettingKeyOpsMonitoringEnabled:         "true",
 		SettingKeyOpsRealtimeMonitoringEnabled: "true",
 		SettingKeyOpsQueryModeDefault:          "auto",
 		SettingKeyOpsMetricsIntervalSeconds:    "60",
 
 		// Channel monitor defaults (enabled, 60s)
-		SettingKeyChannelMonitorEnabled:                "true",
 		SettingKeyChannelMonitorMode:                   ChannelMonitorModeV2,
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
 		SettingKeyChannelMonitorHideThroughput:         "true",
@@ -145,7 +143,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.IdentityPatchPrompt = settings[SettingKeyIdentityPatchPrompt]
 
 	// Ops monitoring settings (default: enabled, fail-open)
-	result.OpsMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsMonitoringEnabled])
 	result.OpsRealtimeMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsRealtimeMonitoringEnabled])
 	result.OpsQueryModeDefault = string(ParseOpsQueryMode(settings[SettingKeyOpsQueryModeDefault]))
 	result.OpsMetricsIntervalSeconds = 60
@@ -162,7 +159,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 
 	// Channel monitor feature (default: enabled, 60s)
-	result.ChannelMonitorEnabled = !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled])
 	result.ChannelMonitorMode = ChannelMonitorModeV2 // V1 已下线，模式固定 v2
 	result.ChannelMonitorDefaultIntervalSeconds = parseChannelMonitorInterval(
 		settings[SettingKeyChannelMonitorDefaultIntervalSeconds],

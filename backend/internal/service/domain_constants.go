@@ -209,9 +209,6 @@ const (
 	// Ops Monitoring (vNext)
 	// =========================
 
-	// SettingKeyOpsMonitoringEnabled is a DB-backed soft switch to enable/disable ops module at runtime.
-	SettingKeyOpsMonitoringEnabled = "ops_monitoring_enabled"
-
 	// SettingKeyOpsRealtimeMonitoringEnabled controls realtime features (e.g. WS/QPS push).
 	SettingKeyOpsRealtimeMonitoringEnabled = "ops_realtime_monitoring_enabled"
 
@@ -236,10 +233,6 @@ const (
 	// =========================
 	// Channel Monitor (渠道监控)
 	// =========================
-
-	// SettingKeyChannelMonitorEnabled is a DB-backed soft switch for the channel monitor feature.
-	// When false: runner skips scheduling and user-facing endpoints return an empty list.
-	SettingKeyChannelMonitorEnabled = "channel_monitor_enabled"
 
 	// SettingKeyChannelMonitorMode used to select "v1" active probes or "v2" passive aggregation.
 	// V1 was retired from the admin console (2026-09-24): the mode is fixed to "v2" and the stored

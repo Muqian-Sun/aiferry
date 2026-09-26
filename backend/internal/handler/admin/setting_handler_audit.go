@@ -52,9 +52,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.IdentityPatchPrompt != after.IdentityPatchPrompt {
 		changed = append(changed, "identity_patch_prompt")
 	}
-	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
-		changed = append(changed, "ops_monitoring_enabled")
-	}
 	if before.OpsRealtimeMonitoringEnabled != after.OpsRealtimeMonitoringEnabled {
 		changed = append(changed, "ops_realtime_monitoring_enabled")
 	}
@@ -131,9 +128,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 		changed = append(changed, "openai_codex_version_auto_sync_enabled")
 	}
 	// 余额、订阅到期与账号限额通知
-	if before.ChannelMonitorEnabled != after.ChannelMonitorEnabled {
-		changed = append(changed, "channel_monitor_enabled")
-	}
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
 	}

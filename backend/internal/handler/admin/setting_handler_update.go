@@ -30,7 +30,6 @@ type UpdateSettingsRequest struct {
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
 
 	// Ops monitoring (vNext)
-	OpsMonitoringEnabled         *bool   `json:"ops_monitoring_enabled"`
 	OpsRealtimeMonitoringEnabled *bool   `json:"ops_realtime_monitoring_enabled"`
 	OpsQueryModeDefault          *string `json:"ops_query_mode_default"`
 	OpsMetricsIntervalSeconds    *int    `json:"ops_metrics_interval_seconds"`
@@ -63,7 +62,6 @@ type UpdateSettingsRequest struct {
 	CodexCLIOnlyEngineFingerprintSignals string `json:"codex_cli_only_engine_fingerprint_signals"`
 
 	// Channel Monitor feature switch
-	ChannelMonitorEnabled                *bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   *string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds *int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorHideThroughput         *bool   `json:"channel_monitor_hide_throughput"`
@@ -328,12 +326,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ProfitSafetyBuffer
 		}(),
-		OpsMonitoringEnabled: func() bool {
-			if req.OpsMonitoringEnabled != nil {
-				return *req.OpsMonitoringEnabled
-			}
-			return previousSettings.OpsMonitoringEnabled
-		}(),
 		OpsRealtimeMonitoringEnabled: func() bool {
 			if req.OpsRealtimeMonitoringEnabled != nil {
 				return *req.OpsRealtimeMonitoringEnabled
@@ -449,12 +441,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			return previousSettings.CodexCLIOnlyAllowAppServerClients
 		}(),
 		CodexCLIOnlyEngineFingerprintSignals: strings.TrimSpace(req.CodexCLIOnlyEngineFingerprintSignals),
-		ChannelMonitorEnabled: func() bool {
-			if req.ChannelMonitorEnabled != nil {
-				return *req.ChannelMonitorEnabled
-			}
-			return previousSettings.ChannelMonitorEnabled
-		}(),
 		ChannelMonitorMode: func() string {
 			if req.ChannelMonitorMode != nil {
 				return *req.ChannelMonitorMode
@@ -539,9 +525,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	if h.opsService != nil {
-		h.opsService.SetMonitoringEnabled(settings.OpsMonitoringEnabled)
-	}
 
 	// Update OpenAI fast policy (stored under dedicated key, only when provided).
 	if req.OpenAIFastPolicySettings != nil {
@@ -568,7 +551,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AdminRechargeRebateEnabled:             updatedSettings.AdminRechargeRebateEnabled,
 		EnableIdentityPatch:                    updatedSettings.EnableIdentityPatch,
 		IdentityPatchPrompt:                    updatedSettings.IdentityPatchPrompt,
-		OpsMonitoringEnabled:                   updatedSettings.OpsMonitoringEnabled,
+		OpsMonitoringEnabled:                   h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context()),
 		OpsRealtimeMonitoringEnabled:           updatedSettings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                    updatedSettings.OpsQueryModeDefault,
 		OpsMetricsIntervalSeconds:              updatedSettings.OpsMetricsIntervalSeconds,
@@ -595,7 +578,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CodexCLIOnlyAllowAppServerClients:      updatedSettings.CodexCLIOnlyAllowAppServerClients,
 		CodexCLIOnlyEngineFingerprintSignals:   updatedSettings.CodexCLIOnlyEngineFingerprintSignals,
 
-		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   updatedSettings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,

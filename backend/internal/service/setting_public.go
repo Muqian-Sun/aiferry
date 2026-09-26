@@ -109,7 +109,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
@@ -190,7 +189,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		BalanceLowNotifyThreshold:   BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL: rechargeURL,
 
-		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
+		ChannelMonitorEnabled:                ChannelMonitorEnabled,
 		ChannelMonitorMode:                   ChannelMonitorModeV2,
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
@@ -280,7 +279,6 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		}
 	}
 	vals, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
@@ -295,7 +293,7 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		}
 	}
 	return ChannelMonitorRuntime{
-		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
+		Enabled:                ChannelMonitorEnabled,
 		Mode:                   ChannelMonitorModeV2,
 		DefaultIntervalSeconds: parseChannelMonitorInterval(vals[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 		HideThroughput:         !isFalseSettingValue(vals[SettingKeyChannelMonitorHideThroughput]),

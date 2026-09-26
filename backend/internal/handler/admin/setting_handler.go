@@ -72,7 +72,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AdminRechargeRebateEnabled:             settings.AdminRechargeRebateEnabled,
 		EnableIdentityPatch:                    settings.EnableIdentityPatch,
 		IdentityPatchPrompt:                    settings.IdentityPatchPrompt,
-		OpsMonitoringEnabled:                   opsEnabled && settings.OpsMonitoringEnabled,
+		OpsMonitoringEnabled:                   opsEnabled,
 		OpsRealtimeMonitoringEnabled:           settings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:                    settings.OpsQueryModeDefault,
 		OpsMetricsIntervalSeconds:              settings.OpsMetricsIntervalSeconds,
@@ -101,7 +101,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		CodexCLIOnlyEngineFingerprintSignals:   settings.CodexCLIOnlyEngineFingerprintSignals,
 		WebSearchEmulationEnabled:              settings.WebSearchEmulationEnabled,
 
-		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,

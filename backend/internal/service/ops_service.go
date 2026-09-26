@@ -31,8 +31,7 @@ const (
 )
 
 type opsRuntimeSettingsSnapshot struct {
-	monitoringEnabled bool
-	advanced          OpsAdvancedSettings
+	advanced OpsAdvancedSettings
 }
 
 type OpsRuntimeSettingsRefreshHealth struct {
@@ -156,21 +155,8 @@ func (s *OpsService) IsMonitoringEnabled(ctx context.Context) bool {
 	if s.cfg != nil && !s.cfg.Ops.Enabled {
 		return false
 	}
-	if snapshot := s.runtimeSettings.Load(); snapshot != nil {
-		return snapshot.monitoringEnabled
-	}
-	// Directly assembled test services and failed cold loads remain fail-open,
-	// without turning a request into a settings-table lookup.
+	// 运维监控只认部署配置 OPS_ENABLED（默认开），后台不再有软开关。
 	return true
-}
-
-func parseOpsMonitoringEnabled(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "false", "0", "off", "disabled":
-		return false
-	default:
-		return true
-	}
 }
 
 func (s *OpsService) initRuntimeSettings(ctx context.Context) {
@@ -178,7 +164,7 @@ func (s *OpsService) initRuntimeSettings(ctx context.Context) {
 		return
 	}
 	defaults := defaultOpsAdvancedSettingsForConfig(s.cfg)
-	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{monitoringEnabled: true, advanced: *defaults})
+	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{advanced: *defaults})
 	_ = s.RefreshRuntimeSettings(ctx)
 }
 
@@ -196,7 +182,6 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 	defer s.runtimeSettingsMu.Unlock()
 
 	values, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyOpsMonitoringEnabled,
 		SettingKeyOpsAdvancedSettings,
 		SettingKeyOpsRuntimeLogConfig,
 	})
@@ -204,10 +189,6 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 		return err
 	}
 
-	monitoringEnabled := true
-	if raw, ok := values[SettingKeyOpsMonitoringEnabled]; ok {
-		monitoringEnabled = parseOpsMonitoringEnabled(raw)
-	}
 	advanced := defaultOpsAdvancedSettingsForConfig(s.cfg)
 	if raw, ok := values[SettingKeyOpsAdvancedSettings]; ok {
 		if err := json.Unmarshal([]byte(raw), advanced); err != nil {
@@ -216,7 +197,7 @@ func (s *OpsService) RefreshRuntimeSettings(ctx context.Context) error {
 	}
 	normalizeOpsAdvancedSettings(advanced)
 
-	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{monitoringEnabled: monitoringEnabled, advanced: *advanced})
+	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{advanced: *advanced})
 	if s.systemLogSink != nil {
 		persistAccessLogs := false
 		if raw, ok := values[SettingKeyOpsRuntimeLogConfig]; ok {
@@ -365,33 +346,12 @@ func (s *OpsService) RuntimeSettingsRefreshHealth() OpsRuntimeSettingsRefreshHea
 	}
 }
 
-// SetMonitoringEnabled publishes an already-persisted admin setting without a
-// database round trip.
-func (s *OpsService) SetMonitoringEnabled(enabled bool) {
-	if s == nil {
-		return
-	}
-	s.runtimeSettingsMu.Lock()
-	current := s.runtimeSettings.Load()
-	next := &opsRuntimeSettingsSnapshot{monitoringEnabled: enabled, advanced: *defaultOpsAdvancedSettingsForConfig(s.cfg)}
-	if current != nil {
-		next.advanced = current.advanced
-	}
-	s.runtimeSettings.Store(next)
-	s.runtimeSettingsMu.Unlock()
-}
-
 func (s *OpsService) storeAdvancedSettingsSnapshot(cfg *OpsAdvancedSettings) {
 	if s == nil || cfg == nil {
 		return
 	}
 	s.runtimeSettingsMu.Lock()
-	current := s.runtimeSettings.Load()
-	next := &opsRuntimeSettingsSnapshot{monitoringEnabled: true, advanced: *cfg}
-	if current != nil {
-		next.monitoringEnabled = current.monitoringEnabled
-	}
-	s.runtimeSettings.Store(next)
+	s.runtimeSettings.Store(&opsRuntimeSettingsSnapshot{advanced: *cfg})
 	s.runtimeSettingsMu.Unlock()
 }
 

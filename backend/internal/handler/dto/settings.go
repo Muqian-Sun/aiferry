@@ -37,7 +37,7 @@ type SystemSettings struct {
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
 
 	// Ops monitoring (vNext)
-	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"`
+	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"` // 只读：部署配置 OPS_ENABLED
 	OpsRealtimeMonitoringEnabled bool   `json:"ops_realtime_monitoring_enabled"`
 	OpsQueryModeDefault          string `json:"ops_query_mode_default"`
 	OpsMetricsIntervalSeconds    int    `json:"ops_metrics_interval_seconds"`
@@ -87,7 +87,6 @@ type SystemSettings struct {
 	// 余额、订阅到期与账号限额通知
 
 	// Channel Monitor feature switch
-	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`

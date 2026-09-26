@@ -66,6 +66,9 @@ const (
 	ForceEmailOnThirdPartySignup = false
 )
 
+// ChannelMonitorEnabled 渠道监控（用户站「服务状态」）写死开（2026-09-26 定），后台不再有开关。
+const ChannelMonitorEnabled = true
+
 // PaymentEnabled 在线支付写死关（2026-09-26 定）：下单、支付页、后台支付设置都不出现，
 // 支付代码与支付配置接口保留，开支付时改这里再把后台那一节接回来。
 const PaymentEnabled = false
