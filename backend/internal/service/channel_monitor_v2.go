@@ -469,9 +469,7 @@ func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter Channel
 	if err != nil {
 		return nil, err
 	}
-	// Dimension request_count is operational volume; strip for non-admin callers
-	// at the API edge. Dimensions is shared by user/admin routes — redaction is
-	// applied in the handler for user routes only, so keep raw here.
+	// 用户路由在 handler 层再换成只含模型名的白名单结构（dto.ServiceStatusDimensions）。
 	if !admin && dims != nil {
 		// 上游渠道（平台）只对管理员可见：清掉平台清单与模型上的平台标注。
 		dims.Platforms = []ChannelMonitorV2Dimension{}
@@ -591,19 +589,6 @@ func (s *ChannelMonitorV2Service) ErrorsForViewer(ctx context.Context, filter Ch
 		}
 	}
 	return list, nil
-}
-
-// RedactChannelMonitorV2Dimensions clears absolute request counts on filter chips.
-func RedactChannelMonitorV2Dimensions(dims *ChannelMonitorV2Dimensions) {
-	if dims == nil {
-		return
-	}
-	for i := range dims.Platforms {
-		dims.Platforms[i].RequestCount = 0
-	}
-	for i := range dims.Models {
-		dims.Models[i].RequestCount = 0
-	}
 }
 
 func redactChannelMonitorV2Snapshot(snap *ChannelMonitorV2Snapshot, hideThroughput bool) {
