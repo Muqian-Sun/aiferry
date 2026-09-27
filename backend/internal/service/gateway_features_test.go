@@ -19,18 +19,13 @@ import (
 
 // 这一组用例断言 gateway_features.go 里写死的值在调用链上真的生效（别处没有用例守着的几项）。
 
-// 进程一启动（不经过读后台设置）就用代码里的 Grok 映射选项：
-// 没配映射的 Grok 渠道不把 Claude / GPT 模型名映射成 Grok 模型（不换模型），"grok" 别名指向默认文本模型。
-func TestGrokDefaultMappingOptionsPublishedAtStartup(t *testing.T) {
-	require.Equal(t, xai.ModelMappingOptions{
-		DefaultText:          GrokDefaultTextModel,
-		EnableCrossClientMap: GrokCrossClientModelMapEnabled,
-	}, xai.RuntimeModelMappingOptions())
-
+// 没配映射的 Grok 渠道不把 Claude / GPT / Codex 模型名映射成 Grok 模型（不换模型），"grok" 别名指向默认文本模型。
+func TestGrokDefaultMappingNeverSubstitutesOtherVendors(t *testing.T) {
 	account := &Account{Platform: PlatformGrok, Credentials: map[string]any{}}
-	requireMappedModel(t, account, "claude-sonnet-4-5", "claude-sonnet-4-5")
-	requireMappedModel(t, account, "gpt-5.6", "gpt-5.6")
-	requireMappedModel(t, account, "grok", GrokDefaultTextModel)
+	for _, model := range []string{"claude-sonnet-4-5", "gpt-5.6", "codex-mini-latest", "o3"} {
+		requireMappedModel(t, account, model, model)
+	}
+	requireMappedModel(t, account, "grok", xai.DefaultTextModel)
 }
 
 // Beta 策略：fast-mode 对任何模型、任何渠道类型都从 anthropic-beta 里去掉，且不拦请求。

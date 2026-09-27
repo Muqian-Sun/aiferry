@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
 // 网关行为（2026-09-27 P4：转发、重试冷却、Claude Code / Codex、余额探测写进代码，后台不再能改）。
@@ -138,24 +137,9 @@ var betaPolicy = BetaPolicySettings{
 // openAIFastPolicy OpenAI service_tier（fast / flex）策略：不设规则，客户端传什么档位就按什么转发。
 var openAIFastPolicy = OpenAIFastPolicySettings{}
 
-// Grok：没配模型映射的 Grok 渠道，"grok" / "grok-latest" 这类别名发给哪个模型、默认走哪个上游地址。
-//
-// GrokCrossClientModelMapEnabled 打开时会把 gpt-* / codex-* / o* / claude-* 请求映射成 Grok 默认模型，
-// 等于拿别家模型兜底，违反「只接受同模型换渠道、绝不换模型」（2026-09-21/22 定），所以关。
-// 设置里原来的默认值是开，但它只在管理员打开设置页时才生效，进程重启后实际一直是关的。
-const (
-	GrokDefaultTextModel           = "grok-4.6"
-	GrokCrossClientModelMapEnabled = false
-	GrokDefaultBaseURLMode         = GrokDefaultBaseURLModeCLI
-)
-
-// 启动时把 Grok 默认映射选项交给 xai 包（原来只在读后台设置时才发布）。
-func init() {
-	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{
-		DefaultText:          GrokDefaultTextModel,
-		EnableCrossClientMap: GrokCrossClientModelMapEnabled,
-	})
-}
+// GrokDefaultBaseURLMode Grok 成品号默认走哪个上游地址：CLI 网关。
+// （"grok" / "grok-latest" 别名指向的默认文本模型是 xai.DefaultTextModel。）
+const GrokDefaultBaseURLMode = GrokDefaultBaseURLModeCLI
 
 // Claude Code / Codex 客户端限制：版本上下限都不限；codex_cli_only 渠道不设黑白名单、
 // 不放行 app-server 类客户端、引擎指纹信号用内置默认。

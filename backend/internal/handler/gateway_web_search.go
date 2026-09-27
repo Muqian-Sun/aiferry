@@ -54,7 +54,7 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 		maxResults = *req.MaxResults
 	}
 	maxResults = normalizeGrokWebSearchMaxResults(maxResults)
-	searchModel := resolveGrokStandaloneSearchModel()
+	searchModel := xai.DefaultTextModel
 	searchLabel := "web_search"
 	if isXSearch {
 		searchLabel = "x_search"

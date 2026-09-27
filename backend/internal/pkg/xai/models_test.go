@@ -7,9 +7,7 @@ import (
 )
 
 func TestDefaultModelMappingExcludesCrossClientWildcards(t *testing.T) {
-	original := RuntimeModelMappingOptions()
-	t.Cleanup(func() { SetRuntimeModelMappingOptions(original) })
-	SetRuntimeModelMappingOptions(ModelMappingOptions{})
+	t.Parallel()
 	mapping := DefaultModelMapping()
 
 	require.Equal(t, "grok-4.6", mapping["grok"])
@@ -21,23 +19,11 @@ func TestDefaultModelMappingExcludesCrossClientWildcards(t *testing.T) {
 	require.Equal(t, DefaultImagineVideo15Model, mapping["grok-imagine-video-1.5-preview"])
 	require.Equal(t, "grok-4.6", mapping["xai/grok"])
 
-	// Cross-vendor wildcards must stay opt-in.
-	_, hasGPT := mapping["gpt-*"]
-	_, hasClaude := mapping["claude-*"]
-	require.False(t, hasGPT)
-	require.False(t, hasClaude)
-}
-
-func TestModelMappingWithOptionsCrossClient(t *testing.T) {
-	t.Parallel()
-	mapping := ModelMappingWithOptions(ModelMappingOptions{
-		DefaultText:          "grok-4.3",
-		EnableCrossClientMap: true,
-	})
-	require.Equal(t, "grok-4.3", mapping["grok"])
-	require.Equal(t, "grok-4.3", mapping["gpt-*"])
-	require.Equal(t, "grok-4.3", mapping["claude-*"])
-	require.Equal(t, "grok-4.3", mapping["codex-*"])
+	// 不拿 Grok 顶别家模型：没有任何跨厂商通配。
+	for _, pattern := range []string{"gpt-*", "codex-*", "o1*", "o3*", "o4*", "claude-*"} {
+		_, has := mapping[pattern]
+		require.False(t, has, pattern)
+	}
 }
 
 func TestCanonicalImagineVideoModel(t *testing.T) {
