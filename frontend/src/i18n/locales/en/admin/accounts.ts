@@ -258,9 +258,7 @@ export default {
       opencodeGo: {
         accountMode: {
           zen: 'Zen',
-          zenDesc: 'Pay-as-you-go gateway. Consumes account credits, billed per token.',
           go: 'GO',
-          goDesc: 'Subscription gateway, rate-limited by 5-hour / weekly / monthly usage windows.',
         },
       },
       types: {
@@ -607,32 +605,11 @@ export default {
       // OpenAI specific hints
       openai: {
         apiKeyHint: 'Your OpenAI API Key',
-        oauthPassthrough: 'Auto passthrough (auth only)',
-        oauthPassthroughDesc:
-          'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
-        keyProtocolSettingsHint:
-          'For third-party keys, auto passthrough, WS mode and Compact settings only take effect when the protocol endpoints point to official OpenAI or a generic relay; the backend ignores them for other vendors\' official addresses.',
-        flattenNamespaces: 'Flatten Codex namespace tools (compatibility)',
-        flattenNamespacesDesc:
-          'Disabled by default: Codex namespace tool declarations are forwarded as-is on /responses, which is what the ChatGPT Codex backend expects. Enable only when this OAuth account is routed to a relay that rejects namespace tools — flattening renames them to namespace__tool, which breaks models that address collaboration tools as functions.<namespace>.<tool>. Compaction requests always flatten regardless of this switch.',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           'Disabled by default. Enable to allow responses_websockets_v2 capability (still gated by global and account-type switches).',
-        wsMode: 'WS mode',
-        wsModeDesc:
-          'Applies only to the current OpenAI account type. Select Off to disable WS. Other modes use the selected connection method only when gateway.openai_ws.mode_router_v2_enabled=true; otherwise, they use the context pool.',
-        wsModeOff: 'Off (off)',
-        wsModeCtxPool: 'Context Pool (ctx_pool)',
-        wsModePassthrough: 'Passthrough (passthrough)',
-        wsModeHttpBridge: 'HTTP Bridge (http_bridge)',
         wsModeShared: 'Shared (shared)',
         wsModeDedicated: 'Dedicated (dedicated)',
-        wsModeCtxPoolHint:
-          'The gateway gets and reuses upstream WS connections from a pool, with the pool limit determined by gateway configuration.',
-        wsModePassthroughHint:
-          'The gateway opens a separate upstream WS connection for each client session, without using a connection pool.',
-        wsModeHttpBridgeHint:
-          'The gateway converts client WS requests to upstream HTTP requests, then converts SSE streaming responses back into WS messages.',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           'Only applies to OpenAI OAuth. This account can use OpenAI WebSocket Mode only when enabled.',
@@ -641,63 +618,13 @@ export default {
           'Only applies to OpenAI API Key. This account can use OpenAI WebSocket Mode only when enabled.',
         responsesWebsocketsV2PassthroughHint:
           'Automatic passthrough is currently enabled: it only affects HTTP passthrough and does not disable WS mode.',
-        imagesUrlToB64Json: 'Image result URL to base64',
-        imagesUrlToB64JsonDesc:
-          'Only applies to non-streaming Images responses of OpenAI API Key accounts. When an upstream image item has a url but no b64_json, the gateway downloads the url and fills b64_json with its base64 content (url is kept) for clients built on the official API; the response is returned unchanged if the download fails.',
-        endpointCapabilities: 'Endpoint capabilities',
-        endpointCapabilitiesDesc:
-          'Used by account routing. The text endpoint accepts Responses and Chat Completions requests, forwarded over whichever protocol endpoints are configured; Embeddings independently controls /v1/embeddings.',
-        capabilityText: 'Responses / Chat Completions',
-        capabilityEmbeddings: 'Embeddings',
-        planType: 'Plan tier (manual override)',
-        planTypeDesc:
-          "Manually correct this account's ChatGPT plan tier (Plus / Pro / Free). Note: a token refresh near expiry or a 429 rate-limit response will auto-overwrite this with the real tier.",
-        planTypeClear: 'Clear (auto-detect)',
-        codexCLIOnly: 'Codex official clients only',
-        codexCLIOnlyDesc:
-          'Only applies to OpenAI OAuth. When enabled, only Codex official client families are allowed; when disabled, the gateway bypasses this restriction and keeps existing behavior.',
-        codexCLIOnlyAppServer: 'Allow Codex app-server clients',
-        codexCLIOnlyAppServerDesc:
-          "Effective only when the switch above is on. When enabled, this account also allows third-party clients that embed the Codex engine over the app-server protocol (e.g. Claude Code's codex plugin); they still pass the global engine-fingerprint gate. OR-combined with the global app-server toggle.",
-        codexFingerprintMode: 'Codex fingerprint convergence',
-        codexFingerprintModeDesc: 'When multiple users share the same OAuth account, converge device/session identifiers to account-level stable values to reduce upstream-visible device and session count. Off by default (client identifiers pass through as-is); opt in explicitly when needed. Some accounts reported quota shrinkage after enabling convergence, so choose based on your own measurements.',
-        codexFingerprintOff: 'Off (passthrough, default)',
-        codexFingerprintDevice: 'Device only',
-        codexFingerprintSession: 'Device + Session',
-        codexFingerprintFull: 'Full convergence',
-        codexImageTool: 'Codex image bridge policy',
-        codexImageToolDesc:
-          'Controls the hosted image_generation bridge and client-declared image tools on Codex /responses text requests. Hosted auto-injection applies only to non-Responses Lite requests. Account policy takes precedence over channel and global settings; standalone image-generation endpoints are unaffected.',
-        codexImageToolInherit: 'Follow channel',
-        codexImageToolInheritDesc: 'No account override; hosted injection for non-Lite requests follows the channel or global policy, while client-provided hosted tools and local image_gen declarations pass through.',
-        codexImageToolEnabled: 'Enable hosted bridge',
-        codexImageToolEnabledDesc: 'Inject the hosted image_generation tool only for non-Responses Lite requests; client-provided image tools still pass through.',
-        codexImageToolDisabled: 'No hosted injection',
-        codexImageToolDisabledDesc: 'Do not inject the hosted tool; client-provided hosted tools and local image_gen declarations still pass through.',
-        codexImageToolBlock: 'Strip client image tools',
-        codexImageToolBlockDesc: 'Do not auto-inject through the bridge, and remove client-provided hosted image_generation tools, local image_gen declarations, and matching tool_choice. Image-only model routing remains unaffected.',
-        codexImageToolBadgeInherit: 'Channel policy',
-        codexImageToolBadgeEnabled: 'Hosted bridge on',
-        codexImageToolBadgeDisabled: 'No hosted injection',
-        codexImageToolBadgeBlock: 'Client image tools stripped',
-        compactMode: 'Compact mode',
-        compactModeDesc:
-          'Controls how this account participates in /responses/compact routing. Auto follows probe results, Force On always allows, Force Off always excludes.',
-        compactModeAuto: 'Auto',
-        compactModeForceOn: 'Force On',
-        compactModeForceOff: 'Force Off',
-        compactModelMapping: 'Compact-only model mapping',
-        compactModelMappingDesc:
-          'Only applies to /responses/compact. Use this when the upstream compact endpoint requires a special compact model.',
         compactSupported: 'Compact supported',
         compactUnsupported: 'Compact unsupported',
-        compactAuto: 'Compact Auto',
         compactUnknown: 'Compact Auto',
         compactLastChecked: 'Last compact probe',
         testMode: 'Test mode',
         testModeDefault: 'Default request',
         testModeCompact: 'Compact probe',
-        modelRestrictionDisabledByPassthrough: 'Automatic passthrough is enabled: model whitelist/mapping will not take effect.',
       },
       grok: {
         baseUrlHint: 'Grok OAuth accounts forward to the official xAI API base URL.',
@@ -760,8 +687,6 @@ export default {
         bedrockCCCompatDesc:
           'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
       },
-      fromModel: 'Request model',
-      toModel: 'Target model',
       requestModel: 'Request model',
       actualModel: 'Actual model',
       addMapping: 'Add Mapping',
@@ -825,23 +750,8 @@ export default {
         }
       },
       grokClientToolCache: {
-        title: 'Client Tool Cache (May Change Automatic Tool Selection)',
-        hint: 'For detected Grok Free OAuth accounts, this is enabled by default for client function tools such as Codex and Trae. Turn it off to opt out if the automatic tool-selection behavior is not acceptable.'
       },
       grokMediaEligibility: {
-        title: 'Media Generation Eligibility',
-        hint: 'Controls whether this Grok OAuth account may be selected for image and video generation.',
-        auto: 'Automatic detection',
-        enabled: 'Force enable',
-        disabled: 'Force disable',
-        current: 'Current decision:',
-        eligible: 'Eligible',
-        ineligible: 'Not eligible',
-        loading: 'Loading eligibility…',
-        loadFailed: 'Unable to load media eligibility',
-        autoHint: 'Automatic detection only clears the manual override; it does not trigger a media request.',
-        forceEnableWarning: 'Force enable bypasses automatic eligibility checks. Use only for accounts confirmed to support image/video generation.',
-        partialSave: 'Other account settings may have been saved, but media eligibility was not updated. Please retry.',
         reasons: {
           eligible: 'Paid entitlement confirmed',
           billing_inconclusive: 'Billing information inconclusive',
@@ -852,19 +762,9 @@ export default {
           override_disabled: 'Manually forced disabled'
         }
       },
-	  autoPause5hThreshold: '5h Usage Threshold (%)',
-	  autoPause7dThreshold: '7d Usage Threshold (%)',
-	  autoPauseThresholdHint: 'Leave empty or set 0 to use the global default threshold (configured in Ops settings); set a value to override the global default. Reaching the threshold only skips the account during scheduling and does not modify schedulable.',
-	  autoPause5hDisabled: 'Disable 5h auto-pause',
-	  autoPause7dDisabled: 'Disable 7d auto-pause',
-	  autoPauseDisabledHint: 'When enabled, this account is never auto-paused (even if a global default threshold is configured).',
 	  autoResetCredit: {
 	    title: 'Automatically use reset credits',
 	    hint: 'Uses the earliest-expiring available credit only when actual 5h or 7d usage reaches 100%. Off by default; the account remains paused if no credit is available or reset fails.',
-	    threshold5h: '5h auto-reset threshold (%)',
-	    threshold7d: '7d auto-reset threshold (%)',
-	    thresholdHint: 'Each window is evaluated independently. Enter 0.1–100; both default to 100.',
-	    thresholdInvalid: 'Automatic reset-credit thresholds must be between 0.1% and 100%.'
 	  },
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
@@ -1231,20 +1131,11 @@ export default {
           'All model requests are forwarded directly to the Gemini API without model restrictions or mappings.',
         apiKeyHint: 'Your Gemini API Key (starts with AIza)',
         tier: {
-          label: 'Account Tier',
-          hint: 'Tip: The system will try to auto-detect the tier first; if auto-detection is unavailable or fails, your selected tier is used as a fallback (simulated quota).',
           googleOne: {
-            free: 'Google One Free',
-            pro: 'Google One Pro',
-            ultra: 'Google One Ultra'
           },
           gcp: {
-            standard: 'GCP Standard',
-            enterprise: 'GCP Enterprise'
           },
           aiStudio: {
-            free: 'Google AI Free',
-            paid: 'Google AI Pay-as-you-go'
           }
         },
         accountType: {

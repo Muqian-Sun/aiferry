@@ -103,11 +103,6 @@ const (
 	OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
 )
 
-// openAIEndpointCapabilitiesCredentialKey 渠道级「端点能力」配置集的键。2026-09-28 P5 起
-// 运行时不再读它（不按渠道限制）；只剩批量编辑的规范化（openai_bulk_account_settings.go）
-// 还引用，随批量入口一起删。
-const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
-
 const (
 	OpenAIAuthModePersonalAccessToken = "personalAccessToken"
 	openAIAuthModeCredentialKey       = "auth_mode"

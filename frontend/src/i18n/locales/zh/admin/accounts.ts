@@ -430,9 +430,7 @@ export default {
       opencodeGo: {
         accountMode: {
           zen: 'Zen',
-          zenDesc: '按量付费网关，消耗账户余额，按 Token 计费。',
           go: 'GO',
-          goDesc: '订阅制网关，按 5 小时 / 周 / 月滚动用量窗口限流。',
         },
       },
       types: {
@@ -729,29 +727,11 @@ export default {
       // OpenAI specific hints
       openai: {
         apiKeyHint: '您的 OpenAI API Key',
-        oauthPassthrough: '自动透传（仅替换认证）',
-        oauthPassthroughDesc:
-          '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
-        keyProtocolSettingsHint:
-          '第三方 key 的自动透传、WS mode 与 Compact 设置只在协议地址指向 OpenAI 官方或通用中转时生效；指向其他厂商官方地址时后端会忽略。',
-        flattenNamespaces: '摊平 Codex namespace 工具（兼容）',
-        flattenNamespacesDesc:
-          '默认关闭：/responses 上的 namespace 工具声明原样转发，这正是 ChatGPT Codex 后端期望的形态。仅当该 OAuth 渠道指向不认识 namespace 的兼容上游时才开启——摊平会把工具改名为 namespace__tool，使按 functions.<命名空间>.<工具> 寻址的模型（如 gpt-5.6 多智能体）无法调用。压缩（compact）请求不受该开关影响，始终摊平。',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           '默认关闭。开启后可启用 responses_websockets_v2 协议能力（受网关全局开关与渠道类型开关约束）。',
-        wsMode: 'WS mode',
-        wsModeDesc:
-          '仅对当前 OpenAI 账号类型生效。选择“关闭”可禁用 WS；其余模式需全局 gateway.openai_ws.mode_router_v2_enabled=true 才按所选方式连接，未开启时统一使用上下文池。',
-        wsModeOff: '关闭（off）',
-        wsModeCtxPool: '上下文池（ctx_pool）',
-        wsModePassthrough: '透传（passthrough）',
-        wsModeHttpBridge: 'HTTP 桥接（http_bridge）',
         wsModeShared: '共享（shared）',
         wsModeDedicated: '独享（dedicated）',
-        wsModeCtxPoolHint: '网关从连接池获取并复用上游 WS 连接，连接池上限由网关配置决定。',
-        wsModePassthroughHint: '网关为每个客户端会话单独建立上游 WS 连接，不使用连接池。',
-        wsModeHttpBridgeHint: '网关将客户端 WS 请求转换为上游 HTTP 请求，再将 SSE 流式响应转换为 WS 消息返回。',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           '仅对 OpenAI OAuth 生效。开启后该渠道才允许使用 OpenAI WebSocket Mode 协议。',
@@ -759,60 +739,13 @@ export default {
         apiKeyResponsesWebsocketsV2Desc:
           '仅对 OpenAI API Key 生效。开启后该渠道才允许使用 OpenAI WebSocket Mode 协议。',
         responsesWebsocketsV2PassthroughHint: '当前已开启自动透传：仅影响 HTTP 透传链路，不影响 WS mode。',
-        imagesUrlToB64Json: '生图结果 URL 转 base64',
-        imagesUrlToB64JsonDesc:
-          '仅对 OpenAI API Key 的 Images 非流式响应生效。上游返回的图片缺少 b64_json 但带 url 时，网关下载该 url 并以 base64 回填 b64_json（url 保留），兼容按官方接口实现的客户端；下载失败则原样返回。',
-        endpointCapabilities: '端点能力',
-        endpointCapabilitiesDesc:
-          '用于调度筛选。文本端点接收 Responses 与 Chat Completions 请求，按已配置的协议地址转发；Embeddings 独立控制 /v1/embeddings。',
-        capabilityText: 'Responses / Chat Completions',
-        capabilityEmbeddings: 'Embeddings',
-        planType: '订阅档位（手动覆盖）',
-        planTypeDesc: '手动纠正本渠道的 ChatGPT 订阅档位（Plus / Pro / Free）。注意：令牌临期刷新或命中 429 限流时，会用真实档位自动覆盖此处设置。',
-        planTypeClear: '清空（自动识别）',
-        codexCLIOnly: '仅允许 Codex 官方客户端',
-        codexCLIOnlyDesc: '仅对 OpenAI OAuth 生效。开启后仅允许 Codex 官方客户端家族访问；关闭后完全绕过并保持原逻辑。',
-        codexCLIOnlyAppServer: '允许 Codex app-server 客户端',
-        codexCLIOnlyAppServerDesc: '仅在上方开关开启时生效。开启后本渠道额外放行内嵌 Codex 引擎、经 app-server 协议接入的第三方客户端（如 Claude Code 的 codex 插件），仍需通过全局引擎指纹门；与全局 app-server 开关取 OR（任一开即放行）。',
-        codexFingerprintMode: 'Codex 指纹收敛',
-        codexFingerprintModeDesc: '多人共享同一 OAuth 渠道时，将各用户的设备/会话标识收敛为渠道级恒定值，减少上游可见的设备数和会话数。默认关闭（原样透传客户端标识），需要时再显式开启；部分渠道开启收敛后出现过额度缩水，请按自己的实测结果选择。',
-        codexFingerprintOff: '关闭（透传，默认）',
-        codexFingerprintDevice: '仅设备',
-        codexFingerprintSession: '设备+会话',
-        codexFingerprintFull: '完全收敛',
-        codexImageTool: 'Codex 图片桥接策略',
-        codexImageToolDesc:
-          '统一控制 Codex /responses 文本请求的 hosted image_generation 桥接和客户端图片工具声明。hosted 工具自动注入仅适用于非 Responses Lite 请求；渠道级策略优先于渠道和全局配置，不影响独立图片生成接口。',
-        codexImageToolInherit: '跟随渠道',
-        codexImageToolInheritDesc: '不写入渠道覆盖；非 Lite 请求是否注入 hosted 工具由渠道或全局策略决定，客户端显式携带的 hosted 工具和本地 image_gen 声明照常放行。',
-        codexImageToolEnabled: '启用 Hosted 桥接',
-        codexImageToolEnabledDesc: '仅为非 Responses Lite 请求注入 hosted image_generation 工具；客户端显式携带的图片工具仍会放行。',
-        codexImageToolDisabled: '不注入 Hosted 工具',
-        codexImageToolDisabledDesc: '不注入 hosted 工具；客户端显式携带的 hosted 工具和本地 image_gen 声明仍会放行。',
-        codexImageToolBlock: '移除客户端图片工具',
-        codexImageToolBlockDesc: '不通过桥接自动注入 hosted 工具，并移除客户端显式携带的 hosted image_generation 工具、本地 image_gen 声明及相关 tool_choice；image-only 模型路由不受影响。',
-        codexImageToolBadgeInherit: '渠道策略',
-        codexImageToolBadgeEnabled: 'Hosted 桥接已开启',
-        codexImageToolBadgeDisabled: '不注入 Hosted 工具',
-        codexImageToolBadgeBlock: '客户端图片工具已移除',
-        compactMode: 'Compact 模式',
-        compactModeDesc:
-          '控制本渠道在 /responses/compact 调度中的参与方式。Auto 跟随探测结果，Force On 强制允许，Force Off 强制排除。',
-        compactModeAuto: '自动',
-        compactModeForceOn: '强制开启',
-        compactModeForceOff: '强制关闭',
-        compactModelMapping: 'Compact 专属模型映射',
-        compactModelMappingDesc:
-          '仅在 /responses/compact 请求中生效。当上游 compact 端点需要特殊 compact 模型时使用。',
         compactSupported: '支持 Compact',
         compactUnsupported: '不支持 Compact',
-        compactAuto: 'Compact Auto',
         compactUnknown: 'Compact Auto',
         compactLastChecked: '最近探测',
         testMode: '测试模式',
         testModeDefault: '常规请求',
         testModeCompact: 'Compact 探测',
-        modelRestrictionDisabledByPassthrough: '已开启自动透传：模型白名单/映射不会生效。',
       },
       grok: {
         baseUrlHint: 'Grok OAuth 渠道会转发到官方 xAI API Base URL。',
@@ -874,8 +807,6 @@ export default {
         bedrockCCCompatDesc:
           '转发前清理 Claude Code 专有请求字段并过滤上游不支持的 anthropic-beta，适用于按 Bedrock Anthropic 方言接入的上游。',
       },
-      fromModel: '请求模型',
-      toModel: '目标模型',
       requestModel: '请求模型',
       actualModel: '实际模型',
       addMapping: '添加映射',
@@ -936,23 +867,8 @@ export default {
         }
       },
       grokClientToolCache: {
-        title: '客户端工具缓存（可能改变自动工具选择）',
-        hint: '仅对已识别为 Free 的 Grok OAuth 渠道生效，默认会为 Codex、Trae 等客户端函数工具请求启用上游提示缓存；如不接受自动工具选择行为，可关闭此开关退出。'
       },
       grokMediaEligibility: {
-        title: '媒体生成资格',
-        hint: '控制该 Grok OAuth 渠道是否可被图片和视频生成请求选中。',
-        auto: '自动判断',
-        enabled: '强制启用',
-        disabled: '强制禁用',
-        current: '当前判定：',
-        eligible: '可用',
-        ineligible: '不可用',
-        loading: '正在读取媒体资格…',
-        loadFailed: '无法读取媒体资格',
-        autoHint: '自动判断只会清除手工覆盖，不会主动触发媒体请求。',
-        forceEnableWarning: '强制启用会绕过自动资格检查，仅应对已确认支持生图/生视频的渠道使用。',
-        partialSave: '渠道其他配置可能已保存，但媒体资格未更新，请重试。',
         reasons: {
           eligible: '已确认付费资格',
           billing_inconclusive: 'Billing 信息不明确',
@@ -963,19 +879,9 @@ export default {
           override_disabled: '手工强制禁用'
         }
       },
-	  autoPause5hThreshold: '5h 用量阈值(%)',
-	  autoPause7dThreshold: '7d 用量阈值(%)',
-	  autoPauseThresholdHint: '留空或填 0 表示使用全局默认阈值（在运维设置中配置）；填具体值则覆盖全局默认。达到阈值后仅在调度时跳过渠道，不修改 schedulable。',
-	  autoPause5hDisabled: '禁用 5h 自动暂停',
-	  autoPause7dDisabled: '禁用 7d 自动暂停',
-	  autoPauseDisabledHint: '开启后该渠道永不进入自动暂停（即使全局默认阈值已配置）。',
 	  autoResetCredit: {
 	    title: '自动使用重置卡',
 	    hint: '仅在 5h 或 7d 窗口实际用量达到 100% 时使用最早到期的可用卡；默认关闭。无卡或失败时渠道保持暂停。',
-	    threshold5h: '5h 自动用卡阈值(%)',
-	    threshold7d: '7d 自动用卡阈值(%)',
-	    thresholdHint: '两个窗口独立判断，任一达到自身阈值即触发。可填写 0.1–100，默认均为 100。',
-	    thresholdInvalid: '自动使用重置卡阈值必须在 0.1% 到 100% 之间。'
 	  },
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
@@ -1331,20 +1237,11 @@ export default {
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
         apiKeyHint: '您的 Gemini API Key（以 AIza 开头）',
         tier: {
-          label: '账号等级',
-          hint: '提示：系统会优先尝试自动识别账号等级；若自动识别不可用或失败，则使用你选择的等级作为回退（本地模拟配额）。',
           googleOne: {
-            free: 'Google One Free',
-            pro: 'Google One Pro',
-            ultra: 'Google One Ultra'
           },
           gcp: {
-            standard: 'GCP Standard',
-            enterprise: 'GCP Enterprise'
           },
           aiStudio: {
-            free: 'Google AI Free',
-            paid: 'Google AI Pay-as-you-go'
           }
         },
         accountType: {

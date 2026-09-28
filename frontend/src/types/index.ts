@@ -822,8 +822,6 @@ export interface Account {
       credits?: { expires_at?: string }[]
     }
     auto_reset_credit_enabled?: boolean
-    auto_reset_credit_5h_threshold?: number
-    auto_reset_credit_7d_threshold?: number
     codex_auto_reset_credit_state?: {
       status?: 'checking' | 'available' | 'resetting' | 'success' | 'no_credit' | 'failed'
       trigger_window?: string
@@ -1039,9 +1037,6 @@ export interface CodexUsageSnapshot {
 
   codex_usage_updated_at?: string // Last update timestamp
 }
-
-export type OpenAICompactMode = 'auto' | 'force_on' | 'force_off'
-export type OpenAIEndpointCapability = 'chat_completions' | 'embeddings'
 
 export interface OpenAICompactState {
   openai_compact_supported?: boolean
