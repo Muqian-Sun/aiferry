@@ -112,7 +112,7 @@ func TestResetAccountQuota_ClearsQuotaCounterPauseOnly(t *testing.T) {
 	})
 	t.Run("other pause preserved", func(t *testing.T) {
 		repo := &resetAccountQuotaRepoStub{account: &Account{ID: 42, TempUnschedulableUntil: &future,
-			TempUnschedulableReason: BuildTempUnschedReasonPayload(windowCostSource, "window cost 2 >= 1")}}
+			TempUnschedulableReason: BuildTempUnschedReasonPayload(grokFreeQuotaSource, "xai free tier local usage 480000 tokens >= soft gate 450000")}}
 		svc := &adminServiceImpl{accountRepo: repo}
 		require.NoError(t, svc.ResetAccountQuota(context.Background(), 42))
 		require.Equal(t, []string{"reset_quota_and_clear_rate_limit_cooldown"}, repo.callOrder)

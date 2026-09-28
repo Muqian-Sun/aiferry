@@ -12,29 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type windowCostCacheStub struct {
-	SessionLimitCache
-	cost    map[int64]float64
-	setCost map[int64]float64
-}
-
-func (c *windowCostCacheStub) GetWindowCost(_ context.Context, accountID int64) (float64, bool, error) {
-	cost, ok := c.cost[accountID]
-	return cost, ok, nil
-}
-
-func (c *windowCostCacheStub) SetWindowCost(_ context.Context, accountID int64, cost float64) error {
-	if c.setCost == nil {
-		c.setCost = map[int64]float64{}
-	}
-	c.setCost[accountID] = cost
-	if c.cost == nil {
-		c.cost = map[int64]float64{}
-	}
-	c.cost[accountID] = cost
-	return nil
-}
-
 type windowStatsRepoStub struct {
 	usageBatchLogRepoStub
 	stats *usagestats.AccountStats
@@ -46,80 +23,6 @@ func (r *windowStatsRepoStub) GetAccountWindowStats(context.Context, int64, time
 	return r.stats, nil
 }
 
-func windowCostAccount(id int64, accountType string, limit float64, windowEnd time.Time) *Account {
-	return &Account{
-		ID: id, Platform: PlatformAnthropic, Type: accountType, Status: StatusActive, Schedulable: true,
-		SessionWindowStart: ptrTime(windowEnd.Add(-5 * time.Hour)),
-		SessionWindowEnd:   ptrTime(windowEnd),
-		Extra:              map[string]any{"window_cost_limit": limit},
-	}
-}
-
-func TestApplyAccountUsageState_WindowCostPausesUntilWindowEnd(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	cache := &windowCostCacheStub{cost: map[int64]float64{3001: 0.6}}
-	rl.SetSessionLimitCache(cache)
-	windowEnd := time.Now().Add(2 * time.Hour).Truncate(time.Second)
-	account := windowCostAccount(3001, AccountTypeOAuth, 1.0, windowEnd)
-
-	rl.ApplyAccountUsageState(context.Background(), account, "claude-sonnet-4-5", 0.5)
-
-	require.Equal(t, 1.1, cache.setCost[3001], "本次费用累进缓存")
-	require.Equal(t, 1, repo.tempCalls)
-	require.NotNil(t, account.TempUnschedulableUntil)
-	require.True(t, account.TempUnschedulableUntil.Equal(windowEnd), "停到窗口结束")
-	payload, ok := parseTempUnschedReasonPayload(repo.lastTempReason)
-	require.True(t, ok)
-	require.Equal(t, windowCostSource, payload.Source)
-}
-
-func TestApplyAccountUsageState_WindowCostAtLimitPauses(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	rl.SetSessionLimitCache(&windowCostCacheStub{cost: map[int64]float64{3010: 0.5}})
-	account := windowCostAccount(3010, AccountTypeOAuth, 1.0, time.Now().Add(time.Hour))
-
-	rl.ApplyAccountUsageState(context.Background(), account, "claude-sonnet-4-5", 0.5)
-
-	require.Equal(t, 1, repo.tempCalls, "费用 == 阈值即停（与原 CheckWindowCostSchedulability 一致）")
-}
-
-func TestApplyAccountUsageState_WindowCostBelowLimitAllows(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	rl.SetSessionLimitCache(&windowCostCacheStub{cost: map[int64]float64{3002: 0.3}})
-	account := windowCostAccount(3002, AccountTypeOAuth, 1.0, time.Now().Add(time.Hour))
-
-	rl.ApplyAccountUsageState(context.Background(), account, "claude-sonnet-4-5", 0.5)
-
-	require.Zero(t, repo.tempCalls)
-}
-
-// 原则 4：任何设了 window_cost_limit 的资源都算，不问类型（原来只算 Anthropic OAuth / setup token）。
-func TestApplyAccountUsageState_WindowCostAppliesToAnyAccountWithLimit(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	rl.SetSessionLimitCache(&windowCostCacheStub{cost: map[int64]float64{3003: 2.0}})
-	account := windowCostAccount(3003, AccountTypeAPIKey, 1.0, time.Now().Add(time.Hour))
-	account.ProtocolEndpoints = map[string]string{APIProtocolAnthropic: "https://relay.example.com"}
-
-	rl.ApplyAccountUsageState(context.Background(), account, "claude-sonnet-4-5", 0.1)
-
-	require.Equal(t, 1, repo.tempCalls)
-}
-
-func TestApplyAccountUsageState_WindowCostFallsBackToUsageLogsOnCacheMiss(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	usage := &windowStatsRepoStub{stats: &usagestats.AccountStats{StandardCost: 1.5}}
-	rl.usageRepo = usage
-	cache := &windowCostCacheStub{}
-	rl.SetSessionLimitCache(cache)
-	account := windowCostAccount(3004, AccountTypeOAuth, 1.0, time.Now().Add(time.Hour))
-
-	rl.ApplyAccountUsageState(context.Background(), account, "claude-sonnet-4-5", 0.2)
-
-	require.Equal(t, 1, usage.calls, "缓存未命中从用量日志聚合")
-	require.Equal(t, 1.5, cache.setCost[3004], "聚合结果回填缓存")
-	require.Equal(t, 1, repo.tempCalls)
-}
-
 func TestApplyAccountUsageState_GrokFreeQuotaPauses(t *testing.T) {
 	rl, repo := quotaStateTestService(t)
 	rl.cfg = grokFreeQuotaTestConfig()
@@ -127,7 +30,7 @@ func TestApplyAccountUsageState_GrokFreeQuotaPauses(t *testing.T) {
 	account := &Account{ID: 3005, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
 		Credentials: map[string]any{"subscription_tier": "free"}}
 
-	rl.ApplyAccountUsageState(context.Background(), account, "grok-4.5", 0)
+	rl.ApplyAccountUsageState(context.Background(), account, "grok-4.5")
 
 	require.Equal(t, 1, repo.tempCalls)
 	payload, ok := parseTempUnschedReasonPayload(repo.lastTempReason)
@@ -138,7 +41,7 @@ func TestApplyAccountUsageState_GrokFreeQuotaPauses(t *testing.T) {
 	// 非 free 档不受影响。
 	paid := &Account{ID: 3006, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
 		Credentials: map[string]any{"subscription_tier": "supergrok"}}
-	rl.ApplyAccountUsageState(context.Background(), paid, "grok-4.5", 0)
+	rl.ApplyAccountUsageState(context.Background(), paid, "grok-4.5")
 	require.Equal(t, 1, repo.tempCalls)
 }
 
@@ -154,7 +57,7 @@ func TestApplyAccountUsageState_GeminiLocalRPDSetsModelRateLimit(t *testing.T) {
 		Credentials: map[string]any{"oauth_type": "ai_studio", "tier_id": GeminiTierAIStudioFree}}
 	require.Equal(t, PlatformGemini, official.Vendor())
 
-	rl.ApplyAccountUsageState(context.Background(), official, "gemini-2.5-pro", 0)
+	rl.ApplyAccountUsageState(context.Background(), official, "gemini-2.5-pro")
 
 	require.Equal(t, []string{geminiLocalQuotaScope(geminiModelPro)}, repo.scopes, "只挡 pro 档")
 	require.WithinDuration(t, geminiDailyResetTime(time.Now()), repo.lastResetAt, 2*time.Second)
@@ -165,7 +68,7 @@ func TestApplyAccountUsageState_GeminiLocalRPDSetsModelRateLimit(t *testing.T) {
 	relay.ID = 3008
 	relay.Status, relay.Schedulable = StatusActive, true
 	require.Empty(t, relay.Vendor())
-	rl.ApplyAccountUsageState(context.Background(), relay, "gemini-2.5-pro", 0)
+	rl.ApplyAccountUsageState(context.Background(), relay, "gemini-2.5-pro")
 	require.Len(t, repo.scopes, 1, "中转 key 没有官方档位配额")
 }
 
@@ -189,7 +92,7 @@ func TestApplyAccountUsageState_QuotaCounterReloadsAndPauses(t *testing.T) {
 	fresh.Extra = map[string]any{"quota_limit": 1.0, "quota_used": 1.0}
 	repo.accountsByID = map[int64]*Account{3009: &fresh}
 
-	rl.ApplyAccountUsageState(context.Background(), stale, "claude-sonnet-4-5", 0.5)
+	rl.ApplyAccountUsageState(context.Background(), stale, "claude-sonnet-4-5")
 
 	require.Equal(t, 1, repo.tempCalls, "按重读后的计数停调")
 	payload, ok := parseTempUnschedReasonPayload(repo.lastTempReason)
@@ -197,15 +100,18 @@ func TestApplyAccountUsageState_QuotaCounterReloadsAndPauses(t *testing.T) {
 	require.Equal(t, quotaCounterSource, payload.Source)
 }
 
-// 两个网关的用量入账末尾都是状态写入点：入账后账号的窗口费用超限即停调。
+// 两个网关的用量入账末尾都是状态写入点：入账后账号的配额计数（重读后）用满即停调。
 func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
+	account := func() *Account {
+		return &Account{ID: 3, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
+			Extra: map[string]any{"quota_limit": 1.0, "quota_used": 0.5}}
+	}
 	newRateLimit := func() (*RateLimitService, *rateLimitAccountRepoStub) {
 		rl, repo := quotaStateTestService(t)
-		rl.SetSessionLimitCache(&windowCostCacheStub{cost: map[int64]float64{3: 1.5}})
+		fresh := account()
+		fresh.Extra = map[string]any{"quota_limit": 1.0, "quota_used": 1.0}
+		repo.accountsByID = map[int64]*Account{3: fresh}
 		return rl, repo
-	}
-	account := func() *Account {
-		return windowCostAccount(3, AccountTypeOAuth, 1.0, time.Now().Add(time.Hour))
 	}
 
 	t.Run("anthropic gateway", func(t *testing.T) {
@@ -219,7 +125,7 @@ func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
 			Account: account(),
 		})
 		require.NoError(t, err)
-		require.Equal(t, 1, repo.tempCalls, "入账后窗口费用超限 → 停调")
+		require.Equal(t, 1, repo.tempCalls, "入账后配额用满 → 停调")
 	})
 
 	t.Run("openai gateway", func(t *testing.T) {
@@ -233,6 +139,6 @@ func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
 			Account: account(),
 		})
 		require.NoError(t, err)
-		require.Equal(t, 1, repo.tempCalls, "入账后窗口费用超限 → 停调")
+		require.Equal(t, 1, repo.tempCalls, "入账后配额用满 → 停调")
 	})
 }

@@ -34,8 +34,6 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 		},
 		Extra: map[string]any{
 			"base_rpm":                 12,
-			"rpm_strategy":             "sticky_exempt",
-			"rpm_sticky_buffer":        4,
 			"openai_compact_mode":      service.OpenAICompactModeForceOff,
 			"openai_compact_supported": true,
 		},
@@ -44,7 +42,6 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 		compactSupported, compactKnown := a.OpenAICompactSupportKnown()
 		return map[string]any{
 			"base_rpm":          a.GetBaseRPM(),
-			"rpm_strategy":      a.GetRPMStrategy(),
 			"rpm_sticky_buffer": a.GetRPMStickyBuffer(),
 			"rpm_at_limit":      a.CheckRPMSchedulability(12),
 			"unmapped_model":    a.IsModelSupported("gpt-5.4-mini"),
@@ -104,8 +101,7 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 func TestSchedulerMetadataWhitelistCoversAdmissionPath(t *testing.T) {
 	// 有意不进投影的键：键 → 理由
 	exempt := map[string]string{
-		"credentials.access_token":     "Grok 档位的最新信号（JWT 里的 tier）；另有 subscription_tier 与 grok_billing_snapshot，整段 token 不进每次选号都读的 meta",
-		"extra.enable_tls_fingerprint": "listSchedulableAccounts 里只用于调试日志",
+		"credentials.access_token": "Grok 档位的最新信号（JWT 里的 tier）；另有 subscription_tier 与 grok_billing_snapshot，整段 token 不进每次选号都读的 meta",
 	}
 	// 下标不是字面量的函数：函数名 → 理由
 	dynamicOK := map[string]string{

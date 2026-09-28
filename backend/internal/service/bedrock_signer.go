@@ -19,13 +19,12 @@ type BedrockSigner struct {
 	signer      *v4.Signer
 }
 
-// NewBedrockSigner 创建 BedrockSigner
-func NewBedrockSigner(accessKeyID, secretAccessKey, sessionToken, region string) *BedrockSigner {
+// NewBedrockSigner 创建 BedrockSigner（只用长期 Access Key；AWS Session Token 已删，2026-09-28 P5）
+func NewBedrockSigner(accessKeyID, secretAccessKey, region string) *BedrockSigner {
 	return &BedrockSigner{
 		credentials: aws.Credentials{
 			AccessKeyID:     accessKeyID,
 			SecretAccessKey: secretAccessKey,
-			SessionToken:    sessionToken,
 		},
 		region: region,
 		signer: v4.NewSigner(),
@@ -46,9 +45,7 @@ func NewBedrockSignerFromAccount(account *Account) (*BedrockSigner, error) {
 	if region == "" {
 		region = defaultBedrockRegion
 	}
-	sessionToken := account.GetCredential("aws_session_token") // 可选
-
-	return NewBedrockSigner(accessKeyID, secretAccessKey, sessionToken, region), nil
+	return NewBedrockSigner(accessKeyID, secretAccessKey, region), nil
 }
 
 // SignRequest 对 HTTP 请求进行 SigV4 签名

@@ -6,69 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
-	t.Run("Anthropic API Key 开启", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Extra: map[string]any{
-				"anthropic_passthrough": true,
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-		}
-		require.True(t, account.IsAnthropicAPIKeyPassthroughEnabled())
-	})
-
-	t.Run("Anthropic API Key 关闭", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Extra: map[string]any{
-				"anthropic_passthrough": false,
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-		}
-		require.False(t, account.IsAnthropicAPIKeyPassthroughEnabled())
-	})
-
-	t.Run("字段类型非法默认关闭", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Extra: map[string]any{
-				"anthropic_passthrough": "true",
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-		}
-		require.False(t, account.IsAnthropicAPIKeyPassthroughEnabled())
-	})
-
-	t.Run("成品号始终关闭", func(t *testing.T) {
-		oauth := &Account{
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeOAuth,
-			Extra: map[string]any{
-				"anthropic_passthrough": true,
-			},
-		}
-		require.False(t, oauth.IsAnthropicAPIKeyPassthroughEnabled())
-	})
-
-	t.Run("任何标签的第三方 key 开启即生效", func(t *testing.T) {
-		for _, label := range []string{PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformKimi} {
-			key := &Account{
-				Platform: label,
-				Type:     AccountTypeAPIKey,
-				Extra: map[string]any{
-					"anthropic_passthrough": true,
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
-			}
-			require.True(t, key.IsAnthropicAPIKeyPassthroughEnabled(), "label %s", label)
-		}
-	})
-}
-
 func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -805,7 +805,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		// RPM 计数递增（Forward 成功后）
-		// 注意：TOCTOU 竞态是已知且可接受的设计权衡，与 WindowCost 一致的 soft-limit 模式。
+		// 注意：TOCTOU 竞态是已知且可接受的设计权衡（soft-limit 模式）。
 		// 在高并发下可能短暂超出 RPM 限制，但不会导致请求失败。
 		if account.GetBaseRPM() > 0 {
 			if err := h.gatewayService.IncrementAccountRPM(c.Request.Context(), account.ID); err != nil {
@@ -1951,13 +1951,14 @@ func (h *GatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, 
 	task(ctx)
 }
 
-// getUserMsgQueueMode 获取当前请求的 UMQ 模式
-// 返回 "serialize" | "throttle" | ""
 // cyberPolicyDeps cyber 风控记录 / 会话拦截要用的服务（与 OpenAI 网关 handler 共用同一套实现）。
 func (h *GatewayHandler) cyberPolicyDeps() cyberPolicyDeps {
 	return cyberPolicyDeps{contentModeration: h.contentModerationService, openAIGateway: h.openAIGatewayService, ops: h.opsService, apiKeys: h.apiKeyService}
 }
 
+// getUserMsgQueueMode 获取当前请求的 UMQ 模式
+// 返回 "serialize" | "throttle" | ""
+// 只看部署配置 gateway.user_message_queue（GATEWAY_USER_MESSAGE_QUEUE_MODE）；渠道级模式已删、不读。
 func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *service.ParsedRequest) string {
 	if h.userMsgQueueHelper == nil {
 		return ""
@@ -1969,10 +1970,5 @@ func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *s
 	if !service.IsRealUserMessage(parsed) {
 		return ""
 	}
-	// 账号级模式优先，fallback 到全局配置
-	mode := account.GetUserMsgQueueMode()
-	if mode == "" {
-		mode = h.cfg.Gateway.UserMessageQueue.GetEffectiveMode()
-	}
-	return mode
+	return h.cfg.Gateway.UserMessageQueue.GetEffectiveMode()
 }

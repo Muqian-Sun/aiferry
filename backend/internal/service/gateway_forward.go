@@ -109,26 +109,6 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		return s.handleWebSearchEmulation(ctx, c, account, parsed)
 	}
 
-	if account != nil && account.IsAnthropicAPIKeyPassthroughEnabled() {
-		passthroughBody := parsed.Body.Bytes()
-		passthroughModel := parsed.Model
-		if passthroughModel != "" {
-			if mappedModel := account.GetMappedModel(passthroughModel); mappedModel != passthroughModel {
-				passthroughBody = s.replaceModelInBody(passthroughBody, mappedModel)
-				logger.LegacyPrintf("service.gateway", "Passthrough model mapping: %s -> %s (account: %s)", parsed.Model, mappedModel, account.Name)
-				passthroughModel = mappedModel
-			}
-		}
-		return s.forwardAnthropicAPIKeyPassthroughWithInput(ctx, c, account, anthropicPassthroughForwardInput{
-			Body:          passthroughBody,
-			Parsed:        parsed,
-			RequestModel:  passthroughModel,
-			OriginalModel: parsed.Model,
-			RequestStream: parsed.Stream,
-			StartTime:     startTime,
-		})
-	}
-
 	if account != nil && account.IsBedrock() {
 		return s.forwardBedrock(ctx, c, account, parsed, startTime)
 	}

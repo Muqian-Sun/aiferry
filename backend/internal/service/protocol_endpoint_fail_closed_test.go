@@ -56,14 +56,6 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			_, _, err := gateway.buildCountTokensRequest(ctx, ginCtx(), apiKey(PlatformAnthropic), body, "tok", "apikey", "m", false)
 			return err
 		}},
-		{"anthropic passthrough messages", func() error {
-			_, _, err := gateway.buildUpstreamRequestAnthropicAPIKeyPassthrough(ctx, ginCtx(), apiKey(PlatformAnthropic), body, "tok")
-			return err
-		}},
-		{"anthropic passthrough count_tokens", func() error {
-			_, err := gateway.buildCountTokensRequestAnthropicAPIKeyPassthrough(ctx, ginCtx(), apiKey(PlatformAnthropic), body, "tok")
-			return err
-		}},
 		{"openai responses", func() error {
 			_, err := openai.buildUpstreamRequest(ctx, ginCtx(), apiKey(PlatformOpenAI), body, "tok", false, "", false)
 			return err

@@ -24,14 +24,24 @@ func newVertexBetaTestContext(t *testing.T, anthropicBeta string) *gin.Context {
 	return c
 }
 
+// vertexTestServiceAccountJSON 测试用的 Service Account JSON：Vertex 的 Project ID 只从这里取。
+func vertexTestServiceAccountJSON(projectID string) map[string]any {
+	return map[string]any{
+		"type":         "service_account",
+		"project_id":   projectID,
+		"private_key":  "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n",
+		"client_email": "svc@" + projectID + ".iam.gserviceaccount.com",
+	}
+}
+
 func newVertexServiceAccount(id int64) *Account {
 	return &Account{
 		ID:       id,
 		Platform: PlatformAnthropic,
 		Type:     AccountTypeServiceAccount,
 		Credentials: map[string]any{
-			"project_id": "vertex-proj",
-			"location":   "us-east5",
+			"service_account_json": vertexTestServiceAccountJSON("vertex-proj"),
+			"location":             "us-east5",
 		},
 	}
 }

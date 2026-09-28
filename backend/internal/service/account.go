@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/fnv"
-	"log/slog"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
@@ -1151,10 +1149,11 @@ func (a *Account) IsCustomErrorCodesEnabled() bool {
 	return false
 }
 
-// IsPoolMode 检查 API Key 账号是否启用池模式。
+// IsPoolMode 检查第三方 key 是否启用池模式。
 // 池模式下，上游错误不标记本地账号状态，而是在同一账号上重试。
+// 只对第三方 key：Bedrock 的池模式已删（2026-09-28 P5，见 channel_features_anthropic.go）。
 func (a *Account) IsPoolMode() bool {
-	if !a.IsAPIKeyOrBedrock() || a.Credentials == nil {
+	if !a.IsThirdPartyKey() || a.Credentials == nil {
 		return false
 	}
 	if v, ok := a.Credentials["pool_mode"]; ok {
@@ -2140,50 +2139,6 @@ func (a *Account) IsOpenAIOAuthPassthroughEnabled() bool {
 	return a != nil && a.IsOpenAIOAuth() && a.IsOpenAIPassthroughEnabled()
 }
 
-// IsAnthropicAPIKeyPassthroughEnabled 返回第三方 key 是否启用"自动透传（仅替换认证）"。
-// 字段：accounts.extra.anthropic_passthrough。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-//
-// 透传是 Anthropic 协议上的转发模式，只在 Anthropic Messages / count_tokens 转发路径上
-// 读取，因此对任何展示标签的第三方 key 都生效；成品号不透传。不按厂商收窄：透传分支
-// 本身已照顾 GLM / Kimi / DeepSeek 这类第三方 Anthropic 上游（见
-// forwardAnthropicAPIKeyPassthroughWithInput 里对 web search 历史块的过滤）。
-func (a *Account) IsAnthropicAPIKeyPassthroughEnabled() bool {
-	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["anthropic_passthrough"].(bool)
-	return ok && enabled
-}
-
-// WebSearch 模拟三态常量
-// WebSearchEmulationEnabled 返回第三方 key 是否开启 web_search 模拟（accounts.extra.web_search_emulation）。
-// 只有第三方 key 有这个开关：模拟只在 Anthropic Messages 转发路径上判定，账号走到那里用的就是
-// Anthropic 协议；成品号恒 false。渠道级开关已删，账号是唯一来源。
-//
-// 读法 fail-closed：bool 原样；历史字符串 "enabled" 算开；其余字符串（"default" / "disabled"）
-// 与其它类型一律关，非 bool 值打 warn 提醒改成开关。
-func (a *Account) WebSearchEmulationEnabled() bool {
-	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
-		return false
-	}
-	raw, present := a.Extra[featureKeyWebSearchEmulation]
-	if !present || raw == nil {
-		return false
-	}
-	switch v := raw.(type) {
-	case bool:
-		return v
-	case string:
-		enabled := v == "enabled"
-		slog.Warn("web_search_emulation: legacy string value, treat as bool", "account_id", a.ID, "value", v, "enabled", enabled)
-		return enabled
-	default:
-		slog.Warn("web_search_emulation: non-bool value treated as off", "account_id", a.ID, "value", raw)
-		return false
-	}
-}
-
 // IsCodexCLIOnlyEnabled 返回 OpenAI OAuth 账号是否启用"仅允许 Codex 官方客户端"。
 // 字段：accounts.extra.codex_cli_only。
 // 字段缺失或类型不正确时，按 false（关闭）处理。
@@ -2219,124 +2174,14 @@ const (
 )
 
 // IsAnthropicOAuthOrSetupToken 判断是否为 Anthropic OAuth 或 SetupToken 类型账号
-// 仅这两类账号支持 5h 窗口额度控制和会话数量控制
 func (a *Account) IsAnthropicOAuthOrSetupToken() bool {
 	return a.Platform == PlatformAnthropic && (a.Type == AccountTypeOAuth || a.Type == AccountTypeSetupToken)
 }
 
-// IsTLSFingerprintEnabled 检查是否启用 TLS 指纹伪装
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将模拟 Claude Code (Node.js) 客户端的 TLS 握手特征
+// IsTLSFingerprintEnabled 出站是否模拟 Claude Code（Node.js）的 TLS 握手：Anthropic 成品号一律模拟，
+// 其余不模拟（AnthropicSubscriptionTLSFingerprintEnabled，渠道级开关已删，不读 extra）。
 func (a *Account) IsTLSFingerprintEnabled() bool {
-	// 仅支持 Anthropic OAuth/SetupToken 账号
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["enable_tls_fingerprint"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// GetTLSFingerprintProfileID 获取账号绑定的 TLS 指纹模板 ID
-// 返回 0 表示未绑定（使用内置默认 profile）
-func (a *Account) GetTLSFingerprintProfileID() int64 {
-	if a.Extra == nil {
-		return 0
-	}
-	v, ok := a.Extra["tls_fingerprint_profile_id"]
-	if !ok {
-		return 0
-	}
-	switch id := v.(type) {
-	case float64:
-		return int64(id)
-	case int64:
-		return id
-	case int:
-		return int64(id)
-	case json.Number:
-		if i, err := id.Int64(); err == nil {
-			return i
-		}
-	}
-	return 0
-}
-
-// GetUserMsgQueueMode 获取用户消息队列模式
-// "serialize" = 串行队列, "throttle" = 软性限速, "" = 未设置（使用全局配置）
-func (a *Account) GetUserMsgQueueMode() string {
-	if a.Extra == nil {
-		return ""
-	}
-	// 优先读取新字段 user_msg_queue_mode（白名单校验，非法值视为未设置）
-	if mode, ok := a.Extra["user_msg_queue_mode"].(string); ok && mode != "" {
-		if mode == config.UMQModeSerialize || mode == config.UMQModeThrottle {
-			return mode
-		}
-		return "" // 非法值 fallback 到全局配置
-	}
-	// 向后兼容: user_msg_queue_enabled: true → "serialize"
-	if enabled, ok := a.Extra["user_msg_queue_enabled"].(bool); ok && enabled {
-		return config.UMQModeSerialize
-	}
-	return ""
-}
-
-// IsSessionIDMaskingEnabled 检查是否启用会话ID伪装
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将在一段时间内（15分钟）固定 metadata.user_id 中的 session ID，
-// 使上游认为请求来自同一个会话
-func (a *Account) IsSessionIDMaskingEnabled() bool {
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["session_id_masking_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// IsCacheTTLOverrideEnabled 检查是否启用缓存 TTL 强制替换
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将所有 cache creation tokens 归入指定的 TTL 类型（5m 或 1h）
-func (a *Account) IsCacheTTLOverrideEnabled() bool {
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["cache_ttl_override_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// GetCacheTTLOverrideTarget 获取缓存 TTL 强制替换的目标类型
-// 返回 "5m" 或 "1h"，默认 "5m"
-func (a *Account) GetCacheTTLOverrideTarget() string {
-	if a.Extra == nil {
-		return "5m"
-	}
-	if v, ok := a.Extra["cache_ttl_override_target"]; ok {
-		if target, ok := v.(string); ok && (target == "5m" || target == "1h") {
-			return target
-		}
-	}
-	return "5m"
+	return AnthropicSubscriptionTLSFingerprintEnabled && a != nil && a.IsAnthropicOAuthOrSetupToken()
 }
 
 // GetQuotaLimit 获取 API Key 账号的配额限制（美元）
@@ -2795,33 +2640,6 @@ func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
 	return isPeriodExpired(start, 7*24*time.Hour)
 }
 
-// GetWindowCostLimit 获取 5h 窗口费用阈值（美元）
-// 返回 0 表示未启用
-func (a *Account) GetWindowCostLimit() float64 {
-	if a.Extra == nil {
-		return 0
-	}
-	if v, ok := a.Extra["window_cost_limit"]; ok {
-		return parseExtraFloat64(v)
-	}
-	return 0
-}
-
-// GetWindowCostStickyReserve 获取粘性会话预留额度（美元）
-// 默认值为 10
-func (a *Account) GetWindowCostStickyReserve() float64 {
-	if a.Extra == nil {
-		return 10.0
-	}
-	if v, ok := a.Extra["window_cost_sticky_reserve"]; ok {
-		val := parseExtraFloat64(v)
-		if val > 0 {
-			return val
-		}
-	}
-	return 10.0
-}
-
 // GetMaxSessions 获取最大并发会话数
 // 返回 0 表示未启用
 func (a *Account) GetMaxSessions() int {
@@ -2832,21 +2650,6 @@ func (a *Account) GetMaxSessions() int {
 		return parseExtraInt(v)
 	}
 	return 0
-}
-
-// GetSessionIdleTimeoutMinutes 获取会话空闲超时分钟数
-// 默认值为 5 分钟
-func (a *Account) GetSessionIdleTimeoutMinutes() int {
-	if a.Extra == nil {
-		return 5
-	}
-	if v, ok := a.Extra["session_idle_timeout_minutes"]; ok {
-		val := parseExtraInt(v)
-		if val > 0 {
-			return val
-		}
-	}
-	return 5
 }
 
 // GetBaseRPM 获取基础 RPM 限制
@@ -2864,36 +2667,10 @@ func (a *Account) GetBaseRPM() int {
 	return 0
 }
 
-// GetRPMStrategy 获取 RPM 策略
-// "tiered" = 三区模型（默认）, "sticky_exempt" = 粘性豁免
-func (a *Account) GetRPMStrategy() string {
-	if a.Extra == nil {
-		return "tiered"
-	}
-	if v, ok := a.Extra["rpm_strategy"]; ok {
-		if s, ok := v.(string); ok && s == "sticky_exempt" {
-			return "sticky_exempt"
-		}
-	}
-	return "tiered"
-}
-
-// GetRPMStickyBuffer 获取 RPM 粘性缓冲数量
+// GetRPMStickyBuffer 获取 RPM 粘性缓冲数量（只按下面的规则自动算，渠道级手填值已删、不读）
 // Cache-driven: buffer = concurrency + maxSessions（覆盖幽灵窗口 + 稳态会话需求）
 // floor = baseRPM / 5（向后兼容 maxSessions=0 且 concurrency=0 场景）
 func (a *Account) GetRPMStickyBuffer() int {
-	if a.Extra == nil {
-		return 0
-	}
-
-	// 手动 override 最高优先级
-	if v, ok := a.Extra["rpm_sticky_buffer"]; ok {
-		val := parseExtraInt(v)
-		if val > 0 {
-			return val
-		}
-	}
-
 	base := a.GetBaseRPM()
 	if base <= 0 {
 		return 0
@@ -2923,8 +2700,9 @@ func (a *Account) GetRPMStickyBuffer() int {
 	return buffer
 }
 
-// CheckRPMSchedulability 根据当前 RPM 计数检查调度状态
+// CheckRPMSchedulability 根据当前 RPM 计数检查调度状态（三区：绿区正常、黄区只放粘性、红区不调度）
 // 复用 WindowCostSchedulability 三态：Schedulable / StickyOnly / NotSchedulable
+// 策略只有这一种（渠道级 rpm_strategy 已删、不读，见 channel_features_anthropic.go）。
 func (a *Account) CheckRPMSchedulability(currentRPM int) WindowCostSchedulability {
 	baseRPM := a.GetBaseRPM()
 	if baseRPM <= 0 {
@@ -2935,38 +2713,11 @@ func (a *Account) CheckRPMSchedulability(currentRPM int) WindowCostSchedulabilit
 		return WindowCostSchedulable
 	}
 
-	strategy := a.GetRPMStrategy()
-	if strategy == "sticky_exempt" {
-		return WindowCostStickyOnly // 粘性豁免无红区
-	}
-
-	// tiered: 黄区 + 红区
+	// 黄区 + 红区
 	buffer := a.GetRPMStickyBuffer()
 	if currentRPM < baseRPM+buffer {
 		return WindowCostStickyOnly
 	}
-	return WindowCostNotSchedulable
-}
-
-// CheckWindowCostSchedulability 根据当前窗口费用检查调度状态
-// - 费用 < 阈值: WindowCostSchedulable（可正常调度）
-// - 费用 >= 阈值 且 < 阈值+预留: WindowCostStickyOnly（仅粘性会话）
-// - 费用 >= 阈值+预留: WindowCostNotSchedulable（不可调度）
-func (a *Account) CheckWindowCostSchedulability(currentWindowCost float64) WindowCostSchedulability {
-	limit := a.GetWindowCostLimit()
-	if limit <= 0 {
-		return WindowCostSchedulable
-	}
-
-	if currentWindowCost < limit {
-		return WindowCostSchedulable
-	}
-
-	stickyReserve := a.GetWindowCostStickyReserve()
-	if currentWindowCost < limit+stickyReserve {
-		return WindowCostStickyOnly
-	}
-
 	return WindowCostNotSchedulable
 }
 

@@ -58,12 +58,12 @@ func (a *Account) IsVertexServiceAccount() bool {
 	return a != nil && a.Type == AccountTypeServiceAccount
 }
 
+// VertexProjectID Vertex（service_account）的 Project ID：只从 Service Account JSON 里取。
+// credentials.project_id 这个键不看：它是以前表单回显 JSON 时存的副本（2026-09-28 P5 删），
+// 同名键 Gemini OAuth / Antigravity 另有用途，不影响它们。
 func (a *Account) VertexProjectID() string {
 	if a == nil {
 		return ""
-	}
-	if v := strings.TrimSpace(a.GetCredential("project_id")); v != "" {
-		return v
 	}
 	key, err := parseVertexServiceAccountKey(a)
 	if err == nil {

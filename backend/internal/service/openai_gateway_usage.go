@@ -362,7 +362,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
-		s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
+		s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model)
 		return nil
 	}
 
@@ -388,7 +388,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 	// 用量入账是「由我们自己的用量驱动」的额度的状态写入点（同 GatewayService.recordUsageCore）。
-	s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
+	s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model)
 
 	return nil
 }

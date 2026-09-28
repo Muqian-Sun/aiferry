@@ -276,10 +276,10 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
 				Kind:               "retry_exhausted_failover",
 				Message:            extractUpstreamErrorMessage(respBody),
 			})
+			// Bedrock 没有池模式（只对第三方 key），不在同一渠道重试
 			return nil, &UpstreamFailoverError{
-				StatusCode:             resp.StatusCode,
-				ResponseBody:           respBody,
-				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+				StatusCode:   resp.StatusCode,
+				ResponseBody: respBody,
 			}
 		}
 		return s.handleRetryExhaustedError(ctx, resp, c, account)
@@ -303,9 +303,8 @@ func (s *GatewayService) handleBedrockUpstreamErrors(
 			Message:            extractUpstreamErrorMessage(respBody),
 		})
 		return nil, &UpstreamFailoverError{
-			StatusCode:             resp.StatusCode,
-			ResponseBody:           respBody,
-			RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+			StatusCode:   resp.StatusCode,
+			ResponseBody: respBody,
 		}
 	}
 

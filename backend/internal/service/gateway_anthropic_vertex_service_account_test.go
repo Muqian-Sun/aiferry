@@ -28,8 +28,8 @@ func TestGatewayService_BuildAnthropicVertexServiceAccountRequest(t *testing.T) 
 		Platform: PlatformAnthropic,
 		Type:     AccountTypeServiceAccount,
 		Credentials: map[string]any{
-			"project_id": "vertex-proj",
-			"location":   "us-east5",
+			"service_account_json": vertexTestServiceAccountJSON("vertex-proj"),
+			"location":             "us-east5",
 		},
 	}
 	body := []byte(`{"model":"claude-sonnet-4-5","stream":false,"max_tokens":32,"messages":[{"role":"user","content":"hello"}]}`)
@@ -81,7 +81,7 @@ func TestGatewayService_BuildAnthropicVertexServiceAccount_StripsContextManageme
 
 	account := &Account{
 		ID: 302, Platform: PlatformAnthropic, Type: AccountTypeServiceAccount,
-		Credentials: map[string]any{"project_id": "vertex-proj", "location": "us-east5"},
+		Credentials: map[string]any{"service_account_json": vertexTestServiceAccountJSON("vertex-proj"), "location": "us-east5"},
 	}
 	// body 带了 context_management 字段（客户端透传 / normalize 补齐 / mimicry 注入等场景都可能导致）
 	body := []byte(`{"model":"claude-haiku-4-5","context_management":{"edits":[{"type":"clear_thinking_20251015","keep":"all"}]},"messages":[{"role":"user","content":"hi"}]}`)
@@ -112,7 +112,7 @@ func TestGatewayService_BuildAnthropicVertexServiceAccount_PreservesContextManag
 
 	account := &Account{
 		ID: 303, Platform: PlatformAnthropic, Type: AccountTypeServiceAccount,
-		Credentials: map[string]any{"project_id": "vertex-proj", "location": "us-east5"},
+		Credentials: map[string]any{"service_account_json": vertexTestServiceAccountJSON("vertex-proj"), "location": "us-east5"},
 	}
 	body := []byte(`{"model":"claude-sonnet-4-6","context_management":{"edits":[{"type":"clear_thinking_20251015"}]},"messages":[]}`)
 
