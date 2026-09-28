@@ -492,11 +492,9 @@ func TestDefaultIdempotencyCoordinatorAndTTLs(t *testing.T) {
 	SetDefaultIdempotencyCoordinator(nil)
 	require.Nil(t, DefaultIdempotencyCoordinator())
 	require.Equal(t, DefaultIdempotencyConfig().DefaultTTL, DefaultWriteIdempotencyTTL())
-	require.Equal(t, DefaultIdempotencyConfig().SystemOperationTTL, DefaultSystemOperationIdempotencyTTL())
 
 	coordinator := NewIdempotencyCoordinator(newInMemoryIdempotencyRepo(), IdempotencyConfig{
 		DefaultTTL:         2 * time.Hour,
-		SystemOperationTTL: 15 * time.Minute,
 		ProcessingTimeout:  10 * time.Second,
 		FailedRetryBackoff: 3 * time.Second,
 		ObserveOnly:        false,
@@ -508,7 +506,6 @@ func TestDefaultIdempotencyCoordinatorAndTTLs(t *testing.T) {
 
 	require.Same(t, coordinator, DefaultIdempotencyCoordinator())
 	require.Equal(t, 2*time.Hour, DefaultWriteIdempotencyTTL())
-	require.Equal(t, 15*time.Minute, DefaultSystemOperationIdempotencyTTL())
 }
 
 func TestNormalizeIdempotencyKeyAndFingerprint(t *testing.T) {
@@ -823,7 +820,6 @@ func TestIdempotencyCoordinator_MarkAndMarshalBranches(t *testing.T) {
 func TestIdempotencyCoordinator_HelperBranches(t *testing.T) {
 	c := NewIdempotencyCoordinator(newInMemoryIdempotencyRepo(), IdempotencyConfig{
 		DefaultTTL:           time.Hour,
-		SystemOperationTTL:   time.Hour,
 		ProcessingTimeout:    time.Second,
 		FailedRetryBackoff:   time.Second,
 		MaxStoredResponseLen: 12,

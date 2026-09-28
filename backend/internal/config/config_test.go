@@ -685,9 +685,6 @@ func TestLoadDefaultIdempotencyConfig(t *testing.T) {
 	if cfg.Idempotency.DefaultTTLSeconds != 86400 {
 		t.Fatalf("Idempotency.DefaultTTLSeconds = %d, want 86400", cfg.Idempotency.DefaultTTLSeconds)
 	}
-	if cfg.Idempotency.SystemOperationTTLSeconds != 3600 {
-		t.Fatalf("Idempotency.SystemOperationTTLSeconds = %d, want 3600", cfg.Idempotency.SystemOperationTTLSeconds)
-	}
 }
 
 func TestLoadDefaultBatchImageQueueDisabled(t *testing.T) {

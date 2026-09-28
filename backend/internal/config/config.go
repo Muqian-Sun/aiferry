@@ -184,8 +184,6 @@ type IdempotencyConfig struct {
 	ObserveOnly bool `mapstructure:"observe_only"`
 	// DefaultTTLSeconds 关键写接口的幂等记录默认 TTL（秒）。
 	DefaultTTLSeconds int `mapstructure:"default_ttl_seconds"`
-	// SystemOperationTTLSeconds 系统操作接口的幂等记录 TTL（秒）。
-	SystemOperationTTLSeconds int `mapstructure:"system_operation_ttl_seconds"`
 	// ProcessingTimeoutSeconds processing 状态锁超时（秒）。
 	ProcessingTimeoutSeconds int `mapstructure:"processing_timeout_seconds"`
 	// FailedRetryBackoffSeconds 失败退避窗口（秒）。
@@ -2279,7 +2277,6 @@ func setDefaults() {
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
 	viper.SetDefault("idempotency.default_ttl_seconds", 86400)
-	viper.SetDefault("idempotency.system_operation_ttl_seconds", 3600)
 	viper.SetDefault("idempotency.processing_timeout_seconds", 30)
 	viper.SetDefault("idempotency.failed_retry_backoff_seconds", 5)
 	viper.SetDefault("idempotency.max_stored_response_len", 64*1024)
@@ -3067,9 +3064,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")
-	}
-	if c.Idempotency.SystemOperationTTLSeconds <= 0 {
-		return fmt.Errorf("idempotency.system_operation_ttl_seconds must be positive")
 	}
 	if c.Idempotency.ProcessingTimeoutSeconds <= 0 {
 		return fmt.Errorf("idempotency.processing_timeout_seconds must be positive")

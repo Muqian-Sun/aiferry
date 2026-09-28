@@ -25,12 +25,6 @@ func ProvideGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthCli
 	return svc
 }
 
-// BuildInfo contains build information
-type BuildInfo struct {
-	Version   string
-	BuildType string
-}
-
 // ProvidePricingService creates and initializes PricingService
 func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient) (*PricingService, error) {
 	svc := NewPricingService(cfg, remoteClient)
@@ -58,11 +52,6 @@ func ProvideModelCatalogService(
 	// 播种条目会冻在启动时刻的价格。
 	pricingService.OnPricingUpdated(svc.ReseedAfterPricingUpdate)
 	return svc
-}
-
-// ProvideUpdateService creates UpdateService with BuildInfo
-func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, buildInfo BuildInfo) *UpdateService {
-	return NewUpdateService(cache, githubClient, buildInfo.Version, buildInfo.BuildType)
 }
 
 // ProvideEmailQueueService creates EmailQueueService with default worker count
@@ -605,9 +594,6 @@ func buildIdempotencyConfig(cfg *config.Config) IdempotencyConfig {
 		if cfg.Idempotency.DefaultTTLSeconds > 0 {
 			idempotencyCfg.DefaultTTL = time.Duration(cfg.Idempotency.DefaultTTLSeconds) * time.Second
 		}
-		if cfg.Idempotency.SystemOperationTTLSeconds > 0 {
-			idempotencyCfg.SystemOperationTTL = time.Duration(cfg.Idempotency.SystemOperationTTLSeconds) * time.Second
-		}
 		if cfg.Idempotency.ProcessingTimeoutSeconds > 0 {
 			idempotencyCfg.ProcessingTimeout = time.Duration(cfg.Idempotency.ProcessingTimeoutSeconds) * time.Second
 		}
@@ -626,10 +612,6 @@ func ProvideIdempotencyCoordinator(repo IdempotencyRepository, cfg *config.Confi
 	coordinator := NewIdempotencyCoordinator(repo, buildIdempotencyConfig(cfg))
 	SetDefaultIdempotencyCoordinator(coordinator)
 	return coordinator
-}
-
-func ProvideSystemOperationLockService(repo IdempotencyRepository, cfg *config.Config) *SystemOperationLockService {
-	return NewSystemOperationLockService(repo, buildIdempotencyConfig(cfg))
 }
 
 func ProvideIdempotencyCleanupService(repo IdempotencyRepository, cfg *config.Config) *IdempotencyCleanupService {
@@ -902,7 +884,6 @@ var ProviderSet = wire.NewSet(
 	NewUsageRecordWorkerPool,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
-	ProvideUpdateService,
 	ProvideTokenRefreshService,
 	wire.Bind(new(GrokOAuthReconciler), new(*TokenRefreshService)),
 	ProvideAccountExpiryService,
@@ -923,7 +904,6 @@ var ProviderSet = wire.NewSet(
 	NewPluginManager,
 	NewDigestSessionStore,
 	ProvideIdempotencyCoordinator,
-	ProvideSystemOperationLockService,
 	ProvideIdempotencyCleanupService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
