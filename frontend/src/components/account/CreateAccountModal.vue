@@ -701,43 +701,6 @@
         </div>
       </div>
 
-      <!-- Gemini 成品号档位（自动识别失败时的兜底） -->
-      <div v-if="form.platform === 'gemini'">
-        <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <div class="mt-2">
-            <select
-              v-if="geminiOAuthType === 'google_one'"
-              v-model="geminiTierGoogleOne"
-              class="input"
-            >
-              <option value="google_one_free">{{ t('admin.accounts.gemini.tier.googleOne.free') }}</option>
-              <option value="google_ai_pro">{{ t('admin.accounts.gemini.tier.googleOne.pro') }}</option>
-              <option value="google_ai_ultra">{{ t('admin.accounts.gemini.tier.googleOne.ultra') }}</option>
-            </select>
-
-            <select
-              v-else-if="geminiOAuthType === 'code_assist'"
-              v-model="geminiTierGcp"
-              class="input"
-            >
-              <option value="gcp_standard">{{ t('admin.accounts.gemini.tier.gcp.standard') }}</option>
-              <option value="gcp_enterprise">{{ t('admin.accounts.gemini.tier.gcp.enterprise') }}</option>
-            </select>
-
-            <select
-              v-else
-              v-model="geminiTierAIStudio"
-              class="input"
-            >
-              <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-              <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-            </select>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.hint') }}</p>
-        </div>
-      </div>
-
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
       <!-- 第三方 key 的其余设置：智谱团队版、Gemini 档位（按识别出的厂商显示）、上游倍率探测 -->
@@ -787,98 +750,6 @@
             data-testid="upstream-billing-auto-probe"
             :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
           />
-        </div>
-      </div>
-
-      <!-- OpenAI 自动透传开关：OpenAI 成品号；第三方 key 配了 responses / chat_completions 地址才展示，不看平台标签 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        data-testid="create-openai-passthrough"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
-            </p>
-            <p
-              v-if="form.type === 'apikey'"
-              data-testid="create-openai-key-protocol-hint"
-              class="mt-1 text-xs text-af-warning"
-            >
-              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="create-openai-passthrough-toggle"
-            @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
-      <div
-        v-if="form.platform === 'openai' && form.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="create-openai-flatten-namespaces-toggle"
-            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI WS Mode（off/ctx_pool/passthrough/http_bridge），展示条件同自动透传 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        data-testid="create-openai-ws-mode"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.wsModeDesc') }}
-            </p>
-            <p v-if="openAIWSModeHintKey" class="mt-1 text-xs text-af-ink-3">
-              {{ t(openAIWSModeHintKey) }}
-            </p>
-          </div>
-          <div class="w-52">
-            <Select v-model="openaiResponsesWebSocketV2Mode" :options="openAIWSModeOptions" />
-          </div>
         </div>
       </div>
 
@@ -937,65 +808,7 @@
         </div>
       </div>
 
-      <!-- OpenAI APIKey endpoint capabilities -->
-      <div
-        v-if="openAIKeySettingsVisible"
-        class="space-y-4 border-t border-af-hairline pt-4"
-      >
-        <div>
-          <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
-              v-for="option in openAIEndpointCapabilityOptions"
-              :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-af-hairline px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                :data-testid="`openai-endpoint-capability-${option.value}`"
-                :checked="openAIEndpointCapabilities.includes(option.value)"
-                @change="toggleOpenAIEndpointCapability(option.value, $event)"
-              />
-              <span class="text-af-ink-2">{{ option.label }}</span>
-            </label>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
-        </div>
-      </div>
-
-      <!-- OpenAI APIKey images: backfill b64_json from url -->
-      <div
-        v-if="openAIKeySettingsVisible"
-        class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
-      >
-        <div>
-          <label class="input-label mb-0">{{ t('admin.accounts.openai.imagesUrlToB64Json') }}</label>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.imagesUrlToB64JsonDesc') }}
-          </p>
-        </div>
-        <button
-          type="button"
-          data-testid="openai-images-url-to-b64-json-toggle"
-          role="switch"
-          :aria-checked="openAIImagesUrlToB64JsonEnabled"
-          @click="openAIImagesUrlToB64JsonEnabled = !openAIImagesUrlToB64JsonEnabled"
-          :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-            openAIImagesUrlToB64JsonEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-          ]"
-        >
-          <span
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-              openAIImagesUrlToB64JsonEnabled ? 'translate-x-5' : 'translate-x-0'
-            ]"
-          />
-        </button>
-      </div>
-
-      <FormSectionHeading v-if="showModelMoreSection" section="models" :title="t('admin.accounts.formPage.sections.models')" />
+      <FormSectionHeading v-if="showModelRename" section="models" :title="t('admin.accounts.formPage.sections.models')" />
 
       <!-- 模型改名（可选）：只改名，不限定能接哪些模型（那由上面的勾选决定），提交时带 model_mapping_rename_only -->
       <ModelRenameEditor
@@ -1004,49 +817,8 @@
         data-testid="create-model-rename"
         class="border-t border-af-hairline pt-4"
         :presets="renamePresets"
-        :disabled="isOpenAIModelRestrictionDisabled"
         :extends-vendor-table="extendsVendorTable"
       />
-
-      <!-- OpenAI Compact 能力配置，展示条件同自动透传 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        data-testid="create-openai-compact"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.compactModeDesc') }}
-            </p>
-          </div>
-          <div class="w-44">
-            <Select v-model="openAICompactMode" :options="openAICompactModeOptions" />
-          </div>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
-          <p class="input-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
-          <div v-if="openAICompactModelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in openAICompactModelMappings"
-              :key="getOpenAICompactModelMappingKey(mapping)"
-              class="flex items-center gap-2"
-            >
-              <input v-model="mapping.from" type="text" class="input flex-1" :placeholder="t('admin.accounts.fromModel')" />
-              <span class="text-af-ink-3">→</span>
-              <input v-model="mapping.to" type="text" class="input flex-1" :placeholder="t('admin.accounts.toModel')" />
-              <button type="button" @click="removeOpenAICompactModelMapping(index)" class="text-af-danger hover:text-af-danger">
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </div>
-          <button type="button" @click="addOpenAICompactModelMapping" class="btn btn-secondary text-sm">
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
-        </div>
-      </div>
 
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
@@ -1678,79 +1450,6 @@
         </div>
       </div>
 
-      <div
-        v-if="form.platform === 'openai' && accountCategory === 'oauth-based'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-        <div
-          v-if="codexCLIOnlyEnabled"
-          class="mt-4 flex items-center justify-between border-l-2 border-af-hairline pl-4"
-        >
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
-      <div
-        v-if="form.platform === 'openai' && accountCategory === 'oauth-based'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
-            </p>
-          </div>
-          <div class="w-52 flex-shrink-0">
-            <Select v-model="codexFingerprintMode" data-testid="create-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
-          </div>
-        </div>
-      </div>
-
       <UpstreamRequestIdHeaderField
         v-model="upstreamRequestIdHeader"
         :platform="form.platform"
@@ -2126,8 +1825,6 @@ import type {
   AccountType,
   CreateAccountRequest,
   CodexSessionImportMessage,
-  OpenAICompactMode,
-  OpenAIEndpointCapability,
   ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
@@ -2135,7 +1832,6 @@ import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
-import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -2165,7 +1861,6 @@ import {
   currentProtocolOf,
   endpointsAfterDefaultsChange,
   hasAnthropicEndpoint,
-  hasOpenAIEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
   trimProtocolEndpoints,
@@ -2189,15 +1884,6 @@ import {
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
-import {
-  OPENAI_WS_MODE_CTX_POOL,
-  OPENAI_WS_MODE_OFF,
-  OPENAI_WS_MODE_PASSTHROUGH,
-  OPENAI_WS_MODE_HTTP_BRIDGE,
-  isOpenAIWSModeEnabled,
-  resolveOpenAIWSModeHintKey,
-  type OpenAIWSMode
-} from '@/utils/openaiWsMode'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
 
 // Type for exposed OAuthAuthorizationFlow component
@@ -2489,7 +2175,6 @@ const editResetTimezone = ref<string | null>(null)
 // 模型改名（可选）：只改名、不兼任白名单，写入时带 model_mapping_rename_only（见 withRenameOnlyMapping）
 const modelMappings = ref<ModelMapping[]>([])
 const buildRenameMapping = () => buildModelMappingObject('mapping', [], modelMappings.value)
-const openAICompactModelMappings = ref<ModelMapping[]>([])
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
@@ -2548,25 +2233,6 @@ const applyKeyHeaderOverride = (credentials: Record<string, unknown>): boolean =
 }
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
-const openaiPassthroughEnabled = ref(false)
-// OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
-const openaiFlattenNamespacesEnabled = ref(false)
-const openAICompactMode = ref<OpenAICompactMode>('auto')
-// Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
-const openAIImagesUrlToB64JsonEnabled = ref(false)
-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
-const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
-const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
-const codexCLIOnlyEnabled = ref(false)
-const codexCLIOnlyAppServerEnabled = ref(false)
-type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
-const codexFingerprintMode = ref<CodexFingerprintMode>('off')
-const codexFingerprintModeOptions = computed(() => [
-  { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
-  { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
-  { value: 'session' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintSession') },
-  { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
-])
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
 const bedrockCCCompatEnabled = ref(false)
@@ -2593,71 +2259,14 @@ const vertexLocation = ref('global')
 const vertexServiceAccountDragActive = ref(false)
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
-const getOpenAICompactModelMappingKey = createStableObjectKeyResolver<ModelMapping>('create-openai-compact-model-mapping')
+
 const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('create-temp-unsched-rule')
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('google_one')
 const geminiAIStudioOAuthEnabled = ref(false)
-const openAICompactModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.compactModeAuto') },
-  { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
-  { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
-])
-const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
-  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
-  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
-])
-
-const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
-  const selected = allowed.filter((value) => values.includes(value))
-  return selected.length > 0 ? selected : allowed
-}
-
-const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {
-  if (openAIEndpointCapabilities.value.includes(capability)) {
-    if (openAIEndpointCapabilities.value.length <= 1) {
-      const input = event?.target as HTMLInputElement | null
-      if (input) input.checked = true
-      return
-    }
-    openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
-      (value) => value !== capability
-    )
-    return
-  }
-  openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
-    ...openAIEndpointCapabilities.value,
-    capability
-  ])
-}
-
-const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
-  const capabilities = normalizeOpenAIEndpointCapabilities(openAIEndpointCapabilities.value)
-  if (capabilities.length === 2) {
-    delete credentials.openai_capabilities
-    return
-  }
-  credentials.openai_capabilities = capabilities
-}
-
 function buildAntigravityExtra(): Record<string, unknown> | undefined {
   const extra: Record<string, unknown> = {}
   if (allowOverages.value) extra.allow_overages = true
   return Object.keys(extra).length > 0 ? extra : undefined
-}
-
-const buildOpenAICompactModelMapping = () =>
-  buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
-
-// 第三方 key 的 Compact 专属模型映射：与 Compact 模式同区块，区块可见才写入。
-const applyKeyCompactModelMapping = (credentials: Record<string, unknown>) => {
-  if (!openAIResponsesSettingsVisible.value) {
-    return
-  }
-  const compactModelMapping = buildOpenAICompactModelMapping()
-  if (compactModelMapping) {
-    credentials.compact_model_mapping = compactModelMapping
-  }
 }
 
 const showAdvancedOAuth = ref(false)
@@ -2670,51 +2279,6 @@ const sessionLimitEnabled = ref(false)
 const maxSessions = ref<number | null>(null)
 const rpmLimitEnabled = ref(false)
 const baseRpm = ref<number | null>(null)
-
-// Gemini tier selection (used as fallback when auto-detection is unavailable/fails)
-const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
-const geminiTierGcp = ref<'gcp_standard' | 'gcp_enterprise'>('gcp_standard')
-const geminiTierAIStudio = ref<'aistudio_free' | 'aistudio_paid'>('aistudio_free')
-
-const geminiSelectedTier = computed(() => {
-  if (form.platform !== 'gemini') return ''
-  if (accountCategory.value === 'apikey') return geminiTierAIStudio.value
-  switch (geminiOAuthType.value) {
-    case 'google_one':
-      return geminiTierGoogleOne.value
-    case 'code_assist':
-      return geminiTierGcp.value
-    default:
-      return geminiTierAIStudio.value
-  }
-})
-
-const openAIWSModeOptions = computed(() => [
-  { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
-  { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
-  { value: OPENAI_WS_MODE_PASSTHROUGH, label: t('admin.accounts.openai.wsModePassthrough') },
-  { value: OPENAI_WS_MODE_HTTP_BRIDGE, label: t('admin.accounts.openai.wsModeHttpBridge') }
-])
-
-const openaiResponsesWebSocketV2Mode = computed({
-  get: () => {
-    if (form.type === 'apikey') {
-      return openaiAPIKeyResponsesWebSocketV2Mode.value
-    }
-    return openaiOAuthResponsesWebSocketV2Mode.value
-  },
-  set: (mode: OpenAIWSMode) => {
-    if (form.type === 'apikey') {
-      openaiAPIKeyResponsesWebSocketV2Mode.value = mode
-      return
-    }
-    openaiOAuthResponsesWebSocketV2Mode.value = mode
-  }
-})
-
-const openAIWSModeHintKey = computed(() =>
-  resolveOpenAIWSModeHintKey(openaiResponsesWebSocketV2Mode.value)
-)
 
 const geminiQuotaDocs = {
   codeAssist: 'https://developers.google.com/gemini-code-assist/resources/quotas',
@@ -2798,37 +2362,15 @@ const anthropicKeySettingsVisible = computed(
   () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
 )
 
-// OpenAI Responses 协议设置（自动透传、WS mode、Compact）：OpenAI 成品号沿用平台规则；
-// 第三方 key 按编辑中的协议地址（responses 或 chat_completions）展示，不看平台标签。
-// 区块隐藏时提交不写入（见 buildOpenAIExtra）；切换平台时清空。
-const openAIResponsesSettingsVisible = computed(() => {
-  if (form.type === 'apikey') return hasOpenAIEndpoint(protocolEndpoints.value)
-  return form.platform === 'openai' && accountCategory.value === 'oauth-based'
-})
-
-// 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
-// 按填写中的协议地址展示，不看平台标签。
-const openAIKeySettingsVisible = computed(
-  () => form.type === 'apikey' && hasOpenAIEndpoint(protocolEndpoints.value)
-)
-
-// 自动透传会跳过模型改写：透传区块可见且开启时，模型限制不再可编辑。
-const isOpenAIModelRestrictionDisabled = computed(() =>
-  openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
-)
-
 // 表单分区（A5-c）：「基本」「模型与映射」「额度」「高级」总有字段（承接的模型所有接入方式都有）；
 // 「地址与协议」只在分区里有区块时才出标题，条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
+// OpenAI 的透传 / WS mode / 摊平 / 端点能力 / 生图转 base64 区块 2026-09-28 P5 删了（写进后端代码）。
 const showEndpointSection = computed(() =>
   form.type === 'apikey' ||
-  (form.platform === 'openai' && form.type === 'oauth') ||
-  openAIResponsesSettingsVisible.value ||
-  anthropicKeySettingsVisible.value ||
-  openAIKeySettingsVisible.value
+  anthropicKeySettingsVisible.value
 )
 // 模型改名：沿用原来有模型映射的接入方式（第三方 key、Bedrock、Antigravity、OpenAI / Grok 成品号）
-// 「更多设置」里的模型分区：改名或 Compact 有一个就出标题（承接的模型在前面，不在这个分区）
-const showModelMoreSection = computed(() => showModelRename.value || openAIResponsesSettingsVisible.value)
+// 「更多设置」里的模型分区只剩改名（Compact 区块 2026-09-28 P5 删了）
 const showModelRename = computed(() =>
   form.platform === 'antigravity' ||
   form.type === 'apikey' ||
@@ -2942,27 +2484,14 @@ watch(
     if (newPlatform !== 'anthropic' && newPlatform !== 'antigravity') {
       interceptWarmupRequests.value = false
     }
-    if (newPlatform !== 'openai') {
-      openaiFlattenNamespacesEnabled.value = false
-      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
-      openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-      codexCLIOnlyEnabled.value = false
-      codexCLIOnlyAppServerEnabled.value = false
-    }
-    // 第三方 key 也能配的协议设置（OpenAI 自动透传 / key 的 WS mode / Compact，Anthropic
-    // 认证方式 / Bedrock CC 兼容）：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
-    // 同一平台内删掉地址行导致的隐藏，由提交时的可见性判断保证不写入。
-    openaiPassthroughEnabled.value = false
-    openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-    openAICompactMode.value = 'auto'
-    openAICompactModelMappings.value = []
+    // 第三方 key 也能配的协议设置（Anthropic 认证方式 / Bedrock CC 兼容）：切换平台一律清空
+    // （不看切到哪个平台），与请求头覆写一致；同一平台内删掉地址行导致的隐藏，由提交时的可见性判断保证不写入。
     anthropicAPIKeyAuthScheme.value = 'x_api_key'
     bedrockCCCompatEnabled.value = false
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
     headerOverrideEnabled.value = false
     headerOverrideRows.value = []
-    openAIImagesUrlToB64JsonEnabled.value = false
     // Reset OAuth states
     oauth.resetState()
     openaiOAuth.resetState()
@@ -2974,16 +2503,6 @@ watch(
 )
 
 // Gemini AI Studio OAuth availability (requires operator-configured OAuth client)
-watch(
-  [accountCategory, () => form.platform],
-  ([category, platform]) => {
-    if (platform === 'openai' && category !== 'oauth-based') {
-      codexCLIOnlyEnabled.value = false
-      codexCLIOnlyAppServerEnabled.value = false
-    }
-  }
-)
-
 watch(
   [() => props.show, () => form.platform, accountCategory],
   async ([show, platform, category]) => {
@@ -3008,14 +2527,6 @@ const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | '
   geminiOAuthType.value = oauthType
 }
 
-// Model mapping helpers
-const addOpenAICompactModelMapping = () => {
-  openAICompactModelMappings.value.push({ from: '', to: '' })
-}
-
-const removeOpenAICompactModelMapping = (index: number) => {
-  openAICompactModelMappings.value.splice(index, 1)
-}
 
 // Error code toggle helper
 const toggleErrorCode = (code: number) => {
@@ -3263,7 +2774,6 @@ const resetForm = () => {
   editWeeklyResetHour.value = null
   editResetTimezone.value = null
   modelMappings.value = []
-  openAICompactModelMappings.value = []
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
   selectedCatalogEntryIds.value = []
   catalogSelectionTouched.value = false
@@ -3276,18 +2786,8 @@ const resetForm = () => {
   customErrorCodeInput.value = null
   headerOverrideEnabled.value = false
   headerOverrideRows.value = []
-  openAIImagesUrlToB64JsonEnabled.value = false
   interceptWarmupRequests.value = false
   autoPauseOnExpired.value = true
-  openaiPassthroughEnabled.value = false
-  openaiFlattenNamespacesEnabled.value = false
-  openAICompactMode.value = 'auto'
-  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
-  openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  codexCLIOnlyEnabled.value = false
-  codexCLIOnlyAppServerEnabled.value = false
-  codexFingerprintMode.value = 'off'
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   bedrockCCCompatEnabled.value = false
   // Reset quota control state
@@ -3302,9 +2802,6 @@ const resetForm = () => {
   tempUnschedEnabled.value = false
   tempUnschedRules.value = []
   geminiOAuthType.value = 'code_assist'
-  geminiTierGoogleOne.value = 'google_one_free'
-  geminiTierGcp.value = 'gcp_standard'
-  geminiTierAIStudio.value = 'aistudio_free'
   oauth.resetState()
   openaiOAuth.resetState()
   geminiOAuth.resetState()
@@ -3315,92 +2812,6 @@ const resetForm = () => {
 
 const handleClose = () => {
   emit('close')
-}
-
-const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  const responsesSettingsVisible = openAIResponsesSettingsVisible.value
-  const openaiPlatform = form.platform === 'openai'
-  if (!responsesSettingsVisible && !openaiPlatform) {
-    return base
-  }
-
-  const extra: Record<string, unknown> = { ...(base || {}) }
-  // OpenAI Responses 协议设置（自动透传 / WS mode / Compact）：只在区块可见时写入
-  if (responsesSettingsVisible) {
-    if (form.type === 'apikey') {
-      extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
-      extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
-    } else {
-      extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
-      extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
-    }
-    // 清理兼容旧键，统一改用分类型开关。
-    delete extra.responses_websockets_v2_enabled
-    delete extra.openai_ws_enabled
-    if (openaiPassthroughEnabled.value) {
-      extra.openai_passthrough = true
-    } else {
-      delete extra.openai_passthrough
-      delete extra.openai_oauth_passthrough
-    }
-    if (openAICompactMode.value !== 'auto') {
-      extra.openai_compact_mode = openAICompactMode.value
-    } else {
-      delete extra.openai_compact_mode
-    }
-  }
-  // 生图结果转 base64 与端点能力同区块：第三方 key 按协议地址判定，不看平台标签，
-  // 必须在 openai 平台专属段落之前写入。
-  if (openAIKeySettingsVisible.value && openAIImagesUrlToB64JsonEnabled.value) {
-    extra.images_url_to_b64_json = true
-  } else {
-    delete extra.images_url_to_b64_json
-  }
-  if (!openaiPlatform) {
-    return Object.keys(extra).length > 0 ? extra : undefined
-  }
-
-  // 以下是 OpenAI 成品号专属设置
-  // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
-  if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
-    extra.openai_responses_flatten_namespaces = true
-  } else {
-    delete extra.openai_responses_flatten_namespaces
-  }
-
-  if (accountCategory.value === 'oauth-based' && codexCLIOnlyEnabled.value) {
-    extra.codex_cli_only = true
-  } else {
-    delete extra.codex_cli_only
-  }
-  delete extra.codex_cli_only_allowed_clients
-  if (
-    accountCategory.value === 'oauth-based' &&
-    codexCLIOnlyEnabled.value &&
-    codexCLIOnlyAppServerEnabled.value
-  ) {
-    extra.codex_cli_only_allow_app_server = true
-  } else {
-    delete extra.codex_cli_only_allow_app_server
-  }
-  // 收敛是显式 opt-in：off 即默认值，不落键；device/session/full 必须显式写入，
-  // 否则管理员的选择会被当成默认而丢失（#5610）。区块只对 OpenAI 成品号露出，
-  // 换成 key 后不写残留值。
-  if (accountCategory.value === 'oauth-based' && codexFingerprintMode.value !== 'off') {
-    extra.codex_fingerprint_mode = codexFingerprintMode.value
-  } else {
-    delete extra.codex_fingerprint_mode
-  }
-
-  return Object.keys(extra).length > 0 ? extra : undefined
-}
-
-const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
-  const extra = buildOpenAIExtra()
-  if (!extra) {
-    return undefined
-  }
-  return Object.keys(extra).length > 0 ? extra : undefined
 }
 
 const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
@@ -3592,17 +3003,11 @@ const handleSubmit = async () => {
     }
   }
 
-  // Add model mapping if configured（OpenAI 开启自动透传时不应用）
-  if (!isOpenAIModelRestrictionDisabled.value) {
-    const modelMapping = buildRenameMapping()
-    if (modelMapping) {
-      credentials.model_mapping = modelMapping
-    }
+  // Add model mapping if configured
+  const modelMapping = buildRenameMapping()
+  if (modelMapping) {
+    credentials.model_mapping = modelMapping
   }
-  if (openAIKeySettingsVisible.value) {
-    applyOpenAIEndpointCapabilities(credentials)
-  }
-  applyKeyCompactModelMapping(credentials)
 
   // Add pool mode if enabled
   if (poolModeEnabled.value) {
@@ -3631,7 +3036,7 @@ const handleSubmit = async () => {
   }
 
   form.credentials = credentials
-  const extra = buildAnthropicExtra(buildOpenAIExtra())
+  const extra = buildAnthropicExtra()
 
   await doCreateAccount({
     ...form,
@@ -3659,8 +3064,7 @@ const handleGenerateUrl = async () => {
     await geminiOAuth.generateAuthUrl(
       form.proxy_id,
       oauthFlowRef.value?.projectId,
-      geminiOAuthType.value,
-      geminiSelectedTier.value
+      geminiOAuthType.value
     )
   } else if (form.platform === 'antigravity') {
     await antigravityOAuth.generateAuthUrl(form.proxy_id)
@@ -3734,18 +3138,6 @@ const createAccountAndFinish = async (
   let finalExtra = withUpstreamRequestIdHeader(extra)
   if (type === 'apikey' || type === 'bedrock') {
     finalExtra = withQuotaExtra(finalExtra)
-  }
-  // 端点能力按协议地址判定，不看平台标签。
-  if (openAIKeySettingsVisible.value) {
-    applyOpenAIEndpointCapabilities(credentials)
-  }
-  if (platform === 'openai') {
-    const compactModelMapping = buildOpenAICompactModelMapping()
-    if (compactModelMapping) {
-      credentials.compact_model_mapping = compactModelMapping
-    } else {
-      delete credentials.compact_model_mapping
-    }
   }
   if (platform === 'grok') {
     const modelMapping = buildRenameMapping()
@@ -4070,21 +3462,14 @@ const handleOpenAIExchange = async (authCode: string) => {
     if (!tokenInfo) return
 
     const credentials = oauthClient.buildCredentials(tokenInfo)
-    const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-    const extra = buildOpenAIExtra(oauthExtra)
+    const extra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
     const shouldCreateOpenAI = form.platform === 'openai'
 
-    // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
-    if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
+    // Add model mapping for OpenAI OAuth accounts
+    if (shouldCreateOpenAI) {
       const modelMapping = buildRenameMapping()
       if (modelMapping) {
         credentials.model_mapping = modelMapping
-      }
-    }
-    if (shouldCreateOpenAI) {
-      const compactModelMapping = buildOpenAICompactModelMapping()
-      if (compactModelMapping) {
-        credentials.compact_model_mapping = compactModelMapping
       }
     }
 
@@ -4128,16 +3513,9 @@ const OPENAI_MOBILE_RT_CLIENT_ID = 'app_LlGpXReQgckcGGUo2JrYvtJK'
 
 const buildOpenAICodexImportCredentialExtras = (): Record<string, unknown> | null => {
   const credentials: Record<string, unknown> = {}
-  if (!isOpenAIModelRestrictionDisabled.value) {
-    const modelMapping = buildRenameMapping()
-    if (modelMapping) {
-      credentials.model_mapping = modelMapping
-    }
-  }
-
-  const compactModelMapping = buildOpenAICompactModelMapping()
-  if (compactModelMapping) {
-    credentials.compact_model_mapping = compactModelMapping
+  const modelMapping = buildRenameMapping()
+  if (modelMapping) {
+    credentials.model_mapping = modelMapping
   }
 
   if (!applyTempUnschedConfig(credentials)) {
@@ -4200,7 +3578,6 @@ const handleOpenAIImportCodexSession = async (content: string) => {
   oauthClient.error.value = ''
 
   try {
-    const extra = buildOpenAICodexImportExtra()
     const result = await adminAPI.accounts.importCodexSession({
       content: trimmed,
       name: form.name,
@@ -4213,7 +3590,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
-      extra: withUpstreamRequestIdHeader(extra),
+      extra: withUpstreamRequestIdHeader(undefined),
       update_existing: true
     })
 
@@ -4277,7 +3654,6 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
   oauthClient.error.value = ''
 
   try {
-    const extra = buildOpenAICodexImportExtra()
     await adminAPI.accounts.createOpenAICodexPAT({
       access_token: trimmed,
       name: form.name,
@@ -4290,7 +3666,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value,
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
-      extra: withUpstreamRequestIdHeader(extra)
+      extra: withUpstreamRequestIdHeader(undefined)
     })
 
     appStore.showSuccess(t('admin.accounts.accountCreated'))
@@ -4350,20 +3726,13 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
         if (clientId) {
           credentials.client_id = clientId
         }
-        const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-        const extra = buildOpenAIExtra(oauthExtra)
+        const extra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
 
-        // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
-        if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
+        // Add model mapping for OpenAI OAuth accounts
+        if (shouldCreateOpenAI) {
           const modelMapping = buildRenameMapping()
           if (modelMapping) {
             credentials.model_mapping = modelMapping
-          }
-        }
-        if (shouldCreateOpenAI) {
-          const compactModelMapping = buildOpenAICompactModelMapping()
-          if (compactModelMapping) {
-            credentials.compact_model_mapping = compactModelMapping
           }
         }
 
@@ -4539,8 +3908,7 @@ const handleGeminiExchange = async (authCode: string) => {
       sessionId: geminiOAuth.sessionId.value,
       state: stateToUse,
       proxyId: form.proxy_id,
-      oauthType: geminiOAuthType.value,
-      tierId: geminiSelectedTier.value
+      oauthType: geminiOAuthType.value
     })
     if (!tokenInfo) return
 

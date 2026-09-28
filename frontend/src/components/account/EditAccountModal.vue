@@ -273,24 +273,6 @@
         <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
-      <!-- OpenAI 订阅档位手动覆盖（Plus/Pro/Free），仅 OAuth 非影子账号 -->
-      <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.planType') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.planTypeDesc') }}
-            </p>
-          </div>
-          <div class="w-44 flex-shrink-0">
-            <Select v-model="editPlanType" :options="planTypeOptions" />
-          </div>
-        </div>
-      </div>
-
       <div class="border-t border-af-hairline pt-4">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
@@ -406,215 +388,6 @@
         </div>
       </div>
 
-      <!-- OpenAI 自动透传开关：OpenAI 成品号；第三方 key 配了 responses / chat_completions 地址才展示，不看平台标签 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        data-testid="edit-openai-passthrough"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
-            </p>
-            <p
-              v-if="account?.type === 'apikey'"
-              data-testid="edit-openai-key-protocol-hint"
-              class="mt-1 text-xs text-af-warning"
-            >
-              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="edit-openai-passthrough-toggle"
-            @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
-      <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="edit-openai-flatten-namespaces-toggle"
-            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI Codex hosted image_generation bridge policy -->
-      <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="overflow-hidden rounded-lg border border-af-hairline bg-af-sunken/60">
-          <div class="flex items-start gap-3 px-4 py-3">
-            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-af-sheet text-af-ink-2 ring-1 ring-af-hairline">
-              <Icon name="sparkles" size="sm" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <label class="input-label mb-0">{{ t('admin.accounts.openai.codexImageTool') }}</label>
-                <span
-                  class="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  :class="codexImageToolBadgeClass"
-                >
-                  {{ codexImageToolBadgeLabel }}
-                </span>
-              </div>
-              <p class="mt-1 text-xs leading-5 text-af-ink-2">
-                {{ t('admin.accounts.openai.codexImageToolDesc') }}
-              </p>
-            </div>
-          </div>
-          <div class="border-t border-af-hairline bg-af-sheet/70 p-2">
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                v-for="option in codexImageToolOptions"
-                :key="option.value"
-                type="button"
-                :data-testid="`codex-image-tool-${option.value}`"
-                @click="codexImageToolMode = option.value"
-                :class="[
-                  'group flex min-h-[62px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-all',
-                  codexImageToolMode === option.value
-                    ? option.selectedCardClass
-                    : 'border-transparent bg-transparent text-af-ink-2 hover:border-af-hairline hover:bg-af-sunken'
-                ]"
-              >
-                <span
-                  :class="[
-                    'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
-                    codexImageToolMode === option.value
-                      ? option.selectedDotClass
-                      : 'border-af-hairline-strong text-transparent group-hover:border-af-ink-4'
-                  ]"
-                >
-                  <Icon name="check" size="xs" :stroke-width="2" />
-                </span>
-                <span class="min-w-0">
-                  <span class="block text-sm font-medium">{{ option.label }}</span>
-                  <span class="mt-0.5 block text-xs leading-4 text-af-ink-3">{{ option.description }}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- OpenAI WS Mode（off/ctx_pool/passthrough/http_bridge），展示条件同自动透传 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.wsModeDesc') }}
-            </p>
-            <p v-if="openAIWSModeHintKey" class="mt-1 text-xs text-af-ink-3">
-              {{ t(openAIWSModeHintKey) }}
-            </p>
-          </div>
-          <div class="w-52">
-            <Select v-model="openaiResponsesWebSocketV2Mode" data-testid="edit-openai-ws-mode-select" :options="openAIWSModeOptions" />
-          </div>
-        </div>
-      </div>
-
-      <!-- OpenAI APIKey endpoint capabilities -->
-      <div
-        v-if="openAIKeySettingsVisible"
-        class="space-y-4 border-t border-af-hairline pt-4"
-      >
-        <div>
-          <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
-              v-for="option in openAIEndpointCapabilityOptions"
-              :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-af-hairline px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                :data-testid="`openai-endpoint-capability-${option.value}`"
-                :checked="openAIEndpointCapabilities.includes(option.value)"
-                @change="toggleOpenAIEndpointCapability(option.value, $event)"
-              />
-              <span class="text-af-ink-2">{{ option.label }}</span>
-            </label>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
-        </div>
-      </div>
-
-      <!-- OpenAI APIKey images: backfill b64_json from url -->
-      <div
-        v-if="openAIKeySettingsVisible"
-        class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
-      >
-        <div>
-          <label class="input-label mb-0">{{ t('admin.accounts.openai.imagesUrlToB64Json') }}</label>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.imagesUrlToB64JsonDesc') }}
-          </p>
-        </div>
-        <button
-          type="button"
-          data-testid="openai-images-url-to-b64-json-toggle"
-          role="switch"
-          :aria-checked="openAIImagesUrlToB64JsonEnabled"
-          @click="openAIImagesUrlToB64JsonEnabled = !openAIImagesUrlToB64JsonEnabled"
-          :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-            openAIImagesUrlToB64JsonEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-          ]"
-        >
-          <span
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-              openAIImagesUrlToB64JsonEnabled ? 'translate-x-5' : 'translate-x-0'
-            ]"
-          />
-        </button>
-      </div>
-
       <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
       <div
         v-if="anthropicKeySettingsVisible"
@@ -693,7 +466,6 @@
         data-testid="edit-model-rename"
         class="border-t border-af-hairline pt-4"
         :presets="renamePresets"
-        :disabled="isOpenAIModelRestrictionDisabled"
         :extends-vendor-table="extendsVendorTable"
       >
         <template v-if="account.platform === 'antigravity'" #actions>
@@ -707,66 +479,6 @@
           </button>
         </template>
       </ModelRenameEditor>
-
-      <!-- OpenAI Compact 模式与专属模型映射，展示条件同自动透传 -->
-      <div
-        v-if="openAIResponsesSettingsVisible"
-        data-testid="edit-openai-compact"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.compactModeDesc') }}
-            </p>
-          </div>
-          <div class="w-44">
-            <Select v-model="openAICompactMode" data-testid="edit-openai-compact-mode-select" :options="openAICompactModeOptions" />
-          </div>
-        </div>
-        <div class="rounded-lg bg-af-sunken px-3 py-2 text-xs text-af-ink-2">
-          <span class="font-medium">{{ t(openAICompactStatusKey) }}</span>
-          <span
-            v-if="account?.extra?.openai_compact_checked_at"
-            class="ml-2 text-af-ink-3"
-          >
-            {{ t('admin.accounts.openai.compactLastChecked') }}:
-            {{ formatDateTime(new Date(String(account.extra.openai_compact_checked_at))) }}
-          </span>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
-          <p class="input-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
-          <div v-if="openAICompactModelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in openAICompactModelMappings"
-              :key="getOpenAICompactModelMappingKey(mapping)"
-              class="flex items-center gap-2"
-            >
-              <input
-                v-model="mapping.from"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.fromModel')"
-              />
-              <span class="text-af-ink-3">→</span>
-              <input
-                v-model="mapping.to"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.toModel')"
-              />
-              <button type="button" @click="removeOpenAICompactModelMapping(index)" class="text-af-danger hover:text-af-danger">
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </div>
-          <button type="button" @click="addOpenAICompactModelMapping" class="btn btn-secondary text-sm">
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
-        </div>
-      </div>
 
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
@@ -1070,84 +782,6 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai'"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="space-y-2">
-          <div class="flex items-center justify-between gap-4">
-            <label class="input-label mb-0">{{ t('admin.accounts.autoPause5hDisabled') }}</label>
-            <button
-              type="button"
-              @click="autoPause5hDisabled = !autoPause5hDisabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                autoPause5hDisabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-              data-testid="auto-pause-5h-disabled"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  autoPause5hDisabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.autoPause5hThreshold') }}</label>
-          <input
-            v-model.number="autoPause5hThreshold"
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            class="input"
-            :disabled="autoPause5hDisabled"
-            data-testid="auto-pause-5h-threshold"
-          />
-          <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
-        </div>
-        <div class="space-y-2">
-          <div class="flex items-center justify-between gap-4">
-            <label class="input-label mb-0">{{ t('admin.accounts.autoPause7dDisabled') }}</label>
-            <button
-              type="button"
-              @click="autoPause7dDisabled = !autoPause7dDisabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                autoPause7dDisabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-              data-testid="auto-pause-7d-disabled"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  autoPause7dDisabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.autoPause7dThreshold') }}</label>
-          <input
-            v-model.number="autoPause7dThreshold"
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            class="input"
-            :disabled="autoPause7dDisabled"
-            data-testid="auto-pause-7d-threshold"
-          />
-          <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
-        </div>
-      </div>
-
-      <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
         class="space-y-4 border-t border-af-hairline pt-4"
         data-testid="auto-reset-credit-settings"
@@ -1176,35 +810,6 @@
             />
           </button>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('admin.accounts.autoResetCredit.threshold5h') }}</label>
-            <input
-              v-model.number="autoResetCredit5hThreshold"
-              type="number"
-              min="0.1"
-              max="100"
-              step="0.1"
-              class="input"
-              :disabled="!autoResetCreditEnabled"
-              data-testid="auto-reset-credit-5h-threshold"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.autoResetCredit.threshold7d') }}</label>
-            <input
-              v-model.number="autoResetCredit7dThreshold"
-              type="number"
-              min="0.1"
-              max="100"
-              step="0.1"
-              class="input"
-              :disabled="!autoResetCreditEnabled"
-              data-testid="auto-reset-credit-7d-threshold"
-            />
-          </div>
-        </div>
-        <p class="input-hint">{{ t('admin.accounts.autoResetCredit.thresholdHint') }}</p>
       </div>
 
       <OllamaCloudUsageSettings
@@ -1611,150 +1216,6 @@
         </div>
       </div>
 
-      <!-- Grok OAuth client-tool prompt cache opt-in -->
-      <div
-        v-if="account.platform === 'grok' && account.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.grokClientToolCache.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.grokClientToolCache.hint') }}
-            </p>
-          </div>
-          <Toggle
-            v-model="grokClientToolCacheEnabled"
-            data-testid="grok-client-tool-cache-toggle"
-            :aria-label="t('admin.accounts.grokClientToolCache.title')"
-          />
-        </div>
-      </div>
-
-      <!-- Grok OAuth media generation eligibility override -->
-      <div
-        v-if="isGrokOAuthAccount"
-        class="border-t border-af-hairline pt-4"
-        data-testid="grok-media-eligibility-card"
-      >
-        <div class="space-y-3">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.grokMediaEligibility.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.grokMediaEligibility.hint') }}
-            </p>
-          </div>
-          <select
-            v-model="grokMediaEligibilityMode"
-            class="input"
-            data-testid="grok-media-eligibility-mode"
-            :disabled="grokMediaEligibilityLoading"
-          >
-            <option value="auto">{{ t('admin.accounts.grokMediaEligibility.auto') }}</option>
-            <option value="enabled">{{ t('admin.accounts.grokMediaEligibility.enabled') }}</option>
-            <option value="disabled">{{ t('admin.accounts.grokMediaEligibility.disabled') }}</option>
-          </select>
-          <p v-if="grokMediaEligibilityLoading" class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.grokMediaEligibility.loading') }}
-          </p>
-          <p v-else-if="grokMediaEligibilityError" class="text-xs text-af-danger">
-            {{ grokMediaEligibilityError }}
-          </p>
-          <div v-else-if="grokMediaEligibilityState" class="rounded-lg bg-af-sunken p-3 text-xs">
-            <span class="font-medium">{{ t('admin.accounts.grokMediaEligibility.current') }}</span>
-            <span class="ml-1" data-testid="grok-media-eligibility-status">
-              {{ grokMediaEligibilityState.eligible ? t('admin.accounts.grokMediaEligibility.eligible') : t('admin.accounts.grokMediaEligibility.ineligible') }}
-              · {{ t(`admin.accounts.grokMediaEligibility.reasons.${grokMediaEligibilityState.reason}`) }}
-            </span>
-          </div>
-          <div
-            v-if="grokMediaEligibilityMode === 'enabled'"
-            class="rounded-lg bg-af-warning-tint p-3"
-          >
-            <p class="text-xs text-af-warning">
-              <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.grokMediaEligibility.forceEnableWarning') }}
-            </p>
-          </div>
-          <p v-else-if="grokMediaEligibilityMode === 'auto'" class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.grokMediaEligibility.autoHint') }}
-          </p>
-        </div>
-      </div>
-
-      <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token')"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-        <div
-          v-if="codexCLIOnlyEnabled"
-          class="mt-4 flex items-center justify-between border-l-2 border-af-hairline pl-4"
-        >
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
-      <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
-            </p>
-          </div>
-          <div class="w-52 flex-shrink-0">
-            <Select v-model="codexFingerprintMode" data-testid="edit-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
-          </div>
-        </div>
-      </div>
-
       <UpstreamRequestIdHeaderField
         v-model="upstreamRequestIdHeader"
         :platform="account.platform"
@@ -1810,11 +1271,7 @@ import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
   Proxy,
-  OpenAICompactMode,
-  OpenAIEndpointCapability,
   OllamaCloudUsageState,
-  GrokMediaEligibilityMode,
-  GrokMediaEligibilityState,
   ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
@@ -1840,7 +1297,6 @@ import {
   endpointsAfterDefaultsChange,
   preferredProtocolFor,
   hasAnthropicEndpoint,
-  hasOpenAIEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
   trimProtocolEndpoints,
@@ -1852,9 +1308,6 @@ import {
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  applyPlanType,
-  buildPlanTypeOptions,
-  readPlanType,
   resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
@@ -1869,7 +1322,6 @@ import {
   type OpenCodeAccountMode
 } from '@/components/account/credentialsBuilder'
 import {
-  formatDateTime,
   formatDateTimeLocalInput,
   getBrowserTimeZone,
   parseDateTimeLocalInput
@@ -1877,16 +1329,6 @@ import {
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
-import {
-  OPENAI_WS_MODE_CTX_POOL,
-  OPENAI_WS_MODE_OFF,
-  OPENAI_WS_MODE_PASSTHROUGH,
-  OPENAI_WS_MODE_HTTP_BRIDGE,
-  isOpenAIWSModeEnabled,
-  resolveOpenAIWSModeHintKey,
-  type OpenAIWSMode,
-  resolveOpenAIWSModeFromExtra
-} from '@/utils/openaiWsMode'
 import {
   PLATFORMS_WITH_VENDOR_MODEL_TABLE,
   commonErrorCodes,
@@ -2057,7 +1499,6 @@ const isBedrockAPIKeyMode = computed(() =>
   (props.account?.credentials as Record<string, unknown>)?.auth_mode === 'apikey'
 )
 const modelMappings = ref<ModelMapping[]>([])
-const openAICompactModelMappings = ref<ModelMapping[]>([])
 
 // 承接的模型：按渠道读绑定（GET /admin/accounts/:id/catalog-entries），保存时勾选变了才整份写回。
 const selectedCatalogEntryIds = ref<number[]>([])
@@ -2108,7 +1549,6 @@ const persistCatalogEntries = async (accountID: number): Promise<boolean> => {
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
-const GROK_CLIENT_TOOL_CACHE_EXTRA_KEY = 'grok_client_tool_cache_enabled'
 const poolModeEnabled = ref(false)
 const poolModeRetryCount = ref(DEFAULT_POOL_MODE_RETRY_COUNT)
 const poolModeRetryStatusCodesInput = ref('')
@@ -2154,59 +1594,9 @@ const headerOverrideCapable = computed(
   () => !!props.account && isHeaderOverrideCapable(props.account.platform, props.account.type)
 )
 
-// Grok Free OAuth accounts use client-tool prompt caching by default. Keep an
-// explicit false in the account extra as the opt-out signal.
-const grokClientToolCacheEnabled = ref(true)
-const isGrokOAuthAccount = computed(
-  () => props.account?.platform === 'grok' && props.account?.type === 'oauth'
-)
-const grokMediaEligibilityMode = ref<GrokMediaEligibilityMode>('auto')
-const grokMediaEligibilityInitialMode = ref<GrokMediaEligibilityMode>('auto')
-const grokMediaEligibilityState = ref<GrokMediaEligibilityState | null>(null)
-const grokMediaEligibilityLoading = ref(false)
-const grokMediaEligibilityError = ref('')
-let grokMediaEligibilityRequestVersion = 0
-
-const modeFromGrokMediaExtra = (extra: Record<string, unknown> | undefined): GrokMediaEligibilityMode => {
-  if (extra?.grok_media_eligible === true) return 'enabled'
-  if (extra?.grok_media_eligible === false) return 'disabled'
-  return 'auto'
-}
-
-const loadGrokMediaEligibility = async (accountID: number): Promise<GrokMediaEligibilityState | null> => {
-  if (!isGrokOAuthAccount.value || typeof adminAPI.accounts.getGrokMediaEligibility !== 'function') {
-    return null
-  }
-  const requestVersion = ++grokMediaEligibilityRequestVersion
-  grokMediaEligibilityLoading.value = true
-  grokMediaEligibilityError.value = ''
-  try {
-    const state = await adminAPI.accounts.getGrokMediaEligibility(accountID)
-    if (requestVersion !== grokMediaEligibilityRequestVersion) return null
-    grokMediaEligibilityState.value = state
-    grokMediaEligibilityMode.value = state.mode
-    grokMediaEligibilityInitialMode.value = state.mode
-    return state
-  } catch (error: any) {
-    if (requestVersion !== grokMediaEligibilityRequestVersion) return null
-    grokMediaEligibilityError.value = error?.message || t('admin.accounts.grokMediaEligibility.loadFailed')
-    return null
-  } finally {
-    if (requestVersion === grokMediaEligibilityRequestVersion) {
-      grokMediaEligibilityLoading.value = false
-    }
-  }
-}
-
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(false)
-const autoPause5hThreshold = ref<number | null>(null)
-const autoPause7dThreshold = ref<number | null>(null)
-const autoPause5hDisabled = ref(false)
-const autoPause7dDisabled = ref(false)
 const autoResetCreditEnabled = ref(false)
-const autoResetCredit5hThreshold = ref(100)
-const autoResetCredit7dThreshold = ref(100)
 const upstreamBillingAutoProbeEnabled = ref(false)
 const upstreamBillingRateSyncEnabled = ref(false)
 // 上游ID：直接上游声明请求标识的响应头名，留空不记录。
@@ -2226,7 +1616,6 @@ const supportsAccountSchedulingThresholdOverride = computed(() =>
   supportsAccountSchedulingThresholdOverridePlatform(props.account?.platform)
 )
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
-const getOpenAICompactModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-openai-compact-model-mapping')
 const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('edit-temp-unsched-rule')
 
 
@@ -2238,25 +1627,6 @@ const maxSessions = ref<number | null>(null)
 const rpmLimitEnabled = ref(false)
 const baseRpm = ref<number | null>(null)
 
-// OpenAI 自动透传开关（OAuth/API Key）
-const openaiPassthroughEnabled = ref(false)
-// OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
-const openaiFlattenNamespacesEnabled = ref(false)
-// OpenAI 订阅档位（Plus / Pro 20x / Pro 5x / Business Standard / Business Premium / Free）手动覆盖值,
-// 存于 credentials.plan_type;'' 表示清空/自动识别
-const editPlanType = ref<string>('')
-const openAICompactMode = ref<OpenAICompactMode>('auto')
-// Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
-const openAIImagesUrlToB64JsonEnabled = ref(false)
-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
-const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
-const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
-const codexCLIOnlyEnabled = ref(false)
-const codexCLIOnlyAppServerEnabled = ref(false)
-type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
-const codexFingerprintMode = ref<CodexFingerprintMode>('off')
-type CodexImageToolMode = 'inherit' | 'enabled' | 'disabled' | 'block'
-const codexImageToolMode = ref<CodexImageToolMode>('inherit')
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
 const bedrockCCCompatEnabled = ref(false)
@@ -2264,21 +1634,6 @@ const bedrockCCCompatEnabled = ref(false)
 const anthropicKeySettingsVisible = computed(
   () => props.account?.type === 'apikey' && hasAnthropicEndpoint(editProtocolEndpoints.value)
 )
-// OpenAI Responses 协议设置（自动透传、WS mode、Compact）：成品号沿用 OpenAI 平台的规则；
-// 第三方 key 按编辑中的协议地址（responses 或 chat_completions）展示，不看平台标签。
-const openAIResponsesSettingsVisible = computed(() => {
-  const account = props.account
-  if (!account) return false
-  if (account.type === 'apikey') return hasOpenAIEndpoint(editProtocolEndpoints.value)
-  return account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')
-})
-
-// 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
-// 按编辑中的协议地址展示，不看平台标签。
-const openAIKeySettingsVisible = computed(
-  () => props.account?.type === 'apikey' && hasOpenAIEndpoint(editProtocolEndpoints.value)
-)
-
 // 表单分区（A5-c）：「基本」「额度」「高级」总有字段；「地址与协议」「模型与映射」只在分区里有区块时才出标题，
 // 条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
 const showEndpointSection = computed(() => {
@@ -2287,9 +1642,6 @@ const showEndpointSection = computed(() => {
   return (
     account.type === 'apikey' ||
     account.type === 'bedrock' ||
-    (account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')) ||
-    openAIResponsesSettingsVisible.value ||
-    openAIKeySettingsVisible.value ||
     anthropicKeySettingsVisible.value
   )
 })
@@ -2322,180 +1674,6 @@ const editWeeklyResetMode = ref<'rolling' | 'fixed' | null>(null)
 const editWeeklyResetDay = ref<number | null>(null)
 const editWeeklyResetHour = ref<number | null>(null)
 const editResetTimezone = ref<string | null>(null)
-const codexFingerprintModeOptions = computed(() => [
-  { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
-  { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
-  { value: 'session' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintSession') },
-  { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
-])
-
-const openAIWSModeOptions = computed(() => [
-  { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
-  { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
-  { value: OPENAI_WS_MODE_PASSTHROUGH, label: t('admin.accounts.openai.wsModePassthrough') },
-  { value: OPENAI_WS_MODE_HTTP_BRIDGE, label: t('admin.accounts.openai.wsModeHttpBridge') }
-])
-const openaiResponsesWebSocketV2Mode = computed({
-  get: () => {
-    if (props.account?.type === 'apikey') {
-      return openaiAPIKeyResponsesWebSocketV2Mode.value
-    }
-    return openaiOAuthResponsesWebSocketV2Mode.value
-  },
-  set: (mode: OpenAIWSMode) => {
-    if (props.account?.type === 'apikey') {
-      openaiAPIKeyResponsesWebSocketV2Mode.value = mode
-      return
-    }
-    openaiOAuthResponsesWebSocketV2Mode.value = mode
-  }
-})
-const openAIWSModeHintKey = computed(() =>
-  resolveOpenAIWSModeHintKey(openaiResponsesWebSocketV2Mode.value)
-)
-const codexImageToolOptions = computed<Array<{
-  value: CodexImageToolMode
-  label: string
-  description: string
-  selectedCardClass: string
-  selectedDotClass: string
-}>>(() => [
-  {
-    value: 'inherit',
-    label: t('admin.accounts.openai.codexImageToolInherit'),
-    description: t('admin.accounts.openai.codexImageToolInheritDesc'),
-    selectedCardClass: 'border-af-hairline bg-af-sunken text-af-ink-2 ring-1 ring-af-hairline',
-    selectedDotClass: 'border-af-ink-3 bg-af-ink text-af-on-brand'
-  },
-  {
-    value: 'enabled',
-    label: t('admin.accounts.openai.codexImageToolEnabled'),
-    description: t('admin.accounts.openai.codexImageToolEnabledDesc'),
-    selectedCardClass: 'border-af-success/30 bg-af-success-tint text-af-success ring-1 ring-af-success/30',
-    selectedDotClass: 'border-af-success bg-af-success text-af-on-brand'
-  },
-  {
-    value: 'disabled',
-    label: t('admin.accounts.openai.codexImageToolDisabled'),
-    description: t('admin.accounts.openai.codexImageToolDisabledDesc'),
-    selectedCardClass: 'border-af-warning/30 bg-af-warning-tint text-af-warning ring-1 ring-af-warning/30',
-    selectedDotClass: 'border-af-warning bg-af-warning text-af-on-brand'
-  },
-  {
-    value: 'block',
-    label: t('admin.accounts.openai.codexImageToolBlock'),
-    description: t('admin.accounts.openai.codexImageToolBlockDesc'),
-    selectedCardClass: 'border-af-danger/30 bg-af-danger-tint text-af-danger ring-1 ring-af-danger/30',
-    selectedDotClass: 'border-af-danger bg-af-danger text-af-on-brand'
-  }
-])
-const codexImageToolBadgeLabel = computed(() => {
-  switch (codexImageToolMode.value) {
-    case 'enabled':
-      return t('admin.accounts.openai.codexImageToolBadgeEnabled')
-    case 'disabled':
-      return t('admin.accounts.openai.codexImageToolBadgeDisabled')
-    case 'block':
-      return t('admin.accounts.openai.codexImageToolBadgeBlock')
-    default:
-      return t('admin.accounts.openai.codexImageToolBadgeInherit')
-  }
-})
-const codexImageToolBadgeClass = computed(() => {
-  switch (codexImageToolMode.value) {
-    case 'enabled':
-      return 'bg-af-success-tint text-af-success'
-    case 'disabled':
-      return 'bg-af-warning-tint text-af-warning'
-    case 'block':
-      return 'bg-af-danger-tint text-af-danger'
-    default:
-      return 'bg-af-sunken text-af-ink-2'
-  }
-})
-const openAICompactModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.compactModeAuto') },
-  { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
-  { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
-])
-// OpenAI 订阅档位手动覆盖选项(清空 + Plus/Pro/Free;别名/自定义值友好显示且保留 canonical)
-const planTypeOptions = computed(() =>
-  buildPlanTypeOptions(editPlanType.value, t('admin.accounts.openai.planTypeClear'))
-)
-const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
-  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
-  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
-])
-
-const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
-  const selected = allowed.filter((value) => values.includes(value))
-  return selected.length > 0 ? selected : allowed
-}
-
-const readOpenAIEndpointCapabilities = (credentials?: Record<string, unknown>): OpenAIEndpointCapability[] => {
-  const raw = credentials?.openai_capabilities
-  if (Array.isArray(raw)) {
-    return normalizeOpenAIEndpointCapabilities(
-      raw.filter((value): value is OpenAIEndpointCapability =>
-        value === 'chat_completions' || value === 'embeddings'
-      )
-    )
-  }
-  if (raw !== null && typeof raw === 'object') {
-    const capabilityMap = raw as Record<string, unknown>
-    return normalizeOpenAIEndpointCapabilities(
-      openAIEndpointCapabilityOptions.value
-        .map((option) => option.value)
-        .filter((value) => capabilityMap[value] === true)
-    )
-  }
-  return ['chat_completions', 'embeddings']
-}
-
-const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {
-  if (openAIEndpointCapabilities.value.includes(capability)) {
-    if (openAIEndpointCapabilities.value.length <= 1) {
-      const input = event?.target as HTMLInputElement | null
-      if (input) input.checked = true
-      return
-    }
-    openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
-      (value) => value !== capability
-    )
-    return
-  }
-  openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
-    ...openAIEndpointCapabilities.value,
-    capability
-  ])
-}
-
-const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
-  const capabilities = normalizeOpenAIEndpointCapabilities(openAIEndpointCapabilities.value)
-  if (capabilities.length === 2) {
-    delete credentials.openai_capabilities
-    return
-  }
-  credentials.openai_capabilities = capabilities
-}
-// 自动透传会跳过模型改写：透传区块可见且开启时，模型限制不再可编辑。
-const isOpenAIModelRestrictionDisabled = computed(() =>
-  openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
-)
-const openAICompactStatusKey = computed(() => {
-  const extra = props.account?.extra as Record<string, unknown> | undefined
-  if (!props.account) return ''
-  const mode = typeof extra?.openai_compact_mode === 'string' ? extra.openai_compact_mode : 'auto'
-  if (mode === 'force_on') return 'admin.accounts.openai.compactSupported'
-  if (mode === 'force_off') return 'admin.accounts.openai.compactUnsupported'
-  if (typeof extra?.openai_compact_supported === 'boolean') {
-    return extra.openai_compact_supported
-      ? 'admin.accounts.openai.compactSupported'
-      : 'admin.accounts.openai.compactUnsupported'
-  }
-  return 'admin.accounts.openai.compactAuto'
-})
 
 // 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
 const renamePresets = computed(() =>
@@ -2600,7 +1778,7 @@ const loadModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) =
 }
 
 // 写映射并打「只改名」标记（muqian 2026-09-25 去掉白名单）。spark 影子账号的映射是系统维护的模型集合，
-// 后端也只放行 model_mapping / compact_model_mapping 两个键，不打标记。
+// 后端也只放行 model_mapping 一个键，不打标记。
 const writeRenameMapping = (credentials: Record<string, unknown>) => {
   const modelMapping = buildModelMappingObject('mapping', [], modelMappings.value)
   if (modelMapping) {
@@ -2612,23 +1790,6 @@ const writeRenameMapping = (credentials: Record<string, unknown>) => {
     credentials.model_mapping_rename_only = true
   } else {
     delete credentials.model_mapping_rename_only
-  }
-}
-
-const applyOpenAIModelMappingCredentials = (credentials: Record<string, unknown>) => {
-  const shouldApplyModelMapping = !openaiPassthroughEnabled.value
-
-  if (shouldApplyModelMapping) {
-    writeRenameMapping(credentials)
-  } else if (!credentials.model_mapping) {
-    delete credentials.model_mapping
-  }
-
-  const compactModelMapping = buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
-  if (compactModelMapping) {
-    credentials.compact_model_mapping = compactModelMapping
-  } else {
-    delete credentials.compact_model_mapping
   }
 }
 
@@ -2670,99 +1831,14 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	const extra = newAccount.extra as Record<string, unknown> | undefined
 	allowOverages.value = extra?.allow_overages === true
 	upstreamRequestIdHeader.value = readUpstreamRequestIdHeader(extra)
-	openAIImagesUrlToB64JsonEnabled.value = extra?.images_url_to_b64_json === true
-	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
-	autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
-	autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
-	autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
 	autoResetCreditEnabled.value = extra?.auto_reset_credit_enabled === true
-	autoResetCredit5hThreshold.value =
-		typeof extra?.auto_reset_credit_5h_threshold === 'number' ? extra.auto_reset_credit_5h_threshold * 100 : 100
-	autoResetCredit7dThreshold.value =
-		typeof extra?.auto_reset_credit_7d_threshold === 'number' ? extra.auto_reset_credit_7d_threshold * 100 : 100
 	upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
   upstreamBillingRateSyncEnabled.value =
     upstreamBillingAutoProbeEnabled.value && extra?.upstream_billing_rate_sync_enabled === true
 
-  // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
-  openaiPassthroughEnabled.value = false
-  openaiFlattenNamespacesEnabled.value = false
-  editPlanType.value = ''
-  openAICompactMode.value = 'auto'
-  openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
-  openAICompactModelMappings.value = []
-  openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-  codexCLIOnlyEnabled.value = false
-  codexCLIOnlyAppServerEnabled.value = false
-  codexFingerprintMode.value = 'off'
-  codexImageToolMode.value = 'inherit'
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   bedrockCCCompatEnabled.value = false
-  // OpenAI Responses 协议设置（自动透传 / WS mode / Compact）：OpenAI 成品号与所有第三方 key 都回填，
-  // key 的区块随协议地址行显隐
-  if (
-    newAccount.type === 'apikey' ||
-    (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token'))
-  ) {
-    openaiPassthroughEnabled.value = extra?.openai_passthrough === true || extra?.openai_oauth_passthrough === true
-    openAICompactMode.value = (extra?.openai_compact_mode as OpenAICompactMode) || 'auto'
-    openaiOAuthResponsesWebSocketV2Mode.value = resolveOpenAIWSModeFromExtra(extra, {
-      modeKey: 'openai_oauth_responses_websockets_v2_mode',
-      enabledKey: 'openai_oauth_responses_websockets_v2_enabled',
-      fallbackEnabledKeys: ['responses_websockets_v2_enabled', 'openai_ws_enabled'],
-      defaultMode: OPENAI_WS_MODE_OFF
-    })
-    openaiAPIKeyResponsesWebSocketV2Mode.value = resolveOpenAIWSModeFromExtra(extra, {
-      modeKey: 'openai_apikey_responses_websockets_v2_mode',
-      enabledKey: 'openai_apikey_responses_websockets_v2_enabled',
-      fallbackEnabledKeys: ['responses_websockets_v2_enabled', 'openai_ws_enabled'],
-      defaultMode: OPENAI_WS_MODE_OFF
-    })
-    const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
-    if (compactMappings && typeof compactMappings === 'object') {
-      openAICompactModelMappings.value = Object.entries(compactMappings).map(([from, to]) => ({ from, to }))
-    }
-  }
-  // 端点能力是第三方 key 专属设置，与平台标签无关：任何标签的 key 都要回填，
-  // 否则保存时会把已存的能力限制覆盖成默认值。必须放在上面的默认值重置之后。
-  if (newAccount.type === 'apikey') {
-    openAIEndpointCapabilities.value = readOpenAIEndpointCapabilities(
-      newAccount.credentials as Record<string, unknown> | undefined
-    )
-  }
   // 长上下文计费开关对任意标签的 key 都生效，按已存值回填；区块可见性另算。
-  // OpenAI 平台专属设置（成品号语义；openai 标签的 key 仍沿用，待协议化）
-  if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token' || newAccount.type === 'apikey')) {
-    openaiFlattenNamespacesEnabled.value =
-      newAccount.type === 'oauth' && extra?.openai_responses_flatten_namespaces === true
-    // plan_type 手动覆盖仅 OAuth 有实际调度语义(IsOpenAIChatGPTSubscription 要求 oauth),故只对 oauth 回填
-    editPlanType.value = newAccount.type === 'oauth'
-      ? readPlanType(newAccount.credentials as Record<string, unknown> | undefined)
-      : ''
-    const codexImageGenerationBridgeValue = typeof extra?.codex_image_generation_bridge === 'boolean'
-      ? extra.codex_image_generation_bridge
-      : extra?.codex_image_generation_bridge_enabled
-    if (extra?.codex_image_generation_explicit_tool_policy === 'strip') {
-      codexImageToolMode.value = 'block'
-    } else if (codexImageGenerationBridgeValue === true) {
-      codexImageToolMode.value = 'enabled'
-    } else if (codexImageGenerationBridgeValue === false) {
-      codexImageToolMode.value = 'disabled'
-    }
-    if (newAccount.type === 'oauth' || newAccount.type === 'setup-token') {
-      codexCLIOnlyEnabled.value = extra?.codex_cli_only === true
-      codexCLIOnlyAppServerEnabled.value =
-        extra?.codex_cli_only_allow_app_server === true
-    }
-    if (newAccount.type === 'oauth') {
-      const fpMode = extra?.codex_fingerprint_mode as string | undefined
-      // 缺省/非法值按 off 呈现，与后端 GetCodexFingerprintMode 的 opt-in 语义一致（#5610）
-      codexFingerprintMode.value = (['off', 'device', 'session', 'full'].includes(fpMode || '')
-        ? fpMode as CodexFingerprintMode
-        : 'off')
-    }
-  }
   // 第三方 key 一律回填：地址行可在弹窗里增删，区块是否展示随地址变化
   if (newAccount.type === 'apikey') {
     anthropicAPIKeyAuthScheme.value = extra?.anthropic_apikey_auth_scheme === 'authorization_bearer'
@@ -2819,23 +1895,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     )
   }
 
-  const grokClientToolCacheSetting =
-    newAccount.platform === 'grok' && newAccount.type === 'oauth'
-      ? newAccount.extra?.[GROK_CLIENT_TOOL_CACHE_EXTRA_KEY]
-      : undefined
-  grokClientToolCacheEnabled.value =
-    newAccount.platform === 'grok' &&
-    newAccount.type === 'oauth' &&
-    (grokClientToolCacheSetting === undefined || grokClientToolCacheSetting === true)
-  grokMediaEligibilityMode.value = modeFromGrokMediaExtra(extra)
-  grokMediaEligibilityInitialMode.value = grokMediaEligibilityMode.value
-  grokMediaEligibilityState.value = null
-  grokMediaEligibilityError.value = ''
-  if (newAccount.platform === 'grok' && newAccount.type === 'oauth') {
-    void loadGrokMediaEligibility(newAccount.id)
-  } else {
-    grokMediaEligibilityRequestVersion++
-  }
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
@@ -2944,15 +2003,6 @@ watch(
   },
   { immediate: true }
 )
-
-// Model mapping helpers
-const addOpenAICompactModelMapping = () => {
-  openAICompactModelMappings.value.push({ from: '', to: '' })
-}
-
-const removeOpenAICompactModelMapping = (index: number) => {
-  openAICompactModelMappings.value.splice(index, 1)
-}
 
 const syncAntigravityUpstreamModels = async () => {
   if (!props.account?.id || isSyncingAntigravityUpstream.value) return
@@ -3281,48 +2331,10 @@ const handleClose = () => {
   emit('close')
 }
 
-const persistGrokMediaEligibility = async (accountID: number, updatedAccount: Account): Promise<Account> => {
-  if (
-    !isGrokOAuthAccount.value ||
-    grokMediaEligibilityMode.value === grokMediaEligibilityInitialMode.value ||
-    typeof adminAPI.accounts.updateGrokMediaEligibility !== 'function'
-  ) {
-    return updatedAccount
-  }
-
-  try {
-    const state = await adminAPI.accounts.updateGrokMediaEligibility(accountID, grokMediaEligibilityMode.value)
-    grokMediaEligibilityState.value = state
-    grokMediaEligibilityInitialMode.value = state.mode
-    const nextExtra = { ...((updatedAccount.extra as Record<string, unknown> | undefined) || {}) }
-    if (state.mode === 'auto') {
-      delete nextExtra.grok_media_eligible
-    } else {
-      nextExtra.grok_media_eligible = state.mode === 'enabled'
-    }
-    updatedAccount.extra = nextExtra
-  } catch (error: any) {
-    appStore.showError(t('admin.accounts.grokMediaEligibility.partialSave'))
-    try {
-      const state = await loadGrokMediaEligibility(accountID)
-      if (state) {
-        const nextExtra = { ...((updatedAccount.extra as Record<string, unknown> | undefined) || {}) }
-        if (state.mode === 'auto') delete nextExtra.grok_media_eligible
-        else nextExtra.grok_media_eligible = state.mode === 'enabled'
-        updatedAccount.extra = nextExtra
-      }
-    } catch {
-      // The original save result remains useful even when the refresh fails.
-    }
-  }
-  return updatedAccount
-}
-
 const submitUpdateAccount = async (accountID: number, updatePayload: Record<string, unknown>) => {
   submitting.value = true
   try {
-    let updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
-    updatedAccount = await persistGrokMediaEligibility(accountID, updatedAccount)
+    const updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
     const catalogSaved = await persistCatalogEntries(accountID)
     appStore.showSuccess(t('admin.accounts.accountUpdated'))
     emit('updated', updatedAccount)
@@ -3342,13 +2354,6 @@ const handleSubmit = async () => {
     appStore.showError(t('admin.accounts.pleaseSelectStatus'))
     return
   }
-	if (autoResetCreditEnabled.value) {
-		const thresholds = [autoResetCredit5hThreshold.value, autoResetCredit7dThreshold.value]
-		if (thresholds.some((value) => !Number.isFinite(value) || value < 0.1 || value > 100)) {
-			appStore.showError(t('admin.accounts.autoResetCredit.thresholdInvalid'))
-			return
-		}
-	}
 
   const updatePayload: Record<string, unknown> = { ...form }
   try {
@@ -3381,7 +2386,6 @@ const handleSubmit = async () => {
       }
       updatePayload.protocol_endpoints = apiKeyEndpoints
       const currentCredentials = (props.account.credentials as Record<string, unknown>) || {}
-      const shouldApplyModelMapping = !isOpenAIModelRestrictionDisabled.value
 
       // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
@@ -3417,24 +2421,8 @@ const handleSubmit = async () => {
         return
       }
 
-      // Add model mapping if configured（OpenAI 开启自动透传时保留现有映射，不再编辑）
-      if (shouldApplyModelMapping) {
-        writeRenameMapping(newCredentials)
-      } else if (currentCredentials.model_mapping) {
-        newCredentials.model_mapping = currentCredentials.model_mapping
-      }
-      if (openAIKeySettingsVisible.value) {
-        applyOpenAIEndpointCapabilities(newCredentials)
-      }
-      // Compact 专属模型映射与 Compact 模式同区块，区块隐藏时保留已存值
-      if (openAIResponsesSettingsVisible.value) {
-        const compactModelMapping = buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
-        if (compactModelMapping) {
-          newCredentials.compact_model_mapping = compactModelMapping
-        } else {
-          delete newCredentials.compact_model_mapping
-        }
-      }
+      // Add model mapping if configured
+      writeRenameMapping(newCredentials)
 
       // Add pool mode if enabled
       if (poolModeEnabled.value) {
@@ -3566,11 +2554,7 @@ const handleSubmit = async () => {
         : (updatePayload.credentials as Record<string, unknown>) ||
           ((props.account.credentials as Record<string, unknown>) || {})
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      if (props.account.platform === 'openai') {
-        applyOpenAIModelMappingCredentials(newCredentials)
-      } else {
-        writeRenameMapping(newCredentials)
-      }
+      writeRenameMapping(newCredentials)
 
       updatePayload.credentials = newCredentials
     }
@@ -3592,23 +2576,6 @@ const handleSubmit = async () => {
       applyHeaderOverride(newCredentials, headerOverrideEnabled.value, headerOverrideRows.value, 'edit')
 
       updatePayload.credentials = newCredentials
-
-      const newExtra: Record<string, unknown> = {
-        ...((props.account.extra as Record<string, unknown>) || {})
-      }
-      // Persist both states so a disabled account remains opted out when the
-      // backend applies the default-enabled policy to missing values.
-      newExtra[GROK_CLIENT_TOOL_CACHE_EXTRA_KEY] = grokClientToolCacheEnabled.value
-      updatePayload.extra = newExtra
-    }
-
-    // OpenAI: 手动覆盖订阅档位 plan_type（Plus / Pro 20x / Pro 5x / Business Standard / Business Premium / Free）。
-    // 仅 OAuth 非影子账号：
-    // 影子账号凭据由母账号管理(且后端会 sanitize),setup-token 无订阅调度语义。
-    if (props.account.platform === 'openai' && props.account.type === 'oauth' && !isSparkShadow.value) {
-      const currentCredentials = (updatePayload.credentials as Record<string, unknown>) ||
-        ((props.account.credentials as Record<string, unknown>) || {})
-      updatePayload.credentials = applyPlanType({ ...currentCredentials }, editPlanType.value)
     }
 
     // Antigravity: persist model mapping to credentials (applies to all antigravity types)
@@ -3683,36 +2650,6 @@ const handleSubmit = async () => {
       updatePayload.extra = newExtra
     }
 
-    // OpenAI Responses 协议设置（自动透传 / WS mode / Compact 模式）写入 extra。
-    // 区块隐藏（第三方 key 没有 responses / chat_completions 地址）时不写界面值，已存值原样保留。
-    if (openAIResponsesSettingsVisible.value) {
-      // 接着前面区块写好的 extra 改：key 可能同时配了 anthropic 地址，从账号原 extra 重来会把
-      // 上面写入的 Anthropic 协议设置冲掉。
-      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
-      const newExtra: Record<string, unknown> = { ...currentExtra }
-      if (props.account.type === 'apikey') {
-        newExtra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
-        newExtra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
-      } else {
-        newExtra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
-        newExtra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
-      }
-      delete newExtra.responses_websockets_v2_enabled
-      delete newExtra.openai_ws_enabled
-      if (openaiPassthroughEnabled.value) {
-        newExtra.openai_passthrough = true
-      } else {
-        delete newExtra.openai_passthrough
-        delete newExtra.openai_oauth_passthrough
-      }
-      if (openAICompactMode.value === 'auto') {
-        delete newExtra.openai_compact_mode
-      } else {
-        newExtra.openai_compact_mode = openAICompactMode.value
-      }
-      updatePayload.extra = newExtra
-    }
-
     // 第三方 key 专属、按协议地址判定的 extra：不看平台标签。
     if (props.account.type === 'apikey') {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
@@ -3720,100 +2657,18 @@ const handleSubmit = async () => {
       // Responses 路由改由协议地址决定，已退役的探测标记与强制模式保存时清掉。
       delete newExtra.openai_responses_mode
       delete newExtra.openai_responses_supported
-      // 生图结果转 base64 与端点能力同区块：区块隐藏时保留已存值，不按界面值改写。
-      if (openAIKeySettingsVisible.value) {
-        if (openAIImagesUrlToB64JsonEnabled.value) {
-          newExtra.images_url_to_b64_json = true
-        } else {
-          delete newExtra.images_url_to_b64_json
-        }
-      }
       updatePayload.extra = newExtra
     }
 
-    // OpenAI 平台专属设置（成品号语义；openai 标签的 key 仍沿用，待协议化）
+    // OpenAI 成品号：自动使用重置卡开关（阈值写死 100%，见后端 channel_features_openai.go）
     if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'setup-token' || props.account.type === 'apikey')) {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
-      const hadCodexCLIOnlyEnabled = currentExtra.codex_cli_only === true
-      // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
-      if (props.account.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
-        newExtra.openai_responses_flatten_namespaces = true
-      } else {
-        delete newExtra.openai_responses_flatten_namespaces
+      if (props.account.type === 'oauth' && !isSparkShadow.value) {
+        newExtra.auto_reset_credit_enabled = autoResetCreditEnabled.value
       }
-		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
-			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100
-		} else {
-			delete newExtra.auto_pause_5h_threshold
-		}
-		if (autoPause7dThreshold.value != null && autoPause7dThreshold.value > 0) {
-			newExtra.auto_pause_7d_threshold = autoPause7dThreshold.value / 100
-		} else {
-			delete newExtra.auto_pause_7d_threshold
-		}
-		if (autoPause5hDisabled.value) {
-			newExtra.auto_pause_5h_disabled = true
-		} else {
-			delete newExtra.auto_pause_5h_disabled
-		}
-		if (autoPause7dDisabled.value) {
-			newExtra.auto_pause_7d_disabled = true
-		} else {
-			delete newExtra.auto_pause_7d_disabled
-		}
-		if (props.account.type === 'oauth' && !isSparkShadow.value) {
-			newExtra.auto_reset_credit_enabled = autoResetCreditEnabled.value
-			newExtra.auto_reset_credit_5h_threshold = autoResetCredit5hThreshold.value / 100
-			newExtra.auto_reset_credit_7d_threshold = autoResetCredit7dThreshold.value / 100
-		}
-		// 运行态只允许后端服务更新，账号编辑不得回写旧状态。
-		delete newExtra.codex_auto_reset_credit_state
-
-		delete newExtra.codex_image_generation_bridge_enabled
-      switch (codexImageToolMode.value) {
-        case 'enabled':
-        case 'disabled':
-          newExtra.codex_image_generation_bridge = codexImageToolMode.value === 'enabled'
-          delete newExtra.codex_image_generation_explicit_tool_policy
-          break
-        case 'block':
-          newExtra.codex_image_generation_explicit_tool_policy = 'strip'
-          delete newExtra.codex_image_generation_bridge
-          break
-        default:
-          delete newExtra.codex_image_generation_bridge
-          delete newExtra.codex_image_generation_explicit_tool_policy
-      }
-
-      if (props.account.type === 'oauth' || props.account.type === 'setup-token') {
-        if (codexCLIOnlyEnabled.value) {
-          newExtra.codex_cli_only = true
-        } else if (hadCodexCLIOnlyEnabled) {
-          // 关闭时显式写 false，避免 extra 为空被后端忽略导致旧值无法清除
-          newExtra.codex_cli_only = false
-        } else {
-          delete newExtra.codex_cli_only
-        }
-        // Claude Code 插件放行已迁移到全局 codex_cli_only_whitelist，编辑时清理废弃账号级快捷字段。
-        delete newExtra.codex_cli_only_allowed_clients
-        if (codexCLIOnlyEnabled.value && codexCLIOnlyAppServerEnabled.value) {
-          newExtra.codex_cli_only_allow_app_server = true
-        } else {
-          delete newExtra.codex_cli_only_allow_app_server
-        }
-      }
-
-      // 指纹收敛模式：默认 off（不写入）；device/session/full 是显式 opt-in，
-      // 必须落键，否则管理员的选择会被后端当作"未设置"而回落到 off（#5610）。
-      if (props.account.type === 'oauth') {
-        if (codexFingerprintMode.value !== 'off') {
-          newExtra.codex_fingerprint_mode = codexFingerprintMode.value
-        } else {
-          delete newExtra.codex_fingerprint_mode
-        }
-      }
-
+      // 运行态只允许后端服务更新，账号编辑不得回写旧状态。
+      delete newExtra.codex_auto_reset_credit_state
       updatePayload.extra = newExtra
     }
 

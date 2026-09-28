@@ -1057,7 +1057,6 @@ export type OpenAICompactMode = 'auto' | 'force_on' | 'force_off'
 export type OpenAIEndpointCapability = 'chat_completions' | 'embeddings'
 
 export interface OpenAICompactState {
-  openai_compact_mode?: OpenAICompactMode
   openai_compact_supported?: boolean
   openai_compact_checked_at?: string
   openai_compact_last_status?: number
@@ -1105,14 +1104,6 @@ export interface UpdateAccountRequest {
   confirm_mixed_channel_risk?: boolean
 }
 
-export type GrokMediaEligibilityMode = 'auto' | 'enabled' | 'disabled'
-
-export interface GrokMediaEligibilityState {
-  account_id: number
-  mode: GrokMediaEligibilityMode
-  eligible: boolean
-  reason: string
-}
 
 export interface CreateProxyRequest {
   name: string

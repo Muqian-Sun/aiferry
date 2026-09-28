@@ -622,69 +622,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
-  it('submits OpenAI compact mode and compact-only model mapping', async () => {
-    const account = buildAccount()
-    account.extra = {
-      openai_compact_mode: 'force_on'
-    }
-    account.credentials = {
-      ...account.credentials,
-      compact_model_mapping: {
-        'gpt-5.4': 'gpt-5.4-openai-compact'
-      }
-    }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_compact_mode).toBe('force_on')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.compact_model_mapping).toEqual({
-      'gpt-5.4': 'gpt-5.4-openai-compact'
-    })
-  })
-
-  it('loads and clears the OAuth-only Codex namespace flatten toggle', async () => {
-    const account = buildAccount()
-    account.type = 'oauth'
-    account.extra = {
-      openai_responses_flatten_namespaces: true
-    }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="edit-openai-flatten-namespaces-toggle"]')
-
-    // 关闭后应从 extra 中删除该键，而不是写入 false
-    await toggle.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty(
-      'openai_responses_flatten_namespaces'
-    )
-  })
-
-  it('submits the Codex namespace flatten toggle when switched on', async () => {
-    const account = buildAccount()
-    account.type = 'oauth'
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    await wrapper.get('[data-testid="edit-openai-flatten-namespaces-toggle"]').trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_flatten_namespaces).toBe(
-      true
-    )
-  })
-
   it('writes the upstream request id header into extra only when it changes', async () => {
     const account = buildAccount()
     account.extra = { openai_compact_mode: 'force_on' }
@@ -722,47 +659,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toBeDefined()
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('upstream_request_id_header')
-  })
-
-  it('writes images_url_to_b64_json into extra when toggled on', async () => {
-    const account = buildAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]')
-    expect(toggle.attributes('aria-checked')).toBe('false')
-    await toggle.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.images_url_to_b64_json).toBe(true)
-  })
-
-  it('removes images_url_to_b64_json from extra when toggled off', async () => {
-    const account = buildAccount()
-    account.extra = { images_url_to_b64_json: true }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]')
-    expect(toggle.attributes('aria-checked')).toBe('true')
-    await toggle.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toBeDefined()
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('images_url_to_b64_json')
-  })
-
-  it('hides the Codex namespace flatten toggle for non-OAuth OpenAI accounts', async () => {
-    const account = buildAccount()
-    const wrapper = mountModal(account)
-
-    expect(wrapper.find('[data-testid="edit-openai-flatten-namespaces-toggle"]').exists()).toBe(
-      false
-    )
   })
 
   // 长上下文计费开关按协议地址露出，不看标签：kimi 标签 + Chat Completions 地址的 key 能改；
@@ -832,9 +728,6 @@ describe('EditAccountModal', () => {
     expect(payload?.credentials).toEqual({
       model_mapping: {
         'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark'
-      },
-      compact_model_mapping: {
-        'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark-compact'
       }
     })
   })
@@ -976,208 +869,6 @@ describe('EditAccountModal', () => {
     expect(payload?.upstream_billing_probe_enabled).toBe(true)
     expect(payload?.upstream_billing_rate_sync_enabled).toBe(false)
     expect(payload?.rate_multiplier).toBe(1)
-  })
-
-  it('submits OpenAI APIKey endpoint capabilities from credentials', async () => {
-    const account = buildAccount()
-    account.credentials.openai_capabilities = ['chat_completions']
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    expect(wrapper.findAll('input[type="checkbox"]').some((input) => (input.element as HTMLInputElement).checked)).toBe(true)
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
-      'chat_completions'
-    ])
-  })
-
-	it('submits OpenAI quota auto-pause thresholds in extra', async () => {
-	  const account = buildAccount()
-	  account.extra = {
-		auto_pause_5h_threshold: 0.9,
-		auto_pause_7d_threshold: 0.8
-	  }
-	  updateAccountMock.mockReset()
-	  updateAccountMock.mockResolvedValue(account)
-
-	  const wrapper = mountModal(account)
-
-	  await wrapper.get('[data-testid="auto-pause-5h-threshold"]').setValue('95')
-	  await wrapper.get('[data-testid="auto-pause-7d-threshold"]').setValue('96')
-	  await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-	  expect(updateAccountMock).toHaveBeenCalledTimes(1)
-	  expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.auto_pause_5h_threshold).toBe(0.95)
-	  expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.auto_pause_7d_threshold).toBe(0.96)
-	})
-
-	it('submits OpenAI quota auto-pause disable flag in extra', async () => {
-	  // Toggling the per-account disable flag must persist as auto_pause_5h_disabled
-	  // so an admin can exempt one account from auto-pause even when a global default
-	  // threshold is configured (otherwise leaving the threshold blank would silently
-	  // fall back to the global default).
-	  const account = buildAccount()
-	  updateAccountMock.mockReset()
-	  updateAccountMock.mockResolvedValue(account)
-
-	  const wrapper = mountModal(account)
-
-	  await wrapper.get('[data-testid="auto-pause-5h-disabled"]').trigger('click')
-	  await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-	  expect(updateAccountMock).toHaveBeenCalledTimes(1)
-	  expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.auto_pause_5h_disabled).toBe(true)
-	  expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.auto_pause_7d_disabled).toBeUndefined()
-	})
-
-  it('keeps at least one OpenAI APIKey endpoint capability selected', async () => {
-    const account = buildAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    const chatCheckbox = wrapper.get<HTMLInputElement>(
-      '[data-testid="openai-endpoint-capability-chat_completions"]'
-    )
-    const embeddingsCheckbox = wrapper.get<HTMLInputElement>(
-      '[data-testid="openai-endpoint-capability-embeddings"]'
-    )
-
-    expect(chatCheckbox.element.checked).toBe(true)
-    expect(embeddingsCheckbox.element.checked).toBe(true)
-
-    await embeddingsCheckbox.setValue(false)
-
-    expect(chatCheckbox.element.checked).toBe(true)
-    expect(embeddingsCheckbox.element.checked).toBe(false)
-
-    await chatCheckbox.setValue(false)
-
-    expect(chatCheckbox.element.checked).toBe(true)
-    expect(embeddingsCheckbox.element.checked).toBe(false)
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
-      'chat_completions'
-    ])
-  })
-
-  it('submits an embeddings-only OpenAI APIKey endpoint capability', async () => {
-    const account = buildAccount()
-    account.credentials.openai_capabilities = ['embeddings']
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    expect(wrapper.text()).toContain('admin.accounts.openai.capabilityText')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
-      'embeddings'
-    ])
-  })
-
-  it('submits Codex image tool force-inject mode as bridge override', async () => {
-    const account = buildAccount()
-    account.extra = {
-      codex_image_generation_bridge: false,
-      codex_image_generation_bridge_enabled: true
-    }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    expect(wrapper.text()).toContain('admin.accounts.openai.codexImageTool')
-    expect(wrapper.text()).toContain('admin.accounts.openai.codexImageToolDesc')
-    expect(wrapper.text()).toContain('admin.accounts.openai.codexImageToolEnabledDesc')
-
-    await wrapper.get('button[data-testid="codex-image-tool-enabled"]').trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_image_generation_bridge).toBe(true)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge_enabled')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_explicit_tool_policy')
-  })
-
-  it('submits Codex image tool no-injection mode without strip policy', async () => {
-    const account = buildAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('button[data-testid="codex-image-tool-disabled"]').trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_image_generation_bridge).toBe(false)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_explicit_tool_policy')
-  })
-
-  it('submits Codex image tool block mode as strip policy and clears bridge override', async () => {
-    const account = buildAccount()
-    account.extra = {
-      codex_image_generation_bridge: true
-    }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    expect(wrapper.text()).toContain('admin.accounts.openai.codexImageToolBlock')
-    expect(wrapper.text()).toContain('admin.accounts.openai.codexImageToolBlockDesc')
-
-    await wrapper.get('button[data-testid="codex-image-tool-block"]').trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_image_generation_explicit_tool_policy).toBe('strip')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge')
-  })
-
-  it('loads strip policy as block mode and clears both keys when reset to inherit', async () => {
-    const account = buildAccount()
-    account.extra = {
-      codex_image_generation_explicit_tool_policy: 'strip'
-    }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('button[data-testid="codex-image-tool-inherit"]').trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_explicit_tool_policy')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge')
-  })
-
-  it('setup-token account can select and submit OAuth WS mode', async () => {
-    const account = buildOpenAISetupTokenAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('[data-testid="edit-openai-ws-mode-select"]').setValue('http_bridge')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_oauth_responses_websockets_v2_mode).toBe('http_bridge')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_oauth_responses_websockets_v2_enabled).toBe(true)
   })
 
   it('allows saving apikey account when backend redacted api_key but credentials_status reports it exists', async () => {
@@ -1328,12 +1019,10 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
     updateAccountMock.mockReset()
   })
 
-  it('仅对 OpenAI OAuth 母账号显示，默认关闭且阈值为 100/100', () => {
+  it('仅对 OpenAI OAuth 母账号显示，默认关闭', () => {
     const parent = mountModal(buildOpenAIOAuthParentAccount())
     expect(parent.find('[data-testid="auto-reset-credit-settings"]').exists()).toBe(true)
-    expect((parent.get('[data-testid="auto-reset-credit-5h-threshold"]').element as HTMLInputElement).value).toBe('100')
-    expect((parent.get('[data-testid="auto-reset-credit-7d-threshold"]').element as HTMLInputElement).value).toBe('100')
-    expect(parent.get('[data-testid="auto-reset-credit-5h-threshold"]').attributes('disabled')).toBeDefined()
+    expect(parent.get('[data-testid="auto-reset-credit-enabled"]').classes()).toContain('bg-af-hairline')
     parent.unmount()
 
     for (const account of [buildAccount(), buildOpenAISetupTokenAccount(), buildOpenAISparkShadowAccount()]) {
@@ -1343,7 +1032,7 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
     }
   })
 
-  it('独立保存两个阈值，并禁止把运行态回写到管理请求', async () => {
+  it('保存开关，并禁止把运行态回写到管理请求', async () => {
     const account = buildOpenAIOAuthParentAccount()
     account.extra = {
       codex_auto_reset_credit_state: {
@@ -1356,27 +1045,14 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
     const wrapper = mountModal(account)
 
     await wrapper.get('[data-testid="auto-reset-credit-enabled"]').trigger('click')
-    await wrapper.get('[data-testid="auto-reset-credit-5h-threshold"]').setValue('75.5')
-    await wrapper.get('[data-testid="auto-reset-credit-7d-threshold"]').setValue('92')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const extra = updateAccountMock.mock.calls[0]?.[1]?.extra
     expect(extra).toMatchObject({
-      auto_reset_credit_enabled: true,
-      auto_reset_credit_5h_threshold: 0.755,
-      auto_reset_credit_7d_threshold: 0.92
+      auto_reset_credit_enabled: true
     })
     expect(extra).not.toHaveProperty('codex_auto_reset_credit_state')
-    wrapper.unmount()
-  })
-
-  it('开启后拒绝超出 0.1–100 范围的任一阈值', async () => {
-    const wrapper = mountModal(buildOpenAIOAuthParentAccount())
-    await wrapper.get('[data-testid="auto-reset-credit-enabled"]').trigger('click')
-    await wrapper.get('[data-testid="auto-reset-credit-5h-threshold"]').setValue('0')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-    expect(updateAccountMock).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })
@@ -1522,195 +1198,6 @@ describe('EditAccountModal third-party key settings do not follow the platform l
 
     const payload = await submitPayload(wrapper)
     expect(payload?.extra).toMatchObject({ anthropic_apikey_auth_scheme: 'authorization_bearer' })
-    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
-  })
-
-  it('shows OpenAI Responses settings with the vendor hint for an Anthropic-labelled key with a responses endpoint', async () => {
-    const wrapper = mountModal(buildKey('anthropic', { responses: 'https://relay.example.com/v1' }))
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="edit-openai-key-protocol-hint"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="edit-openai-passthrough-toggle"]').trigger('click')
-    expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
-    await wrapper.get('[data-testid="edit-openai-ws-mode-select"]').setValue('ctx_pool')
-    await wrapper.get('[data-testid="edit-openai-compact-mode-select"]').setValue('force_on')
-    const compact = wrapper.get('[data-testid="edit-openai-compact"]')
-    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
-    expect(addCompactMapping).toBeDefined()
-    await addCompactMapping!.trigger('click')
-    const [from, to] = compact.findAll('input[type="text"]')
-    await from.setValue('gpt-5.4')
-    await to.setValue('gpt-5.4-compact')
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({
-      openai_passthrough: true,
-      openai_apikey_responses_websockets_v2_mode: 'ctx_pool',
-      openai_apikey_responses_websockets_v2_enabled: true,
-      openai_compact_mode: 'force_on'
-    })
-    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
-  })
-
-  it('shows OpenAI Responses settings for a key that only has a chat_completions endpoint', async () => {
-    const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="edit-openai-ws-mode-select"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="edit-openai-compact"]').text()).toContain('admin.accounts.openai.compactAuto')
-  })
-
-  it('loads stored OpenAI Responses settings of a non-OpenAI-labelled key', async () => {
-    const account = buildKey(
-      'deepseek',
-      { chat_completions: 'https://relay.example.com/v1' },
-      {
-        openai_passthrough: true,
-        openai_compact_mode: 'force_on',
-        openai_apikey_responses_websockets_v2_mode: 'passthrough',
-        openai_apikey_responses_websockets_v2_enabled: true
-      }
-    )
-    account.credentials = { compact_model_mapping: { 'gpt-5.4': 'gpt-5.4-compact' } }
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    expect((wrapper.get('[data-testid="edit-openai-ws-mode-select"]').element as HTMLSelectElement).value).toBe('passthrough')
-    const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({
-      openai_passthrough: true,
-      openai_compact_mode: 'force_on',
-      openai_apikey_responses_websockets_v2_mode: 'passthrough'
-    })
-    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
-  })
-
-  it('shows endpoint capabilities and the b64 toggle for a Kimi-labelled key with an OpenAI endpoint', async () => {
-    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
-    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
-    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
-  })
-
-  it('hides endpoint capabilities and the b64 toggle for an OpenAI-labelled key without an OpenAI endpoint', async () => {
-    const account = buildKey(
-      'openai',
-      { anthropic: 'https://relay.example.com' },
-      { images_url_to_b64_json: true }
-    )
-    account.credentials = { openai_capabilities: ['chat_completions'] }
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
-
-    // 区块隐藏时保留账号已存的值，不按界面值改写
-    const payload = await submitPayload(wrapper)
-    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
-    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
-  })
-
-  it('loads stored endpoint capabilities of a non-OpenAI-labelled key instead of resetting them', async () => {
-    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
-    account.credentials = { openai_capabilities: ['chat_completions'] }
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    const embeddings = wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]')
-      .element as HTMLInputElement
-    expect(embeddings.checked).toBe(false)
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
-  })
-
-  it('does not submit endpoint capabilities or the b64 flag edited before switching away from the OpenAI protocol', async () => {
-    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
-    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
-
-    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
-    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.credentials ?? {}).not.toHaveProperty('openai_capabilities')
-    expect(payload?.extra ?? {}).not.toHaveProperty('images_url_to_b64_json')
-  })
-
-  it('hides OpenAI Responses settings for an OpenAI-labelled key without responses or chat_completions endpoints', async () => {
-    const account = buildKey(
-      'openai',
-      { anthropic: 'https://relay.example.com' },
-      { openai_passthrough: true, openai_compact_mode: 'force_off' }
-    )
-    account.credentials = { compact_model_mapping: { 'gpt-5.4': 'gpt-5.4-compact' } }
-    const wrapper = mountModal(account)
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="edit-openai-ws-mode-select"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="edit-openai-compact"]').exists()).toBe(false)
-    // 透传区块不可见，就不该因为已存的透传开关锁住模型限制
-    expect(wrapper.text()).not.toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
-
-    // 隐藏区块不写界面值，账号已存的值原样保留
-    const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({ openai_passthrough: true, openai_compact_mode: 'force_off' })
-    expect(payload?.extra).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
-    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
-  })
-
-  it('follows the protocol switched in the modal and does not submit hidden OpenAI edits', async () => {
-    const wrapper = mountModal(buildKey('kimi', { anthropic: 'https://api.moonshot.cn/anthropic' }))
-    await flushPromises()
-    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
-
-    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('responses')
-    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="edit-openai-passthrough-toggle"]').trigger('click')
-    await wrapper.get('[data-testid="edit-openai-compact-mode-select"]').setValue('force_on')
-    const compact = wrapper.get('[data-testid="edit-openai-compact"]')
-    await compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))!.trigger('click')
-    const [from, to] = compact.findAll('input[type="text"]')
-    await from.setValue('gpt-5.4')
-    await to.setValue('gpt-5.4-compact')
-
-    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
-    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
-    expect(payload?.extra ?? {}).not.toHaveProperty('openai_compact_mode')
-    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
-    expect(payload?.credentials ?? {}).not.toHaveProperty('compact_model_mapping')
-  })
-
-  it('keeps OpenAI Responses settings for OpenAI subscriptions only, without the key hint', async () => {
-    const openaiOAuth = mountModal(buildOpenAIOAuthParentAccount())
-    await flushPromises()
-    expect(openaiOAuth.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
-    expect(openaiOAuth.find('[data-testid="edit-openai-compact"]').exists()).toBe(true)
-    expect(openaiOAuth.find('[data-testid="edit-openai-key-protocol-hint"]').exists()).toBe(false)
-    openaiOAuth.unmount()
-
-    const grokOAuth = mountModal(buildGrokOAuthAccount())
-    await flushPromises()
-    expect(grokOAuth.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
-    expect(grokOAuth.find('[data-testid="edit-openai-compact"]').exists()).toBe(false)
-    grokOAuth.unmount()
   })
 
   it('never shows the key-only Anthropic settings for subscription accounts', async () => {
