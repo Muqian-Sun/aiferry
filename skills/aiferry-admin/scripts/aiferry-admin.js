@@ -3,59 +3,59 @@
 const fs = require("fs");
 const path = require("path");
 
-const BASE_URL = (process.env.SUB2API_BASE_URL || "").replace(/\/$/, "");
-const ADMIN_API_KEY = process.env.SUB2API_ADMIN_API_KEY || "";
-const ADMIN_JWT = process.env.SUB2API_JWT || "";
+const BASE_URL = (process.env.AIFERRY_BASE_URL || "").replace(/\/$/, "");
+const ADMIN_API_KEY = process.env.AIFERRY_ADMIN_API_KEY || "";
+const ADMIN_JWT = process.env.AIFERRY_JWT || "";
 
 function usage() {
   console.log(`Usage:
-  sub2api-admin.js accounts list [--page-size 200] [--page N] [--search TEXT] [--platform openai] [--type oauth] [--status active] [--privacy-mode MODE] [--sort-by name] [--sort-order asc]
-  sub2api-admin.js accounts export [--ids 1,2] [--file accounts.json] [--include-proxies false] [list filters...]
-  sub2api-admin.js accounts import-data --file accounts.json
-  sub2api-admin.js accounts create --json '{...}' | --file account.json
-  sub2api-admin.js accounts update <id> --json '{...}' | --file patch.json
-  sub2api-admin.js accounts get <id>
-  sub2api-admin.js accounts delete <id>
-  sub2api-admin.js accounts keep-only --name <account-name>
-  sub2api-admin.js accounts usage <id> [--source SOURCE] [--force]
-  sub2api-admin.js accounts stats <id> [--days 30]
-  sub2api-admin.js accounts today-stats <id>
-  sub2api-admin.js accounts batch-today-stats --ids 1,2
-  sub2api-admin.js accounts set-status <id> <active|paused|...>
-  sub2api-admin.js accounts set-schedulable <id> <true|false>
-  sub2api-admin.js accounts clear-error <id>
-  sub2api-admin.js accounts clear-rate-limit <id>
-  sub2api-admin.js accounts recover-state <id>
-  sub2api-admin.js accounts reset-quota <id>
-  sub2api-admin.js accounts refresh <id>
-  sub2api-admin.js accounts test <id>
-  sub2api-admin.js accounts models <id>
-  sub2api-admin.js accounts sync-models <id>
-  sub2api-admin.js accounts apply-oauth <id> --json '{...}' | --file credentials.json
-  sub2api-admin.js accounts batch-create --file accounts.json
-  sub2api-admin.js accounts batch-update-credentials --json '{...}' | --file payload.json
-  sub2api-admin.js accounts bulk-update --ids 1,2 --json '{...}' | --file patch.json
-  sub2api-admin.js accounts batch-refresh --ids 1,2
-  sub2api-admin.js accounts batch-clear-error --ids 1,2
-  sub2api-admin.js accounts temp-unschedulable <id>
-  sub2api-admin.js accounts reset-temp-unschedulable <id>
-  sub2api-admin.js accounts import-codex-session --json '{...}' | --file payload.json
-  sub2api-admin.js accounts antigravity-default-model-mapping
-  sub2api-admin.js accounts import-json --file <path> --template-name <name> [--skip-name <name>] [--dry-run]
-  sub2api-admin.js proxies all
-  sub2api-admin.js redeem-codes list [--page-size 200] [--page N] [--type balance] [--status unused] [--search TEXT] [--sort-by id] [--sort-order desc]
-  sub2api-admin.js redeem-codes export [--file redeem-codes.csv] [list filters...]
-  sub2api-admin.js redeem-codes get <id>
-  sub2api-admin.js redeem-codes generate --json '{...}' | --file payload.json [--idempotency-key KEY]
-  sub2api-admin.js redeem-codes create-and-redeem --json '{...}' | --file payload.json [--idempotency-key KEY]
-  sub2api-admin.js redeem-codes batch-update --ids 1,2 --json '{...}' | --file fields.json
-  sub2api-admin.js redeem-codes delete <id>
-  sub2api-admin.js redeem-codes batch-delete --ids 1,2
-  sub2api-admin.js redeem-codes expire <id>
-  sub2api-admin.js redeem-codes stats
-  sub2api-admin.js error-rules list|get|create|update|delete|toggle ...
-  sub2api-admin.js tls-profiles list|get|create|update|delete ...
-  sub2api-admin.js api <GET|POST|PUT|DELETE> <admin-path> [--json '{...}' | --file payload.json]
+  aiferry-admin.js accounts list [--page-size 200] [--page N] [--search TEXT] [--platform openai] [--type oauth] [--status active] [--privacy-mode MODE] [--sort-by name] [--sort-order asc]
+  aiferry-admin.js accounts export [--ids 1,2] [--file accounts.json] [--include-proxies false] [list filters...]
+  aiferry-admin.js accounts import-data --file accounts.json
+  aiferry-admin.js accounts create --json '{...}' | --file account.json
+  aiferry-admin.js accounts update <id> --json '{...}' | --file patch.json
+  aiferry-admin.js accounts get <id>
+  aiferry-admin.js accounts delete <id>
+  aiferry-admin.js accounts keep-only --name <account-name>
+  aiferry-admin.js accounts usage <id> [--source SOURCE] [--force]
+  aiferry-admin.js accounts stats <id> [--days 30]
+  aiferry-admin.js accounts today-stats <id>
+  aiferry-admin.js accounts batch-today-stats --ids 1,2
+  aiferry-admin.js accounts set-status <id> <active|paused|...>
+  aiferry-admin.js accounts set-schedulable <id> <true|false>
+  aiferry-admin.js accounts clear-error <id>
+  aiferry-admin.js accounts clear-rate-limit <id>
+  aiferry-admin.js accounts recover-state <id>
+  aiferry-admin.js accounts reset-quota <id>
+  aiferry-admin.js accounts refresh <id>
+  aiferry-admin.js accounts test <id>
+  aiferry-admin.js accounts models <id>
+  aiferry-admin.js accounts sync-models <id>
+  aiferry-admin.js accounts apply-oauth <id> --json '{...}' | --file credentials.json
+  aiferry-admin.js accounts batch-create --file accounts.json
+  aiferry-admin.js accounts batch-update-credentials --json '{...}' | --file payload.json
+  aiferry-admin.js accounts bulk-update --ids 1,2 --json '{...}' | --file patch.json
+  aiferry-admin.js accounts batch-refresh --ids 1,2
+  aiferry-admin.js accounts batch-clear-error --ids 1,2
+  aiferry-admin.js accounts temp-unschedulable <id>
+  aiferry-admin.js accounts reset-temp-unschedulable <id>
+  aiferry-admin.js accounts import-codex-session --json '{...}' | --file payload.json
+  aiferry-admin.js accounts antigravity-default-model-mapping
+  aiferry-admin.js accounts import-json --file <path> --template-name <name> [--skip-name <name>] [--dry-run]
+  aiferry-admin.js proxies all
+  aiferry-admin.js redeem-codes list [--page-size 200] [--page N] [--type balance] [--status unused] [--search TEXT] [--sort-by id] [--sort-order desc]
+  aiferry-admin.js redeem-codes export [--file redeem-codes.csv] [list filters...]
+  aiferry-admin.js redeem-codes get <id>
+  aiferry-admin.js redeem-codes generate --json '{...}' | --file payload.json [--idempotency-key KEY]
+  aiferry-admin.js redeem-codes create-and-redeem --json '{...}' | --file payload.json [--idempotency-key KEY]
+  aiferry-admin.js redeem-codes batch-update --ids 1,2 --json '{...}' | --file fields.json
+  aiferry-admin.js redeem-codes delete <id>
+  aiferry-admin.js redeem-codes batch-delete --ids 1,2
+  aiferry-admin.js redeem-codes expire <id>
+  aiferry-admin.js redeem-codes stats
+  aiferry-admin.js error-rules list|get|create|update|delete|toggle ...
+  aiferry-admin.js tls-profiles list|get|create|update|delete ...
+  aiferry-admin.js api <GET|POST|PUT|DELETE> <admin-path> [--json '{...}' | --file payload.json]
 `);
 }
 
@@ -87,10 +87,10 @@ function parseArgs(argv) {
 }
 
 function authHeaders() {
-  if (!BASE_URL) throw new Error("Missing SUB2API_BASE_URL");
+  if (!BASE_URL) throw new Error("Missing AIFERRY_BASE_URL");
   if (ADMIN_API_KEY) return { "x-api-key": ADMIN_API_KEY };
   if (ADMIN_JWT) return { Authorization: `Bearer ${ADMIN_JWT}` };
-  throw new Error("Missing SUB2API_ADMIN_API_KEY or SUB2API_JWT");
+  throw new Error("Missing AIFERRY_ADMIN_API_KEY or AIFERRY_JWT");
 }
 
 async function apiRequest(method, pathname, body, extraHeaders = {}) {

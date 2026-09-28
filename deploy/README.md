@@ -1,123 +1,64 @@
-# Sub2API Deployment Files
+# AiFerry Deployment Files
 
-This directory contains files for deploying Sub2API on Linux servers and Apple-silicon Macs.
-
-## Deployment Methods
-
-| Method | Best For | Setup Wizard |
-|--------|----------|--------------|
-| **Docker Compose** | Quick setup, all-in-one | Not needed (auto-setup) |
-| **Apple container** | Native local stack on macOS 26 | Not needed (auto-setup) |
-| **Binary Install** | Production servers, systemd | Web-based wizard |
+This directory contains the Docker Compose deployment for AiFerry. Docker Compose is
+the only supported deployment method. The `aiferry` image is built locally from this
+repository (repo root `Dockerfile`) and is never pulled from or pushed to a registry.
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `docker-compose.yml` | Docker Compose configuration (named volumes) |
-| `docker-compose.local.yml` | Docker Compose configuration (local directories, easy migration) |
-| `docker-deploy.sh` | **One-click Docker deployment script (recommended)** |
-| `apple-container.sh` | Native Apple `container` lifecycle script |
-| `APPLE_CONTAINER.md` | Apple `container` deployment and operations guide |
+| `docker-compose.yml` | App + PostgreSQL + Redis (named volumes) |
+| `docker-compose.local.yml` | App + PostgreSQL + Redis (local directories, easy migration) |
+| `docker-compose.standalone.yml` | App only; PostgreSQL and Redis are provided externally |
+| `docker-compose.dev.yml` | Local development build |
 | `.env.example` | Container environment variables template |
-| `DOCKER.md` | Docker Hub documentation |
-| `install.sh` | One-click binary installation script |
-| `install-datamanagementd.sh` | datamanagementd 一键安装脚本 |
-| `sub2api.service` | Systemd service unit file |
-| `sub2api-datamanagementd.service` | datamanagementd systemd service unit file |
-| `DATAMANAGEMENTD_CN.md` | datamanagementd 部署与联动说明（中文） |
-| `config.example.yaml` | Example configuration file |
+| `config.example.yaml` | Full configuration file example (optional mount at `/app/data/config.yaml`) |
+| `build_image.sh` | Builds `aiferry:<version>` and `aiferry:latest` from the repo root `Dockerfile` |
+| `docker-entrypoint.sh` | Image entrypoint: fixes `/app/data` ownership, then runs as the `aiferry` user |
+| `Caddyfile` | Caddy reverse proxy example |
 | `EDGE_SECURITY.md` | Reverse proxy, CDN/WAF, trusted proxy, and ingress hardening guide |
 
 ---
 
-## Apple container Deployment
+## Docker Deployment
 
-Apple-silicon Macs running macOS 26 can run the complete Sub2API, PostgreSQL, and Redis stack with Apple `container` 1.1.0 or newer:
-
-```bash
-./apple-container.sh init
-./apple-container.sh up
-./apple-container.sh status
-./apple-container.sh logs app -f
-```
-
-The script uses Apple named volumes, starts dependencies in order, and performs live readiness checks. The application container supervises the Sub2API process so the Web UI's update-and-restart flow can relaunch an updated binary. It does not provide host-level automatic startup; run `./apple-container.sh up` after a host reboot. Docker Compose remains the recommended production deployment path.
-
-See [APPLE_CONTAINER.md](./APPLE_CONTAINER.md) for configuration, upgrades, persistence, networking behavior, and limitations.
-
----
-
-## Docker Deployment (Recommended)
-
-### Method 1: One-Click Deployment (Recommended)
-
-Use the automated preparation script for the easiest setup:
+### Quick Start
 
 ```bash
-# Download and run the preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
-
-# Or download first, then run
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
-chmod +x docker-deploy.sh
-./docker-deploy.sh
-```
-
-**What the script does:**
-- Downloads `docker-compose.local.yml` and `.env.example`
-- Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
-- Creates `.env` file with generated secrets
-- Creates necessary data directories (data/, postgres_data/, redis_data/)
-- **Displays generated credentials** (POSTGRES_PASSWORD, JWT_SECRET, etc.)
-
-**After running the script:**
-```bash
-# Start services
-docker compose -f docker-compose.local.yml up -d
-
-# View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
-
-# If admin password was auto-generated, find it in logs:
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
-
-# Access Web UI
-# http://localhost:8080
-```
-
-### Method 2: Manual Deployment
-
-If you prefer manual control:
-
-```bash
-# Clone repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/Muqian-Sun/tokenferry.git aiferry
+cd aiferry/deploy
 
 # Configure environment
 cp .env.example .env
 chmod 600 .env
-nano .env  # Set POSTGRES_PASSWORD and other required variables
+nano .env  # Set POSTGRES_PASSWORD; set fixed JWT_SECRET and TOTP_ENCRYPTION_KEY
+           # (generate each with: openssl rand -hex 32)
 
-# Generate secure secrets (recommended)
-JWT_SECRET=$(openssl rand -hex 32)
-TOTP_ENCRYPTION_KEY=$(openssl rand -hex 32)
-echo "JWT_SECRET=${JWT_SECRET}" >> .env
-echo "TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}" >> .env
-
-# Create data directories
+# Create data directories (local directory version)
 mkdir -p data postgres_data redis_data
 
-# Start all services using local directory version
-docker compose -f docker-compose.local.yml up -d
+# Build the image and start all services
+docker compose -f docker-compose.local.yml up -d --build
 
 # View logs (check for auto-generated admin password)
-docker compose -f docker-compose.local.yml logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f aiferry
 
-# Access Web UI
-# http://localhost:8080
+# User site:     http://localhost:8080
+# Admin console: http://127.0.0.1:8081 (bound to ADMIN_BIND_HOST, localhost by default)
 ```
+
+### Image
+
+Every compose file (except `docker-compose.dev.yml`) uses
+`image: aiferry:${AIFERRY_VERSION:-latest}` together with a `build:` section that
+points at the repo root `Dockerfile`:
+
+- `docker compose up -d --build` builds the image from the current checkout and tags it
+  `aiferry:${AIFERRY_VERSION:-latest}`.
+- `./build_image.sh` builds `aiferry:<version>` and `aiferry:latest`. The version comes from
+  `backend/scripts/resolve-version.sh` (an exact git tag if present, otherwise
+  `backend/cmd/server/VERSION`). Set `AIFERRY_VERSION=<version>` in `.env` to pin that build.
 
 ### Deployment Version Comparison
 
@@ -125,8 +66,9 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 |---------|-------------|-----------|----------|
 | **docker-compose.local.yml** | Local directories (./data, ./postgres_data, ./redis_data) | ✅ Easy (tar entire directory) | Production, need frequent backups/migration |
 | **docker-compose.yml** | Named volumes (/var/lib/docker/volumes/) | ⚠️ Requires docker commands | Simple setup, don't need migration |
+| **docker-compose.standalone.yml** | Named volume for app data; external PostgreSQL / Redis | Depends on your database hosting | Managed database / Redis |
 
-**Recommendation:** Use `docker-compose.local.yml` (deployed by `docker-deploy.sh`) for easier data management and migration.
+**Recommendation:** Use `docker-compose.local.yml` for easier data management and migration.
 
 ### How Auto-Setup Works
 
@@ -143,12 +85,12 @@ When using Docker Compose with `AUTO_SETUP=true`:
 
 3. If `ADMIN_PASSWORD` is not set, check logs for the generated password:
    ```bash
-   docker compose logs sub2api | grep "admin password"
+   docker compose logs aiferry | grep "admin password"
    ```
 
 ### Startup and Database Recovery
 
-Sub2API applies database migrations during application startup. PostgreSQL can
+AiFerry applies database migrations during application startup. PostgreSQL can
 remain in its recovery/startup phase briefly after a host or Docker daemon
 restart. The application retries transient PostgreSQL startup and connection
 errors with bounded exponential backoff, then starts automatically when the
@@ -161,65 +103,32 @@ controls dependency ordering for a fresh Compose start, but it is not a
 replacement for application-level retries when Docker restores existing
 containers after a host restart.
 
-For systemd deployments, keep `Restart=always` and `RestartSec` configured in
-`sub2api.service`; the application retry covers transient database startup,
-while systemd remains the supervisor for permanent process exits. For
-Kubernetes, use a PostgreSQL readiness probe and retain the Sub2API startup
-retry behavior; configure the application liveness probe separately so a
-database recovery period is not treated as a permanent process failure.
-
 ### Database Migration Notes (PostgreSQL)
 
 - Migrations are applied in lexicographic order (e.g. `001_...sql`, `002_...sql`).
 - `schema_migrations` tracks applied migrations (filename + checksum).
 - Migrations are forward-only; rollback requires a DB backup restore or a manual compensating SQL script.
 
-**Verify `users.allowed_groups` → `user_allowed_groups` backfill**
-
-During the incremental GORM→Ent migration, `users.allowed_groups` (legacy `BIGINT[]`) is being replaced by a normalized join table `user_allowed_groups(user_id, group_id)`.
-
-Run this query to compare the legacy data vs the join table:
-
-```sql
-WITH old_pairs AS (
-  SELECT DISTINCT u.id AS user_id, x.group_id
-  FROM users u
-  CROSS JOIN LATERAL unnest(u.allowed_groups) AS x(group_id)
-  WHERE u.allowed_groups IS NOT NULL
-)
-SELECT
-  (SELECT COUNT(*) FROM old_pairs)           AS old_pair_count,
-  (SELECT COUNT(*) FROM user_allowed_groups) AS new_pair_count;
-```
-
-### datamanagementd（数据管理）联动
-
-如需启用管理后台“数据管理”功能，请额外部署宿主机 `datamanagementd`：
-
-- 主进程固定探测 `/tmp/sub2api-datamanagement.sock`
-- Docker 场景下需把宿主机 Socket 挂载到容器内同路径
-- 详细步骤见：`deploy/DATAMANAGEMENTD_CN.md`
-
 ### Commands
 
 For **local directory version** (docker-compose.local.yml):
 
 ```bash
-# Start services
-docker compose -f docker-compose.local.yml up -d
+# Start services (builds the image if needed)
+docker compose -f docker-compose.local.yml up -d --build
 
 # Stop services
 docker compose -f docker-compose.local.yml down
 
 # View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f aiferry
 
-# Restart Sub2API only
-docker compose -f docker-compose.local.yml restart sub2api
+# Restart AiFerry only
+docker compose -f docker-compose.local.yml restart aiferry
 
-# Update to latest version
-docker compose -f docker-compose.local.yml pull
-docker compose -f docker-compose.local.yml up -d
+# Upgrade: update the checkout, rebuild the image, recreate the container
+git pull
+docker compose -f docker-compose.local.yml up -d --build
 
 # Remove all data (caution!)
 docker compose -f docker-compose.local.yml down
@@ -229,21 +138,21 @@ rm -rf data/ postgres_data/ redis_data/
 For **named volumes version** (docker-compose.yml):
 
 ```bash
-# Start services
-docker compose up -d
+# Start services (builds the image if needed)
+docker compose up -d --build
 
 # Stop services
 docker compose down
 
 # View logs
-docker compose logs -f sub2api
+docker compose logs -f aiferry
 
-# Restart Sub2API only
-docker compose restart sub2api
+# Restart AiFerry only
+docker compose restart aiferry
 
-# Update to latest version
-docker compose pull
-docker compose up -d
+# Upgrade: update the checkout, rebuild the image, recreate the container
+git pull
+docker compose up -d --build
 
 # Remove all data (caution!)
 docker compose down -v
@@ -256,11 +165,13 @@ docker compose down -v
 | `POSTGRES_PASSWORD` | **Yes** | - | PostgreSQL password |
 | `JWT_SECRET` | **Recommended** | *(auto-generated)* | JWT secret (fixed for persistent sessions) |
 | `TOTP_ENCRYPTION_KEY` | **Recommended** | *(auto-generated)* | TOTP encryption key (fixed for persistent 2FA) |
-| `SERVER_PORT` | No | `8080` | Server port |
-| `ADMIN_EMAIL` | No | `admin@sub2api.local` | Admin email |
+| `AIFERRY_VERSION` | No | `latest` | Tag of the locally built `aiferry` image used by compose |
+| `SERVER_PORT` | No | `8080` | User site port on the host |
+| `SERVER_ADMIN_PORT` | No | `8081` | Admin console port on the host |
+| `ADMIN_BIND_HOST` | No | `127.0.0.1` | Host address the admin console port binds to |
+| `ADMIN_EMAIL` | No | `admin@aiferry.local` | Admin email |
 | `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password |
 | `TZ` | No | `Asia/Shanghai` | Timezone |
-| `UPDATE_GITHUB_TOKEN` | No | *(empty)* | Token for `api.github.com` release checks only; asset downloads remain anonymous. |
 | `GEMINI_OAUTH_CLIENT_ID` | No | *(builtin)* | Google OAuth client ID (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
 | `GEMINI_OAUTH_CLIENT_SECRET` | No | *(builtin)* | Google OAuth client secret (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
 | `GEMINI_OAUTH_SCOPES` | No | *(default)* | OAuth scopes (Gemini OAuth) |
@@ -268,35 +179,44 @@ docker compose down -v
 
 See `.env.example` for all available options.
 
-> **Note:** The `docker-deploy.sh` script automatically generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, and `POSTGRES_PASSWORD` for you.
-
 ### Easy Migration (Local Directory Version)
 
 When using `docker-compose.local.yml`, all data is stored in local directories, making migration simple:
 
 ```bash
 # On source server: Stop services and create archive
-cd /path/to/deployment
+cd /path/to/aiferry/deploy
 docker compose -f docker-compose.local.yml down
 cd ..
-tar czf sub2api-complete.tar.gz deployment/
+tar czf aiferry-complete.tar.gz deploy/
 
 # Transfer to new server
-scp sub2api-complete.tar.gz user@new-server:/path/to/destination/
+scp aiferry-complete.tar.gz user@new-server:/path/to/destination/
 
-# On new server: Extract and start
-tar xzf sub2api-complete.tar.gz
-cd deployment/
-docker compose -f docker-compose.local.yml up -d
+# On new server: clone the repository (needed to build the image),
+# extract the archive over its deploy/ directory, then start
+git clone https://github.com/Muqian-Sun/tokenferry.git aiferry
+cd aiferry
+tar xzf /path/to/destination/aiferry-complete.tar.gz
+cd deploy
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
 Your entire deployment (configuration + data) is migrated!
+
+### Reverse Proxy Notes
+
+- A Caddy example lives in `Caddyfile`; see [EDGE_SECURITY.md](./EDGE_SECURITY.md) for CDN/WAF,
+  trusted proxy, and ingress hardening.
+- When using Nginx in front of AiFerry with Codex CLI, add `underscores_in_headers on;` to the
+  `http` block. Nginx drops headers containing underscores by default (e.g. `session_id`),
+  which breaks sticky session routing in multi-account setups.
 
 ---
 
 ## Gemini OAuth Configuration
 
-Sub2API supports three methods to connect to Gemini:
+AiFerry supports three methods to connect to Gemini:
 
 ### Method 1: Code Assist OAuth (Recommended for GCP Users)
 
@@ -341,7 +261,7 @@ Requires your own OAuth client credentials.
    - Go to "APIs & Services" → "Credentials"
    - Click "Create Credentials" → "OAuth client ID"
    - Application type: **Web application** (or **Desktop app**)
-   - Name: e.g., "Sub2API Gemini"
+   - Name: e.g., "AiFerry Gemini"
    - Authorized redirect URIs: Add `http://localhost:1455/auth/callback`
 6. Copy the **Client ID** and **Client Secret**
 7. **⚠️ Publish to Production (IMPORTANT):**
@@ -391,147 +311,7 @@ GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
 
 ---
 
-## Binary Installation
-
-For production servers using systemd.
-
-### One-Line Installation
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
-```
-
-### Manual Installation
-
-1. Download the latest release from [GitHub Releases](https://github.com/Wei-Shaw/sub2api/releases)
-2. Extract and copy the binary to `/opt/sub2api/`
-3. Copy `sub2api.service` to `/etc/systemd/system/`
-4. Run:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable sub2api
-   sudo systemctl start sub2api
-   ```
-5. Open the Setup Wizard in your browser to complete configuration
-
-### Commands
-
-```bash
-# Install
-sudo ./install.sh
-
-# Upgrade
-sudo ./install.sh upgrade
-
-# Uninstall
-sudo ./install.sh uninstall
-```
-
-### Service Management
-
-```bash
-# Start the service
-sudo systemctl start sub2api
-
-# Stop the service
-sudo systemctl stop sub2api
-
-# Restart the service
-sudo systemctl restart sub2api
-
-# Check status
-sudo systemctl status sub2api
-
-# View logs
-sudo journalctl -u sub2api -f
-
-# Enable auto-start on boot
-sudo systemctl enable sub2api
-```
-
-### Configuration
-
-#### Server Address and Port
-
-During installation, you will be prompted to configure the server listen address and port. These settings are stored in the systemd service file as environment variables.
-
-To change after installation:
-
-1. Edit the systemd service:
-   ```bash
-   sudo systemctl edit sub2api
-   ```
-
-2. Add or modify:
-   ```ini
-   [Service]
-   Environment=SERVER_HOST=0.0.0.0
-   Environment=SERVER_PORT=3000
-   ```
-
-3. Reload and restart:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
-   ```
-
-#### Gemini OAuth Configuration
-
-If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client credentials to the systemd service file:
-
-1. Edit the service file:
-   ```bash
-   sudo nano /etc/systemd/system/sub2api.service
-   ```
-
-2. Add your OAuth credentials in the `[Service]` section (after the existing `Environment=` lines):
-   ```ini
-   Environment=GEMINI_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
-   Environment=GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
-   ```
-
-   如需使用“内置 Gemini CLI OAuth Client”（Code Assist / Google One），还需要注入：
-   ```ini
-   Environment=GEMINI_CLI_OAUTH_CLIENT_SECRET=GOCSPX-your-built-in-secret
-   ```
-
-3. Reload and restart:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart sub2api
-   ```
-
-> **Note:** Code Assist OAuth does not require any configuration - it uses the built-in Gemini CLI client.
-> See the [Gemini OAuth Configuration](#gemini-oauth-configuration) section above for detailed setup instructions.
-
-#### Application Configuration
-
-The main config file is at `/etc/sub2api/config.yaml` (created by Setup Wizard).
-
-### Prerequisites
-
-- Linux server (Ubuntu 20.04+, Debian 11+, CentOS 8+, etc.)
-- PostgreSQL 14+
-- Redis 6+
-- systemd
-
-### Directory Structure
-
-```
-/opt/sub2api/
-├── sub2api              # Main binary
-├── sub2api.backup       # Backup (after upgrade)
-└── data/                # Runtime data
-
-/etc/sub2api/
-└── config.yaml          # Configuration file
-```
-
----
-
 ## Troubleshooting
-
-### Docker
 
 For **local directory version**:
 
@@ -540,7 +320,7 @@ For **local directory version**:
 docker compose -f docker-compose.local.yml ps
 
 # View detailed logs
-docker compose -f docker-compose.local.yml logs --tail=100 sub2api
+docker compose -f docker-compose.local.yml logs --tail=100 aiferry
 
 # Check database connection
 docker compose -f docker-compose.local.yml exec postgres pg_isready
@@ -562,7 +342,7 @@ For **named volumes version**:
 docker compose ps
 
 # View detailed logs
-docker compose logs --tail=100 sub2api
+docker compose logs --tail=100 aiferry
 
 # Check database connection
 docker compose exec postgres pg_isready
@@ -574,39 +354,18 @@ docker compose exec redis redis-cli ping
 docker compose restart
 ```
 
-### Binary Install
-
-```bash
-# Check service status
-sudo systemctl status sub2api
-
-# View recent logs
-sudo journalctl -u sub2api -n 50
-
-# Check config file
-sudo cat /etc/sub2api/config.yaml
-
-# Check PostgreSQL
-sudo systemctl status postgresql
-
-# Check Redis
-sudo systemctl status redis
-```
-
 ### Common Issues
 
-1. **Port already in use**: Change `SERVER_PORT` in `.env` or systemd config
+1. **Port already in use**: Change `SERVER_PORT` / `SERVER_ADMIN_PORT` in `.env`
 2. **Database connection failed**: Check PostgreSQL is running and credentials are correct
 3. **Redis connection failed**: Check Redis is running and password is correct
-4. **Permission denied**: Ensure proper file ownership for binary install
+4. **Image not found**: Run `docker compose up -d --build` (or `./build_image.sh`) to build `aiferry:${AIFERRY_VERSION:-latest}` locally
 
 ---
 
 ## TLS Fingerprint Configuration
 
-Sub2API supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
-
-> **💡 Tip:** Visit **[tls.sub2api.org](https://tls.sub2api.org/)** to get TLS fingerprint information for different devices and browsers.
+AiFerry supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
 
 ### Default Behavior
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: "AiFerry Admin"
+  short_description: "Manage AiFerry admin accounts and settings"
+  default_prompt: "Use $aiferry-admin to inspect and manage AiFerry backend accounts safely."
+
+policy:
+  allow_implicit_invocation: true
