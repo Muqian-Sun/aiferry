@@ -450,7 +450,8 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'coding' })
   })
 
-  it('keeps a custom CN relay address and payg mode on save', async () => {
+  // 计费方式与新建同一规则（2026-09-28 P5 · A1-10）：地址指向中转就不写 account_mode，平台标签不算数
+  it('keeps a custom CN relay address and drops account_mode on save', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
@@ -458,13 +459,15 @@ describe('EditAccountModal', () => {
     updateAccountMock.mockReset().mockResolvedValue(account)
 
     const wrapper = mountModal(account)
+    await flushPromises()
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const payload = updateAccountMock.mock.calls[0]?.[1]
     expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
     expect(showErrorMock).not.toHaveBeenCalled()
-    expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(payload?.credentials).toMatchObject({ api_key: 'sk-glm' })
+    expect(payload?.credentials).not.toHaveProperty('account_mode')
   })
 
   it('has no API protocol selector for Chinese provider keys', async () => {
