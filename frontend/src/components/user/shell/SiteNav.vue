@@ -80,6 +80,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import { sanitizeUrl } from '@/utils/url'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import BrandLogo from '@/components/common/BrandLogo.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -99,9 +100,9 @@ const { isDark, toggleTheme } = useTheme()
 const { flatItems: consoleItems, refreshBatchImageAccess } = useConsoleNav()
 const adminSite = IS_ADMIN_SITE
 
-// 批量生图条目按用户的密钥权限出现：只有控制台壳需要探测（已登录时才发请求）
+// 批量生图条目按用户的密钥权限出现：只有控制台壳、且批量生图没被代码关掉时才探测（已登录时才发请求）
 onMounted(() => {
-  if (props.variant === 'console') void refreshBatchImageAccess()
+  if (props.variant === 'console' && SITE_FEATURES.batchImage) void refreshBatchImageAccess()
 })
 
 const user = computed(() => authStore.user)

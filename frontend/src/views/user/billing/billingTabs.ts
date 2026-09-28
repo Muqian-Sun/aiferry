@@ -1,5 +1,5 @@
 /**
- * 账务页签集合：按功能开关出现，与子路由的 requiresPayment / requiresSubscription 守卫一致。
+ * 账务页签集合：按功能开关出现，与子路由的 requiresPayment / siteFeature 守卫一致。
  * 路由表的 /billing 索引 redirect 与 BillingView 的页签共用这一份，避免两处漂移。
  */
 import type { SectionTab } from '@/components/user/shell/types'

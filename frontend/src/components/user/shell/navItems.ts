@@ -2,9 +2,9 @@
  * 用户站导航集合（纯函数，便于单测）。
  *
  * 控制台是左侧分组栏（muqian 2026-09-23 定）：
- * - 主组：概览（落地页）· 密钥 · 用量明细 · 模型 · 批量生图（按权限）
+ * - 主组：概览（落地页）· 密钥 · 用量明细 · 模型 · 批量生图（功能开着且有可用密钥时）
  * - 账务组：充值 / 订阅，按功能开关出现（由调用方按 billingTabs 算好传入）；两个都关着时整组不出现
- * - 账户组
+ * - 账户组：基本信息 · 安全（功能开着时）· 通知（开了余额提醒时）
  * - 更多：管理员配置的自定义页
  * simple mode 下去掉模型 / 账务 / 批量生图；backend mode 下没有任何控制台导航。
  * 顶栏在控制台与公开站是同一组页签（产品 / 模型与价格 / 文档）。
@@ -51,6 +51,8 @@ export interface ConsoleNavContext {
   simpleMode: boolean
   backendMode: boolean
   batchImageEnabled: boolean
+  /** 账户「安全」页是否显示（SITE_FEATURES.accountSecurity） */
+  accountSecurityEnabled: boolean
   /** 账务子页（已按功能开关过滤，见 views/user/billing/billingTabs.ts） */
   billingItems: NavTab[]
   /** 管理员开了余额不足提醒时，账户组才有「通知」 */
@@ -76,10 +78,10 @@ export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNavSection[] {
   if (!ctx.simpleMode && ctx.billingItems.length) {
     sections.push({ key: 'billing', label: ctx.t('userUi.nav.billing'), items: ctx.billingItems })
   }
-  const account: NavTab[] = [
-    { path: '/profile', label: ctx.t('userUi.account.sections.profile'), icon: 'user' },
-    { path: '/profile/security', label: ctx.t('userUi.account.sections.security'), icon: 'shield' }
-  ]
+  const account: NavTab[] = [{ path: '/profile', label: ctx.t('userUi.account.sections.profile'), icon: 'user' }]
+  if (ctx.accountSecurityEnabled) {
+    account.push({ path: '/profile/security', label: ctx.t('userUi.account.sections.security'), icon: 'shield' })
+  }
   if (ctx.balanceNotifyEnabled) {
     account.push({ path: '/profile/notifications', label: ctx.t('userUi.account.sections.notifications'), icon: 'bell' })
   }

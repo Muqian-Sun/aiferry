@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { buildBillingTabs } from '@/views/user/billing/billingTabs'
 import { useBillingFlags } from '@/views/user/billing/useBillingFlags'
 import { buildConsoleNav, type NavIcon, type NavTab } from './navItems'
@@ -29,7 +30,8 @@ export function useConsoleNav() {
       t,
       simpleMode: authStore.isSimpleMode,
       backendMode: appStore.backendModeEnabled,
-      batchImageEnabled: canUseBatchImage.value,
+      batchImageEnabled: SITE_FEATURES.batchImage && canUseBatchImage.value,
+      accountSecurityEnabled: SITE_FEATURES.accountSecurity,
       billingItems: buildBillingTabs(billingFlags.value, t).map(
         (tab): NavTab => ({ path: tab.to as string, label: tab.label, icon: BILLING_ICONS[tab.key] })
       ),

@@ -178,12 +178,22 @@ import { useI18n } from 'vue-i18n'
 import { usageAPI } from '@/api'
 import type { UserDashboardStats } from '@/api/usage'
 import subscriptionsAPI from '@/api/subscriptions'
-import { getModelPlaza } from '@/api/modelPlaza'
+import { adoptPreloaded } from '@/router/routePreload'
+import { loadModelPlaza } from '../modelPlazaQuery'
+import {
+  OVERVIEW_DEFAULT_RANGE,
+  OVERVIEW_RANGE_DAYS,
+  overviewFailuresParams,
+  overviewRange,
+  overviewRequestKey,
+  overviewSnapshotParams,
+  overviewSubscriptionEnabled,
+  type OverviewRangeKey
+} from './overviewQuery'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
-import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import { fillTrendBuckets, formatLocalDate, trendBucketKeys } from '@/utils/trendBuckets'
@@ -225,27 +235,24 @@ const greeting = computed(() => {
 })
 
 const simpleMode = computed(() => authStore.isSimpleMode)
-// 订阅显不显示由代码决定（SITE_FEATURES），不再读设置
-const subscriptionEnabled = computed(() => !simpleMode.value && SITE_FEATURES.subscription)
+// 订阅显不显示由代码决定（SITE_FEATURES，见 overviewSubscriptionEnabled），不再读设置
+const subscriptionEnabled = computed(() => overviewSubscriptionEnabled(simpleMode.value))
 const canRecharge = computed(() => !simpleMode.value && resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.payment))
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
 
-// ---------- 时间范围 ----------
-const RANGE_DAYS = { '7d': 7, '30d': 30 } as const
-type RangeKey = keyof typeof RANGE_DAYS
-const rangeKey = ref<RangeKey>('7d')
-const rangeDays = computed(() => RANGE_DAYS[rangeKey.value])
+// ---------- 时间范围（与各请求参数、进入页面前的预加载共用，见 ./overviewQuery.ts） ----------
+const rangeKey = ref<OverviewRangeKey>(OVERVIEW_DEFAULT_RANGE)
+const rangeDays = computed(() => OVERVIEW_RANGE_DAYS[rangeKey.value])
 const rangeTabs = computed<SectionTab[]>(() =>
-  (Object.keys(RANGE_DAYS) as RangeKey[]).map((key) => ({ key, label: t('userUi.overview.range.days', { days: RANGE_DAYS[key] }) }))
+  (Object.keys(OVERVIEW_RANGE_DAYS) as OverviewRangeKey[]).map((key) => ({
+    key,
+    label: t('userUi.overview.range.days', { days: OVERVIEW_RANGE_DAYS[key] })
+  }))
 )
 
 const today = formatLocalDate(new Date())
 /** 区间起止（最后一天是今天）；用量明细的地址栏参数同名 */
-const rangeQuery = computed(() => {
-  const start = new Date()
-  start.setDate(start.getDate() - (rangeDays.value - 1))
-  return { start: formatLocalDate(start), end: today }
-})
+const rangeQuery = computed(() => overviewRange(rangeDays.value))
 
 // ---------- 今日 / 累计（不随范围变） ----------
 const stats = ref<UserDashboardStats | null>(null)
@@ -256,7 +263,7 @@ async function loadStats() {
   statsLoading.value = true
   statsError.value = false
   try {
-    stats.value = await usageAPI.getDashboardStats()
+    stats.value = await adoptPreloaded(overviewRequestKey.stats, () => usageAPI.getDashboardStats())
   } catch (error) {
     console.error('Failed to load dashboard stats:', error)
     statsError.value = true
@@ -280,15 +287,8 @@ async function loadSnapshot() {
   snapshotLoading.value = true
   snapshotError.value = false
   try {
-    const snapshot = await usageAPI.getDashboardSnapshotV2({
-      start_date: start,
-      end_date: end,
-      granularity: 'day',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      include_trend: true,
-      include_model_stats: false,
-      include_model_trend: false
-    })
+    const params = overviewSnapshotParams(start, end)
+    const snapshot = await adoptPreloaded(overviewRequestKey.snapshot(params), () => usageAPI.getDashboardSnapshotV2(params))
     if (seq !== snapshotSeq) return
     trend.value = fillTrendBuckets(snapshot.trend || [], trendBucketKeys(start, end, 'day'))
   } catch (error) {
@@ -343,7 +343,7 @@ const keysState = ref<{ keys: ApiKey[]; attention: KeyAttention } | null>(null)
 
 async function loadKeys() {
   try {
-    const { keys, complete } = await loadAllKeys()
+    const { keys, complete } = await adoptPreloaded(overviewRequestKey.keys, () => loadAllKeys())
     keysState.value = complete ? { keys, attention: keyAttention(keys) } : null
   } catch (error) {
     console.error('Failed to load keys:', error)
@@ -357,7 +357,7 @@ const subscriptions = ref<UserSubscription[]>([])
 async function loadSubscriptions() {
   if (!subscriptionEnabled.value) return
   try {
-    subscriptions.value = await subscriptionsAPI.getActiveSubscriptions()
+    subscriptions.value = await adoptPreloaded(overviewRequestKey.subscriptions, () => subscriptionsAPI.getActiveSubscriptions())
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
     subscriptions.value = []
@@ -368,7 +368,8 @@ const failuresToday = ref<number | null>(null)
 async function loadFailures() {
   if (!errorViewEnabled.value) return
   try {
-    const resp = await usageAPI.listMyErrorRequests({ page: 1, page_size: 1, start_date: today, end_date: today })
+    const params = overviewFailuresParams(today)
+    const resp = await adoptPreloaded(overviewRequestKey.failures(params), () => usageAPI.listMyErrorRequests(params))
     failuresToday.value = resp.total
   } catch (error) {
     console.error('Failed to load error count:', error)
@@ -544,7 +545,7 @@ async function loadExampleModel() {
   if (exampleRequested) return
   exampleRequested = true
   try {
-    const catalog = buildCatalog((await getModelPlaza()).models ?? [])
+    const catalog = buildCatalog((await loadModelPlaza()).models ?? [])
     exampleModel.value = catalog.find((m) => m.vendor === 'openai') ?? catalog[0] ?? null
   } catch (error) {
     console.error('Failed to load model catalog:', error)

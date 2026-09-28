@@ -154,8 +154,8 @@ export function createSiteGuard(options: SiteGuardOptions) {
       next(isUserSite ? homePath : '/settings')
       return
     }
-    // 订阅显不显示由代码决定（utils/siteFeatures.ts）；不显示时两站的订阅页都拦回首页。
-    if (to.meta.requiresSubscription && !SITE_FEATURES.subscription) {
+    // 订阅 / 批量生图 / 账户安全页显不显示由代码决定（utils/siteFeatures.ts）；不显示时拦回首页。
+    if (to.meta.siteFeature && !SITE_FEATURES[to.meta.siteFeature]) {
       next(homePath)
       return
     }
