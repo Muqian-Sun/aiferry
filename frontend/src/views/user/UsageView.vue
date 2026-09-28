@@ -4,6 +4,7 @@
     区间摘要 → 费用分布（按实付，前 5 + 其他，点一行 = 加上这个模型筛选）→ 请求明细（请求 / 错误页签，筛选标签，点行开详情抽屉）。
     时间范围、密钥、模型、页签都写进地址栏：概览和密钥页带条件跳过来，刷新 / 返回也不丢。
     每个区块独立加载与重试，任一接口失败不把别的区块显示成零。
+    首次打开时三块都回来才一起出现（muqian 2026-09-26：原来各块先后到达，把下面的内容连推几次，刷新时像抽搐）；之后换筛选、刷新各块各自加载。
   -->
   <SiteShell>
     <template #actions>
@@ -31,7 +32,8 @@
       </PopoverMenu>
     </template>
 
-    <div class="space-y-8">
+    <StatusState v-if="!firstLoadDone" kind="loading" :title="t('userUi.status.loading')" data-testid="usage-first-load" />
+    <div v-else class="space-y-8">
       <!-- 区间数字摘要：跟随时间范围与筛选；统计接口失败就不出现，不显示零 -->
       <StatRow v-if="rangeItems" :items="rangeItems" data-testid="usage-range-summary" />
 
@@ -665,13 +667,15 @@ const applyFilters = () => {
   syncQuery()
 }
 
-const refreshData = () => {
-  void loadLogs()
-  void loadStats()
-  void loadModelStats()
-  void loadErrorCount()
-  if (activeTab.value === 'errors') void loadErrors()
-}
+/** 各加载函数自己吞掉错误、显示在各自区块里，这里的 Promise 不会 reject */
+const refreshData = () =>
+  Promise.all([
+    loadLogs(),
+    loadStats(),
+    loadModelStats(),
+    loadErrorCount(),
+    ...(activeTab.value === 'errors' ? [loadErrors()] : [])
+  ])
 
 /** 费用分布里点一行：加上这个模型筛选；再点同一行取消 */
 const toggleModelFilter = (model: string) => {
@@ -987,9 +991,13 @@ watch(errorViewEnabled, (enabled) => {
   if (wantsErrorTab) activeTab.value = 'errors'
 })
 
-onMounted(() => {
+// 首次打开：摘要、费用分布、请求明细（含失败数）都回来后再一起出现
+const firstLoadDone = ref(false)
+
+onMounted(async () => {
   void loadFilterOptions()
-  refreshData()
+  await refreshData()
+  firstLoadDone.value = true
 })
 
 onUnmounted(() => {
