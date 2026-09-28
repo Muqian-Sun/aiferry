@@ -1127,9 +1127,7 @@ func TestOpenAIStreamingResponseFailedBeforeOutputRateLimitUsesPoolRetryPolicy(t
 		Type:     AccountTypeAPIKey,
 		Name:     "pool-account",
 		Credentials: map[string]any{
-			"pool_mode":                    true,
-			"pool_mode_retry_count":        float64(1),
-			"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
+			"pool_mode": true,
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}

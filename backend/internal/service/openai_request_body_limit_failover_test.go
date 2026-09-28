@@ -49,9 +49,6 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 					"api_key":   "sk-test",
 					"base_url":  "https://api.example.test",
 					"pool_mode": true,
-					"pool_mode_retry_status_codes": []any{
-						float64(http.StatusRequestEntityTooLarge),
-					},
 				},
 				Status:            StatusActive,
 				Schedulable:       true,
@@ -84,7 +81,7 @@ func TestOpenAIRequestBodyLimitFailover_ContextWindow413DoesNotSwitchAccounts(t 
 	requestBody := []byte(`{"model":"gpt-5.2","stream":false,"input":"hello"}`)
 
 	{
-		t.Run("passthrough_false", func(t *testing.T) {
+		t.Run("native_responses", func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
