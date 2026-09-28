@@ -154,11 +154,6 @@ func runMainServer() {
 		log.Fatalf("Failed to initialize application: %v", err)
 	}
 	defer app.Cleanup()
-	if app.PluginManager != nil {
-		if err := app.PluginManager.Start(context.Background()); err != nil {
-			log.Printf("Plugin manager started in degraded state: %v", err)
-		}
-	}
 	if app.ModelCatalog != nil {
 		// 播种在迁移之后、服务开始接流量之前跑一次：新部署起来就有一份可用的模型目录。
 		// 失败不拦启动——目录查不到时计费会退回价格文件 / 硬编码兜底价，与播种前一致。

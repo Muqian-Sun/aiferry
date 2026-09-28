@@ -2,7 +2,6 @@
  * 侧边栏导航图标，用户站与管理后台共用。
  */
 import { h } from 'vue'
-import Icon from '@/components/icons/Icon.vue'
 
 export const DashboardIcon = {
   render: () =>
@@ -199,9 +198,6 @@ export const ServerIcon = {
     )
 }
 
-export const PluginIcon = {
-  render: () => h(Icon, { name: 'cube' })
-}
 
 export const BellIcon = {
   render: () =>

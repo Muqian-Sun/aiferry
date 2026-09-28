@@ -45,6 +45,13 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// announcements.notify_mode 已作废（253 删列）：用户站改为登录后统一弹公告窗
 	requireColumnAbsent(t, tx, "announcements", "notify_mode")
 
+	// 255 插件系统下线：两张插件表都已删除
+	for _, table := range []string{"sub2api_plugin_bindings", "sub2api_plugin_installations"} {
+		var regclass sql.NullString
+		require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public."+table+"')").Scan(&regclass))
+		require.False(t, regclass.Valid, "表 %s 应随迁移 255 删掉", table)
+	}
+
 	// 254 目录条目音频 token 价（可空：未配置时音频 token 回退文本价）
 	requireColumn(t, tx, "model_catalog_entries", "audio_input_price", "numeric", 0, true)
 	requireColumn(t, tx, "model_catalog_entries", "audio_output_price", "numeric", 0, true)

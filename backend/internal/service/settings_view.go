@@ -34,9 +34,6 @@ type SystemSettings struct {
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
 
-	// Model Plaza feature (public group/model pricing showcase)
-	PluginManagementEnabled bool `json:"plugin_management_enabled"`
-
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // Web Search 模拟是否生效：有配了 Key 的服务商（只读，由配置算出）
 
@@ -110,9 +107,6 @@ type PublicSettings struct {
 	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
-
-	// Model Plaza feature (public group/model pricing showcase)
-	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

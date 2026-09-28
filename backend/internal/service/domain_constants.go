@@ -263,10 +263,6 @@ const (
 	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).
 
-	// SettingKeyPluginManagementEnabled controls sidebar visibility only; it does
-	// not stop or otherwise change already loaded plugin runtimes.
-	SettingKeyPluginManagementEnabled = "plugin_management_enabled"
-
 	// SettingKeyOpenAIAPIKeyHealthBreakerSettings stores the opt-in OpenAI pool API-key breaker config.
 	SettingKeyOpenAIAPIKeyHealthBreakerSettings = "openai_apikey_health_breaker_settings"
 

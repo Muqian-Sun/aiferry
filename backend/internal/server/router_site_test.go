@@ -74,8 +74,6 @@ func TestAdminSiteServesOnlyAllowlistedRoutes(t *testing.T) {
 		regexp.MustCompile(`^(GET /api/v1/user/profile|PUT /api/v1/user/password|PUT /api/v1/user)$`),
 		regexp.MustCompile(`^[A-Z]+ /api/v1/user/(totp|passkeys)(/|$)`),
 		regexp.MustCompile(`^GET /api/v1/pages(/|$)`),
-		// 插件管理页以 iframe 加载插件界面，资源路径带一次性 token，由 RegisterAdminRoutes 注册。
-		regexp.MustCompile(`^GET /api/v1/plugin-ui/:token/\*path$`),
 		regexp.MustCompile(`^(GET /health|GET /setup/status|POST /api/event_logging/batch)$`),
 	}
 	routes := siteRouteSet(t, service.SiteAdmin)

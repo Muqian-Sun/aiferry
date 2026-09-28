@@ -452,7 +452,6 @@ type OpenAIGatewayService struct {
 	rateLimitService     *RateLimitService
 	billingCacheService  *BillingCacheService
 	httpUpstream         HTTPUpstream
-	pluginManager        *PluginManager
 	deferredService      *DeferredService
 	openAITokenProvider  *OpenAITokenProvider
 	grokTokenProvider    *GrokTokenProvider

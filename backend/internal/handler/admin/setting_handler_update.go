@@ -36,9 +36,6 @@ type UpdateSettingsRequest struct {
 
 	// Grok model mapping policy
 
-	// Plugin management menu visibility switch; plugin runtime is unaffected.
-	PluginManagementEnabled *bool `json:"plugin_management_enabled"`
-
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
 
@@ -189,12 +186,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ChannelMonitorHideUserRanking
 		}(),
-		PluginManagementEnabled: func() bool {
-			if req.PluginManagementEnabled != nil {
-				return *req.PluginManagementEnabled
-			}
-			return previousSettings.PluginManagementEnabled
-		}(),
 		AffiliateEnabled: func() bool {
 			if req.AffiliateEnabled != nil {
 				return *req.AffiliateEnabled
@@ -251,8 +242,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              updatedSettings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        updatedSettings.ChannelMonitorHideUserRanking,
-
-		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 
