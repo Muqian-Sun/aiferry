@@ -11,8 +11,7 @@ type AdminHandlers struct {
 	User                   *admin.UserHandler
 	Account                *admin.AccountHandler
 	Announcement           *admin.AnnouncementHandler
-	DataManagement         *admin.DataManagementHandler
-	Backup                 *admin.BackupHandler
+	ImageStorage           *admin.ImageStorageHandler
 	OAuth                  *admin.OAuthHandler
 	OpenAIOAuth            *admin.OpenAIOAuthHandler
 	GeminiOAuth            *admin.GeminiOAuthHandler
@@ -29,7 +28,6 @@ type AdminHandlers struct {
 	UserAttribute          *admin.UserAttributeHandler
 	ErrorPassthrough       *admin.ErrorPassthroughHandler
 	TLSFingerprintProfile  *admin.TLSFingerprintProfileHandler
-	Plugin                 *admin.PluginHandler
 	APIKey                 *admin.AdminAPIKeyHandler
 	ScheduledTest          *admin.ScheduledTestHandler
 	ModelCatalog           *admin.ModelCatalogHandler
@@ -39,7 +37,6 @@ type AdminHandlers struct {
 	PromptAudit            *securityaudit.PromptAdminHandler
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
-	Compliance             *admin.ComplianceHandler
 	AuditLog               *admin.AuditLogHandler
 }
 

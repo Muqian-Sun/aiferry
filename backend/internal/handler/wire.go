@@ -15,8 +15,7 @@ func ProvideAdminHandlers(
 	userHandler *admin.UserHandler,
 	accountHandler *admin.AccountHandler,
 	announcementHandler *admin.AnnouncementHandler,
-	dataManagementHandler *admin.DataManagementHandler,
-	backupHandler *admin.BackupHandler,
+	imageStorageHandler *admin.ImageStorageHandler,
 	oauthHandler *admin.OAuthHandler,
 	openaiOAuthHandler *admin.OpenAIOAuthHandler,
 	geminiOAuthHandler *admin.GeminiOAuthHandler,
@@ -33,7 +32,6 @@ func ProvideAdminHandlers(
 	userAttributeHandler *admin.UserAttributeHandler,
 	errorPassthroughHandler *admin.ErrorPassthroughHandler,
 	tlsFingerprintProfileHandler *admin.TLSFingerprintProfileHandler,
-	pluginHandler *admin.PluginHandler,
 	apiKeyHandler *admin.AdminAPIKeyHandler,
 	scheduledTestHandler *admin.ScheduledTestHandler,
 	modelCatalogHandler *admin.ModelCatalogHandler,
@@ -43,7 +41,6 @@ func ProvideAdminHandlers(
 	promptAuditHandler *securityaudit.PromptAdminHandler,
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
-	complianceHandler *admin.ComplianceHandler,
 	auditLogHandler *admin.AuditLogHandler,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
@@ -55,8 +52,7 @@ func ProvideAdminHandlers(
 		User:                   userHandler,
 		Account:                accountHandler,
 		Announcement:           announcementHandler,
-		DataManagement:         dataManagementHandler,
-		Backup:                 backupHandler,
+		ImageStorage:           imageStorageHandler,
 		OAuth:                  oauthHandler,
 		OpenAIOAuth:            openaiOAuthHandler,
 		GeminiOAuth:            geminiOAuthHandler,
@@ -73,7 +69,6 @@ func ProvideAdminHandlers(
 		UserAttribute:          userAttributeHandler,
 		ErrorPassthrough:       errorPassthroughHandler,
 		TLSFingerprintProfile:  tlsFingerprintProfileHandler,
-		Plugin:                 pluginHandler,
 		APIKey:                 apiKeyHandler,
 		ScheduledTest:          scheduledTestHandler,
 		ModelCatalog:           modelCatalogHandler,
@@ -83,7 +78,6 @@ func ProvideAdminHandlers(
 		PromptAudit:            promptAuditHandler,
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
-		Compliance:             complianceHandler,
 		AuditLog:               auditLogHandler,
 	}
 }
@@ -127,7 +121,6 @@ func ProvideImageConcurrencyLimiter() *ImageConcurrencyLimiter {
 
 func ProvideOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
-	pluginManager *service.PluginManager,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	apiKeyService *service.APIKeyService,
@@ -141,7 +134,6 @@ func ProvideOpenAIGatewayHandler(
 	coordinator *securityaudit.Coordinator,
 	imageLimiter *ImageConcurrencyLimiter,
 ) *OpenAIGatewayHandler {
-	gatewayService.SetPluginManager(pluginManager)
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
 		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg, modelCatalog)
 	h.securityAuditCoordinator = coordinator
@@ -161,9 +153,9 @@ func ProvideBatchImageHandler(
 	return h
 }
 
-// ProvideSystemHandler creates admin.SystemHandler with UpdateService
-func ProvideSystemHandler(updateService *service.UpdateService, lockService *service.SystemOperationLockService) *admin.SystemHandler {
-	return admin.NewSystemHandler(updateService, lockService)
+// ProvideSystemHandler creates admin.SystemHandler with the build version
+func ProvideSystemHandler(buildInfo BuildInfo) *admin.SystemHandler {
+	return admin.NewSystemHandler(buildInfo.Version)
 }
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
@@ -261,8 +253,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewUserHandler,
 	admin.ProvideAccountHandler,
 	admin.NewAnnouncementHandler,
-	admin.NewDataManagementHandler,
-	admin.NewBackupHandler,
+	admin.NewImageStorageHandler,
 	admin.NewOAuthHandler,
 	admin.NewOpenAIOAuthHandler,
 	admin.NewGeminiOAuthHandler,
@@ -280,7 +271,6 @@ var ProviderSet = wire.NewSet(
 	admin.NewErrorPassthroughHandler,
 	admin.NewModelCatalogHandler,
 	admin.NewTLSFingerprintProfileHandler,
-	admin.NewPluginHandler,
 	admin.NewAdminAPIKeyHandler,
 	admin.NewScheduledTestHandler,
 	admin.NewChannelMonitorHandler,
@@ -288,7 +278,6 @@ var ProviderSet = wire.NewSet(
 	admin.NewContentModerationHandler,
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
-	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 
 	// AdminHandlers and Handlers constructors

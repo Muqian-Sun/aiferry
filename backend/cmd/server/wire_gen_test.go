@@ -5,20 +5,9 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
-
-func TestProvideServiceBuildInfo(t *testing.T) {
-	in := handler.BuildInfo{
-		Version:   "v-test",
-		BuildType: "release",
-	}
-	out := provideServiceBuildInfo(in)
-	require.Equal(t, in.Version, out.Version)
-	require.Equal(t, in.BuildType, out.BuildType)
-}
 
 func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 	cfg := &config.Config{}
@@ -43,7 +32,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 	codexVersionSyncSvc := service.NewOpenAICodexVersionSyncService(nil, nil, nil, time.Second)
 	proxyExpirySvc := service.NewProxyExpiryService(nil, time.Second)
 	subscriptionExpirySvc := service.NewSubscriptionExpiryService(nil, time.Second)
-	pricingSvc := service.NewPricingService(cfg, nil)
+	pricingSvc := service.NewPricingService(cfg)
 	emailQueueSvc := service.NewEmailQueueService(nil, 1)
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	idempotencyCleanupSvc := service.NewIdempotencyCleanupService(nil, cfg)
@@ -86,7 +75,6 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // grokOAuth
 		nil, // openAIGateway
 		nil, // scheduledTestRunner
-		nil, // backupSvc
 		nil, // paymentOrderExpiry
 		nil, // channelMonitorRunner
 		nil, // channelMonitorV2Aggregator
@@ -95,7 +83,6 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // auditLog
 		nil, // openAIAutoReset
 		nil, // promptAudit
-		nil, // pluginManager
 	)
 
 	require.NotPanics(t, func() {

@@ -582,6 +582,41 @@ func TestGrokFreeClientToolCacheClaudeDesktopResponsesAutoOptIn(t *testing.T) {
 	}
 }
 
+// 请求级开关头改名为 X-AiFerry-Grok-Client-Tool-Cache，不兼容旧名。头名用字面量而不是
+// grokClientToolCacheOptInHeader——否则常量改回旧名也照样通过。Free 号默认走缓存路由，
+// 所以用 opt-out 观察：新名能关掉，旧名被忽略、仍按账号默认策略改写。
+func TestGrokFreeClientToolCacheRequestHeaderName(t *testing.T) {
+	account := healthyGrokOAuthGatewayTestAccount(90145, "access-token")
+	account.Credentials["subscription_tier"] = "free"
+	body := []byte(`{"model":"grok","tools":[{"type":"function","name":"Read","parameters":{"type":"object"}}],"tool_choice":"auto"}`)
+
+	t.Run("新名的 opt-out 生效", func(t *testing.T) {
+		c := newGrokCacheTestContext(90145)
+		c.Request.URL.Path = "/v1/chat/completions"
+		c.Request.Header.Set("X-AiFerry-Grok-Client-Tool-Cache", "off")
+
+		patched, err := applyGrokFreeRequestToolCacheRoute(c, body, body, account, "isolated-id")
+
+		require.NoError(t, err)
+		require.JSONEq(t, string(body), string(patched))
+	})
+
+	t.Run("旧名被忽略", func(t *testing.T) {
+		c := newGrokCacheTestContext(90145)
+		c.Request.URL.Path = "/v1/chat/completions"
+		c.Request.Header.Set("X-Sub2API-Grok-Client-Tool-Cache", "off")
+
+		patched, err := applyGrokFreeRequestToolCacheRoute(c, body, body, account, "isolated-id")
+
+		require.NoError(t, err)
+		tools := gjson.GetBytes(patched, "tools").Array()
+		require.Len(t, tools, 3)
+		require.Equal(t, "Read", tools[0].Get("name").String())
+		require.Equal(t, "web_search", tools[1].Get("type").String())
+		require.Equal(t, "x_search", tools[2].Get("type").String())
+	})
+}
+
 func TestGrokFreeClientToolCacheExplicitRequestOptOut(t *testing.T) {
 	account := healthyGrokOAuthGatewayTestAccount(90144, "access-token")
 	account.Credentials["subscription_tier"] = "free"

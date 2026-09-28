@@ -30,11 +30,8 @@ import DOMPurify from 'dompurify'
 import { useI18n } from 'vue-i18n'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import { getLocale } from '@/i18n'
 import { useAppStore } from '@/stores/app'
 import type { LoginAgreementDocument } from '@/types'
-import zhAdminCompliance from '../../../../docs/legal/admin-compliance.zh.md?raw'
-import enAdminCompliance from '../../../../docs/legal/admin-compliance.en.md?raw'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -49,23 +46,11 @@ marked.setOptions({
 })
 
 const documentId = computed(() => String(route.params.documentId || ''))
-const isAdminComplianceDocument = computed(() => documentId.value === 'admin-compliance')
 const documents = computed(() => settings.value?.login_agreement_documents ?? [])
-const updatedAt = computed(() =>
-  isAdminComplianceDocument.value ? '' : settings.value?.login_agreement_updated_at || ''
-)
-const documentTypeLabel = computed(() =>
-  isAdminComplianceDocument.value ? t('legal.adminCompliance') : t('legal.loginAgreement')
-)
+const updatedAt = computed(() => settings.value?.login_agreement_updated_at || '')
+const documentTypeLabel = computed(() => t('legal.loginAgreement'))
 
 const currentDocument = computed<LoginAgreementDocument | null>(() => {
-  if (isAdminComplianceDocument.value) {
-    return {
-      id: 'admin-compliance',
-      title: t('adminCompliance.title'),
-      content_md: getLocale() === 'zh' ? zhAdminCompliance : enAdminCompliance
-    }
-  }
   const id = documentId.value
   if (!id) {
     return null

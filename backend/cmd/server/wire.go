@@ -24,11 +24,10 @@ import (
 )
 
 type Application struct {
-	Servers       *server.HTTPServers
-	PromptAudit   *securityaudit.PromptService
-	PluginManager *service.PluginManager
-	ModelCatalog  *service.ModelCatalogService
-	Cleanup       func()
+	Servers      *server.HTTPServers
+	PromptAudit  *securityaudit.PromptService
+	ModelCatalog *service.ModelCatalogService
+	Cleanup      func()
 }
 
 func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
@@ -50,35 +49,17 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		// Privacy client factory for OpenAI training opt-out
 		providePrivacyClientFactory,
 
-		// BuildInfo provider
-		provideServiceBuildInfo,
-		providePluginHostInfo,
-
 		// Cleanup function provider
 		provideCleanup,
 
 		// Application struct
-		wire.Struct(new(Application), "Servers", "PromptAudit", "PluginManager", "ModelCatalog", "Cleanup"),
+		wire.Struct(new(Application), "Servers", "PromptAudit", "ModelCatalog", "Cleanup"),
 	)
 	return nil, nil
 }
 
 func providePrivacyClientFactory() service.PrivacyClientFactory {
 	return repository.CreatePrivacyReqClient
-}
-
-func provideServiceBuildInfo(buildInfo handler.BuildInfo) service.BuildInfo {
-	return service.BuildInfo{
-		Version:   buildInfo.Version,
-		BuildType: buildInfo.BuildType,
-	}
-}
-
-func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
-	return service.PluginHostInfo{
-		Version:   buildInfo.Version,
-		BuildType: buildInfo.BuildType,
-	}
 }
 
 func provideCleanup(
@@ -117,7 +98,6 @@ func provideCleanup(
 	grokOAuth *service.GrokOAuthService,
 	openAIGateway *service.OpenAIGatewayService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
-	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
@@ -126,7 +106,6 @@ func provideCleanup(
 	auditLog *service.AuditLogService,
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
-	pluginManager *service.PluginManager,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -139,12 +118,6 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
-			{"PluginManager", func() error {
-				if pluginManager != nil {
-					pluginManager.Stop()
-				}
-				return nil
-			}},
 			{"OpenAIQuotaAutoResetService", func() error {
 				if openAIAutoReset != nil {
 					openAIAutoReset.Stop()
@@ -334,12 +307,6 @@ func provideCleanup(
 			{"ScheduledTestRunnerService", func() error {
 				if scheduledTestRunner != nil {
 					scheduledTestRunner.Stop()
-				}
-				return nil
-			}},
-			{"BackupService", func() error {
-				if backupSvc != nil {
-					backupSvc.Stop()
 				}
 				return nil
 			}},

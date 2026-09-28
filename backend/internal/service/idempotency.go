@@ -60,7 +60,6 @@ type IdempotencyRepository interface {
 
 type IdempotencyConfig struct {
 	DefaultTTL           time.Duration
-	SystemOperationTTL   time.Duration
 	ProcessingTimeout    time.Duration
 	FailedRetryBackoff   time.Duration
 	MaxStoredResponseLen int
@@ -70,7 +69,6 @@ type IdempotencyConfig struct {
 func DefaultIdempotencyConfig() IdempotencyConfig {
 	return IdempotencyConfig{
 		DefaultTTL:           24 * time.Hour,
-		SystemOperationTTL:   1 * time.Hour,
 		ProcessingTimeout:    30 * time.Second,
 		FailedRetryBackoff:   5 * time.Second,
 		MaxStoredResponseLen: 64 * 1024,
@@ -123,14 +121,6 @@ func DefaultWriteIdempotencyTTL() time.Duration {
 	defaultTTL := DefaultIdempotencyConfig().DefaultTTL
 	if coordinator := DefaultIdempotencyCoordinator(); coordinator != nil && coordinator.cfg.DefaultTTL > 0 {
 		return coordinator.cfg.DefaultTTL
-	}
-	return defaultTTL
-}
-
-func DefaultSystemOperationIdempotencyTTL() time.Duration {
-	defaultTTL := DefaultIdempotencyConfig().SystemOperationTTL
-	if coordinator := DefaultIdempotencyCoordinator(); coordinator != nil && coordinator.cfg.SystemOperationTTL > 0 {
-		return coordinator.cfg.SystemOperationTTL
 	}
 	return defaultTTL
 }

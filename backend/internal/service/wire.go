@@ -25,15 +25,9 @@ func ProvideGrokOAuthService(proxyRepo ProxyRepository, oauthClient GrokOAuthCli
 	return svc
 }
 
-// BuildInfo contains build information
-type BuildInfo struct {
-	Version   string
-	BuildType string
-}
-
 // ProvidePricingService creates and initializes PricingService
-func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient) (*PricingService, error) {
-	svc := NewPricingService(cfg, remoteClient)
+func ProvidePricingService(cfg *config.Config) (*PricingService, error) {
+	svc := NewPricingService(cfg)
 	if err := svc.Initialize(); err != nil {
 		// Pricing service initialization failure should not block startup, use fallback prices
 		println("[Service] Warning: Pricing service initialization failed:", err.Error())
@@ -58,11 +52,6 @@ func ProvideModelCatalogService(
 	// 播种条目会冻在启动时刻的价格。
 	pricingService.OnPricingUpdated(svc.ReseedAfterPricingUpdate)
 	return svc
-}
-
-// ProvideUpdateService creates UpdateService with BuildInfo
-func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, buildInfo BuildInfo) *UpdateService {
-	return NewUpdateService(cache, githubClient, buildInfo.Version, buildInfo.BuildType)
 }
 
 // ProvideEmailQueueService creates EmailQueueService with default worker count
@@ -270,7 +259,6 @@ func ProvideAccountTestService(
 	tlsFPProfileService *TLSFingerprintProfileService,
 	openAIGatewayService *OpenAIGatewayService,
 	settingService *SettingService,
-	pluginManager *PluginManager,
 ) *AccountTestService {
 	service := NewAccountTestService(
 		accountRepo,
@@ -285,7 +273,6 @@ func ProvideAccountTestService(
 	service.agentIdentityWS = openAIGatewayService
 	service.SetOpenAIGatewayService(openAIGatewayService)
 	service.SetSettingService(settingService)
-	service.SetPluginManager(pluginManager)
 	return service
 }
 
@@ -605,9 +592,6 @@ func buildIdempotencyConfig(cfg *config.Config) IdempotencyConfig {
 		if cfg.Idempotency.DefaultTTLSeconds > 0 {
 			idempotencyCfg.DefaultTTL = time.Duration(cfg.Idempotency.DefaultTTLSeconds) * time.Second
 		}
-		if cfg.Idempotency.SystemOperationTTLSeconds > 0 {
-			idempotencyCfg.SystemOperationTTL = time.Duration(cfg.Idempotency.SystemOperationTTLSeconds) * time.Second
-		}
 		if cfg.Idempotency.ProcessingTimeoutSeconds > 0 {
 			idempotencyCfg.ProcessingTimeout = time.Duration(cfg.Idempotency.ProcessingTimeoutSeconds) * time.Second
 		}
@@ -626,10 +610,6 @@ func ProvideIdempotencyCoordinator(repo IdempotencyRepository, cfg *config.Confi
 	coordinator := NewIdempotencyCoordinator(repo, buildIdempotencyConfig(cfg))
 	SetDefaultIdempotencyCoordinator(coordinator)
 	return coordinator
-}
-
-func ProvideSystemOperationLockService(repo IdempotencyRepository, cfg *config.Config) *SystemOperationLockService {
-	return NewSystemOperationLockService(repo, buildIdempotencyConfig(cfg))
 }
 
 func ProvideIdempotencyCleanupService(repo IdempotencyRepository, cfg *config.Config) *IdempotencyCleanupService {
@@ -686,7 +666,6 @@ func ProvideAPIKeyAuthCacheInvalidator(apiKeyService *APIKeyService) APIKeyAuthC
 func ProvideImageStorageSettingService(
 	settingRepo SettingRepository,
 	encryptor SecretEncryptor,
-	backup *BackupService,
 	factory ImageStorageFactory,
 	cfg *config.Config,
 ) *ImageStorageSettingService {
@@ -696,7 +675,7 @@ func ProvideImageStorageSettingService(
 		logger.L().Warn("image_storage.enabled is true in config but object storage is not fully configured; configure it in the admin UI or complete the config file",
 			zap.Strings("missing_keys", cfg.ImageStorage.MissingCredentialKeys()))
 	}
-	return NewImageStorageSettingService(settingRepo, encryptor, backup, factory, cfg.ImageStorage)
+	return NewImageStorageSettingService(settingRepo, encryptor, cfg.Totp.EncryptionKeyConfigured, factory, cfg.ImageStorage)
 }
 
 // ProvideImageTaskService 构造异步图片任务服务。
@@ -706,22 +685,6 @@ func ProvideImageStorageSettingService(
 // 启用状态由 settings 服务在运行时解析，因此后台改开关后无需重启即可生效。
 func ProvideImageTaskService(store ImageTaskStore, settings *ImageStorageSettingService) *ImageTaskService {
 	return NewImageTaskServiceWithResolver(store, settings.Resolver(), defaultImageTaskTTL, defaultImageTaskExecutionTimeout)
-}
-
-// ProvideBackupService creates and starts BackupService
-func ProvideBackupService(
-	settingRepo SettingRepository,
-	cfg *config.Config,
-	encryptor SecretEncryptor,
-	storeFactory BackupObjectStoreFactory,
-	dumper DBDumper,
-	lockCache LeaderLockCache,
-	db *sql.DB,
-) *BackupService {
-	svc := NewBackupService(settingRepo, cfg, encryptor, storeFactory, dumper)
-	svc.SetLeaderLock(lockCache, db)
-	svc.Start()
-	return svc
 }
 
 // ProvideOpsService constructs OpsService and wires the SettingService-backed quota
@@ -878,8 +841,6 @@ var ProviderSet = wire.NewSet(
 	ProvideUpstreamBillingProbeService,
 	ProvideOllamaCloudUsageService,
 	ProvideSettingService,
-	NewDataManagementService,
-	ProvideBackupService,
 	ProvideOpsSystemLogSink,
 	ProvideOpsService,
 	ProvideOpsIngressRejectAggregator,
@@ -902,7 +863,6 @@ var ProviderSet = wire.NewSet(
 	NewUsageRecordWorkerPool,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
-	ProvideUpdateService,
 	ProvideTokenRefreshService,
 	wire.Bind(new(GrokOAuthReconciler), new(*TokenRefreshService)),
 	ProvideAccountExpiryService,
@@ -920,10 +880,8 @@ var ProviderSet = wire.NewSet(
 	NewTotpService,
 	NewErrorPassthroughService,
 	NewTLSFingerprintProfileService,
-	NewPluginManager,
 	NewDigestSessionStore,
 	ProvideIdempotencyCoordinator,
-	ProvideSystemOperationLockService,
 	ProvideIdempotencyCleanupService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,

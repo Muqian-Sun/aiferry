@@ -1054,22 +1054,6 @@ func TestListSupportedModels(t *testing.T) {
 	require.GreaterOrEqual(t, len(models), 6)
 }
 
-func TestGetPricingServiceStatus_NilService(t *testing.T) {
-	svc := newTestBillingService()
-
-	status := svc.GetPricingServiceStatus()
-	require.NotNil(t, status)
-	require.Equal(t, "using fallback", status["last_updated"])
-}
-
-func TestForceUpdatePricing_NilService(t *testing.T) {
-	svc := newTestBillingService()
-
-	err := svc.ForceUpdatePricing()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "not initialized")
-}
-
 func TestGetModelPricing_Grok45OfficialFallback(t *testing.T) {
 	svc := newTestBillingService()
 

@@ -1,19 +1,25 @@
 # =============================================================================
-# Sub2API Docker Compose - Standalone Configuration
+# AiFerry Docker Compose - Standalone Configuration
 # =============================================================================
-# This configuration runs only the Sub2API application.
+# This configuration runs only the AiFerry application.
 # PostgreSQL and Redis must be provided externally.
 #
 # Usage:
 #   1. Copy .env.example to .env and configure database/redis connection
-#   2. docker-compose -f docker-compose.standalone.yml up -d
+#   2. docker compose -f docker-compose.standalone.yml up -d --build
+#      (builds aiferry:${AIFERRY_VERSION:-latest} from this repo)
 #   3. Access: http://localhost:8080
 # =============================================================================
 
 services:
-  sub2api:
-    image: weishaw/sub2api:latest
-    container_name: sub2api
+  aiferry:
+    image: aiferry:${AIFERRY_VERSION:-latest}
+    # Built locally from this repository (no registry). `docker compose up -d --build`
+    # or deploy/build_image.sh produces the image.
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: aiferry
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -72,7 +78,7 @@ services:
       # =======================================================================
       # Admin Account (auto-created on first run)
       # =======================================================================
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@aiferry.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
 
       # =======================================================================
@@ -109,10 +115,10 @@ services:
       # Gateway Upstream, Scheduling & Image Configuration
       # =======================================================================
       # Gateway values come from Compose .env or the shell.
-      # Fallbacks mirror Sub2API backend defaults so omitted values preserve behavior.
+      # Fallbacks mirror AiFerry backend defaults so omitted values preserve behavior.
       - GATEWAY_FORCE_CODEX_CLI=${GATEWAY_FORCE_CODEX_CLI:-false}
       - GATEWAY_OPENAI_COMPACT_MODEL=${GATEWAY_OPENAI_COMPACT_MODEL:-gpt-5.5}
-      - SUB2API_IMAGES_MAIN_MODEL=${SUB2API_IMAGES_MAIN_MODEL:-gpt-5.6-luna}
+      - AIFERRY_IMAGES_MAIN_MODEL=${AIFERRY_IMAGES_MAIN_MODEL:-gpt-5.6-luna}
       - GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT=${GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT:-0}
       - GATEWAY_OPENAI_WS_FORCE_HTTP=${GATEWAY_OPENAI_WS_FORCE_HTTP:-false}
       - GATEWAY_OPENAI_HTTP2_ENABLED=${GATEWAY_OPENAI_HTTP2_ENABLED:-true}

@@ -16,10 +16,21 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// 生图主控模型的运维覆盖只认 AIFERRY_IMAGES_MAIN_MODEL，旧名 SUB2API_IMAGES_MAIN_MODEL 不再生效。
+func TestOpenAIImagesMainModelEnvOnlyReadsAiFerryName(t *testing.T) {
+	t.Setenv("AIFERRY_IMAGES_MAIN_MODEL", "")
+	t.Setenv("SUB2API_IMAGES_MAIN_MODEL", "gpt-5.6-sol")
+	require.Equal(t, "gpt-5.6-luna", openAIImagesResponsesMainModelValue(), "旧名不应再生效")
+
+	t.Setenv("SUB2API_IMAGES_MAIN_MODEL", "")
+	t.Setenv("AIFERRY_IMAGES_MAIN_MODEL", "gpt-5.6-sol")
+	require.Equal(t, "gpt-5.6-sol", openAIImagesResponsesMainModelValue())
+}
+
 func TestOpenAIImagesResponsesDriverAndImageModels(t *testing.T) {
 	for _, override := range []string{"", "  ", " gpt-5.6-sol "} {
 		t.Run(fmt.Sprintf("override=%q", override), func(t *testing.T) {
-			t.Setenv("SUB2API_IMAGES_MAIN_MODEL", override)
+			t.Setenv("AIFERRY_IMAGES_MAIN_MODEL", override)
 			driver := strings.TrimSpace(override)
 			if driver == "" {
 				driver = "gpt-5.6-luna"
@@ -59,7 +70,7 @@ func TestOpenAIImagesResponsesDriverAndImageModels(t *testing.T) {
 
 func TestOpenAIImagesRejectedDriverDoesNotCoolImageModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv("SUB2API_IMAGES_MAIN_MODEL", "gpt-5.4-mini")
+	t.Setenv("AIFERRY_IMAGES_MAIN_MODEL", "gpt-5.4-mini")
 	for _, rejected := range []string{"gpt-5.4-mini", "gpt-image-2.5-flare"} {
 		t.Run(rejected, func(t *testing.T) {
 			repo := &modelNotFoundAccountRepoStub{}

@@ -93,7 +93,7 @@ func registerAdminSiteRoutes(r *gin.Engine, d routeDeps) {
 	routes.RegisterAuthRoutes(v1, service.SiteAdmin, h, d.jwtAuth, d.auditLog, d.redisClient, d.settingService, panelRateLimiter)
 	routes.RegisterAccountSecurityRoutes(v1, h, d.jwtAuth, d.auditLog, d.settingService, panelRateLimiter)
 	routes.RegisterAdminRoutes(v1, h, d.adminAuth, d.auditLog, d.stepUpAuth, d.settingService, panelRateLimiter)
-	routes.RegisterAdminPaymentRoutes(v1, h.Admin.Payment, d.adminAuth, d.auditLog, d.settingService)
+	routes.RegisterAdminPaymentRoutes(v1, h.Admin.Payment, d.adminAuth, d.auditLog)
 
 	handler.RegisterPageRoutes(v1, service.SiteAdmin, d.cfg.Pricing.DataDir, gin.HandlerFunc(d.jwtAuth), gin.HandlerFunc(d.adminAuth), d.settingService)
 }

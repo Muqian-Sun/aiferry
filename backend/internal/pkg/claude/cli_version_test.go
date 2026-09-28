@@ -1,6 +1,67 @@
 package claude
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+)
+
+const cliVersionHelperEnv = "AIFERRY_TEST_CLI_VERSION_HELPER"
+
+// 子进程入口：只在 TestCLIVersionEnvOnlyReadsAiFerryName 拉起时才输出，平时直接跳过。
+func TestCLIVersionEnvHelperProcess(t *testing.T) {
+	if os.Getenv(cliVersionHelperEnv) != "1" {
+		t.Skip("仅作为 TestCLIVersionEnvOnlyReadsAiFerryName 的子进程运行")
+	}
+	fmt.Printf("CLIVERSION=%s\n", CLIVersion())
+}
+
+// 覆盖变量名是对运维的契约：只认 AIFERRY_CLAUDE_CLI_VERSION，旧名 SUB2API_CLAUDE_CLI_VERSION
+// 不再生效。resolvedCLIVersion 在包初始化时就读了环境变量，进程内改不了，所以起子进程验证。
+// 变量名用字面量，不用 CLIVersionEnv——否则常量改回旧名也照样通过。
+func TestCLIVersionEnvOnlyReadsAiFerryName(t *testing.T) {
+	const override = "999.0.0" // 纯数字三段、高于任何现实基线，IsSupportedCLIVersion 认可
+	cases := []struct {
+		name string
+		env  []string
+		want string
+	}{
+		{"新名生效", []string{"AIFERRY_CLAUDE_CLI_VERSION=" + override}, override},
+		{"旧名不再生效", []string{"SUB2API_CLAUDE_CLI_VERSION=" + override}, CLICurrentVersion},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := make([]string, 0, len(os.Environ())+len(tc.env)+1)
+			for _, kv := range os.Environ() {
+				key, _, _ := strings.Cut(kv, "=")
+				if key == "AIFERRY_CLAUDE_CLI_VERSION" || key == "SUB2API_CLAUDE_CLI_VERSION" || key == cliVersionHelperEnv {
+					continue
+				}
+				env = append(env, kv)
+			}
+			env = append(env, cliVersionHelperEnv+"=1")
+			env = append(env, tc.env...)
+
+			cmd := exec.Command(os.Args[0], "-test.run=^TestCLIVersionEnvHelperProcess$", "-test.count=1") //nolint:gosec // G702: 重新执行当前测试二进制自身，参数都是常量
+			cmd.Env = env
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("子进程失败: %v\n%s", err, out)
+			}
+			got := ""
+			for _, line := range strings.Split(string(out), "\n") {
+				if v, ok := strings.CutPrefix(line, "CLIVERSION="); ok {
+					got = strings.TrimSpace(v)
+				}
+			}
+			if got != tc.want {
+				t.Fatalf("CLIVersion() = %q, want %q（子进程输出：\n%s）", got, tc.want, out)
+			}
+		})
+	}
+}
 
 func TestIsSupportedCLIVersion(t *testing.T) {
 	cases := []struct {

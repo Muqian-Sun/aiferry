@@ -73,12 +73,10 @@ func RegisterAdminPaymentRoutes(
 	adminPaymentHandler *admin.PaymentHandler,
 	adminAuth middleware.AdminAuthMiddleware,
 	auditLog middleware.AuditLogMiddleware,
-	settingService *service.SettingService,
 ) {
 	adminGroup := v1.Group("/admin/payment")
 	adminGroup.Use(gin.HandlerFunc(adminAuth))
 	adminGroup.Use(gin.HandlerFunc(auditLog))
-	adminGroup.Use(middleware.AdminComplianceGuard(settingService))
 	{
 		// Dashboard
 		adminGroup.GET("/dashboard", adminPaymentHandler.GetDashboard)

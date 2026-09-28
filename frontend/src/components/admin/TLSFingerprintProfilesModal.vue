@@ -145,7 +145,6 @@
             </button>
             <p class="text-xs text-af-ink-3">
               {{ t('admin.tlsFingerprintProfiles.form.pasteYamlHint') }}
-              <a href="https://tls.sub2api.org" target="_blank" rel="noopener noreferrer" class="text-af-brand hover:text-af-brand-hover underline">{{ t('admin.tlsFingerprintProfiles.form.openCollector') }}</a>
             </p>
           </div>
         </div>

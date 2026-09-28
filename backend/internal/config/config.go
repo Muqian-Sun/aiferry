@@ -104,18 +104,6 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
-	Plugins                 PluginConfig                  `mapstructure:"plugins"`
-}
-
-// PluginConfig 控制管理员手动上传的本地进程插件。
-// 默认不包含插件，也不允许安装未签名插件；TrustedPublishers 用于追加第三方发布者。
-type PluginConfig struct {
-	DataDir              string            `mapstructure:"data_dir"`
-	AllowUnsigned        bool              `mapstructure:"allow_unsigned"`
-	TrustedPublishers    map[string]string `mapstructure:"trusted_publishers"`
-	MaxUploadBytes       int64             `mapstructure:"max_upload_bytes"`
-	MaxUncompressedBytes int64             `mapstructure:"max_uncompressed_bytes"`
-	StartTimeoutSeconds  int               `mapstructure:"start_timeout_seconds"`
 }
 
 type LogConfig struct {
@@ -173,7 +161,7 @@ type GeminiTierQuotaConfig struct {
 }
 
 type UpdateConfig struct {
-	// ProxyURL 用于访问 GitHub 的代理地址
+	// ProxyURL 用于访问 GitHub API 的代理地址（Codex 客户端版本同步查询 openai/codex 的 release）
 	// 支持 http/https/socks5/socks5h 协议
 	// 例如: "http://127.0.0.1:7890", "socks5://127.0.0.1:1080"
 	ProxyURL string `mapstructure:"proxy_url"`
@@ -184,8 +172,6 @@ type IdempotencyConfig struct {
 	ObserveOnly bool `mapstructure:"observe_only"`
 	// DefaultTTLSeconds 关键写接口的幂等记录默认 TTL（秒）。
 	DefaultTTLSeconds int `mapstructure:"default_ttl_seconds"`
-	// SystemOperationTTLSeconds 系统操作接口的幂等记录 TTL（秒）。
-	SystemOperationTTLSeconds int `mapstructure:"system_operation_ttl_seconds"`
 	// ProcessingTimeoutSeconds processing 状态锁超时（秒）。
 	ProcessingTimeoutSeconds int `mapstructure:"processing_timeout_seconds"`
 	// FailedRetryBackoffSeconds 失败退避窗口（秒）。
@@ -561,19 +547,13 @@ type TokenRefreshConfig struct {
 }
 
 type PricingConfig struct {
-	// 价格数据远程URL（默认使用LiteLLM镜像）
-	RemoteURL string `mapstructure:"remote_url"`
-	// 哈希校验文件URL
-	HashURL string `mapstructure:"hash_url"`
-	// 本地数据目录
+	// 本地数据目录（自定义页面文件放在其下 pages/；价格不读写这里）
 	DataDir string `mapstructure:"data_dir"`
-	// 回退文件路径
+	// 内置价格文件路径：价格的唯一来源，不做远程同步
 	FallbackFile string `mapstructure:"fallback_file"`
-	// 覆盖补丁文件路径（可选）：条目按字段浅合并覆盖目录/回退数据，优先级最高
+	// 覆盖补丁文件路径（可选）：条目按字段浅合并覆盖内置价格，优先级最高
 	OverrideFile string `mapstructure:"override_file"`
-	// 更新间隔（小时）
-	UpdateIntervalHours int `mapstructure:"update_interval_hours"`
-	// 哈希校验间隔（分钟）
+	// 价格文件变更检查间隔（分钟）：内置价格文件 / override 内容变了就热重载
 	HashCheckIntervalMinutes int `mapstructure:"hash_check_interval_minutes"`
 }
 
@@ -721,7 +701,6 @@ func (c *Config) SetTrustForwardedIPForAPIKeyACL(enabled bool) {
 type URLAllowlistConfig struct {
 	Enabled           bool     `mapstructure:"enabled"`
 	UpstreamHosts     []string `mapstructure:"upstream_hosts"`
-	PricingHosts      []string `mapstructure:"pricing_hosts"`
 	AllowPrivateHosts bool     `mapstructure:"allow_private_hosts"`
 	// 关闭 URL 白名单校验时，是否允许 http URL（默认只允许 https）
 	AllowInsecureHTTP bool `mapstructure:"allow_insecure_http"`
@@ -741,8 +720,7 @@ type CSPConfig struct {
 type ProxyFallbackConfig struct {
 	// AllowDirectOnError 当辅助服务的代理初始化失败时是否允许回退直连。
 	// 仅影响以下非 AI 账号连接的辅助服务：
-	//   - GitHub Release 更新检查
-	//   - 定价数据拉取
+	//   - GitHub Release 查询（Codex 客户端版本同步）
 	// 不影响 AI 账号网关连接（Claude/OpenAI/Gemini/Antigravity），
 	// 这些关键路径的代理失败始终返回错误，不会回退直连。
 	// 默认 false：避免因代理配置错误导致服务器真实 IP 泄露。
@@ -1958,7 +1936,7 @@ func configureConfigSource(setConfigFile, addConfigPath func(string)) {
 	addConfigPath("/app/data")
 	addConfigPath(".")
 	addConfigPath("./config")
-	addConfigPath("/etc/sub2api")
+	addConfigPath("/etc/aiferry")
 }
 
 func setDefaults() {
@@ -1987,7 +1965,7 @@ func setDefaults() {
 	// Log
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
-	viper.SetDefault("log.service_name", "sub2api")
+	viper.SetDefault("log.service_name", "aiferry")
 	viper.SetDefault("log.env", "production")
 	viper.SetDefault("log.caller", true)
 	viper.SetDefault("log.stacktrace_level", "error")
@@ -2029,9 +2007,6 @@ func setDefaults() {
 		"generativelanguage.googleapis.com",
 		"cloudcode-pa.googleapis.com",
 		"*.openai.azure.com",
-	})
-	viper.SetDefault("security.url_allowlist.pricing_hosts", []string{
-		"raw.githubusercontent.com",
 	})
 	viper.SetDefault("security.url_allowlist.allow_private_hosts", true)
 	viper.SetDefault("security.url_allowlist.allow_insecure_http", true)
@@ -2211,22 +2186,11 @@ func setDefaults() {
 	// RateLimit
 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)
 
-	// Pricing - 从 model-price-repo main 分支同步模型定价和上下文窗口数据
-	viper.SetDefault("pricing.remote_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json")
-	viper.SetDefault("pricing.hash_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.sha256")
+	// Pricing - 只用内置价格文件（随代码发布），不做远程同步
 	viper.SetDefault("pricing.data_dir", "./data")
 	viper.SetDefault("pricing.fallback_file", "./resources/model-pricing/model_prices_and_context_window.json")
 	viper.SetDefault("pricing.override_file", "")
-	viper.SetDefault("pricing.update_interval_hours", 24)
 	viper.SetDefault("pricing.hash_check_interval_minutes", 10)
-
-	// 本地进程插件。插件必须由管理员手动上传，项目默认不携带任何插件能力。
-	viper.SetDefault("plugins.data_dir", "")
-	viper.SetDefault("plugins.allow_unsigned", false)
-	viper.SetDefault("plugins.trusted_publishers", map[string]string{})
-	viper.SetDefault("plugins.max_upload_bytes", int64(128*1024*1024))
-	viper.SetDefault("plugins.max_uncompressed_bytes", int64(256*1024*1024))
-	viper.SetDefault("plugins.start_timeout_seconds", 15)
 
 	// Timezone (default to Asia/Shanghai for Chinese users)
 	viper.SetDefault("timezone", "Asia/Shanghai")
@@ -2279,7 +2243,6 @@ func setDefaults() {
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
 	viper.SetDefault("idempotency.default_ttl_seconds", 86400)
-	viper.SetDefault("idempotency.system_operation_ttl_seconds", 3600)
 	viper.SetDefault("idempotency.processing_timeout_seconds", 30)
 	viper.SetDefault("idempotency.failed_retry_backoff_seconds", 5)
 	viper.SetDefault("idempotency.max_stored_response_len", 64*1024)
@@ -2570,15 +2533,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("security.proxy_probe.urls: %w", err)
 	}
 	c.Security.ProxyProbe.URLs = proxyProbeURLs
-	if c.Plugins.MaxUploadBytes <= 0 || c.Plugins.MaxUploadBytes > 1024*1024*1024 {
-		return fmt.Errorf("plugins.max_upload_bytes must be between 1 and 1073741824")
-	}
-	if c.Plugins.MaxUncompressedBytes < c.Plugins.MaxUploadBytes || c.Plugins.MaxUncompressedBytes > 2*1024*1024*1024 {
-		return fmt.Errorf("plugins.max_uncompressed_bytes must be between max_upload_bytes and 2147483648")
-	}
-	if c.Plugins.StartTimeoutSeconds < 1 || c.Plugins.StartTimeoutSeconds > 120 {
-		return fmt.Errorf("plugins.start_timeout_seconds must be between 1 and 120")
-	}
 	if c.Server.AdminPort < 1 || c.Server.AdminPort > 65535 {
 		return fmt.Errorf("server.admin_port must be between 1 and 65535")
 	}
@@ -3067,9 +3021,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")
-	}
-	if c.Idempotency.SystemOperationTTLSeconds <= 0 {
-		return fmt.Errorf("idempotency.system_operation_ttl_seconds must be positive")
 	}
 	if c.Idempotency.ProcessingTimeoutSeconds <= 0 {
 		return fmt.Errorf("idempotency.processing_timeout_seconds must be positive")

@@ -62,7 +62,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		log.Printf("Sub2API %s (commit: %s, built: %s)\n", Version, Commit, Date)
+		log.Printf("AiFerry %s (commit: %s, built: %s)\n", Version, Commit, Date)
 		return
 	}
 
@@ -113,7 +113,7 @@ func runSetupServer() {
 	// This allows users to run setup on a different address if needed
 	addr := config.GetServerAddress()
 	log.Printf("Setup wizard available at http://%s", addr)
-	log.Println("Complete the setup wizard to configure Sub2API")
+	log.Println("Complete the setup wizard to configure AiFerry")
 
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
@@ -154,11 +154,6 @@ func runMainServer() {
 		log.Fatalf("Failed to initialize application: %v", err)
 	}
 	defer app.Cleanup()
-	if app.PluginManager != nil {
-		if err := app.PluginManager.Start(context.Background()); err != nil {
-			log.Printf("Plugin manager started in degraded state: %v", err)
-		}
-	}
 	if app.ModelCatalog != nil {
 		// 播种在迁移之后、服务开始接流量之前跑一次：新部署起来就有一份可用的模型目录。
 		// 失败不拦启动——目录查不到时计费会退回价格文件 / 硬编码兜底价，与播种前一致。

@@ -1923,26 +1923,6 @@ func (s *BillingService) GetEstimatedCost(model string, estimatedInputTokens, es
 	return breakdown.ActualCost, nil
 }
 
-// GetPricingServiceStatus 获取价格服务状态
-func (s *BillingService) GetPricingServiceStatus() map[string]any {
-	if s.pricingService != nil {
-		return s.pricingService.GetStatus()
-	}
-	return map[string]any{
-		"model_count":  len(s.fallbackPrices),
-		"last_updated": "using fallback",
-		"local_hash":   "N/A",
-	}
-}
-
-// ForceUpdatePricing 强制更新价格数据
-func (s *BillingService) ForceUpdatePricing() error {
-	if s.pricingService != nil {
-		return s.pricingService.ForceUpdate()
-	}
-	return fmt.Errorf("pricing service not initialized")
-}
-
 const (
 	// Codex alpha/search 网页搜索的内置单价：OpenAI 官方 web search 定价 $10/1000 次。
 	// 目录条目的 search_price_per_call 可覆盖它；这是单价，不是「算不出价」的兜底。

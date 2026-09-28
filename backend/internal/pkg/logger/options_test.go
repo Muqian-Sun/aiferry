@@ -17,10 +17,31 @@ func TestResolveLogFilePath_Default(t *testing.T) {
 	}
 }
 
+// 日志文件名与 service 字段的回落值是 aiferry。用字面量而不是常量，
+// 否则常量改回旧名也照样通过。service 回落只在配置为空时才走到（平时被
+// config 的默认值盖住），所以空、全空白、显式配置三种情况都验。
+func TestDefaultLogNamesUseAiFerry(t *testing.T) {
+	t.Setenv("DATA_DIR", "")
+	if got := resolveLogFilePath(""); got != "/app/data/logs/aiferry.log" {
+		t.Fatalf("resolveLogFilePath() = %q, want /app/data/logs/aiferry.log", got)
+	}
+	for _, raw := range []string{"", "   "} {
+		if got := (InitOptions{ServiceName: raw}).normalized().ServiceName; got != "aiferry" {
+			t.Fatalf("normalized(ServiceName=%q).ServiceName = %q, want aiferry", raw, got)
+		}
+	}
+	if got := (InitOptions{ServiceName: " custom-svc "}).normalized().ServiceName; got != "custom-svc" {
+		t.Fatalf("normalized(ServiceName=custom-svc).ServiceName = %q, want custom-svc", got)
+	}
+	if got := bootstrapOptions().ServiceName; got != "aiferry" {
+		t.Fatalf("bootstrapOptions().ServiceName = %q, want aiferry", got)
+	}
+}
+
 func TestResolveLogFilePath_WithDataDir(t *testing.T) {
-	t.Setenv("DATA_DIR", "/tmp/sub2api-data")
+	t.Setenv("DATA_DIR", "/tmp/aiferry-data")
 	got := resolveLogFilePath("")
-	want := filepath.Join("/tmp/sub2api-data", "logs", "sub2api.log")
+	want := filepath.Join("/tmp/aiferry-data", "logs", "aiferry.log")
 	if got != want {
 		t.Fatalf("resolveLogFilePath() = %q, want %q", got, want)
 	}
@@ -86,7 +107,7 @@ func TestBuildFileCore_InvalidPathFallback(t *testing.T) {
 	t.Setenv("DATA_DIR", "")
 	opts := bootstrapOptions()
 	opts.Output.ToFile = true
-	opts.Output.FilePath = filepath.Join(os.DevNull, "logs", "sub2api.log")
+	opts.Output.FilePath = filepath.Join(os.DevNull, "logs", "aiferry.log")
 	encoderCfg := zapcore.EncoderConfig{
 		TimeKey:     "time",
 		LevelKey:    "level",

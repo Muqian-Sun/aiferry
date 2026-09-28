@@ -778,6 +778,7 @@ func TestOllamaCloudUsageRefreshUsesFixedURLCookieAndNoRedirects(t *testing.T) {
 	require.Equal(t, "wos-session=browser-secret", upstream.lastRequest.Header.Get("Cookie"))
 	require.NotContains(t, upstream.lastRequest.Header.Get("Cookie"), "tracking")
 	require.Empty(t, upstream.lastRequest.Header.Get("Authorization"))
+	require.Equal(t, "aiferry-ollama-usage/1", upstream.lastRequest.Header.Get("User-Agent"))
 	require.True(t, HTTPUpstreamRedirectsDisabled(upstream.lastRequest.Context()))
 }
 

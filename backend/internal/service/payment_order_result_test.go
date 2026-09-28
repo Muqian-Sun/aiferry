@@ -357,8 +357,19 @@ func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanDefaultName(t *testing
 	plan := &SubscriptionPlan{Name: "Team Monthly"}
 
 	got := svc.buildPaymentSubject(plan, 0, cfg, nil)
-	if got != "PRE Sub2API Subscription Team Monthly SUF" {
-		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE Sub2API Subscription Team Monthly SUF")
+	if got != "PRE AiFerry Subscription Team Monthly SUF" {
+		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE AiFerry Subscription Team Monthly SUF")
+	}
+}
+
+// 充值订单（没有套餐、没配前后缀）的默认标题用站点名开头；收银台与账单上用户能看到。
+func TestBuildPaymentSubjectDefaultBalanceSubjectUsesSiteName(t *testing.T) {
+	t.Parallel()
+
+	svc := &PaymentService{}
+	got := svc.buildPaymentSubject(nil, 10, nil, nil)
+	if got != "AiFerry 10.00 CNY" {
+		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "AiFerry 10.00 CNY")
 	}
 }
 

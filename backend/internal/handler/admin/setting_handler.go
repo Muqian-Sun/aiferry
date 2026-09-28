@@ -64,8 +64,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 
-		PluginManagementEnabled: settings.PluginManagementEnabled,
-
 		AffiliateEnabled: settings.AffiliateEnabled,
 
 		ProfitMinMargin: settings.ProfitMinMargin,

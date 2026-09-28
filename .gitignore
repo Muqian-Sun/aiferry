@@ -13,7 +13,7 @@
 *.dylib
 backend/bin/
 backend/server
-backend/sub2api
+backend/aiferry
 backend/main
 
 # Go 测试二进制
@@ -144,11 +144,8 @@ docs/*
 !docs/ASYNC_IMAGE_TASKS.md
 !docs/BATCH_IMAGE_MVP.md
 !docs/COMPOSITE_GROUPS.md
-!docs/PLUGIN_DEVELOPMENT.md
 !docs/channel-monitor-v2-safe-defaults.md
 !docs/ADMIN_REDESIGN.md
-!docs/legal/
-!docs/legal/*.md
 !docs/screenshots/
 docs/screenshots/*
 !docs/screenshots/mobile-account-actions-menu.png
@@ -161,5 +158,3 @@ output/
 
 # Vitest / Vite cache at repo root
 .vite/
-# 本地闭源插件开发目录及构建产物不进入 Sub2API 仓库
-/plugins/

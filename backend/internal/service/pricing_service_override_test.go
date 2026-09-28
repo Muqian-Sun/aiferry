@@ -84,37 +84,34 @@ func TestPricingOverride_NullFieldValueRemovesField(t *testing.T) {
 	require.InDelta(t, 5e-6, data["gpt-5.5"].InputCostPerToken, 1e-12)
 }
 
-// 完整加载管线：纯补丁不得抢在回退合并前建条目（否则回退完整条目被跳过、
-// 其余分项价变 0 少收）；目录/回退都没有的模型作为独立条目并入。
-func TestPricingOverride_LoadPipelineAddsNewModelAndPatchesFallbackOnly(t *testing.T) {
+// 完整加载管线：纯补丁只修补内置价格文件里已有条目的指定字段（其余分项价不得变 0 少收）；
+// 内置价格文件里没有的模型作为独立条目并入。
+func TestPricingOverride_LoadPipelineAddsNewModelAndPatchesBuiltin(t *testing.T) {
 	dir := t.TempDir()
-	catalogPath := filepath.Join(dir, "catalog.json")
-	require.NoError(t, os.WriteFile(catalogPath, []byte(`{
+	builtinPath := filepath.Join(dir, "model_prices.json")
+	require.NoError(t, os.WriteFile(builtinPath, []byte(`{
 		"remote-model": {"litellm_provider": "test", "mode": "chat",
-			"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}
-	}`), 0644))
-	fallbackPath := filepath.Join(dir, "fallback.json")
-	require.NoError(t, os.WriteFile(fallbackPath, []byte(`{
-		"fallback-only-model": {"litellm_provider": "test", "mode": "chat",
+			"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06},
+		"builtin-model": {"litellm_provider": "test", "mode": "chat",
 			"input_cost_per_token": 4e-06, "output_cost_per_token": 8e-06,
 			"cache_read_input_token_cost": 4e-07}
 	}`), 0644))
 	overridePath := filepath.Join(dir, "overrides.json")
 	require.NoError(t, os.WriteFile(overridePath, []byte(`{
-		"fallback-only-model": {"input_cost_per_token": 9e-06},
+		"builtin-model": {"input_cost_per_token": 9e-06},
 		"override-new-model": {"litellm_provider": "test", "mode": "chat",
 			"input_cost_per_token": 5e-06, "output_cost_per_token": 1e-05}
 	}`), 0644))
 
 	svc := &PricingService{cfg: &config.Config{}}
-	svc.cfg.Pricing.FallbackFile = fallbackPath
+	svc.cfg.Pricing.FallbackFile = builtinPath
 	svc.cfg.Pricing.OverrideFile = overridePath
-	require.NoError(t, svc.loadPricingData(catalogPath))
+	require.NoError(t, svc.reloadPricingFiles())
 
-	patched := svc.pricingData["fallback-only-model"]
+	patched := svc.pricingData["builtin-model"]
 	require.NotNil(t, patched)
 	require.InDelta(t, 9e-6, patched.InputCostPerToken, 1e-12)
-	require.InDelta(t, 8e-6, patched.OutputCostPerToken, 1e-12, "回退条目的其余字段必须保留")
+	require.InDelta(t, 8e-6, patched.OutputCostPerToken, 1e-12, "被修补条目的其余字段必须保留")
 	require.InDelta(t, 4e-7, patched.CacheReadInputTokenCost, 1e-12)
 
 	added := svc.pricingData["override-new-model"]
@@ -131,8 +128,8 @@ func TestPricingOverride_IneffectiveEntryWarns(t *testing.T) {
 	defer restore()
 
 	dir := t.TempDir()
-	catalogPath := filepath.Join(dir, "catalog.json")
-	require.NoError(t, os.WriteFile(catalogPath, []byte(`{
+	builtinPath := filepath.Join(dir, "model_prices.json")
+	require.NoError(t, os.WriteFile(builtinPath, []byte(`{
 		"remote-model": {"litellm_provider": "test", "mode": "chat", "input_cost_per_token": 1e-06}
 	}`), 0644))
 	overridePath := filepath.Join(dir, "overrides.json")
@@ -141,8 +138,9 @@ func TestPricingOverride_IneffectiveEntryWarns(t *testing.T) {
 	}`), 0644))
 
 	svc := &PricingService{cfg: &config.Config{}}
+	svc.cfg.Pricing.FallbackFile = builtinPath
 	svc.cfg.Pricing.OverrideFile = overridePath
-	require.NoError(t, svc.loadPricingData(catalogPath))
+	require.NoError(t, svc.reloadPricingFiles())
 
 	require.NotContains(t, svc.pricingData, "typo-model")
 	require.True(t, logSink.ContainsMessageAtLevel("override had no effect for 1 model(s): typo-model", "warn"))
