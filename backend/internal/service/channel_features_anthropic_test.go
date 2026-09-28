@@ -260,7 +260,9 @@ func TestWebSearchEmulation_ForwardInterceptsRelayKeyOnly(t *testing.T) {
 
 	closed, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	deadPort := closed.Addr().(*net.TCPAddr).Port
+	deadAddr, ok := closed.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	deadPort := deadAddr.Port
 	require.NoError(t, closed.Close())
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"latest news"}]}`)
 
