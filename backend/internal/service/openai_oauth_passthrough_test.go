@@ -1786,10 +1786,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxRetriesSame
 	account := &Account{
 		ID: 128, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":                      "sk-test",
-			"base_url":                     "https://api.example.test",
-			"pool_mode":                    true,
-			"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
+			"api_key":   "sk-test",
+			"base_url":  "https://api.example.test",
+			"pool_mode": true,
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test",
@@ -1797,6 +1796,8 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxRetriesSame
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
 
+	// 池模式重试状态码写死在代码里（channel_features.go），这里临时把 502 放进表
+	setGatewayPolicyForTest(t, &poolModeRetryStatusCodes, []int{http.StatusBadGateway})
 	_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
 
 	var failoverErr *UpstreamFailoverError

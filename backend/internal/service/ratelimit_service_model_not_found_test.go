@@ -4,7 +4,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -48,7 +47,7 @@ func (r *modelNotFoundAccountRepoStub) SetModelRateLimit(ctx context.Context, id
 func TestRateLimitService_HandleUpstreamError_ModelNotFoundUsesModelRateLimit(t *testing.T) {
 	repo := &modelNotFoundAccountRepoStub{}
 	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
+	account := openAIModelNotFoundAccount()
 
 	handled := svc.HandleUpstreamError(
 		context.Background(),
@@ -72,7 +71,7 @@ func TestRateLimitService_HandleUpstreamError_ModelNotFoundUsesModelRateLimit(t 
 func TestRateLimitService_HandleUpstreamError_ModelNotFoundWriteFailureDoesNotTempUnschedule(t *testing.T) {
 	repo := &modelNotFoundAccountRepoStub{modelRateLimitErr: errors.New("write failed")}
 	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
+	account := openAIModelNotFoundAccount()
 
 	handled := svc.HandleUpstreamError(
 		context.Background(),
@@ -88,234 +87,14 @@ func TestRateLimitService_HandleUpstreamError_ModelNotFoundWriteFailureDoesNotTe
 	require.Len(t, repo.modelRateLimitCalls, 1)
 }
 
-func TestRateLimitService_HandleUpstreamError_Bare404UsesModelScopedTempUnschedulableWhenModelKnown(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-
-	handled := svc.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		http.Header{},
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"gpt-5.4",
-	)
-
-	require.True(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-	call := repo.modelRateLimitCalls[0]
-	require.Equal(t, account.ID, call.accountID)
-	require.Equal(t, "gpt-5.4", call.scope)
-	require.WithinDuration(t, time.Now().Add(10*time.Minute), call.resetAt, 5*time.Second)
-
-	var state TempUnschedState
-	require.NoError(t, json.Unmarshal([]byte(call.reason), &state))
-	require.Equal(t, http.StatusNotFound, state.StatusCode)
-	require.Equal(t, "not found", state.MatchedKeyword)
-}
-
-func TestRateLimitService_HandleUpstreamError_Bare404WithoutModelKeepsAccountTempUnschedulable(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-
-	handled := svc.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		http.Header{},
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-	)
-
-	require.True(t, handled)
-	require.Equal(t, 1, repo.tempCalls)
-	require.Empty(t, repo.modelRateLimitCalls)
-}
-
-func TestRateLimitService_HandleUpstreamError_ModelTempWriteFailureNeverWidensToAccount(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{modelRateLimitErr: errors.New("write failed")}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-
-	handled := svc.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		http.Header{},
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"gpt-5.4",
-	)
-
-	require.True(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-}
-
-func TestRateLimitService_HandleTempUnschedulable_PoolModeWithoutCustomPolicySkipsState(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.Credentials["pool_mode"] = true
-
-	handled := svc.HandleTempUnschedulable(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"gpt-5.4",
-	)
-
-	require.False(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Empty(t, repo.modelRateLimitCalls)
-}
-
-func TestRateLimitService_HandleTempUnschedulable_PoolModeCustomPolicyUsesModelScope(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.Credentials["pool_mode"] = true
-	account.Credentials["custom_error_codes_enabled"] = true
-	account.Credentials["custom_error_codes"] = []any{float64(http.StatusNotFound)}
-
-	handled := svc.HandleTempUnschedulable(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"gpt-5.4",
-	)
-
-	require.True(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-	require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
-}
-
-func TestRateLimitService_TempUnschedulableContextPreservesModelForPoolDependency(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.Credentials["pool_mode"] = true
-	ctx := withTempUnschedulableModel(context.Background(), []string{"gpt-5.4"})
-
-	// #4496 calls tryTempUnschedulable from the pool-mode branch without an
-	// explicit model argument. The request context must preserve the canonical
-	// model so that combined behavior remains model-scoped after it lands.
-	handled := svc.tryTempUnschedulable(
-		ctx,
-		account,
-		http.StatusNotFound,
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-	)
-
-	require.True(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-	require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
-}
-
-func TestRateLimitService_HandleUpstreamError_CustomPolicyExclusionSkipsAllState(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.Credentials["custom_error_codes_enabled"] = true
-	account.Credentials["custom_error_codes"] = []any{float64(http.StatusServiceUnavailable)}
-
-	handled := svc.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		http.Header{},
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"gpt-5.4",
-	)
-
-	require.False(t, handled)
-	require.Zero(t, repo.tempCalls)
-	require.Empty(t, repo.modelRateLimitCalls)
-}
-
-func TestRateLimitService_HandleTempUnschedulable_AuthenticationFailureStaysAccountScoped(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.TempUnschedulableReason = "legacy non-JSON reason"
-	account.Credentials["temp_unschedulable_rules"] = []any{
-		map[string]any{
-			"error_code":       float64(http.StatusUnauthorized),
-			"keywords":         []any{"unauthorized"},
-			"duration_minutes": float64(10),
-		},
-	}
-
-	handled := svc.HandleTempUnschedulable(
-		context.Background(),
-		account,
-		http.StatusUnauthorized,
-		[]byte(`{"error":{"message":"unauthorized"}}`),
-		"gpt-5.4",
-	)
-
-	require.True(t, handled)
-	require.Equal(t, 1, repo.tempCalls)
-	require.Empty(t, repo.modelRateLimitCalls)
-}
-
-func TestRateLimitService_ModelTempUnschedulableIsolatesSchedulerByModel(t *testing.T) {
-	repo := &modelNotFoundAccountRepoStub{}
-	svc := &RateLimitService{accountRepo: repo}
-	account := openAIModelNotFoundTempAccount()
-	account.Credentials["model_mapping"] = map[string]any{
-		"public-a":   "upstream-a",
-		"upstream-a": "upstream-b",
-	}
-
-	handled := svc.HandleUpstreamError(
-		context.Background(),
-		account,
-		http.StatusNotFound,
-		http.Header{},
-		[]byte(`{"error":{"message":"endpoint not found"}}`),
-		"upstream-a",
-	)
-
-	require.True(t, handled)
-	require.Len(t, repo.modelRateLimitCalls, 1)
-	call := repo.modelRateLimitCalls[0]
-	require.Equal(t, "upstream-a", call.scope, "canonical upstream model must not be mapped a second time")
-
-	account.Extra = map[string]any{
-		modelRateLimitsKey: map[string]any{
-			call.scope: map[string]any{
-				"rate_limit_reset_at": call.resetAt.UTC().Format(time.RFC3339),
-			},
-		},
-	}
-
-	require.False(t, account.IsSchedulableForModelWithContext(context.Background(), "public-a"))
-	require.True(t, account.IsSchedulableForModelWithContext(context.Background(), "gpt-5.6-sol"))
-}
-
-func openAIModelNotFoundTempAccount() *Account {
+func openAIModelNotFoundAccount() *Account {
 	return &Account{
-		ID:          101,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Credentials: map[string]any{
-			"temp_unschedulable_enabled": true,
-			"temp_unschedulable_rules": []any{
-				map[string]any{
-					"error_code":       float64(http.StatusNotFound),
-					"keywords":         []any{"not found"},
-					"duration_minutes": float64(10),
-				},
-			},
-		},
+		ID:                101,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Credentials:       map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 }

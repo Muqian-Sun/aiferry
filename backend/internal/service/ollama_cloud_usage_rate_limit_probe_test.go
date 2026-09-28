@@ -41,8 +41,10 @@ func TestOllamaCloudProbeUsageBodiesParse(t *testing.T) {
 
 // ollamaCloudProbeFixture builds a started service with a fixed clock so exhaustion
 // and reset decisions are deterministic.
+// 配了 Cookie 的渠道会被定时刷新拉（2026-09-28 P5）；探测用例只测 429 探测链路，关掉定时刷新免得 Start 后它抢先拉取。
 func ollamaCloudProbeFixture(t *testing.T, repo AccountRepository, upstream HTTPUpstream, fixedNow time.Time) *OllamaCloudUsageService {
 	t.Helper()
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
 	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { return fixedNow }
 	svc.Start()
@@ -345,6 +347,7 @@ func TestOllamaCloudUsageRateLimitProbeSlowFetchDoesNotReportExpiredReset(t *tes
 			advanced = true
 		}
 	}}
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
 	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { mu.Lock(); defer mu.Unlock(); return cur }
 	svc.Start()
@@ -384,6 +387,7 @@ func TestOllamaCloudUsageRateLimitProbeQueueFullStillMergesExistingAccount(t *te
 		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{}},
 	}, entered: make(chan struct{}), release: make(chan struct{})}
 	repo.gating.Store(true)
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
 	svc := NewOllamaCloudUsageService(repo, &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(100, base.Add(time.Hour).Format(time.RFC3339))}, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { return base }
 	svc.Start()

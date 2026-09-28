@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +25,6 @@ type accountSchedulingThresholdCandidate struct {
 	until       *time.Time
 }
 
-const accountSchedulingThresholdCredentialKey = "account_scheduling_threshold"
-
 // EvaluateAccountSchedulingThreshold evaluates whether an account should be paused
 // based on the current per-platform scheduling threshold snapshot.
 //
@@ -49,7 +46,7 @@ func EvaluateAccountSchedulingThreshold(account *Account, thresholds map[string]
 		return decision
 	}
 
-	threshold, ok := resolveEffectiveAccountSchedulingThreshold(account, thresholds, decision.Platform)
+	threshold, ok := lookupAccountSchedulingThreshold(thresholds, decision.Platform)
 	decision.ThresholdPercent = threshold
 	if !ok || threshold >= 100 {
 		return decision
@@ -90,7 +87,7 @@ func evaluateAnthropicFableSchedulingThreshold(account *Account, thresholds map[
 	}
 
 	decision.Platform = PlatformAnthropic
-	threshold, ok := resolveEffectiveAccountSchedulingThreshold(account, thresholds, PlatformAnthropic)
+	threshold, ok := lookupAccountSchedulingThreshold(thresholds, PlatformAnthropic)
 	decision.ThresholdPercent = threshold
 	if !ok || threshold >= 100 {
 		return decision
@@ -118,64 +115,7 @@ func isAllowedSchedulingThresholdPlatform(platform string) bool {
 	return false
 }
 
-func resolveEffectiveAccountSchedulingThreshold(account *Account, thresholds map[string]int, platform string) (int, bool) {
-	if account != nil {
-		if threshold, ok := accountSchedulingThresholdOverride(account); ok {
-			return threshold, true
-		}
-	}
-	return lookupAccountSchedulingThreshold(thresholds, platform)
-}
-
-func accountSchedulingThresholdOverride(account *Account) (int, bool) {
-	if account == nil || len(account.Credentials) == 0 {
-		return 0, false
-	}
-	raw, ok := account.Credentials[accountSchedulingThresholdCredentialKey]
-	if !ok {
-		return 0, false
-	}
-	return parseAccountSchedulingThresholdValue(raw)
-}
-
-func parseAccountSchedulingThresholdValue(raw any) (int, bool) {
-	var value int
-	switch v := raw.(type) {
-	case int:
-		value = v
-	case int64:
-		value = int(v)
-	case float64:
-		value = int(math.Round(v))
-	case float32:
-		value = int(math.Round(float64(v)))
-	case json.Number:
-		parsed, err := v.Float64()
-		if err != nil {
-			return 0, false
-		}
-		value = int(math.Round(parsed))
-	case string:
-		raw := strings.TrimSpace(v)
-		parsed, err := strconv.Atoi(raw)
-		if err == nil {
-			value = parsed
-			break
-		}
-		parsedFloat, floatErr := strconv.ParseFloat(raw, 64)
-		if floatErr != nil {
-			return 0, false
-		}
-		value = int(math.Round(parsedFloat))
-	default:
-		return 0, false
-	}
-	if value < 1 || value > 100 {
-		return 0, false
-	}
-	return value, true
-}
-
+// lookupAccountSchedulingThreshold 取全站停调阈值表里该平台的阈值（渠道级阈值覆盖 2026-09-28 P5 已删）。
 func lookupAccountSchedulingThreshold(thresholds map[string]int, platform string) (int, bool) {
 	if len(thresholds) == 0 {
 		return 0, false

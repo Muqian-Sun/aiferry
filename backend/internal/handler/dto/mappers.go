@@ -149,14 +149,12 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ProxyFallbackOriginID:   a.ProxyFallbackOriginID,
 		ProxyFallbackOriginName: a.ProxyFallbackOriginName,
 		Concurrency:             a.Concurrency,
-		LoadFactor:              a.LoadFactor,
 		Priority:                a.Priority,
 		RateMultiplier:          a.BillingRateMultiplier(),
 		Status:                  a.Status,
 		ErrorMessage:            a.ErrorMessage,
 		LastUsedAt:              a.LastUsedAt,
 		ExpiresAt:               timeToUnixSeconds(a.ExpiresAt),
-		AutoPauseOnExpired:      a.AutoPauseOnExpired,
 		CreatedAt:               a.CreatedAt,
 		UpdatedAt:               a.UpdatedAt,
 		Schedulable:             a.Schedulable,
@@ -245,51 +243,6 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			}
 			out.QuotaWeeklyUsed = &used
 		}
-		// 固定时间重置配置
-		if mode := a.GetQuotaDailyResetMode(); mode == "fixed" {
-			out.QuotaDailyResetMode = &mode
-			hour := a.GetQuotaDailyResetHour()
-			out.QuotaDailyResetHour = &hour
-		}
-		if mode := a.GetQuotaWeeklyResetMode(); mode == "fixed" {
-			out.QuotaWeeklyResetMode = &mode
-			day := a.GetQuotaWeeklyResetDay()
-			out.QuotaWeeklyResetDay = &day
-			hour := a.GetQuotaWeeklyResetHour()
-			out.QuotaWeeklyResetHour = &hour
-		}
-		if a.GetQuotaDailyResetMode() == "fixed" || a.GetQuotaWeeklyResetMode() == "fixed" {
-			tz := a.GetQuotaResetTimezone()
-			out.QuotaResetTimezone = &tz
-		}
-		if a.Extra != nil {
-			if v, ok := a.Extra["quota_daily_reset_at"].(string); ok && v != "" {
-				out.QuotaDailyResetAt = &v
-			}
-			if v, ok := a.Extra["quota_weekly_reset_at"].(string); ok && v != "" {
-				out.QuotaWeeklyResetAt = &v
-			}
-		}
-
-		// 配额通知配置
-		if enabled := a.GetQuotaNotifyDailyEnabled(); enabled {
-			out.QuotaNotifyDailyEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyDailyThreshold(); threshold > 0 {
-			out.QuotaNotifyDailyThreshold = &threshold
-		}
-		if enabled := a.GetQuotaNotifyWeeklyEnabled(); enabled {
-			out.QuotaNotifyWeeklyEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyWeeklyThreshold(); threshold > 0 {
-			out.QuotaNotifyWeeklyThreshold = &threshold
-		}
-		if enabled := a.GetQuotaNotifyTotalEnabled(); enabled {
-			out.QuotaNotifyTotalEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyTotalThreshold(); threshold > 0 {
-			out.QuotaNotifyTotalThreshold = &threshold
-		}
 	}
 
 	return out
@@ -303,7 +256,6 @@ func redactAccountManagedExtra(extra map[string]any) map[string]any {
 	for key, value := range extra {
 		switch key {
 		case service.OllamaCloudUsageSessionExtraKey,
-			service.OllamaCloudUsageAutoRefreshExtraKey,
 			service.OllamaCloudUsageSnapshotExtraKey:
 			continue
 		default:
@@ -334,9 +286,9 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		Credentials: a.Credentials, CredentialsStatus: a.CredentialsStatus, Extra: a.Extra,
 		OllamaCloudUsage: a.OllamaCloudUsage,
 		ProxyID:          a.ProxyID, ProxyFallbackOriginID: a.ProxyFallbackOriginID, ProxyFallbackOriginName: a.ProxyFallbackOriginName,
-		Concurrency: a.Concurrency, LoadFactor: a.LoadFactor, Priority: a.Priority, RateMultiplier: a.RateMultiplier,
+		Concurrency: a.Concurrency, Priority: a.Priority, RateMultiplier: a.RateMultiplier,
 		Status: a.Status, ErrorMessage: a.ErrorMessage, LastUsedAt: a.LastUsedAt, ExpiresAt: a.ExpiresAt,
-		AutoPauseOnExpired: a.AutoPauseOnExpired, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+		CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
 		Schedulable: a.Schedulable, RateLimitedAt: a.RateLimitedAt, RateLimitResetAt: a.RateLimitResetAt,
 		OverloadUntil: a.OverloadUntil, TempUnschedulableUntil: a.TempUnschedulableUntil,
 		TempUnschedulableReason: a.TempUnschedulableReason, SessionWindowStart: a.SessionWindowStart,
@@ -348,14 +300,7 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		EnableSessionIDMasking: a.EnableSessionIDMasking, CacheTTLOverrideEnabled: a.CacheTTLOverrideEnabled,
 		CacheTTLOverrideTarget: a.CacheTTLOverrideTarget, QuotaLimit: a.QuotaLimit, QuotaUsed: a.QuotaUsed,
 		QuotaDailyLimit: a.QuotaDailyLimit, QuotaDailyUsed: a.QuotaDailyUsed, QuotaWeeklyLimit: a.QuotaWeeklyLimit,
-		QuotaWeeklyUsed: a.QuotaWeeklyUsed, QuotaDailyResetMode: a.QuotaDailyResetMode,
-		QuotaDailyResetHour: a.QuotaDailyResetHour, QuotaWeeklyResetMode: a.QuotaWeeklyResetMode,
-		QuotaWeeklyResetDay: a.QuotaWeeklyResetDay, QuotaWeeklyResetHour: a.QuotaWeeklyResetHour,
-		QuotaResetTimezone: a.QuotaResetTimezone, QuotaDailyResetAt: a.QuotaDailyResetAt,
-		QuotaWeeklyResetAt: a.QuotaWeeklyResetAt, QuotaNotifyDailyEnabled: a.QuotaNotifyDailyEnabled,
-		QuotaNotifyDailyThreshold: a.QuotaNotifyDailyThreshold, QuotaNotifyWeeklyEnabled: a.QuotaNotifyWeeklyEnabled,
-		QuotaNotifyWeeklyThreshold: a.QuotaNotifyWeeklyThreshold, QuotaNotifyTotalEnabled: a.QuotaNotifyTotalEnabled,
-		QuotaNotifyTotalThreshold: a.QuotaNotifyTotalThreshold, ParentAccountID: a.ParentAccountID,
+		QuotaWeeklyUsed: a.QuotaWeeklyUsed, ParentAccountID: a.ParentAccountID,
 		QuotaDimension: a.QuotaDimension, ParentEmail: a.ParentEmail, ParentPlanType: a.ParentPlanType,
 		ParentPrivacyMode: a.ParentPrivacyMode, ParentSubscriptionExpiresAt: a.ParentSubscriptionExpiresAt,
 		ParentChatGPTAccountID: a.ParentChatGPTAccountID, Proxy: a.Proxy,

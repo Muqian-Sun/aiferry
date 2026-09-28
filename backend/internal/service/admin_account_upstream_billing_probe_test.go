@@ -225,10 +225,9 @@ func TestUpdateAccountPreservesProbeSnapshotWhenIdentityValuesAreUnchanged(t *te
 			Type:     AccountTypeAPIKey,
 			Status:   StatusActive,
 			Credentials: map[string]any{
-				"api_key":                    "sk-existing",
-				"base_url":                   "https://upstream.example",
-				credKeyHeaderOverrideEnabled: true,
-				credKeyHeaderOverrides:       map[string]any{"x-route": "stable"},
+				"api_key":              "sk-existing",
+				"base_url":             "https://upstream.example",
+				credKeyHeaderOverrides: map[string]any{"x-route": "stable"},
 			},
 			Extra: map[string]any{
 				UpstreamBillingProbeEnabledExtraKey: true,
@@ -242,9 +241,8 @@ func TestUpdateAccountPreservesProbeSnapshotWhenIdentityValuesAreUnchanged(t *te
 	sameEndpoints := map[string]string{APIProtocolResponses: "https://upstream.example"}
 	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
 		Credentials: map[string]any{
-			"base_url":                   "https://upstream.example",
-			credKeyHeaderOverrideEnabled: true,
-			credKeyHeaderOverrides:       map[string]any{"x-route": "stable"},
+			"base_url":             "https://upstream.example",
+			credKeyHeaderOverrides: map[string]any{"x-route": "stable"},
 		},
 		ProtocolEndpoints: &sameEndpoints,
 	})
@@ -273,8 +271,7 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenUpstreamIdentityChanges(t *tes
 		{
 			name: "header override",
 			input: &UpdateAccountInput{Credentials: map[string]any{
-				credKeyHeaderOverrideEnabled: true,
-				credKeyHeaderOverrides:       map[string]any{"x-route": "new"},
+				credKeyHeaderOverrides: map[string]any{"x-route": "new"},
 			}},
 			wantEnabled: true,
 		},

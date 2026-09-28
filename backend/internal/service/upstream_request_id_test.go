@@ -8,71 +8,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUpstreamRequestIDFromHeaders_UnconfiguredAccountRecordsNothing(t *testing.T) {
+// 上游请求标识按固定头名表依次取第一个非空值（2026-09-28 P5 写死，渠道上不再配头名）。
+func TestUpstreamRequestIDFromHeaders_PicksFirstNonEmptyInFixedOrder(t *testing.T) {
 	h := http.Header{}
 	h.Set("X-Client-Request-ID", "sub2api-client")
-	h.Set("X-Request-ID", "sub2api-local")
-	h.Set("X-Oneapi-Request-Id", "oneapi-1")
-	h.Set("Request-Id", "req_official")
 	h.Set("xai-request-id", "xai-1")
 	h.Set("x-goog-request-id", "goog-1")
+	h.Set("X-Oneapi-Request-Id", "oneapi-1")
+	h.Set("X-Request-ID", "sub2api-local")
+	h.Set("Request-Id", " req_official ")
 
-	require.Equal(t, "", UpstreamRequestIDFromHeaders(nil, h))
-	for _, platform := range []string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformGrok} {
-		require.Equal(t, "", UpstreamRequestIDFromHeaders(&Account{Platform: platform}, h), platform)
+	// 表的顺序（已定取值，不从生产变量里读）：request-id → x-request-id → x-oneapi-request-id →
+	// x-goog-request-id → xai-request-id → x-client-request-id；每轮删掉胜出的头，下一个接上
+	order := []struct{ header, want string }{
+		{"request-id", "req_official"},
+		{"x-request-id", "sub2api-local"},
+		{"x-oneapi-request-id", "oneapi-1"},
+		{"x-goog-request-id", "goog-1"},
+		{"xai-request-id", "xai-1"},
+		{"x-client-request-id", "sub2api-client"},
 	}
-	blank := &Account{Platform: PlatformOpenAI, Extra: map[string]any{AccountExtraUpstreamRequestIDHeader: "   "}}
-	require.Equal(t, "", UpstreamRequestIDFromHeaders(blank, h))
-}
-
-func TestUpstreamRequestIDFromHeaders_ReadsOnlyConfiguredHeader(t *testing.T) {
-	account := &Account{
-		Platform: PlatformOpenAI,
-		Extra:    map[string]any{AccountExtraUpstreamRequestIDHeader: " x-oneapi-request-id "},
+	for i, step := range order {
+		require.Equal(t, step.want, UpstreamRequestIDFromHeaders(h), "第 %d 个头 %s 应当胜出", i, step.header)
+		h.Del(step.header)
 	}
-	h := http.Header{}
-	h.Set("X-Request-ID", "passthrough-from-real-upstream")
-	require.Equal(t, "", UpstreamRequestIDFromHeaders(account, h))
+	require.Equal(t, "", UpstreamRequestIDFromHeaders(h))
+	require.Equal(t, "", UpstreamRequestIDFromHeaders(nil))
 
-	h.Set("X-Oneapi-Request-Id", " oneapi-2 ")
-	require.Equal(t, "oneapi-2", UpstreamRequestIDFromHeaders(account, h))
-	require.Equal(t, "", UpstreamRequestIDFromHeaders(account, nil))
-
-	official := &Account{Platform: PlatformAnthropic, Extra: map[string]any{AccountExtraUpstreamRequestIDHeader: "request-id"}}
-	only := http.Header{}
-	only.Set("Request-Id", "req_official")
-	require.Equal(t, "req_official", UpstreamRequestIDFromHeaders(official, only))
+	// 空白值跳过，继续往后找；头名大小写不影响（响应头在 net/http 里是规范化的键）
+	blank := http.Header{}
+	blank.Set("request-id", "   ")
+	blank["X-Request-Id"] = []string{"from-canonical-key"}
+	require.Equal(t, "from-canonical-key", UpstreamRequestIDFromHeaders(blank))
 }
 
 func TestUsageUpstreamRequestIDPtr(t *testing.T) {
-	account := &Account{Extra: map[string]any{AccountExtraUpstreamRequestIDHeader: "X-Request-ID"}}
 	h := http.Header{}
 	h.Set("X-Request-ID", strings.Repeat("a", 200))
-	require.Nil(t, usageUpstreamRequestIDPtr(account, h, true))
-	require.Nil(t, usageUpstreamRequestIDPtr(account, http.Header{}, false))
-	require.Nil(t, usageUpstreamRequestIDPtr(nil, h, false))
-	require.Nil(t, usageUpstreamRequestIDPtr(&Account{}, h, false))
+	require.Nil(t, usageUpstreamRequestIDPtr(h, true), "WS 轮次没有 HTTP 响应头")
+	require.Nil(t, usageUpstreamRequestIDPtr(http.Header{}, false))
+	require.Nil(t, usageUpstreamRequestIDPtr(nil, false))
 
-	got := usageUpstreamRequestIDPtr(account, h, false)
+	got := usageUpstreamRequestIDPtr(h, false)
 	require.NotNil(t, got)
 	require.Len(t, *got, maxUsageUpstreamRequestIDLen)
-}
-
-func TestValidateUpstreamRequestIDHeaderExtra(t *testing.T) {
-	require.NoError(t, ValidateUpstreamRequestIDHeaderExtra(nil))
-	require.NoError(t, ValidateUpstreamRequestIDHeaderExtra(map[string]any{}))
-
-	blank := map[string]any{AccountExtraUpstreamRequestIDHeader: "   "}
-	require.NoError(t, ValidateUpstreamRequestIDHeaderExtra(blank))
-	_, present := blank[AccountExtraUpstreamRequestIDHeader]
-	require.False(t, present, "blank header name must be removed")
-
-	valid := map[string]any{AccountExtraUpstreamRequestIDHeader: " X-Oneapi-Request-Id "}
-	require.NoError(t, ValidateUpstreamRequestIDHeaderExtra(valid))
-	require.Equal(t, "X-Oneapi-Request-Id", valid[AccountExtraUpstreamRequestIDHeader])
-
-	require.Error(t, ValidateUpstreamRequestIDHeaderExtra(map[string]any{AccountExtraUpstreamRequestIDHeader: 1}))
-	require.Error(t, ValidateUpstreamRequestIDHeaderExtra(map[string]any{AccountExtraUpstreamRequestIDHeader: "X Request Id"}))
-	require.Error(t, ValidateUpstreamRequestIDHeaderExtra(map[string]any{AccountExtraUpstreamRequestIDHeader: "X-Request-Id:"}))
-	require.Error(t, ValidateUpstreamRequestIDHeaderExtra(map[string]any{AccountExtraUpstreamRequestIDHeader: strings.Repeat("x", 65)}))
 }

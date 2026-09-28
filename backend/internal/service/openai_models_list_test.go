@@ -37,7 +37,6 @@ func TestFetchOpenAIModelsListUsesStandardRequestAndIsolatesCodexCache(t *testin
 	}})
 	account := newCodexModelsAPIKeyTestAccount("https://models.example/v1")
 	account.Credentials["header_overrides"] = map[string]any{"X-Account-Header": "value"}
-	account.Credentials["header_override_enabled"] = true
 	response, err := s.FetchOpenAIModelsList(context.Background(), account)
 	require.NoError(t, err)
 	require.Contains(t, string(response.Body), `"id":"gpt-image-1"`)

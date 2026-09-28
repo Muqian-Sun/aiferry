@@ -146,7 +146,6 @@ type AccountBulkUpdate struct {
 	Concurrency    *int
 	Priority       *int
 	RateMultiplier *float64
-	LoadFactor     *int
 	Status         *string
 	Schedulable    *bool
 	Credentials    map[string]any
@@ -159,31 +158,29 @@ type AccountBulkUpdate struct {
 
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	ExpiresAt          *time.Time     `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	Name        string         `json:"name"`
+	Notes       *string        `json:"notes"`
+	Platform    string         `json:"platform"`
+	Type        string         `json:"type"`
+	Credentials map[string]any `json:"credentials"`
+	Extra       map[string]any `json:"extra"`
+	ProxyID     *int64         `json:"proxy_id"`
+	Concurrency int            `json:"concurrency"`
+	Priority    int            `json:"priority"`
+	ExpiresAt   *time.Time     `json:"expires_at"`
 }
 
 // UpdateAccountRequest 更新账号请求
 type UpdateAccountRequest struct {
-	Name               *string         `json:"name"`
-	Notes              *string         `json:"notes"`
-	Credentials        *map[string]any `json:"credentials"`
-	Extra              *map[string]any `json:"extra"`
-	ProxyID            *int64          `json:"proxy_id"`
-	Concurrency        *int            `json:"concurrency"`
-	Priority           *int            `json:"priority"`
-	Status             *string         `json:"status"`
-	ExpiresAt          *time.Time      `json:"expires_at"`
-	AutoPauseOnExpired *bool           `json:"auto_pause_on_expired"`
+	Name        *string         `json:"name"`
+	Notes       *string         `json:"notes"`
+	Credentials *map[string]any `json:"credentials"`
+	Extra       *map[string]any `json:"extra"`
+	ProxyID     *int64          `json:"proxy_id"`
+	Concurrency *int            `json:"concurrency"`
+	Priority    *int            `json:"priority"`
+	Status      *string         `json:"status"`
+	ExpiresAt   *time.Time      `json:"expires_at"`
 }
 
 // AccountService 账号管理服务
@@ -213,11 +210,6 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Priority:    req.Priority,
 		Status:      StatusActive,
 		ExpiresAt:   req.ExpiresAt,
-	}
-	if req.AutoPauseOnExpired != nil {
-		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
-	} else {
-		account.AutoPauseOnExpired = true
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {
@@ -278,7 +270,6 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 			extra[key] = value
 		}
 		delete(extra, OllamaCloudUsageSessionExtraKey)
-		delete(extra, OllamaCloudUsageAutoRefreshExtraKey)
 		delete(extra, OllamaCloudUsageSnapshotExtraKey)
 		account.Extra = prepareCodexFingerprintExtraForUpdate(account, extra)
 	} else {
@@ -302,9 +293,6 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 	if req.ExpiresAt != nil {
 		account.ExpiresAt = req.ExpiresAt
-	}
-	if req.AutoPauseOnExpired != nil {
-		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
 	}
 
 	// 执行更新

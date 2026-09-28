@@ -77,13 +77,11 @@ var duplicateAccountDiscardedExtraKeys = map[string]struct{}{
 	// A retry identity belongs to the operation that created one copy, not to later copies.
 	duplicateAccountOperationIDExtraKey: {},
 	// Local quota usage and derived window timestamps must start fresh.
-	"quota_used":            {},
-	"quota_daily_used":      {},
-	"quota_weekly_used":     {},
-	"quota_daily_start":     {},
-	"quota_weekly_start":    {},
-	"quota_daily_reset_at":  {},
-	"quota_weekly_reset_at": {},
+	"quota_used":         {},
+	"quota_daily_used":   {},
+	"quota_weekly_used":  {},
+	"quota_daily_start":  {},
+	"quota_weekly_start": {},
 	// Provider observations, capability probes, and transient scheduling state.
 	"model_rate_limits":                      {},
 	"session_window_utilization":             {},
@@ -240,26 +238,23 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		unix := source.ExpiresAt.Unix()
 		expiresAt = &unix
 	}
-	autoPauseOnExpired := source.AutoPauseOnExpired
 	proxyID := source.ProxyID
 	if source.ProxyFallbackOriginID != nil {
 		// Proxy fallback is transient runtime state; duplicate the configured origin.
 		proxyID = source.ProxyFallbackOriginID
 	}
 	input := &CreateAccountInput{
-		Name:               duplicateAccountName(source.Name),
-		Notes:              cloneAccountValuePointer(source.Notes),
-		Platform:           source.Platform,
-		Type:               source.Type,
-		Credentials:        credentials,
-		Extra:              extra,
-		ProxyID:            cloneAccountValuePointer(proxyID),
-		Concurrency:        source.Concurrency,
-		Priority:           source.Priority,
-		RateMultiplier:     cloneAccountValuePointer(source.RateMultiplier),
-		LoadFactor:         cloneAccountValuePointer(source.LoadFactor),
-		ExpiresAt:          expiresAt,
-		AutoPauseOnExpired: &autoPauseOnExpired,
+		Name:           duplicateAccountName(source.Name),
+		Notes:          cloneAccountValuePointer(source.Notes),
+		Platform:       source.Platform,
+		Type:           source.Type,
+		Credentials:    credentials,
+		Extra:          extra,
+		ProxyID:        cloneAccountValuePointer(proxyID),
+		Concurrency:    source.Concurrency,
+		Priority:       source.Priority,
+		RateMultiplier: cloneAccountValuePointer(source.RateMultiplier),
+		ExpiresAt:      expiresAt,
 	}
 	accountExtra := input.Extra
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
@@ -316,7 +311,6 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
 	delete(accountExtra, OllamaCloudUsageSessionExtraKey)
-	delete(accountExtra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(accountExtra, OllamaCloudUsageSnapshotExtraKey)
 	accountExtra = prepareCodexFingerprintExtraForCreate(input.Platform, input.Type, accountExtra)
 	protocolEndpoints, err := NormalizeProtocolEndpoints(input.ProtocolEndpoints)
@@ -347,34 +341,15 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 		}
 		account.Extra[UpstreamBillingProbeEnabledExtraKey] = true
 	}
-	// 预计算固定时间重置的下次重置时间
-	if account.Extra != nil {
-		if err := ValidateQuotaResetConfig(account.Extra); err != nil {
-			return nil, err
-		}
-		ComputeQuotaResetAt(account.Extra)
-		NormalizeFixedQuotaWindows(account.Extra)
-	}
 	if input.ExpiresAt != nil && *input.ExpiresAt > 0 {
 		expiresAt := time.Unix(*input.ExpiresAt, 0)
 		account.ExpiresAt = &expiresAt
-	}
-	if input.AutoPauseOnExpired != nil {
-		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
-	} else {
-		account.AutoPauseOnExpired = true
 	}
 	if input.RateMultiplier != nil {
 		if *input.RateMultiplier < 0 {
 			return nil, errors.New("rate_multiplier must be >= 0")
 		}
 		account.RateMultiplier = input.RateMultiplier
-	}
-	if input.LoadFactor != nil && *input.LoadFactor > 0 {
-		if *input.LoadFactor > 10000 {
-			return nil, errors.New("load_factor must be <= 10000")
-		}
-		account.LoadFactor = input.LoadFactor
 	}
 	return account, nil
 }
@@ -389,9 +364,6 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 	accountExtra, err = normalizeOpenAIAutoResetCreditExtra(input.Platform, input.Type, false, accountExtra)
 	if err != nil {
-		return nil, err
-	}
-	if err := ValidateUpstreamRequestIDHeaderExtra(accountExtra); err != nil {
 		return nil, err
 	}
 
@@ -455,9 +427,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		normalizedExtra, err = normalizeOpenAIAutoResetCreditExtra(account.Platform, effectiveType, account.IsShadow(), normalizedExtra)
 		if err != nil {
-			return nil, err
-		}
-		if err := ValidateUpstreamRequestIDHeaderExtra(normalizedExtra); err != nil {
 			return nil, err
 		}
 	}
@@ -541,7 +510,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		delete(normalizedExtra, UpstreamBillingRateSyncEnabledExtraKey)
 		delete(normalizedExtra, UpstreamBillingProbeExtraKey)
 		delete(normalizedExtra, OllamaCloudUsageSessionExtraKey)
-		delete(normalizedExtra, OllamaCloudUsageAutoRefreshExtraKey)
 		delete(normalizedExtra, OllamaCloudUsageSnapshotExtraKey)
 		// 保留配额用量和专用服务受管字段，防止普通账号编辑意外覆盖。
 		for _, key := range []string{
@@ -555,7 +523,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			UpstreamBillingRateSyncEnabledExtraKey,
 			UpstreamBillingProbeExtraKey,
 			OllamaCloudUsageSessionExtraKey,
-			OllamaCloudUsageAutoRefreshExtraKey,
 			OllamaCloudUsageSnapshotExtraKey,
 			OpenAIAutoResetCreditStateExtraKey,
 		} {
@@ -576,12 +543,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			delete(account.Extra, modelRateLimitsKey)
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 		}
-		// 校验并预计算固定时间重置的下次重置时间
-		if err := ValidateQuotaResetConfig(account.Extra); err != nil {
-			return nil, err
-		}
-		ComputeQuotaResetAt(account.Extra)
-		NormalizeFixedQuotaWindows(account.Extra)
 	}
 	if input.Extra == nil {
 		account.Extra = prepareCodexFingerprintExtraForUpdate(account, account.Extra)
@@ -636,11 +597,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if account.Extra != nil {
 		if !IsOllamaCloudUsageAccount(account) {
 			delete(account.Extra, OllamaCloudUsageSessionExtraKey)
-			delete(account.Extra, OllamaCloudUsageAutoRefreshExtraKey)
 			delete(account.Extra, OllamaCloudUsageSnapshotExtraKey)
 		} else if !reflect.DeepEqual(previousOllamaUsageIdentity, ollamaCloudUsageIdentity(account)) {
 			delete(account.Extra, OllamaCloudUsageSessionExtraKey)
-			delete(account.Extra, OllamaCloudUsageAutoRefreshExtraKey)
 			delete(account.Extra, OllamaCloudUsageSnapshotExtraKey)
 		}
 	}
@@ -665,15 +624,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		account.RateMultiplier = input.RateMultiplier
 	}
-	if input.LoadFactor != nil {
-		if *input.LoadFactor <= 0 {
-			account.LoadFactor = nil // 0 或负数表示清除
-		} else if *input.LoadFactor > 10000 {
-			return nil, errors.New("load_factor must be <= 10000")
-		} else {
-			account.LoadFactor = input.LoadFactor
-		}
-	}
 	if input.Status != "" {
 		account.Status = input.Status
 	}
@@ -685,10 +635,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 			account.ExpiresAt = &expiresAt
 		}
 	}
-	if input.AutoPauseOnExpired != nil {
-		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
-	}
-
 	billingSettingsAppliedAtomically := false
 	updater := s.accountBillingRepo
 	if updater == nil {
@@ -753,7 +699,6 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	delete(updates, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(updates, UpstreamBillingProbeExtraKey)
 	delete(updates, OllamaCloudUsageSessionExtraKey)
-	delete(updates, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(updates, OllamaCloudUsageSnapshotExtraKey)
 	if len(updates) == 0 {
 		return nil
@@ -771,7 +716,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingProbeExtraKey)
 	delete(input.Extra, OllamaCloudUsageSessionExtraKey)
-	delete(input.Extra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(input.Extra, OllamaCloudUsageSnapshotExtraKey)
 
 	if len(input.AccountIDs) == 0 && input.Filters != nil {
@@ -791,14 +735,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if len(input.AccountIDs) == 0 {
 		return result, nil
 	}
-	openAISettings, err := normalizeBulkOpenAISettings(input)
-	if err != nil {
-		return nil, err
-	}
 
 	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || openAISettings.any() || input.ProbeEnabled != nil || input.RateMultiplier != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || input.ProbeEnabled != nil || input.RateMultiplier != nil {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
@@ -809,11 +749,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	for _, account := range cachedTargets {
 		if account != nil {
 			targetsByID[account.ID] = account
-		}
-	}
-	if openAISettings.any() {
-		if err := validateBulkOpenAISettingsTargets(input, openAISettings, targetsByID); err != nil {
-			return nil, err
 		}
 	}
 	if input.ProbeEnabled != nil {
@@ -920,15 +855,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if input.RateMultiplier != nil {
 		repoUpdates.RateMultiplier = input.RateMultiplier
 	}
-	if input.LoadFactor != nil {
-		if *input.LoadFactor <= 0 {
-			repoUpdates.LoadFactor = nil // 0 或负数表示清除
-		} else if *input.LoadFactor > 10000 {
-			return nil, errors.New("load_factor must be <= 10000")
-		} else {
-			repoUpdates.LoadFactor = input.LoadFactor
-		}
-	}
 	if input.Status != "" {
 		repoUpdates.Status = &input.Status
 	}
@@ -968,7 +894,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 }
 
 func updatesUpstreamBillingProbeIdentity(credentials map[string]any) bool {
-	for _, key := range []string{"api_key", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
+	for _, key := range []string{"api_key", credKeyHeaderOverrides} {
 		if _, ok := credentials[key]; ok {
 			return true
 		}
@@ -984,7 +910,7 @@ func upstreamBillingProbeIdentity(account *Account) map[string]any {
 	if account.ProxyID != nil {
 		identity["proxy_id"] = *account.ProxyID
 	}
-	for _, key := range []string{"api_key", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
+	for _, key := range []string{"api_key", credKeyHeaderOverrides} {
 		if value, ok := account.Credentials[key]; ok {
 			identity[key] = value
 		}

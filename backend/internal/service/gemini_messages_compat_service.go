@@ -549,7 +549,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+		if matched, rebuilt := s.checkErrorPolicyInLoop(account, resp); matched {
 			resp = rebuilt
 			break
 		} else {
@@ -619,10 +619,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	if resp.StatusCode >= 400 {
 		respBody := s.readUpstreamErrorBody(resp)
-		// 统一错误策略：自定义错误码 + 临时不可调度
+		// 统一错误策略：池模式与 529 过载
 		if s.rateLimitService != nil {
-			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
-			switch policy {
+			switch s.rateLimitService.CheckErrorPolicy(account, resp.StatusCode) {
 			case ErrorPolicySkipped:
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
@@ -631,17 +630,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, upstreamReqID); failoverErr != nil {
 					return nil, failoverErr
 				}
-				if account.IsCustomErrorCodesEnabled() {
-					return nil, s.writeGeminiCustomCodeSkippedError(c, account, resp.StatusCode, upstreamReqID, respBody, func() {
-						_ = s.writeClaudeError(c, http.StatusInternalServerError, "api_error", geminiCustomCodeSkippedClientMessage)
-					})
-				}
 				// 池模式：客户端写出与 ErrorPolicyNone 相同（按上游真实状态码映射），仅跳过账号状态标记。
 				return nil, s.writeGeminiMappedError(c, account, resp.StatusCode, upstreamReqID, respBody)
-			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
-				if policy == ErrorPolicyMatched {
-					s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
-				}
+			case ErrorPolicyMatched:
+				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 				upstreamReqID := resp.Header.Get(requestIDHeader)
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
@@ -1048,7 +1040,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 
 		// 错误策略优先：匹配则跳过重试直接处理。
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+		if matched, rebuilt := s.checkErrorPolicyInLoop(account, resp); matched {
 			resp = rebuilt
 			break
 		} else {
@@ -1158,25 +1150,17 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}, nil
 		}
 
-		// 统一错误策略：自定义错误码 + 临时不可调度
+		// 统一错误策略：池模式与 529 过载
 		if s.rateLimitService != nil {
-			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
-			switch policy {
+			switch s.rateLimitService.CheckErrorPolicy(account, resp.StatusCode) {
 			case ErrorPolicySkipped:
 				if failoverErr := s.skippedErrorPolicyFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
 					return nil, failoverErr
 				}
-				if account.IsCustomErrorCodesEnabled() {
-					return nil, s.writeGeminiCustomCodeSkippedError(c, account, resp.StatusCode, requestID, respBody, func() {
-						_ = s.writeGoogleError(c, http.StatusInternalServerError, geminiCustomCodeSkippedClientMessage)
-					})
-				}
 				// 池模式：客户端写出与 ErrorPolicyNone 相同（状态码/响应体保真），仅跳过账号状态标记。
 				return nil, s.writeGeminiNativeUpstreamError(c, account, resp, respBody, requestID, isOAuth)
-			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
-				if policy == ErrorPolicyMatched {
-					s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
-				}
+			case ErrorPolicyMatched:
+				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 				evBody := unwrapIfNeeded(isOAuth, respBody)
 				upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(evBody))
 				upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
@@ -1332,7 +1316,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 // 返回 true 表示策略已匹配（调用者应 break），resp 已重建可直接使用。
 // 返回 false 表示 ErrorPolicyNone，resp 已重建，调用者继续走重试逻辑。
 func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
-	ctx context.Context, account *Account, resp *http.Response, mappedModel string,
+	account *Account, resp *http.Response,
 ) (matched bool, rebuilt *http.Response) {
 	if resp.StatusCode < 400 || s.rateLimitService == nil {
 		return false, resp
@@ -1344,8 +1328,7 @@ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 		Header:     resp.Header.Clone(),
 		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
-	policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body, mappedModel)
-	return policy != ErrorPolicyNone, rebuilt
+	return s.rateLimitService.CheckErrorPolicy(account, resp.StatusCode) != ErrorPolicyNone, rebuilt
 }
 
 func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
@@ -1377,9 +1360,9 @@ func (s *GeminiMessagesCompatService) shouldFailoverGeminiUpstreamError(statusCo
 	}
 }
 
-// skippedErrorPolicyFailoverError 命中 ErrorPolicySkipped（池模式、或自定义错误码未命中）
+// skippedErrorPolicyFailoverError 命中 ErrorPolicySkipped（池模式）
 // 时构造 failover 错误：可 failover 的状态码返回 UpstreamFailoverError，交给 handler 层换号
-// （池模式账号按 pool_mode_retry_count 先同账号重试）；返回 nil 表示状态码不可 failover，
+// （池模式账号按写死的 PoolModeRetryCount 先同账号重试）；返回 nil 表示状态码不可 failover，
 // 由调用方决定客户端写出。Skipped 只豁免账号状态标记，不豁免换号，与 OpenAI 网关路径一致。
 func (s *GeminiMessagesCompatService) skippedErrorPolicyFailoverError(c *gin.Context, account *Account, statusCode int, respBody []byte, upstreamRequestID string) *UpstreamFailoverError {
 	if !s.shouldFailoverGeminiUpstreamError(statusCode) {
@@ -1406,10 +1389,6 @@ func (s *GeminiMessagesCompatService) skippedErrorPolicyFailoverError(c *gin.Con
 	}
 }
 
-// geminiCustomCodeSkippedClientMessage 自定义错误码未命中时对客户端隐藏上游细节的固定文案，
-// 与 OpenAI 网关路径同场景的文案一致。
-const geminiCustomCodeSkippedClientMessage = "Upstream gateway error"
-
 // upstreamErrorDetail 按配置截断上游错误响应体，用于 ops 错误日志的 Detail 字段；
 // 未开启 LogUpstreamErrorBody 时返回空。
 func (s *GeminiMessagesCompatService) upstreamErrorDetail(body []byte) string {
@@ -1421,32 +1400,6 @@ func (s *GeminiMessagesCompatService) upstreamErrorDetail(body []byte) string {
 		maxBytes = 2048
 	}
 	return truncateString(string(body), maxBytes)
-}
-
-// writeGeminiCustomCodeSkippedError 处理自定义错误码未命中且不可 failover 的上游错误：
-// 客户端统一收到 500 + 固定文案（由 write 按端点格式写出），不透传上游细节；
-// 上游真实状态码与错误信息仅记录到 ops 错误日志。
-func (s *GeminiMessagesCompatService) writeGeminiCustomCodeSkippedError(c *gin.Context, account *Account, upstreamStatus int, upstreamRequestID string, body []byte, write func()) error {
-	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(body)))
-	upstreamDetail := s.upstreamErrorDetail(body)
-	setOpsUpstreamError(c, upstreamStatus, upstreamMsg, upstreamDetail)
-	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-		ProxyID:            opsUpstreamProxyID(account),
-		ProxyName:          opsUpstreamProxyName(account),
-		Platform:           account.Platform,
-		AccountID:          account.ID,
-		AccountName:        account.Name,
-		UpstreamStatusCode: upstreamStatus,
-		UpstreamRequestID:  upstreamRequestID,
-		Kind:               "http_error",
-		Message:            upstreamMsg,
-		Detail:             upstreamDetail,
-	})
-	write()
-	if upstreamMsg == "" {
-		return fmt.Errorf("gemini upstream error: %d (not in custom error codes)", upstreamStatus)
-	}
-	return fmt.Errorf("gemini upstream error: %d (not in custom error codes) message=%s", upstreamStatus, upstreamMsg)
 }
 
 // writeGeminiNativeUpstreamError 将不可 failover 的上游错误按原始状态码与响应体透传给客户端，
@@ -2782,10 +2735,6 @@ func asInt(v any) (int, bool) {
 }
 
 func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, body []byte) {
-	// 遵守自定义错误码策略：未命中则跳过所有限流处理
-	if !account.ShouldHandleErrorCode(statusCode) {
-		return
-	}
 	if s.rateLimitService != nil && (statusCode == 401 || statusCode == 403 || statusCode == 529) {
 		s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, headers, body)
 		return
@@ -2794,8 +2743,7 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 		return
 	}
 	// 池模式账号不写账号级限流：账号留在池内，由 failover / 同号重试消化 429。
-	// 自定义错误码优先级高于池模式，开启后仍按其命中结果标记。
-	if account.IsPoolMode() && !account.IsCustomErrorCodesEnabled() {
+	if account.IsPoolMode() {
 		return
 	}
 

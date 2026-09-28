@@ -136,14 +136,25 @@ func TestQuotaCounterPauseDecision(t *testing.T) {
 		_, _, paused := quotaCounterPauseDecision(account, now)
 		require.False(t, paused)
 	})
-	t.Run("daily fixed exceeded pauses until next fixed reset", func(t *testing.T) {
+	// 限额一律滚动窗口（2026-09-28 P5 删了固定时间重置）：旧行留着的 fixed 配置不再生效
+	t.Run("legacy fixed reset keys ignored, daily stays rolling", func(t *testing.T) {
+		start := now.Add(-time.Hour)
 		account := &Account{ID: 8, Type: AccountTypeAPIKey, Extra: map[string]any{
-			"quota_daily_limit": 1.0, "quota_daily_used": 1.0, "quota_daily_start": now.Add(-time.Hour).Format(time.RFC3339),
+			"quota_daily_limit": 1.0, "quota_daily_used": 1.0, "quota_daily_start": start.Format(time.RFC3339),
 			"quota_daily_reset_mode": "fixed", "quota_daily_reset_hour": 8.0, "quota_reset_timezone": "UTC",
 		}}
 		until, _, paused := quotaCounterPauseDecision(account, now)
 		require.True(t, paused)
-		require.True(t, until.Equal(time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)))
+		require.True(t, until.Equal(start.Add(24*time.Hour)))
+	})
+	t.Run("legacy fixed reset keys ignored, weekly expires after seven days", func(t *testing.T) {
+		account := &Account{ID: 8, Type: AccountTypeAPIKey, Extra: map[string]any{
+			"quota_weekly_limit": 5.0, "quota_weekly_used": 5.0, "quota_weekly_start": now.Add(-8 * 24 * time.Hour).Format(time.RFC3339),
+			"quota_weekly_reset_mode": "fixed", "quota_weekly_reset_day": 1.0, "quota_weekly_reset_hour": 0.0, "quota_reset_timezone": "UTC",
+		}}
+		_, _, paused := quotaCounterPauseDecision(account, now)
+		require.False(t, paused)
+		require.True(t, account.IsWeeklyQuotaPeriodExpired())
 	})
 	t.Run("weekly rolling exceeded pauses until period end", func(t *testing.T) {
 		start := now.Add(-3 * 24 * time.Hour)

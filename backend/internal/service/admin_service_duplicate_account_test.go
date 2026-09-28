@@ -57,7 +57,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	proxyID := int64(17)
 	originalProxyID := int64(11)
 	rateMultiplier := 1.25
-	loadFactor := 9
 	expiresAt := time.Date(2027, time.March, 4, 5, 6, 7, 0, time.UTC)
 	rateLimitedAt := time.Now().Add(-time.Minute)
 	rateLimitResetAt := time.Now().Add(time.Hour)
@@ -76,12 +75,10 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 		Concurrency:           6,
 		Priority:              40,
 		RateMultiplier:        &rateMultiplier,
-		LoadFactor:            &loadFactor,
 		Status:                StatusError,
 		Schedulable:           true,
 		ErrorMessage:          "upstream unavailable",
 		ExpiresAt:             &expiresAt,
-		AutoPauseOnExpired:    false,
 		Credentials: map[string]any{
 			"api_key": "secret",
 			"nested":  map[string]any{"token": "source-token"},
@@ -127,7 +124,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.Equal(t, source.Type, duplicate.Type)
 	require.Equal(t, source.Concurrency, duplicate.Concurrency)
 	require.Equal(t, source.Priority, duplicate.Priority)
-	require.Equal(t, source.AutoPauseOnExpired, duplicate.AutoPauseOnExpired)
 	require.Equal(t, source.Credentials, duplicate.Credentials)
 	require.Equal(t, map[string]any{
 		"config":         map[string]any{"region": "us-east-1"},
@@ -141,7 +137,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.Equal(t, source.Notes, duplicate.Notes)
 	require.Equal(t, source.ProxyFallbackOriginID, duplicate.ProxyID)
 	require.Equal(t, source.RateMultiplier, duplicate.RateMultiplier)
-	require.Equal(t, source.LoadFactor, duplicate.LoadFactor)
 
 	require.Equal(t, StatusActive, duplicate.Status)
 	require.False(t, duplicate.Schedulable)

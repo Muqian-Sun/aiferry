@@ -149,44 +149,35 @@ func (s *BalanceNotifyService) dispatchBalanceLowEmail(ctx context.Context, user
 
 // quotaDim describes one quota dimension for notification checking.
 type quotaDim struct {
-	name          string
-	enabled       bool
-	threshold     float64
-	thresholdType string // "fixed" (default) or "percentage"
-	currentUsed   float64
-	limit         float64
+	name        string
+	currentUsed float64
+	limit       float64
 }
 
-// resolvedThreshold converts the user-facing "remaining" threshold into a usage-based trigger point.
-// The threshold represents how much quota REMAINS when the alert fires:
-//   - Fixed ($): threshold=400, limit=1000 → fires when usage reaches 600 (remaining drops to 400)
-//   - Percentage (%): threshold=30, limit=1000 → fires when usage reaches 700 (remaining drops to 30%)
+// resolvedThreshold 提醒触发点（按用量）：剩余额度降到该维度限额的 AccountQuotaNotifyRemainingPercent%
+// （channel_features.go）时提醒，即用量到 limit × (1 − 20%)。没设限额的维度不提醒。
 func (d quotaDim) resolvedThreshold() float64 {
 	if d.limit <= 0 {
 		return 0
 	}
-	if d.thresholdType == thresholdTypePercentage {
-		return d.limit * (1 - d.threshold/100)
-	}
-	return d.limit - d.threshold
+	return d.limit * (1 - AccountQuotaNotifyRemainingPercent/100)
 }
 
 // buildQuotaDims returns the three quota dimensions for notification checking.
 func buildQuotaDims(account *Account) []quotaDim {
 	return []quotaDim{
-		{quotaDimDaily, account.GetQuotaNotifyDailyEnabled(), account.GetQuotaNotifyDailyThreshold(), account.GetQuotaNotifyDailyThresholdType(), account.GetQuotaDailyUsed(), account.GetQuotaDailyLimit()},
-		{quotaDimWeekly, account.GetQuotaNotifyWeeklyEnabled(), account.GetQuotaNotifyWeeklyThreshold(), account.GetQuotaNotifyWeeklyThresholdType(), account.GetQuotaWeeklyUsed(), account.GetQuotaWeeklyLimit()},
-		{quotaDimTotal, account.GetQuotaNotifyTotalEnabled(), account.GetQuotaNotifyTotalThreshold(), account.GetQuotaNotifyTotalThresholdType(), account.GetQuotaUsed(), account.GetQuotaLimit()},
+		{quotaDimDaily, account.GetQuotaDailyUsed(), account.GetQuotaDailyLimit()},
+		{quotaDimWeekly, account.GetQuotaWeeklyUsed(), account.GetQuotaWeeklyLimit()},
+		{quotaDimTotal, account.GetQuotaUsed(), account.GetQuotaLimit()},
 	}
 }
 
 // buildQuotaDimsFromState builds quota dimensions using DB transaction state instead of account snapshot.
-// Notification settings (enabled, threshold, thresholdType) come from the account; usage values from quotaState.
-func buildQuotaDimsFromState(account *Account, state *AccountQuotaState) []quotaDim {
+func buildQuotaDimsFromState(state *AccountQuotaState) []quotaDim {
 	return []quotaDim{
-		{quotaDimDaily, account.GetQuotaNotifyDailyEnabled(), account.GetQuotaNotifyDailyThreshold(), account.GetQuotaNotifyDailyThresholdType(), state.DailyUsed, state.DailyLimit},
-		{quotaDimWeekly, account.GetQuotaNotifyWeeklyEnabled(), account.GetQuotaNotifyWeeklyThreshold(), account.GetQuotaNotifyWeeklyThresholdType(), state.WeeklyUsed, state.WeeklyLimit},
-		{quotaDimTotal, account.GetQuotaNotifyTotalEnabled(), account.GetQuotaNotifyTotalThreshold(), account.GetQuotaNotifyTotalThresholdType(), state.TotalUsed, state.TotalLimit},
+		{quotaDimDaily, state.DailyUsed, state.DailyLimit},
+		{quotaDimWeekly, state.WeeklyUsed, state.WeeklyLimit},
+		{quotaDimTotal, state.TotalUsed, state.TotalLimit},
 	}
 }
 
@@ -208,7 +199,7 @@ func (s *BalanceNotifyService) CheckAccountQuotaAfterIncrement(ctx context.Conte
 	siteName := SiteName
 	var dims []quotaDim
 	if quotaState != nil {
-		dims = buildQuotaDimsFromState(account, quotaState)
+		dims = buildQuotaDimsFromState(quotaState)
 	} else {
 		freshAccount := s.fetchFreshAccount(ctx, account)
 		dims = buildQuotaDims(freshAccount)
@@ -235,9 +226,6 @@ func (s *BalanceNotifyService) fetchFreshAccount(ctx context.Context, snapshot *
 // Pre-increment value is reconstructed as currentUsed - cost to detect the crossing moment.
 func (s *BalanceNotifyService) checkQuotaDimCrossings(account *Account, dims []quotaDim, cost float64, adminEmails []string, siteName string) {
 	for _, dim := range dims {
-		if !dim.enabled || dim.threshold <= 0 {
-			continue
-		}
 		effectiveThreshold := dim.resolvedThreshold()
 		if effectiveThreshold <= 0 {
 			continue
@@ -395,11 +383,8 @@ func (s *BalanceNotifyService) sendQuotaAlertEmails(adminEmails []string, accoun
 		dimLabel = dim.name
 	}
 
-	// Format the remaining-based threshold for display
-	thresholdDisplay := fmt.Sprintf("$%.2f", dim.threshold)
-	if dim.thresholdType == thresholdTypePercentage {
-		thresholdDisplay = fmt.Sprintf("%.0f%%", dim.threshold)
-	}
+	// 提醒阈值按「剩余」表述（剩余降到限额的 20%）
+	thresholdDisplay := fmt.Sprintf("%.0f%%", AccountQuotaNotifyRemainingPercent)
 	remaining := dim.limit - used
 	if remaining < 0 {
 		remaining = 0

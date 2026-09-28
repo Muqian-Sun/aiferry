@@ -188,10 +188,10 @@ func (s *OllamaCloudUsageService) storeProbeGroupResult(key string, entry ollama
 // ineligible/missing-session accounts, transient failures, backoff and
 // non-exhaustion are skipped silently.
 //
-// This is a 429-event recovery query: it deliberately runs regardless of the
-// periodic auto_refresh switch (a model was just refused, so a one-off read is
-// warranted even when auto-refresh is off). It still respects the presence of a
-// configured session/cookie and any scrape-429 failure backoff.
+// This is a 429-event recovery query: it deliberately runs outside the periodic
+// refresh schedule (a model was just refused, so a one-off read is warranted even
+// when the group is not due). It still respects the presence of a configured
+// session/cookie and any scrape-429 failure backoff.
 func (s *OllamaCloudUsageService) runOllamaCloudUsageProbe(
 	ctx context.Context,
 	accountID int64,

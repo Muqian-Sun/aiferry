@@ -1400,8 +1400,7 @@ func (s *AccountRepoSuite) TestUpdateExtra_AnthropicThresholdRefreshesCandidateS
 	end := now.Add(time.Hour)
 	account := mustCreateAccount(s.T(), s.client, &service.Account{
 		Name: "threshold-refresh", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
-		Credentials: map[string]any{"account_scheduling_threshold": 60},
-		Extra:       map[string]any{"passive_usage_7d_utilization": .59, "passive_usage_7d_reset": end.Unix()},
+		Extra: map[string]any{"passive_usage_7d_utilization": .59, "passive_usage_7d_reset": end.Unix()},
 	})
 	cache := NewSchedulerCache(testRedis(s.T()))
 	s.repo.schedulerCache = cache
@@ -1423,7 +1422,7 @@ func (s *AccountRepoSuite) TestUpdateExtra_AnthropicThresholdRefreshesCandidateS
 		s.Require().NoError(err)
 		s.Require().True(hit)
 		s.Require().Len(candidates, 1)
-		decision := service.EvaluateAccountSchedulingThreshold(candidates[0], map[string]int{service.PlatformAnthropic: 100}, now)
+		decision := service.EvaluateAccountSchedulingThreshold(candidates[0], map[string]int{service.PlatformAnthropic: 60}, now)
 		s.Require().Equal(step.paused, decision.ShouldPause)
 	}
 }

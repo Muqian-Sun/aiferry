@@ -152,14 +152,10 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
-		SetSchedulable(account.Schedulable).
-		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+		SetSchedulable(account.Schedulable)
 
 	if account.RateMultiplier != nil {
 		builder.SetRateMultiplier(*account.RateMultiplier)
-	}
-	if account.LoadFactor != nil {
-		builder.SetLoadFactor(*account.LoadFactor)
 	}
 
 	if account.ProxyID != nil {
@@ -415,16 +411,10 @@ func (r *accountRepository) updateLockedAccount(
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
-		SetSchedulable(schedulable).
-		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+		SetSchedulable(schedulable)
 
 	if explicitRateMultiplier != nil {
 		builder.SetRateMultiplier(*explicitRateMultiplier)
-	}
-	if account.LoadFactor != nil {
-		builder.SetLoadFactor(*account.LoadFactor)
-	} else {
-		builder.ClearLoadFactor()
 	}
 
 	if account.ProxyID != nil {
@@ -525,7 +515,6 @@ func lockAndMergeAccountProbeExtra(
 			extra -> 'upstream_billing_rate_sync_enabled',
 			extra -> 'upstream_billing_probe',
 			extra -> 'ollama_cloud_usage_session',
-			extra -> 'ollama_cloud_usage_auto_refresh',
 			extra -> 'ollama_cloud_usage_snapshot'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
@@ -550,7 +539,6 @@ func lockAndMergeAccountProbeExtra(
 		currentRateSyncEnabled       []byte
 		currentSnapshot              []byte
 		currentOllamaSession         []byte
-		currentOllamaAutoRefresh     []byte
 		currentOllamaSnapshot        []byte
 	)
 	if err := rows.Scan(
@@ -561,7 +549,6 @@ func lockAndMergeAccountProbeExtra(
 		&currentRateSyncEnabled,
 		&currentSnapshot,
 		&currentOllamaSession,
-		&currentOllamaAutoRefresh,
 		&currentOllamaSnapshot,
 	); err != nil {
 		return nil, err
@@ -576,7 +563,6 @@ func lockAndMergeAccountProbeExtra(
 		service.UpstreamBillingRateSyncEnabledExtraKey,
 		service.UpstreamBillingProbeExtraKey,
 		service.OllamaCloudUsageSessionExtraKey,
-		service.OllamaCloudUsageAutoRefreshExtraKey,
 		service.OllamaCloudUsageSnapshotExtraKey,
 	} {
 		delete(extra, key)
@@ -637,15 +623,10 @@ func lockAndMergeAccountProbeExtra(
 	}
 
 	if service.IsOllamaCloudUsageAccount(account) && ollamaGroupIdentityUnchanged {
-		for key, raw := range map[string][]byte{
-			service.OllamaCloudUsageSessionExtraKey:     currentOllamaSession,
-			service.OllamaCloudUsageAutoRefreshExtraKey: currentOllamaAutoRefresh,
-		} {
-			if value, ok, err := decodeAccountExtraJSON(raw); err != nil {
-				return nil, err
-			} else if ok {
-				extra[key] = value
-			}
+		if session, ok, err := decodeAccountExtraJSON(currentOllamaSession); err != nil {
+			return nil, err
+		} else if ok {
+			extra[service.OllamaCloudUsageSessionExtraKey] = session
 		}
 		if ollamaProxyIdentityUnchanged {
 			if snapshot, ok, err := decodeAccountExtraJSON(currentOllamaSnapshot); err != nil {
@@ -709,7 +690,6 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 				THEN COALESCE(extra, '{}'::jsonb)
 					- 'upstream_billing_probe'
 					- 'ollama_cloud_usage_session'
-					- 'ollama_cloud_usage_auto_refresh'
 					- 'ollama_cloud_usage_snapshot'
 				-- 上游倍率探测已放宽到全部 API-key 平台：凭证变化即视为探测
 				-- 身份变化，丢弃 stale 快照。
@@ -927,7 +907,6 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 			dbaccount.FieldName,
 			dbaccount.FieldPlatform,
 			dbaccount.FieldConcurrency,
-			dbaccount.FieldLoadFactor,
 			dbaccount.FieldStatus,
 			dbaccount.FieldErrorMessage,
 			dbaccount.FieldSchedulable,
@@ -1250,7 +1229,7 @@ func (r *accountRepository) SetGrokCredentialErrorIfMatch(
 			AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW())
 			AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW())
 			AND (a.overload_until IS NULL OR a.overload_until <= NOW())
-			AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > NOW())
+			AND (a.expires_at IS NULL OR a.expires_at > NOW())
 			AND a.credentials = $7::jsonb
 			AND a.proxy_id IS NOT DISTINCT FROM $8
 			AND ($2 <> $9 OR (
@@ -1626,7 +1605,6 @@ func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]
 		Select(
 			dbaccount.FieldID,
 			dbaccount.FieldConcurrency,
-			dbaccount.FieldLoadFactor,
 		).
 		All(ctx)
 	if err != nil {
@@ -1638,7 +1616,6 @@ func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]
 		projection := service.Account{
 			ID:          account.ID,
 			Concurrency: account.Concurrency,
-			LoadFactor:  account.LoadFactor,
 		}
 		loads = append(loads, service.AccountWithConcurrency{
 			ID:             account.ID,
@@ -2048,7 +2025,7 @@ func (r *accountRepository) SetGrokCredentialTempUnschedulableIfMatch(
 			AND (a.temp_unschedulable_until IS NULL OR a.temp_unschedulable_until <= NOW())
 			AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= NOW())
 			AND (a.overload_until IS NULL OR a.overload_until <= NOW())
-			AND (a.auto_pause_on_expired IS NOT TRUE OR a.expires_at IS NULL OR a.expires_at > NOW())
+			AND (a.expires_at IS NULL OR a.expires_at > NOW())
 			AND a.credentials = $7::jsonb
 			AND a.proxy_id IS NOT DISTINCT FROM $8
 		RETURNING a.id
@@ -2214,7 +2191,6 @@ func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now ti
 			updated_at = NOW()
 		WHERE deleted_at IS NULL
 			AND schedulable = TRUE
-			AND auto_pause_on_expired = TRUE
 			AND expires_at IS NOT NULL
 			AND expires_at <= $1
 		RETURNING id
@@ -2566,15 +2542,6 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		args = append(args, *updates.RateMultiplier)
 		idx++
 	}
-	if updates.LoadFactor != nil {
-		if *updates.LoadFactor <= 0 {
-			setClauses = append(setClauses, "load_factor = NULL")
-		} else {
-			setClauses = append(setClauses, "load_factor = $"+itoa(idx))
-			args = append(args, *updates.LoadFactor)
-			idx++
-		}
-	}
 	if updates.Status != nil {
 		setClauses = append(setClauses, "status = $"+itoa(idx))
 		args = append(args, *updates.Status)
@@ -2644,7 +2611,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 		if groupIdentityChanged != "" {
 			extraExpression = "CASE" +
-				" WHEN " + groupIdentityChanged + " THEN (" + extraExpression + ") - 'ollama_cloud_usage_session' - 'ollama_cloud_usage_auto_refresh' - 'ollama_cloud_usage_snapshot'" +
+				" WHEN " + groupIdentityChanged + " THEN (" + extraExpression + ") - 'ollama_cloud_usage_session' - 'ollama_cloud_usage_snapshot'" +
 				" WHEN " + snapshotIdentityChanged + " THEN (" + extraExpression + ") - 'ollama_cloud_usage_snapshot'" +
 				" ELSE " + extraExpression + " END"
 		} else if snapshotIdentityChanged != "" {
@@ -2828,7 +2795,6 @@ func notExpiredPredicate(now time.Time) dbpredicate.Account {
 	return dbaccount.Or(
 		dbaccount.ExpiresAtIsNil(),
 		dbaccount.ExpiresAtGT(now),
-		dbaccount.AutoPauseOnExpiredEQ(false),
 	)
 }
 
@@ -2894,12 +2860,10 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
 		RateMultiplier:          &rateMultiplier,
-		LoadFactor:              m.LoadFactor,
 		Status:                  m.Status,
 		ErrorMessage:            derefString(m.ErrorMessage),
 		LastUsedAt:              m.LastUsedAt,
 		ExpiresAt:               m.ExpiresAt,
-		AutoPauseOnExpired:      m.AutoPauseOnExpired,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 		Schedulable:             m.Schedulable,
@@ -3138,95 +3102,20 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 const nowUTC = `to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
 
 // dailyExpiredExpr is a SQL expression that evaluates to TRUE when daily quota period has expired.
-// Supports both rolling (24h from start) and fixed (pre-computed reset_at) modes.
+// 日 / 周限额一律滚动窗口：周期起点 + 24 小时 / 7 天（固定时间重置 2026-09-28 P5 已删）。
 const dailyExpiredExpr = `(
-	CASE WHEN COALESCE(extra->>'quota_daily_reset_mode', 'rolling') = 'fixed'
-	THEN NOW() >= COALESCE((extra->>'quota_daily_reset_at')::timestamptz, '1970-01-01'::timestamptz)
-	ELSE COALESCE((extra->>'quota_daily_start')::timestamptz, '1970-01-01'::timestamptz)
+	COALESCE((extra->>'quota_daily_start')::timestamptz, '1970-01-01'::timestamptz)
 		+ '24 hours'::interval <= NOW()
-	END
 )`
 
 // weeklyExpiredExpr is a SQL expression that evaluates to TRUE when weekly quota period has expired.
 const weeklyExpiredExpr = `(
-	CASE WHEN COALESCE(extra->>'quota_weekly_reset_mode', 'rolling') = 'fixed'
-	THEN NOW() >= COALESCE((extra->>'quota_weekly_reset_at')::timestamptz, '1970-01-01'::timestamptz)
-	ELSE COALESCE((extra->>'quota_weekly_start')::timestamptz, '1970-01-01'::timestamptz)
+	COALESCE((extra->>'quota_weekly_start')::timestamptz, '1970-01-01'::timestamptz)
 		+ '168 hours'::interval <= NOW()
-	END
-)`
-
-// nextDailyResetAtExpr is a SQL expression to compute the next daily reset_at when a reset occurs.
-// For fixed mode: computes the next future reset time based on NOW(), timezone, and configured hour.
-// This correctly handles long-inactive accounts by jumping directly to the next valid reset point.
-const nextDailyResetAtExpr = `(
-	CASE WHEN COALESCE(extra->>'quota_daily_reset_mode', 'rolling') = 'fixed'
-	THEN to_char((
-		-- Compute today's reset point in the configured timezone, then pick next future one
-		CASE WHEN NOW() >= (
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_daily_reset_hour')::int, 0) || ' hours')::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		-- NOW() is at or past today's reset point → next reset is tomorrow
-		THEN (
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_daily_reset_hour')::int, 0) || ' hours')::interval
-			+ '1 day'::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		-- NOW() is before today's reset point → next reset is today
-		ELSE (
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_daily_reset_hour')::int, 0) || ' hours')::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		END
-	) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-	ELSE NULL END
-)`
-
-// nextWeeklyResetAtExpr is a SQL expression to compute the next weekly reset_at when a reset occurs.
-// For fixed mode: computes the next future reset time based on NOW(), timezone, configured day and hour.
-// This correctly handles long-inactive accounts by jumping directly to the next valid reset point.
-const nextWeeklyResetAtExpr = `(
-	CASE WHEN COALESCE(extra->>'quota_weekly_reset_mode', 'rolling') = 'fixed'
-	THEN to_char((
-		-- Compute this week's reset point in the configured timezone
-		-- Step 1: get today's date at reset hour in configured tz
-		-- Step 2: compute days forward to target weekday
-		-- Step 3: if same day but past reset hour, advance 7 days
-		CASE
-		WHEN (
-			-- days_forward = (target_day - current_day + 7) % 7
-			(COALESCE((extra->>'quota_weekly_reset_day')::int, 1)
-			 - EXTRACT(DOW FROM NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))::int
-			 + 7) % 7
-		) = 0 AND NOW() >= (
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_weekly_reset_hour')::int, 0) || ' hours')::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		-- Same weekday and past reset hour → next week
-		THEN (
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_weekly_reset_hour')::int, 0) || ' hours')::interval
-			+ '7 days'::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		ELSE (
-			-- Advance to target weekday this week (or next if days_forward > 0)
-			date_trunc('day', NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))
-			+ (COALESCE((extra->>'quota_weekly_reset_hour')::int, 0) || ' hours')::interval
-			+ ((
-				(COALESCE((extra->>'quota_weekly_reset_day')::int, 1)
-				 - EXTRACT(DOW FROM NOW() AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC'))::int
-				 + 7) % 7
-			) || ' days')::interval
-		) AT TIME ZONE COALESCE(extra->>'quota_reset_timezone', 'UTC')
-		END
-	) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-	ELSE NULL END
 )`
 
 // IncrementQuotaUsed 原子递增账号的配额用量（总/日/周三个维度）
-// 日/周额度在周期过期时自动重置为 0 再递增。
-// 支持滚动窗口（rolling）和固定时间（fixed）两种重置模式。
+// 日/周额度在周期（滚动窗口）过期时自动重置为 0 再递增。
 func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, amount float64) error {
 	rows, err := r.sql.QueryContext(ctx,
 		`UPDATE accounts SET extra = (
@@ -3245,10 +3134,6 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 					THEN `+nowUTC+`
 					ELSE COALESCE(extra->>'quota_daily_start', `+nowUTC+`) END
 				)
-				-- 固定模式重置时更新下次重置时间
-				|| CASE WHEN `+dailyExpiredExpr+` AND `+nextDailyResetAtExpr+` IS NOT NULL
-				   THEN jsonb_build_object('quota_daily_reset_at', `+nextDailyResetAtExpr+`)
-				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
 			-- 周额度：仅在 quota_weekly_limit > 0 时处理
 			|| CASE WHEN COALESCE((extra->>'quota_weekly_limit')::numeric, 0) > 0 THEN
@@ -3262,10 +3147,6 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 					THEN `+nowUTC+`
 					ELSE COALESCE(extra->>'quota_weekly_start', `+nowUTC+`) END
 				)
-				-- 固定模式重置时更新下次重置时间
-				|| CASE WHEN `+weeklyExpiredExpr+` AND `+nextWeeklyResetAtExpr+` IS NOT NULL
-				   THEN jsonb_build_object('quota_weekly_reset_at', `+nextWeeklyResetAtExpr+`)
-				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
 		), updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL
@@ -3304,7 +3185,7 @@ func (r *accountRepository) ResetQuotaUsedAndClearRateLimitCooldown(ctx context.
 		`UPDATE accounts SET extra = (
 			COALESCE(extra, '{}'::jsonb)
 			|| '{"quota_used": 0, "quota_daily_used": 0, "quota_weekly_used": 0}'::jsonb
-		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at',
+		) - 'quota_daily_start' - 'quota_weekly_start',
 		rate_limited_at = NULL, rate_limit_reset_at = NULL, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL`,
 		id)

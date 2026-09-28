@@ -47,7 +47,8 @@ func TestRateLimitService_ApplyAccountSchedulingThreshold_SetsTempUnschedulable(
 	require.Contains(t, payload["error_message"], "91.5% used >= 80%")
 }
 
-func TestRateLimitService_ApplyAccountSchedulingThreshold_UsesAccountOverrideInReason(t *testing.T) {
+// 渠道级停调阈值覆盖 2026-09-28 P5 已删：旧行留着的 account_scheduling_threshold=80 不再把号停在 80%，只看全站表（90）。
+func TestRateLimitService_ApplyAccountSchedulingThreshold_IgnoresLegacyAccountOverride(t *testing.T) {
 	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 90, PlatformAnthropic: 100, PlatformGrok: 100})
 
 	accountRepo := &rateLimitAccountRepoStub{}
@@ -70,14 +71,8 @@ func TestRateLimitService_ApplyAccountSchedulingThreshold_UsesAccountOverrideInR
 
 	blocked := rl.ApplyAccountSchedulingThreshold(context.Background(), account)
 
-	require.True(t, blocked)
-	require.Equal(t, 1, accountRepo.tempCalls)
-
-	var payload map[string]any
-	require.NoError(t, json.Unmarshal([]byte(accountRepo.lastTempReason), &payload))
-	require.Equal(t, float64(80), payload["threshold_percent"])
-	require.Equal(t, float64(85.5), payload["used_percent"])
-	require.Contains(t, payload["error_message"], "85.5% used >= 80%")
+	require.False(t, blocked)
+	require.Zero(t, accountRepo.tempCalls)
 }
 
 // 代码里的平台阈值是 openai / anthropic / grok 全 100（= 不停调）：用量再高、窗口没重置也不停。
@@ -127,6 +122,7 @@ func (r *fableSchedulingThresholdRepoStub) SetModelRateLimit(_ context.Context, 
 }
 
 func TestRateLimitService_ApplyAccountSchedulingThreshold_FableOnlyLimitsFableModels(t *testing.T) {
+	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 100, PlatformAnthropic: 60, PlatformGrok: 100})
 	accountRepo := &fableSchedulingThresholdRepoStub{}
 	rl := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
 
@@ -136,9 +132,6 @@ func TestRateLimitService_ApplyAccountSchedulingThreshold_FableOnlyLimitsFableMo
 		Platform:    PlatformAnthropic,
 		Status:      StatusActive,
 		Schedulable: true,
-		Credentials: map[string]any{
-			"account_scheduling_threshold": 60,
-		},
 		Extra: map[string]any{
 			"passive_usage_7d_utilization":    0.40,
 			"passive_usage_7d_reset":          float64(time.Now().UTC().Add(3 * 24 * time.Hour).Unix()),
@@ -213,9 +206,6 @@ func TestRateLimitService_ApplyAccountSchedulingThreshold_UnsupportedPlatformDoe
 		Platform:    PlatformKiro,
 		Status:      StatusActive,
 		Schedulable: true,
-		Credentials: map[string]any{
-			"account_scheduling_threshold": 1,
-		},
 		Extra: map[string]any{
 			"kiro_sched_utilization": 99.0,
 			"kiro_sched_reset_at":    time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339),

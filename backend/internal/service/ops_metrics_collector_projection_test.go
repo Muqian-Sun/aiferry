@@ -48,14 +48,13 @@ func (c *opsMetricsLoadCache) GetAccountsLoadBatch(_ context.Context, accounts [
 }
 
 func TestCollectConcurrencyQueueDepthUsesProjectionAndPreservesFallbackResult(t *testing.T) {
-	loadFactor := 7
 	accounts := []Account{
-		{ID: 11, Concurrency: 2, LoadFactor: &loadFactor},
+		{ID: 11, Concurrency: 2},
 		{ID: 12, Concurrency: 3},
 		{ID: 13},
 	}
 	accountLoads := []AccountWithConcurrency{
-		{ID: 11, MaxConcurrency: 7},
+		{ID: 11, MaxConcurrency: 2},
 		{ID: 12, MaxConcurrency: 3},
 		{ID: 13, MaxConcurrency: 1},
 	}
@@ -99,7 +98,6 @@ func TestCollectConcurrencyQueueDepthUsesProjectionAndPreservesFallbackResult(t 
 
 func BenchmarkOpsMetricsCollectorCollectConcurrencyQueueDepth(b *testing.B) {
 	const accountCount = 1000
-	loadFactor := 8
 	accounts := make([]Account, accountCount)
 	accountLoads := make([]AccountWithConcurrency, accountCount)
 	for i := range accountCount {
@@ -107,9 +105,8 @@ func BenchmarkOpsMetricsCollectorCollectConcurrencyQueueDepth(b *testing.B) {
 		accounts[i] = Account{
 			ID:          id,
 			Concurrency: 4,
-			LoadFactor:  &loadFactor,
 		}
-		accountLoads[i] = AccountWithConcurrency{ID: id, MaxConcurrency: loadFactor}
+		accountLoads[i] = AccountWithConcurrency{ID: id, MaxConcurrency: 4}
 	}
 
 	repo := &opsMetricsProjectionRepo{accounts: accounts, accountLoads: accountLoads}

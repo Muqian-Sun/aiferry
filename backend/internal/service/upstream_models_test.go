@@ -481,9 +481,8 @@ func TestSyncUpstreamModelCatalogEnrichesOpenCodeIDOnlyListAndPersistsSnapshot(t
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":                 "opencode-key",
-			"base_url":                "https://opencode.ai/zen/v1",
-			"header_override_enabled": true,
+			"api_key":  "opencode-key",
+			"base_url": "https://opencode.ai/zen/v1",
 			"header_overrides": map[string]any{
 				"X-Custom-Account-Header": "account-secret",
 			},

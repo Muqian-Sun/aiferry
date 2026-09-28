@@ -73,21 +73,18 @@ func TestAccountFromServiceShallow_RedactsOllamaCloudManagedExtra(t *testing.T) 
 			service.APIProtocolChatCompletions: "https://ollama.com",
 		},
 		Extra: map[string]any{
-			service.OllamaCloudUsageSessionExtraKey:     "ciphertext-secret",
-			service.OllamaCloudUsageAutoRefreshExtraKey: true,
-			service.OllamaCloudUsageSnapshotExtraKey:    snapshot,
-			"ordinary":                                  "kept",
+			service.OllamaCloudUsageSessionExtraKey:  "ciphertext-secret",
+			service.OllamaCloudUsageSnapshotExtraKey: snapshot,
+			"ordinary":                               "kept",
 		},
 	}
 
 	got := AccountFromServiceShallow(src)
 	require.NotContains(t, got.Extra, service.OllamaCloudUsageSessionExtraKey)
-	require.NotContains(t, got.Extra, service.OllamaCloudUsageAutoRefreshExtraKey)
 	require.NotContains(t, got.Extra, service.OllamaCloudUsageSnapshotExtraKey)
 	require.Equal(t, "kept", got.Extra["ordinary"])
 	require.NotNil(t, got.OllamaCloudUsage)
 	require.True(t, got.OllamaCloudUsage.Configured)
-	require.True(t, got.OllamaCloudUsage.AutoRefreshEnabled)
 	require.Equal(t, "Pro", got.OllamaCloudUsage.Snapshot.Data.Plan)
 
 	raw, err := json.Marshal(got)
