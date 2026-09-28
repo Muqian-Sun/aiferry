@@ -633,6 +633,8 @@ import { useColumnSettings } from '@/composables/useColumnSettings'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { keysAPI, authAPI, usageAPI } from '@/api'
+import { adoptPreloaded } from '@/router/routePreload'
+import { KEY_STATUSES, KEYS_DEFAULT_SORT, keysListFilters, keysRequestKey, keysStatusFromQuery, keysUsageIds } from './keysQuery'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
@@ -734,10 +736,7 @@ const pagination = ref({
   total: 0,
   pages: 0
 })
-const sortState = ref({
-  sort_by: 'created_at',
-  sort_order: 'desc' as 'asc' | 'desc'
-})
+const sortState = ref({ ...KEYS_DEFAULT_SORT })
 
 // Filter state
 const filterSearch = ref('')
@@ -894,10 +893,7 @@ const shouldSubmitEditStatus = (key: ApiKey, status: 'active' | 'inactive') => {
 }
 
 const statusFilterOptions = computed<FilterOption[]>(() => [
-  { value: 'active', label: t('keys.status.active') },
-  { value: 'inactive', label: t('keys.status.inactive') },
-  { value: 'quota_exhausted', label: t('keys.status.quota_exhausted') },
-  { value: 'expired', label: t('keys.status.expired') },
+  ...KEY_STATUSES.map((value) => ({ value, label: t(`keys.status.${value}`) })),
   ...(allKeys.value
     ? [
         { value: 'near_limit', label: t('keys.attention.nearLimit') },
@@ -941,7 +937,8 @@ const isAbortError = (error: unknown) => {
 async function loadUsageStats(ids: number[], signal?: AbortSignal) {
   if (ids.length === 0) return
   try {
-    const usageResponse = await usageAPI.getDashboardApiKeysUsage(ids.slice(0, 100), { signal })
+    const batch = keysUsageIds(ids)
+    const usageResponse = await adoptPreloaded(keysRequestKey.usage(batch), () => usageAPI.getDashboardApiKeysUsage(batch, { signal }))
     if (signal?.aborted) return
     usageStats.value = { ...usageStats.value, ...usageResponse.stats }
   } catch (e) {
@@ -962,20 +959,11 @@ const loadApiKeys = async (options: { refreshAttention?: boolean } = {}) => {
   const { signal } = controller
   loading.value = true
   try {
-    const filters: {
-      search?: string
-      status?: string
-      sort_by?: string
-      sort_order?: 'asc' | 'desc'
-    } = {}
-    if (filterSearch.value) filters.search = filterSearch.value
-    if (filterStatus.value) filters.status = String(filterStatus.value)
-    filters.sort_by = sortState.value.sort_by
-    filters.sort_order = sortState.value.sort_order
-
-    const response = await keysAPI.list(pagination.value.page, pagination.value.page_size, filters, {
-      signal
-    })
+    const filters = keysListFilters(filterSearch.value, filterStatus.value ? String(filterStatus.value) : '', sortState.value)
+    const { page, page_size: pageSize } = pagination.value
+    const response = await adoptPreloaded(keysRequestKey.list(page, pageSize, filters), () =>
+      keysAPI.list(page, pageSize, filters, { signal })
+    )
     if (signal.aborted) return
     apiKeys.value = response.items
     handleSelectionChange(selectedIds.value)
@@ -1008,7 +996,7 @@ const loadApiKeys = async (options: { refreshAttention?: boolean } = {}) => {
 
 const loadPublicSettings = async () => {
   try {
-    publicSettings.value = await authAPI.getPublicSettings()
+    publicSettings.value = await adoptPreloaded(keysRequestKey.publicSettings, () => authAPI.getPublicSettings())
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }
@@ -1344,8 +1332,8 @@ const closeCcsClientSelect = () => {
 
 /** 概览「需要处理」带过来的条件：?status=expired|quota_exhausted 走后端筛选，?attention=near_limit|expiring 在全部密钥里挑 */
 function applyRouteQuery() {
-  const status = route?.query.status
-  if (typeof status === 'string' && statusFilterOptions.value.some((option) => option.value === status)) filterStatus.value = status
+  const status = keysStatusFromQuery(route?.query ?? {})
+  if (status) filterStatus.value = status
   const focus = route?.query.attention
   if (focus === 'near_limit' || focus === 'expiring') attentionFilter.value = focus
 }

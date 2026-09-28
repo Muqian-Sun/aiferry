@@ -4,6 +4,9 @@
  */
 
 import 'vue-router'
+import type { RouteLocationNormalized } from 'vue-router'
+import type { Prefetch } from './routePreload'
+import type { SiteFeature } from '@/utils/siteFeatures'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -56,10 +59,14 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
-     * 是否属于订阅功能（SITE_FEATURES.subscription 为 false 时拦回首页）
-     * @default false
+     * 属于哪个由代码决定的功能（utils/siteFeatures.ts）；该功能关着时拦回首页
      */
-    requiresSubscription?: boolean
+    siteFeature?: SiteFeature
+
+    /**
+     * 进入该页面前预加载首屏数据（router/routePreload.ts）：用传进来的 prefetch 登记请求，导航等请求落地再切页
+     */
+    preload?: (to: RouteLocationNormalized, prefetch: Prefetch) => void | Promise<void>
 
 
     /**

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { createSiteGuard, type SiteGuardOptions } from './siteGuard'
+import { runRoutePreload } from './routePreload'
 
 /** 按站点创建路由器：路由表与守卫差异由站点入口传入，其余行为两站一致。 */
 export function createSiteRouter(routes: RouteRecordRaw[], guardOptions: SiteGuardOptions): Router {
@@ -27,6 +28,9 @@ export function createSiteRouter(routes: RouteRecordRaw[], guardOptions: SiteGua
     navigationLoading.startNavigation()
     await guard(to, from, next)
   })
+
+  // 守卫都放行后再预加载首屏数据：被拦走的导航不发请求
+  router.beforeResolve((to, from) => runRoutePreload(to, from))
 
   router.afterEach((to) => {
     navigationLoading.endNavigation()

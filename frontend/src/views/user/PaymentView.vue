@@ -229,7 +229,7 @@ import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
-import { paymentAPI } from '@/api/payment'
+import { loadCheckoutInfo } from './billing/checkoutPreload'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import { formatCurrency } from '@/utils/format'
@@ -1027,7 +1027,7 @@ async function resumeWechatPaymentFromQuery() {
 
 onMounted(async () => {
   try {
-    const res = await paymentAPI.getCheckoutInfo()
+    const res = await loadCheckoutInfo()
     checkout.value = res.data
     if (enabledMethods.value.length) {
       const order: readonly string[] = METHOD_ORDER

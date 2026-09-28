@@ -12,6 +12,7 @@ const base = {
   simpleMode: false,
   backendMode: false,
   batchImageEnabled: false,
+  accountSecurityEnabled: true,
   serviceStatusEnabled: false,
   billingItems: billing,
   balanceNotifyEnabled: false,

@@ -12,7 +12,8 @@
 import { computed, onMounted, ref } from 'vue'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
-import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
+import type { ModelPlazaResponse } from '@/api/modelPlaza'
+import { loadModelPlaza } from './modelPlazaQuery'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
@@ -29,7 +30,7 @@ onMounted(async () => {
   // 顶栏需要站点名 / Logo；有 __APP_CONFIG__ 注入时同步命中缓存
   void appStore.fetchPublicSettings()
   try {
-    data.value = await getModelPlaza()
+    data.value = await loadModelPlaza()
   } catch {
     loadFailed.value = true
   } finally {
