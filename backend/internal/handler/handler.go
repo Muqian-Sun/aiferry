@@ -11,8 +11,7 @@ type AdminHandlers struct {
 	User                   *admin.UserHandler
 	Account                *admin.AccountHandler
 	Announcement           *admin.AnnouncementHandler
-	DataManagement         *admin.DataManagementHandler
-	Backup                 *admin.BackupHandler
+	ImageStorage           *admin.ImageStorageHandler
 	OAuth                  *admin.OAuthHandler
 	OpenAIOAuth            *admin.OpenAIOAuthHandler
 	GeminiOAuth            *admin.GeminiOAuthHandler
