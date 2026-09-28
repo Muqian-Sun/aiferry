@@ -14,11 +14,9 @@ vi.mock('@/api/client', () => ({
 import {
   deleteOllamaCloudUsageSession,
   getOllamaCloudUsage,
-  getOllamaCloudUsageSettings,
   refreshOllamaCloudUsage,
   saveOllamaCloudUsageSession,
-  setOllamaCloudUsageAutoRefresh,
-  updateOllamaCloudUsageSettings
+  setOllamaCloudUsageAutoRefresh
 } from '@/api/admin/accounts'
 
 const state = {
@@ -35,17 +33,6 @@ describe('admin Ollama Cloud usage API', () => {
     post.mockReset()
     put.mockReset()
     del.mockReset()
-  })
-
-  it('uses dedicated global settings endpoints', async () => {
-    const settings = { enabled: false, interval_minutes: 60, debounce_minutes: 1 }
-    get.mockResolvedValueOnce({ data: settings })
-    put.mockResolvedValueOnce({ data: settings })
-
-    await expect(getOllamaCloudUsageSettings()).resolves.toEqual(settings)
-    await expect(updateOllamaCloudUsageSettings(settings)).resolves.toEqual(settings)
-    expect(get).toHaveBeenCalledWith('/admin/accounts/ollama-cloud-usage/settings')
-    expect(put).toHaveBeenCalledWith('/admin/accounts/ollama-cloud-usage/settings', settings)
   })
 
   it('keeps session configuration write-only and separate from account updates', async () => {

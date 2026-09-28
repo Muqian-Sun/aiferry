@@ -203,9 +203,8 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		// 检测到"有 CC prompt 但无 billing block"的不一致而判为 third-party。
 		// Parrot 的 transform_request 从不检查客户端 system 内容，直接覆盖。
 		systemRaw, _ := parsed.SystemValue()
-		systemPromptInjectionEnabled, systemPrompt, systemPromptBlocks := s.claudeOAuthSystemPromptInjectionSettings(ctx)
-		if systemPromptInjectionEnabled {
-			if err := replaceBody(rewriteSystemForNonClaudeCodeWithPromptBlocks(body, systemRaw, systemPrompt, systemPromptBlocks)); err != nil {
+		if ClaudeOAuthSystemPromptInjectionEnabled {
+			if err := replaceBody(rewriteSystemForNonClaudeCode(body, systemRaw)); err != nil {
 				return nil, err
 			}
 		}
@@ -215,8 +214,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 			fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, c.Request.Header)
 			if err == nil && fp != nil {
 				// metadata 透传开启时跳过 metadata 注入
-				_, mimicMPT, _ := s.settingService.GetGatewayForwardingSettings(ctx)
-				if !mimicMPT {
+				if !MetadataPassthroughEnabled {
 					if metadataUserID := s.buildOAuthMetadataUserID(parsed, account, fp); metadataUserID != "" {
 						normalizeOpts.injectMetadata = true
 						normalizeOpts.metadataUserID = metadataUserID
@@ -542,7 +540,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 				}
 				// 不是签名错误（或整流器已关闭），继续检查 budget 约束
 				errMsg := extractUpstreamErrorMessage(respBody)
-				if isThinkingBudgetConstraintError(errMsg) && s.settingService.IsBudgetRectifierEnabled(ctx) {
+				if isThinkingBudgetConstraintError(errMsg) && budgetRectifierEnabled() {
 					appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 						ProxyID:            opsUpstreamProxyID(account),
 						ProxyName:          opsUpstreamProxyName(account),

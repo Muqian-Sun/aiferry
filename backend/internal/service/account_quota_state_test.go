@@ -14,8 +14,6 @@ import (
 
 func quotaStateTestService(t *testing.T) (*RateLimitService, *rateLimitAccountRepoStub) {
 	t.Helper()
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
 	repo := &rateLimitAccountRepoStub{}
 	rl := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	rl.SetSettingService(NewSettingService(newMockSettingRepo(), &config.Config{}))

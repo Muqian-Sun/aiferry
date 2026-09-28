@@ -326,7 +326,7 @@ func TestHandle429_OllamaFallsBackToSecondsCooldown(t *testing.T) {
 	require.Equal(t, 1, scheduler.count())
 	reset := repo.currentReset(acct.ID)
 	require.NotNil(t, reset)
-	def := defaultRateLimit429CooldownSeconds
+	def := RateLimit429FallbackSeconds
 	require.False(t, reset.Before(before.Add(time.Duration(def)*time.Second)))
 	require.False(t, reset.After(after.Add(time.Duration(def)*time.Second)))
 }
@@ -574,8 +574,8 @@ func TestHandle429_OllamaSchedulerAbsentStillNotifiesRuntime(t *testing.T) {
 	rec, ok := blocker.last()
 	require.True(t, ok)
 	require.Equal(t, "ollama_429", rec.reason)
-	require.False(t, rec.until.Before(before.Add(defaultRateLimit429CooldownSeconds*time.Second)))
-	require.False(t, rec.until.After(after.Add(defaultRateLimit429CooldownSeconds*time.Second)))
+	require.False(t, rec.until.Before(before.Add(RateLimit429FallbackSeconds*time.Second)))
+	require.False(t, rec.until.After(after.Add(RateLimit429FallbackSeconds*time.Second)))
 }
 
 // ollama429LinkRepo drives a real probe->callback linkage through the actual
@@ -696,12 +696,12 @@ func TestOllama429RealProbeLinkage_SnapshotPersistThenWriteBack(t *testing.T) {
 	}}
 	upstream := &ollamaUsageHTTPStub{body: body}
 
-	usageSvc := NewOllamaCloudUsageService(repo, upstream, NewSettingService(&upstreamBillingProbeSettingRepo{}, nil), ollamaUsageTestEncryptor{}, true)
+	usageSvc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 
 	// With auto_refresh off, a requireEnabled refresh is a (nil,nil) no-op. When
 	// the 429-event probe piggybacks such a timed-cycle no-op through the shared
 	// singleflight, runOllamaCloudUsageProbe must not record it as a real attempt.
-	noop, noopErr := usageSvc.refreshAccount(context.Background(), account.ID, defaultOllamaCloudUsageSettings(), true)
+	noop, noopErr := usageSvc.refreshAccount(context.Background(), account.ID, true)
 	require.NoError(t, noopErr)
 	require.Nil(t, noop, "auto_refresh-disabled refresh is a nil,nil no-op")
 

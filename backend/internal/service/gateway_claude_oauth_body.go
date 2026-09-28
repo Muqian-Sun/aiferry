@@ -11,7 +11,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/anthropicfp"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
@@ -387,21 +386,17 @@ func (s *GatewayService) applyClaudeCodeOAuthMimicryToBody(
 		return body
 	}
 
-	systemPromptInjectionEnabled, systemPrompt, systemPromptBlocks := s.claudeOAuthSystemPromptInjectionSettings(ctx)
-	if systemPromptInjectionEnabled {
-		systemPromptBlocks = claudeOAuthSystemPromptBlocksForModel(model, systemPromptBlocks)
-		body = rewriteSystemForNonClaudeCodeWithPromptBlocks(body, normalizeSystemParam(systemRaw), systemPrompt, systemPromptBlocks)
+	if ClaudeOAuthSystemPromptInjectionEnabled {
+		// 空配置 = 内置默认块；Fable 换成它专用的块
+		systemPromptBlocks := claudeOAuthSystemPromptBlocksForModel(model, "")
+		body = rewriteSystemForNonClaudeCodeWithPromptBlocks(body, normalizeSystemParam(systemRaw), "", systemPromptBlocks)
 	}
 
 	normalizeOpts := claudeOAuthNormalizeOptions{}
 
 	if s.identityService != nil && c != nil && c.Request != nil {
 		if fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, c.Request.Header); err == nil && fp != nil {
-			mimicMPT := false
-			if s.settingService != nil {
-				_, mimicMPT, _ = s.settingService.GetGatewayForwardingSettings(ctx)
-			}
-			if !mimicMPT {
+			if !MetadataPassthroughEnabled {
 				if uid := s.buildOAuthMetadataUserIDFromBody(ctx, account, fp, body); uid != "" {
 					normalizeOpts.injectMetadata = true
 					normalizeOpts.metadataUserID = uid
@@ -847,29 +842,6 @@ func buildClaudeOAuthSystemPromptBlocksJSON(body []byte, expansionPrompt string,
 	return items, nil
 }
 
-func ValidateClaudeOAuthSystemPromptBlocksConfig(raw string) error {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	blocks, err := parseClaudeOAuthSystemPromptBlocksConfig(raw)
-	if err != nil {
-		return infraerrors.BadRequest("INVALID_CLAUDE_OAUTH_SYSTEM_PROMPT_BLOCKS", "claude oauth system prompt blocks must be valid JSON")
-	}
-	for i, block := range blocks {
-		blockType := strings.TrimSpace(block.Type)
-		if blockType == "" {
-			blockType = "text"
-		}
-		if blockType != "text" {
-			return infraerrors.BadRequest("INVALID_CLAUDE_OAUTH_SYSTEM_PROMPT_BLOCKS", fmt.Sprintf("system block %d type must be text", i))
-		}
-		if _, err := decodeClaudeOAuthSystemPromptCacheControl(block.CacheControl); err != nil {
-			return infraerrors.BadRequest("INVALID_CLAUDE_OAUTH_SYSTEM_PROMPT_BLOCKS", fmt.Sprintf("system block %d cache_control is invalid", i))
-		}
-	}
-	return nil
-}
-
 func extractSystemTextAndCacheControl(system any) (string, any) {
 	switch v := system.(type) {
 	case string:
@@ -1209,10 +1181,7 @@ func forceEphemeralCacheControlTTL(body []byte, ttl string) []byte {
 }
 
 func (s *GatewayService) shouldInjectAnthropicCacheTTL1h(ctx context.Context, account *Account) bool {
-	if account == nil || !account.IsAnthropicOAuthOrSetupToken() || s == nil || s.settingService == nil {
-		return false
-	}
-	return s.settingService.IsAnthropicCacheTTL1hInjectionEnabled(ctx)
+	return AnthropicCacheTTL1hInjectionEnabled && account != nil && account.IsAnthropicOAuthOrSetupToken()
 }
 
 // shouldNormalizeClientDateline reports whether the request body's client
@@ -1220,10 +1189,7 @@ func (s *GatewayService) shouldInjectAnthropicCacheTTL1h(ctx context.Context, ac
 // scoped to Anthropic OAuth/SetupToken accounts only; API-Key accounts and
 // non-Anthropic platforms bypass this step entirely.
 func (s *GatewayService) shouldNormalizeClientDateline(ctx context.Context, account *Account) bool {
-	if account == nil || !account.IsAnthropicOAuthOrSetupToken() || s == nil || s.settingService == nil {
-		return false
-	}
-	return s.settingService.IsClientDatelineNormalizationEnabled(ctx)
+	return ClientDatelineNormalizationEnabled && account != nil && account.IsAnthropicOAuthOrSetupToken()
 }
 
 // normalizeClientDatelineIfEnabled applies dateline normalization to body when
@@ -1239,13 +1205,6 @@ func (s *GatewayService) normalizeClientDatelineIfEnabled(ctx context.Context, a
 		return nil, false
 	}
 	return next, true
-}
-
-func (s *GatewayService) claudeOAuthSystemPromptInjectionSettings(ctx context.Context) (bool, string, string) {
-	if s == nil || s.settingService == nil {
-		return true, "", ""
-	}
-	return s.settingService.GetClaudeOAuthSystemPromptInjectionSettings(ctx)
 }
 
 // systemHasBillingAttributionBlock 检查请求体的 system 字段中是否包含真实 Claude Code

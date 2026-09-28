@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
@@ -141,41 +140,6 @@ func (s *forwardedIPMigrationRepoStub) Delete(context.Context, string) error {
 	panic("unexpected Delete call")
 }
 
-type settingAntigravityUARepoStub struct {
-	values map[string]string
-}
-
-func (s *settingAntigravityUARepoStub) Get(ctx context.Context, key string) (*Setting, error) {
-	panic("unexpected Get call")
-}
-
-func (s *settingAntigravityUARepoStub) GetValue(ctx context.Context, key string) (string, error) {
-	if value, ok := s.values[key]; ok {
-		return value, nil
-	}
-	return "", ErrSettingNotFound
-}
-
-func (s *settingAntigravityUARepoStub) Set(ctx context.Context, key, value string) error {
-	panic("unexpected Set call")
-}
-
-func (s *settingAntigravityUARepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
-	panic("unexpected GetMultiple call")
-}
-
-func (s *settingAntigravityUARepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {
-	panic("unexpected SetMultiple call")
-}
-
-func (s *settingAntigravityUARepoStub) GetAll(ctx context.Context) (map[string]string, error) {
-	panic("unexpected GetAll call")
-}
-
-func (s *settingAntigravityUARepoStub) Delete(ctx context.Context, key string) error {
-	panic("unexpected Delete call")
-}
-
 func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	t.Run("missing value defaults to disabled", func(t *testing.T) {
 		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{}}, &config.Config{})
@@ -207,62 +171,23 @@ func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	})
 }
 
-// D2：利润门三键写入；margin + buffer 超过 ProfitControlRatioMax 是客户端错误（400），不是 500。
+// D2：利润门只写最低毛利率一个键；超出 [0, ProfitControlRatioMax] 是客户端错误（400），不是 500。
 func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
 
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		ProfitControlEnabled: true, ProfitMinMargin: 0.3, ProfitSafetyBuffer: 0.05,
-	})
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: 0.3})
 	require.NoError(t, err)
-	require.Equal(t, "true", repo.updates[SettingKeyProfitControlEnabled])
 	require.Equal(t, "0.30000000", repo.updates[SettingKeyProfitMinMargin])
-	require.Equal(t, "0.05000000", repo.updates[SettingKeyProfitSafetyBuffer])
 
-	repo = &settingUpdateRepoStub{}
-	svc = NewSettingService(repo, &config.Config{})
-	err = svc.UpdateSettings(context.Background(), &SystemSettings{
-		ProfitControlEnabled: true, ProfitMinMargin: 0.6, ProfitSafetyBuffer: 0.5,
-	})
-	require.Error(t, err)
-	require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
-	require.Nil(t, repo.updates)
-}
-
-func TestSettingService_UpdateSettings_AntigravityUserAgentVersion(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		AntigravityUserAgentVersion: "1.23.2",
-	})
-	require.NoError(t, err)
-	require.Equal(t, "1.23.2", repo.updates[SettingKeyAntigravityUserAgentVersion])
-}
-
-func TestSettingService_GetAntigravityUserAgentVersion_Precedence(t *testing.T) {
-	t.Run("后台设置优先", func(t *testing.T) {
-		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{
-			SettingKeyAntigravityUserAgentVersion: "1.24.0",
-		}}, &config.Config{})
-
-		require.Equal(t, "1.24.0", svc.GetAntigravityUserAgentVersion(context.Background()))
-	})
-
-	t.Run("空值回退配置默认值", func(t *testing.T) {
-		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{
-			SettingKeyAntigravityUserAgentVersion: "",
-		}}, &config.Config{})
-
-		require.Equal(t, antigravity.GetDefaultUserAgentVersion(), svc.GetAntigravityUserAgentVersion(context.Background()))
-	})
-
-	t.Run("缺失回退配置默认值", func(t *testing.T) {
-		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{}}, &config.Config{})
-
-		require.Equal(t, antigravity.GetDefaultUserAgentVersion(), svc.GetAntigravityUserAgentVersion(context.Background()))
-	})
+	for _, margin := range []float64{-0.1, ProfitControlRatioMax + 0.001} {
+		repo = &settingUpdateRepoStub{}
+		svc = NewSettingService(repo, &config.Config{})
+		err = svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: margin})
+		require.Error(t, err, "margin=%v", margin)
+		require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
+		require.Nil(t, repo.updates)
+	}
 }
 
 func TestSettingService_PasskeyFollowsDeploymentConfig(t *testing.T) {

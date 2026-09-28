@@ -462,10 +462,7 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 
 	// OAuth 账号：应用统一指纹和重写 userID（受设置开关控制）
 	// 如果启用了会话ID伪装，会在重写后替换 session 部分为固定值
-	ctEnableFP, ctEnableMPT := true, false
-	if s.settingService != nil {
-		ctEnableFP, ctEnableMPT, _ = s.settingService.GetGatewayForwardingSettings(ctx)
-	}
+	ctEnableFP, ctEnableMPT := FingerprintUnificationEnabled, MetadataPassthroughEnabled
 	var ctFingerprint *Fingerprint
 	if account.IsOAuth() && s.identityService != nil {
 		fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, clientHeaders)

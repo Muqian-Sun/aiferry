@@ -1175,7 +1175,7 @@ func (s *GatewayService) DoGrokNativeResponsesJSON(ctx context.Context, account 
 			Reason:     GatewayFailureReason("grok_search_token"),
 		}
 	}
-	targetURL, err := buildGrokResponsesURL(account, nil, s.settingService)
+	targetURL, err := buildGrokResponsesURL(account, nil)
 	if err != nil {
 		return nil, err
 	}

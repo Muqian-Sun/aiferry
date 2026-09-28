@@ -29,8 +29,8 @@ const (
 // OpenAICodexVersionSyncService 周期性把官方 Codex 客户端的最新稳定版版本号同步到设置，
 // 供出站规范身份使用，避免为了跟上游版本而发新版本。
 //
-// 同步值写入 SettingKeyOpenAICodexClientVersionSynced（本服务独占写入）；管理员在面板填写的
-// SettingKeyOpenAICodexClientVersion 优先级更高，因此手工固定版本不会被同步覆盖。
+// 同步值写入 SettingKeyOpenAICodexClientVersionSynced（本服务独占写入）；开关是代码常量
+// OpenAICodexVersionAutoSyncEnabled（gateway_features.go）。
 type OpenAICodexVersionSyncService struct {
 	settingRepo    SettingRepository
 	settingService *SettingService
@@ -122,7 +122,7 @@ func (s *OpenAICodexVersionSyncService) runOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), openAICodexVersionSyncTimeout)
 	defer cancel()
 
-	if !s.autoSyncEnabled(ctx) {
+	if !OpenAICodexVersionAutoSyncEnabled {
 		return
 	}
 
@@ -174,19 +174,6 @@ func (s *OpenAICodexVersionSyncService) fetchLatestStableVersion(ctx context.Con
 		slog.Warn("openai_codex_version_sync_no_stable_release", "repo", openAICodexVersionSyncRepo)
 	}
 	return version
-}
-
-// autoSyncEnabled 读取面板开关。缺失或空值视为开启，与设置默认值一致；
-// 读取失败时保持开启，避免一次数据库抖动就静默停掉版本跟随。
-func (s *OpenAICodexVersionSyncService) autoSyncEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyOpenAICodexVersionAutoSyncEnabled)
-	if err != nil {
-		return true
-	}
-	if strings.TrimSpace(value) == "" {
-		return true
-	}
-	return strings.TrimSpace(value) == "true"
 }
 
 func (s *OpenAICodexVersionSyncService) currentSyncedVersion(ctx context.Context) string {

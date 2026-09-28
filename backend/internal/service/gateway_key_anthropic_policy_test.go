@@ -4,11 +4,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,22 +14,18 @@ import (
 // 判断，不看第三方 key 的展示标签。
 
 func TestGatewayServiceForward_BetaPolicyBlockAppliesToKeysOfAnyLabel(t *testing.T) {
-	raw, err := json.Marshal(&BetaPolicySettings{Rules: []BetaPolicyRule{{
+	setGatewayPolicyForTest(t, &betaPolicy, BetaPolicySettings{Rules: []BetaPolicyRule{{
 		BetaToken:    "context-1m-2025-08-07",
 		Action:       BetaPolicyActionBlock,
 		Scope:        BetaPolicyScopeAPIKey,
 		ErrorMessage: "1m context is blocked",
 	}}})
-	require.NoError(t, err)
 	c, svc, upstream := newAnthropicKeyForwardFixture(`{}`)
-	svc.settingService = NewSettingService(&betaPolicySettingRepoStub{values: map[string]string{
-		SettingKeyBetaPolicySettings: string(raw),
-	}}, &config.Config{})
 	c.Request.Header.Set("Anthropic-Beta", "context-1m-2025-08-07")
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
 	parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
 
-	_, err = svc.Forward(context.Background(), c, openAILabelledAnthropicKey(nil), parsed)
+	_, err := svc.Forward(context.Background(), c, openAILabelledAnthropicKey(nil), parsed)
 
 	var blocked *BetaBlockedError
 	require.True(t, errors.As(err, &blocked), "expected *BetaBlockedError, got %v", err)

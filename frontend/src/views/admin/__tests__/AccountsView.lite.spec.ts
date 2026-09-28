@@ -10,7 +10,6 @@ const {
   listWithEtag,
   getById,
   getBatchTodayStats,
-  getUpstreamBillingProbeSettings,
   getAllProxies,
   listCatalogEntries,
   refreshCredentials,
@@ -21,7 +20,6 @@ const {
   listWithEtag: vi.fn(),
   getById: vi.fn(),
   getBatchTodayStats: vi.fn(),
-  getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
   listCatalogEntries: vi.fn(),
   refreshCredentials: vi.fn(),
@@ -45,7 +43,6 @@ vi.mock('@/api/admin', () => ({
       getById,
       listWithEtag,
       getBatchTodayStats,
-      getUpstreamBillingProbeSettings,
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
@@ -156,7 +153,6 @@ describe('admin AccountsView lite account list', () => {
     listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: 'compact-etag', data: null })
     getById.mockReset().mockResolvedValue(fullAccount)
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
-    getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: true })
     getAllProxies.mockReset().mockResolvedValue([])
     listCatalogEntries.mockReset().mockResolvedValue([])
     refreshCredentials.mockReset()

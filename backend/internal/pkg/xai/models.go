@@ -2,41 +2,7 @@ package xai
 
 import (
 	"strings"
-	"sync/atomic"
 )
-
-// runtimeMappingOpts holds operator-configured defaults applied when Grok
-// accounts leave credentials.model_mapping empty. Updated from settings.
-var runtimeMappingOpts atomic.Value // ModelMappingOptions
-var runtimeMappingVersion atomic.Uint64
-
-func init() {
-	runtimeMappingOpts.Store(ModelMappingOptions{})
-	runtimeMappingVersion.Store(1)
-}
-
-// SetRuntimeModelMappingOptions updates process-wide defaults used by
-// DefaultModelMapping (e.g. after settings load). Safe for concurrent use.
-func SetRuntimeModelMappingOptions(opts ModelMappingOptions) {
-	runtimeMappingOpts.Store(opts)
-	runtimeMappingVersion.Add(1)
-}
-
-// RuntimeModelMappingVersion changes whenever runtime mapping options change.
-// Account-level caches include it so settings updates take effect without a restart.
-func RuntimeModelMappingVersion() uint64 {
-	return runtimeMappingVersion.Load()
-}
-
-// RuntimeModelMappingOptions returns the last options set via SetRuntimeModelMappingOptions.
-func RuntimeModelMappingOptions() ModelMappingOptions {
-	if v := runtimeMappingOpts.Load(); v != nil {
-		if opts, ok := v.(ModelMappingOptions); ok {
-			return opts
-		}
-	}
-	return ModelMappingOptions{}
-}
 
 // Model describes an xAI model in OpenAI-compatible /models shape.
 type Model struct {
@@ -49,8 +15,7 @@ type Model struct {
 }
 
 // DefaultTextModel is the built-in fallback for empty model fields and Grok
-// text aliases (e.g. "grok", "grok-latest"). Operators may override the runtime
-// default via settings key grok_default_text_model.
+// text aliases (e.g. "grok", "grok-latest").
 const DefaultTextModel = "grok-4.6"
 
 // Official Imagine model IDs (https://docs.x.ai/docs/models).
@@ -62,25 +27,6 @@ const (
 	DefaultImagineVideo15Model       = "grok-imagine-video-1.5"
 	DefaultImagineVideo15LegacyModel = "grok-imagine-video-1.5-preview"
 )
-
-// ModelMappingOptions controls optional expansions of the default mapping.
-// Cross-client wildcards (gpt-*/claude-*) default ON via settings
-// grok_cross_client_model_map_enabled so Codex/Claude clients keep working
-// against Grok groups (map to DefaultText / grok-4.6). Operators may disable.
-type ModelMappingOptions struct {
-	// DefaultText is the target for empty models and optional cross-client maps.
-	// Empty → DefaultTextModel (grok-4.6).
-	DefaultText string
-	// EnableCrossClientMap merges gpt-*/codex-*/o*/claude-* → DefaultText.
-	EnableCrossClientMap bool
-}
-
-func (o ModelMappingOptions) defaultText() string {
-	if t := strings.TrimSpace(o.DefaultText); t != "" {
-		return t
-	}
-	return DefaultTextModel
-}
 
 var defaultModels = []Model{
 	// Text
@@ -144,28 +90,16 @@ func DefaultModelIDs() []string {
 	return ids
 }
 
-// DefaultModelMapping returns native Grok/Imagine identity + aliases, using
-// runtime options (default text model / optional cross-client wildcards).
-// Does NOT enable gpt-*/claude-* unless SetRuntimeModelMappingOptions enables them.
+// DefaultModelMapping returns native Grok/Imagine identity + aliases. It never
+// maps other vendors' model names (gpt-*/claude-*/…) onto Grok: a request is
+// served by the model it asked for or not at all.
 func DefaultModelMapping() map[string]string {
-	return ModelMappingWithOptions(RuntimeModelMappingOptions())
-}
-
-// ModelMappingWithOptions builds the default Grok mapping with optional
-// cross-client wildcards and a configurable default text model.
-func ModelMappingWithOptions(opts ModelMappingOptions) map[string]string {
-	defaultText := opts.defaultText()
 	mapping := make(map[string]string, len(defaultModels)+len(grokTextResponsesModelAliases)+48)
 	for _, model := range defaultModels {
 		mapping[model.ID] = model.ID
 	}
 	for alias, canonical := range grokTextResponsesModelAliases {
-		// Remap aliases that pointed at DefaultTextModel constant to runtime default.
-		if (alias == "grok" || alias == "grok-latest") && canonical == DefaultTextModel {
-			mapping[alias] = defaultText
-		} else {
-			mapping[alias] = canonical
-		}
+		mapping[alias] = canonical
 	}
 	// Imagine aliases / legacy IDs → official catalog.
 	mapping["grok-imagine"] = DefaultImagineImageQualityModel
@@ -182,17 +116,6 @@ func ModelMappingWithOptions(opts ModelMappingOptions) map[string]string {
 	mapping["grok-imagine-video-1.5-preview"] = DefaultImagineVideo15Model
 	// Informal alias only:
 	mapping["grok-video-1.5"] = DefaultImagineVideo15Model
-
-	if opts.EnableCrossClientMap {
-		// Codex / OpenAI Responses client defaults (wildcard patterns).
-		mapping["gpt-*"] = defaultText
-		mapping["codex-*"] = defaultText
-		mapping["o1*"] = defaultText
-		mapping["o3*"] = defaultText
-		mapping["o4*"] = defaultText
-		// Claude Code defaults when operators intentionally enable bridging.
-		mapping["claude-*"] = defaultText
-	}
 	addGrokProviderPrefixedMappings(mapping)
 	return mapping
 }

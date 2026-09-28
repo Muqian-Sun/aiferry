@@ -497,11 +497,7 @@ func (s *AntigravityGatewayService) buildClaudeTestRequest(projectID, mappedMode
 
 func (s *AntigravityGatewayService) getClaudeTransformOptions(ctx context.Context) antigravity.TransformOptions {
 	opts := antigravity.DefaultTransformOptions()
-	if s.settingService == nil {
-		return opts
-	}
-	opts.EnableIdentityPatch = s.settingService.IsIdentityPatchEnabled(ctx)
-	opts.IdentityPatch = s.settingService.GetIdentityPatchPrompt(ctx)
+	opts.EnableIdentityPatch = IdentityPatchEnabled // 补丁内容用内置模板
 	return opts
 }
 

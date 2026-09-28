@@ -11,11 +11,9 @@ vi.mock('@/api/client', () => ({
 }))
 
 import {
-  getUpstreamBillingProbeSettings,
   probeUpstreamBilling,
   probeUpstreamBillingBatch,
-  setUpstreamBillingProbeEnabled,
-  updateUpstreamBillingProbeSettings
+  setUpstreamBillingProbeEnabled
 } from '@/api/admin/accounts'
 
 describe('admin account upstream billing probe API', () => {
@@ -23,17 +21,6 @@ describe('admin account upstream billing probe API', () => {
     get.mockReset()
     post.mockReset()
     put.mockReset()
-  })
-
-  it('reads and updates global settings', async () => {
-    const settings = { enabled: true, interval_minutes: 30 }
-    get.mockResolvedValueOnce({ data: settings })
-    put.mockResolvedValueOnce({ data: settings })
-
-    await expect(getUpstreamBillingProbeSettings()).resolves.toEqual(settings)
-    await expect(updateUpstreamBillingProbeSettings(settings)).resolves.toEqual(settings)
-    expect(get).toHaveBeenCalledWith('/admin/accounts/upstream-billing-probe/settings')
-    expect(put).toHaveBeenCalledWith('/admin/accounts/upstream-billing-probe/settings', settings)
   })
 
   it('uses dedicated account and batch endpoints', async () => {

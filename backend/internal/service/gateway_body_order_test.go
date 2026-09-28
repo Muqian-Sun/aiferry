@@ -2,89 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
-
-type gatewayTTLSettingRepo struct {
-	data map[string]string
-}
-
-func (r *gatewayTTLSettingRepo) Get(context.Context, string) (*Setting, error) {
-	return nil, ErrSettingNotFound
-}
-
-func (r *gatewayTTLSettingRepo) GetValue(_ context.Context, key string) (string, error) {
-	if r == nil {
-		return "", ErrSettingNotFound
-	}
-	v, ok := r.data[key]
-	if !ok {
-		return "", ErrSettingNotFound
-	}
-	return v, nil
-}
-
-func (r *gatewayTTLSettingRepo) Set(_ context.Context, key, value string) error {
-	if r == nil {
-		return errors.New("setting repo is nil")
-	}
-	if r.data == nil {
-		r.data = map[string]string{}
-	}
-	r.data[key] = value
-	return nil
-}
-
-func (r *gatewayTTLSettingRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
-	result := make(map[string]string)
-	if r == nil {
-		return result, nil
-	}
-	for _, key := range keys {
-		if v, ok := r.data[key]; ok {
-			result[key] = v
-		}
-	}
-	return result, nil
-}
-
-func (r *gatewayTTLSettingRepo) SetMultiple(_ context.Context, settings map[string]string) error {
-	if r == nil {
-		return errors.New("setting repo is nil")
-	}
-	if r.data == nil {
-		r.data = map[string]string{}
-	}
-	for key, value := range settings {
-		r.data[key] = value
-	}
-	return nil
-}
-
-func (r *gatewayTTLSettingRepo) GetAll(context.Context) (map[string]string, error) {
-	result := make(map[string]string)
-	if r == nil {
-		return result, nil
-	}
-	for key, value := range r.data {
-		result[key] = value
-	}
-	return result, nil
-}
-
-func (r *gatewayTTLSettingRepo) Delete(_ context.Context, key string) error {
-	if r != nil {
-		delete(r.data, key)
-	}
-	return nil
-}
 
 func assertJSONTokenOrder(t *testing.T, body string, tokens ...string) {
 	t.Helper()
@@ -180,19 +104,15 @@ func TestInjectAnthropicCacheControlTTL1h_OnlyUpdatesExistingEphemeralCacheContr
 	require.Equal(t, "1h", gjson.GetBytes(result, "tools.0.cache_control.ttl").String())
 }
 
+// 1h 注入是代码值（AnthropicCacheTTL1hInjectionEnabled = false）：成品号没有渠道级覆写时不改计费 TTL，
+// 渠道级覆写照常生效。
 func TestGatewayCacheTTLGlobalSetting_TargetResolution(t *testing.T) {
-	repo := &gatewayTTLSettingRepo{data: map[string]string{
-		SettingKeyEnableAnthropicCacheTTL1hInjection: "true",
-	}}
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	svc := &GatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
-	}
+	svc := &GatewayService{}
 	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 
 	target, ok := svc.resolveCacheTTLUsageOverrideTarget(context.Background(), account)
-	require.True(t, ok)
-	require.Equal(t, cacheTTLTarget5m, target)
+	require.False(t, ok)
+	require.Equal(t, "", target)
 
 	account.Extra = map[string]any{
 		"cache_ttl_override_enabled": true,
@@ -203,21 +123,12 @@ func TestGatewayCacheTTLGlobalSetting_TargetResolution(t *testing.T) {
 	require.Equal(t, cacheTTLTarget1h, target)
 }
 
+// 1h 注入是代码值（关）：任何渠道的请求都不改写 cache_control ttl。
 func TestGatewayCacheTTLGlobalSetting_RequestInjectionScope(t *testing.T) {
-	repo := &gatewayTTLSettingRepo{data: map[string]string{
-		SettingKeyEnableAnthropicCacheTTL1hInjection: "true",
-	}}
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	svc := &GatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
-	}
+	svc := &GatewayService{}
 
-	require.True(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
-	require.True(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}))
+	require.False(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
+	require.False(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}))
 	require.False(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}))
 	require.False(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
-
-	repo.data[SettingKeyEnableAnthropicCacheTTL1hInjection] = "false"
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	require.False(t, svc.shouldInjectAnthropicCacheTTL1h(context.Background(), &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
 }

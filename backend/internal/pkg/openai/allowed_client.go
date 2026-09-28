@@ -15,24 +15,6 @@ type AllowedClientEntry struct {
 	SkipEngineFingerprint bool     `json:"skip_engine_fingerprint"`
 }
 
-// IsWhitelistable 报告该条目作为白名单条目是否「有可能命中」——镜像 IsAllowedClientMatch 的结构性
-// 前置：originator 非空、ua_contains 至少一项、且无任何空白 marker（空白 marker 会让整条永不命中）。
-// 仅供管理端写入校验，避免存入静默失效的白名单规则。黑名单（OR 宽 deny，允许 originator-only）不受此约束。
-func (e AllowedClientEntry) IsWhitelistable() bool {
-	if normalizeCodexClientHeader(e.Originator) == "" {
-		return false
-	}
-	if len(e.UAContains) == 0 {
-		return false
-	}
-	for _, marker := range e.UAContains {
-		if normalizeCodexClientHeader(marker) == "" {
-			return false
-		}
-	}
-	return true
-}
-
 // IsAllowedClientMatch 判断请求头是否命中给定的额外客户端签名。
 // originator 必须精确等值（归一化后）；UAContains 中每一项都必须出现在 UA 中。
 // UAContains 为必填：列表为空或含任何空白 marker 均视为非法配置，整体安全失败。

@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// profitControlTestService 造一个只带利润门全局设置的 OpenAI 网关服务（全站一档）。
-func profitControlTestService(t *testing.T, enabled bool, margin, buffer float64) *OpenAIGatewayService {
+// profitControlTestService 造一个只带利润门全局设置（最低毛利率；0 = 关）的 OpenAI 网关服务。
+func profitControlTestService(t *testing.T, minMargin float64) *OpenAIGatewayService {
 	t.Helper()
-	return &OpenAIGatewayService{settingService: profitControlTestSettingService(t, enabled, margin, buffer)}
+	return &OpenAIGatewayService{settingService: profitControlTestSettingService(t, minMargin)}
 }
 
 // profitControlTestCtx 模拟认证后的请求上下文：D = 用户倍率。
@@ -64,28 +64,28 @@ func TestResolveOpenAIProfitControlGate(t *testing.T) {
 		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
 	})
 
-	t.Run("disabled setting yields no gate", func(t *testing.T) {
-		svc := profitControlTestService(t, false, 0.3, 0)
+	t.Run("zero min margin yields no gate", func(t *testing.T) {
+		svc := profitControlTestService(t, 0)
 		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
 	})
 
-	t.Run("threshold composes margin and buffer from the user rate", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.3, 0.05)
+	t.Run("threshold is the user rate times one minus min margin", func(t *testing.T) {
+		svc := profitControlTestService(t, 0.3)
 		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(2.0))
 		require.NotNil(t, gate)
-		require.InDelta(t, 2.0*(1-0.35), gate.threshold, 1e-12)
+		require.InDelta(t, 2.0*(1-0.3), gate.threshold, 1e-12)
 		require.False(t, gate.pricingAt.IsZero())
 	})
 
 	t.Run("no user identity prices at rate 1", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.5, 0)
+		svc := profitControlTestService(t, 0.5)
 		gate := svc.resolveOpenAIProfitControlGate(context.Background())
 		require.NotNil(t, gate)
 		require.InDelta(t, 0.5, gate.threshold, 1e-12)
 	})
 
 	t.Run("settings change is visible after cache invalidation", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.5, 0)
+		svc := profitControlTestService(t, 0.5)
 		require.InDelta(t, 0.5, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)).threshold, 1e-12)
 		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0.1"))
 		require.InDelta(t, 0.5, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)).threshold, 1e-12, "60s 缓存内仍是旧值")

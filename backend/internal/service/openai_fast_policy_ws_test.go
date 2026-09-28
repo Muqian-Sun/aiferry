@@ -24,7 +24,7 @@ import (
 // --- Helper-level (unit) tests for applyOpenAIFastPolicyToWSResponseCreate ---
 
 func TestWSResponseCreate_DefaultPassesPriorityAndNormalizesFast(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority","input":[{"type":"input_text","text":"hi"}]}`)
@@ -52,7 +52,7 @@ func TestWSResponseCreate_DefaultPassesPriorityAndNormalizesFast(t *testing.T) {
 }
 
 func TestWSResponseCreate_ExplicitFilterStripsServiceTier(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority","input":[{"type":"input_text","text":"hi"}]}`)
@@ -84,7 +84,7 @@ func TestWSResponseCreate_UserScopedRuleOverridesGlobalRule(t *testing.T) {
 			},
 		},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority"}`)
 
@@ -109,7 +109,7 @@ func TestWSResponseCreate_ForcePriorityRewritesKnownTier(t *testing.T) {
 			Scope:       BetaPolicyScopeAll,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	for _, tier := range []string{"flex", "auto", "default", "scale", "fast", "priority", "ultrafast"} {
@@ -130,7 +130,7 @@ func TestWSResponseCreate_ForcePriorityInjectsMissingTier(t *testing.T) {
 			Scope:       BetaPolicyScopeAll,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5"}`)
 
@@ -141,7 +141,7 @@ func TestWSResponseCreate_ForcePriorityInjectsMissingTier(t *testing.T) {
 }
 
 func TestWSResponseCreate_FlexPassThrough(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Default policy has no rules; flex is left untouched.
@@ -163,7 +163,7 @@ func TestWSResponseCreate_BlockReturnsTypedError(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority"}`)
@@ -176,7 +176,7 @@ func TestWSResponseCreate_BlockReturnsTypedError(t *testing.T) {
 }
 
 func TestWSResponseCreate_NoServiceTierUntouched(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	frame := []byte(`{"type":"response.create","model":"gpt-5.5","input":[]}`)
@@ -196,7 +196,7 @@ func TestWSResponseCreate_NonResponseCreateFrameUntouched(t *testing.T) {
 			FallbackAction: BetaPolicyActionFilter,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// response.cancel happens to carry a service_tier-shaped field — must not be touched.
@@ -221,7 +221,7 @@ func TestWSResponseCreate_EmptyTypeFrameUntouched(t *testing.T) {
 			FallbackAction: BetaPolicyActionFilter,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Frame with no "type" field: must pass through completely unchanged
@@ -328,7 +328,7 @@ func TestPolicyEnforcingFrameConn_FollowupFrameWithoutModelUsesCapturedModel(t *
 	// 此处特意使用带 whitelist 的策略，以便观察 capturedSessionModel
 	// fallback 是否生效（默认配置没有规则，fallback 与否结果一致，
 	// 不能用来覆盖此回归）。
-	svc := newOpenAIGatewayServiceWithSettings(t, gpt55WhitelistFastPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, gpt55WhitelistFastPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Simulate the passthrough adapter capturing model from the first frame.
@@ -390,7 +390,7 @@ func TestOpenAIWSPassthroughPolicyModelDoesNotApplyAccountMapping(t *testing.T) 
 // exactly the leak the D5 fix prevents.
 func TestPolicyEnforcingFrameConn_WithoutCapturedFallbackPolicyMisses(t *testing.T) {
 	// 同样使用带 whitelist 的策略以观察 leak。
-	svc := newOpenAIGatewayServiceWithSettings(t, gpt55WhitelistFastPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, gpt55WhitelistFastPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	followupFrame := []byte(`{"type":"response.create","service_tier":"priority"}`)
@@ -445,10 +445,7 @@ func TestWSResponseCreate_IngressFiltersServiceTierBeforeUpstream(t *testing.T) 
 	pool := newOpenAIWSConnPool(cfg)
 	pool.setClientDialerForTest(captureDialer)
 
-	repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
-	filterPolicyJSON, err := json.Marshal(openAIFastFilterPriorityPolicy())
-	require.NoError(t, err)
-	repo.values[SettingKeyOpenAIFastPolicySettings] = string(filterPolicyJSON)
+	setGatewayPolicyForTest(t, &openAIFastPolicy, *openAIFastFilterPriorityPolicy())
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -457,7 +454,7 @@ func TestWSResponseCreate_IngressFiltersServiceTierBeforeUpstream(t *testing.T) 
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
 		openaiWSPool:     pool,
-		settingService:   NewSettingService(repo, cfg),
+		settingService:   NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, cfg),
 	}
 
 	account := &Account{
@@ -576,10 +573,7 @@ func TestWSResponseCreate_IngressBlockSendsErrorEventAndSkipsUpstream(t *testing
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
-	raw, err := json.Marshal(blockSettings)
-	require.NoError(t, err)
-	repo.values[SettingKeyOpenAIFastPolicySettings] = string(raw)
+	setGatewayPolicyForTest(t, &openAIFastPolicy, *blockSettings)
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -588,7 +582,7 @@ func TestWSResponseCreate_IngressBlockSendsErrorEventAndSkipsUpstream(t *testing
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
 		openaiWSPool:     pool,
-		settingService:   NewSettingService(repo, cfg),
+		settingService:   NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, cfg),
 	}
 
 	account := &Account{
@@ -722,7 +716,7 @@ func TestApplyOpenAIFastPolicyToBody_BlockShortCircuitsUpstream(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	body := []byte(`{"model":"gpt-5.5","service_tier":"priority","input":[]}`)
@@ -741,7 +735,7 @@ func TestApplyOpenAIFastPolicyToBody_BlockShortCircuitsUpstream(t *testing.T) {
 // exercise the same internal pipeline (Anthropic→Responses + BetaFastMode +
 // policy) without spinning up a real upstream HTTP server.
 func TestForwardAsAnthropicMessages_BetaFastModePassesOpenAIFastPolicyByDefault(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Step 1: parse Anthropic request (mirrors openai_gateway_messages.go:38-50).
@@ -781,7 +775,7 @@ func TestForwardAsAnthropicMessages_BetaFastModePassesOpenAIFastPolicyByDefault(
 // fix updates capturedSessionModel from session.* events so the fallback now
 // resolves to gpt-5.5 and the policy filters service_tier.
 func TestPolicyEnforcingFrameConn_SessionUpdateRotatesCapturedModel(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, gpt55WhitelistFastPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, gpt55WhitelistFastPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Frame 1: response.create with whitelist-miss model — under default
@@ -874,7 +868,7 @@ func TestApplyOpenAIFastPolicyToBody_PassNormalizesFastAlias(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// gpt-4 + "fast" → fallback pass. Body must be rewritten to "priority".
@@ -912,7 +906,7 @@ func TestApplyOpenAIFastPolicyToBody_PassNormalizesFastAlias(t *testing.T) {
 // the user-requested "priority". This test pins the
 // contract those two helpers must uphold for the adapter's billing path.
 func TestPassthroughBilling_PostFilterServiceTier(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	raw := []byte(`{"type":"response.create","model":"gpt-5.5","service_tier":"priority"}`)
@@ -954,7 +948,7 @@ func TestPassthroughBilling_PostFilterServiceTier(t *testing.T) {
 // "no usable tier"), forward body unchanged. This mirrors the HTTP entry's
 // type-assertion `reqBody["service_tier"].(string); ok` guard.
 func TestApplyOpenAIFastPolicyToBody_NonStringServiceTier(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Number — gjson .String() coerces to "1" which is not a recognized
@@ -1004,7 +998,7 @@ func TestApplyOpenAIFastPolicyToBody_NonStringServiceTier(t *testing.T) {
 //   - non-response.create frame (response.cancel here) carrying a stray
 //     service_tier-shaped field must NOT clobber the billing pointer.
 func TestPassthroughBilling_MultiTurnServiceTierFollowsFilteredFrames(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// Mirror the production filter closure (openai_ws_v2_passthrough_adapter.go
@@ -1077,7 +1071,7 @@ func TestPassthroughBilling_MultiTurnServiceTierFollowsFilteredFrames(t *testing
 }
 
 func TestPassthroughUsageMeta_TracksReasoningEffortAcrossTurns(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	firstFrame := []byte(`{"type":"response.create","model":"gpt-5.5","reasoning":{"effort":"medium"},"service_tier":"priority"}`)
@@ -1147,7 +1141,7 @@ func TestPassthroughBilling_BlockedFrameDoesNotMutateServiceTier(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, blockSettings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, blockSettings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	var requestServiceTierPtr atomic.Pointer[string]

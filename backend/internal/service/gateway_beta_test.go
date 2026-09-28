@@ -243,11 +243,11 @@ func TestIsCountTokensUnsupported404(t *testing.T) {
 	}
 }
 
-// TestDefaultBetaPolicy_Context1M_Sonnet5Whitelist 验证默认策略下 context-1m-2025-08-07 的分模型行为：
+// TestDefaultBetaPolicy_Context1M_Sonnet5Whitelist 验证代码里的 Beta 策略（betaPolicy）下 context-1m-2025-08-07 的分模型行为：
 //   - claude-sonnet-5 及后续版本：pass（放行），保留 1M 上下文能力
 //   - 其他 sonnet 版本（4.x 及以下）、opus、haiku：filter（过滤），因为上游不支持
 func TestDefaultBetaPolicy_Context1M_Sonnet5Whitelist(t *testing.T) {
-	settings := DefaultBetaPolicySettings()
+	settings := betaPolicy
 
 	// 找到 context-1m-2025-08-07 规则
 	var rule *BetaPolicyRule

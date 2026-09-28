@@ -46,12 +46,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.AdminRechargeRebateEnabled != after.AdminRechargeRebateEnabled {
 		changed = append(changed, "affiliate_admin_recharge_enabled")
 	}
-	if before.EnableIdentityPatch != after.EnableIdentityPatch {
-		changed = append(changed, "enable_identity_patch")
-	}
-	if before.IdentityPatchPrompt != after.IdentityPatchPrompt {
-		changed = append(changed, "identity_patch_prompt")
-	}
 	if before.OpsRealtimeMonitoringEnabled != after.OpsRealtimeMonitoringEnabled {
 		changed = append(changed, "ops_realtime_monitoring_enabled")
 	}
@@ -60,72 +54,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.OpsMetricsIntervalSeconds != after.OpsMetricsIntervalSeconds {
 		changed = append(changed, "ops_metrics_interval_seconds")
-	}
-	if before.MinClaudeCodeVersion != after.MinClaudeCodeVersion {
-		changed = append(changed, "min_claude_code_version")
-	}
-	if before.MaxClaudeCodeVersion != after.MaxClaudeCodeVersion {
-		changed = append(changed, "max_claude_code_version")
-	}
-	if before.MinCodexVersion != after.MinCodexVersion {
-		changed = append(changed, "min_codex_version")
-	}
-	if before.MaxCodexVersion != after.MaxCodexVersion {
-		changed = append(changed, "max_codex_version")
-	}
-	if before.CodexCLIOnlyAllowAppServerClients != after.CodexCLIOnlyAllowAppServerClients {
-		changed = append(changed, "codex_cli_only_allow_app_server_clients")
-	}
-	if before.CodexCLIOnlyEngineFingerprintSignals != after.CodexCLIOnlyEngineFingerprintSignals {
-		changed = append(changed, "codex_cli_only_engine_fingerprint_signals")
-	}
-	if before.CodexCLIOnlyBlacklist != after.CodexCLIOnlyBlacklist {
-		changed = append(changed, "codex_cli_only_blacklist")
-	}
-	if before.CodexCLIOnlyWhitelist != after.CodexCLIOnlyWhitelist {
-		changed = append(changed, "codex_cli_only_whitelist")
-	}
-	if before.EnableFingerprintUnification != after.EnableFingerprintUnification {
-		changed = append(changed, "enable_fingerprint_unification")
-	}
-	if before.OpenAITTFTMode != after.OpenAITTFTMode {
-		changed = append(changed, "openai_ttft_mode")
-	}
-	if before.EnableMetadataPassthrough != after.EnableMetadataPassthrough {
-		changed = append(changed, "enable_metadata_passthrough")
-	}
-	if before.EnableCCHSigning != after.EnableCCHSigning {
-		changed = append(changed, "enable_cch_signing")
-	}
-	if before.EnableClaudeOAuthSystemPromptInjection != after.EnableClaudeOAuthSystemPromptInjection {
-		changed = append(changed, "enable_claude_oauth_system_prompt_injection")
-	}
-	if before.ClaudeOAuthSystemPrompt != after.ClaudeOAuthSystemPrompt {
-		changed = append(changed, "claude_oauth_system_prompt")
-	}
-	if before.ClaudeOAuthSystemPromptBlocks != after.ClaudeOAuthSystemPromptBlocks {
-		changed = append(changed, "claude_oauth_system_prompt_blocks")
-	}
-	if before.EnableAnthropicCacheTTL1hInjection != after.EnableAnthropicCacheTTL1hInjection {
-		changed = append(changed, "enable_anthropic_cache_ttl_1h_injection")
-	}
-	if before.RewriteMessageCacheControl != after.RewriteMessageCacheControl {
-		changed = append(changed, "rewrite_message_cache_control")
-	}
-	if before.EnableClientDatelineNormalization != after.EnableClientDatelineNormalization {
-		changed = append(changed, "enable_client_dateline_normalization")
-	}
-	if before.AntigravityUserAgentVersion != after.AntigravityUserAgentVersion {
-		changed = append(changed, "antigravity_user_agent_version")
-	}
-	if before.OpenAICodexUserAgent != after.OpenAICodexUserAgent {
-		changed = append(changed, "openai_codex_user_agent")
-	}
-	if before.OpenAICodexClientVersion != after.OpenAICodexClientVersion {
-		changed = append(changed, "openai_codex_client_version")
-	}
-	if before.OpenAICodexVersionAutoSyncEnabled != after.OpenAICodexVersionAutoSyncEnabled {
-		changed = append(changed, "openai_codex_version_auto_sync_enabled")
 	}
 	// 余额、订阅到期与账号限额通知
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
@@ -143,38 +71,8 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.CyberSessionBlockTTLSeconds != after.CyberSessionBlockTTLSeconds {
 		changed = append(changed, "cyber_session_block_ttl_seconds")
 	}
-	if !equalAccountSchedulingThresholds(before.AccountSchedulingThresholds, after.AccountSchedulingThresholds) {
-		changed = append(changed, service.SettingKeyAccountSchedulingThresholds)
-	}
-	if before.ProfitControlEnabled != after.ProfitControlEnabled {
-		changed = append(changed, service.SettingKeyProfitControlEnabled)
-	}
 	if before.ProfitMinMargin != after.ProfitMinMargin {
 		changed = append(changed, service.SettingKeyProfitMinMargin)
 	}
-	if before.ProfitSafetyBuffer != after.ProfitSafetyBuffer {
-		changed = append(changed, service.SettingKeyProfitSafetyBuffer)
-	}
 	return changed
-}
-
-func equalAccountSchedulingThresholds(before, after map[string]int) bool {
-	for _, platform := range service.AllowedSchedulingThresholdPlatforms {
-		beforeValue := 100
-		if before != nil {
-			if value, ok := before[platform]; ok {
-				beforeValue = value
-			}
-		}
-		afterValue := 100
-		if after != nil {
-			if value, ok := after[platform]; ok {
-				afterValue = value
-			}
-		}
-		if beforeValue != afterValue {
-			return false
-		}
-	}
-	return true
 }

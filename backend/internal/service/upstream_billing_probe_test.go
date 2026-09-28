@@ -223,50 +223,7 @@ func newUpstreamBillingProbeTestService(
 		AllowInsecureHTTP: true,
 	}}}
 	accountTestService := &AccountTestService{accountRepo: repo, httpUpstream: upstream, cfg: cfg}
-	return NewUpstreamBillingProbeService(repo, accountTestService, NewSettingService(settingRepo, cfg))
-}
-
-func TestUpstreamBillingProbeSettingsDefaultsAndValidation(t *testing.T) {
-	repo := &upstreamBillingProbeSettingRepo{}
-	settingsService := NewSettingService(repo, &config.Config{})
-
-	settings, err := settingsService.GetUpstreamBillingProbeSettings(context.Background())
-	require.NoError(t, err)
-	require.True(t, settings.Enabled)
-	require.Equal(t, 30, settings.IntervalMinutes)
-
-	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
-		Enabled:         false,
-		IntervalMinutes: 4,
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "interval_minutes must be between 5 and 1440")
-
-	err = settingsService.SetUpstreamBillingProbeSettings(context.Background(), &UpstreamBillingProbeSettings{
-		Enabled:         false,
-		IntervalMinutes: 60,
-	})
-	require.NoError(t, err)
-	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, settings.Enabled)
-	require.Equal(t, 60, settings.IntervalMinutes)
-
-	repo.values[SettingKeyUpstreamBillingProbeSettings] = `{"interval_minutes":45}`
-	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
-	require.NoError(t, err)
-	require.True(t, settings.Enabled)
-	require.Equal(t, 45, settings.IntervalMinutes)
-	repo.values[SettingKeyUpstreamBillingProbeSettings] = `{"enabled":false}`
-	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, settings.Enabled)
-	require.Equal(t, 30, settings.IntervalMinutes)
-
-	repo.values[SettingKeyUpstreamBillingProbeSettings] = `{"enabled":`
-	settings, err = settingsService.GetUpstreamBillingProbeSettings(context.Background())
-	require.ErrorContains(t, err, "parse upstream billing probe settings")
-	require.Nil(t, settings)
+	return NewUpstreamBillingProbeService(repo, accountTestService)
 }
 
 func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
@@ -804,8 +761,8 @@ func TestUpstreamBillingProbeUnsupportedDelayIsStretchedAndBounded(t *testing.T)
 	require.LessOrEqual(t, stretched, 288*time.Minute)
 
 	// 永不超过封顶值，因此 unsupported 账号不会被永久排除在重探之外。
-	require.LessOrEqual(t, unsupportedProbeDelay(upstreamBillingProbeMaxIntervalMinutes, 0), upstreamBillingProbeMaxDelay)
-	require.Positive(t, unsupportedProbeDelay(upstreamBillingProbeMinIntervalMinutes, 0))
+	// interval 固定 30 分钟后，只有 Retry-After 能把 8 倍拉长推过封顶：5 小时 × 8 = 40 小时 → 封顶。
+	require.Equal(t, upstreamBillingProbeMaxDelay, unsupportedProbeDelay(30, 5*time.Hour))
 
 	// Retry-After 更长时原样保留，不被封顶缩短；更短时至少不早于该指令。
 	require.Equal(t, 48*time.Hour, unsupportedProbeDelay(30, 48*time.Hour))
@@ -829,9 +786,7 @@ func TestUpstreamBillingProbeUnsupportedBackoffDefersRunnerButNotManualProbe(t *
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &upstreamBillingProbeHTTPStub{}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	svc := newUpstreamBillingProbeTestService(repo, upstream, settingsRepo)
 	start := time.Date(2026, time.July, 26, 2, 0, 0, 0, time.UTC)
 	now := start
@@ -956,19 +911,11 @@ func TestUpstreamBillingProbeRunnerIsBoundedAndManualProbeIgnoresSwitches(t *tes
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: accounts}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	upstream := &upstreamBillingProbeHTTPStub{}
 	svc := newUpstreamBillingProbeTestService(repo, upstream, settingsRepo)
 	svc.now = func() time.Time { return time.Date(2026, time.July, 13, 2, 0, 0, 0, time.UTC) }
 
-	require.NoError(t, svc.RunDue(context.Background()))
-	require.Equal(t, int64(20), upstream.calls.Load())
-
-	settingsRepo.mu.Lock()
-	settingsRepo.values[SettingKeyUpstreamBillingProbeSettings] = `{"enabled":false,"interval_minutes":30}`
-	settingsRepo.mu.Unlock()
 	require.NoError(t, svc.RunDue(context.Background()))
 	require.Equal(t, int64(20), upstream.calls.Load())
 
@@ -1000,9 +947,7 @@ func TestUpstreamBillingProbeRunnerRechecksEnabledAfterDueSelection(t *testing.T
 	staleDue.Extra = map[string]any{UpstreamBillingProbeEnabledExtraKey: true}
 	baseRepo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	repo := &staleDueUpstreamBillingProbeAccountRepo{upstreamBillingProbeAccountRepo: baseRepo, due: []Account{staleDue}}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	upstream := &upstreamBillingProbeHTTPStub{}
 	svc := newUpstreamBillingProbeTestService(repo, upstream, settingsRepo)
 
@@ -1135,9 +1080,7 @@ func TestUpstreamBillingProbeFiveInstancesRunOneConcurrentBatch(t *testing.T) {
 		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	cache := &fakeLeaderLockCache{}
 	entered := make(chan struct{})
 	unblock := make(chan struct{})
@@ -1194,9 +1137,7 @@ func TestUpstreamBillingProbeManualBatchesShareConcurrencyLimit(t *testing.T) {
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: accounts}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	entered := make(chan struct{}, len(accounts))
 	unblock := make(chan struct{})
 	var unblockOnce sync.Once
@@ -1340,9 +1281,7 @@ func TestUpstreamBillingProbeLeaderLockCoversStaggeredInstancesInCadenceWindow(t
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{41: account(41)}}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyUpstreamBillingProbeSettings: `{"enabled":true,"interval_minutes":30}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	cache := &fakeLeaderLockCache{}
 	upstream := &upstreamBillingProbeHTTPStub{}
 	first := newUpstreamBillingProbeTestService(repo, upstream, settingsRepo)

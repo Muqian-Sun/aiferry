@@ -110,7 +110,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 	upstreamStart := time.Now()
 	var resp *http.Response
 	for attempt := 0; ; attempt++ {
-		upstreamReq, buildErr := buildGrokResponsesRequest(upstreamCtx, c, account, patchedBody, token, cacheIdentity, s.cfg, s.settingService)
+		upstreamReq, buildErr := buildGrokResponsesRequest(upstreamCtx, c, account, patchedBody, token, cacheIdentity, s.cfg)
 		if buildErr != nil {
 			return nil, buildErr
 		}
@@ -1393,7 +1393,7 @@ func (s *OpenAIGatewayService) describeGrokComposerImage(
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	// Image-description probes are auxiliary requests, not conversation turns.
 	// Do not bind them to the caller's Grok prompt-cache identity.
-	upstreamReq, err := buildGrokResponsesRequest(upstreamCtx, c, account, body, token, "", s.cfg, s.settingService)
+	upstreamReq, err := buildGrokResponsesRequest(upstreamCtx, c, account, body, token, "", s.cfg)
 	releaseUpstreamCtx()
 	if err != nil {
 		return "", OpenAIUsage{}, fmt.Errorf("build grok composer image bridge request: %w", err)
@@ -1572,8 +1572,8 @@ func addOpenAIUsage(dst *OpenAIUsage, usage OpenAIUsage) {
 	dst.AudioOutputTokens += usage.AudioOutputTokens
 }
 
-func buildGrokResponsesRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token, cacheIdentity string, cfg *config.Config, settings ...*SettingService) (*http.Request, error) {
-	targetURL, err := buildGrokResponsesURL(account, cfg, settings...)
+func buildGrokResponsesRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token, cacheIdentity string, cfg *config.Config) (*http.Request, error) {
+	targetURL, err := buildGrokResponsesURL(account, cfg)
 	if err != nil {
 		return nil, err
 	}

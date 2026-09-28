@@ -91,18 +91,15 @@ func TestBuildOAuthRequest_BillingMatchesWireUserAgent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, endpoint := range []string{"messages", "count_tokens"} {
 		for _, tc := range []struct {
-			name      string
-			mimic     bool
-			identity  bool
-			disableFP bool
+			name     string
+			mimic    bool
+			identity bool
 		}{
 			{name: "mimic_overrides_cached_version", mimic: true, identity: true},
 			{name: "mimic_without_identity", mimic: true},
-			{name: "mimic_with_fingerprint_disabled", mimic: true, identity: true, disableFP: true},
 			{name: "passthrough_uses_cached_version", identity: true},
 		} {
 			t.Run(endpoint+"/"+tc.name, func(t *testing.T) {
-				resetGatewayForwardingSettingsCacheForTest(t)
 				c, _ := gin.CreateTestContext(httptest.NewRecorder())
 				c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 				body := []byte(`{"model":"claude-haiku-4-5","system":[{"type":"text","text":""}],"messages":[{"role":"user","content":"hello world"}]}`)
@@ -118,11 +115,6 @@ func TestBuildOAuthRequest_BillingMatchesWireUserAgent(t *testing.T) {
 					svc.identityService = NewIdentityService(&stubIdentityCache{fingerprint: &Fingerprint{
 						UserAgent: cachedUA, ClientID: "test-client", UpdatedAt: time.Now().Unix(),
 					}})
-				}
-				if tc.disableFP {
-					svc.settingService = NewSettingService(&gatewayTTLSettingRepo{data: map[string]string{
-						SettingKeyEnableFingerprintUnification: "false",
-					}}, cfg)
 				}
 				account := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 				var req *http.Request

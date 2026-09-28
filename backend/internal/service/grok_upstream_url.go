@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -75,12 +74,12 @@ func redactedGrokBaseURLValidator(validator xai.BaseURLValidator) xai.BaseURLVal
 	}
 }
 
-func buildGrokResponsesURL(account *Account, cfg *config.Config, settings ...*SettingService) (string, error) {
+func buildGrokResponsesURL(account *Account, cfg *config.Config) (string, error) {
 	validator, err := grokBaseURLValidator(account, cfg)
 	if err != nil {
 		return "", err
 	}
-	baseURL, err := grokProtocolBaseURL(account, APIProtocolResponses, settings...)
+	baseURL, err := grokProtocolBaseURL(account, APIProtocolResponses)
 	if err != nil {
 		return "", err
 	}
@@ -89,9 +88,8 @@ func buildGrokResponsesURL(account *Account, cfg *config.Config, settings ...*Se
 
 // grokProtocolBaseURL 取 Grok 文本流量在指定协议下的上游地址。
 //
-// 第三方 key 只认该协议的映射，缺了直接报错；成品号沿用原有口径：账号地址优先，
-// 其次站点配置的默认区域。
-func grokProtocolBaseURL(account *Account, protocol string, settings ...*SettingService) (string, error) {
+// 第三方 key 只认该协议的映射，缺了直接报错；成品号用站点默认区域（代码常量 GrokDefaultBaseURLMode）。
+func grokProtocolBaseURL(account *Account, protocol string) (string, error) {
 	if account.IsThirdPartyKey() {
 		baseURL := account.ProtocolEndpoint(protocol)
 		if baseURL == "" {
@@ -99,18 +97,15 @@ func grokProtocolBaseURL(account *Account, protocol string, settings ...*Setting
 		}
 		return baseURL, nil
 	}
-	if len(settings) > 0 && settings[0] != nil {
-		return settings[0].ResolveGrokBaseURL(context.Background(), account), nil
-	}
-	return account.GetGrokBaseURL(), nil
+	return resolveGrokBaseURL(account), nil
 }
 
-func buildGrokChatCompletionsURL(account *Account, cfg *config.Config, settings ...*SettingService) (string, error) {
+func buildGrokChatCompletionsURL(account *Account, cfg *config.Config) (string, error) {
 	validator, err := grokBaseURLValidator(account, cfg)
 	if err != nil {
 		return "", err
 	}
-	baseURL, err := grokProtocolBaseURL(account, APIProtocolChatCompletions, settings...)
+	baseURL, err := grokProtocolBaseURL(account, APIProtocolChatCompletions)
 	if err != nil {
 		return "", err
 	}

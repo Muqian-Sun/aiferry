@@ -241,11 +241,7 @@ func (s *OllamaCloudUsageService) runOllamaCloudUsageProbe(
 		return
 	}
 
-	settings, settingsErr := s.GetSettings(ctx)
-	if settingsErr != nil {
-		return
-	}
-	fetched, refreshErr := s.refreshAccount(ctx, accountID, settings, false)
+	fetched, refreshErr := s.refreshAccount(ctx, accountID, false)
 	// A nil success means refreshAccount piggybacked on a singleflight run owned
 	// by another request (a timed-cycle refresh or a sibling probe). That owner
 	// already stored the group result, so this no-op must not be recorded as a

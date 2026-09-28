@@ -45,14 +45,9 @@ func TestBuildGrokXSearchResponsesBodyAcceptsInputAlias(t *testing.T) {
 	require.Contains(t, gjson.GetBytes(body, "input").String(), "latest posts from xAI")
 }
 
-func TestResolveGrokStandaloneSearchModelUsesRuntimeDefault(t *testing.T) {
-	original := xai.RuntimeModelMappingOptions()
-	t.Cleanup(func() { xai.SetRuntimeModelMappingOptions(original) })
-	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{DefaultText: "grok-4.6"})
-
-	model := resolveGrokStandaloneSearchModel()
-	body, err := buildGrokXSearchResponsesBody(grokStandaloneSearchRequest{Query: "latest posts from xAI"}, model)
+func TestBuildGrokXSearchResponsesBodyUsesGivenModel(t *testing.T) {
+	t.Parallel()
+	body, err := buildGrokXSearchResponsesBody(grokStandaloneSearchRequest{Query: "latest posts from xAI"}, xai.DefaultTextModel)
 	require.NoError(t, err)
-	require.Equal(t, "grok-4.6", model)
-	require.Equal(t, model, gjson.GetBytes(body, "model").String())
+	require.Equal(t, "grok-4.6", gjson.GetBytes(body, "model").String())
 }

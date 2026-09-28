@@ -74,7 +74,6 @@ type Account struct {
 	modelMappingCacheRawPtr         uintptr
 	modelMappingCacheRawLen         int
 	modelMappingCacheRawSig         uint64
-	modelMappingCacheRuntimeVersion uint64
 	// modelMappingCacheVendor 记录解析时的厂商：厂商默认映射按 Vendor 启用，而 Vendor
 	// 由协议地址决定，地址变了（管理端改号后复用同一对象）缓存必须失效。
 	modelMappingCacheVendor string
@@ -583,7 +582,6 @@ func stringMappingFromRaw(raw any) map[string]string {
 }
 
 func (a *Account) GetModelMapping() map[string]string {
-	runtimeVersion := xai.RuntimeModelMappingVersion()
 	vendor := a.Vendor()
 	credentialsPtr := mapPtr(a.Credentials)
 	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
@@ -597,7 +595,6 @@ func (a *Account) GetModelMapping() map[string]string {
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
 		a.modelMappingCacheRawPtr == rawPtr &&
 		a.modelMappingCacheRawLen == rawLen &&
-		a.modelMappingCacheRuntimeVersion == runtimeVersion &&
 		a.modelMappingCacheVendor == vendor &&
 		a.modelMappingCacheRenameOnly == renameOnly {
 		rawSig = modelMappingSignature(rawMapping)
@@ -618,7 +615,6 @@ func (a *Account) GetModelMapping() map[string]string {
 	a.modelMappingCacheRawPtr = rawPtr
 	a.modelMappingCacheRawLen = rawLen
 	a.modelMappingCacheRawSig = rawSig
-	a.modelMappingCacheRuntimeVersion = runtimeVersion
 	a.modelMappingCacheVendor = vendor
 	a.modelMappingCacheRenameOnly = renameOnly
 	return mapping
@@ -1496,8 +1492,8 @@ func (a *Account) GetOpenAIRefreshToken() string {
 // Grok media traffic has a different transport contract and must use
 // GetGrokMediaBaseURL instead.
 //
-// OAuth accounts always use an official xAI host; the site-wide
-// grok_default_base_url_mode (via SettingService.ResolveGrokBaseURL) picks which
+// OAuth accounts always use an official xAI host; the site default region
+// (code constant GrokDefaultBaseURLMode, via resolveGrokBaseURL) picks which
 // one. Accounts carry no per-account address override.
 func (a *Account) GetGrokBaseURL() string {
 	if a == nil || (!a.IsThirdPartyKey() && !a.IsGrok()) {

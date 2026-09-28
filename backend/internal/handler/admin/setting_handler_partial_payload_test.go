@@ -24,8 +24,10 @@ import (
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeyMinClaudeCodeVersion: "2.0.0",
-		service.SettingKeyMaxClaudeCodeVersion: "3.0.0",
+		service.SettingKeyProfitMinMargin:              "0.30000000",
+		service.SettingKeyOpsQueryModeDefault:          "raw",
+		service.SettingKeyOpsMetricsIntervalSeconds:    "120",
+		service.SettingKeyOpsRealtimeMonitoringEnabled: "false",
 	})
 
 	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
@@ -34,34 +36,24 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "true", repo.values[service.SettingKeyRiskControlEnabled],
 		"the field the caller actually sent must be written")
 
-	require.Equal(t, "2.0.0", repo.values[service.SettingKeyMinClaudeCodeVersion])
-	require.Equal(t, "3.0.0", repo.values[service.SettingKeyMaxClaudeCodeVersion])
+	require.Equal(t, "0.30000000", repo.values[service.SettingKeyProfitMinMargin])
+	require.Equal(t, "raw", repo.values[service.SettingKeyOpsQueryModeDefault])
+	require.Equal(t, "120", repo.values[service.SettingKeyOpsMetricsIntervalSeconds])
+	require.Equal(t, "false", repo.values[service.SettingKeyOpsRealtimeMonitoringEnabled])
 }
 
 // A full payload keeps whole-document semantics: fields explicitly set to their
 // zero value are still cleared.
 func TestUpdateSettingsFullPayloadStillClearsSentEmptyFields(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeyMinClaudeCodeVersion: "2.0.0",
+		service.SettingKeyProfitMinMargin: "0.30000000",
 	})
 
-	rec := doUpdateSettings(t, h, map[string]any{"min_claude_code_version": ""}, nil)
+	rec := doUpdateSettings(t, h, map[string]any{"profit_min_margin": 0}, nil)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	require.Equal(t, "", repo.values[service.SettingKeyMinClaudeCodeVersion],
-		"an explicitly sent empty value is a deliberate clear, not an omission")
-}
-
-func TestUpdateSettingsGrokDefaultBaseURLModeIsWritable(t *testing.T) {
-	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeyGrokDefaultBaseURLMode: service.GrokDefaultBaseURLModeCLI,
-	})
-
-	rec := doUpdateSettings(t, h, map[string]any{
-		"grok_default_base_url_mode": service.GrokDefaultBaseURLModeEUWest1,
-	}, nil)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, service.GrokDefaultBaseURLModeEUWest1, repo.values[service.SettingKeyGrokDefaultBaseURLMode])
+	require.Equal(t, "0.00000000", repo.values[service.SettingKeyProfitMinMargin],
+		"an explicitly sent zero value is a deliberate clear, not an omission")
 }
 
 // newStepUpSwitchTestHandler 设置保存用的最小 handler（名字沿用旧文件）。

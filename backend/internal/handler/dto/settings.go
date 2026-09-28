@@ -32,49 +32,14 @@ type SystemSettings struct {
 	AffiliateRebatePerInviteeCap float64 `json:"affiliate_rebate_per_invitee_cap"`
 	AdminRechargeRebateEnabled   bool    `json:"affiliate_admin_recharge_enabled"`
 
-	// Identity patch configuration (Claude -> Gemini)
-	EnableIdentityPatch bool   `json:"enable_identity_patch"`
-	IdentityPatchPrompt string `json:"identity_patch_prompt"`
-
 	// Ops monitoring (vNext)
 	OpsMonitoringEnabled         bool   `json:"ops_monitoring_enabled"` // 只读：部署配置 OPS_ENABLED
 	OpsRealtimeMonitoringEnabled bool   `json:"ops_realtime_monitoring_enabled"`
 	OpsQueryModeDefault          string `json:"ops_query_mode_default"`
 	OpsMetricsIntervalSeconds    int    `json:"ops_metrics_interval_seconds"`
 
-	MinClaudeCodeVersion string `json:"min_claude_code_version"`
-	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
-
-	// Gateway forwarding behavior
-	OpenAITTFTMode                         string `json:"openai_ttft_mode"`
-	EnableFingerprintUnification           bool   `json:"enable_fingerprint_unification"`
-	EnableMetadataPassthrough              bool   `json:"enable_metadata_passthrough"`
-	EnableCCHSigning                       bool   `json:"enable_cch_signing"`
-	EnableClaudeOAuthSystemPromptInjection bool   `json:"enable_claude_oauth_system_prompt_injection"`
-	ClaudeOAuthSystemPrompt                string `json:"claude_oauth_system_prompt"`
-	ClaudeOAuthSystemPromptBlocks          string `json:"claude_oauth_system_prompt_blocks"`
-	EnableAnthropicCacheTTL1hInjection     bool   `json:"enable_anthropic_cache_ttl_1h_injection"`
-	RewriteMessageCacheControl             bool   `json:"rewrite_message_cache_control"`
-	EnableClientDatelineNormalization      bool   `json:"enable_client_dateline_normalization"`
-	AntigravityUserAgentVersion            string `json:"antigravity_user_agent_version"`
-	OpenAICodexUserAgent                   string `json:"openai_codex_user_agent"`
-	OpenAICodexClientVersion               string `json:"openai_codex_client_version"`
-	OpenAICodexClientVersionSynced         string `json:"openai_codex_client_version_synced"`
-	OpenAICodexVersionAutoSyncEnabled      bool   `json:"openai_codex_version_auto_sync_enabled"`
-
-	// codex_cli_only 加固
-	MinCodexVersion                      string `json:"min_codex_version"`
-	MaxCodexVersion                      string `json:"max_codex_version"`
-	CodexCLIOnlyBlacklist                string `json:"codex_cli_only_blacklist"`
-	CodexCLIOnlyWhitelist                string `json:"codex_cli_only_whitelist"`
-	CodexCLIOnlyAllowAppServerClients    bool   `json:"codex_cli_only_allow_app_server_clients"`
-	CodexCLIOnlyEngineFingerprintSignals string `json:"codex_cli_only_engine_fingerprint_signals"`
-
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
-
-	// Force Alipay mobile clients to use QR code payment instead of mobile redirect
-	// Use Alipay face-to-face precreate and an app deep link on mobile clients.
 
 	// Channel Monitor feature switch
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
@@ -82,11 +47,6 @@ type SystemSettings struct {
 	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
-
-	// Grok model mapping policy (admin settings; empty account mapping falls back to these).
-	GrokDefaultTextModel           string `json:"grok_default_text_model"`
-	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
-	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
@@ -101,16 +61,8 @@ type SystemSettings struct {
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
-	// OpenAI fast/flex policy
-	OpenAIFastPolicySettings *OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
-
-	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
-	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds,omitempty"`
-
-	// 利润门（全站一档）
-	ProfitControlEnabled bool    `json:"profit_control_enabled"`
-	ProfitMinMargin      float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer   float64 `json:"profit_safety_buffer"`
+	// 利润门：最低毛利率（全站一档；0 = 关）
+	ProfitMinMargin float64 `json:"profit_min_margin"`
 }
 
 type PublicSettings struct {
@@ -189,71 +141,8 @@ type LoginAgreementDocument struct {
 	ContentMD string `json:"content_md"`
 }
 
-// OverloadCooldownSettings 529过载冷却配置 DTO
-type OverloadCooldownSettings struct {
-	Enabled         bool `json:"enabled"`
-	CooldownMinutes int  `json:"cooldown_minutes"`
-}
-
-// RateLimit429CooldownSettings 429默认回避配置 DTO
-type RateLimit429CooldownSettings struct {
-	Enabled         bool `json:"enabled"`
-	CooldownSeconds int  `json:"cooldown_seconds"`
-}
-
 type OpenAIImagesOAuthUnavailableCooldownSettings struct {
 	CooldownMinutes int `json:"cooldown_minutes"`
-}
-
-// StreamTimeoutSettings 流超时处理配置 DTO
-type StreamTimeoutSettings struct {
-	Enabled                bool   `json:"enabled"`
-	Action                 string `json:"action"`
-	TempUnschedMinutes     int    `json:"temp_unsched_minutes"`
-	ThresholdCount         int    `json:"threshold_count"`
-	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
-}
-
-// RectifierSettings 请求整流器配置 DTO
-type RectifierSettings struct {
-	Enabled                  bool     `json:"enabled"`
-	ThinkingSignatureEnabled bool     `json:"thinking_signature_enabled"`
-	ThinkingBudgetEnabled    bool     `json:"thinking_budget_enabled"`
-	APIKeySignatureEnabled   bool     `json:"apikey_signature_enabled"`
-	APIKeySignaturePatterns  []string `json:"apikey_signature_patterns"`
-}
-
-// BetaPolicyRule Beta 策略规则 DTO
-type BetaPolicyRule struct {
-	BetaToken            string   `json:"beta_token"`
-	Action               string   `json:"action"`
-	Scope                string   `json:"scope"`
-	ErrorMessage         string   `json:"error_message,omitempty"`
-	ModelWhitelist       []string `json:"model_whitelist,omitempty"`
-	FallbackAction       string   `json:"fallback_action,omitempty"`
-	FallbackErrorMessage string   `json:"fallback_error_message,omitempty"`
-}
-
-// BetaPolicySettings Beta 策略配置 DTO
-type BetaPolicySettings struct {
-	Rules []BetaPolicyRule `json:"rules"`
-}
-
-// OpenAIFastPolicyRule OpenAI fast/flex 策略规则 DTO
-type OpenAIFastPolicyRule struct {
-	ServiceTier          string   `json:"service_tier"`
-	Action               string   `json:"action"`
-	Scope                string   `json:"scope"`
-	UserIDs              []int64  `json:"user_ids,omitempty"`
-	ErrorMessage         string   `json:"error_message,omitempty"`
-	ModelWhitelist       []string `json:"model_whitelist,omitempty"`
-	FallbackAction       string   `json:"fallback_action,omitempty"`
-	FallbackErrorMessage string   `json:"fallback_error_message,omitempty"`
-}
-
-// OpenAIFastPolicySettings OpenAI fast 策略配置 DTO
-type OpenAIFastPolicySettings struct {
-	Rules []OpenAIFastPolicyRule `json:"rules"`
 }
 
 // EmailTemplateEventOption 描述可编辑的通知邮件事件。

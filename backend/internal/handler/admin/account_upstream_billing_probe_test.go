@@ -2,7 +2,6 @@ package admin
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,27 +14,12 @@ import (
 func setupUpstreamBillingProbeRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	handler := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
-	handler.SetUpstreamBillingProbeService(service.NewUpstreamBillingProbeService(nil, nil, nil))
+	handler.SetUpstreamBillingProbeService(service.NewUpstreamBillingProbeService(nil, nil))
 
 	router := gin.New()
-	router.GET("/admin/accounts/upstream-billing-probe/settings", handler.GetUpstreamBillingProbeSettings)
 	router.POST("/admin/accounts/upstream-billing-probe/batch", handler.ProbeUpstreamBillingBatch)
 	router.PUT("/admin/accounts/:id/upstream-billing-probe", handler.SetUpstreamBillingProbeEnabled)
 	return router
-}
-
-func TestAccountHandlerGetUpstreamBillingProbeSettingsReturnsDefaults(t *testing.T) {
-	router := setupUpstreamBillingProbeRouter()
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/admin/accounts/upstream-billing-probe/settings", nil))
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-	var response struct {
-		Data service.UpstreamBillingProbeSettings `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
-	require.True(t, response.Data.Enabled)
-	require.Equal(t, 30, response.Data.IntervalMinutes)
 }
 
 func TestAccountHandlerProbeUpstreamBillingBatchValidatesIDs(t *testing.T) {

@@ -325,11 +325,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.GET("", h.Admin.Account.List)
 		accounts.GET("/protocol-defaults", h.Admin.Account.GetProtocolDefaults)
 		accounts.GET("/upstream-billing-rates", h.Admin.Account.GetUpstreamBillingRates)
-		accounts.GET("/upstream-billing-probe/settings", h.Admin.Account.GetUpstreamBillingProbeSettings)
-		accounts.PUT("/upstream-billing-probe/settings", h.Admin.Account.UpdateUpstreamBillingProbeSettings)
 		accounts.POST("/upstream-billing-probe/batch", h.Admin.Account.ProbeUpstreamBillingBatch)
-		accounts.GET("/ollama-cloud-usage/settings", h.Admin.Account.GetOllamaCloudUsageSettings)
-		accounts.PUT("/ollama-cloud-usage/settings", h.Admin.Account.UpdateOllamaCloudUsageSettings)
 		accounts.GET("/:id", h.Admin.Account.GetByID)
 		accounts.POST("", h.Admin.Account.Create)
 		accounts.POST("/:id/duplicate", h.Admin.Account.Duplicate)
@@ -519,30 +515,10 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
 		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
 		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
-		// 529过载冷却配置
-		adminSettings.GET("/overload-cooldown", h.Admin.Setting.GetOverloadCooldownSettings)
-		adminSettings.PUT("/overload-cooldown", h.Admin.Setting.UpdateOverloadCooldownSettings)
-		// 429默认回避配置
-		adminSettings.GET("/rate-limit-429-cooldown", h.Admin.Setting.GetRateLimit429CooldownSettings)
-		adminSettings.PUT("/rate-limit-429-cooldown", h.Admin.Setting.UpdateRateLimit429CooldownSettings)
-		// OpenAI OAuth image-tool unavailable cooldown configuration
-		adminSettings.GET("/openai-images-oauth-unavailable-cooldown", h.Admin.Setting.GetOpenAIImagesOAuthUnavailableCooldownSettings)
-		adminSettings.PUT("/openai-images-oauth-unavailable-cooldown", h.Admin.Setting.UpdateOpenAIImagesOAuthUnavailableCooldownSettings)
-		// 面板 API 限流配置
-		// 流超时处理配置
-		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
-		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
-		// 请求整流器配置
-		adminSettings.GET("/rectifier", h.Admin.Setting.GetRectifierSettings)
-		adminSettings.PUT("/rectifier", h.Admin.Setting.UpdateRectifierSettings)
-		// Beta 策略配置
-		adminSettings.GET("/beta-policy", h.Admin.Setting.GetBetaPolicySettings)
-		adminSettings.PUT("/beta-policy", h.Admin.Setting.UpdateBetaPolicySettings)
 		// Web Search 模拟配置
 		adminSettings.GET("/web-search-emulation", h.Admin.Setting.GetWebSearchEmulationConfig)
 		adminSettings.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
 		adminSettings.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
-		adminSettings.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
 	}
 }
 

@@ -253,7 +253,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 // （标签与厂商都不参与）；Grok 成品号走站点配置的 xAI 官方地址。
 func (s *OpenAIGatewayService) rawChatCompletionsURL(account *Account) (string, error) {
 	if !account.IsThirdPartyKey() && account.Platform == PlatformGrok {
-		targetURL, err := buildGrokChatCompletionsURL(account, s.cfg, s.settingService)
+		targetURL, err := buildGrokChatCompletionsURL(account, s.cfg)
 		if err != nil {
 			return "", fmt.Errorf("invalid grok base_url: %w", err)
 		}

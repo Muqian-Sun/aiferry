@@ -65,32 +65,10 @@ func GrokBaseURLForMode(mode string) string {
 	}
 }
 
-func (s *SettingService) GetGrokDefaultBaseURLMode(ctx context.Context) string {
-	if s == nil || s.settingRepo == nil {
-		return GrokDefaultBaseURLModeCLI
-	}
-	dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), gatewayForwardingDBTimeout)
-	defer cancel()
-	raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyGrokDefaultBaseURLMode)
-	if err != nil {
-		return GrokDefaultBaseURLModeCLI
-	}
-	return normalizeGrokDefaultBaseURLMode(raw)
-}
-
-func (s *SettingService) GetGrokDefaultBaseURL(ctx context.Context) string {
-	return GrokBaseURLForMode(s.GetGrokDefaultBaseURLMode(ctx))
-}
-
-func (s *SettingService) ResolveGrokBaseURL(ctx context.Context, account *Account) string {
-	def := xai.DefaultCLIBaseURL
-	if s != nil {
-		def = s.GetGrokDefaultBaseURL(ctx)
-	}
-	if account == nil {
-		return def
-	}
-	return account.GetGrokBaseURLOr(def)
+// resolveGrokBaseURL Grok 成品号文本流量的上游地址：站点默认区域写在代码里（GrokDefaultBaseURLMode）；
+// 第三方 key 由 GetGrokBaseURLOr 按协议映射取，不看这个默认值。
+func resolveGrokBaseURL(account *Account) string {
+	return account.GetGrokBaseURLOr(GrokBaseURLForMode(GrokDefaultBaseURLMode))
 }
 
 var (
@@ -109,25 +87,17 @@ type SettingRepository interface {
 }
 
 // WebSearchManagerBuilder creates a websearch.Manager from config (injected by infra layer).
-// proxyURLs maps proxy ID to resolved URL for provider-level proxy support.
-type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[int64]string)
+type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig)
 
 // SettingService 系统设置服务
 type SettingService struct {
-	settingRepo                 SettingRepository
-	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
-	cfg                         *config.Config
-	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
-	version                     string // Application version
-	webSearchManagerBuilder     WebSearchManagerBuilder
-	antigravityUAVersionCache   atomic.Value // *cachedAntigravityUserAgentVersion
-	antigravityUAVersionSF      singleflight.Group
-	openAICodexUACache          atomic.Value // *cachedOpenAICodexUserAgent
-	openAICodexUASF             singleflight.Group
-	openAICodexVersionCache     atomic.Value // *cachedOpenAICodexClientVersion
-	openAICodexVersionSF        singleflight.Group
-	codexRestrictionPolicyCache atomic.Value // *cachedCodexRestrictionPolicy
-	codexRestrictionPolicySF    singleflight.Group
+	settingRepo             SettingRepository
+	cfg                     *config.Config
+	onUpdate                func() // Callback when settings are updated (for cache invalidation)
+	version                 string // Application version
+	webSearchManagerBuilder WebSearchManagerBuilder
+	openAICodexVersionCache atomic.Value // *cachedOpenAICodexClientVersion
+	openAICodexVersionSF    singleflight.Group
 
 	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
 	cyberSessionBlockRuntimeSF    singleflight.Group
@@ -169,11 +139,6 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 		settingRepo: settingRepo,
 		cfg:         cfg,
 	}
-}
-
-// SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
-func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
-	s.proxyRepo = repo
 }
 
 // GetAllSettings 获取所有系统设置

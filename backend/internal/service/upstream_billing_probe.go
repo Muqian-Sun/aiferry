@@ -33,15 +33,13 @@ const (
 	UpstreamBillingProbeEnabledExtraKey    = "upstream_billing_probe_enabled"
 	UpstreamBillingRateSyncEnabledExtraKey = "upstream_billing_rate_sync_enabled"
 
-	upstreamBillingProbeDefaultIntervalMinutes = 30
-	upstreamBillingProbeMinIntervalMinutes     = 5
-	upstreamBillingProbeMaxIntervalMinutes     = 24 * 60
-	upstreamBillingProbeCycleInterval          = time.Minute
-	upstreamBillingProbeRequestTimeout         = 10 * time.Second
-	upstreamBillingProbeMaxBodyBytes           = 64 * 1024
-	upstreamBillingProbeMaxPerCycle            = 20
-	upstreamBillingProbeConcurrency            = 4
-	upstreamBillingProbeMaxDelay               = 24 * time.Hour
+	upstreamBillingProbeMinIntervalMinutes = 5
+	upstreamBillingProbeCycleInterval      = time.Minute
+	upstreamBillingProbeRequestTimeout     = 10 * time.Second
+	upstreamBillingProbeMaxBodyBytes       = 64 * 1024
+	upstreamBillingProbeMaxPerCycle        = 20
+	upstreamBillingProbeConcurrency        = 4
+	upstreamBillingProbeMaxDelay           = 24 * time.Hour
 	// unsupported 账号的重探间隔倍数：上游不是 sub2api 中转就不会突然长出
 	// /v1/sub2api/billing，按常规 interval 重排只会持续占满每周期
 	// upstreamBillingProbeMaxPerCycle 个名额。
@@ -94,12 +92,6 @@ const (
 	UpstreamBillingProbeStatusUnsupported = "unsupported"
 	UpstreamBillingProbeStatusFailed      = "failed"
 )
-
-// UpstreamBillingProbeSettings controls the periodic probe runner.
-type UpstreamBillingProbeSettings struct {
-	Enabled         bool `json:"enabled"`
-	IntervalMinutes int  `json:"interval_minutes"`
-}
 
 // UpstreamBillingProbeSnapshot is persisted in accounts.extra. Data is kept as
 // a sanitized map so future response fields do not require a database change.
@@ -174,73 +166,10 @@ type upstreamBillingProbeResponse struct {
 	ObservedAt              string   `json:"observed_at"`
 }
 
-// GetUpstreamBillingProbeSettings returns defaults when the setting is absent.
-func (s *SettingService) GetUpstreamBillingProbeSettings(ctx context.Context) (*UpstreamBillingProbeSettings, error) {
-	defaults := defaultUpstreamBillingProbeSettings()
-	if s == nil || s.settingRepo == nil {
-		return defaults, nil
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyUpstreamBillingProbeSettings)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			return defaults, nil
-		}
-		return nil, fmt.Errorf("get upstream billing probe settings: %w", err)
-	}
-	if strings.TrimSpace(value) == "" {
-		return defaults, nil
-	}
-	settings := *defaults
-	if err := json.Unmarshal([]byte(value), &settings); err != nil {
-		return nil, fmt.Errorf("parse upstream billing probe settings: %w", err)
-	}
-	if settings.IntervalMinutes == 0 {
-		settings.IntervalMinutes = defaults.IntervalMinutes
-	}
-	normalizeUpstreamBillingProbeSettings(&settings)
-	return &settings, nil
-}
-
-// SetUpstreamBillingProbeSettings validates and persists the runner settings.
-func (s *SettingService) SetUpstreamBillingProbeSettings(ctx context.Context, settings *UpstreamBillingProbeSettings) error {
-	if s == nil || s.settingRepo == nil {
-		return fmt.Errorf("setting repository is unavailable")
-	}
-	if settings == nil {
-		return infraerrors.BadRequest("INVALID_UPSTREAM_BILLING_PROBE_SETTINGS", "settings cannot be nil")
-	}
-	if settings.IntervalMinutes < upstreamBillingProbeMinIntervalMinutes || settings.IntervalMinutes > upstreamBillingProbeMaxIntervalMinutes {
-		return infraerrors.BadRequest(
-			"INVALID_UPSTREAM_BILLING_PROBE_INTERVAL",
-			fmt.Sprintf("interval_minutes must be between %d and %d", upstreamBillingProbeMinIntervalMinutes, upstreamBillingProbeMaxIntervalMinutes),
-		)
-	}
-	normalizeUpstreamBillingProbeSettings(settings)
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return fmt.Errorf("marshal upstream billing probe settings: %w", err)
-	}
-	return s.settingRepo.Set(ctx, SettingKeyUpstreamBillingProbeSettings, string(data))
-}
-
-func defaultUpstreamBillingProbeSettings() *UpstreamBillingProbeSettings {
-	return &UpstreamBillingProbeSettings{Enabled: true, IntervalMinutes: upstreamBillingProbeDefaultIntervalMinutes}
-}
-
-func normalizeUpstreamBillingProbeSettings(settings *UpstreamBillingProbeSettings) {
-	if settings.IntervalMinutes < upstreamBillingProbeMinIntervalMinutes {
-		settings.IntervalMinutes = upstreamBillingProbeMinIntervalMinutes
-	}
-	if settings.IntervalMinutes > upstreamBillingProbeMaxIntervalMinutes {
-		settings.IntervalMinutes = upstreamBillingProbeMaxIntervalMinutes
-	}
-}
-
 // UpstreamBillingProbeService discovers a remote Sub2API billing snapshot.
 type UpstreamBillingProbeService struct {
 	accountRepo        AccountRepository
 	accountTestService *AccountTestService
-	settingService     *SettingService
 
 	parentCtx    context.Context
 	parentCancel context.CancelFunc
@@ -268,13 +197,11 @@ type upstreamBillingProbeDueAccountLister interface {
 func NewUpstreamBillingProbeService(
 	accountRepo AccountRepository,
 	accountTestService *AccountTestService,
-	settingService *SettingService,
 ) *UpstreamBillingProbeService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &UpstreamBillingProbeService{
 		accountRepo:        accountRepo,
 		accountTestService: accountTestService,
-		settingService:     settingService,
 		parentCtx:          ctx,
 		parentCancel:       cancel,
 		probeSlots:         make(chan struct{}, upstreamBillingProbeConcurrency),
@@ -295,11 +222,10 @@ func (s *UpstreamBillingProbeService) SetLeaderLock(lockCache LeaderLockCache, d
 func ProvideUpstreamBillingProbeService(
 	accountRepo AccountRepository,
 	accountTestService *AccountTestService,
-	settingService *SettingService,
 	lockCache LeaderLockCache,
 	db *sql.DB,
 ) *UpstreamBillingProbeService {
-	svc := NewUpstreamBillingProbeService(accountRepo, accountTestService, settingService)
+	svc := NewUpstreamBillingProbeService(accountRepo, accountTestService)
 	svc.SetLeaderLock(lockCache, db)
 	svc.Start()
 	return svc
@@ -360,11 +286,7 @@ func (s *UpstreamBillingProbeService) RunDue(ctx context.Context) error {
 	s.cycleMu.Lock()
 	defer s.cycleMu.Unlock()
 
-	settings, err := s.getSettings(ctx)
-	if err != nil {
-		return err
-	}
-	if !settings.Enabled {
+	if !UpstreamBillingProbeEnabled {
 		return nil
 	}
 	runRelease, acquired, lockErr := s.tryAcquireLeaderLock(ctx, upstreamBillingProbeLeaderLockKey)
@@ -427,7 +349,7 @@ func (s *UpstreamBillingProbeService) RunDue(ctx context.Context) error {
 	for i := range due {
 		accountID := due[i].ID
 		group.Go(func() error {
-			if _, probeErr := s.probeScheduledAccount(ctx, accountID, settings.IntervalMinutes); probeErr != nil {
+			if _, probeErr := s.probeScheduledAccount(ctx, accountID, UpstreamBillingProbeIntervalMinutes); probeErr != nil {
 				logger.LegacyPrintf("service.upstream_billing_probe", "probe_due_failed: account_id=%d err=%v", accountID, probeErr)
 			}
 			return nil
@@ -445,34 +367,12 @@ func (s *UpstreamBillingProbeService) listDueAccounts(ctx context.Context, now t
 	return s.accountRepo.FindByExtraField(ctx, UpstreamBillingProbeEnabledExtraKey, true)
 }
 
-func (s *UpstreamBillingProbeService) getSettings(ctx context.Context) (*UpstreamBillingProbeSettings, error) {
-	if s.settingService == nil {
-		return defaultUpstreamBillingProbeSettings(), nil
-	}
-	return s.settingService.GetUpstreamBillingProbeSettings(ctx)
-}
-
-func (s *UpstreamBillingProbeService) GetSettings(ctx context.Context) (*UpstreamBillingProbeSettings, error) {
-	return s.getSettings(ctx)
-}
-
-func (s *UpstreamBillingProbeService) UpdateSettings(ctx context.Context, settings *UpstreamBillingProbeSettings) error {
-	if s == nil || s.settingService == nil {
-		return ErrUpstreamBillingProbeUnavailable
-	}
-	return s.settingService.SetUpstreamBillingProbeSettings(ctx, settings)
-}
-
 // ProbeAccount performs one manual or scheduled probe. Manual calls ignore both switches.
 func (s *UpstreamBillingProbeService) ProbeAccount(ctx context.Context, accountID int64) (*UpstreamBillingProbeSnapshot, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, ErrUpstreamBillingProbeUnavailable
 	}
-	settings, err := s.getSettings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return s.probeAccount(ctx, accountID, settings.IntervalMinutes)
+	return s.probeAccount(ctx, accountID, UpstreamBillingProbeIntervalMinutes)
 }
 
 func (s *UpstreamBillingProbeService) probeAccount(ctx context.Context, accountID int64, intervalMinutes int) (*UpstreamBillingProbeSnapshot, error) {
@@ -535,19 +435,12 @@ func (s *UpstreamBillingProbeService) ProbeAccounts(ctx context.Context, account
 		}
 		return results
 	}
-	settings, settingsErr := s.getSettings(ctx)
-	if settingsErr != nil {
-		for i, accountID := range accountIDs {
-			results[i] = UpstreamBillingProbeResult{AccountID: accountID, Error: safeProbeError(settingsErr)}
-		}
-		return results
-	}
 	var group errgroup.Group
 	for i, accountID := range accountIDs {
 		i, accountID := i, accountID
 		results[i].AccountID = accountID
 		group.Go(func() error {
-			snapshot, err := s.probeAccount(ctx, accountID, settings.IntervalMinutes)
+			snapshot, err := s.probeAccount(ctx, accountID, UpstreamBillingProbeIntervalMinutes)
 			if err != nil {
 				results[i].Error = safeProbeError(err)
 				return nil

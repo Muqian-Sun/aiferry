@@ -1456,9 +1456,9 @@ func (h *GatewayHandler) checkClaudeCodeVersion(c *gin.Context) bool {
 		return true
 	}
 
-	minVersion, maxVersion := h.settingService.GetClaudeCodeVersionBounds(ctx)
+	minVersion, maxVersion := service.MinClaudeCodeVersion, service.MaxClaudeCodeVersion
 	if minVersion == "" && maxVersion == "" {
-		return true // 未设置，不检查
+		return true // 不限版本（代码常量，gateway_features.go）
 	}
 
 	clientVersion := service.GetClaudeCodeVersion(ctx)

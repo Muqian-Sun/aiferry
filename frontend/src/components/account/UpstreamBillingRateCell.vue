@@ -43,7 +43,7 @@
         </template>
         <p v-else>{{ statusLabel || '-' }}</p>
         <p
-          v-if="probeEnabled && globalProbeEnabled !== false && nextProbeAt"
+          v-if="probeEnabled && nextProbeAt"
           data-testid="upstream-billing-next-probe"
         >
           {{ t('admin.accounts.upstreamBilling.nextProbeAt', { value: formatDate(nextProbeAt) }) }}
@@ -53,14 +53,6 @@
           <span :class="probeEnabled ? 'text-af-success' : 'text-af-danger'">
             {{ probeEnabled ? t('admin.accounts.upstreamBilling.enabled') : t('admin.accounts.upstreamBilling.disabled') }}
           </span>
-        </p>
-        <p
-          v-if="globalProbeEnabled === false"
-          class="mt-1"
-          data-testid="upstream-billing-global-probe-state"
-        >
-          {{ t('admin.accounts.upstreamBilling.globalProbeState') }}
-          <span class="text-af-danger">{{ t('admin.accounts.upstreamBilling.disabled') }}</span>
         </p>
       </div>
     </HelpTooltip>
@@ -90,14 +82,12 @@ import Icon from '@/components/icons/Icon.vue'
 import { formatMultiplier } from '@/utils/formatters'
 import type { Account, UpstreamBillingProbeSnapshot } from '@/types'
 
-const props = withDefaults(defineProps<{
+// 上游余额探测的全局开关写死为开（上线收口 P4），这里只看渠道自己的开关
+const props = defineProps<{
   account: Account
   now: number
   probing?: boolean
-  globalProbeEnabled?: boolean
-}>(), {
-  globalProbeEnabled: true
-})
+}>()
 
 defineEmits<{
   (event: 'probe'): void

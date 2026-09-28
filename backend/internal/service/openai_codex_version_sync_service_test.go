@@ -137,31 +137,14 @@ func TestOpenAICodexVersionSyncNeverMovesBackwards(t *testing.T) {
 	require.Empty(t, repo.syncedWrites())
 }
 
-func TestOpenAICodexVersionSyncSkippedWhenDisabled(t *testing.T) {
-	repo := newCodexVersionSyncSettingRepoStub(map[string]string{
-		SettingKeyOpenAICodexVersionAutoSyncEnabled: "false",
-	})
+// 自动同步开关是代码常量 OpenAICodexVersionAutoSyncEnabled（开）：库里什么都没有也照常同步。
+func TestOpenAICodexVersionSyncEnabledByDefault(t *testing.T) {
+	repo := newCodexVersionSyncSettingRepoStub(nil)
 	github := &codexVersionSyncGitHubStub{releases: []*GitHubRelease{{TagName: "rust-v0.146.0"}}}
 
 	newCodexVersionSyncService(repo, github).runOnce()
 
-	require.Zero(t, github.latestCalls, "关闭自动同步后不应请求上游")
-	require.Zero(t, github.calls, "关闭自动同步后不应请求上游")
-	require.Empty(t, repo.syncedWrites())
-}
-
-// 面板开关缺失或为空一律视为开启，与设置默认值一致。
-func TestOpenAICodexVersionSyncEnabledByDefault(t *testing.T) {
-	for _, value := range []string{"", "true"} {
-		repo := newCodexVersionSyncSettingRepoStub(map[string]string{
-			SettingKeyOpenAICodexVersionAutoSyncEnabled: value,
-		})
-		github := &codexVersionSyncGitHubStub{releases: []*GitHubRelease{{TagName: "rust-v0.146.0"}}}
-
-		newCodexVersionSyncService(repo, github).runOnce()
-
-		require.Equal(t, []string{"0.146.0"}, repo.syncedWrites(), "开关值 %q", value)
-	}
+	require.Equal(t, []string{"0.146.0"}, repo.syncedWrites())
 }
 
 // 抓取失败保持既有值，不清空、不降级。两条取数路径都失败才算真正拿不到。
@@ -265,7 +248,7 @@ func TestOpenAICodexVersionSyncStartRequiresDependencies(t *testing.T) {
 	})
 }
 
-// --- mock: 版本号读取只用到 GetMultiple ---
+// --- mock: 版本号读取只用到 GetValue ---
 
 type codexVersionSettingRepoStub struct {
 	SettingRepository // 嵌入接口，未实现的方法会 panic（不应被调用）
@@ -274,18 +257,6 @@ type codexVersionSettingRepoStub struct {
 	err    error
 }
 
-func (r *codexVersionSettingRepoStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-	out := make(map[string]string, len(keys))
-	for _, key := range keys {
-		out[key] = r.values[key]
-	}
-	return out, nil
-}
-
-// 规范 UA 解析会先读面板的完整 UA 键。
 func (r *codexVersionSettingRepoStub) GetValue(_ context.Context, key string) (string, error) {
 	if r.err != nil {
 		return "", r.err
@@ -293,26 +264,21 @@ func (r *codexVersionSettingRepoStub) GetValue(_ context.Context, key string) (s
 	return r.values[key], nil
 }
 
-// 版本号优先级：管理员面板覆写 → 自动同步值 → 内置常量。
-// 管理员覆写必须压过同步值，否则「固定版本」的诉求会被 3 小时后的同步冲掉。
+// 版本号优先级：自动同步值 → 内置常量（后台不再能手工固定版本）。
 func TestGetOpenAICodexClientVersionPriority(t *testing.T) {
 	tests := []struct {
-		name     string
-		override string
-		synced   string
-		want     string
+		name   string
+		synced string
+		want   string
 	}{
-		{name: "面板覆写优先", override: "0.150.0", synced: "0.146.0", want: "0.150.0"},
-		{name: "覆写为空时用同步值", synced: "0.146.0", want: "0.146.0"},
-		{name: "两者皆空时用内置常量", want: codexCLIVersion},
-		{name: "非法覆写回退同步值", override: "latest", synced: "0.146.0", want: "0.146.0"},
+		{name: "有同步值时用同步值", synced: "0.146.0", want: "0.146.0"},
+		{name: "没有同步值时用内置常量", want: codexCLIVersion},
 		{name: "非法同步值回退内置常量", synced: "not-a-version", want: codexCLIVersion},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-				SettingKeyOpenAICodexClientVersion:       tt.override,
 				SettingKeyOpenAICodexClientVersionSynced: tt.synced,
 			}}, nil)
 
@@ -327,7 +293,7 @@ func TestGetOpenAICodexClientVersionFallsBackOnError(t *testing.T) {
 	require.Equal(t, codexCLIVersion, svc.GetOpenAICodexClientVersion(context.Background()))
 }
 
-// 规范 UA：面板未填完整 UA 时按当前生效版本号拼出标准 TUI 形态。
+// 规范 UA：按当前生效版本号拼出标准 TUI 形态。
 func TestGetOpenAICodexCanonicalUserAgentBuildsFromVersion(t *testing.T) {
 	svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
 		SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
@@ -337,71 +303,6 @@ func TestGetOpenAICodexCanonicalUserAgentBuildsFromVersion(t *testing.T) {
 		"codex-tui/0.200.1"+codexCLIUserAgentSuffix,
 		svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
 	)
-}
-
-// 回归：面板完整 UA 是唯一能改 OS / 架构 / 终端指纹的地方，必须保留；但它填写于某个
-// 历史版本，逐字沿用会绕过版本自动同步、把出站身份永久钉死在陈旧版本上——而陈旧身份
-// 正是上游优先降载的那一侧。因此只借它的指纹，版本段一律用生效版本重建。
-func TestGetOpenAICodexCanonicalUserAgentRebuildsPanelUAVersion(t *testing.T) {
-	t.Run("陈旧面板 UA 跟随生效版本", func(t *testing.T) {
-		svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-			// 历史面板 placeholder 的原文，照抄填写过的存量部署就是这个值。
-			SettingKeyOpenAICodexUserAgent:           "codex_cli_rs/0.144.1 (Ubuntu 22.4.0; x86_64) xterm-256color",
-			SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
-		}}, nil)
-
-		require.Equal(t,
-			"codex_cli_rs/0.200.1 (Ubuntu 22.4.0; x86_64) xterm-256color",
-			svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
-		)
-	})
-
-	t.Run("自定义指纹原样保留", func(t *testing.T) {
-		svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-			SettingKeyOpenAICodexUserAgent:           "codex_cli_rs/0.140.0 (Mac OS X 15.1.0; arm64) iTerm.app",
-			SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
-		}}, nil)
-
-		require.Equal(t,
-			"codex_cli_rs/0.200.1 (Mac OS X 15.1.0; arm64) iTerm.app",
-			svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
-		)
-	})
-
-	t.Run("TUI UA 的首尾两个版本号同时更新", func(t *testing.T) {
-		svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-			SettingKeyOpenAICodexUserAgent:           "codex-tui/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.146.1)",
-			SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
-		}}, nil)
-
-		require.Equal(t,
-			"codex-tui/0.200.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.200.1)",
-			svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
-		)
-	})
-
-	// 面板版本号覆写优先级仍然高于同步值：管理员固定版本的诉求不被重建绕开。
-	t.Run("面板版本号覆写优先", func(t *testing.T) {
-		svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-			SettingKeyOpenAICodexUserAgent:           "codex_cli_rs/0.144.1 (Ubuntu 22.4.0; x86_64) xterm-256color",
-			SettingKeyOpenAICodexClientVersion:       "0.150.0",
-			SettingKeyOpenAICodexClientVersionSynced: "0.200.1",
-		}}, nil)
-
-		require.Equal(t,
-			"codex_cli_rs/0.150.0 (Ubuntu 22.4.0; x86_64) xterm-256color",
-			svc.GetOpenAICodexCanonicalUserAgent(context.Background()),
-		)
-	})
-
-	// 非 `{client}/{version}` 形态无法重建，原样返回，由收口整体回退规范身份。
-	t.Run("非 Codex 形态原样返回", func(t *testing.T) {
-		svc := NewSettingService(&codexVersionSettingRepoStub{values: map[string]string{
-			SettingKeyOpenAICodexUserAgent: "not-a-codex-client",
-		}}, nil)
-
-		require.Equal(t, "not-a-codex-client", svc.GetOpenAICodexCanonicalUserAgent(context.Background()))
-	})
 }
 
 func (r *codexVersionSyncSettingRepoStub) Get(_ context.Context, key string) (*Setting, error) {

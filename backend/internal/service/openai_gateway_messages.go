@@ -321,7 +321,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	var upstreamReq *http.Request
 	if grokVendor {
-		upstreamReq, err = buildGrokResponsesRequest(upstreamCtx, c, account, responsesBody, token, grokCacheIdentity, s.cfg, s.settingService)
+		upstreamReq, err = buildGrokResponsesRequest(upstreamCtx, c, account, responsesBody, token, grokCacheIdentity, s.cfg)
 	} else {
 		upstreamReq, err = s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, isStream, promptCacheKey, false)
 	}
@@ -373,7 +373,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				break
 			}
 			upstreamCtxRetry, releaseRetry := detachUpstreamContext(ctx)
-			upstreamReq, err = buildGrokResponsesRequest(upstreamCtxRetry, c, account, responsesBody, token, grokCacheIdentity, s.cfg, s.settingService)
+			upstreamReq, err = buildGrokResponsesRequest(upstreamCtxRetry, c, account, responsesBody, token, grokCacheIdentity, s.cfg)
 			releaseRetry()
 			if err != nil {
 				return nil, fmt.Errorf("build grok retry request: %w", err)

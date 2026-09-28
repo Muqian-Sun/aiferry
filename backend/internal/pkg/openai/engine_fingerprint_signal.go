@@ -1,8 +1,6 @@
 package openai
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -78,53 +76,4 @@ func engineSignalMatches(h http.Header, body []byte, s EngineFingerprintSignal) 
 		}
 	}
 	return false
-}
-
-// ParseEngineFingerprintSignals 解析 JSON;空串→(nil,true);非法→(nil,false)。
-func ParseEngineFingerprintSignals(raw string) ([]EngineFingerprintSignal, bool) {
-	if strings.TrimSpace(raw) == "" {
-		return nil, true
-	}
-	var sigs []EngineFingerprintSignal
-	if json.Unmarshal([]byte(raw), &sigs) != nil {
-		return nil, false
-	}
-	return sigs, true
-}
-
-// ValidateEngineFingerprintSignalsJSON 校验:空=合法;非空须为合法数组,
-// 每条 type 合法且 match 至少一个非空项。供管理端写入校验复用。
-func ValidateEngineFingerprintSignalsJSON(raw string) error {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return nil
-	}
-	var sigs []EngineFingerprintSignal
-	if err := json.Unmarshal([]byte(trimmed), &sigs); err != nil {
-		return fmt.Errorf("must be empty or a valid JSON array of {type, match[], required}")
-	}
-	for i, s := range sigs {
-		switch s.Type {
-		case FingerprintSignalHeaderExact, FingerprintSignalHeaderPrefix, FingerprintSignalBodyPath:
-		default:
-			return fmt.Errorf("entry %d: type must be one of header_exact/header_prefix/body_path", i)
-		}
-		hasMatch := false
-		for _, m := range s.Match {
-			if strings.TrimSpace(m) != "" {
-				hasMatch = true
-				break
-			}
-		}
-		if !hasMatch {
-			return fmt.Errorf("entry %d: match must contain at least one non-empty value", i)
-		}
-	}
-	return nil
-}
-
-// DefaultEngineFingerprintSignalsJSON 默认种子的 JSON 字符串。
-func DefaultEngineFingerprintSignalsJSON() string {
-	b, _ := json.Marshal(DefaultEngineFingerprintSignals)
-	return string(b)
 }

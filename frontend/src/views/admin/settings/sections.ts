@@ -5,17 +5,17 @@
  * 站点、条款、注册、新用户默认值、访问限流、通知写进后端代码，SMTP 与人机验证挪到部署配置，在线支付写死关，
  * /admin/settings 不再返回也不接受这些字段；管理 API Key 前端不再给入口（后端接口保留）。
  * 「开关」一节只剩风控：渠道监控写死开，运维监控只认部署配置 OPS_ENABLED。
+ * 2026-09-27（上线收口 P4）：网关的「重试与冷却」「转发行为」「Claude Code · Codex」「上游余额探测」四节收成「其它」一节：
+ * 冷却、流超时、整流、Beta / Fast 策略、转发细节、客户端版本、调度阈值、上游余额探测都写进后端代码，
+ * 后台只留最低毛利率与联网搜索模拟。
  * 每节一个地址 /settings/<key>；二级导航按组排列。
  */
 import type { Component } from 'vue'
-import CooldownSection from './sections/CooldownSection.vue'
-import ForwardingSection from './sections/ForwardingSection.vue'
-import ClientsSection from './sections/ClientsSection.vue'
-import UpstreamSection from './sections/UpstreamSection.vue'
+import OtherSection from './sections/OtherSection.vue'
 import FeaturesSection from './sections/FeaturesSection.vue'
 
 export const SETTINGS_SECTION_GROUPS = [
-  { key: 'gateway', sections: ['cooldown', 'forwarding', 'clients', 'upstream'] },
+  { key: 'gateway', sections: ['other'] },
   { key: 'features', sections: ['features'] },
 ] as const
 
@@ -26,10 +26,7 @@ export const SETTINGS_SECTIONS: Array<{ key: SettingsSectionKey }> = SETTINGS_SE
 )
 
 export const SECTION_COMPONENTS: Record<SettingsSectionKey, Component> = {
-  cooldown: CooldownSection,
-  forwarding: ForwardingSection,
-  clients: ClientsSection,
-  upstream: UpstreamSection,
+  other: OtherSection,
   features: FeaturesSection,
 }
 

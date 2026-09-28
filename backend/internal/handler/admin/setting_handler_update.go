@@ -1,18 +1,11 @@
 package admin
 
 import (
-	"encoding/json"
-	"log/slog"
-	"net/http"
-	"reflect"
-	"strings"
-
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 )
 
 // UpdateSettingsRequest 更新设置请求
@@ -26,40 +19,15 @@ type UpdateSettingsRequest struct {
 	AdminRechargeRebateEnabled   *bool    `json:"affiliate_admin_recharge_enabled"`
 
 	// Identity patch configuration (Claude -> Gemini)
-	EnableIdentityPatch bool   `json:"enable_identity_patch"`
-	IdentityPatchPrompt string `json:"identity_patch_prompt"`
 
 	// Ops monitoring (vNext)
 	OpsRealtimeMonitoringEnabled *bool   `json:"ops_realtime_monitoring_enabled"`
 	OpsQueryModeDefault          *string `json:"ops_query_mode_default"`
 	OpsMetricsIntervalSeconds    *int    `json:"ops_metrics_interval_seconds"`
 
-	MinClaudeCodeVersion string `json:"min_claude_code_version"`
-	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
-
 	// Gateway forwarding behavior
-	OpenAITTFTMode                         *string `json:"openai_ttft_mode"`
-	EnableFingerprintUnification           *bool   `json:"enable_fingerprint_unification"`
-	EnableMetadataPassthrough              *bool   `json:"enable_metadata_passthrough"`
-	EnableCCHSigning                       *bool   `json:"enable_cch_signing"`
-	EnableClaudeOAuthSystemPromptInjection *bool   `json:"enable_claude_oauth_system_prompt_injection"`
-	ClaudeOAuthSystemPrompt                *string `json:"claude_oauth_system_prompt"`
-	ClaudeOAuthSystemPromptBlocks          *string `json:"claude_oauth_system_prompt_blocks"`
-	EnableAnthropicCacheTTL1hInjection     *bool   `json:"enable_anthropic_cache_ttl_1h_injection"`
-	RewriteMessageCacheControl             *bool   `json:"rewrite_message_cache_control"`
-	EnableClientDatelineNormalization      *bool   `json:"enable_client_dateline_normalization"`
-	AntigravityUserAgentVersion            *string `json:"antigravity_user_agent_version"`
-	OpenAICodexUserAgent                   *string `json:"openai_codex_user_agent"`
-	OpenAICodexClientVersion               *string `json:"openai_codex_client_version"`
-	OpenAICodexVersionAutoSyncEnabled      *bool   `json:"openai_codex_version_auto_sync_enabled"`
 
 	// codex_cli_only 加固（global-only）
-	MinCodexVersion                      string `json:"min_codex_version"`
-	MaxCodexVersion                      string `json:"max_codex_version"`
-	CodexCLIOnlyBlacklist                string `json:"codex_cli_only_blacklist"`
-	CodexCLIOnlyWhitelist                string `json:"codex_cli_only_whitelist"`
-	CodexCLIOnlyAllowAppServerClients    *bool  `json:"codex_cli_only_allow_app_server_clients"`
-	CodexCLIOnlyEngineFingerprintSignals string `json:"codex_cli_only_engine_fingerprint_signals"`
 
 	// Channel Monitor feature switch
 	ChannelMonitorMode                   *string `json:"channel_monitor_mode"`
@@ -69,9 +37,6 @@ type UpdateSettingsRequest struct {
 	ChannelMonitorHideUserRanking        *bool   `json:"channel_monitor_hide_user_ranking"`
 
 	// Grok model mapping policy
-	GrokDefaultTextModel           *string `json:"grok_default_text_model"`
-	GrokCrossClientModelMapEnabled *bool   `json:"grok_cross_client_model_map_enabled"`
-	GrokDefaultBaseURLMode         *string `json:"grok_default_base_url_mode"`
 
 	// Plugin management menu visibility switch; plugin runtime is unaffected.
 	PluginManagementEnabled *bool `json:"plugin_management_enabled"`
@@ -87,70 +52,17 @@ type UpdateSettingsRequest struct {
 	CyberSessionBlockTTLSeconds *int  `json:"cyber_session_block_ttl_seconds"`
 
 	// OpenAI fast/flex policy (optional, only updated when provided)
-	OpenAIFastPolicySettings *dto.OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
 
-	// 各平台账号自动停调阈值（整体替换语义：nil = 不修改，non-nil = 整体覆盖）。
-	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
-
-	// 利润门（全站一档；nil = 不修改）
-	ProfitControlEnabled *bool    `json:"profit_control_enabled"`
-	ProfitMinMargin      *float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer   *float64 `json:"profit_safety_buffer"`
-}
-
-// settingKeyByJSONName maps the value-typed top-level JSON fields of
-// UpdateSettingsRequest to the setting key each one writes. Resolved once from
-// the struct tags so new fields are covered without touching this file.
-//
-// Pointer-typed fields are deliberately excluded: they already carry their own
-// "omitted = keep the stored value" merge in UpdateSettings, and some of them
-// rely on being rewritten on every save to re-normalize fail-closed security
-// state (see TestUpdateSettingsMalformedForwardedClientIPHeadersRemainFailClosedWhenOmitted).
-// Only the value-typed fields are indistinguishable from a deliberate clear.
-var settingKeyByJSONName = buildSettingKeyByJSONName()
-
-func buildSettingKeyByJSONName() map[string]string {
-	t := reflect.TypeOf(UpdateSettingsRequest{})
-	out := make(map[string]string, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		if field.Type.Kind() == reflect.Pointer {
-			continue
-		}
-		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
-		if name == "" || name == "-" {
-			continue
-		}
-		out[name] = name
-	}
-	return out
-}
-
-// omittedSettingKeys reports the setting keys this payload never mentioned.
-// Saving settings is a whole-document PUT, so without this a client that sends
-// only the one field it cares about resets every other field to a zero value.
-func omittedSettingKeys(sentFields map[string]json.RawMessage) service.OmittedSettingKeys {
-	omitted := make(service.OmittedSettingKeys, len(settingKeyByJSONName))
-	for jsonName, settingKey := range settingKeyByJSONName {
-		if _, sent := sentFields[jsonName]; !sent {
-			omitted[settingKey] = struct{}{}
-		}
-	}
-	return omitted
+	// 利润门：最低毛利率（全站一档；0 = 关；nil = 不修改）
+	ProfitMinMargin *float64 `json:"profit_min_margin"`
 }
 
 func (h *SettingHandler) UpdateSettings(c *gin.Context) {
-	var sentFields map[string]json.RawMessage
-	if err := c.ShouldBindBodyWith(&sentFields, binding.JSON); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
 	var req UpdateSettingsRequest
-	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	omitted := omittedSettingKeys(sentFields)
 
 	previousSettings, err := h.settingService.GetAllSettings(c.Request.Context())
 	if err != nil {
@@ -212,84 +124,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		req.OpsMetricsIntervalSeconds = &v
 	}
 
-	// 验证最低版本号格式（空字符串=禁用，或合法 semver）
-	if req.MinClaudeCodeVersion != "" {
-		if !semverPattern.MatchString(req.MinClaudeCodeVersion) {
-			response.Error(c, http.StatusBadRequest, "min_claude_code_version must be empty or a valid semver (e.g. 2.1.63)")
-			return
-		}
-	}
-
-	// 验证最高版本号格式（空字符串=禁用，或合法 semver）
-	if req.MaxClaudeCodeVersion != "" {
-		if !semverPattern.MatchString(req.MaxClaudeCodeVersion) {
-			response.Error(c, http.StatusBadRequest, "max_claude_code_version must be empty or a valid semver (e.g. 3.0.0)")
-			return
-		}
-	}
-	if req.AntigravityUserAgentVersion != nil {
-		normalized := strings.TrimSpace(*req.AntigravityUserAgentVersion)
-		req.AntigravityUserAgentVersion = &normalized
-		if normalized != "" && !semverPattern.MatchString(normalized) {
-			response.Error(c, http.StatusBadRequest, "antigravity_user_agent_version must be empty or a valid semver (e.g. 1.23.2)")
-			return
-		}
-	}
-	if req.OpenAICodexUserAgent != nil {
-		normalized := strings.TrimSpace(*req.OpenAICodexUserAgent)
-		req.OpenAICodexUserAgent = &normalized
-		// 仅做长度上限保护，不限制具体格式（运维需要可自由调整 codex 版本号）
-		if len(normalized) > 512 {
-			response.Error(c, http.StatusBadRequest, "openai_codex_user_agent must be at most 512 characters")
-			return
-		}
-	}
-	if req.OpenAICodexClientVersion != nil {
-		// 该值会被拼进出站 User-Agent 与 version 头，必须是合法版本号；空串表示跟随自动同步。
-		normalized := strings.TrimSpace(*req.OpenAICodexClientVersion)
-		if normalized != "" && service.NormalizeCodexClientVersion(normalized) == "" {
-			response.Error(c, http.StatusBadRequest, "openai_codex_client_version must be empty or a valid version (e.g. 0.146.0)")
-			return
-		}
-		req.OpenAICodexClientVersion = &normalized
-	}
-
-	// codex_cli_only 加固：最低/最高 Codex 版本（空=禁用，或合法 semver；max>=min）
-	if req.MinCodexVersion != "" && !semverPattern.MatchString(req.MinCodexVersion) {
-		response.Error(c, http.StatusBadRequest, "min_codex_version must be empty or a valid semver (e.g. 0.141.0)")
-		return
-	}
-	if req.MaxCodexVersion != "" && !semverPattern.MatchString(req.MaxCodexVersion) {
-		response.Error(c, http.StatusBadRequest, "max_codex_version must be empty or a valid semver (e.g. 0.200.0)")
-		return
-	}
-	if req.MinCodexVersion != "" && req.MaxCodexVersion != "" && service.CompareVersions(req.MaxCodexVersion, req.MinCodexVersion) < 0 {
-		response.Error(c, http.StatusBadRequest, "max_codex_version must be greater than or equal to min_codex_version")
-		return
-	}
-	// codex_cli_only 黑/白名单：非空须为合法 []AllowedClientEntry JSON。
-	// 黑名单 OR 宽 deny（允许 originator-only）；白名单双因子 AND，额外要求每条可命中（非空 originator + ua_contains）。
-	if err := service.ValidateCodexClientEntriesJSON(req.CodexCLIOnlyBlacklist); err != nil {
-		response.Error(c, http.StatusBadRequest, "codex_cli_only_blacklist "+err.Error())
-		return
-	}
-	if err := service.ValidateCodexWhitelistEntriesJSON(req.CodexCLIOnlyWhitelist); err != nil {
-		response.Error(c, http.StatusBadRequest, "codex_cli_only_whitelist "+err.Error())
-		return
-	}
-	if err := service.ValidateEngineFingerprintSignalsJSON(req.CodexCLIOnlyEngineFingerprintSignals); err != nil {
-		response.Error(c, http.StatusBadRequest, "codex_cli_only_engine_fingerprint_signals "+err.Error())
-		return
-	}
-
-	// 交叉验证：如果同时设置了最低和最高版本号，最高版本号必须 >= 最低版本号
-	if req.MinClaudeCodeVersion != "" && req.MaxClaudeCodeVersion != "" {
-		if service.CompareVersions(req.MaxClaudeCodeVersion, req.MinClaudeCodeVersion) < 0 {
-			response.Error(c, http.StatusBadRequest, "max_claude_code_version must be greater than or equal to min_claude_code_version")
-			return
-		}
-	}
-
 	// cyber 会话屏蔽 TTL 校验：提供时必须 > 0
 	if req.CyberSessionBlockTTLSeconds != nil && *req.CyberSessionBlockTTLSeconds <= 0 {
 		response.BadRequest(c, "cyber_session_block_ttl_seconds must be > 0")
@@ -297,34 +131,17 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	settings := &service.SystemSettings{
-		AccountSchedulingThresholds: req.AccountSchedulingThresholds,
 
 		AffiliateRebateRate:          affiliateRebateRate,
 		AffiliateRebateFreezeHours:   affiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:  affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap: affiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:   adminRechargeRebateEnabled,
-		EnableIdentityPatch:          req.EnableIdentityPatch,
-		IdentityPatchPrompt:          req.IdentityPatchPrompt,
-		MinClaudeCodeVersion:         req.MinClaudeCodeVersion,
-		MaxClaudeCodeVersion:         req.MaxClaudeCodeVersion,
-		ProfitControlEnabled: func() bool {
-			if req.ProfitControlEnabled != nil {
-				return *req.ProfitControlEnabled
-			}
-			return previousSettings.ProfitControlEnabled
-		}(),
 		ProfitMinMargin: func() float64 {
 			if req.ProfitMinMargin != nil {
 				return *req.ProfitMinMargin
 			}
 			return previousSettings.ProfitMinMargin
-		}(),
-		ProfitSafetyBuffer: func() float64 {
-			if req.ProfitSafetyBuffer != nil {
-				return *req.ProfitSafetyBuffer
-			}
-			return previousSettings.ProfitSafetyBuffer
 		}(),
 		OpsRealtimeMonitoringEnabled: func() bool {
 			if req.OpsRealtimeMonitoringEnabled != nil {
@@ -344,103 +161,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.OpsMetricsIntervalSeconds
 		}(),
-		EnableFingerprintUnification: func() bool {
-			if req.EnableFingerprintUnification != nil {
-				return *req.EnableFingerprintUnification
-			}
-			return previousSettings.EnableFingerprintUnification
-		}(),
-		OpenAITTFTMode: func() string {
-			if req.OpenAITTFTMode != nil {
-				return *req.OpenAITTFTMode
-			}
-			return previousSettings.OpenAITTFTMode
-		}(),
-		EnableMetadataPassthrough: func() bool {
-			if req.EnableMetadataPassthrough != nil {
-				return *req.EnableMetadataPassthrough
-			}
-			return previousSettings.EnableMetadataPassthrough
-		}(),
-		EnableCCHSigning: func() bool {
-			if req.EnableCCHSigning != nil {
-				return *req.EnableCCHSigning
-			}
-			return previousSettings.EnableCCHSigning
-		}(),
-		EnableClaudeOAuthSystemPromptInjection: func() bool {
-			if req.EnableClaudeOAuthSystemPromptInjection != nil {
-				return *req.EnableClaudeOAuthSystemPromptInjection
-			}
-			return previousSettings.EnableClaudeOAuthSystemPromptInjection
-		}(),
-		ClaudeOAuthSystemPrompt: func() string {
-			if req.ClaudeOAuthSystemPrompt != nil {
-				return *req.ClaudeOAuthSystemPrompt
-			}
-			return previousSettings.ClaudeOAuthSystemPrompt
-		}(),
-		ClaudeOAuthSystemPromptBlocks: func() string {
-			if req.ClaudeOAuthSystemPromptBlocks != nil {
-				return *req.ClaudeOAuthSystemPromptBlocks
-			}
-			return previousSettings.ClaudeOAuthSystemPromptBlocks
-		}(),
-		EnableAnthropicCacheTTL1hInjection: func() bool {
-			if req.EnableAnthropicCacheTTL1hInjection != nil {
-				return *req.EnableAnthropicCacheTTL1hInjection
-			}
-			return previousSettings.EnableAnthropicCacheTTL1hInjection
-		}(),
-		RewriteMessageCacheControl: func() bool {
-			if req.RewriteMessageCacheControl != nil {
-				return *req.RewriteMessageCacheControl
-			}
-			return previousSettings.RewriteMessageCacheControl
-		}(),
-		EnableClientDatelineNormalization: func() bool {
-			if req.EnableClientDatelineNormalization != nil {
-				return *req.EnableClientDatelineNormalization
-			}
-			return previousSettings.EnableClientDatelineNormalization
-		}(),
-		AntigravityUserAgentVersion: func() string {
-			if req.AntigravityUserAgentVersion != nil {
-				return *req.AntigravityUserAgentVersion
-			}
-			return previousSettings.AntigravityUserAgentVersion
-		}(),
-		OpenAICodexUserAgent: func() string {
-			if req.OpenAICodexUserAgent != nil {
-				return *req.OpenAICodexUserAgent
-			}
-			return previousSettings.OpenAICodexUserAgent
-		}(),
-		OpenAICodexClientVersion: func() string {
-			if req.OpenAICodexClientVersion != nil {
-				return *req.OpenAICodexClientVersion
-			}
-			return previousSettings.OpenAICodexClientVersion
-		}(),
-		// 同步值由自动同步任务独占写入，面板保存时原样带回，避免被清空。
-		OpenAICodexClientVersionSynced: previousSettings.OpenAICodexClientVersionSynced,
-		OpenAICodexVersionAutoSyncEnabled: func() bool {
-			if req.OpenAICodexVersionAutoSyncEnabled != nil {
-				return *req.OpenAICodexVersionAutoSyncEnabled
-			}
-			return previousSettings.OpenAICodexVersionAutoSyncEnabled
-		}(),
-		MinCodexVersion:       strings.TrimSpace(req.MinCodexVersion),
-		MaxCodexVersion:       strings.TrimSpace(req.MaxCodexVersion),
-		CodexCLIOnlyBlacklist: strings.TrimSpace(req.CodexCLIOnlyBlacklist),
-		CodexCLIOnlyWhitelist: strings.TrimSpace(req.CodexCLIOnlyWhitelist),
-		CodexCLIOnlyAllowAppServerClients: func() bool {
-			if req.CodexCLIOnlyAllowAppServerClients != nil {
-				return *req.CodexCLIOnlyAllowAppServerClients
-			}
-			return previousSettings.CodexCLIOnlyAllowAppServerClients
-		}(),
-		CodexCLIOnlyEngineFingerprintSignals: strings.TrimSpace(req.CodexCLIOnlyEngineFingerprintSignals),
 		ChannelMonitorMode: func() string {
 			if req.ChannelMonitorMode != nil {
 				return *req.ChannelMonitorMode
@@ -470,24 +190,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return *req.ChannelMonitorHideUserRanking
 			}
 			return previousSettings.ChannelMonitorHideUserRanking
-		}(),
-		GrokDefaultTextModel: func() string {
-			if req.GrokDefaultTextModel != nil {
-				return *req.GrokDefaultTextModel
-			}
-			return previousSettings.GrokDefaultTextModel
-		}(),
-		GrokCrossClientModelMapEnabled: func() bool {
-			if req.GrokCrossClientModelMapEnabled != nil {
-				return *req.GrokCrossClientModelMapEnabled
-			}
-			return previousSettings.GrokCrossClientModelMapEnabled
-		}(),
-		GrokDefaultBaseURLMode: func() string {
-			if req.GrokDefaultBaseURLMode != nil {
-				return strings.TrimSpace(*req.GrokDefaultBaseURLMode)
-			}
-			return previousSettings.GrokDefaultBaseURLMode
 		}(),
 		PluginManagementEnabled: func() bool {
 			if req.PluginManagementEnabled != nil {
@@ -521,17 +223,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}(),
 	}
 
-	if err := h.settingService.UpdateSettingsOmitting(c.Request.Context(), settings, omitted); err != nil {
+	if err := h.settingService.UpdateSettings(c.Request.Context(), settings); err != nil {
 		response.ErrorFrom(c, err)
 		return
-	}
-
-	// Update OpenAI fast policy (stored under dedicated key, only when provided).
-	if req.OpenAIFastPolicySettings != nil {
-		if err := h.settingService.SetOpenAIFastPolicySettings(c.Request.Context(), openaiFastPolicySettingsFromDTO(req.OpenAIFastPolicySettings)); err != nil {
-			response.BadRequest(c, err.Error())
-			return
-		}
 	}
 
 	h.auditSettingsUpdate(c, previousSettings, settings, req)
@@ -544,49 +238,21 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	payload := dto.SystemSettings{
-		AffiliateRebateRate:                    updatedSettings.AffiliateRebateRate,
-		AffiliateRebateFreezeHours:             updatedSettings.AffiliateRebateFreezeHours,
-		AffiliateRebateDurationDays:            updatedSettings.AffiliateRebateDurationDays,
-		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
-		AdminRechargeRebateEnabled:             updatedSettings.AdminRechargeRebateEnabled,
-		EnableIdentityPatch:                    updatedSettings.EnableIdentityPatch,
-		IdentityPatchPrompt:                    updatedSettings.IdentityPatchPrompt,
-		OpsMonitoringEnabled:                   h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context()),
-		OpsRealtimeMonitoringEnabled:           updatedSettings.OpsRealtimeMonitoringEnabled,
-		OpsQueryModeDefault:                    updatedSettings.OpsQueryModeDefault,
-		OpsMetricsIntervalSeconds:              updatedSettings.OpsMetricsIntervalSeconds,
-		MinClaudeCodeVersion:                   updatedSettings.MinClaudeCodeVersion,
-		MaxClaudeCodeVersion:                   updatedSettings.MaxClaudeCodeVersion,
-		EnableFingerprintUnification:           updatedSettings.EnableFingerprintUnification,
-		EnableMetadataPassthrough:              updatedSettings.EnableMetadataPassthrough,
-		EnableCCHSigning:                       updatedSettings.EnableCCHSigning,
-		EnableClaudeOAuthSystemPromptInjection: updatedSettings.EnableClaudeOAuthSystemPromptInjection,
-		ClaudeOAuthSystemPrompt:                updatedSettings.ClaudeOAuthSystemPrompt,
-		ClaudeOAuthSystemPromptBlocks:          updatedSettings.ClaudeOAuthSystemPromptBlocks,
-		EnableAnthropicCacheTTL1hInjection:     updatedSettings.EnableAnthropicCacheTTL1hInjection,
-		RewriteMessageCacheControl:             updatedSettings.RewriteMessageCacheControl,
-		EnableClientDatelineNormalization:      updatedSettings.EnableClientDatelineNormalization,
-		AntigravityUserAgentVersion:            updatedSettings.AntigravityUserAgentVersion,
-		OpenAICodexUserAgent:                   updatedSettings.OpenAICodexUserAgent,
-		OpenAICodexClientVersion:               updatedSettings.OpenAICodexClientVersion,
-		OpenAICodexClientVersionSynced:         updatedSettings.OpenAICodexClientVersionSynced,
-		OpenAICodexVersionAutoSyncEnabled:      updatedSettings.OpenAICodexVersionAutoSyncEnabled,
-		MinCodexVersion:                        updatedSettings.MinCodexVersion,
-		MaxCodexVersion:                        updatedSettings.MaxCodexVersion,
-		CodexCLIOnlyBlacklist:                  updatedSettings.CodexCLIOnlyBlacklist,
-		CodexCLIOnlyWhitelist:                  updatedSettings.CodexCLIOnlyWhitelist,
-		CodexCLIOnlyAllowAppServerClients:      updatedSettings.CodexCLIOnlyAllowAppServerClients,
-		CodexCLIOnlyEngineFingerprintSignals:   updatedSettings.CodexCLIOnlyEngineFingerprintSignals,
+		AffiliateRebateRate:          updatedSettings.AffiliateRebateRate,
+		AffiliateRebateFreezeHours:   updatedSettings.AffiliateRebateFreezeHours,
+		AffiliateRebateDurationDays:  updatedSettings.AffiliateRebateDurationDays,
+		AffiliateRebatePerInviteeCap: updatedSettings.AffiliateRebatePerInviteeCap,
+		AdminRechargeRebateEnabled:   updatedSettings.AdminRechargeRebateEnabled,
+		OpsMonitoringEnabled:         h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context()),
+		OpsRealtimeMonitoringEnabled: updatedSettings.OpsRealtimeMonitoringEnabled,
+		OpsQueryModeDefault:          updatedSettings.OpsQueryModeDefault,
+		OpsMetricsIntervalSeconds:    updatedSettings.OpsMetricsIntervalSeconds,
 
 		ChannelMonitorMode:                   updatedSettings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              updatedSettings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        updatedSettings.ChannelMonitorHideUserRanking,
-
-		GrokDefaultTextModel:           updatedSettings.GrokDefaultTextModel,
-		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,
-		GrokDefaultBaseURLMode:         updatedSettings.GrokDefaultBaseURLMode,
 
 		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
 
@@ -595,15 +261,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RiskControlEnabled:          updatedSettings.RiskControlEnabled,
 		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
-		AccountSchedulingThresholds: updatedSettings.AccountSchedulingThresholds,
-		ProfitControlEnabled:        updatedSettings.ProfitControlEnabled,
 		ProfitMinMargin:             updatedSettings.ProfitMinMargin,
-		ProfitSafetyBuffer:          updatedSettings.ProfitSafetyBuffer,
-	}
-	if fastPolicy, err := h.settingService.GetOpenAIFastPolicySettings(c.Request.Context()); err != nil {
-		slog.Error("openai_fast_policy_settings_get_failed", "error", err)
-	} else if fastPolicy != nil {
-		payload.OpenAIFastPolicySettings = openaiFastPolicySettingsToDTO(fastPolicy)
 	}
 	response.Success(c, payload)
 }

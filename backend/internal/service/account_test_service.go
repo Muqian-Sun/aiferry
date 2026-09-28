@@ -1182,7 +1182,7 @@ func (s *AccountTestService) observeGrokTestResponse(ctx context.Context, accoun
 }
 
 func (s *AccountTestService) testGrokResponsesConnection(c *gin.Context, ctx context.Context, account *Account, authToken, testModelID string) error {
-	apiURL, err := buildGrokResponsesURL(account, s.cfg, s.settingService)
+	apiURL, err := buildGrokResponsesURL(account, s.cfg)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid Grok base URL: %s", err.Error()))
 	}
@@ -1543,7 +1543,7 @@ User query:
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	apiURL, err := buildGrokResponsesURL(account, s.cfg, s.settingService)
+	apiURL, err := buildGrokResponsesURL(account, s.cfg)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid Grok base URL: %s", err.Error()))
 	}

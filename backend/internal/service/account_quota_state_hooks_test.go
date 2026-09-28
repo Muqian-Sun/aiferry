@@ -67,13 +67,9 @@ func TestPersistOpenAICodexSnapshot_AppliesQuotaState(t *testing.T) {
 
 // Anthropic 被动用量采样（UpdateSessionWindow → samplePassiveUsageFromHeaders）落库后按阈值评估。
 func TestUpdateSessionWindow_PassiveUsageAppliesQuotaState(t *testing.T) {
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
-	settingsRepo := newMockSettingRepo()
-	settingsRepo.data[SettingKeyAccountSchedulingThresholds] = `{"anthropic":80}`
+	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 100, PlatformAnthropic: 80, PlatformGrok: 100})
 	repo := &rateLimitAccountRepoStub{}
 	rl := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-	rl.SetSettingService(NewSettingService(settingsRepo, &config.Config{}))
 
 	account := &Account{ID: 2004, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true}
 	reset := time.Now().Add(2 * 24 * time.Hour).Unix()
@@ -129,16 +125,12 @@ func TestGrokQuotaServiceProbeUsage_AppliesQuotaState(t *testing.T) {
 
 // 国产供应商 Coding Plan 额度探测（CNProviderQuotaService.queryUsageForAccount）落库后按阈值评估。
 func TestCNProviderQuotaQueryUsage_AppliesQuotaState(t *testing.T) {
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
-	settingsRepo := newMockSettingRepo()
-	settingsRepo.data[SettingKeyAccountSchedulingThresholds] = `{"kimi":80}`
+	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 100, PlatformAnthropic: 100, PlatformGrok: 100, PlatformKimi: 80})
 	account := codingAccount(PlatformKimi)
 	account.Schedulable = true
 	account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.kimi.com"}
 	repo := &rateLimitAccountRepoStub{}
 	rl := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-	rl.SetSettingService(NewSettingService(settingsRepo, &config.Config{}))
 
 	reset := time.Now().Add(3 * time.Hour).UTC().Format(time.RFC3339)
 	upstream := &fixedResponseUpstream{status: http.StatusOK, body: `{"limits":[{"detail":{"limit":100,"remaining":5,"resetTime":"` + reset + `"}}]}`}

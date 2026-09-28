@@ -28,10 +28,6 @@ func (h *GatewayHandler) XSearch(c *gin.Context) {
 	h.WebSearch(c)
 }
 
-func resolveGrokStandaloneSearchModel() string {
-	return xai.ResolveDefaultTextModel(xai.RuntimeModelMappingOptions().DefaultText)
-}
-
 func buildGrokXSearchResponsesBody(req grokStandaloneSearchRequest, model string) ([]byte, error) {
 	input := strings.TrimSpace(req.Query)
 	if input == "" {

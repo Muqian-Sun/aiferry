@@ -303,7 +303,7 @@ func ollamaUsageAccount(id int64) *Account {
 
 func newOllamaUsageTestService(t *testing.T, repo *ollamaUsageTestRepo, upstream HTTPUpstream, settingsRepo SettingRepository, fixedKey bool) *OllamaCloudUsageService {
 	t.Helper()
-	svc := NewOllamaCloudUsageService(repo, upstream, NewSettingService(settingsRepo, nil), ollamaUsageTestEncryptor{}, fixedKey)
+	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, fixedKey)
 	t.Cleanup(svc.Stop)
 	return svc
 }
@@ -313,51 +313,6 @@ func ollamaUsageFixture(t *testing.T) []byte {
 	body, err := os.ReadFile("testdata/ollama_settings_usage.html")
 	require.NoError(t, err)
 	return body
-}
-
-func TestOllamaCloudUsageSettingsDefaultOffAndValidation(t *testing.T) {
-	repo := &upstreamBillingProbeSettingRepo{}
-	settingsService := NewSettingService(repo, nil)
-	settings, err := settingsService.GetOllamaCloudUsageSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, settings.Enabled)
-	require.Equal(t, 60, settings.IntervalMinutes)
-	require.Equal(t, 1, settings.DebounceMinutes)
-
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 14, DebounceMinutes: 1})
-	require.Error(t, err)
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 90, DebounceMinutes: 61})
-	require.Error(t, err)
-	// DebounceMinutes=0 (legacy omit) defaults to 1 on write.
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 90, DebounceMinutes: 0})
-	require.NoError(t, err)
-	settings, err = settingsService.GetOllamaCloudUsageSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, 1, settings.DebounceMinutes)
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 90, DebounceMinutes: 2})
-	require.NoError(t, err)
-	settings, err = settingsService.GetOllamaCloudUsageSettings(context.Background())
-	require.NoError(t, err)
-	require.True(t, settings.Enabled)
-	require.Equal(t, 90, settings.IntervalMinutes)
-	require.Equal(t, 2, settings.DebounceMinutes)
-
-	// debounce >= interval would make the debounce term unreachable in
-	// min(lastUsed+debounce, fetchedAt+maxWait), silently ignoring the operator's
-	// setting, so it is rejected rather than accepted and dropped.
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 15, DebounceMinutes: 15})
-	require.Error(t, err, "debounce equal to interval must be rejected")
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 15, DebounceMinutes: 60})
-	require.Error(t, err, "debounce greater than interval must be rejected")
-	err = settingsService.SetOllamaCloudUsageSettings(context.Background(), &OllamaCloudUsageSettings{Enabled: true, IntervalMinutes: 16, DebounceMinutes: 15})
-	require.NoError(t, err, "debounce below interval stays valid")
-
-	// Legacy JSON without debounce_minutes defaults to 1.
-	repo.values[SettingKeyOllamaCloudUsageSettings] = `{"enabled":true,"interval_minutes":45}`
-	settings, err = settingsService.GetOllamaCloudUsageSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, 45, settings.IntervalMinutes)
-	require.Equal(t, 1, settings.DebounceMinutes)
 }
 
 func TestOllamaCloudUsageIsAutoRefreshDue(t *testing.T) {
@@ -799,9 +754,7 @@ func TestOllamaCloudUsageRefreshSingleflightAndRunnerDeduplicateSharedGroup(t *t
 		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{first.ID: first, second.ID: second}},
 		due:                             []Account{*first, *second},
 	}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyOllamaCloudUsageSettings: `{"enabled":true,"interval_minutes":60}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var once sync.Once
@@ -847,7 +800,7 @@ func TestOllamaCloudUsageRefreshRejectsGroupChangeBeforeUpstreamRequest(t *testi
 	base := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}}
 	repo := &ollamaRefreshPreflightIdentityChangeRepo{ollamaUsageTestRepo: base}
 	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
-	svc := NewOllamaCloudUsageService(repo, upstream, NewSettingService(&upstreamBillingProbeSettingRepo{}, nil), ollamaUsageTestEncryptor{}, true)
+	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 	t.Cleanup(svc.Stop)
 
 	_, err := svc.Refresh(context.Background(), account.ID)
@@ -869,6 +822,9 @@ func TestOllamaCloudUsageRefreshUsesFixedURLCookieAndNoRedirects(t *testing.T) {
 	state, err := svc.Refresh(context.Background(), 8)
 	require.NoError(t, err)
 	require.Equal(t, OllamaCloudUsageStatusOK, state.Snapshot.Status)
+	// 成功后的 next_refresh_at 按代码里的 60 分钟间隔排（±5 分钟抖动）。
+	require.False(t, state.Snapshot.NextRefreshAt.Before(fixedNow.Add(55*time.Minute)))
+	require.False(t, state.Snapshot.NextRefreshAt.After(fixedNow.Add(65*time.Minute)))
 	require.Equal(t, "https://ollama.com/settings", upstream.lastRequest.URL.String())
 	require.Equal(t, "ollama.com", upstream.lastRequest.Host)
 	require.Equal(t, "wos-session=browser-secret", upstream.lastRequest.Header.Get("Cookie"))
@@ -959,9 +915,7 @@ func TestOllamaCloudUsageRunnerHonorsLeaderLockAndBackoff(t *testing.T) {
 	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
 	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{11: account}}}
 	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyOllamaCloudUsageSettings: `{"enabled":true,"interval_minutes":60}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	cache := &fakeLeaderLockCache{}
 	_, acquired := tryAcquireSingletonLeaderLock(context.Background(), cache, nil, ollamaCloudUsageLeaderLockKey, "peer", time.Minute)
 	require.True(t, acquired)
@@ -988,9 +942,7 @@ func TestOllamaCloudUsageRunnerDisablesAutoRefreshAfterUnpersistableIdentityErro
 	account.ProxyID = &missingProxyID
 	account.Proxy = nil
 	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{14: account}}}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyOllamaCloudUsageSettings: `{"enabled":true,"interval_minutes":60}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
 	svc := newOllamaUsageTestService(t, repo, upstream, settingsRepo, true)
 
@@ -1034,9 +986,7 @@ func TestOllamaCloudUsageRunnerIdentityChangePreservesOldGroupAndDoesNotLoop(t *
 			delete(anchor.Extra, OllamaCloudUsageSnapshotExtraKey)
 		})
 	}
-	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
-		SettingKeyOllamaCloudUsageSettings: `{"enabled":true,"interval_minutes":60}`,
-	}}
+	settingsRepo := &upstreamBillingProbeSettingRepo{}
 	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
 	svc := newOllamaUsageTestService(t, repo, upstream, settingsRepo, true)
 
@@ -1052,6 +1002,50 @@ func TestOllamaCloudUsageRunnerIdentityChangePreservesOldGroupAndDoesNotLoop(t *
 	require.Equal(t, true, sibling.Extra[OllamaCloudUsageAutoRefreshExtraKey])
 	require.NotNil(t, decodeOllamaCloudUsageSnapshot(sibling.Extra), "the still-valid sibling must refresh normally")
 	require.Equal(t, int64(2), upstream.calls.Load())
+}
+
+// 定时刷新（代码默认开）按代码里的防抖 1 分钟、最长等待 60 分钟判断到期（gateway_features.go）。
+// 原来这两个值由设置决定、只在设置校验里断言过；恢复定时刷新用例时补上按代码值的端到端断言。
+func TestOllamaCloudUsageRunnerDueUsesCodeDebounceAndMaxWait(t *testing.T) {
+	now := time.Date(2026, time.July, 25, 12, 0, 0, 0, time.UTC)
+	withSnapshot := func(id int64, fetchedAgo, lastUsedAgo time.Duration) *Account {
+		account := ollamaUsageAccount(id)
+		account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
+		account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
+		fetchedAt := now.Add(-fetchedAgo)
+		account.Extra[OllamaCloudUsageSnapshotExtraKey] = &OllamaCloudUsageSnapshot{
+			Status: OllamaCloudUsageStatusOK, FetchedAt: &fetchedAt, LastAttemptAt: fetchedAt, NextRefreshAt: fetchedAt.Add(time.Hour),
+		}
+		lastUsed := now.Add(-lastUsedAgo)
+		account.LastUsedAt = &lastUsed
+		return account
+	}
+	// 最后一次请求在 90 秒前：静默超过 1 分钟防抖 → 到期。
+	quiet := withSnapshot(21, 30*time.Minute, 90*time.Second)
+	// 请求一直在来（10 秒前）、距上次拉取 45 分钟：防抖没到、60 分钟最长等待也没到 → 不到期。
+	busy := withSnapshot(22, 45*time.Minute, 10*time.Second)
+	// 请求一直在来、距上次拉取 61 分钟：60 分钟最长等待到了 → 到期。
+	stale := withSnapshot(23, 61*time.Minute, 10*time.Second)
+	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		quiet.ID: quiet, busy.ID: busy, stale.ID: stale,
+	}}}
+	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
+	svc := newOllamaUsageTestService(t, repo, upstream, &upstreamBillingProbeSettingRepo{}, true)
+	svc.now = func() time.Time { return now }
+
+	require.NoError(t, svc.RunDue(context.Background()))
+
+	require.Equal(t, int64(2), upstream.calls.Load())
+	for _, account := range []*Account{quiet, stale} {
+		snapshot := decodeOllamaCloudUsageSnapshot(account.Extra)
+		require.NotNil(t, snapshot)
+		require.NotNil(t, snapshot.FetchedAt)
+		require.True(t, snapshot.FetchedAt.Equal(now), "account %d must refresh", account.ID)
+	}
+	snapshot := decodeOllamaCloudUsageSnapshot(busy.Extra)
+	require.NotNil(t, snapshot)
+	require.NotNil(t, snapshot.FetchedAt)
+	require.True(t, snapshot.FetchedAt.Equal(now.Add(-45*time.Minute)), "inside both debounce and max-wait the account must not refresh")
 }
 
 func TestOllamaCloudUsageSingleflightConcurrencyAndRunnerSwitches(t *testing.T) {
@@ -1072,11 +1066,6 @@ func TestOllamaCloudUsageSingleflightConcurrencyAndRunnerSwitches(t *testing.T) 
 	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{}}
 	svc := newOllamaUsageTestService(t, repo, upstream, settingsRepo, true)
 
-	// Global automatic refresh is fail-safe off by default.
-	require.NoError(t, svc.RunDue(context.Background()))
-	require.Zero(t, upstream.calls.Load())
-
-	settingsRepo.values[SettingKeyOllamaCloudUsageSettings] = `{"enabled":true,"interval_minutes":60}`
 	var singleflight sync.WaitGroup
 	singleflight.Add(2)
 	for range 2 {
@@ -1106,4 +1095,24 @@ func TestOllamaCloudUsageSingleflightConcurrencyAndRunnerSwitches(t *testing.T) 
 	<-done
 	require.LessOrEqual(t, upstream.maxActive.Load(), int64(ollamaCloudUsageConcurrency))
 	require.Equal(t, int64(8), upstream.calls.Load())
+}
+
+// 全局定时刷新关着（ollamaCloudUsageEnabled=false）时 RunDue 一个请求都不发；手动刷新不受影响。
+// 代码默认是开（见上面几个 RunDue 用例），这里显式关掉测关闭分支。
+func TestOllamaCloudUsageRunnerOffBranchSendsNothing(t *testing.T) {
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
+	account := ollamaUsageAccount(17)
+	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
+	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
+	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{17: account}}}
+	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
+	svc := newOllamaUsageTestService(t, repo, upstream, &upstreamBillingProbeSettingRepo{}, true)
+
+	require.NoError(t, svc.RunDue(context.Background()))
+	require.Zero(t, upstream.calls.Load())
+	require.Nil(t, decodeOllamaCloudUsageSnapshot(account.Extra))
+
+	_, err := svc.Refresh(context.Background(), account.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), upstream.calls.Load(), "手动刷新不受全局定时开关影响")
 }

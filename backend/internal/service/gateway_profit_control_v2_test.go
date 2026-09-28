@@ -13,16 +13,14 @@ import (
 )
 
 // 调度平台由 SelectOptions.Platform 决定（无路由的池）；利润门是全局设置。
-// gatewayProfitTestUserRate 夹具用户倍率（阈值 = 用户倍率 × (1 − margin − buffer)）。
+// gatewayProfitTestUserRate 夹具用户倍率（阈值 = 用户倍率 × (1 − 最低毛利率)）。
 const gatewayProfitTestUserRate = 0.5
 
-// profitControlTestSettingService 造一份利润门设置（全站一档），并让进程内缓存重载。
-func profitControlTestSettingService(t *testing.T, enabled bool, minMargin, safetyBuffer float64) *SettingService {
+// profitControlTestSettingService 造一份利润门设置（全站一档，只有最低毛利率；0 = 关），并让进程内缓存重载。
+func profitControlTestSettingService(t *testing.T, minMargin float64) *SettingService {
 	t.Helper()
 	repo := newMockSettingRepo()
-	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitControlEnabled, strconv.FormatBool(enabled)))
 	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitMinMargin, strconv.FormatFloat(minMargin, 'f', -1, 64)))
-	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitSafetyBuffer, strconv.FormatFloat(safetyBuffer, 'f', -1, 64)))
 	InvalidateProfitControlSettingsCache()
 	t.Cleanup(InvalidateProfitControlSettingsCache)
 	return NewSettingService(repo, &config.Config{})
@@ -58,17 +56,17 @@ func gatewayProfitTestAccount(id int64, platform string, rate float64) Account {
 	}
 }
 
-// 门是全站一档：设置开了，任何平台的 token 请求都装门（D2a）；非 token 请求（模型列表 / 媒体）不装；
-// 设置关着不装；同一请求 ctx 里已有门时复用（failover 阈值稳定）。
+// 门是全站一档：最低毛利率 > 0，任何平台的 token 请求都装门（D2a）；非 token 请求（模型列表 / 媒体）不装；
+// 最低毛利率 0 不装；同一请求 ctx 里已有门时复用（failover 阈值稳定）。
 func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
 	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity, PlatformKimi} {
 		t.Run(platform, func(t *testing.T) {
-			svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0.2, 0.05)}
+			svc := &GatewayService{settingService: profitControlTestSettingService(t, 0.25)}
 
 			tokenCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext())
 			gate, _ := tokenCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 			require.NotNil(t, gate)
-			require.InDelta(t, 0.5*(1-0.2-0.05), gate.threshold, 1e-12, "阈值 = 用户倍率 × (1 − margin − buffer)")
+			require.InDelta(t, 0.5*(1-0.25), gate.threshold, 1e-12, "阈值 = 用户倍率 × (1 − 最低毛利率)")
 
 			reused := svc.withGatewayProfitControlGate(tokenCtx)
 			require.Same(t, gate, reused.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate), "同一请求复用已装的门")
@@ -79,11 +77,11 @@ func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
 		})
 	}
 
-	t.Run("disabled", func(t *testing.T) {
-		svc := &GatewayService{settingService: profitControlTestSettingService(t, false, 0.5, 0.4)}
+	t.Run("zero margin", func(t *testing.T) {
+		svc := &GatewayService{settingService: profitControlTestSettingService(t, 0)}
 		ctx := svc.withGatewayProfitControlGate(gatewayProfitTestContext())
 		gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-		require.Nil(t, gate, "设置关着不装门")
+		require.Nil(t, gate, "最低毛利率 0 = 关，不装门")
 		expensive := gatewayProfitTestAccount(103, PlatformOpenAI, 0.9)
 		require.True(t, svc.isGatewayAccountProfitEligible(ctx, &expensive))
 	})
@@ -108,7 +106,7 @@ func TestGatewayProfitControlPlatformPoolSelectionWithoutConcurrency(t *testing.
 		accountRepo:    repo,
 		cache:          &mockGatewayCacheForPlatform{},
 		cfg:            testConfig(),
-		settingService: profitControlTestSettingService(t, true, 0, 0),
+		settingService: profitControlTestSettingService(t, 0.2),
 	}
 	opts := SelectOptions{Platform: PlatformGrok}
 
@@ -119,6 +117,44 @@ func TestGatewayProfitControlPlatformPoolSelectionWithoutConcurrency(t *testing.
 	_, err = svc.SelectAccountWithOptions(gatewayProfitTestContext(), "", "", map[int64]struct{}{cheap.ID: {}}, opts)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
+}
+
+// 选号端到端：阈值 = 用户倍率 × (1 − 最低毛利率)。用户倍率 0.5、最低毛利率 0.3 → 阈值 0.35：
+// 倍率正好 0.35 的渠道能派，0.4 的被筛掉（不看毛利率时 0.4 < 0.5 本可以派）；最低毛利率 0 不装门，0.4 的照派。
+func TestGatewayProfitControlMinMarginFormulaInSelection(t *testing.T) {
+	atThreshold := gatewayProfitTestAccount(11, PlatformAnthropic, 0.35)
+	overThreshold := gatewayProfitTestAccount(12, PlatformAnthropic, 0.4)
+	newSvc := func(t *testing.T, minMargin float64) *GatewayService {
+		repo := &mockAccountRepoForPlatform{
+			accounts:     []Account{overThreshold, atThreshold},
+			accountsByID: map[int64]*Account{atThreshold.ID: &atThreshold, overThreshold.ID: &overThreshold},
+		}
+		return &GatewayService{
+			accountRepo:    repo,
+			cache:          &mockGatewayCacheForPlatform{},
+			cfg:            testConfig(),
+			settingService: profitControlTestSettingService(t, minMargin),
+		}
+	}
+	opts := SelectOptions{Platform: PlatformAnthropic}
+	onlyOver := map[int64]struct{}{atThreshold.ID: {}}
+
+	t.Run("margin 0.3 filters by D x (1 - margin)", func(t *testing.T) {
+		svc := newSvc(t, 0.3)
+		selected, err := svc.SelectAccountWithOptions(gatewayProfitTestContext(), "", "", nil, opts)
+		require.NoError(t, err)
+		require.Equal(t, atThreshold.ID, selected.Account.ID, "倍率等于阈值 0.35 的渠道能派")
+
+		_, err = svc.SelectAccountWithOptions(gatewayProfitTestContext(), "", "", onlyOver, opts)
+		require.ErrorIs(t, err, ErrNoAvailableAccounts, "倍率 0.4 > 0.5 × (1 − 0.3) 的渠道被筛掉")
+	})
+
+	t.Run("margin 0 installs no gate", func(t *testing.T) {
+		svc := newSvc(t, 0)
+		selected, err := svc.SelectAccountWithOptions(gatewayProfitTestContext(), "", "", onlyOver, opts)
+		require.NoError(t, err)
+		require.Equal(t, overThreshold.ID, selected.Account.ID, "最低毛利率 0 = 关，倍率 0.4 的渠道照派")
+	})
 }
 
 func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
@@ -135,7 +171,7 @@ func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
 		cache:              &mockGatewayCacheForPlatform{},
 		cfg:                cfg,
 		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
-		settingService:     profitControlTestSettingService(t, true, 0, 0),
+		settingService:     profitControlTestSettingService(t, 0.2),
 	}
 
 	opts := SelectOptions{Platform: PlatformGrok}
@@ -167,7 +203,7 @@ func TestGatewayProfitControlStickyVetoKeepsBindingUntilRateRecovers(t *testing.
 		accountRepo:    repo,
 		cache:          cache,
 		cfg:            testConfig(),
-		settingService: profitControlTestSettingService(t, true, 0, 0),
+		settingService: profitControlTestSettingService(t, 0.2),
 	}
 	ctx := gatewayProfitTestContext()
 	opts := SelectOptions{Platform: PlatformAnthropic}
@@ -283,7 +319,7 @@ func TestGatewayProfitControlTerminalRefreshFailureFallsBackToSelectedObject(t *
 // 选号结果携带门：门安装在调度栈局部 ctx 上，handler 必须经
 // ContextWithSelectionProfitGate 重放后终检与准入后绑定才可见（评审修复回归）。
 func TestGatewayProfitControlSelectionCarriesGateToHandlerContext(t *testing.T) {
-	svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0, 0)}
+	svc := &GatewayService{settingService: profitControlTestSettingService(t, 0.2)}
 	expensive := gatewayProfitTestAccount(161, PlatformAnthropic, 0.9)
 
 	gateCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext())
@@ -311,7 +347,7 @@ func TestGatewayProfitControlSelectionCarriesGateToHandlerContext(t *testing.T) 
 // 生图意图不关门（H1/H2 回归锚点）：/v1/responses 混合请求即使带生图声明，
 // token 定价上下文照常装配，共享门照常安装并否决越线账号。
 func TestGatewayProfitControlImageIntentDoesNotDisableGate(t *testing.T) {
-	svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0, 0)}
+	svc := &GatewayService{settingService: profitControlTestSettingService(t, 0.2)}
 	expensive := gatewayProfitTestAccount(162, PlatformAnthropic, 0.9)
 
 	ctx := gatewayProfitTestContext()

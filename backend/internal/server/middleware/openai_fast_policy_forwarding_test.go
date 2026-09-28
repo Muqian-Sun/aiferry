@@ -3,7 +3,6 @@ package middleware
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -18,7 +18,11 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
+// OpenAI Fast 策略写在代码里（service.openAIFastPolicy，默认不设规则），本包换不了它。
+// 这里断言两件事：鉴权中间件把用户 ID 以 ctxkey.UserID（int64，按用户生效的 Fast 规则就读它）
+// 放进请求 context 并随 Forward 传下去；默认策略下客户端的 priority 档位原样到上游。
+// 按用户生效的规则本身由 service 包的 *_UserScopedRuleOverridesGlobalRule 用例覆盖。
+func TestAPIKeyAuthForwardsUserIDAndDefaultOpenAIFastPolicyToUpstream(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstreamBodies := make(chan []byte, 2)
@@ -34,31 +38,11 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	}))
 	defer upstreamServer.Close()
 
-	settings := &service.OpenAIFastPolicySettings{
-		Rules: []service.OpenAIFastPolicyRule{
-			{
-				ServiceTier: service.OpenAIFastTierPriority,
-				Action:      service.BetaPolicyActionFilter,
-				Scope:       service.BetaPolicyScopeAll,
-			},
-			{
-				ServiceTier: service.OpenAIFastTierPriority,
-				Action:      service.BetaPolicyActionPass,
-				Scope:       service.BetaPolicyScopeAll,
-				UserIDs:     []int64{42},
-			},
-		},
-	}
-	settingsJSON, err := json.Marshal(settings)
-	require.NoError(t, err)
-
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 
-	settingService := service.NewSettingService(&openAIFastPolicyForwardingSettingRepo{
-		value: string(settingsJSON),
-	}, cfg)
+	settingService := service.NewSettingService(&openAIFastPolicyForwardingSettingRepo{}, cfg)
 	gatewayService := service.NewOpenAIGatewayService(
 		nil, nil, nil, nil, nil, nil, cfg,
 		nil, nil, nil, nil, nil, &openAIFastPolicyForwardingHTTPUpstream{client: upstreamServer.Client()},
@@ -90,9 +74,12 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 		Extra: map[string]any{"use_responses_api": true},
 	}
 
+	observedUserIDs := make(chan int64, 2)
 	router := gin.New()
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 	router.POST("/v1/responses", func(c *gin.Context) {
+		userID, _ := c.Request.Context().Value(ctxkey.UserID).(int64)
+		observedUserIDs <- userID
 		body, readErr := io.ReadAll(c.Request.Body)
 		if readErr != nil {
 			c.Status(http.StatusBadRequest)
@@ -122,10 +109,12 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	send("key-user-42")
 	send("key-user-43")
 
-	allowedUserBody := <-upstreamBodies
-	otherUserBody := <-upstreamBodies
-	require.Equal(t, service.OpenAIFastTierPriority, gjson.GetBytes(allowedUserBody, "service_tier").String())
-	require.False(t, gjson.GetBytes(otherUserBody, "service_tier").Exists())
+	require.Equal(t, int64(42), <-observedUserIDs)
+	require.Equal(t, int64(43), <-observedUserIDs)
+	firstUserBody := <-upstreamBodies
+	secondUserBody := <-upstreamBodies
+	require.Equal(t, service.OpenAIFastTierPriority, gjson.GetBytes(firstUserBody, "service_tier").String())
+	require.Equal(t, service.OpenAIFastTierPriority, gjson.GetBytes(secondUserBody, "service_tier").String())
 }
 
 func newOpenAIFastPolicyForwardingAPIKey(id int64, key string, userID int64) *service.APIKey {
@@ -162,13 +151,13 @@ func (r *openAIFastPolicyForwardingAPIKeyRepo) UpdateLastUsed(context.Context, i
 	return nil
 }
 
+// openAIFastPolicyForwardingSettingRepo 空库：什么设置都没有。
 type openAIFastPolicyForwardingSettingRepo struct {
 	service.SettingRepository
-	value string
 }
 
 func (r *openAIFastPolicyForwardingSettingRepo) GetValue(context.Context, string) (string, error) {
-	return r.value, nil
+	return "", service.ErrSettingNotFound
 }
 
 type openAIFastPolicyForwardingHTTPUpstream struct {
