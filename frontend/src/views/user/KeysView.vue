@@ -453,6 +453,7 @@
                   v-model="formData.expiration_date"
                   type="datetime-local"
                   class="input"
+                  @input="formData.expiration_preset = 'custom'"
                 />
                 <p class="input-hint">{{ t('keys.expirationDateHint') }}</p>
               </div>
@@ -625,7 +626,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -1082,6 +1083,12 @@ const handleSubmit = async () => {
     }
   }
 
+  // 打开了有效期却没有日期（比如手动清空了），不能悄悄建成永久有效
+  if (formData.value.enable_expiration && !formData.value.expiration_date) {
+    appStore.showError(t('keys.expirationDateRequired'))
+    return
+  }
+
   // Parse IP lists only if IP restriction is enabled
   const parseIPList = (text: string): string[] =>
     text.split('\n').map(ip => ip.trim()).filter(ip => ip.length > 0)
@@ -1192,13 +1199,27 @@ const closeModals = () => {
   formData.value = emptyForm()
 }
 
-// Set expiration date based on quick select days
+// 快捷天数：新建时从现在算；编辑时按钮写「+N 天」，从原到期时间往后延（已过期或原来永久有效则从现在算）
 const setExpirationDays = (days: number) => {
   formData.value.expiration_preset = days.toString() as '7' | '30' | '90'
-  const expDate = new Date()
+  const now = new Date()
+  const currentExpiry = showEditModal.value && selectedKey.value?.expires_at
+    ? new Date(selectedKey.value.expires_at)
+    : null
+  const expDate = currentExpiry && currentExpiry > now ? currentExpiry : now
   expDate.setDate(expDate.getDate() + days)
   formData.value.expiration_date = formatDateTimeLocal(expDate.toISOString())
 }
+
+// 新建时打开有效期，按默认高亮的天数（30 天）直接填好日期；之前只高亮不填，提交出去是永久有效
+watch(
+  () => formData.value.enable_expiration,
+  (enabled) => {
+    if (!enabled || formData.value.expiration_date) return
+    const preset = formData.value.expiration_preset
+    if (preset !== 'custom') setExpirationDays(parseInt(preset))
+  }
+)
 
 // ---------- 重置已用（详情抽屉里发起，先确认） ----------
 const confirmResetQuota = (key: ApiKey) => {

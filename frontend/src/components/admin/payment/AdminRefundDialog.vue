@@ -30,8 +30,8 @@
       <!-- Order Info -->
       <div class="rounded-lg bg-af-sunken p-3">
         <div class="flex justify-between text-sm">
-          <span class="text-af-ink-3">{{ t('payment.orders.orderId') }}</span>
-          <span class="font-mono text-af-ink">#{{ order?.id }}</span>
+          <span class="text-af-ink-3">{{ t('payment.orders.orderNo') }}</span>
+          <span class="font-mono text-af-ink">{{ order?.out_trade_no }}</span>
         </div>
         <div class="mt-1 flex justify-between text-sm">
           <span class="text-af-ink-3">{{ t('payment.orders.creditedAmount') }}</span>

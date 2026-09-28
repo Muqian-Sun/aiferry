@@ -18,6 +18,7 @@ type stubAdminService struct {
 	redeems                    []service.RedeemCode
 	boundAuthIdentity          *service.AdminBindAuthIdentityInput
 	boundAuthIdentityFor       int64
+	createdUsers               []*service.CreateUserInput
 	createdAccounts            []*service.CreateAccountInput
 	createdProxies             []*service.CreateProxyInput
 	updatedProxyIDs            []int64
@@ -160,6 +161,7 @@ func (s *stubAdminService) GetUserIncludeDeleted(ctx context.Context, id int64) 
 }
 
 func (s *stubAdminService) CreateUser(ctx context.Context, input *service.CreateUserInput) (*service.User, error) {
+	s.createdUsers = append(s.createdUsers, input)
 	user := service.User{ID: 100, Email: input.Email, Status: service.StatusActive}
 	return &user, nil
 }

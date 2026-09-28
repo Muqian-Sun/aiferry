@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -125,11 +127,15 @@ func TestGetUserErrorRequestDetail_OwnershipEnforced(t *testing.T) {
 	if got2.ID != 42 {
 		t.Errorf("want ID=42, got %d", got2.ID)
 	}
-	if got2.ErrorBody != `{"error":"upstream"}` {
-		t.Errorf("want ErrorBody=%q, got %q", `{"error":"upstream"}`, got2.ErrorBody)
+	// 详情与列表同一份白名单：上游正文、上游状态码不返回
+	raw, err := json.Marshal(got2)
+	if err != nil {
+		t.Fatalf("json.Marshal failed: %v", err)
 	}
-	if got2.UpstreamStatusCode == nil || *got2.UpstreamStatusCode != 503 {
-		t.Errorf("want UpstreamStatusCode=503, got %v", got2.UpstreamStatusCode)
+	for _, forbidden := range []string{"error_body", "upstream_status_code", "platform"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Errorf("field %q leaked in user error detail: %s", forbidden, raw)
+		}
 	}
 	if got2.Message != "upstream failed" {
 		t.Errorf("want Message=%q, got %q", "upstream failed", got2.Message)

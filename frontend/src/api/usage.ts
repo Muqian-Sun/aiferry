@@ -14,7 +14,6 @@ import type {
   ModelTrendPoint,
   UsageRequestType,
   UserErrorRequest,
-  UserErrorRequestDetail,
   UserErrorListParams
 } from '@/types'
 
@@ -363,8 +362,8 @@ export async function listMyErrorRequests(
   return data
 }
 
-export async function getMyErrorDetail(id: number): Promise<UserErrorRequestDetail> {
-  const { data } = await apiClient.get<UserErrorRequestDetail>(`/usage/errors/${id}`)
+export async function getMyErrorDetail(id: number): Promise<UserErrorRequest> {
+  const { data } = await apiClient.get<UserErrorRequest>(`/usage/errors/${id}`)
   return data
 }
 

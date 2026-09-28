@@ -217,6 +217,7 @@ export default {
         concurrencyHint: 'Max concurrent requests for this user; 0 = unlimited.',
         rpmLimitPlaceholder: '0 = unlimited',
         rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited.',
+        newUserDefaultPlaceholder: 'Leave empty to use the new-user default',
         rateMultiplier: 'Rate multiplier',
         rateMultiplierHint: 'User price = catalog price × multiplier; 0 means free.'
       },

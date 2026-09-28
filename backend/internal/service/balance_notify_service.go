@@ -324,10 +324,16 @@ func filterVerifiedEmails(entries []NotifyEmailEntry) []string {
 	return recipients
 }
 
-// collectBalanceNotifyRecipients returns verified, non-disabled email recipients.
-// Only emails with verified=true and disabled=false are included.
+// collectBalanceNotifyRecipients 返回余额提醒的收件人：账号邮箱在前，再加用户另外添加且已验证、
+// 未停用的邮箱，大小写不敏感去重。第三方登录生成的 .invalid 占位邮箱收不到信，跳过。
+// 账号邮箱默认也收（muqian 2026-09-26）：之前只发额外邮箱，没加过的用户开关开着却一封也收不到。
 func (s *BalanceNotifyService) collectBalanceNotifyRecipients(user *User) []string {
-	return filterVerifiedEmails(user.BalanceNotifyExtraEmails)
+	entries := make([]NotifyEmailEntry, 0, len(user.BalanceNotifyExtraEmails)+1)
+	if !isReservedEmail(user.Email) {
+		entries = append(entries, NotifyEmailEntry{Email: user.Email, Verified: true})
+	}
+	entries = append(entries, user.BalanceNotifyExtraEmails...)
+	return filterVerifiedEmails(entries)
 }
 
 // sendEmails sends an email to all recipients with shared timeout and error logging.

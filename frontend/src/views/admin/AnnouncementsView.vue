@@ -216,6 +216,7 @@ import {
 import type { Announcement, AnnouncementTargeting } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import { adminPaymentAPI } from '@/api/admin/payment'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import type { Column } from '@/components/common/types'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -560,7 +561,7 @@ function openReadStatus(row: Announcement) {
 }
 
 onMounted(async () => {
-  await loadSubscriptionPlans()
+  if (SITE_FEATURES.subscription) await loadSubscriptionPlans()
   await loadAnnouncements()
 })
 

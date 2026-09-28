@@ -43,28 +43,12 @@
           <span class="font-medium text-af-ink-3">{{ t('usage.errors.category') }}</span>
           <p class="mt-0.5 text-af-ink">{{ t('usage.errors.categories.' + detail.category) }}</p>
         </div>
-        <!-- Platform -->
-        <div>
-          <span class="font-medium text-af-ink-3">{{ t('usage.errors.platform') }}</span>
-          <p class="mt-0.5 text-af-ink">{{ detail.platform || '-' }}</p>
-        </div>
-        <!-- Upstream status code -->
-        <div v-if="detail.upstream_status_code != null">
-          <span class="font-medium text-af-ink-3">{{ t('usage.errors.detail.upstreamStatus') }}</span>
-          <p class="mt-0.5 text-af-ink">{{ detail.upstream_status_code }}</p>
-        </div>
       </div>
 
       <!-- Message -->
       <div v-if="detail.message">
         <span class="font-medium text-af-ink-3">{{ t('usage.errors.message') }}</span>
         <p class="mt-0.5 text-af-ink break-all">{{ detail.message }}</p>
-      </div>
-
-      <!-- Error Body -->
-      <div v-if="detail.error_body">
-        <span class="font-medium text-af-ink-3">{{ t('usage.errors.detail.responseBody') }}</span>
-        <pre class="mt-1 overflow-auto max-h-[40vh] whitespace-pre-wrap break-all rounded-lg bg-af-sunken border border-af-hairline p-3 text-xs text-af-ink-2">{{ detail.error_body }}</pre>
       </div>
     </div>
   </BaseDialog>
@@ -76,7 +60,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { getMyErrorDetail } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
-import type { UserErrorRequestDetail } from '@/types'
+import type { UserErrorRequest } from '@/types'
 
 const props = defineProps<{
   show: boolean
@@ -91,7 +75,7 @@ const { t } = useI18n()
 
 const loading = ref(false)
 const loadError = ref(false)
-const detail = ref<UserErrorRequestDetail | null>(null)
+const detail = ref<UserErrorRequest | null>(null)
 
 watch(
   () => [props.show, props.errorId] as const,

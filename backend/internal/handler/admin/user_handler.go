@@ -50,14 +50,15 @@ func NewUserHandler(
 
 // CreateUserRequest represents admin create user request
 type CreateUserRequest struct {
-	Email          string   `json:"email" binding:"required,email"`
-	Password       string   `json:"password" binding:"required,min=6"`
-	Username       string   `json:"username"`
-	Notes          string   `json:"notes"`
-	Role           string   `json:"role" binding:"omitempty,oneof=admin user"`
-	Balance        *float64 `json:"balance"`
-	Concurrency    int      `json:"concurrency"`
-	RPMLimit       int      `json:"rpm_limit"`
+	Email    string   `json:"email" binding:"required,email"`
+	Password string   `json:"password" binding:"required,min=6"`
+	Username string   `json:"username"`
+	Notes    string   `json:"notes"`
+	Role     string   `json:"role" binding:"omitempty,oneof=admin user"`
+	Balance  *float64 `json:"balance"`
+	// Concurrency / RPMLimit 不传就按「新用户默认值」。
+	Concurrency    *int     `json:"concurrency" binding:"omitempty,min=0"`
+	RPMLimit       *int     `json:"rpm_limit" binding:"omitempty,min=0"`
 	RateMultiplier *float64 `json:"rate_multiplier"`
 }
 

@@ -74,7 +74,7 @@
         <div v-else-if="returnInfo" class="border-t border-af-hairline pt-5">
           <div class="space-y-3 text-sm">
             <div v-if="returnInfo.outTradeNo" class="flex justify-between">
-              <span class="text-af-ink-3">{{ t('payment.orders.orderId') }}</span>
+              <span class="text-af-ink-3">{{ t('payment.orders.orderNo') }}</span>
               <span class="font-medium text-af-ink">{{ returnInfo.outTradeNo }}</span>
             </div>
             <div v-if="returnInfo.money" class="flex justify-between">

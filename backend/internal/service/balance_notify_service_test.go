@@ -271,6 +271,37 @@ func TestCollectBalanceNotifyRecipients_SkipsEmpty(t *testing.T) {
 	require.Equal(t, []string{"valid@example.com"}, got)
 }
 
+func TestCollectBalanceNotifyRecipients_IncludesAccountEmailFirst(t *testing.T) {
+	s := &BalanceNotifyService{}
+	u := &User{
+		Email: "owner@example.com",
+		BalanceNotifyExtraEmails: []NotifyEmailEntry{
+			{Email: "Owner@Example.com", Verified: true}, // 与账号邮箱重复
+			{Email: "extra@example.com", Verified: true},
+			{Email: "pending@example.com", Verified: false},
+		},
+	}
+	got := s.collectBalanceNotifyRecipients(u)
+	require.Equal(t, []string{"owner@example.com", "extra@example.com"}, got)
+}
+
+func TestCollectBalanceNotifyRecipients_AccountEmailAloneStillNotified(t *testing.T) {
+	s := &BalanceNotifyService{}
+	u := &User{Email: "owner@example.com"}
+	require.Equal(t, []string{"owner@example.com"}, s.collectBalanceNotifyRecipients(u))
+}
+
+func TestCollectBalanceNotifyRecipients_SkipsSyntheticAccountEmail(t *testing.T) {
+	s := &BalanceNotifyService{}
+	u := &User{
+		Email: "12345" + LinuxDoConnectSyntheticEmailDomain,
+		BalanceNotifyExtraEmails: []NotifyEmailEntry{
+			{Email: "extra@example.com", Verified: true},
+		},
+	}
+	require.Equal(t, []string{"extra@example.com"}, s.collectBalanceNotifyRecipients(u))
+}
+
 func TestCollectBalanceNotifyRecipients_TrimsWhitespace(t *testing.T) {
 	s := &BalanceNotifyService{}
 	u := &User{

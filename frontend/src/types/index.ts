@@ -1741,7 +1741,6 @@ export interface UserErrorRequest {
   inbound_endpoint: string
   status_code: number
   category: string
-  platform: string
   message: string
   key_name: string
   key_deleted: boolean
@@ -1749,11 +1748,6 @@ export interface UserErrorRequest {
   request_type?: number
   stream?: boolean
   user_agent?: string
-}
-
-export interface UserErrorRequestDetail extends UserErrorRequest {
-  error_body: string
-  upstream_status_code?: number
 }
 
 export interface UserErrorListParams {

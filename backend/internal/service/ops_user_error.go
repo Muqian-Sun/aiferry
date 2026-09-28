@@ -2,14 +2,15 @@ package service
 
 import "time"
 
-// UserErrorRequest 是面向终端用户的"错误请求"精简脱敏视图（白名单）。
-// 严禁包含 account / api_key_prefix / upstream_endpoint / user_email 等
-// 敏感或内部字段。注：message（网关标准化错误描述）与 key_name
+// UserErrorRequest 是面向终端用户的"错误请求"精简脱敏视图（白名单），列表与详情共用。
+// 严禁包含 account / platform / api_key_prefix / upstream_endpoint / user_email /
+// error_body / upstream_status_code 等内部字段：用户站不能让人看出背后有哪个渠道、
+// 哪个上游平台（muqian 2026-09-26）。error_body 是上游原始正文，本地会话屏蔽时还写着
+// session_block_key，同样不给。注：message（网关标准化错误描述）与 key_name
 // （用户自有 API Key 名称，KeysView 中本就可见）经产品决策对该用户开放；
 // client_ip / user_agent / request_type / stream 均为该用户
 // 自己请求的属性，经产品决策（2026-07-03）开放，
-// 与用量明细已向用户展示自身 ip_address/user_agent/分组/类型 的口径对齐；
-// error_body 仅在详情接口（GetUserErrorRequestDetail）按归属校验后返回。
+// 与用量明细已向用户展示自身 ip_address/user_agent/类型 的口径对齐。
 type UserErrorRequest struct {
 	ID              int64     `json:"id"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -17,7 +18,6 @@ type UserErrorRequest struct {
 	InboundEndpoint string    `json:"inbound_endpoint"`
 	StatusCode      int       `json:"status_code"`
 	Category        string    `json:"category"`
-	Platform        string    `json:"platform"`
 	Message         string    `json:"message"`
 	KeyName         string    `json:"key_name"`
 	KeyDeleted      bool      `json:"key_deleted"`
@@ -36,7 +36,8 @@ type UserErrorRequestList struct {
 }
 
 // MapUserErrorCategory 把后端 error_phase + error_type 映射为用户侧粗分类码。
-// 返回的是稳定的分类 code（前端做 i18n），不是展示文案。
+// 返回的是稳定的分类 code（前端做 i18n），不是展示文案。上游 / 网络 / 渠道认证失败
+// 对用户统称 "server"（模型服务出错），分类码里也不出现 upstream。
 func MapUserErrorCategory(phase, errType string) string {
 	switch phase {
 	case "auth":
@@ -44,7 +45,7 @@ func MapUserErrorCategory(phase, errType string) string {
 	case "routing":
 		return "service_unavailable"
 	case "account_auth", "upstream", "network":
-		return "upstream"
+		return "server"
 	case "internal":
 		return "internal"
 	case "request":
@@ -71,7 +72,7 @@ func CategoryToFilter(category string) (phases []string, errorTypes []string) {
 		return []string{"auth"}, nil
 	case "service_unavailable":
 		return []string{"routing"}, nil
-	case "upstream":
+	case "server":
 		return []string{"account_auth", "upstream", "network"}, nil
 	case "internal":
 		return []string{"internal"}, nil
@@ -108,7 +109,6 @@ func ToUserErrorRequest(e *OpsErrorLog) *UserErrorRequest {
 		InboundEndpoint: e.InboundEndpoint,
 		StatusCode:      e.StatusCode,
 		Category:        MapUserErrorCategory(e.Phase, e.Type),
-		Platform:        e.Platform,
 		Message:         e.Message,
 		KeyName:         e.APIKeyName,
 		KeyDeleted:      e.APIKeyDeleted,
@@ -116,27 +116,5 @@ func ToUserErrorRequest(e *OpsErrorLog) *UserErrorRequest {
 		RequestType:     e.RequestType,
 		Stream:          e.Stream,
 		UserAgent:       e.UserAgent,
-	}
-}
-
-// UserErrorRequestDetail 是错误请求详情的脱敏视图(点击单行查看)。
-// 在 UserErrorRequest 基础上额外暴露 error_body(上游错误响应正文)与 upstream_status_code;
-// 仍严禁任何内部/敏感字段。
-type UserErrorRequestDetail struct {
-	UserErrorRequest
-	ErrorBody          string `json:"error_body"`
-	UpstreamStatusCode *int   `json:"upstream_status_code,omitempty"`
-}
-
-// ToUserErrorRequestDetail 把内部 OpsErrorLogDetail 裁剪为用户安全详情视图。
-func ToUserErrorRequestDetail(e *OpsErrorLogDetail) *UserErrorRequestDetail {
-	if e == nil {
-		return nil
-	}
-	base := ToUserErrorRequest(&e.OpsErrorLog)
-	return &UserErrorRequestDetail{
-		UserErrorRequest:   *base,
-		ErrorBody:          e.ErrorBody,
-		UpstreamStatusCode: e.UpstreamStatusCode,
 	}
 }

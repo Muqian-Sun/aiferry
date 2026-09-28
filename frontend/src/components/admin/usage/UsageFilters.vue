@@ -159,7 +159,8 @@
       </div>
 
       <!-- Billing Type Filter (usage only) -->
-      <div v-if="mode !== 'errors'" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
+      <!-- 计费类型只有「余额 / 订阅」两种，订阅隐藏期间这个筛选没有意义 -->
+      <div v-if="mode !== 'errors' && SITE_FEATURES.subscription" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
         <Select v-model="filters.billing_type" :options="billingTypeOptions" :placeholder="t('admin.usage.allBillingTypes')" @change="emitChange" />
       </div>
 
@@ -197,6 +198,7 @@ import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
 
 type ModelValue = Record<string, any>
