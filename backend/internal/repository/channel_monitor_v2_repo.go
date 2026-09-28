@@ -617,7 +617,7 @@ func (r *channelMonitorV2Repository) loadErrorDetails(ctx context.Context, filte
 			COUNT(*) AS count
 		FROM ops_error_logs current_error
 		WHERE ` + strings.Join(conditions, " AND ") + `
-		GROUP BY 1,2,3,4,5,6,7,8,9
+		GROUP BY 1,2,3,4,5,6,7,8
 		ORDER BY count DESC
 		LIMIT 400`
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -628,10 +628,9 @@ func (r *channelMonitorV2Repository) loadErrorDetails(ctx context.Context, filte
 	out := map[string][]service.ChannelMonitorV2ErrorDetail{}
 	for rows.Next() {
 		var platform, model, errorType, owner, source, message string
-		var groupID int64
 		var statusCode, upstreamStatusCode int
 		var count int64
-		if err := rows.Scan(&platform, &groupID, &model, &errorType, &owner, &source, &statusCode, &upstreamStatusCode, &message, &count); err != nil {
+		if err := rows.Scan(&platform, &model, &errorType, &owner, &source, &statusCode, &upstreamStatusCode, &message, &count); err != nil {
 			return nil, err
 		}
 		if !channelMonitorV2ModelSelected(filter, cfg, platform, model) {

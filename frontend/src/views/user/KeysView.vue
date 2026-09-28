@@ -279,11 +279,11 @@
           v-if="!publicSettings?.hide_ccs_import_button"
           type="button"
           class="dropdown-item w-full text-left"
-          @click="runMenuAction(() => importToCcswitch(openMenu!.key))"
+          @click="runMenuAction(importToCcswitch)"
         >
           {{ t('keys.importToCcSwitch') }}
         </button>
-        <button type="button" class="dropdown-item w-full text-left" @click="runMenuAction(() => toggleKeyStatus(openMenu!.key))">
+        <button type="button" class="dropdown-item w-full text-left" @click="runMenuAction(toggleKeyStatus)">
           {{ openMenu.key.status === 'active' ? t('keys.disable') : t('keys.enable') }}
         </button>
         <!-- 订阅 key 是订阅的访问凭证，不能删 -->
@@ -292,7 +292,7 @@
           type="button"
           class="dropdown-item w-full text-left text-af-danger hover:text-af-danger"
           data-testid="delete-key"
-          @click="runMenuAction(() => confirmDelete(openMenu!.key))"
+          @click="runMenuAction(confirmDelete)"
         >
           {{ t('common.delete') }}
         </button>
@@ -829,9 +829,11 @@ const toggleKeyMenu = (key: ApiKey, event: MouseEvent) => {
 const closeKeyMenu = () => {
   openMenu.value = null
 }
-const runMenuAction = (action: () => void | Promise<void>) => {
+// 先取出当前行再关菜单：关菜单会把 openMenu 置空，动作里再读就拿不到了
+const runMenuAction = (action: (key: ApiKey) => void | Promise<void>) => {
+  const key = openMenu.value?.key
   closeKeyMenu()
-  void action()
+  if (key) void action(key)
 }
 onClickOutside(keyMenuRef, closeKeyMenu)
 let abortController: AbortController | null = null

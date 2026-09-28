@@ -288,8 +288,6 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		var apiKeyID sql.NullInt64
 		var accountID sql.NullInt64
 		var accountName string
-		var groupID sql.NullInt64
-		var groupName string
 		var userEmail string
 		var resolvedAt sql.NullTime
 		var resolvedBy sql.NullInt64
@@ -320,8 +318,6 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			&apiKeyID,
 			&accountID,
 			&accountName,
-			&groupID,
-			&groupName,
 			&clientIP,
 			&item.RequestPath,
 			&item.Stream,
