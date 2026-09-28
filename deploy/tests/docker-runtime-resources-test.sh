@@ -26,6 +26,7 @@ assert_count() {
 test -s backend/resources/model-pricing/model_prices_and_context_window.json || \
   fail 'fallback pricing data is missing or empty'
 
-assert_line deploy/Dockerfile 'COPY --from=backend-builder --chown=sub2api:sub2api /app/backend/resources /app/resources'
+assert_line Dockerfile 'COPY --from=backend-builder --chown=aiferry:aiferry /app/backend/resources /app/resources'
+assert_line deploy/Dockerfile 'COPY --from=backend-builder --chown=aiferry:aiferry /app/backend/resources /app/resources'
 
 printf 'docker runtime resources test passed\n'
