@@ -118,7 +118,7 @@ describe('subscription route guard (hidden in code)', () => {
   })
 
   it.each<[AppSite]>([['user'], ['admin']])('sends %s-site subscription pages home', async (site) => {
-    const { navigation, next } = runGuard(site, { requiresSubscription: true }, '/subscriptions')
+    const { navigation, next } = runGuard(site, { siteFeature: 'subscription' }, '/subscriptions')
     await navigation
 
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()

@@ -5,7 +5,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `createSiteRouter.ts` | 建 router：history、滚动到顶、导航进度条、chunk 失败重载、`beforeProtectedRoute` 钩子 |
-| `siteGuard.ts` | 全局守卫：登录态与站点角色匹配、功能开关门（`requiresPayment` / `requiresAffiliate` / `requiresRiskControl` 看公开设置；`requiresSubscription` 看代码常量 `utils/siteFeatures.ts`）、simple mode、backend mode、`/setup` |
+| `siteGuard.ts` | 全局守卫：登录态与站点角色匹配、功能开关门（`requiresPayment` / `requiresAffiliate` / `requiresRiskControl` 看公开设置；`siteFeature`（订阅 / 批量生图 / 账户安全页）看代码常量 `utils/siteFeatures.ts`）、simple mode、backend mode、`/setup` |
 | `defaultAuthedPath.ts` | 登录后落地页：两站都是 `/dashboard`（用户站 = 概览，管理站 = 仪表盘） |
 | `setupRedirect.ts` | 安装向导跳转 |
 | `title.ts` | 按路由 meta 的 `titleKey` 设页面标题 |

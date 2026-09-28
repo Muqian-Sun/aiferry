@@ -213,7 +213,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Batch Image Guide',
       titleKey: 'batchImageGuide.title',
-      descriptionKey: 'batchImageGuide.description'
+      descriptionKey: 'batchImageGuide.description',
+      siteFeature: 'batchImage'
     }
   },
   {
@@ -241,7 +242,7 @@ export const userRoutes: RouteRecordRaw[] = [
       descriptionKey: 'userUi.billing.description'
     },
     children: [
-      // 索引落到第一个可见页签（不会被 requiresPayment / requiresSubscription 守卫弹走）
+      // 索引落到第一个可见页签（不会被 requiresPayment / siteFeature 守卫弹走）
       { path: '', redirect: () => firstBillingPath(readBillingFlags()) },
       {
         // 路由名沿用 PurchaseSubscription：resolveRouteMetaKeys 据此按计费模式切换标题
@@ -268,7 +269,7 @@ export const userRoutes: RouteRecordRaw[] = [
           title: 'My Subscriptions',
           titleKey: 'userSubscriptions.title',
           descriptionKey: 'userSubscriptions.description',
-          requiresSubscription: true
+          siteFeature: 'subscription'
         }
       }
     ]
@@ -309,7 +310,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Security',
       titleKey: 'userUi.account.sections.security',
-      descriptionKey: 'userUi.account.descriptions.security'
+      descriptionKey: 'userUi.account.descriptions.security',
+      siteFeature: 'accountSecurity'
     }
   },
   {

@@ -4,6 +4,7 @@
  */
 
 import 'vue-router'
+import type { SiteFeature } from '@/utils/siteFeatures'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -56,10 +57,9 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
-     * 是否属于订阅功能（SITE_FEATURES.subscription 为 false 时拦回首页）
-     * @default false
+     * 属于哪个由代码决定的功能（utils/siteFeatures.ts）；该功能关着时拦回首页
      */
-    requiresSubscription?: boolean
+    siteFeature?: SiteFeature
 
 
     /**
