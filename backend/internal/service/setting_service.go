@@ -87,13 +87,11 @@ type SettingRepository interface {
 }
 
 // WebSearchManagerBuilder creates a websearch.Manager from config (injected by infra layer).
-// proxyURLs maps proxy ID to resolved URL for provider-level proxy support.
-type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[int64]string)
+type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig)
 
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo             SettingRepository
-	proxyRepo               ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                     *config.Config
 	onUpdate                func() // Callback when settings are updated (for cache invalidation)
 	version                 string // Application version
@@ -141,11 +139,6 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 		settingRepo: settingRepo,
 		cfg:         cfg,
 	}
-}
-
-// SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
-func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
-	s.proxyRepo = repo
 }
 
 // GetAllSettings 获取所有系统设置

@@ -64,9 +64,7 @@ func profitSlotTestSettings(t *testing.T) *service.SettingService {
 	service.InvalidateProfitControlSettingsCache()
 	t.Cleanup(service.InvalidateProfitControlSettingsCache)
 	return service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{
-		service.SettingKeyProfitControlEnabled: "true",
-		service.SettingKeyProfitMinMargin:      "0.5",
-		service.SettingKeyProfitSafetyBuffer:   "0",
+		service.SettingKeyProfitMinMargin: "0.5",
 	}}, &config.Config{})
 }
 

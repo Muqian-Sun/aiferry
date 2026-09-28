@@ -18,7 +18,7 @@ import (
 // WithOpenAIRequestPricingContext：装门 + 固定 pricingAt；显式抑制标记
 // （媒体/count_tokens/live 等门范围外路径）跳门且防御性装门无法把门加回来。
 func TestProfitControl_RequestPricingContext(t *testing.T) {
-	svc := profitControlTestService(t, true, 0.5, 0)
+	svc := profitControlTestService(t, 0.5)
 	now := time.Now()
 	expensive := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute)
 	profitControlTestAccountWithRate(expensive, 0.8)
@@ -48,7 +48,7 @@ func TestProfitControl_RequestPricingContext(t *testing.T) {
 
 // failover 重入复用同一门：请求中途设置变化不得改变本请求阈值。
 func TestProfitControl_GateReuseKeepsThresholdAcrossFailover(t *testing.T) {
-	svc := profitControlTestService(t, true, 0.5, 0)
+	svc := profitControlTestService(t, 0.5)
 	ctx := svc.withOpenAIProfitControlGate(profitControlTestCtx(1))
 	gate, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 	require.True(t, ok)
@@ -65,13 +65,13 @@ func TestProfitControl_GateReuseKeepsThresholdAcrossFailover(t *testing.T) {
 
 // D 固定在 pricingAt：门记录请求开始时刻，一个请求不会中途变价。
 func TestProfitControl_GateKeepsPricingAt(t *testing.T) {
-	svc := profitControlTestService(t, true, 0, 0)
+	svc := profitControlTestService(t, 0.5)
 
 	pricingAt := time.Date(2026, time.January, 15, 8, 30, 0, 0, timezone.Location())
 	ctx := context.WithValue(profitControlTestCtx(3.0), openAIPricingAtCtxKey{}, pricingAt)
 	gate := svc.resolveOpenAIProfitControlGate(ctx)
 	require.NotNil(t, gate)
-	require.InDelta(t, 3.0, gate.threshold, 1e-9, "阈值 = 用户倍率 3.0 × (1-0)")
+	require.InDelta(t, 1.5, gate.threshold, 1e-9, "阈值 = 用户倍率 3.0 × (1 − 0.5)")
 	require.Equal(t, pricingAt, gate.pricingAt)
 }
 
@@ -95,7 +95,7 @@ func TestProfitControl_AccountRateSemantics(t *testing.T) {
 	expensive := profitControlTestAccountWithRate(upstreamCostTestAccount(4, UpstreamBillingProbeStatusOK, 0.1, now.Add(-3*time.Hour), 30*time.Minute), 0.8)
 
 	base := context.WithValue(profitControlTestCtx(1), openAIPricingAtCtxKey{}, now)
-	gate := profitControlTestService(t, true, 0.5, 0).resolveOpenAIProfitControlGate(base)
+	gate := profitControlTestService(t, 0.5).resolveOpenAIProfitControlGate(base)
 	require.NotNil(t, gate)
 	gateCtx := context.WithValue(base, openAIProfitControlGateCtxKey{}, gate)
 
@@ -127,7 +127,7 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 	profitControlTestAccountWithRate(expensive, 0.8)
 
 	t.Run("refreshes instant and re-resolves gate config", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.5, 0)
+		svc := profitControlTestService(t, 0.5)
 		connCtx, connAt := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
 		vetoed, _ := OpenAIProfitControlVeto(connCtx, expensive)
 		require.True(t, vetoed)
@@ -143,7 +143,7 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 	})
 
 	t.Run("suppress marker only refreshes instant", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.5, 0)
+		svc := profitControlTestService(t, 0.5)
 		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(1))
 		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(base)
 		require.False(t, turnAt.IsZero())
@@ -151,10 +151,10 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 		require.False(t, vetoed)
 	})
 
-	t.Run("clears gate when profit control is disabled mid-connection", func(t *testing.T) {
-		svc := profitControlTestService(t, true, 0.5, 0)
+	t.Run("clears gate when min margin is set to 0 mid-connection", func(t *testing.T) {
+		svc := profitControlTestService(t, 0.5)
 		connCtx, _ := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
-		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitControlEnabled, "false"))
+		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0"))
 		InvalidateProfitControlSettingsCache()
 		turnCtx, _ := svc.WithOpenAITurnPricingContext(connCtx)
 		vetoed, _ := OpenAIProfitControlVeto(turnCtx, expensive)

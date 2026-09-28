@@ -20,15 +20,15 @@ func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context) conte
 		return ctx
 	}
 	settings := s.settingService.GetProfitControlSettings(ctx)
-	if !settings.Enabled {
+	if !settings.Enabled() {
 		return ctx
 	}
 
 	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
 
-	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源。
+	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；阈值 = D × (1 − 最低毛利率)。
 	downstream := UserRateMultiplierFromContext(ctx)
-	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin - settings.SafetyBuffer))
+	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin))
 
 	gate := &openAIProfitControlGate{
 		threshold: threshold,

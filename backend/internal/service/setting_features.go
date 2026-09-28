@@ -286,7 +286,8 @@ func (s *SettingService) DeleteAdminAPIKey(ctx context.Context) error {
 	return s.settingRepo.Delete(ctx, SettingKeyAdminAPIKey)
 }
 
-// GetProfitControlSettings 返回利润门设置；读不到 / 解析失败一律按「关」（fail-open：可用性优先，同原分组门）。
+// GetProfitControlSettings 返回利润门设置（只有最低毛利率）；读不到 / 解析失败一律按 0 = 关
+// （fail-open：可用性优先，同原分组门）。
 func (s *SettingService) GetProfitControlSettings(ctx context.Context) ProfitControlSettings {
 	if s == nil || s.settingRepo == nil {
 		return ProfitControlSettings{}
@@ -302,18 +303,12 @@ func (s *SettingService) GetProfitControlSettings(ctx context.Context) ProfitCon
 		defer cancel()
 		settings := ProfitControlSettings{}
 		ttl := profitControlSettingsCacheTTL
-		enabled, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitControlEnabled)
+		raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitMinMargin)
 		if err != nil && !errors.Is(err, ErrSettingNotFound) {
 			slog.Warn("profit_control_settings_load_failed", "error", err)
 			ttl = profitControlSettingsErrorTTL
-		} else if enabled == "true" {
-			settings.Enabled = true
-			if raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitMinMargin); err == nil {
-				settings.MinMargin = parseProfitControlRatio(raw)
-			}
-			if raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitSafetyBuffer); err == nil {
-				settings.SafetyBuffer = parseProfitControlRatio(raw)
-			}
+		} else if err == nil {
+			settings.MinMargin = parseProfitControlRatio(raw)
 		}
 		profitControlSettingsCache.Store(&cachedProfitControlSettings{settings: settings, expiresAt: time.Now().Add(ttl).UnixNano()})
 		return settings, nil

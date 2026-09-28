@@ -171,27 +171,23 @@ func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	})
 }
 
-// D2：利润门三键写入；margin + buffer 超过 ProfitControlRatioMax 是客户端错误（400），不是 500。
+// D2：利润门只写最低毛利率一个键；超出 [0, ProfitControlRatioMax] 是客户端错误（400），不是 500。
 func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
 
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		ProfitControlEnabled: true, ProfitMinMargin: 0.3, ProfitSafetyBuffer: 0.05,
-	})
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: 0.3})
 	require.NoError(t, err)
-	require.Equal(t, "true", repo.updates[SettingKeyProfitControlEnabled])
 	require.Equal(t, "0.30000000", repo.updates[SettingKeyProfitMinMargin])
-	require.Equal(t, "0.05000000", repo.updates[SettingKeyProfitSafetyBuffer])
 
-	repo = &settingUpdateRepoStub{}
-	svc = NewSettingService(repo, &config.Config{})
-	err = svc.UpdateSettings(context.Background(), &SystemSettings{
-		ProfitControlEnabled: true, ProfitMinMargin: 0.6, ProfitSafetyBuffer: 0.5,
-	})
-	require.Error(t, err)
-	require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
-	require.Nil(t, repo.updates)
+	for _, margin := range []float64{-0.1, ProfitControlRatioMax + 0.001} {
+		repo = &settingUpdateRepoStub{}
+		svc = NewSettingService(repo, &config.Config{})
+		err = svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: margin})
+		require.Error(t, err, "margin=%v", margin)
+		require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
+		require.Nil(t, repo.updates)
+	}
 }
 
 func TestSettingService_PasskeyFollowsDeploymentConfig(t *testing.T) {

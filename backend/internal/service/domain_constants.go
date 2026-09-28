@@ -282,12 +282,10 @@ const (
 	SettingKeyWebSearchEmulationConfig = "web_search_emulation_config" // JSON 配置
 )
 
-// 利润门（全站一档；原来在分组上）：账号倍率 > 用户倍率 × (1 − min_margin − safety_buffer) 的资源不派。
+// 利润门（全站一档；原来在分组上）：账号倍率 > 用户倍率 × (1 − min_margin) 的资源不派；min_margin 填 0 = 关。
 const (
-	SettingKeyProfitControlEnabled = "profit_control_enabled"
-	SettingKeyProfitMinMargin      = "profit_min_margin"    // 最低毛利率，小数（0.30 = 30%）
-	SettingKeyProfitSafetyBuffer   = "profit_safety_buffer" // 安全余量，小数
-	ProfitControlRatioMax          = 0.99                   // margin + buffer 必须 < 1，否则阈值 ≤ 0 全池不可派
+	SettingKeyProfitMinMargin = "profit_min_margin" // 最低毛利率，小数（0.30 = 30%）
+	ProfitControlRatioMax     = 0.99                // min_margin 上限：到 1 阈值就 ≤ 0，全池不可派
 )
 
 // QuotaDimension constants for spark shadow accounts.

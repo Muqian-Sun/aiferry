@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <!-- 利润门（全站一档；P4 从「重试与冷却」的调度卡片里单独拿出来） -->
+    <!-- 最低毛利率（利润门，全站一档；填 0 = 关） -->
     <div class="card">
       <div
         class="border-b border-af-hairline px-6 py-4"
@@ -12,42 +12,19 @@
           {{ t("admin.settings.profitControl.description") }}
         </p>
       </div>
-      <div class="space-y-5 p-6">
-        <div class="flex items-center justify-between">
-          <label class="text-sm font-medium text-af-ink-2">
-            {{ t("admin.settings.profitControl.enabled") }}
-          </label>
-          <Toggle
-            v-model="form.profit_control_enabled"
-            data-testid="profit-control-enabled"
+      <div class="p-6">
+        <div class="sm:max-w-xs">
+          <label class="input-label">{{ t("admin.settings.profitControl.minMargin") }}</label>
+          <input
+            v-model.number="form.profit_min_margin"
+            type="number"
+            min="0"
+            max="0.99"
+            step="0.01"
+            class="input"
+            data-testid="profit-control-min-margin"
           />
-        </div>
-        <div v-if="form.profit_control_enabled" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t("admin.settings.profitControl.minMargin") }}</label>
-            <input
-              v-model.number="form.profit_min_margin"
-              type="number"
-              min="0"
-              max="0.99"
-              step="0.01"
-              class="input"
-              data-testid="profit-control-min-margin"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t("admin.settings.profitControl.safetyBuffer") }}</label>
-            <input
-              v-model.number="form.profit_safety_buffer"
-              type="number"
-              min="0"
-              max="0.99"
-              step="0.01"
-              class="input"
-              data-testid="profit-control-safety-buffer"
-            />
-          </div>
-          <p class="text-xs text-af-ink-3 sm:col-span-2">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t("admin.settings.profitControl.hint") }}
           </p>
         </div>
@@ -66,24 +43,9 @@
           {{ t("admin.settings.webSearchEmulation.description") }}
         </p>
       </div>
-      <div class="space-y-5 p-6">
-        <!-- Global Toggle -->
-        <div class="flex items-center justify-between">
-          <div>
-            <label
-              class="text-sm font-medium text-af-ink-2"
-            >
-              {{ t("admin.settings.webSearchEmulation.enabled") }}
-            </label>
-            <p class="mt-0.5 text-xs text-af-ink-3">
-              {{ t("admin.settings.webSearchEmulation.enabledHint") }}
-            </p>
-          </div>
-          <Toggle v-model="webSearchConfig.enabled" />
-        </div>
-
-        <!-- Providers -->
-        <div v-if="webSearchConfig.enabled" class="space-y-4">
+      <div class="p-6">
+        <!-- Providers（配了 Key 的服务商就生效，没有总开关） -->
+        <div class="space-y-4">
           <div class="flex items-center justify-between">
             <label
               class="text-sm font-medium text-af-ink-2"
@@ -140,16 +102,6 @@
                   class="w-36"
                   @click.stop
                 />
-                <!-- Quota summary (always visible) -->
-                <span class="text-xs text-af-ink-3">
-                  {{ provider.quota_used ?? 0 }} /
-                  {{
-                    provider.quota_limit != null &&
-                    provider.quota_limit > 0
-                      ? provider.quota_limit
-                      : "∞"
-                  }}
-                </span>
                 <span
                   v-if="
                     !expandedProviders[pIdx] &&
@@ -287,112 +239,8 @@
                 </div>
               </div>
 
-              <!-- Quota + Subscription in compact row -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="text-xs text-af-ink-3">{{
-                    t("admin.settings.webSearchEmulation.quotaLimit")
-                  }}</label>
-                  <input
-                    v-model="provider.quota_limit"
-                    type="number"
-                    min="1"
-                    class="input text-sm"
-                    :placeholder="'∞'"
-                  />
-                  <p class="mt-0.5 text-xs text-af-ink-3">
-                    {{
-                      t(
-                        "admin.settings.webSearchEmulation.quotaLimitHint",
-                      )
-                    }}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs text-af-ink-3">{{
-                    t("admin.settings.webSearchEmulation.subscribedAt")
-                  }}</label>
-                  <input
-                    :value="formatSubscribedAt(provider.subscribed_at)"
-                    type="date"
-                    class="input text-sm"
-                    @input="
-                      provider.subscribed_at = parseSubscribedAt(
-                        ($event.target as HTMLInputElement).value,
-                      )
-                    "
-                  />
-                  <p class="mt-0.5 text-xs text-af-ink-3">
-                    {{
-                      t(
-                        "admin.settings.webSearchEmulation.subscribedAtHint",
-                      )
-                    }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Usage display -->
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-af-ink-3"
-                  >{{
-                    t("admin.settings.webSearchEmulation.quotaUsage")
-                  }}:</span
-                >
-                <div
-                  v-if="
-                    provider.quota_limit != null &&
-                    provider.quota_limit > 0
-                  "
-                  class="flex-1 rounded-full bg-af-hairline"
-                  style="height: 6px"
-                >
-                  <div
-                    class="h-full rounded-full transition-all"
-                    :class="
-                      quotaPercentage(provider) > 90
-                        ? 'bg-af-danger'
-                        : quotaPercentage(provider) > 70
-                          ? 'bg-af-warning'
-                          : 'bg-af-success'
-                    "
-                    :style="{
-                      width:
-                        Math.min(quotaPercentage(provider), 100) + '%',
-                    }"
-                  />
-                </div>
-                <div v-else class="flex-1" />
-                <span class="text-xs text-af-ink-3"
-                  >{{ provider.quota_used ?? 0 }} /
-                  {{
-                    provider.quota_limit != null &&
-                    provider.quota_limit > 0
-                      ? provider.quota_limit
-                      : "∞"
-                  }}</span
-                >
-                <button
-                  v-if="(provider.quota_used ?? 0) > 0"
-                  type="button"
-                  class="text-xs text-af-brand hover:text-af-brand-hover"
-                  @click="resetWebSearchUsage(pIdx)"
-                >
-                  {{ t("admin.settings.webSearchEmulation.resetUsage") }}
-                </button>
-              </div>
-
-              <!-- Proxy + Test on same row -->
-              <div class="flex items-end gap-3">
-                <div class="flex-1">
-                  <label class="text-xs text-af-ink-3">{{
-                    t("admin.settings.webSearchEmulation.proxy")
-                  }}</label>
-                  <ProxySelector
-                    v-model="provider.proxy_id"
-                    :proxies="webSearchProxies"
-                  />
-                </div>
+              <!-- Test -->
+              <div class="flex justify-end">
                 <button
                   type="button"
                   class="btn btn-secondary btn-sm whitespace-nowrap"
@@ -494,11 +342,9 @@
 
 <script setup lang="ts">
 // 系统设置 › 其它（上线收口 P4，2026-09-27）：网关的冷却、转发、客户端、上游探测都写进后端代码，
-// 这里只剩两张卡片——利润门（原在「重试与冷却」）与联网搜索模拟（原在「转发行为」），模板原样搬来；
-// 状态与逻辑在 useSettingsPage：利润门随总表单保存，联网搜索模拟走自己的接口、在总表单保存后一起保存。
-import ProxySelector from '@/components/common/ProxySelector.vue'
+// 这里只剩两张卡片——最低毛利率（利润门，填 0 = 关）与联网搜索模拟（只配服务商与 Key，配了 Key 就生效）；
+// 状态与逻辑在 useSettingsPage：最低毛利率随总表单保存，联网搜索模拟走自己的接口、在总表单保存后一起保存。
 import Select from '@/components/common/Select.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import { useSettingsPageContext } from '../useSettingsPage'
 
 const {
@@ -507,17 +353,12 @@ const {
   copyApiKey,
   expandedProviders,
   form,
-  formatSubscribedAt,
   openTestDialog,
-  parseSubscribedAt,
-  quotaPercentage,
   removeWebSearchProvider,
-  resetWebSearchUsage,
   t,
   testWebSearchProvider,
   toggleProviderExpand,
   webSearchConfig,
-  webSearchProxies,
   wsTestDialogOpen,
   wsTestLoading,
   wsTestQuery,

@@ -6,15 +6,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
 // --- validateWebSearchConfig ---
-
-// int64Ptr 只有 unit 标签的用例（本文件与 channel_monitor_quota_mode_test.go）用；
-// 放在无标签的测试文件里会被默认标签下的 lint 判成未使用。
-func int64Ptr(v int64) *int64 { return &v }
 
 func TestValidateWebSearchConfig_Nil(t *testing.T) {
 	require.NoError(t, validateWebSearchConfig(nil))
@@ -22,10 +19,9 @@ func TestValidateWebSearchConfig_Nil(t *testing.T) {
 
 func TestValidateWebSearchConfig_Valid(t *testing.T) {
 	cfg := &WebSearchEmulationConfig{
-		Enabled: true,
 		Providers: []WebSearchProviderConfig{
-			{Type: "brave", QuotaLimit: int64Ptr(1000)},
-			{Type: "tavily", QuotaLimit: int64Ptr(500)},
+			{Type: "brave"},
+			{Type: "tavily"},
 		},
 	}
 	require.NoError(t, validateWebSearchConfig(cfg))
@@ -47,13 +43,6 @@ func TestValidateWebSearchConfig_InvalidType(t *testing.T) {
 	require.ErrorContains(t, validateWebSearchConfig(cfg), "invalid type")
 }
 
-func TestValidateWebSearchConfig_NegativeQuotaLimit(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", QuotaLimit: int64Ptr(-1)}},
-	}
-	require.ErrorContains(t, validateWebSearchConfig(cfg), "quota_limit must be > 0 or null")
-}
-
 func TestValidateWebSearchConfig_DuplicateType(t *testing.T) {
 	cfg := &WebSearchEmulationConfig{
 		Providers: []WebSearchProviderConfig{
@@ -64,207 +53,116 @@ func TestValidateWebSearchConfig_DuplicateType(t *testing.T) {
 	require.ErrorContains(t, validateWebSearchConfig(cfg), "duplicate type")
 }
 
-func TestValidateWebSearchConfig_NilQuotaLimit(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", QuotaLimit: nil}},
-	}
-	require.NoError(t, validateWebSearchConfig(cfg))
-}
-
 // --- parseWebSearchConfigJSON ---
 
 func TestParseWebSearchConfigJSON_ValidJSON(t *testing.T) {
-	raw := `{"enabled":true,"providers":[{"type":"brave","api_key":"sk-xxx"}]}`
+	raw := `{"providers":[{"type":"brave","api_key":"sk-xxx"}]}`
 	cfg := parseWebSearchConfigJSON(raw)
-	require.True(t, cfg.Enabled)
 	require.Len(t, cfg.Providers, 1)
 	require.Equal(t, "brave", cfg.Providers[0].Type)
+	require.Equal(t, "sk-xxx", cfg.Providers[0].APIKey)
 }
 
 func TestParseWebSearchConfigJSON_EmptyString(t *testing.T) {
 	cfg := parseWebSearchConfigJSON("")
-	require.False(t, cfg.Enabled)
 	require.Empty(t, cfg.Providers)
 }
 
 func TestParseWebSearchConfigJSON_InvalidJSON(t *testing.T) {
 	cfg := parseWebSearchConfigJSON("not{json")
-	require.False(t, cfg.Enabled)
 	require.Empty(t, cfg.Providers)
 }
 
+// 库里存的旧配置还带着全局开关、配额、订阅时间、代理：解析照常，这些字段一律不看；
+// 旧的 enabled=false 也不再关掉模拟——有带 Key 的服务商就开。
 func TestParseWebSearchConfigJSON_BackwardCompatibility(t *testing.T) {
-	// Old config with priority and quota_refresh_interval should parse without error
-	raw := `{"enabled":true,"providers":[{"type":"brave","priority":1,"quota_refresh_interval":"monthly","quota_limit":1000}]}`
+	raw := `{"enabled":false,"providers":[{"type":"brave","api_key":"k","priority":1,"quota_refresh_interval":"monthly","quota_limit":1000,"subscribed_at":1700000000,"quota_used":7,"proxy_id":3}]}`
 	cfg := parseWebSearchConfigJSON(raw)
-	require.True(t, cfg.Enabled)
-	require.Len(t, cfg.Providers, 1)
-	require.Equal(t, int64(1000), *cfg.Providers[0].QuotaLimit)
+	require.Equal(t, &WebSearchEmulationConfig{Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}}}, cfg)
+	require.True(t, webSearchEmulationActive(cfg))
 }
 
-// --- SanitizeWebSearchConfig ---
+// --- 生效判定：有配了 Key 的服务商 ---
 
-func TestSanitizeWebSearchConfig_MaskAPIKey(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Enabled: true,
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "sk-secret-xxx"},
-		},
-	}
-	out := SanitizeWebSearchConfig(context.Background(), cfg)
-	require.Equal(t, "", out.Providers[0].APIKey)
-	require.True(t, out.Providers[0].APIKeyConfigured)
+func TestWebSearchEmulationActive(t *testing.T) {
+	require.False(t, webSearchEmulationActive(&WebSearchEmulationConfig{}), "没有服务商")
+	require.False(t, webSearchEmulationActive(&WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave"}},
+	}), "服务商没配 Key")
+	require.True(t, webSearchEmulationActive(&WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave"}, {Type: "tavily", APIKey: "k"}},
+	}), "有一个配了 Key 就开")
 }
 
-func TestSanitizeWebSearchConfig_NoAPIKey(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: ""}},
-	}
-	out := SanitizeWebSearchConfig(context.Background(), cfg)
-	require.Equal(t, "", out.Providers[0].APIKey)
-	require.False(t, out.Providers[0].APIKeyConfigured)
+// 系统设置里的 web_search_emulation_enabled 与管理端配置接口的 enabled 同一口径。
+func TestParseSettings_WebSearchEmulationEnabledMeansKeyedProvider(t *testing.T) {
+	svc := NewSettingService(newMockSettingRepo(), &config.Config{})
+	require.False(t, svc.parseSettings(map[string]string{}).WebSearchEmulationEnabled)
+	require.False(t, svc.parseSettings(map[string]string{
+		SettingKeyWebSearchEmulationConfig: `{"enabled":true,"providers":[{"type":"brave"}]}`,
+	}).WebSearchEmulationEnabled, "旧的全局开关开着、但没有 Key：不生效")
+	require.True(t, svc.parseSettings(map[string]string{
+		SettingKeyWebSearchEmulationConfig: `{"enabled":false,"providers":[{"type":"brave","api_key":"k"}]}`,
+	}).WebSearchEmulationEnabled, "旧的全局开关关着、但有 Key：生效")
 }
 
-func TestSanitizeWebSearchConfig_Nil(t *testing.T) {
-	require.Nil(t, SanitizeWebSearchConfig(context.Background(), nil))
-}
+// --- WebSearchEmulationAdminViewOf ---
 
-func TestSanitizeWebSearchConfig_PreservesOtherFields(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Enabled: true,
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "secret", QuotaLimit: int64Ptr(1000)},
-		},
-	}
-	out := SanitizeWebSearchConfig(context.Background(), cfg)
-	require.True(t, out.Enabled)
-	require.Equal(t, int64(1000), *out.Providers[0].QuotaLimit)
-}
-
-func TestSanitizeWebSearchConfig_DoesNotMutateOriginal(t *testing.T) {
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "secret"}},
-	}
-	_ = SanitizeWebSearchConfig(context.Background(), cfg)
-	require.Equal(t, "secret", cfg.Providers[0].APIKey)
-}
-
-// --- PopulateWebSearchUsage ---
-
-func TestPopulateWebSearchUsage_NilInput(t *testing.T) {
-	require.Nil(t, PopulateWebSearchUsage(context.Background(), nil))
-}
-
-func TestPopulateWebSearchUsage_NoManager_QuotaUsedZero(t *testing.T) {
-	// Ensure no global manager is set
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
-	cfg := &WebSearchEmulationConfig{
-		Enabled: true,
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "sk-key", QuotaLimit: int64Ptr(1000)},
-		},
-	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
-	require.NotNil(t, out)
-	require.Len(t, out.Providers, 1)
-	require.Equal(t, int64(0), out.Providers[0].QuotaUsed)
-}
-
-func TestPopulateWebSearchUsage_APIKeyConfigured_True(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
+func TestWebSearchEmulationAdminViewOf_APIKeyConfigured(t *testing.T) {
 	cfg := &WebSearchEmulationConfig{
 		Providers: []WebSearchProviderConfig{
 			{Type: "brave", APIKey: "sk-key"},
+			{Type: "tavily", APIKey: ""},
 		},
 	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
+	out := WebSearchEmulationAdminViewOf(cfg)
 	require.True(t, out.Providers[0].APIKeyConfigured)
+	require.Equal(t, "sk-key", out.Providers[0].APIKey, "管理端要能显示 / 复制 Key")
+	require.False(t, out.Providers[1].APIKeyConfigured)
 }
 
-func TestPopulateWebSearchUsage_APIKeyConfigured_False(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: ""},
-		},
-	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
-	require.False(t, out.Providers[0].APIKeyConfigured)
+func TestWebSearchEmulationAdminViewOf_EnabledMeansKeyedProvider(t *testing.T) {
+	require.False(t, WebSearchEmulationAdminViewOf(&WebSearchEmulationConfig{}).Enabled)
+	require.False(t, WebSearchEmulationAdminViewOf(&WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave"}},
+	}).Enabled)
+	require.True(t, WebSearchEmulationAdminViewOf(&WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
+	}).Enabled)
 }
 
-func TestPopulateWebSearchUsage_NilQuotaLimit(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
+func TestWebSearchEmulationAdminViewOf_DoesNotMutateOriginal(t *testing.T) {
 	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "sk-key", QuotaLimit: nil},
-		},
+		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "secret"}},
 	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
-	require.Nil(t, out.Providers[0].QuotaLimit)
-}
-
-func TestPopulateWebSearchUsage_NonNilQuotaLimit(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "sk-key", QuotaLimit: int64Ptr(500)},
-		},
-	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
-	require.NotNil(t, out.Providers[0].QuotaLimit)
-	require.Equal(t, int64(500), *out.Providers[0].QuotaLimit)
-}
-
-func TestPopulateWebSearchUsage_WithManager_NilRedis(t *testing.T) {
-	// Manager with nil Redis returns 0 usage without error
-	mgr := websearch.NewManager([]websearch.ProviderConfig{
-		{Type: "brave", APIKey: "k"},
-	}, nil)
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "sk-key", QuotaLimit: int64Ptr(1000)},
-		},
-	}
-	out := PopulateWebSearchUsage(context.Background(), cfg)
-	require.Equal(t, int64(0), out.Providers[0].QuotaUsed)
-	require.True(t, out.Providers[0].APIKeyConfigured)
-}
-
-func TestPopulateWebSearchUsage_DoesNotMutateOriginal(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
-
-	cfg := &WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{
-			{Type: "brave", APIKey: "secret", QuotaLimit: int64Ptr(100)},
-		},
-	}
-	_ = PopulateWebSearchUsage(context.Background(), cfg)
-	// Original should be unchanged
+	_ = WebSearchEmulationAdminViewOf(cfg)
 	require.Equal(t, "secret", cfg.Providers[0].APIKey)
-	require.Equal(t, int64(0), cfg.Providers[0].QuotaUsed)
+	require.False(t, cfg.Providers[0].APIKeyConfigured)
 }
 
-// --- ResetWebSearchUsage ---
+// --- SaveWebSearchEmulationConfig ---
 
-func TestResetWebSearchUsage_NilManager(t *testing.T) {
-	SetWebSearchManager(nil)
-	defer SetWebSearchManager(nil)
+// 没有全局开关，列出来的服务商都得有 Key（留空沿用库里同类型服务商的 Key）；存下来的配置里没有开关、配额、代理。
+func TestSaveWebSearchEmulationConfig_EveryProviderNeedsAPIKey(t *testing.T) {
+	t.Cleanup(clearGlobalWebSearchConfig)
+	repo := newMockSettingRepo()
+	svc := NewSettingService(repo, &config.Config{})
 
-	err := ResetWebSearchUsage(context.Background(), "brave")
+	err := svc.SaveWebSearchEmulationConfig(context.Background(), &WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave"}},
+	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "not initialized")
+	require.Equal(t, "MISSING_API_KEY", infraerrors.Reason(err))
+	require.NotContains(t, repo.data, SettingKeyWebSearchEmulationConfig)
+
+	require.NoError(t, svc.SaveWebSearchEmulationConfig(context.Background(), &WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
+	}))
+	require.JSONEq(t, `{"providers":[{"type":"brave","api_key":"k","api_key_configured":false}]}`, repo.data[SettingKeyWebSearchEmulationConfig])
+
+	// 再次保存时 Key 留空：沿用库里的 Key
+	require.NoError(t, svc.SaveWebSearchEmulationConfig(context.Background(), &WebSearchEmulationConfig{
+		Providers: []WebSearchProviderConfig{{Type: "brave"}},
+	}))
+	require.JSONEq(t, `{"providers":[{"type":"brave","api_key":"k","api_key_configured":false}]}`, repo.data[SettingKeyWebSearchEmulationConfig])
 }

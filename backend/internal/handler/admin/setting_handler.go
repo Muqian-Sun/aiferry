@@ -68,9 +68,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 
-		ProfitControlEnabled: settings.ProfitControlEnabled,
-		ProfitMinMargin:      settings.ProfitMinMargin,
-		ProfitSafetyBuffer:   settings.ProfitSafetyBuffer,
+		ProfitMinMargin: settings.ProfitMinMargin,
 	}
 
 	response.Success(c, payload)

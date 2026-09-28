@@ -24,9 +24,7 @@ import (
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeyProfitControlEnabled:         "true",
 		service.SettingKeyProfitMinMargin:              "0.30000000",
-		service.SettingKeyProfitSafetyBuffer:           "0.05000000",
 		service.SettingKeyOpsQueryModeDefault:          "raw",
 		service.SettingKeyOpsMetricsIntervalSeconds:    "120",
 		service.SettingKeyOpsRealtimeMonitoringEnabled: "false",
@@ -38,9 +36,7 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "true", repo.values[service.SettingKeyRiskControlEnabled],
 		"the field the caller actually sent must be written")
 
-	require.Equal(t, "true", repo.values[service.SettingKeyProfitControlEnabled])
 	require.Equal(t, "0.30000000", repo.values[service.SettingKeyProfitMinMargin])
-	require.Equal(t, "0.05000000", repo.values[service.SettingKeyProfitSafetyBuffer])
 	require.Equal(t, "raw", repo.values[service.SettingKeyOpsQueryModeDefault])
 	require.Equal(t, "120", repo.values[service.SettingKeyOpsMetricsIntervalSeconds])
 	require.Equal(t, "false", repo.values[service.SettingKeyOpsRealtimeMonitoringEnabled])
@@ -50,15 +46,12 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 // zero value are still cleared.
 func TestUpdateSettingsFullPayloadStillClearsSentEmptyFields(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeyProfitControlEnabled: "true",
-		service.SettingKeyProfitMinMargin:      "0.30000000",
+		service.SettingKeyProfitMinMargin: "0.30000000",
 	})
 
-	rec := doUpdateSettings(t, h, map[string]any{"profit_control_enabled": false, "profit_min_margin": 0}, nil)
+	rec := doUpdateSettings(t, h, map[string]any{"profit_min_margin": 0}, nil)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	require.Equal(t, "false", repo.values[service.SettingKeyProfitControlEnabled],
-		"an explicitly sent zero value is a deliberate clear, not an omission")
 	require.Equal(t, "0.00000000", repo.values[service.SettingKeyProfitMinMargin],
 		"an explicitly sent zero value is a deliberate clear, not an omission")
 }

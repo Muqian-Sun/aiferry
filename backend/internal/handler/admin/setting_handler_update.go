@@ -53,10 +53,8 @@ type UpdateSettingsRequest struct {
 
 	// OpenAI fast/flex policy (optional, only updated when provided)
 
-	// 利润门（全站一档；nil = 不修改）
-	ProfitControlEnabled *bool    `json:"profit_control_enabled"`
-	ProfitMinMargin      *float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer   *float64 `json:"profit_safety_buffer"`
+	// 利润门：最低毛利率（全站一档；0 = 关；nil = 不修改）
+	ProfitMinMargin *float64 `json:"profit_min_margin"`
 }
 
 func (h *SettingHandler) UpdateSettings(c *gin.Context) {
@@ -139,23 +137,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:  affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap: affiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:   adminRechargeRebateEnabled,
-		ProfitControlEnabled: func() bool {
-			if req.ProfitControlEnabled != nil {
-				return *req.ProfitControlEnabled
-			}
-			return previousSettings.ProfitControlEnabled
-		}(),
 		ProfitMinMargin: func() float64 {
 			if req.ProfitMinMargin != nil {
 				return *req.ProfitMinMargin
 			}
 			return previousSettings.ProfitMinMargin
-		}(),
-		ProfitSafetyBuffer: func() float64 {
-			if req.ProfitSafetyBuffer != nil {
-				return *req.ProfitSafetyBuffer
-			}
-			return previousSettings.ProfitSafetyBuffer
 		}(),
 		OpsRealtimeMonitoringEnabled: func() bool {
 			if req.OpsRealtimeMonitoringEnabled != nil {
@@ -275,9 +261,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RiskControlEnabled:          updatedSettings.RiskControlEnabled,
 		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
-		ProfitControlEnabled:        updatedSettings.ProfitControlEnabled,
 		ProfitMinMargin:             updatedSettings.ProfitMinMargin,
-		ProfitSafetyBuffer:          updatedSettings.ProfitSafetyBuffer,
 	}
 	response.Success(c, payload)
 }

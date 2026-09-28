@@ -8,6 +8,9 @@
  * 上线收口 P4（2026-09-27）：冷却 / 流超时 / 整流 / Beta 与 Fast 策略 / 转发行为 / Claude Code 与 Codex /
  * Grok / 调度阈值 / identity patch / 上游余额探测 / Ollama Cloud 用量全部写进后端代码，这里的状态、加载、保存一并删掉。
  * 剩下的都在总表单里（利润门、风控开关）或随总表单一起保存（联网搜索模拟），不再有走独立接口单独保存的卡片。
+ *
+ * 2026-09-28：利润门只剩「最低毛利率」一个数（填 0 = 关）；联网搜索模拟只配服务商与 Key
+ * （配了 Key 就生效，没有总开关、配额、订阅时间、代理，也就没有「重置用量」）。
  */
 import { ref, reactive, computed, onMounted, watch, inject, type InjectionKey, nextTick, type Ref } from "vue";
 import type { SettingsSectionKey } from "./sections";
@@ -16,11 +19,9 @@ import { adminAPI } from "@/api/admin";
 import type {
   SystemSettings,
   UpdateSettingsRequest,
-  WebSearchEmulationConfig,
   WebSearchProviderConfig,
   WebSearchTestResult,
 } from "@/api/admin/settings";
-import type { Proxy } from "@/types";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
 
@@ -49,20 +50,12 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
     ops_realtime_monitoring_enabled: true,
     ops_query_mode_default: "auto",
     ops_metrics_interval_seconds: 60,
-    // 利润门（全站一档）
-    profit_control_enabled: false,
+    // 利润门（全站一档）：最低毛利率，0 = 关
     profit_min_margin: 0,
-    profit_safety_buffer: 0,
   });
 
-  // Proxies for web search emulation ProxySelector
-  const webSearchProxies = ref<Proxy[]>([]);
-
-  // Web Search Emulation config (loaded/saved separately)
-  const DEFAULT_WEB_SEARCH_QUOTA_LIMIT = 1000;
-
-  const webSearchConfig = reactive<WebSearchEmulationConfig>({
-    enabled: false,
+  // Web Search Emulation config (loaded/saved separately)：只有服务商列表
+  const webSearchConfig = reactive<{ providers: WebSearchProviderConfig[] }>({
     providers: [],
   });
 
@@ -106,51 +99,9 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       type: "brave",
       api_key: "",
       api_key_configured: false,
-      quota_limit: DEFAULT_WEB_SEARCH_QUOTA_LIMIT,
-      subscribed_at: null,
-      proxy_id: null,
       expires_at: null,
-    } as WebSearchProviderConfig);
+    });
     expandedProviders[idx] = true;
-  }
-
-  function formatSubscribedAt(ts: number | null): string {
-    if (!ts) return "";
-    // Use UTC to avoid timezone drift on repeated edits
-    const d = new Date(ts * 1000);
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
-  function parseSubscribedAt(dateStr: string): number | null {
-    if (!dateStr) return null;
-    // Parse as UTC to match formatSubscribedAt
-    return Math.floor(new Date(dateStr + "T00:00:00Z").getTime() / 1000);
-  }
-
-  function quotaPercentage(provider: WebSearchProviderConfig): number {
-    if (!provider.quota_limit || provider.quota_limit <= 0) return 0;
-    return ((provider.quota_used ?? 0) / provider.quota_limit) * 100;
-  }
-
-  async function resetWebSearchUsage(idx: number) {
-    const provider = webSearchConfig.providers[idx];
-    if (!provider) return;
-    if (!confirm(t("admin.settings.webSearchEmulation.resetUsageConfirm")))
-      return;
-    try {
-      await adminAPI.settings.resetWebSearchUsage({
-        provider_type: provider.type,
-      });
-      provider.quota_used = 0;
-      appStore.showSuccess(
-        t("admin.settings.webSearchEmulation.resetUsageSuccess"),
-      );
-    } catch (err: unknown) {
-      appStore.showError(extractApiErrorMessage(err, t("common.error")));
-    }
   }
 
   async function copyApiKey(idx: number) {
@@ -186,15 +137,10 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
 
   async function loadWebSearchConfig() {
     try {
-      const [resp, proxiesResp] = await Promise.all([
-        adminAPI.settings.getWebSearchEmulationConfig(),
-        adminAPI.proxies.list().catch(() => ({ items: [] as Proxy[] })),
-      ]);
+      const resp = await adminAPI.settings.getWebSearchEmulationConfig();
       if (resp) {
-        webSearchConfig.enabled = resp.enabled || false;
         webSearchConfig.providers = resp.providers || [];
       }
-      webSearchProxies.value = proxiesResp.items || [];
     } catch (err: unknown) {
       // 404 is expected when config hasn't been created yet; show error for other failures
       const status = (err as { status?: number })?.status;
@@ -206,24 +152,8 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
 
   async function saveWebSearchConfig(): Promise<boolean> {
     try {
-      for (const p of webSearchConfig.providers) {
-        const raw = p.quota_limit;
-        if (raw != null && Number(raw) !== 0 && Number(raw) < 1) {
-          appStore.showError(
-            t("admin.settings.webSearchEmulation.quotaLimitMustBePositive"),
-          );
-          return false;
-        }
-      }
-      const providers = webSearchConfig.providers.map(
-        (p: WebSearchProviderConfig) => ({
-          ...p,
-          quota_limit: Number(p.quota_limit) > 0 ? Number(p.quota_limit) : null,
-        }),
-      );
       await adminAPI.settings.updateWebSearchEmulationConfig({
-        enabled: webSearchConfig.enabled,
-        providers,
+        providers: webSearchConfig.providers,
       });
       return true;
     } catch (err: unknown) {
@@ -261,9 +191,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
     try {
       const payload: UpdateSettingsRequest = {
         risk_control_enabled: form.risk_control_enabled,
-        profit_control_enabled: form.profit_control_enabled,
         profit_min_margin: form.profit_min_margin,
-        profit_safety_buffer: form.profit_safety_buffer,
       };
 
       const updated = await adminAPI.settings.updateSettings(payload);
@@ -303,7 +231,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   // =========================
   // 同一时间只有当前小节可能有改动：切走时有改动会先问「放弃 / 留下」，放弃就恢复成已保存的值。
   // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）。
-  // （后端本身支持只发部分字段：没发送的值类型字段不写库，见 setting_handler_update.go omittedSettingKeys。）
+  // （后端本身支持只发部分字段：没发送的字段沿用库里的旧值，见 setting_handler_update.go。）
   // 改动判断：总表单状态与「上次加载 / 保存后的基线」比较。
 
   /** 总表单保存时会读到的全部状态（联网搜索模拟走自己的接口，但跟总表单一起保存） */
@@ -313,16 +241,8 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       webSearchConfig,
     };
   }
-  // 联网搜索的「已用额度」是即时操作（重置额度直接调接口），不算未保存的改动
   function serializeMain(): string {
-    const state = mainState();
-    return JSON.stringify({
-      ...state,
-      webSearchConfig: {
-        enabled: state.webSearchConfig.enabled,
-        providers: state.webSearchConfig.providers.map(({ quota_used: _used, ...rest }) => rest),
-      },
-    });
+    return JSON.stringify(mainState());
   }
   function restoreMain(saved: ReturnType<typeof mainState>) {
     const copy = JSON.parse(JSON.stringify(saved)) as ReturnType<typeof mainState>;
@@ -376,22 +296,17 @@ return {
     discardSection,
     expandedProviders,
     form,
-    formatSubscribedAt,
     isSectionDirty,
     loadFailed,
     loading,
     openTestDialog,
-    parseSubscribedAt,
-    quotaPercentage,
     removeWebSearchProvider,
-    resetWebSearchUsage,
     saveSection,
     sectionSaving,
     t,
     testWebSearchProvider,
     toggleProviderExpand,
     webSearchConfig,
-    webSearchProxies,
     wsTestDialogOpen,
     wsTestLoading,
     wsTestQuery,

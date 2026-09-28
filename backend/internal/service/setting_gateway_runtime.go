@@ -13,11 +13,14 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// ProfitControlSettings 利润门（全站一档）：enabled 关着时不装门。
+// ProfitControlSettings 利润门（全站一档）：后台只有「最低毛利率」一个数，填 0 = 不装门。
 type ProfitControlSettings struct {
-	Enabled      bool
-	MinMargin    float64
-	SafetyBuffer float64
+	MinMargin float64
+}
+
+// Enabled 最低毛利率 > 0 才装门。
+func (s ProfitControlSettings) Enabled() bool {
+	return s.MinMargin > 0
 }
 
 // cachedProfitControlSettings 缓存利润门设置（进程内缓存，60s TTL；调度热路径每次选号都读）

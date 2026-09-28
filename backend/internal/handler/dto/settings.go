@@ -61,10 +61,8 @@ type SystemSettings struct {
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
-	// 利润门（全站一档）
-	ProfitControlEnabled bool    `json:"profit_control_enabled"`
-	ProfitMinMargin      float64 `json:"profit_min_margin"`
-	ProfitSafetyBuffer   float64 `json:"profit_safety_buffer"`
+	// 利润门：最低毛利率（全站一档；0 = 关）
+	ProfitMinMargin float64 `json:"profit_min_margin"`
 }
 
 type PublicSettings struct {

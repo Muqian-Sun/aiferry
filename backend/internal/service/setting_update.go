@@ -81,12 +81,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		updates[SettingKeyCyberSessionBlockTTLSeconds] = strconv.Itoa(settings.CyberSessionBlockTTLSeconds)
 	}
 
-	if settings.ProfitMinMargin < 0 || settings.ProfitSafetyBuffer < 0 || settings.ProfitMinMargin+settings.ProfitSafetyBuffer > ProfitControlRatioMax {
-		return nil, infraerrors.BadRequest("INVALID_PROFIT_CONTROL", fmt.Sprintf("profit control: min_margin + safety_buffer must be within [0, %g]", ProfitControlRatioMax))
+	// 利润门只有最低毛利率一个数，0 = 关。
+	if settings.ProfitMinMargin < 0 || settings.ProfitMinMargin > ProfitControlRatioMax {
+		return nil, infraerrors.BadRequest("INVALID_PROFIT_CONTROL", fmt.Sprintf("profit control: min_margin must be within [0, %g]", ProfitControlRatioMax))
 	}
-	updates[SettingKeyProfitControlEnabled] = strconv.FormatBool(settings.ProfitControlEnabled)
 	updates[SettingKeyProfitMinMargin] = strconv.FormatFloat(settings.ProfitMinMargin, 'f', 8, 64)
-	updates[SettingKeyProfitSafetyBuffer] = strconv.FormatFloat(settings.ProfitSafetyBuffer, 'f', 8, 64)
 
 	return updates, nil
 }

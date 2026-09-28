@@ -38,12 +38,10 @@ type SystemSettings struct {
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
 	// Web Search Emulation
-	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
+	WebSearchEmulationEnabled bool // Web Search 模拟是否生效：有配了 Key 的服务商（只读，由配置算出）
 
-	// 利润门（全站一档）
-	ProfitControlEnabled bool
-	ProfitMinMargin      float64
-	ProfitSafetyBuffer   float64
+	// 利润门（全站一档）：最低毛利率，0 = 关
+	ProfitMinMargin float64
 }
 
 // DefaultSubscriptionSetting 新用户自动赠送的一条订阅（见 site_features.go 的 newUserDefaultSubscriptions）。

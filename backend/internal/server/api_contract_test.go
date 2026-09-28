@@ -504,9 +504,7 @@ func TestAPIContracts(t *testing.T) {
 					"cyber_session_block_enabled": false,
 					"cyber_session_block_ttl_seconds": 3600,
 					"affiliate_enabled": false,
-					"profit_control_enabled": false,
-					"profit_min_margin": 0,
-					"profit_safety_buffer": 0
+					"profit_min_margin": 0
 				}
 			}`,
 		},

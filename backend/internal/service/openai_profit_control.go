@@ -7,11 +7,12 @@ package service
 //
 // 准入条件：
 //
-//	U(尝试时刻) <= D(pricingAt) × (1 − profit_min_margin − profit_safety_buffer)
+//	U(尝试时刻) <= D(pricingAt) × (1 − profit_min_margin)
 //
 //   - D（用户售价倍率）= 认证用户的 rate_multiplier（ctx 里由认证中间件放入），
-//     与 RecordUsage 完全同源，一个请求不会中途变价；开关与 margin/buffer 则
-//     始终取被调度 openai/grok 分组。
+//     与 RecordUsage 完全同源，一个请求不会中途变价。
+//   - profit_min_margin（最低毛利率）是全站一档的后台设置，也是唯一的开关：
+//     填 0 = 不装门。
 //   - U（上游成本倍率）取 accounts.rate_multiplier。倍率可以由运营者手工维护，
 //     也可以由上游倍率探测同步写回；利润门不再耦合探测协议、新鲜度或账号类型。
 //     0 是合法的免费上游倍率；nil、负数、NaN、Inf 属于非法数据并保守拒绝。
@@ -46,7 +47,7 @@ package service
 //     排队成功后复核，越线则释放槽位、加入本请求排除集重新选号，全池耗尽才
 //     返回标准 no available accounts。
 //
-// 失败语义：分组配置读取失败时放行并告警（fail-open）。这是"配置系统故障时
+// 失败语义：设置读取失败时放行并告警（fail-open）。这是"配置系统故障时
 // 可用性优先"的显式取舍——该异常窗口内利润保证不成立，靠 WARN 与采样观测
 // 暴露，绝不把瞬时 DB 抖动放大成全站不可调度。
 //
@@ -88,8 +89,8 @@ type openAIProfitControlSuppressCtxKey struct{}
 // 的高峰因子共用，保证一个请求从准入到扣费不中途变价。
 type openAIPricingAtCtxKey struct{}
 
-// clampProfitControlThreshold 归一化利润门阈值。Validate/Normalize 已保证
-// margin+buffer < 1，这里只对存量脏数据兜底：阈值非有限或为负时按 0 处理
+// clampProfitControlThreshold 归一化利润门阈值。设置保存与读取已保证
+// min_margin ≤ ProfitControlRatioMax < 1，这里只对存量脏数据兜底：阈值非有限或为负时按 0 处理
 // （等价于只放行免费上游）。装门点与 profit-preview 共用，避免口径漂移。
 func clampProfitControlThreshold(threshold float64) float64 {
 	if math.IsNaN(threshold) || math.IsInf(threshold, 0) || threshold < 0 {
@@ -108,8 +109,8 @@ func profitControlOverThreshold(upstream, threshold float64) bool {
 // openAIProfitControlGate 是一个请求的利润准入门。除 pricingAt 外全部为预计算
 // 标量：候选过滤热路径上每账号只做一次快照解码与一次浮点比较。
 type openAIProfitControlGate struct {
-	// threshold = D(pricingAt) × (1 − margin − buffer)，账号倍率必须 <= 它。
-	// margin / buffer 是全站一档的全局设置；同一请求的 failover 重入复用同一个门。
+	// threshold = D(pricingAt) × (1 − min_margin)，账号倍率必须 <= 它。
+	// min_margin 是全站一档的全局设置；同一请求的 failover 重入复用同一个门。
 	threshold float64
 	// pricingAt 是本请求的统一定价时刻（D 侧）。
 	pricingAt time.Time
@@ -192,7 +193,7 @@ func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Contex
 		return nil
 	}
 	settings := s.settingService.GetProfitControlSettings(ctx)
-	if !settings.Enabled {
+	if !settings.Enabled() {
 		return nil
 	}
 
@@ -200,10 +201,10 @@ func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Contex
 	if !ok {
 		pricingAt = timezone.Now()
 	}
-	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；margin / buffer 是全站一档。
+	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；最低毛利率是全站一档。
 	downstream := UserRateMultiplierFromContext(ctx)
 
-	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin - settings.SafetyBuffer))
+	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin))
 	return &openAIProfitControlGate{
 		threshold: threshold,
 		pricingAt: pricingAt,

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -63,9 +62,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodAlipayEnabled: "false",
 		SettingPaymentVisibleMethodWxpayEnabled:  "false",
 
-		SettingKeyProfitControlEnabled: "false",
-		SettingKeyProfitMinMargin:      "0",
-		SettingKeyProfitSafetyBuffer:   "0",
+		SettingKeyProfitMinMargin: "0",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -147,22 +144,15 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.CyberSessionBlockTTLSeconds = 3600
 	}
 
-	// Web search emulation: quick enabled check from the JSON config
-	if raw := settings[SettingKeyWebSearchEmulationConfig]; raw != "" {
-		var wsCfg WebSearchEmulationConfig
-		if err := json.Unmarshal([]byte(raw), &wsCfg); err == nil {
-			result.WebSearchEmulationEnabled = wsCfg.Enabled && len(wsCfg.Providers) > 0
-		}
-	}
+	// Web Search 模拟：有配了 Key 的服务商就算开（没有全局开关）
+	result.WebSearchEmulationEnabled = webSearchEmulationActive(parseWebSearchConfigJSON(settings[SettingKeyWebSearchEmulationConfig]))
 
-	result.ProfitControlEnabled = settings[SettingKeyProfitControlEnabled] == "true"
 	result.ProfitMinMargin = parseProfitControlRatio(settings[SettingKeyProfitMinMargin])
-	result.ProfitSafetyBuffer = parseProfitControlRatio(settings[SettingKeyProfitSafetyBuffer])
 
 	return result
 }
 
-// parseProfitControlRatio 解析利润门的 margin / buffer：非法或越界回 0（= 不扣减）。
+// parseProfitControlRatio 解析利润门的最低毛利率：非法或越界回 0（= 不装门）。
 func parseProfitControlRatio(raw string) float64 {
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > ProfitControlRatioMax {

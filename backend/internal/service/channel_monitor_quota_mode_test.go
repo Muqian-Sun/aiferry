@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// int64Ptr 只有 unit 标签的用例用；放在无标签的测试文件里会被默认标签下的 lint 判成未使用。
+func int64Ptr(v int64) *int64 { return &v }
+
 // --- repo / fetcher 装配 ---
 
 // quotaModeRepoStub 记录 RunCheck 落库行为（历史行 + MarkChecked）。

@@ -57,7 +57,7 @@ func (h *SettingHandler) GetWebSearchEmulationConfig(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, service.PopulateWebSearchUsage(c.Request.Context(), cfg))
+	response.Success(c, service.WebSearchEmulationAdminViewOf(cfg))
 }
 
 // UpdateWebSearchEmulationConfig 更新 Web Search 模拟配置
@@ -74,34 +74,13 @@ func (h *SettingHandler) UpdateWebSearchEmulationConfig(c *gin.Context) {
 		return
 	}
 
-	// Re-read (with sanitized api keys) to return current state
+	// Re-read to return current state
 	updated, err := h.settingService.GetWebSearchEmulationConfig(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, service.PopulateWebSearchUsage(c.Request.Context(), updated))
-}
-
-// ResetWebSearchUsage 重置指定 provider 的配额用量
-// POST /api/v1/admin/settings/web-search-emulation/reset-usage
-func (h *SettingHandler) ResetWebSearchUsage(c *gin.Context) {
-	var req struct {
-		ProviderType string `json:"provider_type"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	if req.ProviderType == "" {
-		response.BadRequest(c, "provider_type is required")
-		return
-	}
-	if err := service.ResetWebSearchUsage(c.Request.Context(), req.ProviderType); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, nil)
+	response.Success(c, service.WebSearchEmulationAdminViewOf(updated))
 }
 
 // TestWebSearchEmulation 测试 Web Search 搜索

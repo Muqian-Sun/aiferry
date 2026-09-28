@@ -179,13 +179,15 @@ func clearGlobalWebSearchConfig() {
 	webSearchEmulationCache.Store((*cachedWebSearchEmulationConfig)(nil))
 }
 
-// newSettingServiceForWebSearchTest creates a SettingService with a mock repo pre-loaded with config.
-func newSettingServiceForWebSearchTest(enabled bool) *SettingService {
+// newSettingServiceForWebSearchTest creates a SettingService with a mock repo pre-loaded with config
+// (withKey=false：服务商没配 Key，模拟不生效)。
+func newSettingServiceForWebSearchTest(withKey bool) *SettingService {
 	repo := newMockSettingRepo()
-	cfg := &WebSearchEmulationConfig{
-		Enabled:   enabled,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "sk-test"}},
+	provider := WebSearchProviderConfig{Type: "brave"}
+	if withKey {
+		provider.APIKey = "sk-test"
 	}
+	cfg := &WebSearchEmulationConfig{Providers: []WebSearchProviderConfig{provider}}
 	data, _ := json.Marshal(cfg)
 	repo.data[SettingKeyWebSearchEmulationConfig] = string(data)
 	return NewSettingService(repo, &config.Config{})
@@ -197,7 +199,6 @@ func TestShouldEmulateWebSearch_NilManager(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
 		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
 	})
 	defer clearGlobalWebSearchConfig()
@@ -208,13 +209,12 @@ func TestShouldEmulateWebSearch_NilManager(t *testing.T) {
 }
 
 func TestShouldEmulateWebSearch_NotOnlyWebSearchTool(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
 		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
 	})
 	defer clearGlobalWebSearchConfig()
@@ -224,15 +224,14 @@ func TestShouldEmulateWebSearch_NotOnlyWebSearchTool(t *testing.T) {
 	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nonWebSearchToolBody))
 }
 
-func TestShouldEmulateWebSearch_GlobalDisabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+// 没有配了 Key 的服务商 = 模拟不生效（没有全局开关）。
+func TestShouldEmulateWebSearch_NoKeyedProvider(t *testing.T) {
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
 
-	// Global config disabled
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   false,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
+		Providers: []WebSearchProviderConfig{{Type: "brave"}},
 	})
 	defer clearGlobalWebSearchConfig()
 
@@ -243,12 +242,11 @@ func TestShouldEmulateWebSearch_GlobalDisabled(t *testing.T) {
 }
 
 func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
 
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
 		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
 	})
 	defer clearGlobalWebSearchConfig()
@@ -260,12 +258,11 @@ func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
 }
 
 func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
 
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
 		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
 	})
 	defer clearGlobalWebSearchConfig()
@@ -278,12 +275,11 @@ func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
 
 // 历史字符串 "enabled" 在网关判定里仍算开（账号读法兼容，见 account_websearch_test.go）。
 func TestShouldEmulateWebSearch_LegacyEnabledString(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
+	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
 
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
 		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
 	})
 	defer clearGlobalWebSearchConfig()

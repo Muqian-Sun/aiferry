@@ -15,21 +15,38 @@ import (
 )
 
 // WebSearchEmulationConfig holds the global web search emulation configuration.
+// 后台只配服务商与 Key（2026-09-28 上线收口）：配了带 Key 的服务商就开，没有全局开关；
+// 服务商不限次数、不走服务商级代理（搜索走渠道自己的代理，没有就直连）。
 type WebSearchEmulationConfig struct {
-	Enabled   bool                      `json:"enabled"`
 	Providers []WebSearchProviderConfig `json:"providers"`
 }
 
 // WebSearchProviderConfig describes a single search provider (Brave or Tavily).
 type WebSearchProviderConfig struct {
-	Type             string `json:"type"`                    // websearch.ProviderTypeBrave | Tavily
-	APIKey           string `json:"api_key,omitempty"`       // secret — omitted in API responses
-	APIKeyConfigured bool   `json:"api_key_configured"`      // read-only mask
-	QuotaLimit       *int64 `json:"quota_limit"`             // nil = unlimited, >0 = limited
-	SubscribedAt     *int64 `json:"subscribed_at,omitempty"` // subscription start (unix seconds); quota resets monthly
-	QuotaUsed        int64  `json:"quota_used,omitempty"`    // read-only: current usage from Redis
-	ProxyID          *int64 `json:"proxy_id"`                // optional proxy association
-	ExpiresAt        *int64 `json:"expires_at,omitempty"`    // optional expiration timestamp
+	Type             string `json:"type"`                 // websearch.ProviderTypeBrave | Tavily
+	APIKey           string `json:"api_key,omitempty"`    // secret
+	APIKeyConfigured bool   `json:"api_key_configured"`   // read-only mask
+	ExpiresAt        *int64 `json:"expires_at,omitempty"` // optional expiration timestamp
+}
+
+// webSearchEmulationActive Web Search 模拟是否生效：有配了 Key 的服务商。
+func webSearchEmulationActive(cfg *WebSearchEmulationConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	for _, p := range cfg.Providers {
+		if p.APIKey != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// WebSearchEmulationAdminView 管理端读写接口的返回。
+// enabled 只读 = 有配了 Key 的服务商（渠道表单据它决定显不显示渠道级「Web Search 模拟」开关）。
+type WebSearchEmulationAdminView struct {
+	Enabled   bool                      `json:"enabled"`
+	Providers []WebSearchProviderConfig `json:"providers"`
 }
 
 // --- Validation ---
@@ -52,9 +69,6 @@ func validateWebSearchConfig(cfg *WebSearchEmulationConfig) error {
 	for i, p := range cfg.Providers {
 		if !validProviderTypes[p.Type] {
 			return fmt.Errorf("provider[%d]: invalid type %q", i, p.Type)
-		}
-		if p.QuotaLimit != nil && *p.QuotaLimit < 0 {
-			return fmt.Errorf("provider[%d]: quota_limit must be > 0 or null", i)
 		}
 		if seen[p.Type] {
 			return fmt.Errorf("provider[%d]: duplicate type %q", i, p.Type)
@@ -107,7 +121,7 @@ func (s *SettingService) loadWebSearchConfigFromDB() (*WebSearchEmulationConfig,
 
 	raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyWebSearchEmulationConfig)
 	if err != nil {
-		// Missing key is the normal first-boot state: return empty disabled config.
+		// Missing key is the normal first-boot state: return empty config (no providers = off).
 		if errors.Is(err, ErrSettingNotFound) {
 			cfg := &WebSearchEmulationConfig{}
 			webSearchEmulationCache.Store(&cachedWebSearchEmulationConfig{
@@ -150,13 +164,11 @@ func (s *SettingService) SaveWebSearchEmulationConfig(ctx context.Context, cfg *
 	}
 	s.mergeExistingAPIKeys(ctx, cfg)
 
-	// After merge, validate all enabled providers have API keys
-	if cfg.Enabled {
-		for _, p := range cfg.Providers {
-			if p.APIKey == "" {
-				return infraerrors.BadRequest("MISSING_API_KEY",
-					fmt.Sprintf("provider %s has no API key configured", p.Type))
-			}
+	// 没有全局开关，列出来的服务商就是要用的：合并后每个都得有 Key
+	for _, p := range cfg.Providers {
+		if p.APIKey == "" {
+			return infraerrors.BadRequest("MISSING_API_KEY",
+				fmt.Sprintf("provider %s has no API key configured", p.Type))
 		}
 	}
 
@@ -208,13 +220,13 @@ func (s *SettingService) getWebSearchEmulationConfigRaw(ctx context.Context) (*W
 	return parseWebSearchConfigJSON(raw), nil
 }
 
-// IsWebSearchEmulationEnabled is a quick check for whether the global switch is on.
+// IsWebSearchEmulationEnabled Web Search 模拟是否生效：有配了 Key 的服务商。
 func (s *SettingService) IsWebSearchEmulationEnabled(ctx context.Context) bool {
 	cfg, err := s.GetWebSearchEmulationConfig(ctx)
 	if err != nil {
 		return false
 	}
-	return cfg.Enabled && len(cfg.Providers) > 0
+	return webSearchEmulationActive(cfg)
 }
 
 // SetWebSearchManagerBuilder injects a callback that creates and wires a websearch.Manager.
@@ -225,7 +237,7 @@ func (s *SettingService) SetWebSearchManagerBuilder(ctx context.Context, builder
 	s.rebuildWebSearchManager(ctx)
 }
 
-// rebuildWebSearchManager reads the current config, resolves proxy URLs, and invokes the builder.
+// rebuildWebSearchManager reads the current config and invokes the builder.
 func (s *SettingService) rebuildWebSearchManager(ctx context.Context) {
 	if s.webSearchManagerBuilder == nil {
 		return
@@ -235,34 +247,7 @@ func (s *SettingService) rebuildWebSearchManager(ctx context.Context) {
 		SetWebSearchManager(nil)
 		return
 	}
-	proxyURLs := s.resolveProviderProxyURLs(ctx, cfg)
-	s.webSearchManagerBuilder(cfg, proxyURLs)
-}
-
-// resolveProviderProxyURLs collects proxy IDs from providers and resolves them to URLs.
-func (s *SettingService) resolveProviderProxyURLs(ctx context.Context, cfg *WebSearchEmulationConfig) map[int64]string {
-	if cfg == nil || s.proxyRepo == nil {
-		return nil
-	}
-	var ids []int64
-	for _, p := range cfg.Providers {
-		if p.ProxyID != nil && *p.ProxyID > 0 {
-			ids = append(ids, *p.ProxyID)
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	proxies, err := s.proxyRepo.ListByIDs(ctx, ids)
-	if err != nil {
-		slog.Warn("websearch: failed to resolve proxy URLs", "error", err)
-		return nil
-	}
-	result := make(map[int64]string, len(proxies))
-	for _, px := range proxies {
-		result[px.ID] = px.URL()
-	}
-	return result
+	s.webSearchManagerBuilder(cfg)
 }
 
 // WebSearchTestResult holds the result of a search test.
@@ -272,8 +257,7 @@ type WebSearchTestResult struct {
 	Query    string                   `json:"query"`
 }
 
-// TestWebSearch executes a test search using the currently configured Manager.
-// Uses Manager.TestSearch which bypasses quota tracking.
+// TestWebSearch executes a test search using the currently configured Manager (Manager.TestSearch).
 const testSearchTimeout = 15 * time.Second
 
 func TestWebSearch(ctx context.Context, query string) (*WebSearchTestResult, error) {
@@ -297,58 +281,13 @@ func TestWebSearch(ctx context.Context, query string) (*WebSearchTestResult, err
 	}, nil
 }
 
-// PopulateWebSearchUsage returns a copy with quota usage populated from Redis (api_key kept as-is).
-func PopulateWebSearchUsage(ctx context.Context, cfg *WebSearchEmulationConfig) *WebSearchEmulationConfig {
-	if cfg == nil {
-		return nil
-	}
-	out := *cfg
-	out.Providers = make([]WebSearchProviderConfig, len(cfg.Providers))
-
-	mgr := getWebSearchManager()
-
+// WebSearchEmulationAdminViewOf 管理端返回：api_key 原样返回（管理端可以显示 / 复制），
+// 标出每个服务商配没配 Key，并算出只读的 enabled。
+func WebSearchEmulationAdminViewOf(cfg *WebSearchEmulationConfig) *WebSearchEmulationAdminView {
+	providers := make([]WebSearchProviderConfig, len(cfg.Providers))
 	for i, p := range cfg.Providers {
-		out.Providers[i] = p
-		out.Providers[i].APIKeyConfigured = p.APIKey != ""
-
-		if mgr != nil {
-			used, _ := mgr.GetUsage(ctx, p.Type)
-			out.Providers[i].QuotaUsed = used
-		}
+		providers[i] = p
+		providers[i].APIKeyConfigured = p.APIKey != ""
 	}
-	return &out
-}
-
-// ResetWebSearchUsage deletes the Redis quota key for the given provider type.
-func ResetWebSearchUsage(ctx context.Context, providerType string) error {
-	mgr := getWebSearchManager()
-	if mgr == nil {
-		return fmt.Errorf("web search manager not initialized")
-	}
-	return mgr.ResetUsage(ctx, providerType)
-}
-
-// SanitizeWebSearchConfig returns a copy with api_key fields masked and quota usage populated.
-func SanitizeWebSearchConfig(ctx context.Context, cfg *WebSearchEmulationConfig) *WebSearchEmulationConfig {
-	if cfg == nil {
-		return nil
-	}
-	out := *cfg
-	out.Providers = make([]WebSearchProviderConfig, len(cfg.Providers))
-
-	// Load usage from the global Manager (reads from Redis)
-	mgr := getWebSearchManager()
-
-	for i, p := range cfg.Providers {
-		out.Providers[i] = p
-		out.Providers[i].APIKeyConfigured = p.APIKey != ""
-		out.Providers[i].APIKey = "" // never return the secret
-
-		// Populate quota usage from Redis
-		if mgr != nil {
-			used, _ := mgr.GetUsage(ctx, p.Type)
-			out.Providers[i].QuotaUsed = used
-		}
-	}
-	return &out
+	return &WebSearchEmulationAdminView{Enabled: webSearchEmulationActive(cfg), Providers: providers}
 }

@@ -51,7 +51,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	settingRepository := repository.NewSettingRepository(client)
 	subscriptionPlanRepository := repository.NewSubscriptionPlanRepository(client)
 	proxyRepository := repository.NewProxyRepository(client, db)
-	settingService := service.ProvideSettingService(settingRepository, proxyRepository, configConfig)
+	settingService := service.ProvideSettingService(settingRepository, configConfig)
 	emailCache := repository.NewEmailCache(redisClient)
 	emailService := service.NewEmailService(settingRepository, emailCache, configConfig)
 	turnstileVerifier := repository.NewTurnstileVerifier()
