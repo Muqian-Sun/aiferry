@@ -19,7 +19,7 @@ func normalizeOAuthSignupSource(signupSource string) string {
 	switch signupSource {
 	case "", "email":
 		return "email"
-	case "linuxdo", "wechat", "oidc", "github", "google", "dingtalk":
+	case "wechat", "github", "google":
 		return signupSource
 	default:
 		return "email"
@@ -46,11 +46,7 @@ func (s *AuthService) SendPendingOAuthVerifyCode(ctx context.Context, email stri
 		return nil, err
 	}
 
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-	if err := s.emailService.SendVerifyCode(ctx, email, siteName, firstEmailLocale(locale)); err != nil {
+	if err := s.emailService.SendVerifyCode(ctx, email, SiteName, firstEmailLocale(locale)); err != nil {
 		return nil, err
 	}
 	return &SendVerifyCodeResult{
@@ -113,7 +109,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 	if s == nil {
 		return nil, nil, ErrServiceUnavailable
 	}
-	if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
+	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 		return nil, nil, ErrRegDisabled
 	}
 
@@ -151,7 +147,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 	}
 
 	signupSource = normalizeOAuthSignupSource(signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+	grantPlan := s.newSignupGrantPlan()
 
 	user := &User{
 		Email:        email,
@@ -195,7 +191,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 	if s == nil {
 		return nil, nil, ErrServiceUnavailable
 	}
-	if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
+	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 		return nil, nil, ErrRegDisabled
 	}
 
@@ -234,18 +230,14 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 	}
 
 	signupSource = normalizeOAuthSignupSource(signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
-	var defaultRPMLimit int
-	if s.settingService != nil {
-		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-	}
+	grantPlan := s.newSignupGrantPlan()
 	user := &User{
 		Email:        email,
 		PasswordHash: hashedPassword,
 		Role:         RoleUser,
 		Balance:      grantPlan.Balance,
 		Concurrency:  grantPlan.Concurrency,
-		RPMLimit:     defaultRPMLimit,
+		RPMLimit:     NewUserRPMLimit,
 		Status:       StatusActive,
 		SignupSource: signupSource,
 	}
@@ -294,7 +286,7 @@ func (s *AuthService) FinalizeOAuthEmailAccount(
 	}
 
 	s.updateOAuthSignupSource(ctx, user.ID, signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+	grantPlan := s.newSignupGrantPlan()
 	s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 	s.bindOAuthAffiliate(ctx, user.ID, affiliateCode)
 	return nil

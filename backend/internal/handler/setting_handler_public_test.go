@@ -53,12 +53,13 @@ func (s *settingHandlerPublicRepoStub) Delete(ctx context.Context, key string) e
 	panic("unexpected Delete call")
 }
 
-func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t *testing.T) {
+// 「第三方注册强制补邮箱」照常下发给前端，但值由代码决定：库里旧开关开着也不生效。
+func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignupFromCode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	repo := &settingHandlerPublicRepoStub{
 		values: map[string]string{
-			service.SettingKeyForceEmailOnThirdPartySignup: "true",
+			"force_email_on_third_party_signup": "true",
 		},
 	}
 	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
@@ -74,25 +75,29 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	var resp struct {
 		Code int `json:"code"`
 		Data struct {
-			ForceEmailOnThirdPartySignup bool `json:"force_email_on_third_party_signup"`
+			ForceEmailOnThirdPartySignup *bool `json:"force_email_on_third_party_signup"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
+	require.NotNil(t, resp.Data.ForceEmailOnThirdPartySignup)
+	require.Equal(t, service.ForceEmailOnThirdPartySignup, *resp.Data.ForceEmailOnThirdPartySignup)
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	repo := &settingHandlerPublicRepoStub{
-		values: map[string]string{
-			service.SettingKeyTencentCaptchaEnabled: "true",
-			service.SettingKeyTencentCaptchaAppID:   "123456789",
-			service.SettingKeyTencentCaptchaRegion:  service.TencentCaptchaRegionINTL,
+	// 人机验证只认部署配置：配齐天御四项凭证就开
+	repo := &settingHandlerPublicRepoStub{values: map[string]string{}}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{
+		TencentCaptcha: config.TencentCaptchaConfig{
+			AppID:          "123456789",
+			AppSecretKey:   "app-secret-value",
+			CloudSecretID:  "cloud-secret-id-value",
+			CloudSecretKey: "cloud-secret-key-value",
+			Region:         service.TencentCaptchaRegionINTL,
 		},
-	}
-	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+	}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -115,23 +120,29 @@ func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *
 	require.True(t, resp.Data.TencentCaptchaEnabled)
 	require.Equal(t, "123456789", resp.Data.TencentCaptchaAppID)
 	require.Equal(t, service.TencentCaptchaRegionINTL, resp.Data.TencentCaptchaRegion)
+	// 密钥只在服务端校验时用，不能出现在公开设置里
+	for _, secret := range []string{"app-secret-value", "cloud-secret-id-value", "cloud-secret-key-value"} {
+		require.NotContains(t, recorder.Body.String(), secret)
+	}
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
-		values: map[string]string{
-			service.SettingKeyWeChatConnectEnabled:             "true",
-			service.SettingKeyWeChatConnectAppID:               "wx-mp-app",
-			service.SettingKeyWeChatConnectAppSecret:           "wx-mp-secret",
-			service.SettingKeyWeChatConnectMode:                "mp",
-			service.SettingKeyWeChatConnectScopes:              "snsapi_base",
-			service.SettingKeyWeChatConnectOpenEnabled:         "true",
-			service.SettingKeyWeChatConnectMPEnabled:           "true",
-			service.SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-			service.SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+		values: map[string]string{},
+	}, &config.Config{
+		WeChat: config.WeChatConnectConfig{
+			Enabled:             true,
+			AppID:               "wx-mp-app",
+			AppSecret:           "wx-mp-secret",
+			Mode:                "mp",
+			Scopes:              "snsapi_base",
+			OpenEnabled:         true,
+			MPEnabled:           true,
+			RedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
+			FrontendRedirectURL: "/auth/wechat/callback",
 		},
-	}, &config.Config{}), "test-version")
+	}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

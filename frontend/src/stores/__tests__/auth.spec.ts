@@ -267,10 +267,10 @@ describe('useAuthStore', () => {
       firstStore.setPendingAuthSession({
         token: '',
         token_field: 'pending_oauth_token',
-        provider: 'oidc',
+        provider: 'wechat',
         redirect: '/welcome',
         adoption_required: true,
-        suggested_display_name: 'OIDC Nick'
+        suggested_display_name: 'WeChat Nick'
       })
 
       setActivePinia(createPinia())
@@ -282,10 +282,10 @@ describe('useAuthStore', () => {
       expect(restoredStore.pendingAuthSession).toEqual({
         token: '',
         token_field: 'pending_oauth_token',
-        provider: 'oidc',
+        provider: 'wechat',
         redirect: '/welcome',
         adoption_required: true,
-        suggested_display_name: 'OIDC Nick',
+        suggested_display_name: 'WeChat Nick',
         suggested_avatar_url: undefined
       })
     })
@@ -295,7 +295,7 @@ describe('useAuthStore', () => {
       store.setPendingAuthSession({
         token: 'pending-token',
         token_field: 'pending_auth_token',
-        provider: 'oidc',
+        provider: 'wechat',
         redirect: '/register',
       })
       mockRegister.mockRejectedValue(new Error('Register failed'))
@@ -308,7 +308,7 @@ describe('useAuthStore', () => {
       expect(store.pendingAuthSession).toEqual({
         token: 'pending-token',
         token_field: 'pending_auth_token',
-        provider: 'oidc',
+        provider: 'wechat',
         redirect: '/register',
       })
     })

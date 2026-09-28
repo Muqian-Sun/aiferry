@@ -64,10 +64,7 @@ type userProfileResponse struct {
 	AuthBindings      map[string]service.UserIdentitySummary `json:"auth_bindings"`
 	IdentityBindings  map[string]service.UserIdentitySummary `json:"identity_bindings"`
 	EmailBound        bool                                   `json:"email_bound"`
-	LinuxDoBound      bool                                   `json:"linuxdo_bound"`
-	OIDCBound         bool                                   `json:"oidc_bound"`
 	WeChatBound       bool                                   `json:"wechat_bound"`
-	DingTalkBound     bool                                   `json:"dingtalk_bound"`
 }
 
 type userProfileSourceContext struct {
@@ -526,20 +523,14 @@ func userProfileResponseFromService(user *service.User, identities service.UserI
 		AuthBindings:      bindings,
 		IdentityBindings:  bindings,
 		EmailBound:        identities.Email.Bound,
-		LinuxDoBound:      identities.LinuxDo.Bound,
-		OIDCBound:         identities.OIDC.Bound,
 		WeChatBound:       identities.WeChat.Bound,
-		DingTalkBound:     identities.DingTalk.Bound,
 	}
 }
 
 func userProfileBindingMap(identities service.UserIdentitySummarySet) map[string]service.UserIdentitySummary {
 	return map[string]service.UserIdentitySummary{
-		"email":    identities.Email,
-		"linuxdo":  identities.LinuxDo,
-		"oidc":     identities.OIDC,
-		"wechat":   identities.WeChat,
-		"dingtalk": identities.DingTalk,
+		"email":  identities.Email,
+		"wechat": identities.WeChat,
 	}
 }
 
@@ -587,8 +578,8 @@ func inferUserProfileSources(user *service.User, identities service.UserIdentity
 }
 
 func thirdPartyIdentityProviders(identities service.UserIdentitySummarySet) []service.UserIdentitySummary {
-	out := make([]service.UserIdentitySummary, 0, 3)
-	for _, summary := range []service.UserIdentitySummary{identities.LinuxDo, identities.OIDC, identities.WeChat, identities.DingTalk} {
+	out := make([]service.UserIdentitySummary, 0, 1)
+	for _, summary := range []service.UserIdentitySummary{identities.WeChat} {
 		if summary.Bound {
 			out = append(out, summary)
 		}

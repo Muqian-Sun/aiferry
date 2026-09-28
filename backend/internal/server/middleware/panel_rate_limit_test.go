@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -9,90 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-// panelRateLimitStubRepo 内存版 SettingRepository，仅覆盖本测试用到的方法。
-type panelRateLimitStubRepo struct {
-	mu     sync.Mutex
-	values map[string]string
-}
-
-func (r *panelRateLimitStubRepo) Get(_ context.Context, key string) (*service.Setting, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	value, ok := r.values[key]
-	if !ok {
-		return nil, service.ErrSettingNotFound
-	}
-	return &service.Setting{Key: key, Value: value}, nil
-}
-
-func (r *panelRateLimitStubRepo) GetValue(_ context.Context, key string) (string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	value, ok := r.values[key]
-	if !ok {
-		return "", service.ErrSettingNotFound
-	}
-	return value, nil
-}
-
-func (r *panelRateLimitStubRepo) Set(_ context.Context, key, value string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.values == nil {
-		r.values = make(map[string]string)
-	}
-	r.values[key] = value
-	return nil
-}
-
-func (r *panelRateLimitStubRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make(map[string]string, len(keys))
-	for _, key := range keys {
-		if value, ok := r.values[key]; ok {
-			out[key] = value
-		}
-	}
-	return out, nil
-}
-
-func (r *panelRateLimitStubRepo) SetMultiple(_ context.Context, settings map[string]string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.values == nil {
-		r.values = make(map[string]string)
-	}
-	for key, value := range settings {
-		r.values[key] = value
-	}
-	return nil
-}
-
-func (r *panelRateLimitStubRepo) GetAll(_ context.Context) (map[string]string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make(map[string]string, len(r.values))
-	for key, value := range r.values {
-		out[key] = value
-	}
-	return out, nil
-}
-
-func (r *panelRateLimitStubRepo) Delete(_ context.Context, key string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.values, key)
-	return nil
-}
 
 // fakePanelAllower 内存计数版限流原语。
 type fakePanelAllower struct {
@@ -119,13 +42,22 @@ func (f *fakePanelAllower) Allow(_ context.Context, key string, limit int, windo
 	return result, nil
 }
 
-func newPanelRateLimitTestService(t *testing.T, settingsJSON string) *service.SettingService {
+// panelSettingsStub 注入限流阈值（生产里阈值由代码决定，这里用小阈值验证计数逻辑）。
+type panelSettingsStub struct {
+	settings service.PanelRateLimitSettings
+}
+
+func (s panelSettingsStub) GetPanelRateLimitSettingsCached(context.Context) service.PanelRateLimitSettings {
+	return s.settings
+}
+
+func newPanelRateLimitTestService(t *testing.T, settingsJSON string) panelRateLimitSettingsSource {
 	t.Helper()
-	repo := &panelRateLimitStubRepo{}
+	settings := *service.DefaultPanelRateLimitSettings()
 	if settingsJSON != "" {
-		repo.values = map[string]string{"panel_rate_limit_settings": settingsJSON}
+		require.NoError(t, json.Unmarshal([]byte(settingsJSON), &settings))
 	}
-	return service.NewSettingService(repo, &config.Config{})
+	return panelSettingsStub{settings: settings}
 }
 
 type panelTestIdentity struct {

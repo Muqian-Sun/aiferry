@@ -134,7 +134,7 @@ func TestUpdateSettings_OmittedAccountSchedulingThresholdsDoesNotCacheDefaults(t
 	})
 
 	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		FrontendURL: "https://example.test",
+		ProfitMinMargin: 0.1,
 	})
 	require.NoError(t, err)
 

@@ -38,19 +38,6 @@ const versionBoundsErrorTTL = 5 * time.Second
 // versionBoundsDBTimeout singleflight 内 DB 查询超时，独立于请求 context
 const versionBoundsDBTimeout = 5 * time.Second
 
-// cachedBackendMode Backend Mode cache (in-process, 60s TTL)
-type cachedBackendMode struct {
-	value     bool
-	expiresAt int64 // unix nano
-}
-
-var backendModeCache atomic.Value // *cachedBackendMode
-var backendModeSF singleflight.Group
-
-const backendModeCacheTTL = 60 * time.Second
-const backendModeErrorTTL = 5 * time.Second
-const backendModeDBTimeout = 5 * time.Second
-
 // cachedGatewayForwardingSettings 缓存网关转发行为设置（进程内缓存，60s TTL）
 type cachedGatewayForwardingSettings struct {
 	openAITTFTMode                   string
@@ -717,50 +704,9 @@ func ValidateEngineFingerprintSignalsJSON(raw string) error {
 	return openai.ValidateEngineFingerprintSignalsJSON(raw)
 }
 
-// IsBackendModeEnabled checks if backend mode is enabled
-// Uses in-process atomic.Value cache with 60s TTL, zero-lock hot path
+// IsBackendModeEnabled「只留管理站」模式：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsBackendModeEnabled(ctx context.Context) bool {
-	if cached, ok := backendModeCache.Load().(*cachedBackendMode); ok && cached != nil {
-		if time.Now().UnixNano() < cached.expiresAt {
-			return cached.value
-		}
-	}
-	result, _, _ := backendModeSF.Do("backend_mode", func() (any, error) {
-		if cached, ok := backendModeCache.Load().(*cachedBackendMode); ok && cached != nil {
-			if time.Now().UnixNano() < cached.expiresAt {
-				return cached.value, nil
-			}
-		}
-		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), backendModeDBTimeout)
-		defer cancel()
-		value, err := s.settingRepo.GetValue(dbCtx, SettingKeyBackendModeEnabled)
-		if err != nil {
-			if errors.Is(err, ErrSettingNotFound) {
-				// Setting not yet created (fresh install) - default to disabled with full TTL
-				backendModeCache.Store(&cachedBackendMode{
-					value:     false,
-					expiresAt: time.Now().Add(backendModeCacheTTL).UnixNano(),
-				})
-				return false, nil
-			}
-			slog.Warn("failed to get backend_mode_enabled setting", "error", err)
-			backendModeCache.Store(&cachedBackendMode{
-				value:     false,
-				expiresAt: time.Now().Add(backendModeErrorTTL).UnixNano(),
-			})
-			return false, nil
-		}
-		enabled := value == "true"
-		backendModeCache.Store(&cachedBackendMode{
-			value:     enabled,
-			expiresAt: time.Now().Add(backendModeCacheTTL).UnixNano(),
-		})
-		return enabled, nil
-	})
-	if val, ok := result.(bool); ok {
-		return val
-	}
-	return false
+	return BackendModeEnabled
 }
 
 type gatewayForwardingSettingsResult struct {

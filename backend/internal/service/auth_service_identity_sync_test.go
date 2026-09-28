@@ -5,7 +5,6 @@ package service_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 	"time"
 
@@ -21,37 +20,6 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	_ "modernc.org/sqlite"
 )
-
-type authIdentityDefaultSubAssignerStub struct {
-	calls []*service.AssignSubscriptionInput
-}
-
-func (s *authIdentityDefaultSubAssignerStub) AssignOrExtendSubscription(
-	_ context.Context,
-	input *service.AssignSubscriptionInput,
-) (*service.UserSubscription, bool, error) {
-	cloned := *input
-	s.calls = append(s.calls, &cloned)
-	return &service.UserSubscription{UserID: input.UserID, PlanID: input.PlanID}, true, nil
-}
-
-type flakyAuthIdentityDefaultSubAssignerStub struct {
-	failuresRemaining int
-	calls             []*service.AssignSubscriptionInput
-}
-
-func (s *flakyAuthIdentityDefaultSubAssignerStub) AssignOrExtendSubscription(
-	_ context.Context,
-	input *service.AssignSubscriptionInput,
-) (*service.UserSubscription, bool, error) {
-	cloned := *input
-	s.calls = append(s.calls, &cloned)
-	if s.failuresRemaining > 0 {
-		s.failuresRemaining--
-		return nil, false, errors.New("temporary assign failure")
-	}
-	return &service.UserSubscription{UserID: input.UserID, PlanID: input.PlanID}, true, nil
-}
 
 type authIdentitySettingRepoStub struct {
 	values map[string]string
@@ -107,16 +75,6 @@ func newAuthServiceWithEnt(
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
 	require.NoError(t, err)
-	_, err = db.Exec(`
-CREATE TABLE IF NOT EXISTS user_provider_default_grants (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	user_id INTEGER NOT NULL,
-	provider_type TEXT NOT NULL,
-	grant_reason TEXT NOT NULL DEFAULT 'first_bind',
-	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	UNIQUE(user_id, provider_type, grant_reason)
-)`)
-	require.NoError(t, err)
 
 	drv := entsql.OpenDB(dialect.SQLite, db)
 	client := enttest.NewClient(t, enttest.WithOptions(dbent.Driver(drv)))
@@ -128,10 +86,6 @@ CREATE TABLE IF NOT EXISTS user_provider_default_grants (
 			Secret:     "test-auth-identity-secret",
 			ExpireHour: 1,
 		},
-		Default: config.DefaultConfig{
-			UserBalance:     3.5,
-			UserConcurrency: 2,
-		},
 	}
 	settingSvc := service.NewSettingService(&authIdentitySettingRepoStub{
 		values: settings,
@@ -142,12 +96,10 @@ CREATE TABLE IF NOT EXISTS user_provider_default_grants (
 }
 
 func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	svc, _, client := newAuthServiceWithEnt(t, map[string]string{}, nil)
 	ctx := context.Background()
 
-	token, user, err := svc.Register(ctx, "user@example.com", "password")
+	token, user, err := svc.Register(ctx, "user@qq.com", "password")
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotNil(t, user)
@@ -162,7 +114,7 @@ func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
 		Where(
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("user@example.com"),
+			authidentity.ProviderSubjectEQ("user@qq.com"),
 		).
 		Only(ctx)
 	require.NoError(t, err)
@@ -171,9 +123,7 @@ func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
 }
 
 func TestAuthServiceLoginDefersLastLoginTouchUntilRecordSuccessfulLogin(t *testing.T) {
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	svc, _, client := newAuthServiceWithEnt(t, map[string]string{}, nil)
 	ctx := context.Background()
 
 	passwordHash, err := svc.HashPassword("password")
@@ -231,9 +181,7 @@ func TestAuthServiceLoginDefersLastLoginTouchUntilRecordSuccessfulLogin(t *testi
 }
 
 func TestAuthServiceRecordSuccessfulLoginBackfillsEmailIdentity(t *testing.T) {
-	svc, repo, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	svc, repo, client := newAuthServiceWithEnt(t, map[string]string{}, nil)
 	ctx := context.Background()
 
 	user := &service.User{
@@ -259,15 +207,9 @@ func TestAuthServiceRecordSuccessfulLoginBackfillsEmailIdentity(t *testing.T) {
 	require.Equal(t, user.ID, identity.UserID)
 }
 
-func TestAuthServiceLogin_DoesNotApplyEmailFirstBindDefaultsWhenBackfillingLegacyEmailIdentity(t *testing.T) {
-	assigner := &authIdentityDefaultSubAssignerStub{}
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled:                    "true",
-		service.SettingKeyAuthSourceDefaultEmailBalance:          "8.5",
-		service.SettingKeyAuthSourceDefaultEmailConcurrency:      "4",
-		service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"plan_id":11,"validity_days":30}]`,
-		service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "true",
-	}, assigner)
+// 老用户（注册时没写邮箱身份）登录成功后补写一条邮箱身份。
+func TestAuthServiceLogin_BackfillsLegacyEmailIdentity(t *testing.T) {
+	svc, _, client := newAuthServiceWithEnt(t, map[string]string{}, nil)
 	ctx := context.Background()
 
 	passwordHash, err := svc.HashPassword("password")
@@ -276,8 +218,6 @@ func TestAuthServiceLogin_DoesNotApplyEmailFirstBindDefaultsWhenBackfillingLegac
 		SetEmail("legacy@example.com").
 		SetUsername("legacy-user").
 		SetPasswordHash(passwordHash).
-		SetBalance(1.5).
-		SetConcurrency(2).
 		SetRole(service.RoleUser).
 		SetStatus(service.StatusActive).
 		Save(ctx)
@@ -288,12 +228,6 @@ func TestAuthServiceLogin_DoesNotApplyEmailFirstBindDefaultsWhenBackfillingLegac
 	require.NotEmpty(t, token)
 	require.NotNil(t, gotUser)
 	svc.RecordSuccessfulLogin(ctx, user.ID)
-
-	storedUser, err := client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 1.5, storedUser.Balance)
-	require.Equal(t, 2, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
 
 	identityCount, err := client.AuthIdentity.Query().
 		Where(
@@ -304,179 +238,4 @@ func TestAuthServiceLogin_DoesNotApplyEmailFirstBindDefaultsWhenBackfillingLegac
 		Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, identityCount)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-
-	token, gotUser, err = svc.Login(ctx, user.Email, "password")
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	require.NotNil(t, gotUser)
-
-	storedUser, err = client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 1.5, storedUser.Balance)
-	require.Equal(t, 2, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-}
-
-func TestAuthServiceLogin_DoesNotApplyMergedEmailFirstBindDefaultsWhenBackfillingLegacyEmailIdentity(t *testing.T) {
-	assigner := &authIdentityDefaultSubAssignerStub{}
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled:                    "true",
-		service.SettingKeyDefaultSubscriptions:                   `[{"plan_id":21,"validity_days":14}]`,
-		service.SettingKeyAuthSourceDefaultEmailBalance:          "8.5",
-		service.SettingKeyAuthSourceDefaultEmailConcurrency:      "5",
-		service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[]`,
-		service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "true",
-	}, assigner)
-	ctx := context.Background()
-
-	passwordHash, err := svc.HashPassword("password")
-	require.NoError(t, err)
-	user, err := client.User.Create().
-		SetEmail("merged-first-bind@example.com").
-		SetUsername("merged-user").
-		SetPasswordHash(passwordHash).
-		SetBalance(1.5).
-		SetConcurrency(2).
-		SetRole(service.RoleUser).
-		SetStatus(service.StatusActive).
-		Save(ctx)
-	require.NoError(t, err)
-
-	token, gotUser, err := svc.Login(ctx, user.Email, "password")
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	require.NotNil(t, gotUser)
-	svc.RecordSuccessfulLogin(ctx, user.ID)
-
-	storedUser, err := client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 1.5, storedUser.Balance)
-	require.Equal(t, 2, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-}
-
-func TestAuthServiceLogin_DoesNotApplyEmailFirstBindDefaultsWhenIdentityAlreadyExists(t *testing.T) {
-	assigner := &authIdentityDefaultSubAssignerStub{}
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled:                    "true",
-		service.SettingKeyAuthSourceDefaultEmailBalance:          "8.5",
-		service.SettingKeyAuthSourceDefaultEmailConcurrency:      "4",
-		service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"plan_id":11,"validity_days":30}]`,
-		service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "true",
-	}, assigner)
-	ctx := context.Background()
-
-	passwordHash, err := svc.HashPassword("password")
-	require.NoError(t, err)
-	user, err := client.User.Create().
-		SetEmail("bound@example.com").
-		SetUsername("bound-user").
-		SetPasswordHash(passwordHash).
-		SetBalance(2).
-		SetConcurrency(3).
-		SetRole(service.RoleUser).
-		SetStatus(service.StatusActive).
-		Save(ctx)
-	require.NoError(t, err)
-	_, err = client.AuthIdentity.Create().
-		SetUserID(user.ID).
-		SetProviderType("email").
-		SetProviderKey("email").
-		SetProviderSubject("bound@example.com").
-		SetVerifiedAt(time.Now().UTC()).
-		SetMetadata(map[string]any{"source": "preexisting"}).
-		Save(ctx)
-	require.NoError(t, err)
-
-	token, gotUser, err := svc.Login(ctx, user.Email, "password")
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	require.NotNil(t, gotUser)
-	svc.RecordSuccessfulLogin(ctx, user.ID)
-
-	storedUser, err := client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 2.0, storedUser.Balance)
-	require.Equal(t, 3, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-}
-
-func TestAuthServiceLogin_DoesNotRetryEmailFirstBindDefaultsForBackfilledEmailIdentity(t *testing.T) {
-	assigner := &flakyAuthIdentityDefaultSubAssignerStub{failuresRemaining: 1}
-	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
-		service.SettingKeyRegistrationEnabled:                    "true",
-		service.SettingKeyAuthSourceDefaultEmailBalance:          "8.5",
-		service.SettingKeyAuthSourceDefaultEmailConcurrency:      "4",
-		service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"plan_id":11,"validity_days":30}]`,
-		service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "true",
-	}, assigner)
-	ctx := context.Background()
-
-	passwordHash, err := svc.HashPassword("password")
-	require.NoError(t, err)
-	user, err := client.User.Create().
-		SetEmail("retry-first-bind@example.com").
-		SetUsername("retry-user").
-		SetPasswordHash(passwordHash).
-		SetBalance(1.5).
-		SetConcurrency(2).
-		SetRole(service.RoleUser).
-		SetStatus(service.StatusActive).
-		Save(ctx)
-	require.NoError(t, err)
-
-	token, gotUser, err := svc.Login(ctx, user.Email, "password")
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	require.NotNil(t, gotUser)
-	svc.RecordSuccessfulLogin(ctx, user.ID)
-
-	storedUser, err := client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 1.5, storedUser.Balance)
-	require.Equal(t, 2, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-
-	token, gotUser, err = svc.Login(ctx, user.Email, "password")
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	require.NotNil(t, gotUser)
-	svc.RecordSuccessfulLogin(ctx, user.ID)
-
-	storedUser, err = client.User.Get(ctx, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, 1.5, storedUser.Balance)
-	require.Equal(t, 2, storedUser.Concurrency)
-	require.Empty(t, assigner.calls)
-	require.Equal(t, 0, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
-}
-
-func countProviderGrantRecords(
-	t *testing.T,
-	client *dbent.Client,
-	userID int64,
-	providerType string,
-	grantReason string,
-) int {
-	t.Helper()
-
-	var count int
-	rows, err := client.QueryContext(
-		context.Background(),
-		`SELECT COUNT(*) FROM user_provider_default_grants WHERE user_id = ? AND provider_type = ? AND grant_reason = ?`,
-		userID,
-		providerType,
-		grantReason,
-	)
-	require.NoError(t, err)
-	defer rows.Close()
-	require.True(t, rows.Next())
-	require.NoError(t, rows.Scan(&count))
-	require.NoError(t, rows.Err())
-	return count
 }

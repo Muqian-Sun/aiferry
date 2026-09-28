@@ -3,19 +3,18 @@ package admin
 import (
 	"log/slog"
 
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) {
+func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.SystemSettings, after *service.SystemSettings, req UpdateSettingsRequest) {
 	if before == nil || after == nil {
 		return
 	}
 
-	changed := diffSettings(before, after, beforeAuthSourceDefaults, afterAuthSourceDefaults, req)
+	changed := diffSettings(before, after, req)
 	if len(changed) == 0 {
 		return
 	}
@@ -30,320 +29,8 @@ func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.Sys
 	)
 }
 
-func diffSettings(before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) []string {
+func diffSettings(before *service.SystemSettings, after *service.SystemSettings, req UpdateSettingsRequest) []string {
 	changed := make([]string, 0, 20)
-	if before.RegistrationEnabled != after.RegistrationEnabled {
-		changed = append(changed, "registration_enabled")
-	}
-	if before.EmailVerifyEnabled != after.EmailVerifyEnabled {
-		changed = append(changed, "email_verify_enabled")
-	}
-	if !equalStringSlice(before.RegistrationEmailSuffixWhitelist, after.RegistrationEmailSuffixWhitelist) {
-		changed = append(changed, "registration_email_suffix_whitelist")
-	}
-	if before.RegistrationEmailDomainQuotaEnabled != after.RegistrationEmailDomainQuotaEnabled {
-		changed = append(changed, "registration_email_domain_quota_enabled")
-	}
-	if before.InvitationCodeEnabled != after.InvitationCodeEnabled {
-		changed = append(changed, "invitation_code_enabled")
-	}
-	if before.PasswordResetEnabled != after.PasswordResetEnabled {
-		changed = append(changed, "password_reset_enabled")
-	}
-	if before.FrontendURL != after.FrontendURL {
-		changed = append(changed, "frontend_url")
-	}
-	if before.PasskeyEnabled != after.PasskeyEnabled {
-		changed = append(changed, "passkey_enabled")
-	}
-	if before.SessionBindingEnabled != after.SessionBindingEnabled {
-		changed = append(changed, "session_binding_enabled")
-	}
-	if before.StepUpEnabled != after.StepUpEnabled {
-		changed = append(changed, "step_up_enabled")
-	}
-	if before.LoginAgreementEnabled != after.LoginAgreementEnabled {
-		changed = append(changed, "login_agreement_enabled")
-	}
-	if before.LoginAgreementMode != after.LoginAgreementMode {
-		changed = append(changed, "login_agreement_mode")
-	}
-	if before.LoginAgreementUpdatedAt != after.LoginAgreementUpdatedAt {
-		changed = append(changed, "login_agreement_updated_at")
-	}
-	if !equalLoginAgreementDocuments(before.LoginAgreementDocuments, after.LoginAgreementDocuments) {
-		changed = append(changed, "login_agreement_documents")
-	}
-	if before.SMTPHost != after.SMTPHost {
-		changed = append(changed, "smtp_host")
-	}
-	if before.SMTPPort != after.SMTPPort {
-		changed = append(changed, "smtp_port")
-	}
-	if before.SMTPUsername != after.SMTPUsername {
-		changed = append(changed, "smtp_username")
-	}
-	if req.SMTPPassword != "" {
-		changed = append(changed, "smtp_password")
-	}
-	if before.SMTPFrom != after.SMTPFrom {
-		changed = append(changed, "smtp_from_email")
-	}
-	if before.SMTPFromName != after.SMTPFromName {
-		changed = append(changed, "smtp_from_name")
-	}
-	if before.SMTPUseTLS != after.SMTPUseTLS {
-		changed = append(changed, "smtp_use_tls")
-	}
-	if before.TurnstileEnabled != after.TurnstileEnabled {
-		changed = append(changed, "turnstile_enabled")
-	}
-	if before.TurnstileSiteKey != after.TurnstileSiteKey {
-		changed = append(changed, "turnstile_site_key")
-	}
-	if req.TurnstileSecretKey != "" {
-		changed = append(changed, "turnstile_secret_key")
-	}
-	if before.TencentCaptchaEnabled != after.TencentCaptchaEnabled {
-		changed = append(changed, "tencent_captcha_enabled")
-	}
-	if before.TencentCaptchaAppID != after.TencentCaptchaAppID {
-		changed = append(changed, "tencent_captcha_app_id")
-	}
-	if req.TencentCaptchaAppSecretKey != "" {
-		changed = append(changed, "tencent_captcha_app_secret_key")
-	}
-	if req.TencentCaptchaCloudSecretID != "" {
-		changed = append(changed, "tencent_captcha_cloud_secret_id")
-	}
-	if req.TencentCaptchaCloudSecretKey != "" {
-		changed = append(changed, "tencent_captcha_cloud_secret_key")
-	}
-	if before.TencentCaptchaRegion != after.TencentCaptchaRegion {
-		changed = append(changed, "tencent_captcha_region")
-	}
-	if before.AliyunCaptchaEnabled != after.AliyunCaptchaEnabled {
-		changed = append(changed, "aliyun_captcha_enabled")
-	}
-	if before.AliyunCaptchaAccessKeyID != after.AliyunCaptchaAccessKeyID {
-		changed = append(changed, "aliyun_captcha_access_key_id")
-	}
-	if req.AliyunCaptchaAccessKeySecret != "" {
-		changed = append(changed, "aliyun_captcha_access_key_secret")
-	}
-	if before.AliyunCaptchaSceneID != after.AliyunCaptchaSceneID {
-		changed = append(changed, "aliyun_captcha_scene_id")
-	}
-	if before.AliyunCaptchaPrefix != after.AliyunCaptchaPrefix {
-		changed = append(changed, "aliyun_captcha_prefix")
-	}
-	if before.AliyunCaptchaRegion != after.AliyunCaptchaRegion {
-		changed = append(changed, "aliyun_captcha_region")
-	}
-	if before.APIKeyACLTrustForwardedIP != after.APIKeyACLTrustForwardedIP {
-		changed = append(changed, "api_key_acl_trust_forwarded_ip")
-	}
-	if !equalStringSlice(before.ForwardedClientIPHeaders, after.ForwardedClientIPHeaders) {
-		changed = append(changed, "forwarded_client_ip_headers")
-	}
-	if before.LinuxDoConnectEnabled != after.LinuxDoConnectEnabled {
-		changed = append(changed, "linuxdo_connect_enabled")
-	}
-	if before.LinuxDoConnectClientID != after.LinuxDoConnectClientID {
-		changed = append(changed, "linuxdo_connect_client_id")
-	}
-	if req.LinuxDoConnectClientSecret != "" {
-		changed = append(changed, "linuxdo_connect_client_secret")
-	}
-	if before.LinuxDoConnectRedirectURL != after.LinuxDoConnectRedirectURL {
-		changed = append(changed, "linuxdo_connect_redirect_url")
-	}
-	if before.DingTalkConnectEnabled != after.DingTalkConnectEnabled {
-		changed = append(changed, "dingtalk_connect_enabled")
-	}
-	if before.DingTalkConnectClientID != after.DingTalkConnectClientID {
-		changed = append(changed, "dingtalk_connect_client_id")
-	}
-	if req.DingTalkConnectClientSecret != "" {
-		changed = append(changed, "dingtalk_connect_client_secret")
-	}
-	if before.DingTalkConnectRedirectURL != after.DingTalkConnectRedirectURL {
-		changed = append(changed, "dingtalk_connect_redirect_url")
-	}
-	if before.DingTalkConnectCorpRestrictionPolicy != after.DingTalkConnectCorpRestrictionPolicy {
-		changed = append(changed, "dingtalk_connect_corp_restriction_policy")
-	}
-	if before.DingTalkConnectInternalCorpID != after.DingTalkConnectInternalCorpID {
-		changed = append(changed, "dingtalk_connect_internal_corp_id")
-	}
-	if before.DingTalkConnectBypassRegistration != after.DingTalkConnectBypassRegistration {
-		changed = append(changed, "dingtalk_connect_bypass_registration")
-	}
-	if before.DingTalkConnectSyncCorpEmail != after.DingTalkConnectSyncCorpEmail {
-		changed = append(changed, "dingtalk_connect_sync_corp_email")
-	}
-	if before.DingTalkConnectSyncDisplayName != after.DingTalkConnectSyncDisplayName {
-		changed = append(changed, "dingtalk_connect_sync_display_name")
-	}
-	if before.DingTalkConnectSyncDept != after.DingTalkConnectSyncDept {
-		changed = append(changed, "dingtalk_connect_sync_dept")
-	}
-	if before.DingTalkConnectSyncCorpEmailAttrKey != after.DingTalkConnectSyncCorpEmailAttrKey {
-		changed = append(changed, "dingtalk_connect_sync_corp_email_attr_key")
-	}
-	if before.DingTalkConnectSyncDisplayNameAttrKey != after.DingTalkConnectSyncDisplayNameAttrKey {
-		changed = append(changed, "dingtalk_connect_sync_display_name_attr_key")
-	}
-	if before.DingTalkConnectSyncDeptAttrKey != after.DingTalkConnectSyncDeptAttrKey {
-		changed = append(changed, "dingtalk_connect_sync_dept_attr_key")
-	}
-	if before.WeChatConnectEnabled != after.WeChatConnectEnabled {
-		changed = append(changed, "wechat_connect_enabled")
-	}
-	if before.WeChatConnectAppID != after.WeChatConnectAppID {
-		changed = append(changed, "wechat_connect_app_id")
-	}
-	if req.WeChatConnectAppSecret != "" {
-		changed = append(changed, "wechat_connect_app_secret")
-	}
-	if before.WeChatConnectOpenAppID != after.WeChatConnectOpenAppID {
-		changed = append(changed, "wechat_connect_open_app_id")
-	}
-	if req.WeChatConnectOpenAppSecret != "" {
-		changed = append(changed, "wechat_connect_open_app_secret")
-	}
-	if before.WeChatConnectMPAppID != after.WeChatConnectMPAppID {
-		changed = append(changed, "wechat_connect_mp_app_id")
-	}
-	if req.WeChatConnectMPAppSecret != "" {
-		changed = append(changed, "wechat_connect_mp_app_secret")
-	}
-	if before.WeChatConnectMobileAppID != after.WeChatConnectMobileAppID {
-		changed = append(changed, "wechat_connect_mobile_app_id")
-	}
-	if req.WeChatConnectMobileAppSecret != "" {
-		changed = append(changed, "wechat_connect_mobile_app_secret")
-	}
-	if before.WeChatConnectOpenEnabled != after.WeChatConnectOpenEnabled {
-		changed = append(changed, "wechat_connect_open_enabled")
-	}
-	if before.WeChatConnectMPEnabled != after.WeChatConnectMPEnabled {
-		changed = append(changed, "wechat_connect_mp_enabled")
-	}
-	if before.WeChatConnectMobileEnabled != after.WeChatConnectMobileEnabled {
-		changed = append(changed, "wechat_connect_mobile_enabled")
-	}
-	if before.WeChatConnectMode != after.WeChatConnectMode {
-		changed = append(changed, "wechat_connect_mode")
-	}
-	if before.WeChatConnectScopes != after.WeChatConnectScopes {
-		changed = append(changed, "wechat_connect_scopes")
-	}
-	if before.WeChatConnectRedirectURL != after.WeChatConnectRedirectURL {
-		changed = append(changed, "wechat_connect_redirect_url")
-	}
-	if before.WeChatConnectFrontendRedirectURL != after.WeChatConnectFrontendRedirectURL {
-		changed = append(changed, "wechat_connect_frontend_redirect_url")
-	}
-	if before.OIDCConnectEnabled != after.OIDCConnectEnabled {
-		changed = append(changed, "oidc_connect_enabled")
-	}
-	if before.OIDCConnectProviderName != after.OIDCConnectProviderName {
-		changed = append(changed, "oidc_connect_provider_name")
-	}
-	if before.OIDCConnectClientID != after.OIDCConnectClientID {
-		changed = append(changed, "oidc_connect_client_id")
-	}
-	if req.OIDCConnectClientSecret != "" {
-		changed = append(changed, "oidc_connect_client_secret")
-	}
-	if before.OIDCConnectIssuerURL != after.OIDCConnectIssuerURL {
-		changed = append(changed, "oidc_connect_issuer_url")
-	}
-	if before.OIDCConnectDiscoveryURL != after.OIDCConnectDiscoveryURL {
-		changed = append(changed, "oidc_connect_discovery_url")
-	}
-	if before.OIDCConnectAuthorizeURL != after.OIDCConnectAuthorizeURL {
-		changed = append(changed, "oidc_connect_authorize_url")
-	}
-	if before.OIDCConnectTokenURL != after.OIDCConnectTokenURL {
-		changed = append(changed, "oidc_connect_token_url")
-	}
-	if before.OIDCConnectUserInfoURL != after.OIDCConnectUserInfoURL {
-		changed = append(changed, "oidc_connect_userinfo_url")
-	}
-	if before.OIDCConnectJWKSURL != after.OIDCConnectJWKSURL {
-		changed = append(changed, "oidc_connect_jwks_url")
-	}
-	if before.OIDCConnectScopes != after.OIDCConnectScopes {
-		changed = append(changed, "oidc_connect_scopes")
-	}
-	if before.OIDCConnectRedirectURL != after.OIDCConnectRedirectURL {
-		changed = append(changed, "oidc_connect_redirect_url")
-	}
-	if before.OIDCConnectFrontendRedirectURL != after.OIDCConnectFrontendRedirectURL {
-		changed = append(changed, "oidc_connect_frontend_redirect_url")
-	}
-	if before.OIDCConnectTokenAuthMethod != after.OIDCConnectTokenAuthMethod {
-		changed = append(changed, "oidc_connect_token_auth_method")
-	}
-	if before.OIDCConnectUsePKCE != after.OIDCConnectUsePKCE {
-		changed = append(changed, "oidc_connect_use_pkce")
-	}
-	if before.OIDCConnectValidateIDToken != after.OIDCConnectValidateIDToken {
-		changed = append(changed, "oidc_connect_validate_id_token")
-	}
-	if before.OIDCConnectAllowedSigningAlgs != after.OIDCConnectAllowedSigningAlgs {
-		changed = append(changed, "oidc_connect_allowed_signing_algs")
-	}
-	if before.OIDCConnectClockSkewSeconds != after.OIDCConnectClockSkewSeconds {
-		changed = append(changed, "oidc_connect_clock_skew_seconds")
-	}
-	if before.OIDCConnectRequireEmailVerified != after.OIDCConnectRequireEmailVerified {
-		changed = append(changed, "oidc_connect_require_email_verified")
-	}
-	if before.OIDCConnectUserInfoEmailPath != after.OIDCConnectUserInfoEmailPath {
-		changed = append(changed, "oidc_connect_userinfo_email_path")
-	}
-	if before.OIDCConnectUserInfoIDPath != after.OIDCConnectUserInfoIDPath {
-		changed = append(changed, "oidc_connect_userinfo_id_path")
-	}
-	if before.OIDCConnectUserInfoUsernamePath != after.OIDCConnectUserInfoUsernamePath {
-		changed = append(changed, "oidc_connect_userinfo_username_path")
-	}
-	if before.SiteName != after.SiteName {
-		changed = append(changed, "site_name")
-	}
-	if before.SiteLogo != after.SiteLogo {
-		changed = append(changed, "site_logo")
-	}
-	if before.SiteSubtitle != after.SiteSubtitle {
-		changed = append(changed, "site_subtitle")
-	}
-	if before.APIBaseURL != after.APIBaseURL {
-		changed = append(changed, "api_base_url")
-	}
-	if before.ContactInfo != after.ContactInfo {
-		changed = append(changed, "contact_info")
-	}
-	if before.DocURL != after.DocURL {
-		changed = append(changed, "doc_url")
-	}
-	if before.HomeContent != after.HomeContent {
-		changed = append(changed, "home_content")
-	}
-	if before.CompactHomeEnabled != after.CompactHomeEnabled {
-		changed = append(changed, "compact_home_enabled")
-	}
-	if before.HideCcsImportButton != after.HideCcsImportButton {
-		changed = append(changed, "hide_ccs_import_button")
-	}
-	if before.DefaultConcurrency != after.DefaultConcurrency {
-		changed = append(changed, "default_concurrency")
-	}
-	if before.DefaultBalance != after.DefaultBalance {
-		changed = append(changed, "default_balance")
-	}
 	if before.AffiliateRebateRate != after.AffiliateRebateRate {
 		changed = append(changed, "affiliate_rebate_rate")
 	}
@@ -359,17 +46,11 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.AdminRechargeRebateEnabled != after.AdminRechargeRebateEnabled {
 		changed = append(changed, "affiliate_admin_recharge_enabled")
 	}
-	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
-		changed = append(changed, "default_subscriptions")
-	}
 	if before.EnableIdentityPatch != after.EnableIdentityPatch {
 		changed = append(changed, "enable_identity_patch")
 	}
 	if before.IdentityPatchPrompt != after.IdentityPatchPrompt {
 		changed = append(changed, "identity_patch_prompt")
-	}
-	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
-		changed = append(changed, "ops_monitoring_enabled")
 	}
 	if before.OpsRealtimeMonitoringEnabled != after.OpsRealtimeMonitoringEnabled {
 		changed = append(changed, "ops_realtime_monitoring_enabled")
@@ -403,21 +84,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.CodexCLIOnlyWhitelist != after.CodexCLIOnlyWhitelist {
 		changed = append(changed, "codex_cli_only_whitelist")
-	}
-	if before.BackendModeEnabled != after.BackendModeEnabled {
-		changed = append(changed, "backend_mode_enabled")
-	}
-	if before.TableDefaultPageSize != after.TableDefaultPageSize {
-		changed = append(changed, "table_default_page_size")
-	}
-	if !equalIntSlice(before.TablePageSizeOptions, after.TablePageSizeOptions) {
-		changed = append(changed, "table_page_size_options")
-	}
-	if before.CustomMenuItems != after.CustomMenuItems {
-		changed = append(changed, "custom_menu_items")
-	}
-	if before.CustomEndpoints != after.CustomEndpoints {
-		changed = append(changed, "custom_endpoints")
 	}
 	if before.EnableFingerprintUnification != after.EnableFingerprintUnification {
 		changed = append(changed, "enable_fingerprint_unification")
@@ -461,45 +127,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.OpenAICodexVersionAutoSyncEnabled != after.OpenAICodexVersionAutoSyncEnabled {
 		changed = append(changed, "openai_codex_version_auto_sync_enabled")
 	}
-	if before.PaymentVisibleMethodAlipaySource != after.PaymentVisibleMethodAlipaySource {
-		changed = append(changed, "payment_visible_method_alipay_source")
-	}
-	if before.PaymentVisibleMethodWxpaySource != after.PaymentVisibleMethodWxpaySource {
-		changed = append(changed, "payment_visible_method_wxpay_source")
-	}
-	if before.PaymentVisibleMethodAlipayEnabled != after.PaymentVisibleMethodAlipayEnabled {
-		changed = append(changed, "payment_visible_method_alipay_enabled")
-	}
-	if before.PaymentVisibleMethodWxpayEnabled != after.PaymentVisibleMethodWxpayEnabled {
-		changed = append(changed, "payment_visible_method_wxpay_enabled")
-	}
 	// 余额、订阅到期与账号限额通知
-	if before.BalanceLowNotifyEnabled != after.BalanceLowNotifyEnabled {
-		changed = append(changed, "balance_low_notify_enabled")
-	}
-	if before.BalanceLowNotifyThreshold != after.BalanceLowNotifyThreshold {
-		changed = append(changed, "balance_low_notify_threshold")
-	}
-	if before.BalanceLowNotifyRechargeURL != after.BalanceLowNotifyRechargeURL {
-		changed = append(changed, "balance_low_notify_recharge_url")
-	}
-	if before.SubscriptionExpiryNotifyEnabled != after.SubscriptionExpiryNotifyEnabled {
-		changed = append(changed, "subscription_expiry_notify_enabled")
-	}
-	if before.AccountQuotaNotifyEnabled != after.AccountQuotaNotifyEnabled {
-		changed = append(changed, "account_quota_notify_enabled")
-	}
-	if !equalNotifyEmailEntries(before.AccountQuotaNotifyEmails, after.AccountQuotaNotifyEmails) {
-		changed = append(changed, "account_quota_notify_emails")
-	}
-	if before.ChannelMonitorEnabled != after.ChannelMonitorEnabled {
-		changed = append(changed, "channel_monitor_enabled")
-	}
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
-	}
-	if before.ModelPlazaDescription != after.ModelPlazaDescription {
-		changed = append(changed, "model_plaza_description")
 	}
 	if before.AffiliateEnabled != after.AffiliateEnabled {
 		changed = append(changed, "affiliate_enabled")
@@ -525,174 +155,7 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.ProfitSafetyBuffer != after.ProfitSafetyBuffer {
 		changed = append(changed, service.SettingKeyProfitSafetyBuffer)
 	}
-	changed = appendAuthSourceDefaultChanges(changed, beforeAuthSourceDefaults, afterAuthSourceDefaults)
 	return changed
-}
-
-func appendAuthSourceDefaultChanges(changed []string, before *service.AuthSourceDefaultSettings, after *service.AuthSourceDefaultSettings) []string {
-	if before == nil {
-		before = &service.AuthSourceDefaultSettings{}
-	}
-	if after == nil {
-		after = &service.AuthSourceDefaultSettings{}
-	}
-
-	type providerDefaultGrantField struct {
-		name   string
-		before service.ProviderDefaultGrantSettings
-		after  service.ProviderDefaultGrantSettings
-	}
-
-	fields := []providerDefaultGrantField{
-		{name: "email", before: before.Email, after: after.Email},
-		{name: "linuxdo", before: before.LinuxDo, after: after.LinuxDo},
-		{name: "oidc", before: before.OIDC, after: after.OIDC},
-		{name: "wechat", before: before.WeChat, after: after.WeChat},
-		{name: "github", before: before.GitHub, after: after.GitHub},
-		{name: "google", before: before.Google, after: after.Google},
-		{name: "dingtalk", before: before.DingTalk, after: after.DingTalk},
-	}
-	for _, field := range fields {
-		if field.before.Balance != field.after.Balance {
-			changed = append(changed, "auth_source_default_"+field.name+"_balance")
-		}
-		if field.before.Concurrency != field.after.Concurrency {
-			changed = append(changed, "auth_source_default_"+field.name+"_concurrency")
-		}
-		if !equalDefaultSubscriptions(field.before.Subscriptions, field.after.Subscriptions) {
-			changed = append(changed, "auth_source_default_"+field.name+"_subscriptions")
-		}
-		if field.before.GrantOnSignup != field.after.GrantOnSignup {
-			changed = append(changed, "auth_source_default_"+field.name+"_grant_on_signup")
-		}
-		if field.before.GrantOnFirstBind != field.after.GrantOnFirstBind {
-			changed = append(changed, "auth_source_default_"+field.name+"_grant_on_first_bind")
-		}
-	}
-	if before.ForceEmailOnThirdPartySignup != after.ForceEmailOnThirdPartySignup {
-		changed = append(changed, "force_email_on_third_party_signup")
-	}
-	return changed
-}
-
-func normalizeDefaultSubscriptions(input []dto.DefaultSubscriptionSetting) []dto.DefaultSubscriptionSetting {
-	if len(input) == 0 {
-		return nil
-	}
-	normalized := make([]dto.DefaultSubscriptionSetting, 0, len(input))
-	for _, item := range input {
-		if item.PlanID <= 0 || item.ValidityDays <= 0 {
-			continue
-		}
-		if item.ValidityDays > service.MaxValidityDays {
-			item.ValidityDays = service.MaxValidityDays
-		}
-		normalized = append(normalized, item)
-	}
-	return normalized
-}
-
-func normalizeOptionalDefaultSubscriptions(input *[]dto.DefaultSubscriptionSetting) *[]dto.DefaultSubscriptionSetting {
-	if input == nil {
-		return nil
-	}
-	normalized := normalizeDefaultSubscriptions(*input)
-	return &normalized
-}
-
-func float64ValueOrDefault(value *float64, fallback float64) float64 {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func intValueOrDefault(value *int, fallback int) int {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func boolValueOrDefault(value *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func defaultSubscriptionsValueOrDefault(input *[]dto.DefaultSubscriptionSetting, fallback []service.DefaultSubscriptionSetting) []service.DefaultSubscriptionSetting {
-	if input == nil {
-		return fallback
-	}
-	result := make([]service.DefaultSubscriptionSetting, 0, len(*input))
-	for _, item := range *input {
-		result = append(result, service.DefaultSubscriptionSetting{
-			PlanID:       item.PlanID,
-			ValidityDays: item.ValidityDays,
-		})
-	}
-	return result
-}
-
-func equalStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func equalDefaultSubscriptions(a, b []service.DefaultSubscriptionSetting) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].PlanID != b[i].PlanID || a[i].ValidityDays != b[i].ValidityDays {
-			return false
-		}
-	}
-	return true
-}
-
-func equalLoginAgreementDocuments(a, b []service.LoginAgreementDocument) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].ID != b[i].ID || a[i].Title != b[i].Title || a[i].ContentMD != b[i].ContentMD {
-			return false
-		}
-	}
-	return true
-}
-
-func equalIntSlice(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func equalNotifyEmailEntries(a, b []service.NotifyEmailEntry) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].Email != b[i].Email || a[i].Verified != b[i].Verified || a[i].Disabled != b[i].Disabled {
-			return false
-		}
-	}
-	return true
 }
 
 func equalAccountSchedulingThresholds(before, after map[string]int) bool {

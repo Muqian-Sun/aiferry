@@ -751,30 +751,6 @@ func TestLoadWeChatConnectConfigFromLegacyEnv(t *testing.T) {
 	require.Equal(t, "/auth/wechat/legacy-callback", cfg.WeChat.FrontendRedirectURL)
 }
 
-func TestLoadDefaultOIDCSecurityDefaults(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	require.True(t, cfg.OIDC.UsePKCE)
-	require.True(t, cfg.OIDC.ValidateIDToken)
-	require.False(t, cfg.OIDC.UsePKCEExplicit)
-	require.False(t, cfg.OIDC.ValidateIDTokenExplicit)
-}
-
-func TestLoadExplicitOIDCSecurityDefaultsFromEnvMarksFlagsExplicit(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	t.Setenv("OIDC_CONNECT_USE_PKCE", "false")
-	t.Setenv("OIDC_CONNECT_VALIDATE_ID_TOKEN", "false")
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	require.False(t, cfg.OIDC.UsePKCE)
-	require.False(t, cfg.OIDC.ValidateIDToken)
-	require.True(t, cfg.OIDC.UsePKCEExplicit)
-	require.True(t, cfg.OIDC.ValidateIDTokenExplicit)
-}
-
 func TestLoadForcedCodexInstructionsTemplate(t *testing.T) {
 	resetViperWithJWTSecret(t)
 
@@ -883,138 +859,6 @@ func TestLoadDefaultDatabaseSSLMode(t *testing.T) {
 
 	if cfg.Database.SSLMode != "prefer" {
 		t.Fatalf("Database.SSLMode = %q, want %q", cfg.Database.SSLMode, "prefer")
-	}
-}
-
-func TestValidateLinuxDoFrontendRedirectURL(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "test-client"
-	cfg.LinuxDo.ClientSecret = "test-secret"
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "client_secret_post"
-	cfg.LinuxDo.UsePKCE = true
-
-	cfg.LinuxDo.FrontendRedirectURL = "javascript:alert(1)"
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatalf("Validate() expected error for javascript scheme, got nil")
-	}
-	if !strings.Contains(err.Error(), "linuxdo_connect.frontend_redirect_url") {
-		t.Fatalf("Validate() expected frontend_redirect_url error, got: %v", err)
-	}
-}
-
-func TestValidateLinuxDoAllowsDisablingPKCEForCompatibility(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "test-client"
-	cfg.LinuxDo.ClientSecret = ""
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.FrontendRedirectURL = "/auth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "none"
-	cfg.LinuxDo.UsePKCE = false
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected LinuxDo config without PKCE to pass for compatibility, got: %v", err)
-	}
-}
-
-func TestValidateOIDCScopesMustContainOpenID(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = "https://issuer.example.com/auth"
-	cfg.OIDC.TokenURL = "https://issuer.example.com/token"
-	cfg.OIDC.JWKSURL = "https://issuer.example.com/jwks"
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "profile email"
-	cfg.OIDC.UsePKCE = true
-
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatalf("Validate() expected error when scopes do not include openid, got nil")
-	}
-	if !strings.Contains(err.Error(), "oidc_connect.scopes") {
-		t.Fatalf("Validate() expected oidc_connect.scopes error, got: %v", err)
-	}
-}
-
-func TestValidateOIDCAllowsIssuerOnlyEndpointsWithDiscoveryFallback(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = ""
-	cfg.OIDC.TokenURL = ""
-	cfg.OIDC.JWKSURL = ""
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "openid email profile"
-	cfg.OIDC.ValidateIDToken = true
-	cfg.OIDC.UsePKCE = true
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected issuer-only OIDC config to pass with discovery fallback, got: %v", err)
-	}
-}
-
-func TestValidateOIDCAllowsExplicitCompatibilityOverridesForPKCEAndIDTokenValidation(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = "https://issuer.example.com/auth"
-	cfg.OIDC.TokenURL = "https://issuer.example.com/token"
-	cfg.OIDC.UserInfoURL = "https://issuer.example.com/userinfo"
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "openid email profile"
-	cfg.OIDC.UsePKCE = false
-	cfg.OIDC.ValidateIDToken = false
-	cfg.OIDC.JWKSURL = ""
-	cfg.OIDC.AllowedSigningAlgs = ""
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected OIDC config without PKCE/id_token validation to pass for compatibility, got: %v", err)
 	}
 }
 
@@ -1441,33 +1285,6 @@ func TestProvideConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfigWithLinuxDoEnabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.Security.CSP.Enabled = true
-	cfg.Security.CSP.Policy = "default-src 'self'"
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "client"
-	cfg.LinuxDo.ClientSecret = "secret"
-	cfg.LinuxDo.AuthorizeURL = "https://example.com/oauth2/authorize"
-	cfg.LinuxDo.TokenURL = "https://example.com/oauth2/token"
-	cfg.LinuxDo.UserInfoURL = "https://example.com/oauth2/userinfo"
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.FrontendRedirectURL = "/auth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "client_secret_post"
-	cfg.LinuxDo.UsePKCE = true
-
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Validate() unexpected error: %v", err)
-	}
-}
-
 func TestValidateJWTSecretStrength(t *testing.T) {
 	if !isWeakJWTSecret("change-me-in-production") {
 		t.Fatalf("isWeakJWTSecret should detect weak secret")
@@ -1652,31 +1469,6 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "csp policy required",
 			mutate:  func(c *Config) { c.Security.CSP.Enabled = true; c.Security.CSP.Policy = "" },
 			wantErr: "security.csp.policy",
-		},
-		{
-			name: "linuxdo client id required",
-			mutate: func(c *Config) {
-				c.LinuxDo.Enabled = true
-				c.LinuxDo.UsePKCE = true
-				c.LinuxDo.ClientID = ""
-			},
-			wantErr: "linuxdo_connect.client_id",
-		},
-		{
-			name: "linuxdo token auth method",
-			mutate: func(c *Config) {
-				c.LinuxDo.Enabled = true
-				c.LinuxDo.UsePKCE = true
-				c.LinuxDo.ClientID = "client"
-				c.LinuxDo.ClientSecret = "secret"
-				c.LinuxDo.AuthorizeURL = "https://example.com/authorize"
-				c.LinuxDo.TokenURL = "https://example.com/token"
-				c.LinuxDo.UserInfoURL = "https://example.com/userinfo"
-				c.LinuxDo.RedirectURL = "https://example.com/callback"
-				c.LinuxDo.FrontendRedirectURL = "/auth/callback"
-				c.LinuxDo.TokenAuthMethod = "invalid"
-			},
-			wantErr: "linuxdo_connect.token_auth_method",
 		},
 		{
 			name:    "billing circuit breaker threshold",
@@ -2642,4 +2434,198 @@ func TestAdminListenerConfig(t *testing.T) {
 
 	cfg.Server.AdminPort = 0
 	require.ErrorContains(t, cfg.Validate(), "server.admin_port must be between 1 and 65535")
+}
+
+// Google / GitHub 登录只认部署配置：ID 和 Secret 成对出现；配了但既没有回调地址也没有 server.frontend_url 时无法登录，启动即报错。
+func TestValidateEmailOAuthProviders(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*Config)
+		wantErr string
+	}{
+		{
+			name:   "unconfigured is fine",
+			mutate: func(c *Config) {},
+		},
+		{
+			name: "client id without secret",
+			mutate: func(c *Config) {
+				c.GitHubOAuth.ClientID = "gh-id"
+			},
+			wantErr: "github_oauth.client_id and github_oauth.client_secret must be both set or both empty",
+		},
+		{
+			name: "secret without client id",
+			mutate: func(c *Config) {
+				c.GoogleOAuth.ClientSecret = "g-secret"
+			},
+			wantErr: "google_oauth.client_id and google_oauth.client_secret must be both set or both empty",
+		},
+		{
+			name: "configured without redirect and without frontend url",
+			mutate: func(c *Config) {
+				c.Server.FrontendURL = ""
+				c.GoogleOAuth.ClientID = "g-id"
+				c.GoogleOAuth.ClientSecret = "g-secret"
+			},
+			wantErr: "google_oauth.redirect_url is required when server.frontend_url is empty",
+		},
+		{
+			name: "configured with frontend url derives redirect",
+			mutate: func(c *Config) {
+				c.Server.FrontendURL = "https://ai.example.com"
+				c.GitHubOAuth.ClientID = "gh-id"
+				c.GitHubOAuth.ClientSecret = "gh-secret"
+			},
+		},
+		{
+			name: "configured with explicit redirect",
+			mutate: func(c *Config) {
+				c.Server.FrontendURL = ""
+				c.GitHubOAuth.ClientID = "gh-id"
+				c.GitHubOAuth.ClientSecret = "gh-secret"
+				c.GitHubOAuth.RedirectURL = "https://api.example.com/api/v1/auth/oauth/github/callback"
+			},
+		},
+		{
+			name: "invalid explicit redirect",
+			mutate: func(c *Config) {
+				c.GitHubOAuth.ClientID = "gh-id"
+				c.GitHubOAuth.ClientSecret = "gh-secret"
+				c.GitHubOAuth.RedirectURL = "not-a-url"
+			},
+			wantErr: "github_oauth.redirect_url invalid",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetViperWithJWTSecret(t)
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+			tc.mutate(cfg)
+			err = cfg.Validate()
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Validate() error = %v, want contains %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// GITHUB_OAUTH_CLIENT_ID 等环境变量要能读进来（部署时只靠环境变量打开登录）。
+func TestLoadEmailOAuthProvidersFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_FRONTEND_URL", "https://ai.example.com")
+	t.Setenv("GITHUB_OAUTH_CLIENT_ID", "gh-env-id")
+	t.Setenv("GITHUB_OAUTH_CLIENT_SECRET", "gh-env-secret")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.GitHubOAuth.ClientID != "gh-env-id" || cfg.GitHubOAuth.ClientSecret != "gh-env-secret" {
+		t.Fatalf("github oauth not loaded from env: %+v", cfg.GitHubOAuth)
+	}
+}
+
+// 人机验证只认部署配置：每家凭证要么配齐要么全空；地域只认已支持的值；同一时间最多一家。
+func TestValidateCaptchaConfig(t *testing.T) {
+	turnstile := TurnstileConfig{SiteKey: "site", SecretKey: "secret"}
+	tencent := TencentCaptchaConfig{AppID: "123456789", AppSecretKey: "a", CloudSecretID: "b", CloudSecretKey: "c"}
+	aliyun := AliyunCaptchaConfig{AccessKeyID: "ak", AccessKeySecret: "sk", SceneID: "scene", Prefix: "prefix"}
+	cases := []struct {
+		name    string
+		mutate  func(*Config)
+		wantErr string
+	}{
+		{name: "none configured", mutate: func(c *Config) {}},
+		{name: "turnstile only", mutate: func(c *Config) { c.Turnstile.SiteKey, c.Turnstile.SecretKey = turnstile.SiteKey, turnstile.SecretKey }},
+		{name: "tencent only intl", mutate: func(c *Config) { c.TencentCaptcha = tencent; c.TencentCaptcha.Region = "intl" }},
+		{name: "aliyun only sgp", mutate: func(c *Config) { c.AliyunCaptcha = aliyun; c.AliyunCaptcha.Region = "sgp" }},
+		{
+			name:    "turnstile half configured",
+			mutate:  func(c *Config) { c.Turnstile.SiteKey = "site" },
+			wantErr: "turnstile.site_key and turnstile.secret_key must be both set or both empty",
+		},
+		{
+			name:    "tencent half configured",
+			mutate:  func(c *Config) { c.TencentCaptcha = TencentCaptchaConfig{AppID: "123456789"} },
+			wantErr: "tencent_captcha.app_id, app_secret_key, cloud_secret_id and cloud_secret_key must be all set or all empty",
+		},
+		{
+			name:    "tencent app id not a number",
+			mutate:  func(c *Config) { c.TencentCaptcha = tencent; c.TencentCaptcha.AppID = "not-a-number" },
+			wantErr: "tencent_captcha.app_id must be a positive integer",
+		},
+		{
+			name:    "tencent unknown region",
+			mutate:  func(c *Config) { c.TencentCaptcha.Region = "sgp" },
+			wantErr: "tencent_captcha.region must be cn or intl",
+		},
+		{
+			name: "aliyun half configured",
+			mutate: func(c *Config) {
+				c.AliyunCaptcha = AliyunCaptchaConfig{AccessKeyID: "ak", AccessKeySecret: "sk", SceneID: "scene"}
+			},
+			wantErr: "aliyun_captcha.access_key_id, access_key_secret, scene_id and prefix must be all set or all empty",
+		},
+		{
+			name:    "aliyun unknown region",
+			mutate:  func(c *Config) { c.AliyunCaptcha.Region = "intl" },
+			wantErr: "aliyun_captcha.region must be cn or sgp",
+		},
+		{
+			name: "two providers configured",
+			mutate: func(c *Config) {
+				c.Turnstile.SiteKey, c.Turnstile.SecretKey = turnstile.SiteKey, turnstile.SecretKey
+				c.TencentCaptcha = tencent
+			},
+			wantErr: "only one captcha provider (turnstile / tencent_captcha / aliyun_captcha) can be configured",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetViperWithJWTSecret(t)
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+			tc.mutate(cfg)
+			err = cfg.Validate()
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Validate() error = %v, want contains %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TURNSTILE_* / TENCENT_CAPTCHA_* / ALIYUN_CAPTCHA_* 环境变量要能读进来（部署时只靠环境变量打开人机验证）。
+func TestLoadCaptchaProvidersFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("TURNSTILE_SITE_KEY", "env-site")
+	t.Setenv("TURNSTILE_SECRET_KEY", "env-secret")
+	t.Setenv("TENCENT_CAPTCHA_REGION", "intl")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !cfg.Turnstile.Configured() || cfg.Turnstile.SiteKey != "env-site" {
+		t.Fatalf("turnstile not loaded from env: %+v", cfg.Turnstile)
+	}
+	// 单独配地域不算配了天御
+	if cfg.TencentCaptcha.Region != "intl" || cfg.TencentCaptcha.Configured() {
+		t.Fatalf("tencent captcha env not loaded as expected: %+v", cfg.TencentCaptcha)
+	}
 }

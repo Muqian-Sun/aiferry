@@ -785,14 +785,10 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 	return aggregator
 }
 
-// ProvideSettingService wires SettingService with plan reader and proxy repo.
-func ProvideSettingService(settingRepo SettingRepository, planRepo SubscriptionPlanRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
+// ProvideSettingService wires SettingService with proxy repo.
+func ProvideSettingService(settingRepo SettingRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
-	svc.SetDefaultSubscriptionPlanReader(planRepo)
 	svc.SetProxyRepository(proxyRepo)
-	if err := svc.LoadForwardedClientIPSettings(context.Background()); err != nil {
-		logger.LegacyPrintf("service.setting", "Warning: load forwarded client IP settings failed: %v", err)
-	}
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
 	}
@@ -975,16 +971,19 @@ func ProvideSubscriptionService(planRepo SubscriptionPlanRepository, userSubRepo
 }
 
 // ProvideBalanceNotifyService creates BalanceNotifyService
-func ProvideBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountRepository, notificationEmailService *NotificationEmailService) *BalanceNotifyService {
-	svc := NewBalanceNotifyService(emailService, settingRepo, accountRepo)
+func ProvideBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountRepository, notificationEmailService *NotificationEmailService, userRepo UserRepository, cfg *config.Config) *BalanceNotifyService {
+	svc := NewBalanceNotifyService(emailService, settingRepo, accountRepo, userRepo, cfg)
 	svc.SetNotificationEmailService(notificationEmailService)
 	return svc
 }
 
 // ProvidePaymentService creates PaymentService and attaches notification email delivery.
-func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService) *PaymentService {
+func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService, cfg *config.Config) *PaymentService {
 	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, affiliateService)
 	svc.SetNotificationEmailService(notificationEmailService)
+	if cfg != nil {
+		svc.weChatConnect = cfg.WeChat
+	}
 	return svc
 }
 

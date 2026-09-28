@@ -159,41 +159,27 @@ func (r *subscriptionExpirySettingRepoStub) Delete(context.Context, string) erro
 	return nil
 }
 
-func TestSubscriptionExpiryService_ExpiryReminderEnabledDefaultsToTrue(t *testing.T) {
-	svc := NewSubscriptionExpiryService(nil, time.Minute)
-	svc.SetSettingRepository(&subscriptionExpirySettingRepoStub{values: map[string]string{}})
-
-	require.True(t, svc.expiryReminderEnabled(context.Background()))
-}
-
-func TestSubscriptionExpiryService_ExpiryReminderDisabledSkipsSubscriptionScan(t *testing.T) {
+// 订阅到期提醒跟着 SMTP 走：库里旧开关关着也照常扫描。
+func TestSubscriptionExpiryService_StaleSwitchDoesNotDisableReminder(t *testing.T) {
 	repo := &subscriptionExpiryRepoStub{}
-	settingRepo := &subscriptionExpirySettingRepoStub{
-		values: map[string]string{SettingKeySubscriptionExpiryNotifyEnabled: "false"},
-	}
+	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{"subscription_expiry_notify_enabled": "false"}}
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, nil))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil, smtpConfiguredForTest()), nil))
+	svc.SetLeaderLock(&fakeLeaderLockCache{}, nil)
 
 	svc.sendExpiryReminders(context.Background())
 
-	require.Zero(t, repo.listCalls)
-}
-
-func TestSubscriptionExpiryService_ExpiryReminderSettingReadErrorFailsClosed(t *testing.T) {
-	svc := NewSubscriptionExpiryService(nil, time.Minute)
-	svc.SetSettingRepository(&subscriptionExpirySettingRepoStub{err: errors.New("db down")})
-
-	require.False(t, svc.expiryReminderEnabled(context.Background()))
+	require.Equal(t, 1, repo.listCalls)
 }
 
 func TestSubscriptionExpiryService_MissingSMTPSkipsReminderScanAndLogsOncePerInterval(t *testing.T) {
 	repo := &subscriptionExpiryRepoStub{}
 	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
-	emailService := NewEmailService(settingRepo, nil)
+	emailService := NewEmailService(settingRepo, nil, nil)
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService, nil))
 
 	var logs bytes.Buffer
 	previousWriter := log.Writer()
@@ -218,10 +204,10 @@ func TestSubscriptionExpiryService_SMTPConfigReadErrorSkipsReminderScan(t *testi
 		values:   map[string]string{},
 		multiErr: errors.New("db down"),
 	}
-	emailService := NewEmailService(settingRepo, nil)
+	emailService := NewEmailService(settingRepo, nil, nil)
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService, nil))
 
 	svc.sendExpiryReminders(context.Background())
 

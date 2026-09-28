@@ -59,18 +59,17 @@ func (v *oauthCaptchaVerifier) VerifyTicket(_ context.Context, _ service.Tencent
 }
 
 func newOAuthCaptchaTestHandler(enabled bool) (*AuthHandler, *oauthCaptchaVerifier) {
-	values := map[string]string{}
+	cfg := &config.Config{}
 	if enabled {
-		values = map[string]string{
-			service.SettingKeyTencentCaptchaEnabled:        "true",
-			service.SettingKeyTencentCaptchaAppID:          "123456789",
-			service.SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-			service.SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-			service.SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
+		// 人机验证只认部署配置：配齐天御凭证就开
+		cfg.TencentCaptcha = config.TencentCaptchaConfig{
+			AppID:          "123456789",
+			AppSecretKey:   "app-secret",
+			CloudSecretID:  "cloud-secret-id",
+			CloudSecretKey: "cloud-secret-key",
 		}
 	}
-	cfg := &config.Config{}
-	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: values}, cfg)
+	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{}}, cfg)
 	verifier := &oauthCaptchaVerifier{}
 	authService := service.NewAuthService(nil, nil, nil, nil, cfg, settings, nil, nil, nil, nil, nil)
 	authService.SetTencentCaptchaService(service.NewTencentCaptchaService(settings, verifier))
@@ -79,12 +78,9 @@ func newOAuthCaptchaTestHandler(enabled bool) (*AuthHandler, *oauthCaptchaVerifi
 
 func oauthStartHandlers() map[string]func(*AuthHandler, *gin.Context) {
 	return map[string]func(*AuthHandler, *gin.Context){
-		"github":   func(h *AuthHandler, c *gin.Context) { h.GitHubOAuthStart(c) },
-		"google":   func(h *AuthHandler, c *gin.Context) { h.GoogleOAuthStart(c) },
-		"linuxdo":  func(h *AuthHandler, c *gin.Context) { h.LinuxDoOAuthStart(c) },
-		"dingtalk": func(h *AuthHandler, c *gin.Context) { h.DingTalkOAuthStart(c) },
-		"wechat":   func(h *AuthHandler, c *gin.Context) { h.WeChatOAuthStart(c) },
-		"oidc":     func(h *AuthHandler, c *gin.Context) { h.OIDCOAuthStart(c) },
+		"github": func(h *AuthHandler, c *gin.Context) { h.GitHubOAuthStart(c) },
+		"google": func(h *AuthHandler, c *gin.Context) { h.GoogleOAuthStart(c) },
+		"wechat": func(h *AuthHandler, c *gin.Context) { h.WeChatOAuthStart(c) },
 	}
 }
 
@@ -156,7 +152,7 @@ func TestOAuthBindingPathRemainsOutsideTencentGate(t *testing.T) {
 	handler := &AuthHandler{}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/bind/start", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/wechat/bind/start", nil)
 
 	require.True(t, handler.requireActionCaptchaForOAuthLoginStart(c))
 	require.Equal(t, http.StatusOK, recorder.Code)

@@ -189,15 +189,20 @@ func (s *emailCacheStub) IncrNotifyCodeUserRate(ctx context.Context, userID int6
 }
 
 func newAuthService(repo *userRepoStub, settings map[string]string, emailCache EmailCache) *AuthService {
+	return newAuthServiceWithSMTP(repo, settings, emailCache, false)
+}
+
+// newAuthServiceWithSMTP smtpConfigured 为真时配了 SMTP，注册就要验证邮箱。
+func newAuthServiceWithSMTP(repo *userRepoStub, settings map[string]string, emailCache EmailCache, smtpConfigured bool) *AuthService {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
 			Secret:     "test-secret",
 			ExpireHour: 1,
 		},
-		Default: config.DefaultConfig{
-			UserBalance:     3.5,
-			UserConcurrency: 2,
-		},
+	}
+
+	if smtpConfigured {
+		cfg.SMTP = testSMTPConfigured
 	}
 
 	var settingService *SettingService
@@ -207,7 +212,7 @@ func newAuthService(repo *userRepoStub, settings map[string]string, emailCache E
 
 	var emailService *EmailService
 	if emailCache != nil {
-		emailService = NewEmailService(&settingRepoStub{values: settings}, emailCache)
+		emailService = NewEmailService(&settingRepoStub{values: settings}, emailCache, cfg)
 	}
 
 	return NewAuthService(
@@ -225,16 +230,6 @@ func newAuthService(repo *userRepoStub, settings map[string]string, emailCache E
 	)
 }
 
-func TestAuthService_Register_Disabled(t *testing.T) {
-	repo := &userRepoStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "false",
-	}, nil)
-
-	_, _, err := service.Register(context.Background(), "user@test.com", "password")
-	require.ErrorIs(t, err, ErrRegDisabled)
-}
-
 func TestAuthService_Register_DisabledByDefault(t *testing.T) {
 	// 当 settings 为 nil（设置项不存在）时，注册应该默认关闭
 	repo := &userRepoStub{}
@@ -247,10 +242,7 @@ func TestAuthService_Register_DisabledByDefault(t *testing.T) {
 func TestAuthService_Register_EmailVerifyEnabledButServiceNotConfigured(t *testing.T) {
 	repo := &userRepoStub{}
 	// 邮件验证开启但 emailCache 为 nil（emailService 未配置）
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-		SettingKeyEmailVerifyEnabled:  "true",
-	}, nil)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, nil, true)
 
 	// 应返回服务不可用错误，而不是允许绕过验证
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "any-code", "", "")
@@ -260,10 +252,7 @@ func TestAuthService_Register_EmailVerifyEnabledButServiceNotConfigured(t *testi
 func TestAuthService_Register_EmailVerifyRequired(t *testing.T) {
 	repo := &userRepoStub{}
 	cache := &emailCacheStub{} // 配置 emailService
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-		SettingKeyEmailVerifyEnabled:  "true",
-	}, cache)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, cache, true)
 
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "", "", "")
 	require.ErrorIs(t, err, ErrEmailVerifyRequired)
@@ -274,10 +263,7 @@ func TestAuthService_Register_EmailVerifyInvalid(t *testing.T) {
 	cache := &emailCacheStub{
 		data: &VerificationCodeData{Code: "expected", Attempts: 0},
 	}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-		SettingKeyEmailVerifyEnabled:  "true",
-	}, cache)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, cache, true)
 
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "wrong", "", "")
 	require.ErrorIs(t, err, ErrInvalidVerifyCode)
@@ -286,9 +272,7 @@ func TestAuthService_Register_EmailVerifyInvalid(t *testing.T) {
 
 func TestAuthService_Register_EmailExists(t *testing.T) {
 	repo := &userRepoStub{exists: true}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
 	_, _, err := service.Register(context.Background(), "user@test.com", "password")
 	require.ErrorIs(t, err, ErrEmailExists)
@@ -296,9 +280,7 @@ func TestAuthService_Register_EmailExists(t *testing.T) {
 
 func TestAuthService_Register_AliasDuplicateRejected(t *testing.T) {
 	repo := &userRepoStub{aliasExists: true}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
 	_, _, err := service.Register(context.Background(), "some.one+bulk294@gmail.com", "password")
 	require.ErrorIs(t, err, ErrEmailExists)
@@ -308,9 +290,7 @@ func TestAuthService_Register_AliasDuplicateRejected(t *testing.T) {
 func TestAuthService_Register_UsesAliasGuardedCreate(t *testing.T) {
 	// 注册必须走带别名兜底的创建路径：服务层前置查重与写入之间存在竞态窗口。
 	repo := &userRepoStub{nextID: 91}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
 	_, user, err := service.Register(context.Background(), "newuser@gmail.com", "password")
 	require.NoError(t, err)
@@ -320,9 +300,7 @@ func TestAuthService_Register_UsesAliasGuardedCreate(t *testing.T) {
 
 func TestAuthService_Register_CheckEmailError(t *testing.T) {
 	repo := &userRepoStub{existsErr: errors.New("db down")}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
 	_, _, err := service.Register(context.Background(), "user@test.com", "password")
 	require.ErrorIs(t, err, ErrServiceUnavailable)
@@ -330,62 +308,16 @@ func TestAuthService_Register_CheckEmailError(t *testing.T) {
 
 func TestAuthService_Register_ReservedEmail(t *testing.T) {
 	repo := &userRepoStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
-	_, _, err := service.Register(context.Background(), "linuxdo-123@linuxdo-connect.invalid", "password")
+	_, _, err := service.Register(context.Background(), "wechat-123@wechat-connect.invalid", "password")
 	require.ErrorIs(t, err, ErrEmailReserved)
 }
 
-func TestAuthService_Register_EmailSuffixNotAllowed(t *testing.T) {
-	repo := &userRepoStub{domainCounts: map[string]int{"other.com": 1}}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com","@company.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	_, _, err := service.Register(context.Background(), "user@other.com", "password")
-	require.ErrorIs(t, err, ErrEmailDomainRegistrationLimit)
-	appErr := infraerrors.FromError(err)
-	require.Equal(t, "EMAIL_DOMAIN_REGISTRATION_LIMIT", appErr.Reason)
-	require.Contains(t, appErr.Message, "mainstream email")
-}
-
-func TestAuthService_Register_NonWhitelistDomainAllowsFirstAccount(t *testing.T) {
+// 注册邮箱域名白名单由代码决定（site_features.go）：不在单里的直接拒绝，即使该域名下还没有账户。
+func TestAuthService_Register_NonWhitelistDomainRejected(t *testing.T) {
 	repo := &userRepoStub{nextID: 9, domainCounts: map[string]int{"custom.example": 0}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	_, user, err := svc.Register(context.Background(), "first@custom.example", "password")
-	require.NoError(t, err)
-	require.Equal(t, int64(9), user.ID)
-}
-
-func TestAuthService_Register_NonWhitelistDomainRejectsSecondAccount(t *testing.T) {
-	repo := &userRepoStub{domainCounts: map[string]int{"custom.example": 1}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	_, _, err := svc.Register(context.Background(), "second@sub.custom.example", "password")
-	require.ErrorIs(t, err, ErrEmailDomainRegistrationLimit)
-}
-
-// 域名限量注册开关默认关闭：白名单外域名保持 PR5423 之前的严格拒绝语义，
-// 即使该域名下还没有任何账户也不放行。
-func TestAuthService_Register_NonWhitelistDomainRejectedWhenQuotaDisabledByDefault(t *testing.T) {
-	repo := &userRepoStub{nextID: 9, domainCounts: map[string]int{"custom.example": 0}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
-	}, nil)
+	svc := newAuthService(repo, map[string]string{}, nil)
 
 	_, _, err := svc.Register(context.Background(), "first@custom.example", "password")
 	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
@@ -395,28 +327,12 @@ func TestAuthService_Register_NonWhitelistDomainRejectedWhenQuotaDisabledByDefau
 	require.Zero(t, repo.domainLimitedCreates)
 }
 
-func TestAuthService_Register_NonWhitelistDomainRejectedWhenQuotaExplicitlyDisabled(t *testing.T) {
-	repo := &userRepoStub{nextID: 9, domainCounts: map[string]int{"custom.example": 0}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "false",
-	}, nil)
-
-	_, _, err := svc.Register(context.Background(), "first@custom.example", "password")
-	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
-	require.Empty(t, repo.created)
-}
-
-// 开关关闭不影响白名单命中域名的正常注册。
-func TestAuthService_Register_WhitelistDomainAllowedWhenQuotaDisabled(t *testing.T) {
+// 白名单里的域名正常注册。
+func TestAuthService_Register_WhitelistDomainAllowed(t *testing.T) {
 	repo := &userRepoStub{nextID: 12}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
-	}, nil)
+	svc := newAuthService(repo, map[string]string{}, nil)
 
-	_, user, err := svc.Register(context.Background(), "user@example.com", "password")
+	_, user, err := svc.Register(context.Background(), "user@gmail.com", "password")
 	require.NoError(t, err)
 	require.Equal(t, int64(12), user.ID)
 	require.Zero(t, repo.domainLimitedCreates)
@@ -424,10 +340,7 @@ func TestAuthService_Register_WhitelistDomainAllowedWhenQuotaDisabled(t *testing
 
 func TestAuthService_SendVerifyCode_NonWhitelistDomainRejectedWhenQuotaDisabled(t *testing.T) {
 	repo := &userRepoStub{domainCounts: map[string]int{"custom.example": 0}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
-	}, nil)
+	svc := newAuthService(repo, map[string]string{}, nil)
 
 	err := svc.SendVerifyCode(context.Background(), "user@custom.example")
 	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
@@ -435,115 +348,43 @@ func TestAuthService_SendVerifyCode_NonWhitelistDomainRejectedWhenQuotaDisabled(
 
 func TestAuthService_SendVerifyCodeAsync_NonWhitelistDomainRejectedWhenQuotaDisabled(t *testing.T) {
 	repo := &userRepoStub{domainCounts: map[string]int{"custom.example": 0}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
-	}, nil)
+	svc := newAuthService(repo, map[string]string{}, nil)
 
 	_, err := svc.SendVerifyCodeAsync(context.Background(), "user@custom.example")
 	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
 }
 
-func TestAuthService_Register_EmptyWhitelistAllowsAllDomains(t *testing.T) {
-	repo := &userRepoStub{nextID: 10}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `[]`,
-	}, nil)
-
-	_, _, err := svc.Register(context.Background(), "any@custom.example", "password")
-	require.NoError(t, err)
-}
-
-func TestAuthService_Register_EmailSuffixAllowed(t *testing.T) {
-	repo := &userRepoStub{nextID: 8}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["example.com"]`,
-	}, nil)
-
-	_, user, err := service.Register(context.Background(), "user@example.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, int64(8), user.ID)
-}
-
-func TestAuthService_SendVerifyCode_EmailSuffixNotAllowed(t *testing.T) {
-	repo := &userRepoStub{domainCounts: map[string]int{"other.com": 1}}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com","@company.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	err := service.SendVerifyCode(context.Background(), "user@other.com")
-	require.ErrorIs(t, err, ErrEmailDomainRegistrationLimit)
-	appErr := infraerrors.FromError(err)
-	require.Equal(t, "EMAIL_DOMAIN_REGISTRATION_LIMIT", appErr.Reason)
-}
-
-func TestAuthService_SendVerifyCode_NonWhitelistDomainLimit(t *testing.T) {
-	repo := &userRepoStub{domainCounts: map[string]int{"custom.example": 1}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	err := svc.SendVerifyCode(context.Background(), "user@custom.example")
-	require.ErrorIs(t, err, ErrEmailDomainRegistrationLimit)
-}
-
-func TestAuthService_SendVerifyCodeAsync_NonWhitelistDomainLimit(t *testing.T) {
-	repo := &userRepoStub{domainCounts: map[string]int{"custom.example": 1}}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
-
-	_, err := svc.SendVerifyCodeAsync(context.Background(), "user@custom.example")
-	require.ErrorIs(t, err, ErrEmailDomainRegistrationLimit)
-}
-
 func TestAuthService_Register_CreateError(t *testing.T) {
 	repo := &userRepoStub{createErr: errors.New("create failed")}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
-	_, _, err := service.Register(context.Background(), "user@test.com", "password")
+	_, _, err := service.Register(context.Background(), "user@qq.com", "password")
 	require.ErrorIs(t, err, ErrServiceUnavailable)
 }
 
 func TestAuthService_Register_CreateEmailExistsRace(t *testing.T) {
 	// 模拟竞态条件：ExistsByEmail 返回 false，但 Create 时因唯一约束失败
 	repo := &userRepoStub{createErr: ErrEmailExists}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
-	_, _, err := service.Register(context.Background(), "user@test.com", "password")
+	_, _, err := service.Register(context.Background(), "user@qq.com", "password")
 	require.ErrorIs(t, err, ErrEmailExists)
 }
 
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := &userRepoStub{nextID: 5}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
-	token, user, err := service.Register(context.Background(), "user@test.com", "password")
+	token, user, err := service.Register(context.Background(), "user@qq.com", "password")
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotNil(t, user)
 	require.Equal(t, int64(5), user.ID)
-	require.Equal(t, "user@test.com", user.Email)
+	require.Equal(t, "user@qq.com", user.Email)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
-	require.Equal(t, 3.5, user.Balance)
-	require.Equal(t, 2, user.Concurrency)
+	require.Equal(t, NewUserBalance, user.Balance)
+	require.Equal(t, NewUserConcurrency, user.Concurrency)
 	require.Len(t, repo.created, 1)
 	require.True(t, user.CheckPassword("password"))
 }
@@ -675,16 +516,16 @@ func TestAuthService_GenerateToken_UsesMinutesWhenConfigured(t *testing.T) {
 }
 
 func TestAuthService_Register_AssignsDefaultSubscriptions(t *testing.T) {
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{
+		{PlanID: 11, ValidityDays: 30},
+		{PlanID: 12, ValidityDays: 7},
+	})
 	repo := &userRepoStub{nextID: 42}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":11,"validity_days":30},{"plan_id":12,"validity_days":7}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 
-	_, user, err := service.Register(context.Background(), "default-sub@test.com", "password")
+	_, user, err := service.Register(context.Background(), "default-sub@qq.com", "password")
 	require.NoError(t, err)
 	require.NotNil(t, user)
 	require.Len(t, assigner.calls, 2)
@@ -695,96 +536,23 @@ func TestAuthService_Register_AssignsDefaultSubscriptions(t *testing.T) {
 	require.Equal(t, 7, assigner.calls[1].ValidityDays)
 }
 
-func TestAuthService_Register_UsesEmailAuthSourceDefaultsWhenGrantEnabled(t *testing.T) {
-	repo := &userRepoStub{nextID: 52}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":91,"validity_days":3}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "12.5",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "7",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":11,"validity_days":30}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "true",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-defaults@test.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 12.5, user.Balance)
-	require.Equal(t, 7, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(11), assigner.calls[0].PlanID)
-	require.Equal(t, 30, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_Register_GrantOnSignupFalseFallsBackToGlobalDefaults(t *testing.T) {
-	repo := &userRepoStub{nextID: 53}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":31,"validity_days":5}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "99",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "88",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":32,"validity_days":9}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-global@test.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 3.5, user.Balance)
-	require.Equal(t, 2, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(31), assigner.calls[0].PlanID)
-	require.Equal(t, 5, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_Register_GrantOnSignupMergesSourceOverridesWithGlobalDefaults(t *testing.T) {
-	repo := &userRepoStub{nextID: 54}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":31,"validity_days":5}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "5",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "true",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-merged@test.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 9.5, user.Balance)
-	require.Equal(t, 5, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(31), assigner.calls[0].PlanID)
-	require.Equal(t, 5, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesLinuxDoAuthSourceDefaultsOnSignup(t *testing.T) {
+// 第三方登录首次建号：余额 / 并发 / RPM / 赠送套餐都取新用户默认值，不分注册来源。
+func TestAuthService_LoginOrRegisterOAuthWithTokenPair_NewUserUsesNewUserDefaults(t *testing.T) {
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{{PlanID: 22, ValidityDays: 14}})
 	repo := &userRepoStub{nextID: 61}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                   "true",
-		SettingKeyDefaultSubscriptions:                  `[{"plan_id":81,"validity_days":1}]`,
-		SettingKeyAuthSourceDefaultLinuxDoBalance:       "21.75",
-		SettingKeyAuthSourceDefaultLinuxDoConcurrency:   "9",
-		SettingKeyAuthSourceDefaultLinuxDoSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 
-	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), "linuxdo-123@linuxdo-connect.invalid", "linuxdo_user", "", "", "linuxdo")
+	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), "wechat-123@wechat-connect.invalid", "wechat_user", "", "", "wechat")
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
-	require.NotNil(t, user)
 	require.Equal(t, int64(61), user.ID)
-	require.Equal(t, 21.75, user.Balance)
-	require.Equal(t, 9, user.Concurrency)
+	require.Equal(t, NewUserBalance, user.Balance)
+	require.Equal(t, NewUserConcurrency, user.Concurrency)
+	require.Equal(t, NewUserRPMLimit, user.RPMLimit)
+	require.Equal(t, "wechat", user.SignupSource)
 	require.Len(t, repo.created, 1)
 	require.Len(t, assigner.calls, 1)
 	require.Equal(t, int64(22), assigner.calls[0].PlanID)
@@ -794,27 +562,23 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesLinuxDoAuthSourceDefa
 func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantAgain(t *testing.T) {
 	existing := &User{
 		ID:           88,
-		Email:        "linuxdo-123@linuxdo-connect.invalid",
-		Username:     "existing-linuxdo",
+		Email:        "wechat-123@wechat-connect.invalid",
+		Username:     "existing-wechat",
 		Role:         RoleUser,
 		Status:       StatusActive,
 		Balance:      4,
 		Concurrency:  1,
 		TokenVersion: 2,
 	}
+	// 有默认赠送套餐时，已有用户登录也不应再发一次
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{{PlanID: 22, ValidityDays: 14}})
 	repo := &userRepoStub{user: existing}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                   "true",
-		SettingKeyAuthSourceDefaultLinuxDoBalance:       "21.75",
-		SettingKeyAuthSourceDefaultLinuxDoConcurrency:   "9",
-		SettingKeyAuthSourceDefaultLinuxDoSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 
-	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), existing.Email, "linuxdo_user", "", "", "linuxdo")
+	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), existing.Email, "wechat_user", "", "", "wechat")
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
 	require.Equal(t, existing.ID, user.ID)
@@ -822,100 +586,4 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 	require.Equal(t, 1, user.Concurrency)
 	require.Empty(t, repo.created)
 	require.Empty(t, assigner.calls)
-}
-
-// newAuthServiceWithDingTalkCfg 构建一个含完整 DingTalk config 的 AuthService，
-// 用于测试 canBypassRegistrationDisabledForOAuth。
-func newAuthServiceWithDingTalkCfg(settings map[string]string, dtCfg config.DingTalkConnectConfig) *AuthService {
-	cfg := &config.Config{
-		JWT:      config.JWTConfig{Secret: "test-secret", ExpireHour: 1},
-		Default:  config.DefaultConfig{UserBalance: 3.5, UserConcurrency: 2},
-		DingTalk: dtCfg,
-	}
-	settingService := NewSettingService(&settingRepoStub{values: settings}, cfg)
-	return NewAuthService(nil, nil, nil, nil, cfg, settingService, nil, nil, nil, nil, nil)
-}
-
-// minDingTalkURLs 返回一个包含必填字段的基础 DingTalkConnectConfig（不设 Enabled/BypassRegistration/Policy）。
-func minDingTalkURLs() config.DingTalkConnectConfig {
-	return config.DingTalkConnectConfig{
-		ClientID:            "test-client",
-		ClientSecret:        "test-secret",
-		AuthorizeURL:        "https://example.com/oauth2/auth",
-		TokenURL:            "https://example.com/oauth2/token",
-		UserInfoURL:         "https://example.com/oauth2/userinfo",
-		RedirectURL:         "https://example.com/callback",
-		FrontendRedirectURL: "https://example.com/auth/callback",
-		DingTalkAppKind:     "internal_app",
-		AppType:             "internal",
-	}
-}
-
-func TestCanBypassRegistrationDisabledForOAuth(t *testing.T) {
-	cases := []struct {
-		name         string
-		signupSource string
-		settings     map[string]string
-		dtCfg        config.DingTalkConnectConfig
-		want         bool
-	}{
-		{
-			name:         "non-dingtalk source → false",
-			signupSource: "linuxdo",
-			settings:     map[string]string{},
-			dtCfg:        minDingTalkURLs(),
-			want:         false,
-		},
-		{
-			name:         "dingtalk but cfg.Enabled=false → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "false",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled but BypassRegistration=false → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "false",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled + bypass=true but policy=none → false",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "none",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  false,
-		},
-		{
-			name:         "dingtalk enabled + bypass=true + policy=internal_only → true",
-			signupSource: "dingtalk",
-			settings: map[string]string{
-				SettingKeyDingTalkConnectEnabled:               "true",
-				SettingKeyDingTalkConnectBypassRegistration:    "true",
-				SettingKeyDingTalkConnectCorpRestrictionPolicy: "internal_only",
-			},
-			dtCfg: minDingTalkURLs(),
-			want:  true,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			svc := newAuthServiceWithDingTalkCfg(tc.settings, tc.dtCfg)
-			got := svc.canBypassRegistrationDisabledForOAuth(context.Background(), tc.signupSource)
-			require.Equal(t, tc.want, got)
-		})
-	}
 }

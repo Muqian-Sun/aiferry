@@ -66,7 +66,7 @@ func (s *AuthService) BindEmailIdentity(
 	}
 
 	if s.entClient != nil {
-		if err := s.updateBoundEmailIdentityTx(ctx, currentUser, normalizedEmail, hashedPassword, firstRealEmailBind); err != nil {
+		if err := s.updateBoundEmailIdentityTx(ctx, currentUser, normalizedEmail, hashedPassword); err != nil {
 			return nil, err
 		}
 		s.revokeEmailIdentitySessions(ctx, userID)
@@ -80,12 +80,6 @@ func (s *AuthService) BindEmailIdentity(
 			return nil, ErrEmailExists
 		}
 		return nil, ErrServiceUnavailable
-	}
-
-	if firstRealEmailBind {
-		if err := s.ApplyProviderDefaultSettingsOnFirstBind(ctx, userID, "email"); err != nil {
-			return nil, fmt.Errorf("apply email first bind defaults: %w", err)
-		}
 	}
 
 	s.revokeEmailIdentitySessions(ctx, userID)
@@ -123,11 +117,7 @@ func (s *AuthService) SendEmailIdentityBindCode(ctx context.Context, userID int6
 		return err
 	}
 
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-	return s.emailService.SendVerifyCode(ctx, normalizedEmail, siteName, firstEmailLocale(locale))
+	return s.emailService.SendVerifyCode(ctx, normalizedEmail, SiteName, firstEmailLocale(locale))
 }
 
 // ensureEmailIdentityAvailableForUser 在发码 / 提交换绑前做快速查重。
@@ -196,10 +186,9 @@ func (s *AuthService) updateBoundEmailIdentityTx(
 	currentUser *User,
 	email string,
 	hashedPassword string,
-	applyFirstBindDefaults bool,
 ) error {
 	if tx := dbent.TxFromContext(ctx); tx != nil {
-		return s.updateBoundEmailIdentityWithClient(ctx, tx.Client(), currentUser, email, hashedPassword, applyFirstBindDefaults)
+		return s.updateBoundEmailIdentityWithClient(ctx, tx.Client(), currentUser, email, hashedPassword)
 	}
 
 	tx, err := s.entClient.Tx(ctx)
@@ -209,7 +198,7 @@ func (s *AuthService) updateBoundEmailIdentityTx(
 	defer func() { _ = tx.Rollback() }()
 
 	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := s.updateBoundEmailIdentityWithClient(txCtx, tx.Client(), currentUser, email, hashedPassword, applyFirstBindDefaults); err != nil {
+	if err := s.updateBoundEmailIdentityWithClient(txCtx, tx.Client(), currentUser, email, hashedPassword); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -224,7 +213,6 @@ func (s *AuthService) updateBoundEmailIdentityWithClient(
 	currentUser *User,
 	email string,
 	hashedPassword string,
-	applyFirstBindDefaults bool,
 ) error {
 	if client == nil || currentUser == nil || currentUser.ID <= 0 {
 		return ErrServiceUnavailable
@@ -245,12 +233,6 @@ func (s *AuthService) updateBoundEmailIdentityWithClient(
 			return ErrEmailExists
 		}
 		return ErrServiceUnavailable
-	}
-
-	if applyFirstBindDefaults {
-		if err := s.ApplyProviderDefaultSettingsOnFirstBind(ctx, currentUser.ID, "email"); err != nil {
-			return fmt.Errorf("apply email first bind defaults: %w", err)
-		}
 	}
 
 	updatedUser, err := client.User.Get(ctx, currentUser.ID)

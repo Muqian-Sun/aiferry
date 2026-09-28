@@ -35,9 +35,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
         if (key === 'profile.administrator') return 'Administrator'
         if (key === 'profile.user') return 'User'
         if (key === 'profile.authBindings.providers.email') return 'Email'
-        if (key === 'profile.authBindings.providers.linuxdo') return 'LinuxDo'
         if (key === 'profile.authBindings.providers.wechat') return 'WeChat'
-        if (key === 'profile.authBindings.providers.oidc') return params?.providerName || 'OIDC'
         if (key === 'profile.authBindings.source.avatar') {
           return `Avatar synced from ${params?.providerName || 'provider'}`
         }
@@ -93,10 +91,10 @@ describe('ProfileInfoCard', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser({
-          avatar_url: 'https://cdn.example.com/linuxdo.png',
+          avatar_url: 'https://cdn.example.com/wechat.png',
           profile_sources: {
-            avatar: { provider: 'linuxdo', source: 'linuxdo' },
-            username: { provider: 'linuxdo', source: 'linuxdo' }
+            avatar: { provider: 'wechat', source: 'wechat' },
+            username: { provider: 'wechat', source: 'wechat' }
           }
         })
       },
@@ -107,35 +105,15 @@ describe('ProfileInfoCard', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('Avatar synced from LinuxDo')
-    expect(wrapper.text()).toContain('Username synced from LinuxDo')
-  })
-
-  it('uses the configured OIDC provider name in source hints', () => {
-    const wrapper = mount(ProfileInfoCard, {
-      props: {
-        user: createUser({
-          profile_sources: {
-            username: { provider: 'oidc', source: 'oidc' }
-          }
-        }),
-        oidcProviderName: 'ExampleID'
-      },
-      global: {
-        stubs: {
-          Icon: true
-        }
-      }
-    })
-
-    expect(wrapper.text()).toContain('Username synced from ExampleID')
+    expect(wrapper.text()).toContain('Avatar synced from WeChat')
+    expect(wrapper.text()).toContain('Username synced from WeChat')
   })
 
   it('does not display synthetic oauth-only emails as a real bound email', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser({
-          email: 'legacy-user@oidc-connect.invalid',
+          email: 'legacy-user@wechat-connect.invalid',
           email_bound: false,
           auth_bindings: {
             email: { bound: false }
@@ -149,7 +127,7 @@ describe('ProfileInfoCard', () => {
       }
     })
 
-    expect(wrapper.text()).not.toContain('legacy-user@oidc-connect.invalid')
+    expect(wrapper.text()).not.toContain('legacy-user@wechat-connect.invalid')
   })
 
   it('does not display synthetic oauth-only emails when only legacy identity bindings mark email as unbound', () => {

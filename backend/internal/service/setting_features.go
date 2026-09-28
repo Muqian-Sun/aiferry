@@ -14,60 +14,39 @@ import (
 	"time"
 )
 
-// IsRegistrationEnabled 检查是否开放注册
+// IsRegistrationEnabled 是否开放注册：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEnabled)
-	if err != nil {
-		// 安全默认：如果设置不存在或查询出错，默认关闭注册
-		return false
-	}
-	return value == "true"
+	return RegistrationOpen
 }
 
-// IsEmailVerifyEnabled 检查是否开启邮件验证
+// IsEmailVerifyEnabled 注册要不要验证邮箱：配了 SMTP 就要（能发信才能验证），不再有后台开关。
 func (s *SettingService) IsEmailVerifyEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyEmailVerifyEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
+	return s.smtpConfigured()
 }
 
-// IsRegistrationEmailDomainQuotaEnabled 检查白名单非空时是否放行非白名单域名限量注册。
-// 安全默认：设置缺失或查询出错时按关闭处理（保持白名单严格模式）。
+// smtpConfigured 部署时配了 SMTP（主机与发件人）。
+func (s *SettingService) smtpConfigured() bool {
+	return s != nil && s.cfg != nil && s.cfg.SMTP.Configured()
+}
+
+// IsRegistrationEmailDomainQuotaEnabled 白名单之外的域名限量注册：由代码决定（site_features.go）。
 func (s *SettingService) IsRegistrationEmailDomainQuotaEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEmailDomainQuotaEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
+	return RegistrationEmailDomainQuotaEnabled
 }
 
-// GetRegistrationEmailSuffixWhitelist returns normalized registration email suffix whitelist.
+// GetRegistrationEmailSuffixWhitelist 注册邮箱域名白名单：由代码决定（site_features.go）。
 func (s *SettingService) GetRegistrationEmailSuffixWhitelist(ctx context.Context) []string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEmailSuffixWhitelist)
-	if err != nil {
-		return []string{}
-	}
-	return ParseRegistrationEmailSuffixWhitelist(value)
+	return RegistrationEmailSuffixWhitelist()
 }
 
-// IsInvitationCodeEnabled 检查是否启用邀请码注册功能
+// IsInvitationCodeEnabled 注册是否要邀请码：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsInvitationCodeEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyInvitationCodeEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return InvitationCodeRequired
 }
 
-// GetCustomMenuItemsRaw returns the raw JSON string of custom_menu_items setting.
+// GetCustomMenuItemsRaw 自定义菜单：前端不再展示（方案定：删），恒为空；读菜单的功能代码保留。
 func (s *SettingService) GetCustomMenuItemsRaw(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyCustomMenuItems)
-	if err != nil {
-		return "[]"
-	}
-	return value
+	return "[]"
 }
 
 // IsAffiliateEnabled 检查是否启用邀请返利功能（总开关）
@@ -152,18 +131,9 @@ func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) fl
 	return cap
 }
 
-// IsPasswordResetEnabled 检查是否启用密码重置功能
-// 要求：必须同时开启邮件验证
+// IsPasswordResetEnabled 忘记密码跟着邮箱验证走：能发信就允许重置，不再有单独的开关。
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
-	// Password reset requires email verification to be enabled
-	if !s.IsEmailVerifyEnabled(ctx) {
-		return false
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyPasswordResetEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return s.IsEmailVerifyEnabled(ctx)
 }
 
 // IsTotpEnabled 双因素认证是否可用：配了 TOTP_ENCRYPTION_KEY 就开，不再有后台开关。
@@ -172,51 +142,13 @@ func (s *SettingService) IsTotpEnabled() bool {
 	return s.IsTotpEncryptionKeyConfigured()
 }
 
-// PasskeyEnabled reports the effective runtime switch. WebAuthn deployment
-// configuration remains the security boundary; the database setting can only
-// disable a valid configured relying party, never replace or weaken it.
-func (s *SettingService) PasskeyEnabled(ctx context.Context) (bool, error) {
-	if !s.passkeyConfigured() {
-		return false, nil
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyPasskeyEnabled)
-	if errors.Is(err, ErrSettingNotFound) {
-		return true, nil // configured deployments default to enabled until the admin persists the switch
-	}
-	if err != nil {
-		return false, fmt.Errorf("read passkey setting: %w", err)
-	}
-	return value == "true", nil
-}
-
-// PasskeyConfiguration returns non-secret relying-party configuration for the
-// admin status UI. Enabled configurations have already passed Config.Validate.
-func (s *SettingService) PasskeyConfiguration() (configured bool, rpID string, origins []string) {
-	if s == nil || s.cfg == nil {
-		return false, "", []string{}
-	}
-	origins = append([]string{}, s.cfg.WebAuthn.RPOrigins...)
-	return s.cfg.WebAuthn.Enabled,
-		strings.TrimSpace(s.cfg.WebAuthn.RPID),
-		origins
+// PasskeyEnabled Passkey 登录跟着部署配置走（webauthn.enabled + RP ID / origins），不再有后台开关。
+func (s *SettingService) PasskeyEnabled() bool {
+	return s.passkeyConfigured()
 }
 
 func (s *SettingService) passkeyConfigured() bool {
 	return s != nil && s.cfg != nil && s.cfg.WebAuthn.Enabled
-}
-
-// passkeySettingEnabled must stay ANDed with passkeyConfigured: a stale
-// "true" row after the WebAuthn config is removed would otherwise make the
-// admin update gate reject every settings save while the UI toggle is locked.
-func (s *SettingService) passkeySettingEnabled(settings map[string]string) bool {
-	if !s.passkeyConfigured() {
-		return false
-	}
-	value, ok := settings[SettingKeyPasskeyEnabled]
-	if !ok {
-		return true
-	}
-	return value == "true"
 }
 
 // IsTotpEncryptionKeyConfigured 检查 TOTP 加密密钥是否已手动配置
@@ -225,226 +157,15 @@ func (s *SettingService) IsTotpEncryptionKeyConfigured() bool {
 	return s.cfg.Totp.EncryptionKeyConfigured
 }
 
-// IsSessionBindingEnabled 检查会话 IP/UA 绑定是否启用（默认关闭）。
-// 开启时会话与登录时的 IP/User-Agent 绑定，任一变化立即失效并撤销该会话。
-// 默认关闭：移动网络/多出口 IP 场景下 IP 频繁变化会导致登录后立即掉线。
+// IsSessionBindingEnabled 会话 IP/UA 绑定是否启用：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsSessionBindingEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeySessionBindingEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return SessionBindingEnabled
 }
 
-// IsStepUpEnabled 检查敏感操作 step-up 2FA 门控是否启用（默认关闭）。
-// 开启时账号/代理导出、备份创建/下载、S3 配置修改、提升管理员等操作
-// 要求当前会话在有效期内完成过 TOTP step-up 验证。
+// IsStepUpEnabled 敏感操作（账号/代理导出、备份、S3 配置、提升管理员等）是否要求 TOTP 二次验证：
+// 由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyStepUpEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
-}
-
-// defaultAuditLogRetentionDays 审计日志默认保留天数。
-const defaultAuditLogRetentionDays = 180
-
-// GetAuditLogRetentionDays 审计日志保留天数（<=0 表示永久保留，仅支持手动清空）。
-func (s *SettingService) GetAuditLogRetentionDays(ctx context.Context) int {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyAuditLogRetentionDays)
-	if err != nil {
-		return defaultAuditLogRetentionDays
-	}
-	return parseAuditLogRetentionDays(value)
-}
-
-// parseAuditLogRetentionDays 解析保留天数配置，空/非法值回退默认值。
-func parseAuditLogRetentionDays(value string) int {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return defaultAuditLogRetentionDays
-	}
-	n, err := strconv.Atoi(value)
-	if err != nil {
-		return defaultAuditLogRetentionDays
-	}
-	if n < 0 {
-		return 0
-	}
-	return n
-}
-
-// GetSiteName 获取网站名称
-func (s *SettingService) GetSiteName(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
-	if err != nil || value == "" {
-		return defaultSiteName
-	}
-	return value
-}
-
-// GetDefaultConcurrency 获取默认并发量
-func (s *SettingService) GetDefaultConcurrency(ctx context.Context) int {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultConcurrency)
-	if err != nil {
-		return s.cfg.Default.UserConcurrency
-	}
-	if v, err := strconv.Atoi(value); err == nil && v > 0 {
-		return v
-	}
-	return s.cfg.Default.UserConcurrency
-}
-
-// GetDefaultBalance 获取默认余额
-func (s *SettingService) GetDefaultBalance(ctx context.Context) float64 {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultBalance)
-	if err != nil {
-		return s.cfg.Default.UserBalance
-	}
-	if v, err := strconv.ParseFloat(value, 64); err == nil && v >= 0 {
-		return v
-	}
-	return s.cfg.Default.UserBalance
-}
-
-// GetDefaultUserRPMLimit 获取新用户默认 RPM 限制（0 = 不限制）。未配置则返回 0。
-func (s *SettingService) GetDefaultUserRPMLimit(ctx context.Context) int {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultUserRPMLimit)
-	if err != nil || value == "" {
-		return 0
-	}
-	if v, err := strconv.Atoi(value); err == nil && v >= 0 {
-		return v
-	}
-	return 0
-}
-
-// GetDefaultSubscriptions 获取新用户默认订阅配置列表。
-func (s *SettingService) GetDefaultSubscriptions(ctx context.Context) []DefaultSubscriptionSetting {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultSubscriptions)
-	if err != nil {
-		return nil
-	}
-	return parseDefaultSubscriptions(value)
-}
-
-func (s *SettingService) GetAuthSourceDefaultSettings(ctx context.Context) (*AuthSourceDefaultSettings, error) {
-	keys := []string{
-		SettingKeyAuthSourceDefaultEmailBalance,
-		SettingKeyAuthSourceDefaultEmailConcurrency,
-		SettingKeyAuthSourceDefaultEmailSubscriptions,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup,
-		SettingKeyAuthSourceDefaultEmailGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultLinuxDoBalance,
-		SettingKeyAuthSourceDefaultLinuxDoConcurrency,
-		SettingKeyAuthSourceDefaultLinuxDoSubscriptions,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup,
-		SettingKeyAuthSourceDefaultLinuxDoGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultOIDCBalance,
-		SettingKeyAuthSourceDefaultOIDCConcurrency,
-		SettingKeyAuthSourceDefaultOIDCSubscriptions,
-		SettingKeyAuthSourceDefaultOIDCGrantOnSignup,
-		SettingKeyAuthSourceDefaultOIDCGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultWeChatBalance,
-		SettingKeyAuthSourceDefaultWeChatConcurrency,
-		SettingKeyAuthSourceDefaultWeChatSubscriptions,
-		SettingKeyAuthSourceDefaultWeChatGrantOnSignup,
-		SettingKeyAuthSourceDefaultWeChatGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultGitHubBalance,
-		SettingKeyAuthSourceDefaultGitHubConcurrency,
-		SettingKeyAuthSourceDefaultGitHubSubscriptions,
-		SettingKeyAuthSourceDefaultGitHubGrantOnSignup,
-		SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultGoogleBalance,
-		SettingKeyAuthSourceDefaultGoogleConcurrency,
-		SettingKeyAuthSourceDefaultGoogleSubscriptions,
-		SettingKeyAuthSourceDefaultGoogleGrantOnSignup,
-		SettingKeyAuthSourceDefaultGoogleGrantOnFirstBind,
-		SettingKeyAuthSourceDefaultDingTalkBalance,
-		SettingKeyAuthSourceDefaultDingTalkConcurrency,
-		SettingKeyAuthSourceDefaultDingTalkSubscriptions,
-		SettingKeyAuthSourceDefaultDingTalkGrantOnSignup,
-		SettingKeyAuthSourceDefaultDingTalkGrantOnFirstBind,
-		SettingKeyForceEmailOnThirdPartySignup,
-	}
-
-	settings, err := s.settingRepo.GetMultiple(ctx, keys)
-	if err != nil {
-		return nil, fmt.Errorf("get auth source default settings: %w", err)
-	}
-
-	return &AuthSourceDefaultSettings{
-		Email:                        parseProviderDefaultGrantSettings(settings, emailAuthSourceDefaultKeys),
-		LinuxDo:                      parseProviderDefaultGrantSettings(settings, linuxDoAuthSourceDefaultKeys),
-		OIDC:                         parseProviderDefaultGrantSettings(settings, oidcAuthSourceDefaultKeys),
-		WeChat:                       parseProviderDefaultGrantSettings(settings, weChatAuthSourceDefaultKeys),
-		GitHub:                       parseProviderDefaultGrantSettings(settings, gitHubAuthSourceDefaultKeys),
-		Google:                       parseProviderDefaultGrantSettings(settings, googleAuthSourceDefaultKeys),
-		DingTalk:                     parseProviderDefaultGrantSettings(settings, dingTalkAuthSourceDefaultKeys),
-		ForceEmailOnThirdPartySignup: settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
-	}, nil
-}
-
-func (s *SettingService) ResolveAuthSourceGrantSettings(ctx context.Context, signupSource string, firstBind bool) (ProviderDefaultGrantSettings, bool, error) {
-	result := ProviderDefaultGrantSettings{
-		Balance:       s.GetDefaultBalance(ctx),
-		Concurrency:   s.GetDefaultConcurrency(ctx),
-		Subscriptions: s.GetDefaultSubscriptions(ctx),
-	}
-
-	defaults, err := s.GetAuthSourceDefaultSettings(ctx)
-	if err != nil {
-		return result, false, err
-	}
-
-	providerDefaults, ok := authSourceSignupSettings(defaults, signupSource)
-	if !ok {
-		return result, false, nil
-	}
-
-	enabled := providerDefaults.GrantOnSignup
-	if firstBind {
-		enabled = providerDefaults.GrantOnFirstBind
-	}
-	if !enabled {
-		return result, false, nil
-	}
-
-	return mergeProviderDefaultGrantSettings(result, providerDefaults), true, nil
-}
-
-func (s *SettingService) UpdateAuthSourceDefaultSettings(ctx context.Context, settings *AuthSourceDefaultSettings) error {
-	updates, err := s.buildAuthSourceDefaultUpdates(ctx, settings)
-	if err != nil {
-		return err
-	}
-	if len(updates) == 0 {
-		return nil
-	}
-
-	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
-		return fmt.Errorf("update auth source default settings: %w", err)
-	}
-	return nil
-}
-
-// IsTurnstileEnabled 检查是否启用 Turnstile 验证
-func (s *SettingService) IsTurnstileEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTurnstileEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
-}
-
-// GetTurnstileSecretKey 获取 Turnstile Secret Key
-func (s *SettingService) GetTurnstileSecretKey(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTurnstileSecretKey)
-	if err != nil {
-		return ""
-	}
-	return value
+	return StepUpEnabled
 }
 
 // TencentCaptchaConfig contains the credentials required by Tencent Cloud's
@@ -465,67 +186,45 @@ type AliyunCaptchaConfig struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	SceneID         string
+	Prefix          string
 	Region          string
 }
 
 type CaptchaProviderConfig struct {
 	TurnstileEnabled   bool
+	TurnstileSiteKey   string
 	TurnstileSecretKey string
 	Tencent            TencentCaptchaConfig
 	Aliyun             AliyunCaptchaConfig
 }
 
-func (s *SettingService) GetCaptchaProviderConfig(ctx context.Context) (CaptchaProviderConfig, error) {
-	values, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyTurnstileEnabled,
-		SettingKeyTurnstileSecretKey,
-		SettingKeyTencentCaptchaEnabled,
-		SettingKeyTencentCaptchaAppID,
-		SettingKeyTencentCaptchaAppSecretKey,
-		SettingKeyTencentCaptchaCloudSecretID,
-		SettingKeyTencentCaptchaCloudSecretKey,
-		SettingKeyTencentCaptchaRegion,
-		SettingKeyAliyunCaptchaEnabled,
-		SettingKeyAliyunCaptchaAccessKeyID,
-		SettingKeyAliyunCaptchaAccessKeySecret,
-		SettingKeyAliyunCaptchaSceneID,
-		SettingKeyAliyunCaptchaRegion,
-	})
-	if err != nil {
-		return CaptchaProviderConfig{}, fmt.Errorf("read captcha provider settings: %w", err)
+// CaptchaProviderConfig 人机验证只认部署配置：配齐了哪家就开哪家（启动时已校验同一时间最多一家）。
+func (s *SettingService) CaptchaProviderConfig() CaptchaProviderConfig {
+	if s == nil || s.cfg == nil {
+		return CaptchaProviderConfig{}
 	}
+	turnstile, tencent, aliyun := s.cfg.Turnstile, s.cfg.TencentCaptcha, s.cfg.AliyunCaptcha
 	return CaptchaProviderConfig{
-		TurnstileEnabled:   values[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSecretKey: values[SettingKeyTurnstileSecretKey],
+		TurnstileEnabled:   turnstile.Configured(),
+		TurnstileSiteKey:   strings.TrimSpace(turnstile.SiteKey),
+		TurnstileSecretKey: strings.TrimSpace(turnstile.SecretKey),
 		Tencent: TencentCaptchaConfig{
-			Enabled:        values[SettingKeyTencentCaptchaEnabled] == "true",
-			AppID:          values[SettingKeyTencentCaptchaAppID],
-			AppSecretKey:   values[SettingKeyTencentCaptchaAppSecretKey],
-			CloudSecretID:  values[SettingKeyTencentCaptchaCloudSecretID],
-			CloudSecretKey: values[SettingKeyTencentCaptchaCloudSecretKey],
-			Region:         normalizeTencentCaptchaRegion(values[SettingKeyTencentCaptchaRegion]),
+			Enabled:        tencent.Configured(),
+			AppID:          strings.TrimSpace(tencent.AppID),
+			AppSecretKey:   strings.TrimSpace(tencent.AppSecretKey),
+			CloudSecretID:  strings.TrimSpace(tencent.CloudSecretID),
+			CloudSecretKey: strings.TrimSpace(tencent.CloudSecretKey),
+			Region:         normalizeTencentCaptchaRegion(strings.TrimSpace(tencent.Region)),
 		},
 		Aliyun: AliyunCaptchaConfig{
-			Enabled:         values[SettingKeyAliyunCaptchaEnabled] == "true",
-			AccessKeyID:     values[SettingKeyAliyunCaptchaAccessKeyID],
-			AccessKeySecret: values[SettingKeyAliyunCaptchaAccessKeySecret],
-			SceneID:         values[SettingKeyAliyunCaptchaSceneID],
-			Region:          normalizeAliyunCaptchaRegion(values[SettingKeyAliyunCaptchaRegion]),
+			Enabled:         aliyun.Configured(),
+			AccessKeyID:     strings.TrimSpace(aliyun.AccessKeyID),
+			AccessKeySecret: strings.TrimSpace(aliyun.AccessKeySecret),
+			SceneID:         strings.TrimSpace(aliyun.SceneID),
+			Prefix:          strings.TrimSpace(aliyun.Prefix),
+			Region:          normalizeAliyunCaptchaRegion(strings.TrimSpace(aliyun.Region)),
 		},
-	}, nil
-}
-
-func (s *SettingService) IsTencentCaptchaEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTencentCaptchaEnabled)
-	return err == nil && value == "true"
-}
-
-func (s *SettingService) GetTencentCaptchaConfig(ctx context.Context) TencentCaptchaConfig {
-	config, err := s.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		return TencentCaptchaConfig{}
 	}
-	return config.Tencent
 }
 
 // IsIdentityPatchEnabled 检查是否启用身份补丁（Claude -> Gemini systemInstruction 注入）

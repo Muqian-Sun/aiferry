@@ -190,24 +190,6 @@ func TestSetupMigrationTimeout(t *testing.T) {
 	})
 }
 
-func TestWriteConfigFileKeepsDefaultUserConcurrency(t *testing.T) {
-	t.Setenv("RUN_MODE", "simple")
-	t.Setenv("DATA_DIR", t.TempDir())
-
-	if err := writeConfigFile(&SetupConfig{}); err != nil {
-		t.Fatalf("writeConfigFile() error = %v", err)
-	}
-
-	data, err := os.ReadFile(GetConfigFilePath())
-	if err != nil {
-		t.Fatalf("ReadFile() error = %v", err)
-	}
-
-	if !strings.Contains(string(data), "user_concurrency: 5") {
-		t.Fatalf("config missing default user concurrency, got:\n%s", string(data))
-	}
-}
-
 func TestWriteConfigFileIncludesRedisUsername(t *testing.T) {
 	t.Setenv("DATA_DIR", t.TempDir())
 

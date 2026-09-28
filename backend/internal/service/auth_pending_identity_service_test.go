@@ -79,8 +79,8 @@ func TestAuthPendingIdentityService_CompletionCodeIsBrowserBoundAndOneTime(t *te
 	session, err := svc.CreatePendingSession(ctx, CreatePendingAuthSessionInput{
 		Intent: "login",
 		Identity: PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo-main",
+			ProviderType:    "github",
+			ProviderKey:     "github-main",
 			ProviderSubject: "subject-1",
 		},
 		BrowserSessionKey:      "browser-expected",
@@ -116,8 +116,8 @@ func TestAuthPendingIdentityService_CompletionCodeExpires(t *testing.T) {
 	session, err := svc.CreatePendingSession(ctx, CreatePendingAuthSessionInput{
 		Intent: "login",
 		Identity: PendingAuthIdentityKey{
-			ProviderType:    "oidc",
-			ProviderKey:     "https://issuer.example",
+			ProviderType:    "github",
+			ProviderKey:     "github",
 			ProviderSubject: "subject-1",
 		},
 		BrowserSessionKey: "browser-expired",
@@ -435,8 +435,8 @@ func TestAuthPendingIdentityService_ConsumeBrowserSession(t *testing.T) {
 	session, err := svc.CreatePendingSession(ctx, CreatePendingAuthSessionInput{
 		Intent: "login",
 		Identity: PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo",
+			ProviderType:    "github",
+			ProviderKey:     "github",
 			ProviderSubject: "subject-session-token",
 		},
 		BrowserSessionKey: "browser-session",
@@ -466,8 +466,8 @@ func TestAuthPendingIdentityService_ConsumeBrowserSessionRejectsStaleLoadedSessi
 	session, err := svc.CreatePendingSession(ctx, CreatePendingAuthSessionInput{
 		Intent: "login",
 		Identity: PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo",
+			ProviderType:    "github",
+			ProviderKey:     "github",
 			ProviderSubject: "stale-replay-subject",
 		},
 		BrowserSessionKey: "browser-session",
@@ -492,8 +492,8 @@ func TestAuthPendingIdentityService_ConsumeBrowserSessionScrubsLegacyCompletionT
 	session, err := svc.CreatePendingSession(ctx, CreatePendingAuthSessionInput{
 		Intent: "login",
 		Identity: PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo",
+			ProviderType:    "github",
+			ProviderKey:     "github",
 			ProviderSubject: "legacy-token-subject",
 		},
 		BrowserSessionKey: "browser-session",

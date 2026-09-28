@@ -49,7 +49,7 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 	}
 
 	providerType := normalizeOAuthSignupSource(input.ProviderType)
-	if providerType != "github" && providerType != "google" && providerType != "oidc" {
+	if providerType != "github" && providerType != "google" {
 		return nil, nil, infraerrors.BadRequest("OAUTH_PROVIDER_INVALID", "oauth provider is invalid")
 	}
 	providerKey := strings.TrimSpace(input.ProviderKey)
@@ -87,7 +87,6 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 	}
 
 	user := identityUser
-	created := false
 	if user == nil {
 		user, err = s.userRepo.GetByEmail(ctx, email)
 		if err != nil {
@@ -96,7 +95,6 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 				if err != nil {
 					return nil, nil, err
 				}
-				created = true
 			} else {
 				logger.LegacyPrintf("service.auth", "[Auth] Database error during %s oauth login: %v", providerType, err)
 				return nil, nil, ErrServiceUnavailable
@@ -125,11 +123,6 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 		user.Username = strings.TrimSpace(input.Username)
 		if err := s.userRepo.Update(ctx, user, UserUpdateFields{Username: true}); err != nil {
 			logger.LegacyPrintf("service.auth", "[Auth] Failed to update username after %s oauth login: %v", providerType, err)
-		}
-	}
-	if !created {
-		if err := s.ApplyProviderDefaultSettingsOnFirstBind(ctx, user.ID, providerType); err != nil {
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to apply %s first bind defaults: %v", providerType, err)
 		}
 	}
 	s.RecordSuccessfulLogin(ctx, user.ID)
@@ -161,11 +154,7 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
-	grantPlan := s.resolveSignupGrantPlan(ctx, providerType)
-	var defaultRPMLimit int
-	if s.settingService != nil {
-		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-	}
+	grantPlan := s.newSignupGrantPlan()
 	user := &User{
 		Email:        email,
 		Username:     strings.TrimSpace(username),
@@ -173,7 +162,7 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 		Role:         RoleUser,
 		Balance:      grantPlan.Balance,
 		Concurrency:  grantPlan.Concurrency,
-		RPMLimit:     defaultRPMLimit,
+		RPMLimit:     NewUserRPMLimit,
 		Status:       StatusActive,
 		SignupSource: providerType,
 	}

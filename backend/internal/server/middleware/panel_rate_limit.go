@@ -23,6 +23,12 @@ type panelRateLimitAllower interface {
 	Allow(ctx context.Context, key string, limit int, window time.Duration) (middleware.AllowResult, error)
 }
 
+// panelRateLimitSettingsSource 限流配置来源：生产里是 SettingService（配置由代码决定，恒为默认值），
+// 单测注入小阈值来验证计数逻辑。
+type panelRateLimitSettingsSource interface {
+	GetPanelRateLimitSettingsCached(ctx context.Context) service.PanelRateLimitSettings
+}
+
 // PanelRateLimiter 面板（管理面 /api/v1）API 限流器。
 //
 // 设计要点：
@@ -30,19 +36,20 @@ type panelRateLimitAllower interface {
 //     （所有请求源 IP 坍缩为 127.0.0.1 等）不会互相误伤。
 //   - 公开接口按安全客户端 IP 计数：仅统计全局单播地址，回环/内网/链路本地
 //     地址（反代内部转发地址）直接跳过，避免误拦整条反代链路的流量。
-//   - 配置走进程内缓存（60s TTL），热路径零 DB 访问。
+//   - 配置由代码决定（service.DefaultPanelRateLimitSettings），热路径零 DB 访问。
 //   - Redis 异常一律 fail-open：限流是保护措施，不能反过来把面板打挂。
 type PanelRateLimiter struct {
 	limiter        panelRateLimitAllower
-	settingService *service.SettingService
+	settingService panelRateLimitSettingsSource
 }
 
 // NewPanelRateLimiter 创建面板限流器。
 func NewPanelRateLimiter(redisClient *redis.Client, settingService *service.SettingService) *PanelRateLimiter {
-	return &PanelRateLimiter{
-		limiter:        middleware.NewRateLimiter(redisClient),
-		settingService: settingService,
+	p := &PanelRateLimiter{limiter: middleware.NewRateLimiter(redisClient)}
+	if settingService != nil {
+		p.settingService = settingService
 	}
+	return p
 }
 
 // Global 认证面板接口的全局按用户限流（宽松档，覆盖所有登录后端点）。

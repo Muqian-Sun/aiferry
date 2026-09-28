@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
@@ -52,44 +53,6 @@ type mockUserRepoTxState struct {
 	getByIDUser      *User
 	upsertAvatarArgs []UpsertUserAvatarInput
 	deleteAvatarIDs  []int64
-}
-
-type mockUserSettingRepo struct {
-	values map[string]string
-}
-
-func (m *mockUserSettingRepo) Get(context.Context, string) (*Setting, error) {
-	panic("unexpected Get call")
-}
-
-func (m *mockUserSettingRepo) GetValue(context.Context, string) (string, error) {
-	panic("unexpected GetValue call")
-}
-
-func (m *mockUserSettingRepo) Set(context.Context, string, string) error {
-	panic("unexpected Set call")
-}
-
-func (m *mockUserSettingRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
-	out := make(map[string]string, len(keys))
-	for _, key := range keys {
-		if value, ok := m.values[key]; ok {
-			out[key] = value
-		}
-	}
-	return out, nil
-}
-
-func (m *mockUserSettingRepo) SetMultiple(context.Context, map[string]string) error {
-	panic("unexpected SetMultiple call")
-}
-
-func (m *mockUserSettingRepo) GetAll(context.Context) (map[string]string, error) {
-	panic("unexpected GetAll call")
-}
-
-func (m *mockUserSettingRepo) Delete(context.Context, string) error {
-	panic("unexpected Delete call")
 }
 
 func (m *mockUserRepo) Create(context.Context, *User) error                    { return nil }
@@ -370,6 +333,11 @@ func TestUpdateBalance_Success(t *testing.T) {
 	require.Equal(t, []int64{42}, cache.invalidatedUserIDs, "应对 userID=42 失效缓存")
 }
 
+// weChatLoginEnabledConfig 部署配置里开了微信 PC 扫码登录（凭证齐全），资料页才给「绑定微信」入口。
+func weChatLoginEnabledConfig() *config.Config {
+	return &config.Config{WeChat: config.WeChatConnectConfig{Enabled: true, OpenEnabled: true, OpenAppID: "wx-open", OpenAppSecret: "wx-secret"}}
+}
+
 func TestGetProfileIdentitySummaries_AllowsUnbindWhenAnotherLoginMethodRemains(t *testing.T) {
 	repo := &mockUserRepo{
 		getByIDUser: &User{
@@ -383,11 +351,11 @@ func TestGetProfileIdentitySummaries_AllowsUnbindWhenAnotherLoginMethodRemains(t
 				ProviderSubject: "alice@example.com",
 			},
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-123456",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat",
+				ProviderSubject: "wechat-subject-123456",
 				Metadata: map[string]any{
-					"username": "linuxdo-handle",
+					"username": "wechat-handle",
 				},
 			},
 		},
@@ -397,29 +365,29 @@ func TestGetProfileIdentitySummaries_AllowsUnbindWhenAnotherLoginMethodRemains(t
 	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 7, repo.getByIDUser)
 
 	require.NoError(t, err)
-	require.True(t, summaries.LinuxDo.Bound)
-	require.True(t, summaries.LinuxDo.CanUnbind)
-	require.Equal(t, "linuxdo-handle", summaries.LinuxDo.DisplayName)
-	require.NotEmpty(t, summaries.LinuxDo.SubjectHint)
+	require.True(t, summaries.WeChat.Bound)
+	require.True(t, summaries.WeChat.CanUnbind)
+	require.Equal(t, "wechat-handle", summaries.WeChat.DisplayName)
+	require.NotEmpty(t, summaries.WeChat.SubjectHint)
 }
 
 func TestUnbindUserAuthProviderRejectsLastRemainingLoginMethod(t *testing.T) {
 	repo := &mockUserRepo{
 		getByIDUser: &User{
 			ID:    9,
-			Email: "only-user@linuxdo-connect.invalid",
+			Email: "only-user@wechat-connect.invalid",
 		},
 		identities: []UserAuthIdentityRecord{
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-only-subject",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat",
+				ProviderSubject: "wechat-only-subject",
 			},
 		},
 	}
 	svc := NewUserService(repo, nil, nil, nil)
 
-	_, err := svc.UnbindUserAuthProvider(context.Background(), 9, "linuxdo")
+	_, err := svc.UnbindUserAuthProvider(context.Background(), 9, "wechat")
 
 	require.ErrorIs(t, err, ErrIdentityUnbindLastMethod)
 	require.Empty(t, repo.unboundProviders)
@@ -430,13 +398,13 @@ func TestGetProfileIdentitySummaries_DoesNotTreatOAuthOnlyCompatEmailAsAlternati
 		getByIDUser: &User{
 			ID:           10,
 			Email:        "oauth-only@example.com",
-			SignupSource: "oidc",
+			SignupSource: "wechat",
 		},
 		identities: []UserAuthIdentityRecord{
 			{
-				ProviderType:    "oidc",
-				ProviderKey:     "https://issuer.example.com",
-				ProviderSubject: "oidc-only-subject",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat-open",
+				ProviderSubject: "wechat-only-subject",
 			},
 		},
 	}
@@ -445,9 +413,9 @@ func TestGetProfileIdentitySummaries_DoesNotTreatOAuthOnlyCompatEmailAsAlternati
 	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 10, repo.getByIDUser)
 
 	require.NoError(t, err)
-	require.False(t, summaries.OIDC.CanUnbind)
+	require.False(t, summaries.WeChat.CanUnbind)
 
-	_, err = svc.UnbindUserAuthProvider(context.Background(), 10, "oidc")
+	_, err = svc.UnbindUserAuthProvider(context.Background(), 10, "wechat")
 	require.ErrorIs(t, err, ErrIdentityUnbindLastMethod)
 	require.Empty(t, repo.unboundProviders)
 }
@@ -502,29 +470,29 @@ func TestUnbindUserAuthProviderRemovesProviderAndReturnsUpdatedProfile(t *testin
 				ProviderSubject: "alice@example.com",
 			},
 			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-12",
+				ProviderType:    "wechat",
+				ProviderKey:     "wechat",
+				ProviderSubject: "wechat-subject-12",
 			},
 		},
 	}
 	invalidator := &mockAuthCacheInvalidator{}
-	svc := NewUserService(repo, nil, invalidator, nil)
+	svc := NewUserService(repo, weChatLoginEnabledConfig(), invalidator, nil)
 
-	user, err := svc.UnbindUserAuthProvider(context.Background(), 12, "linuxdo")
+	user, err := svc.UnbindUserAuthProvider(context.Background(), 12, "wechat")
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"linuxdo"}, repo.unboundProviders)
+	require.Equal(t, []string{"wechat"}, repo.unboundProviders)
 	require.Equal(t, int64(12), user.ID)
 	require.Equal(t, []int64{12}, invalidator.invalidatedUserIDs)
 
 	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 12, user)
 	require.NoError(t, err)
-	require.False(t, summaries.LinuxDo.Bound)
-	require.True(t, summaries.LinuxDo.CanBind)
+	require.False(t, summaries.WeChat.Bound)
+	require.True(t, summaries.WeChat.CanBind)
 }
 
-func TestGetProfileIdentitySummaries_HidesBindActionWhenProviderExplicitlyDisabled(t *testing.T) {
+func TestGetProfileIdentitySummaries_HidesBindActionWhenWeChatNotConfigured(t *testing.T) {
 	repo := &mockUserRepo{
 		getByIDUser: &User{
 			ID:    15,
@@ -538,19 +506,15 @@ func TestGetProfileIdentitySummaries_HidesBindActionWhenProviderExplicitlyDisabl
 			},
 		},
 	}
-	settingRepo := &mockUserSettingRepo{
-		values: map[string]string{
-			SettingKeyLinuxDoConnectEnabled: "false",
-		},
-	}
-	svc := NewUserService(repo, settingRepo, nil, nil)
+	// 部署配置没开微信（或凭证不全）：不给绑定入口
+	svc := NewUserService(repo, &config.Config{WeChat: config.WeChatConnectConfig{Enabled: true, OpenEnabled: true}}, nil, nil)
 
 	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 15, repo.getByIDUser)
 
 	require.NoError(t, err)
-	require.False(t, summaries.LinuxDo.Bound)
-	require.False(t, summaries.LinuxDo.CanBind)
-	require.Empty(t, summaries.LinuxDo.BindStartPath)
+	require.False(t, summaries.WeChat.Bound)
+	require.False(t, summaries.WeChat.CanBind)
+	require.Empty(t, summaries.WeChat.BindStartPath)
 }
 
 func TestGetProfileIdentitySummaries_UsesBindStartRoute(t *testing.T) {
@@ -567,21 +531,12 @@ func TestGetProfileIdentitySummaries_UsesBindStartRoute(t *testing.T) {
 			},
 		},
 	}
-	svc := NewUserService(repo, nil, nil, nil)
+	svc := NewUserService(repo, weChatLoginEnabledConfig(), nil, nil)
 
 	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 16, repo.getByIDUser)
 
 	require.NoError(t, err)
-	require.Equal(
-		t,
-		"/api/v1/auth/oauth/linuxdo/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",
-		summaries.LinuxDo.BindStartPath,
-	)
-	require.Equal(
-		t,
-		"/api/v1/auth/oauth/oidc/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",
-		summaries.OIDC.BindStartPath,
-	)
+	require.True(t, summaries.WeChat.CanBind)
 	require.Equal(
 		t,
 		"/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",

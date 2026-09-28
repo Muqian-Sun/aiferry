@@ -40,10 +40,7 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     table_page_size_options: [10, 20, 50, 100],
     custom_menu_items: [],
     custom_endpoints: [],
-    linuxdo_oauth_enabled: false,
     wechat_oauth_enabled: false,
-    oidc_oauth_enabled: false,
-    oidc_oauth_provider_name: 'OIDC',
     github_oauth_enabled: false,
     google_oauth_enabled: false,
     backend_mode_enabled: false,
@@ -52,7 +49,6 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     account_quota_notify_enabled: false,
     balance_low_notify_threshold: 0,
     channel_monitor_enabled: true,
-    service_quota_enabled: false,
     affiliate_enabled: false,
     ...overrides,
   }
@@ -449,7 +445,6 @@ describe('useAppStore', () => {
         table_page_size_options: [20, 100, 1000],
         custom_menu_items: [],
         custom_endpoints: [],
-        linuxdo_oauth_enabled: false,
         backend_mode_enabled: false,
         version: '1.0.0'
       })

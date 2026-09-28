@@ -72,7 +72,7 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'oidc',
+        testIdPrefix: 'wechat',
         initialEmail: 'user@example.com',
         isSubmitting: false
       },
@@ -82,11 +82,11 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="oidc-create-account-password"]').setValue('secret-123')
-    await wrapper.get('[data-testid="oidc-create-account-verify-code"]').setValue('246810')
-    await wrapper.get('[data-testid="oidc-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-verify-code"]').setValue('246810')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-testid="oidc-create-account-submit"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-submit"]').trigger('click')
     await flushPromises()
 
     expect(verifyAction).toHaveBeenCalledTimes(2)
@@ -109,16 +109,16 @@ describe('PendingOAuthCreateAccountForm', () => {
   it('emits trimmed email, password, and verify code on submit', async () => {
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        providerName: 'LinuxDo',
-        testIdPrefix: 'linuxdo',
+        providerName: 'WeChat',
+        testIdPrefix: 'wechat',
         initialEmail: 'prefill@example.com',
         isSubmitting: false
       }
     })
 
-    await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('  user@example.com  ')
-    await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
-    await wrapper.get('[data-testid="linuxdo-create-account-verify-code"]').setValue(' 246810 ')
+    await wrapper.get('[data-testid="wechat-create-account-email"]').setValue('  user@example.com  ')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-verify-code"]').setValue(' 246810 ')
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(wrapper.emitted('submit')).toEqual([
@@ -135,7 +135,7 @@ describe('PendingOAuthCreateAccountForm', () => {
   it('renders action labels through i18n keys', () => {
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'linuxdo',
+        testIdPrefix: 'wechat',
         initialEmail: '',
         isSubmitting: false
       }
@@ -154,18 +154,18 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'linuxdo',
+        testIdPrefix: 'wechat',
         initialEmail: 'prefill@example.com',
         isSubmitting: false
       }
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
     await wrapper.get('form').trigger('submit.prevent')
 
-    expect(wrapper.find('[data-testid="linuxdo-create-account-verify-code"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="linuxdo-create-account-send-code"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="wechat-create-account-verify-code"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="wechat-create-account-send-code"]').exists()).toBe(false)
     expect(wrapper.emitted('submit')).toEqual([
       [
         {
@@ -187,17 +187,17 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        providerName: 'LinuxDo',
-        testIdPrefix: 'linuxdo',
+        providerName: 'WeChat',
+        testIdPrefix: 'wechat',
         initialEmail: 'prefill@example.com',
         isSubmitting: false
       }
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
-    await wrapper.get('[data-testid="linuxdo-create-account-verify-code"]').setValue('246810')
-    await wrapper.get('[data-testid="linuxdo-create-account-invitation-code"]').setValue(' INVITE123 ')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-verify-code"]').setValue('246810')
+    await wrapper.get('[data-testid="wechat-create-account-invitation-code"]').setValue(' INVITE123 ')
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(wrapper.emitted('submit')).toEqual([
@@ -220,15 +220,15 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        providerName: 'LinuxDo',
-        testIdPrefix: 'linuxdo',
+        providerName: 'WeChat',
+        testIdPrefix: 'wechat',
         initialEmail: '',
         isSubmitting: false
       }
     })
 
-    await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('  user@example.com  ')
-    await wrapper.get('[data-testid="linuxdo-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-email"]').setValue('  user@example.com  ')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
     expect(sendPendingOAuthVerifyCode).toHaveBeenCalledWith({
@@ -241,14 +241,14 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'linuxdo',
+        testIdPrefix: 'wechat',
         initialEmail: '',
         isSubmitting: false
       }
     })
 
-    await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('user@example.com')
-    await wrapper.get('[data-testid="linuxdo-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-email"]').setValue('user@example.com')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
     expect(showError).toHaveBeenCalledWith('send failed')
@@ -264,7 +264,7 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'oidc',
+        testIdPrefix: 'wechat',
         initialEmail: 'user@example.com',
         isSubmitting: false
       },
@@ -280,11 +280,11 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     await flushPromises()
     await wrapper.get('[data-testid="turnstile-verify"]').trigger('click')
-    await wrapper.get('[data-testid="oidc-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
     expect(turnstileReset).toHaveBeenCalledOnce()
-    expect(wrapper.get('[data-testid="oidc-create-account-send-code"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="wechat-create-account-send-code"]').attributes('disabled')).toBeDefined()
   })
 
   it('requires a turnstile token before sending a verify code when turnstile is enabled', async () => {
@@ -299,8 +299,8 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        providerName: 'LinuxDo',
-        testIdPrefix: 'linuxdo',
+        providerName: 'WeChat',
+        testIdPrefix: 'wechat',
         initialEmail: '',
         isSubmitting: false
       },
@@ -315,12 +315,12 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="linuxdo-create-account-email"]').setValue('  user@example.com  ')
+    await wrapper.get('[data-testid="wechat-create-account-email"]').setValue('  user@example.com  ')
 
-    expect(wrapper.get('[data-testid="linuxdo-create-account-send-code"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="wechat-create-account-send-code"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('[data-testid="turnstile-verify"]').trigger('click')
-    await wrapper.get('[data-testid="linuxdo-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
     expect(sendPendingOAuthVerifyCode).toHaveBeenCalledWith({
@@ -337,7 +337,7 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'linuxdo',
+        testIdPrefix: 'wechat',
         initialEmail: 'user@example.com',
         isSubmitting: false
       },
@@ -352,9 +352,9 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
 
-    expect(wrapper.get('[data-testid="linuxdo-create-account-submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="wechat-create-account-submit"]').attributes('disabled')).toBeDefined()
 
     // 隐式提交（输入框回车）绕过按钮 disabled，仍不能带着空票据发出请求
     await wrapper.get('form').trigger('submit.prevent')
@@ -362,9 +362,9 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     await wrapper.get('[data-testid="turnstile-verify"]').trigger('click')
 
-    expect(wrapper.get('[data-testid="linuxdo-create-account-submit"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-testid="wechat-create-account-submit"]').attributes('disabled')).toBeUndefined()
 
-    await wrapper.get('[data-testid="linuxdo-create-account-submit"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-submit"]').trigger('click')
 
     expect(wrapper.emitted('submit')).toEqual([
       [
@@ -388,7 +388,7 @@ describe('PendingOAuthCreateAccountForm', () => {
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
       props: {
-        testIdPrefix: 'linuxdo',
+        testIdPrefix: 'wechat',
         initialEmail: 'user@example.com',
         isSubmitting: false
       },
@@ -403,21 +403,21 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="linuxdo-create-account-password"]').setValue('secret-123')
+    await wrapper.get('[data-testid="wechat-create-account-password"]').setValue('secret-123')
     await wrapper.get('[data-testid="turnstile-verify"]').trigger('click')
-    await wrapper.get('[data-testid="linuxdo-create-account-send-code"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
     // 发码消耗掉票据并 reset 组件，新票据回调前提交必须保持关闭
     expect(turnstileReset).toHaveBeenCalled()
-    expect(wrapper.get('[data-testid="linuxdo-create-account-submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="wechat-create-account-submit"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('form').trigger('submit.prevent')
     expect(wrapper.emitted('submit')).toBeUndefined()
 
     // 新票据回调后恢复可提交，且带上新票据
     await wrapper.get('[data-testid="turnstile-verify"]').trigger('click')
-    await wrapper.get('[data-testid="linuxdo-create-account-submit"]').trigger('click')
+    await wrapper.get('[data-testid="wechat-create-account-submit"]').trigger('click')
 
     expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
       turnstileToken: 'turnstile-token'

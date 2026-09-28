@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -96,16 +94,8 @@ func (s *SettingService) ResolveGrokBaseURL(ctx context.Context, account *Accoun
 }
 
 var (
-	ErrRegistrationDisabled  = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
-	ErrSettingNotFound       = infraerrors.NotFound("SETTING_NOT_FOUND", "setting not found")
-	ErrDefaultSubPlanInvalid = infraerrors.BadRequest(
-		"DEFAULT_SUBSCRIPTION_PLAN_INVALID",
-		"default subscription plan must exist",
-	)
-	ErrDefaultSubTooMany = infraerrors.BadRequest(
-		"DEFAULT_SUB_TOO_MANY",
-		"at most one default subscription per list",
-	)
+	ErrRegistrationDisabled = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
+	ErrSettingNotFound      = infraerrors.NotFound("SETTING_NOT_FOUND", "setting not found")
 )
 
 type SettingRepository interface {
@@ -118,11 +108,6 @@ type SettingRepository interface {
 	Delete(ctx context.Context, key string) error
 }
 
-// DefaultSubscriptionPlanReader validates plan references used by default subscriptions.
-type DefaultSubscriptionPlanReader interface {
-	GetByID(ctx context.Context, id int64) (*SubscriptionPlan, error)
-}
-
 // WebSearchManagerBuilder creates a websearch.Manager from config (injected by infra layer).
 // proxyURLs maps proxy ID to resolved URL for provider-level proxy support.
 type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[int64]string)
@@ -130,7 +115,6 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo                 SettingRepository
-	defaultSubPlanReader        DefaultSubscriptionPlanReader
 	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                         *config.Config
 	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
@@ -148,11 +132,6 @@ type SettingService struct {
 	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
 	cyberSessionBlockRuntimeSF    singleflight.Group
 
-	// panelRateLimitCache 面板 API 限流配置进程内缓存（*cachedPanelRateLimitSettings）。
-	// 面板每个认证请求都会读取，禁止在热路径上直接访问 DB。
-	panelRateLimitCache atomic.Value
-	panelRateLimitSF    singleflight.Group
-
 	// openAIQuotaAutoPauseSettingsCache holds the most recently observed quota auto-pause
 	// settings. GetOpenAIQuotaAutoPauseSettings reads this atomic.Value on the request hot
 	// path without ever blocking on the DB; when the cached entry expires, a background
@@ -167,88 +146,7 @@ type SettingService struct {
 	channelMonitorRuntimeListeners   []func()
 }
 
-type ProviderDefaultGrantSettings struct {
-	Balance          float64
-	Concurrency      int
-	Subscriptions    []DefaultSubscriptionSetting
-	GrantOnSignup    bool
-	GrantOnFirstBind bool
-}
-
-type AuthSourceDefaultSettings struct {
-	Email                        ProviderDefaultGrantSettings
-	LinuxDo                      ProviderDefaultGrantSettings
-	OIDC                         ProviderDefaultGrantSettings
-	WeChat                       ProviderDefaultGrantSettings
-	GitHub                       ProviderDefaultGrantSettings
-	Google                       ProviderDefaultGrantSettings
-	DingTalk                     ProviderDefaultGrantSettings
-	ForceEmailOnThirdPartySignup bool
-}
-
-type authSourceDefaultKeySet struct {
-	balance          string
-	concurrency      string
-	subscriptions    string
-	grantOnSignup    string
-	grantOnFirstBind string
-}
-
-var (
-	emailAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultEmailBalance,
-		concurrency:      SettingKeyAuthSourceDefaultEmailConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultEmailSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultEmailGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultEmailGrantOnFirstBind,
-	}
-	linuxDoAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultLinuxDoBalance,
-		concurrency:      SettingKeyAuthSourceDefaultLinuxDoConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultLinuxDoSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultLinuxDoGrantOnFirstBind,
-	}
-	oidcAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultOIDCBalance,
-		concurrency:      SettingKeyAuthSourceDefaultOIDCConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultOIDCSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultOIDCGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultOIDCGrantOnFirstBind,
-	}
-	weChatAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultWeChatBalance,
-		concurrency:      SettingKeyAuthSourceDefaultWeChatConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultWeChatSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultWeChatGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultWeChatGrantOnFirstBind,
-	}
-	gitHubAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultGitHubBalance,
-		concurrency:      SettingKeyAuthSourceDefaultGitHubConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultGitHubSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultGitHubGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind,
-	}
-	googleAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultGoogleBalance,
-		concurrency:      SettingKeyAuthSourceDefaultGoogleConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultGoogleSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultGoogleGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultGoogleGrantOnFirstBind,
-	}
-	dingTalkAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultDingTalkBalance,
-		concurrency:      SettingKeyAuthSourceDefaultDingTalkConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultDingTalkSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultDingTalkGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultDingTalkGrantOnFirstBind,
-	}
-)
-
 const (
-	defaultAuthSourceBalance     = 0
-	defaultAuthSourceConcurrency = 5
 	defaultWeChatConnectMode     = "open"
 	defaultWeChatConnectScopes   = "snsapi_login"
 	defaultWeChatConnectFrontend = "/auth/wechat/callback"
@@ -263,8 +161,6 @@ const (
 	defaultGoogleOAuthUserInfo   = "https://openidconnect.googleapis.com/v1/userinfo"
 	defaultGoogleOAuthScopes     = "openid email profile"
 	defaultGoogleOAuthFrontend   = "/auth/oauth/callback"
-	defaultLoginAgreementMode    = "modal"
-	defaultLoginAgreementDate    = "2026-09-23"
 )
 
 // NewSettingService 创建系统设置服务实例
@@ -275,76 +171,9 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	}
 }
 
-// SetDefaultSubscriptionPlanReader injects an optional plan reader for default subscription validation.
-func (s *SettingService) SetDefaultSubscriptionPlanReader(reader DefaultSubscriptionPlanReader) {
-	s.defaultSubPlanReader = reader
-}
-
 // SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
 func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
 	s.proxyRepo = repo
-}
-
-func (s *SettingService) LoadForwardedClientIPSettings(ctx context.Context) error {
-	if s == nil || s.cfg == nil || s.settingRepo == nil {
-		return nil
-	}
-
-	values, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyAPIKeyACLTrustForwardedIP,
-		SettingKeyForwardedClientIPHeaders,
-		settingKeyForwardedClientIPModeV2,
-	})
-	if err != nil {
-		s.cfg.SetForwardedClientIPSettings(false, nil)
-		return fmt.Errorf("get forwarded client ip settings: %w", err)
-	}
-
-	enabled := s.cfg.Security.TrustForwardedIPForAPIKeyACL
-	headers := s.cfg.ForwardedClientIPSettings().Headers
-	storedValue, hasStoredValue := values[SettingKeyAPIKeyACLTrustForwardedIP]
-	if hasStoredValue {
-		enabled = storedValue == "true"
-	}
-
-	var headersErr error
-	if storedHeaders, ok := values[SettingKeyForwardedClientIPHeaders]; ok {
-		headers, headersErr = parseForwardedClientIPHeadersSetting(storedHeaders)
-		if headersErr != nil {
-			enabled = false
-			headers = []string{}
-			headersErr = fmt.Errorf("load forwarded client ip headers: %w", headersErr)
-		}
-	}
-
-	updates := make(map[string]string)
-	if _, hasStoredHeaders := values[SettingKeyForwardedClientIPHeaders]; !hasStoredHeaders {
-		headersJSON, marshalErr := json.Marshal(headers)
-		if marshalErr != nil {
-			headers = []string{}
-			headersErr = errors.Join(headersErr, fmt.Errorf("marshal forwarded client ip headers: %w", marshalErr))
-			headersJSON = []byte("[]")
-		}
-		updates[SettingKeyForwardedClientIPHeaders] = string(headersJSON)
-	}
-	if values[settingKeyForwardedClientIPModeV2] != "true" {
-		updates[settingKeyForwardedClientIPModeV2] = "true"
-		// Before this migration, new installations persisted false by default.
-		// Restore compatibility only when no trusted-proxy policy was configured.
-		if headersErr == nil && hasStoredValue && !enabled && !s.cfg.Server.TrustedProxiesConfigured {
-			enabled = true
-			updates[SettingKeyAPIKeyACLTrustForwardedIP] = "true"
-		}
-	}
-	if len(updates) > 0 {
-		if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
-			s.cfg.SetForwardedClientIPSettings(enabled, headers)
-			return errors.Join(headersErr, fmt.Errorf("migrate forwarded client ip setting: %w", err))
-		}
-	}
-
-	s.cfg.SetForwardedClientIPSettings(enabled, headers)
-	return headersErr
 }
 
 // GetAllSettings 获取所有系统设置

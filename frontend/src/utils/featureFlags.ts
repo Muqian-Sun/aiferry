@@ -146,8 +146,3 @@ export function resolveFeatureFlag(
 export function makeSidebarFlag(flag: FeatureFlagDefinition): () => boolean {
   return () => isFeatureFlagEnabled(flag)
 }
-
-/** True when channel monitor feature flag is enabled. */
-export function isChannelMonitorRouteEnabled(): boolean {
-  return isFeatureFlagEnabled(FeatureFlags.channelMonitor)
-}

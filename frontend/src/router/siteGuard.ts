@@ -27,10 +27,6 @@ export interface SiteGuardOptions {
 const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/payment/result', '/payment/airwallex', '/legal']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
-  '/auth/linuxdo/callback',
-  '/auth/dingtalk/callback',
-  '/auth/dingtalk/email-completion',
-  '/auth/oidc/callback',
   '/auth/wechat/callback',
   '/auth/wechat/payment/callback',
 ]

@@ -57,28 +57,6 @@
       </div>
     </div>
 
-    <!-- Provider dialogs placed outside the settings form to prevent form submission bubbling -->
-    <PaymentProviderDialog
-      ref="providerDialogRef"
-      :show="showProviderDialog"
-      :saving="providerSaving"
-      :editing="editingProvider"
-      :all-key-options="providerKeyOptions"
-      :enabled-key-options="enabledProviderKeyOptions"
-      :all-payment-types="allPaymentTypes"
-      :redirect-label="t('admin.settings.payment.easypayRedirect')"
-      @close="showProviderDialog = false"
-      @save="handleSaveProvider"
-    />
-    <ConfirmDialog
-      :show="showDeleteProviderDialog"
-      :title="t('admin.settings.payment.deleteProvider')"
-      :message="t('admin.settings.payment.deleteProviderConfirm')"
-      :confirm-text="t('common.delete')"
-      danger
-      @confirm="handleDeleteProvider"
-      @cancel="showDeleteProviderDialog = false"
-    />
     <!-- 有未保存的改动时切小节 / 离开设置页 -->
     <ConfirmDialog
       :show="leaveDialog.show"
@@ -90,8 +68,6 @@
       @confirm="resolveLeave(true)"
       @cancel="resolveLeave(false)"
     />
-    <!-- 关闭 step-up 开关等敏感保存操作触发的 TOTP 二次验证 -->
-    <TotpStepUpDialog :controller="settingsStepUp" />
   </AppLayout>
 </template>
 
@@ -102,8 +78,6 @@ import { computed, onBeforeUnmount, onMounted, provide, reactive } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import PaymentProviderDialog from '@/components/admin/payment/providers/PaymentProviderDialog.vue'
-import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import SettingsNav from './settings/SettingsNav.vue'
 import { SETTINGS_SECTIONS, SECTION_COMPONENTS, resolveSettingsSection, type SettingsSectionKey } from './settings/sections'
 import { SETTINGS_PAGE_KEY, useSettingsPage } from './settings/useSettingsPage'
@@ -115,24 +89,13 @@ const currentSection = computed(() => resolveSettingsSection(route.params.sectio
 const page = useSettingsPage(currentSection)
 provide(SETTINGS_PAGE_KEY, page)
 const {
-  allPaymentTypes,
   discardSection,
-  editingProvider,
-  enabledProviderKeyOptions,
-  handleDeleteProvider,
-  handleSaveProvider,
   isSectionDirty,
   loadFailed,
   loading,
-  providerKeyOptions,
-  providerSaving,
   saveSection,
   sectionSaving,
-  settingsStepUp,
-  showDeleteProviderDialog,
-  showProviderDialog,
-  t,
-  providerDialogRef
+  t
 } = page
 
 function goSection(key: SettingsSectionKey) {
@@ -185,7 +148,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
   @apply block;
 }
 
-/* 标题头；带按钮的（如 SMTP 的「测试连接」）在左栏里上下排，不带的 flex-col 不起作用 */
+/* 标题头；带按钮的在左栏里上下排，不带的 flex-col 不起作用 */
 .settings-blocks > :deep(div > .card > :first-child) {
   @apply flex-col items-start gap-3 border-0 p-0;
 }

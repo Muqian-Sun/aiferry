@@ -10,52 +10,21 @@ import type { SettingsSectionKey } from "./sections";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
 import {
-  appendAuthSourceDefaultsToUpdateRequest,
-  buildAuthSourceDefaultsState,
   normalizeAccountSchedulingThresholdsMap,
   sanitizeAccountSchedulingThresholdsMap,
   SCHEDULING_THRESHOLD_PLATFORMS,
-  defaultWeChatConnectScopesForMode,
-  deriveWeChatConnectStoredMode,
-  normalizeDefaultSubscriptionSettings,
-  resolveWeChatConnectModeCapabilities,
 } from "@/api/admin/settings";
 import type {
-  AuthSourceDefaultsState,
-  AuthSourceType,
   SystemSettings,
   UpdateSettingsRequest,
   OpenAIFastPolicyRule,
-  WeChatConnectMode,
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
   WebSearchTestResult,
 } from "@/api/admin/settings";
-import type {
-  LoginAgreementDocument,
-  NotifyEmailEntry,
-  Proxy,
-} from "@/types";
-import type { ProviderInstance, SubscriptionPlan } from "@/types/payment";
-import { adminPaymentAPI } from "@/api/admin/payment";
-import PaymentProviderDialog from "@/components/admin/payment/providers/PaymentProviderDialog.vue";
-import { useClipboard } from "@/composables/useClipboard";
-import {
-  useStepUp,
-  isStepUpCancelled,
-  isStepUpBlocked,
-  stepUpBlockReason,
-} from "@/composables/useStepUp";
-import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
+import type { Proxy } from "@/types";
+import { extractApiErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
-import { useAdminSettingsStore } from "@/stores/adminSettings";
-import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
-import {
-  isRegistrationEmailSuffixDomainValid,
-  normalizeRegistrationEmailSuffixDomain,
-  normalizeRegistrationEmailSuffixDomains,
-  parseRegistrationEmailSuffixWhitelistInput,
-} from "@/utils/registrationEmailPolicy";
 import {
   parseFingerprintSignalsToRows,
   serializeFingerprintRowsToJSON,
@@ -64,55 +33,12 @@ import {
 } from "../codexFingerprintSignals";
 
 export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const appStore = useAppStore();
-  // 关闭 step-up 开关是敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 码重试
-  const settingsStepUp = useStepUp();
-  const adminSettingsStore = useAdminSettingsStore();
-  const isZhLocale = computed(() => locale.value.startsWith("zh"));
-
-  function localText(zh: string, en: string): string {
-    return isZhLocale.value ? zh : en;
-  }
-
-  const paymentGuideHref = computed(() =>
-    locale.value.startsWith("zh")
-      ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md"
-      : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md",
-  );
-
-  const paymentMethodsHref = computed(() =>
-    locale.value.startsWith("zh")
-      ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式"
-      : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
-  );
-
-
-
-
-
-
-  const { copyToClipboard } = useClipboard();
 
   const loading = ref(true);
   const loadFailed = ref(false);
   const saving = ref(false);
-  const testingSmtp = ref(false);
-  const sendingTestEmail = ref(false);
-  const smtpPasswordManuallyEdited = ref(false);
-  const testEmailAddress = ref("");
-  const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
-  const registrationEmailSuffixWhitelistDraft = ref("");
-  const forwardedClientIpHeaderDraft = ref("");
-  const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
-
-  // Admin API Key 状态
-  const adminApiKeyLoading = ref(true);
-  const adminApiKeyExists = ref(false);
-  const adminApiKeyMasked = ref("");
-  const adminApiKeyOperating = ref(false);
-  const newAdminApiKey = ref("");
-  const subscriptionPlans = ref<SubscriptionPlan[]>([]);
 
   // Upstream billing probe state
   const upstreamBillingProbeLoading = ref(true);
@@ -144,17 +70,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   const rateLimit429CooldownForm = reactive({
     enabled: true,
     cooldown_seconds: 5,
-  });
-
-  // Panel API Rate Limit 状态
-  const panelRateLimitLoading = ref(true);
-  const panelRateLimitSaving = ref(false);
-  const panelRateLimitForm = reactive({
-    enabled: true,
-    user_rpm: 240,
-    heavy_rpm: 60,
-    exempt_admin: true,
-    public_ip_rpm: 300,
   });
 
   // Stream Timeout 状态
@@ -201,53 +116,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   // 标记 openai_fast_policy_settings 是否已成功从后端加载，
   // 避免后端 GET 出错或字段缺失时，保存把默认规则覆盖成空数组。
   const openaiFastPolicyLoaded = ref(false);
-
-  const tablePageSizeMin = 5;
-  const tablePageSizeMax = 1000;
-  const tablePageSizeDefault = 20;
-
-  function defaultLoginAgreementDocuments(): LoginAgreementDocument[] {
-    return [
-      {
-        id: "terms",
-        title: localText("服务条款", "Terms of Service"),
-        content_md: "",
-      },
-      {
-        id: "usage-policy",
-        title: localText("使用政策", "Usage Policy"),
-        content_md: "",
-      },
-      {
-        id: "supported-regions",
-        title: localText("支持的国家和地区", "Supported Countries and Regions"),
-        content_md: "",
-      },
-      {
-        id: "service-specific-terms",
-        title: localText("服务特定条款", "Service-Specific Terms"),
-        content_md: "",
-      },
-    ];
-  }
-
-  function normalizeLoginAgreementDocumentId(raw: string): string {
-    return raw
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/[-_]{2,}/g, "-")
-      .replace(/^[-_]+|[-_]+$/g, "");
-  }
-
-  function loginAgreementRoutePath(
-    doc: LoginAgreementDocument,
-    index: number,
-  ): string {
-    const id =
-      normalizeLoginAgreementDocumentId(doc.id || doc.title) || `doc-${index + 1}`;
-    return `/legal/${id}`;
-  }
 
   type ClaudeOAuthSystemPromptPreset =
     | "billing"
@@ -620,233 +488,24 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     syncClaudeOAuthSystemPromptBlocksFormField();
   }
 
-
-  interface DefaultSubscriptionPlanOption {
-    value: number;
-    label: string;
-    [key: string]: unknown;
-  }
-
   type SettingsForm = Omit<
     SystemSettings,
-    | "wechat_connect_open_enabled"
-    | "wechat_connect_mp_enabled"
-    | "wechat_connect_mobile_enabled"
     // A6-4：这几项挪到了功能页（渠道健康 / 审查），设置页不再读写
     | "channel_monitor_hide_throughput"
     | "channel_monitor_hide_user_ranking"
     | "cyber_session_block_enabled"
     | "cyber_session_block_ttl_seconds"
+    // 只读：取部署配置 OPS_ENABLED，侧栏据它显示运维入口，设置页不读写
+    | "ops_monitoring_enabled"
   > & {
-    smtp_password: string;
-    turnstile_secret_key: string;
-    tencent_captcha_app_secret_key: string;
-    tencent_captcha_cloud_secret_id: string;
-    tencent_captcha_cloud_secret_key: string;
-    aliyun_captcha_access_key_secret: string;
-    linuxdo_connect_client_secret: string;
-    dingtalk_connect_client_secret: string;
-    wechat_connect_app_secret: string;
-    wechat_connect_open_app_secret: string;
-    wechat_connect_mp_app_secret: string;
-    wechat_connect_mobile_app_secret: string;
-    wechat_connect_open_enabled: boolean;
-    wechat_connect_mp_enabled: boolean;
-    wechat_connect_mobile_enabled: boolean;
-    oidc_connect_client_secret: string;
-    github_oauth_client_secret: string;
-    google_oauth_client_secret: string;
-    force_email_on_third_party_signup: boolean;
     account_scheduling_thresholds: ReturnType<typeof normalizeAccountSchedulingThresholdsMap>;
   };
 
   const schedulingThresholdPlatforms = SCHEDULING_THRESHOLD_PLATFORMS;
 
   const form = reactive<SettingsForm>({
-    registration_enabled: true,
-    email_verify_enabled: false,
-    registration_email_suffix_whitelist: [],
-    registration_email_domain_quota_enabled: false,
-    invitation_code_enabled: false,
-    password_reset_enabled: false,
-    passkey_enabled: false,
-    passkey_configured: false,
-    passkey_rp_id: "",
-    passkey_rp_origins: [],
-    session_binding_enabled: false,
-    step_up_enabled: false,
-    audit_log_retention_days: 180,
-    login_agreement_enabled: false,
-    login_agreement_mode: "modal",
-    login_agreement_updated_at: "2026-03-31",
-    login_agreement_documents: defaultLoginAgreementDocuments(),
-    default_balance: 0,
     account_scheduling_thresholds: normalizeAccountSchedulingThresholdsMap(),
-    default_concurrency: 1,
-    default_subscriptions: [],
-    force_email_on_third_party_signup: false,
-    default_user_rpm_limit: 0,
-    site_name: "Sub2API",
-    site_logo: "",
-    site_subtitle: "Subscription to API Conversion Platform",
-    api_base_url: "",
-    contact_info: "",
-    doc_url: "",
-    home_content: "",
-    compact_home_enabled: false,
-    backend_mode_enabled: false,
-    hide_ccs_import_button: false,
-    payment_enabled: false,
     risk_control_enabled: false,
-    payment_min_amount: 1,
-    payment_max_amount: 10000,
-    payment_daily_limit: 50000,
-    payment_max_pending_orders: 3,
-    payment_order_timeout_minutes: 30,
-    payment_usd_to_cny_rate: 0,
-    payment_recharge_fee_rate: 0,
-    payment_enabled_types: [],
-    payment_help_image_url: "",
-    payment_help_text: "",
-    payment_product_name_prefix: "",
-    payment_product_name_suffix: "",
-    payment_load_balance_strategy: "round-robin",
-    payment_cancel_rate_limit_enabled: false,
-    payment_cancel_rate_limit_max: 10,
-    payment_cancel_rate_limit_window: 1,
-    payment_cancel_rate_limit_unit: "day",
-    payment_cancel_rate_limit_window_mode: "rolling",
-    payment_alipay_force_qrcode: false,
-    payment_alipay_mobile_precreate_deep_link: false,
-    table_default_page_size: tablePageSizeDefault,
-    table_page_size_options: [10, 20, 50, 100],
-    custom_menu_items: [] as Array<{
-      id: string;
-      label: string;
-      icon_svg: string;
-      url: string;
-      visibility: "user" | "admin";
-      sort_order: number;
-      hide_open_button?: boolean;
-    }>,
-    custom_endpoints: [] as Array<{
-      name: string;
-      endpoint: string;
-      description: string;
-    }>,
-    frontend_url: "",
-    smtp_host: "",
-    smtp_port: 587,
-    smtp_username: "",
-    smtp_password: "",
-    smtp_password_configured: false,
-    smtp_from_email: "",
-    smtp_from_name: "",
-    smtp_use_tls: true,
-    // Cloudflare Turnstile
-    turnstile_enabled: false,
-    turnstile_site_key: "",
-    turnstile_secret_key: "",
-    turnstile_secret_key_configured: false,
-    tencent_captcha_enabled: false,
-    tencent_captcha_app_id: "",
-    tencent_captcha_app_secret_key: "",
-    tencent_captcha_app_secret_key_configured: false,
-    tencent_captcha_cloud_secret_id: "",
-    tencent_captcha_cloud_secret_id_configured: false,
-    tencent_captcha_cloud_secret_key: "",
-    tencent_captcha_cloud_secret_key_configured: false,
-    tencent_captcha_region: "cn",
-    aliyun_captcha_enabled: false,
-    aliyun_captcha_access_key_id: "",
-    aliyun_captcha_access_key_secret: "",
-    aliyun_captcha_access_key_secret_configured: false,
-    aliyun_captcha_scene_id: "",
-    aliyun_captcha_prefix: "",
-    aliyun_captcha_region: "cn",
-    api_key_acl_trust_forwarded_ip: true,
-    forwarded_client_ip_headers: [],
-    // LinuxDo Connect OAuth 登录
-    linuxdo_connect_enabled: false,
-    linuxdo_connect_client_id: "",
-    linuxdo_connect_client_secret: "",
-    linuxdo_connect_client_secret_configured: false,
-    linuxdo_connect_redirect_url: "",
-    // DingTalk Connect OAuth 登录
-    dingtalk_connect_enabled: false,
-    dingtalk_connect_client_id: "",
-    dingtalk_connect_client_secret: "",
-    dingtalk_connect_client_secret_configured: false,
-    dingtalk_connect_redirect_url: "",
-    dingtalk_connect_corp_restriction_policy: "none",
-    dingtalk_connect_internal_corp_id: "",
-    dingtalk_connect_bypass_registration: false,
-    dingtalk_connect_sync_corp_email: false,
-    dingtalk_connect_sync_display_name: false,
-    dingtalk_connect_sync_dept: false,
-    dingtalk_connect_sync_corp_email_attr_key: "dingtalk_email",
-    dingtalk_connect_sync_display_name_attr_key: "dingtalk_name",
-    dingtalk_connect_sync_dept_attr_key: "dingtalk_department",
-    dingtalk_connect_sync_corp_email_attr_name: localText("钉钉企业邮箱", "DingTalk Corporate Email"),
-    dingtalk_connect_sync_display_name_attr_name: localText("钉钉姓名", "DingTalk Name"),
-    dingtalk_connect_sync_dept_attr_name: localText("钉钉部门", "DingTalk Department"),
-    wechat_connect_enabled: false,
-    wechat_connect_app_id: "",
-    wechat_connect_app_secret: "",
-    wechat_connect_app_secret_configured: false,
-    wechat_connect_open_app_id: "",
-    wechat_connect_open_app_secret: "",
-    wechat_connect_open_app_secret_configured: false,
-    wechat_connect_mp_app_id: "",
-    wechat_connect_mp_app_secret: "",
-    wechat_connect_mp_app_secret_configured: false,
-    wechat_connect_mobile_app_id: "",
-    wechat_connect_mobile_app_secret: "",
-    wechat_connect_mobile_app_secret_configured: false,
-    wechat_connect_open_enabled: false,
-    wechat_connect_mp_enabled: false,
-    wechat_connect_mobile_enabled: false,
-    wechat_connect_mode: "open",
-    wechat_connect_scopes: "snsapi_login",
-    wechat_connect_redirect_url: "",
-    wechat_connect_frontend_redirect_url: "/auth/wechat/callback",
-    // Generic OIDC OAuth 登录
-    oidc_connect_enabled: false,
-    oidc_connect_provider_name: "OIDC",
-    oidc_connect_client_id: "",
-    oidc_connect_client_secret: "",
-    oidc_connect_client_secret_configured: false,
-    oidc_connect_issuer_url: "",
-    oidc_connect_discovery_url: "",
-    oidc_connect_authorize_url: "",
-    oidc_connect_token_url: "",
-    oidc_connect_userinfo_url: "",
-    oidc_connect_jwks_url: "",
-    oidc_connect_scopes: "openid email profile",
-    oidc_connect_redirect_url: "",
-    oidc_connect_frontend_redirect_url: "/auth/oidc/callback",
-    oidc_connect_token_auth_method: "client_secret_post",
-    oidc_connect_use_pkce: false,
-    oidc_connect_validate_id_token: false,
-    oidc_connect_allowed_signing_algs: "RS256,ES256,PS256",
-    oidc_connect_clock_skew_seconds: 120,
-    oidc_connect_require_email_verified: false,
-    oidc_connect_userinfo_email_path: "",
-    oidc_connect_userinfo_id_path: "",
-    oidc_connect_userinfo_username_path: "",
-    // GitHub / Google 邮箱快捷登录
-    github_oauth_enabled: false,
-    github_oauth_client_id: "",
-    github_oauth_client_secret: "",
-    github_oauth_client_secret_configured: false,
-    github_oauth_redirect_url: "",
-    github_oauth_frontend_redirect_url: "/auth/oauth/callback",
-    google_oauth_enabled: false,
-    google_oauth_client_id: "",
-    google_oauth_client_secret: "",
-    google_oauth_client_secret_configured: false,
-    google_oauth_redirect_url: "",
-    google_oauth_frontend_redirect_url: "/auth/oauth/callback",
     grok_default_text_model: "grok-4.5",
     grok_cross_client_model_map_enabled: false,
     grok_default_base_url_mode: "cli",
@@ -854,7 +513,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     enable_identity_patch: true,
     identity_patch_prompt: "",
     // Ops monitoring (vNext)
-    ops_monitoring_enabled: true,
     ops_realtime_monitoring_enabled: true,
     ops_query_mode_default: "auto",
     ops_metrics_interval_seconds: 60,
@@ -885,128 +543,11 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     codex_cli_only_whitelist: "",
     codex_cli_only_allow_app_server_clients: false,
     codex_cli_only_engine_fingerprint_signals: "",
-    // 余额、订阅到期与账号限额通知
-    balance_low_notify_enabled: false,
-    balance_low_notify_threshold: 0,
-    balance_low_notify_recharge_url: "",
-    subscription_expiry_notify_enabled: true,
-    account_quota_notify_enabled: false,
-    account_quota_notify_emails: [] as NotifyEmailEntry[],
-    // Channel Monitor feature switch
-    channel_monitor_enabled: true,
-    // Available Channels feature switch
-    // Model Plaza feature switches + description
-    model_plaza_description: '',
-    // Allow user view error requests
-    allow_user_view_error_requests: false,
     // 利润门（全站一档）
     profit_control_enabled: false,
     profit_min_margin: 0,
     profit_safety_buffer: 0,
   });
-
-  // 人机验证 UI 状态：单卡片「总开关 + 服务商单选」，落库仍是三个独立
-  // enabled 键（与上游一致），由下面的映射保证同一时间至多一家启用。
-  type CaptchaProviderSelection = "turnstile" | "tencent" | "aliyun";
-
-  const captchaProviderSelection = ref<CaptchaProviderSelection>("turnstile");
-
-  function applyCaptchaSelection(provider: CaptchaProviderSelection | null): void {
-    form.turnstile_enabled = provider === "turnstile";
-    form.tencent_captcha_enabled = provider === "tencent";
-    form.aliyun_captcha_enabled = provider === "aliyun";
-  }
-
-  const captchaMasterEnabled = computed({
-    get: () =>
-      form.turnstile_enabled ||
-      form.tencent_captcha_enabled ||
-      form.aliyun_captcha_enabled,
-    set: (enabled: boolean) =>
-      applyCaptchaSelection(enabled ? captchaProviderSelection.value : null),
-  });
-
-  function selectCaptchaProvider(provider: CaptchaProviderSelection): void {
-    captchaProviderSelection.value = provider;
-    applyCaptchaSelection(provider);
-  }
-
-  // 天御中国站与国际站是两套独立账号体系，控制台与文档入口不通用，
-  // 按当前选择的站点给出对应链接，避免管理员在错误的控制台里找不到 CaptchaAppId。
-  const tencentCaptchaLinks = computed(() =>
-    form.tencent_captcha_region === "intl"
-      ? {
-          console: "https://console.tencentcloud.com/captcha/graphical",
-          cloudKeys: "https://console.tencentcloud.com/cam/capi",
-          webDocs: "https://www.tencentcloud.com/document/product/1159/49680",
-        }
-      : {
-          console: "https://console.cloud.tencent.com/captcha",
-          cloudKeys: "https://console.cloud.tencent.com/cam/capi",
-          webDocs: "https://cloud.tencent.com/document/product/1110/36841",
-        },
-  );
-
-  function syncCaptchaProviderSelection(): void {
-    if (form.tencent_captcha_enabled) {
-      captchaProviderSelection.value = "tencent";
-    } else if (form.aliyun_captcha_enabled) {
-      captchaProviderSelection.value = "aliyun";
-    } else if (form.turnstile_enabled) {
-      captchaProviderSelection.value = "turnstile";
-    }
-  }
-
-  const authSourceDefaults = reactive<AuthSourceDefaultsState>(
-    buildAuthSourceDefaultsState({}),
-  );
-
-  const authSourceDefaultsMeta = computed(() => [
-    {
-      source: "email" as AuthSourceType,
-      title: t("admin.settings.authSourceDefaults.sources.email.title"),
-      description: t("admin.settings.authSourceDefaults.sources.email.description"),
-    },
-    {
-      source: "linuxdo" as AuthSourceType,
-      title: t("admin.settings.authSourceDefaults.sources.linuxdo.title"),
-      description: t("admin.settings.authSourceDefaults.sources.linuxdo.description"),
-    },
-    {
-      source: "oidc" as AuthSourceType,
-      title: t("admin.settings.authSourceDefaults.sources.oidc.title"),
-      description: t("admin.settings.authSourceDefaults.sources.oidc.description"),
-    },
-    {
-      source: "wechat" as AuthSourceType,
-      title: t("admin.settings.authSourceDefaults.sources.wechat.title"),
-      description: t("admin.settings.authSourceDefaults.sources.wechat.description"),
-    },
-    {
-      source: "github" as AuthSourceType,
-      title: "GitHub",
-      description: localText(
-        "通过 GitHub 已验证邮箱首次注册或首次绑定时应用。",
-        "Applied on first signup or first bind through a verified GitHub email.",
-      ),
-    },
-    {
-      source: "google" as AuthSourceType,
-      title: "Google",
-      description: localText(
-        "通过 Google 已验证邮箱首次注册或首次绑定时应用。",
-        "Applied on first signup or first bind through a verified Google email.",
-      ),
-    },
-    {
-      source: "dingtalk" as AuthSourceType,
-      title: t("auth.dingtalkProviderName"),
-      description: localText(
-        "通过钉钉首次注册或首次绑定时应用。",
-        "Applied on first signup or first bind through DingTalk.",
-      ),
-    },
-  ]);
 
   // Proxies for web search emulation ProxySelector
   const webSearchProxies = ref<Proxy[]>([]);
@@ -1185,484 +726,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  const defaultSubscriptionPlanOptions = computed<
-    DefaultSubscriptionPlanOption[]
-  >(() =>
-    subscriptionPlans.value.map((plan) => ({
-      value: plan.id,
-      label: plan.name,
-    })),
-  );
-
-  const registrationEmailSuffixWhitelistSeparatorKeys = new Set([
-    " ",
-    ",",
-    "，",
-    "Enter",
-    "Tab",
-  ]);
-
-  function removeRegistrationEmailSuffixWhitelistTag(suffix: string) {
-    registrationEmailSuffixWhitelistTags.value =
-      registrationEmailSuffixWhitelistTags.value.filter(
-        (item) => item !== suffix,
-      );
-  }
-
-  function addRegistrationEmailSuffixWhitelistTag(raw: string) {
-    const suffix = normalizeRegistrationEmailSuffixDomain(raw);
-    if (
-      !isRegistrationEmailSuffixDomainValid(suffix) ||
-      registrationEmailSuffixWhitelistTags.value.includes(suffix)
-    ) {
-      return;
-    }
-    registrationEmailSuffixWhitelistTags.value = [
-      ...registrationEmailSuffixWhitelistTags.value,
-      suffix,
-    ];
-  }
-
-  function commitRegistrationEmailSuffixWhitelistDraft() {
-    if (!registrationEmailSuffixWhitelistDraft.value) {
-      return;
-    }
-    addRegistrationEmailSuffixWhitelistTag(
-      registrationEmailSuffixWhitelistDraft.value,
-    );
-    registrationEmailSuffixWhitelistDraft.value = "";
-  }
-
-  function handleRegistrationEmailSuffixWhitelistDraftInput() {
-    registrationEmailSuffixWhitelistDraft.value =
-      normalizeRegistrationEmailSuffixDomain(
-        registrationEmailSuffixWhitelistDraft.value,
-      );
-  }
-
-  function handleRegistrationEmailSuffixWhitelistDraftKeydown(
-    event: KeyboardEvent,
-  ) {
-    if (event.isComposing) {
-      return;
-    }
-
-    if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
-      event.preventDefault();
-      commitRegistrationEmailSuffixWhitelistDraft();
-      return;
-    }
-
-    if (
-      event.key === "Backspace" &&
-      !registrationEmailSuffixWhitelistDraft.value &&
-      registrationEmailSuffixWhitelistTags.value.length > 0
-    ) {
-      registrationEmailSuffixWhitelistTags.value.pop();
-    }
-  }
-
-  function handleRegistrationEmailSuffixWhitelistPaste(event: ClipboardEvent) {
-    const text = event.clipboardData?.getData("text") || "";
-    if (!text.trim()) {
-      return;
-    }
-    event.preventDefault();
-    const tokens = parseRegistrationEmailSuffixWhitelistInput(text);
-    for (const token of tokens) {
-      addRegistrationEmailSuffixWhitelistTag(token);
-    }
-  }
-
-  const forwardedClientIpHeaderSeparatorKeys = new Set([
-    " ",
-    ",",
-    "，",
-    "Enter",
-    "Tab",
-  ]);
-  const forwardedClientIpHeaderTokenPattern = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
-  const maxForwardedClientIpHeaders = 16;
-
-  type ForwardedClientIpHeaderResult = "added" | "duplicate" | "invalid" | "full";
-
-  function normalizeForwardedClientIpHeader(raw: string): string {
-    const header = raw.trim();
-    if (!forwardedClientIpHeaderTokenPattern.test(header)) {
-      return "";
-    }
-
-    return header
-      .toLowerCase()
-      .split("-")
-      .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-      .join("-");
-  }
-
-  function normalizeForwardedClientIpHeaders(value: unknown): string[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    const headers: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of value) {
-      if (typeof raw !== "string") {
-        continue;
-      }
-      const header = normalizeForwardedClientIpHeader(raw);
-      const key = header.toLowerCase();
-      if (!header || seen.has(key) || headers.length >= maxForwardedClientIpHeaders) {
-        continue;
-      }
-      seen.add(key);
-      headers.push(header);
-    }
-    return headers;
-  }
-
-  function removeForwardedClientIpHeader(header: string) {
-    form.forwarded_client_ip_headers = form.forwarded_client_ip_headers.filter(
-      (item) => item !== header,
-    );
-  }
-
-  function addForwardedClientIpHeader(raw: string): ForwardedClientIpHeaderResult {
-    const header = normalizeForwardedClientIpHeader(raw);
-    if (!header) {
-      return "invalid";
-    }
-    if (
-      form.forwarded_client_ip_headers.some(
-        (item) => item.toLowerCase() === header.toLowerCase(),
-      )
-    ) {
-      return "duplicate";
-    }
-    if (form.forwarded_client_ip_headers.length >= maxForwardedClientIpHeaders) {
-      return "full";
-    }
-    form.forwarded_client_ip_headers = [
-      ...form.forwarded_client_ip_headers,
-      header,
-    ];
-    return "added";
-  }
-
-  function showForwardedClientIpHeaderError(result: ForwardedClientIpHeaderResult) {
-    if (result === "invalid") {
-      appStore.showError(t("admin.settings.apiKeyAcl.forwardedClientIpHeaderInvalid"));
-    } else if (result === "full") {
-      appStore.showError(
-        t("admin.settings.apiKeyAcl.forwardedClientIpHeadersLimit", {
-          max: maxForwardedClientIpHeaders,
-        }),
-      );
-    }
-  }
-
-  function commitForwardedClientIpHeaderDraft() {
-    const draft = forwardedClientIpHeaderDraft.value;
-    if (!draft) {
-      return;
-    }
-    const result = addForwardedClientIpHeader(draft);
-    showForwardedClientIpHeaderError(result);
-    forwardedClientIpHeaderDraft.value = "";
-  }
-
-  function handleForwardedClientIpHeaderKeydown(event: KeyboardEvent) {
-    if (event.isComposing) {
-      return;
-    }
-    if (forwardedClientIpHeaderSeparatorKeys.has(event.key)) {
-      event.preventDefault();
-      commitForwardedClientIpHeaderDraft();
-      return;
-    }
-    if (
-      event.key === "Backspace" &&
-      !forwardedClientIpHeaderDraft.value &&
-      form.forwarded_client_ip_headers.length > 0
-    ) {
-      form.forwarded_client_ip_headers.pop();
-    }
-  }
-
-  function handleForwardedClientIpHeaderPaste(event: ClipboardEvent) {
-    const text = event.clipboardData?.getData("text") || "";
-    if (!text.trim()) {
-      return;
-    }
-    event.preventDefault();
-
-    let error: ForwardedClientIpHeaderResult | undefined;
-    for (const token of text.split(/[,，;\r\n]+/)) {
-      if (!token.trim()) {
-        continue;
-      }
-      const result = addForwardedClientIpHeader(token);
-      if (result === "invalid" || result === "full") {
-        error = result;
-      }
-    }
-    if (error) {
-      showForwardedClientIpHeaderError(error);
-    }
-  }
-
-  // Quota notify email helpers
-  const addQuotaNotifyEmail = () => {
-    if (!form.account_quota_notify_emails) {
-      form.account_quota_notify_emails = [];
-    }
-    form.account_quota_notify_emails.push({
-      email: "",
-      disabled: false,
-      verified: true,
-    });
-  };
-
-  const currentOrigin =
-    typeof window !== "undefined" ? window.location.origin : "";
-
-  function buildApiCallbackUrl(path: string): string {
-    const base = (form.api_base_url || currentOrigin).replace(/\/+$/, "");
-    const apiRoot = base.endsWith("/api/v1") ? base : `${base}/api/v1`;
-    return `${apiRoot}${path.startsWith("/") ? path : `/${path}`}`;
-  }
-
-  // LinuxDo OAuth redirect URL suggestion
-  const linuxdoRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/linuxdo/callback");
-  });
-
-  async function setAndCopyLinuxdoRedirectUrl() {
-    const url = linuxdoRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.linuxdo_connect_redirect_url = url;
-    await copyToClipboard(
-      url,
-      t("admin.settings.linuxdo.redirectUrlSetAndCopied"),
-    );
-  }
-
-  type EmailOAuthProvider = "github" | "google";
-
-  const githubOAuthRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/github/callback");
-  });
-
-  const googleOAuthRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/google/callback");
-  });
-
-  async function setAndCopyEmailOAuthRedirectUrl(provider: EmailOAuthProvider) {
-    const url =
-      provider === "github"
-        ? githubOAuthRedirectUrlSuggestion.value
-        : googleOAuthRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    if (provider === "github") {
-      form.github_oauth_redirect_url = url;
-    } else {
-      form.google_oauth_redirect_url = url;
-    }
-    await copyToClipboard(
-      url,
-      localText("回调地址已写入并复制。", "Callback URL set and copied."),
-    );
-  }
-
-  const wechatRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/wechat/callback");
-  });
-
-  function syncWeChatConnectMode(preferredMode?: WeChatConnectMode) {
-    if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-      if (preferredMode === "mobile") {
-        form.wechat_connect_mp_enabled = false;
-      } else {
-        form.wechat_connect_mobile_enabled = false;
-      }
-    }
-
-    const capabilities = resolveWeChatConnectModeCapabilities(
-      form.wechat_connect_open_enabled,
-      form.wechat_connect_mp_enabled,
-      form.wechat_connect_mobile_enabled,
-      form.wechat_connect_mode,
-    );
-    form.wechat_connect_open_enabled = capabilities.openEnabled;
-    form.wechat_connect_mp_enabled = capabilities.mpEnabled;
-    form.wechat_connect_mobile_enabled = capabilities.mobileEnabled;
-    form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-      capabilities.openEnabled,
-      capabilities.mpEnabled,
-      capabilities.mobileEnabled,
-      form.wechat_connect_mode,
-    );
-    form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-      form.wechat_connect_mode,
-    );
-  }
-
-  function handleWeChatOpenEnabledChange(value: boolean) {
-    form.wechat_connect_open_enabled = value;
-    syncWeChatConnectMode(value ? "open" : undefined);
-  }
-
-  function handleWeChatMPEnabledChange(value: boolean) {
-    form.wechat_connect_mp_enabled = value;
-    if (value) {
-      form.wechat_connect_mobile_enabled = false;
-    }
-    syncWeChatConnectMode(value ? "mp" : undefined);
-  }
-
-  function handleWeChatMobileEnabledChange(value: boolean) {
-    form.wechat_connect_mobile_enabled = value;
-    if (value) {
-      form.wechat_connect_mp_enabled = false;
-    }
-    syncWeChatConnectMode(value ? "mobile" : undefined);
-  }
-
-  async function setAndCopyWeChatRedirectUrl() {
-    const url = wechatRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.wechat_connect_redirect_url = url;
-    await copyToClipboard(
-      url,
-      t("admin.settings.wechatConnect.redirectUrlSetAndCopied"),
-    );
-  }
-
-  const oidcRedirectUrlSuggestion = computed(() => {
-    return buildApiCallbackUrl("/auth/oauth/oidc/callback");
-  });
-
-  async function setAndCopyOIDCRedirectUrl() {
-    const url = oidcRedirectUrlSuggestion.value;
-    if (!url) return;
-
-    form.oidc_connect_redirect_url = url;
-    await copyToClipboard(url, t("admin.settings.oidc.redirectUrlSetAndCopied"));
-  }
-
-  // Custom menu item management
-  function addMenuItem() {
-    form.custom_menu_items.push({
-      id: "",
-      label: "",
-      icon_svg: "",
-      url: "",
-      visibility: "user",
-      sort_order: form.custom_menu_items.length,
-    });
-  }
-
-  function removeMenuItem(index: number) {
-    form.custom_menu_items.splice(index, 1);
-    // Re-index sort_order
-    form.custom_menu_items.forEach((item, i) => {
-      item.sort_order = i;
-    });
-  }
-
-  function moveMenuItem(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= form.custom_menu_items.length) return;
-    const items = form.custom_menu_items;
-    const temp = items[index];
-    items[index] = items[targetIndex];
-    items[targetIndex] = temp;
-    // Re-index sort_order
-    items.forEach((item, i) => {
-      item.sort_order = i;
-    });
-  }
-
-  // Custom endpoint management
-  function addEndpoint() {
-    form.custom_endpoints.push({ name: "", endpoint: "", description: "" });
-  }
-
-  function removeEndpoint(index: number) {
-    form.custom_endpoints.splice(index, 1);
-  }
-
-  function addLoginAgreementDocument() {
-    form.login_agreement_documents.push({
-      id: `custom-${Date.now().toString(36)}`,
-      title: "",
-      content_md: "",
-    });
-  }
-
-  function removeLoginAgreementDocument(index: number) {
-    form.login_agreement_documents.splice(index, 1);
-  }
-
-  function normalizeLoginAgreementDocumentsForSave(): LoginAgreementDocument[] {
-    return form.login_agreement_documents
-      .map((doc, index) => ({
-        id:
-          normalizeLoginAgreementDocumentId(doc.id || doc.title) ||
-          `doc-${index + 1}`,
-        title: doc.title.trim(),
-        content_md: doc.content_md.trim(),
-      }))
-      .filter((doc) => doc.title || doc.content_md);
-  }
-
-  function findDuplicateLoginAgreementDocumentId(
-    documents: LoginAgreementDocument[],
-  ): string | null {
-    const seen = new Set<string>();
-    for (const doc of documents) {
-      if (seen.has(doc.id)) {
-        return doc.id;
-      }
-      seen.add(doc.id);
-    }
-    return null;
-  }
-
-  function formatTablePageSizeOptions(options: number[]): string {
-    return options.join(", ");
-  }
-
-  function parseTablePageSizeOptionsInput(raw: string): number[] | null {
-    const tokens = raw
-      .split(",")
-      .map((token) => token.trim())
-      .filter((token) => token.length > 0);
-
-    if (tokens.length === 0) {
-      return null;
-    }
-
-    const parsed = tokens.map((token) => Number(token));
-    if (parsed.some((value) => !Number.isInteger(value))) {
-      return null;
-    }
-
-    const deduped = Array.from(new Set(parsed)).sort((a, b) => a - b);
-    if (
-      deduped.some(
-        (value) => value < tablePageSizeMin || value > tablePageSizeMax,
-      )
-    ) {
-      return null;
-    }
-
-    return deduped;
-  }
-
   // ── codex_cli_only 黑/白名单结构化编辑（行 ↔ JSON）──
   interface CodexClientRow {
     originator: string;
@@ -1752,15 +815,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     loadFailed.value = false;
     try {
       const settings = await adminAPI.settings.getSettings();
-      settings.payment_load_balance_strategy =
-        settings.payment_load_balance_strategy || "round-robin";
       // Only assign non-null values from backend (null means unconfigured, keep defaults)
       for (const [key, value] of Object.entries(settings)) {
         if (value !== null && value !== undefined) {
           (form as Record<string, unknown>)[key] = value;
         }
       }
-      syncCaptchaProviderSelection();
       if (!form.claude_oauth_system_prompt_blocks?.trim()) {
         form.claude_oauth_system_prompt_blocks =
           defaultClaudeOAuthSystemPromptBlocks;
@@ -1779,108 +839,9 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       codexFingerprintRows.value = form.codex_cli_only_engine_fingerprint_signals
         ? parseFingerprintSignalsToRows(form.codex_cli_only_engine_fingerprint_signals)
         : defaultFingerprintSignalRows();
-      form.login_agreement_mode =
-        settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
-      form.login_agreement_updated_at =
-        settings.login_agreement_updated_at || "2026-03-31";
-      form.login_agreement_documents =
-        Array.isArray(settings.login_agreement_documents) &&
-        settings.login_agreement_documents.length > 0
-          ? settings.login_agreement_documents.map((doc) => ({
-              id: doc.id || "",
-              title: doc.title || "",
-              content_md: doc.content_md || "",
-            }))
-          : defaultLoginAgreementDocuments();
-      Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(settings));
       form.account_scheduling_thresholds = normalizeAccountSchedulingThresholdsMap(
         settings.account_scheduling_thresholds,
       );
-      form.backend_mode_enabled = settings.backend_mode_enabled;
-      form.default_subscriptions = normalizeDefaultSubscriptionSettings(
-        settings.default_subscriptions,
-      );
-      registrationEmailSuffixWhitelistTags.value =
-        normalizeRegistrationEmailSuffixDomains(
-          settings.registration_email_suffix_whitelist,
-        );
-      form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
-        settings.forwarded_client_ip_headers,
-      );
-      forwardedClientIpHeaderDraft.value = "";
-      tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
-        Array.isArray(settings.table_page_size_options)
-          ? settings.table_page_size_options
-          : [10, 20, 50, 100],
-      );
-      registrationEmailSuffixWhitelistDraft.value = "";
-      form.smtp_password = "";
-      smtpPasswordManuallyEdited.value = false;
-      form.turnstile_secret_key = "";
-      form.tencent_captcha_app_secret_key = "";
-      form.tencent_captcha_cloud_secret_id = "";
-      form.tencent_captcha_cloud_secret_key = "";
-      form.aliyun_captcha_access_key_secret = "";
-      form.linuxdo_connect_client_secret = "";
-      form.dingtalk_connect_client_secret = "";
-      form.github_oauth_client_secret = "";
-      form.google_oauth_client_secret = "";
-      form.wechat_connect_app_secret = "";
-      form.wechat_connect_open_app_secret = "";
-      form.wechat_connect_mp_app_secret = "";
-      form.wechat_connect_mobile_app_secret = "";
-      const wechatCapabilities = resolveWeChatConnectModeCapabilities(
-        settings.wechat_connect_open_enabled,
-        settings.wechat_connect_mp_enabled,
-        settings.wechat_connect_mobile_enabled,
-        settings.wechat_connect_mode,
-      );
-      form.wechat_connect_open_enabled = wechatCapabilities.openEnabled;
-      form.wechat_connect_mp_enabled = wechatCapabilities.mpEnabled;
-      form.wechat_connect_mobile_enabled = wechatCapabilities.mobileEnabled;
-      form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-        wechatCapabilities.openEnabled,
-        wechatCapabilities.mpEnabled,
-        wechatCapabilities.mobileEnabled,
-        settings.wechat_connect_mode,
-      );
-      const legacyWeChatAppID = String(settings.wechat_connect_app_id || "").trim();
-      const legacyWeChatSecretConfigured = Boolean(
-        settings.wechat_connect_app_secret_configured,
-      );
-      if (!form.wechat_connect_open_app_id && wechatCapabilities.openEnabled) {
-        form.wechat_connect_open_app_id = legacyWeChatAppID;
-      }
-      if (!form.wechat_connect_mp_app_id && wechatCapabilities.mpEnabled) {
-        form.wechat_connect_mp_app_id = legacyWeChatAppID;
-      }
-      if (!form.wechat_connect_mobile_app_id && wechatCapabilities.mobileEnabled) {
-        form.wechat_connect_mobile_app_id = legacyWeChatAppID;
-      }
-      if (
-        !form.wechat_connect_open_app_secret_configured &&
-        wechatCapabilities.openEnabled
-      ) {
-        form.wechat_connect_open_app_secret_configured =
-          legacyWeChatSecretConfigured;
-      }
-      if (
-        !form.wechat_connect_mp_app_secret_configured &&
-        wechatCapabilities.mpEnabled
-      ) {
-        form.wechat_connect_mp_app_secret_configured = legacyWeChatSecretConfigured;
-      }
-      if (
-        !form.wechat_connect_mobile_app_secret_configured &&
-        wechatCapabilities.mobileEnabled
-      ) {
-        form.wechat_connect_mobile_app_secret_configured =
-          legacyWeChatSecretConfigured;
-      }
-      form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-        form.wechat_connect_mode,
-      );
-      form.oidc_connect_client_secret = "";
 
       // Load OpenAI fast/flex policy rules from bulk settings.
       // 仅当 payload 真的包含该字段时填充并标记为已加载；否则保持表单空值，
@@ -1912,163 +873,9 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function loadSubscriptionPlans() {
-    try {
-      const res = await adminPaymentAPI.getPlans();
-      subscriptionPlans.value = res.data || [];
-    } catch (_error: unknown) {
-      subscriptionPlans.value = [];
-    }
-  }
-
-  // 每个列表最多一项（同一用户同一时间只能一条有效订阅）
-  function addDefaultSubscription() {
-    const first = subscriptionPlans.value[0];
-    if (!first || form.default_subscriptions.length >= 1) return;
-    form.default_subscriptions.push({
-      plan_id: first.id,
-      validity_days: 30,
-    });
-  }
-
-  function removeDefaultSubscription(index: number) {
-    form.default_subscriptions.splice(index, 1);
-  }
-
-  function addAuthSourceDefaultSubscription(source: AuthSourceType) {
-    const first = subscriptionPlans.value[0];
-    if (!first || authSourceDefaults[source].subscriptions.length >= 1) return;
-    authSourceDefaults[source].subscriptions.push({
-      plan_id: first.id,
-      validity_days: 30,
-    });
-  }
-
-  function removeAuthSourceDefaultSubscription(
-    source: AuthSourceType,
-    index: number,
-  ) {
-    authSourceDefaults[source].subscriptions.splice(index, 1);
-  }
-
-
   async function saveSettings(): Promise<boolean> {
     saving.value = true;
     try {
-      const normalizedTableDefaultPageSize = Math.floor(
-        Number(form.table_default_page_size),
-      );
-      if (
-        !Number.isInteger(normalizedTableDefaultPageSize) ||
-        normalizedTableDefaultPageSize < tablePageSizeMin ||
-        normalizedTableDefaultPageSize > tablePageSizeMax
-      ) {
-        appStore.showError(
-          t("admin.settings.site.tableDefaultPageSizeRangeError", {
-            min: tablePageSizeMin,
-            max: tablePageSizeMax,
-          }),
-        );
-        return false;
-      }
-
-      const normalizedTablePageSizeOptions = parseTablePageSizeOptionsInput(
-        tablePageSizeOptionsInput.value,
-      );
-      if (!normalizedTablePageSizeOptions) {
-        appStore.showError(
-          t("admin.settings.site.tablePageSizeOptionsFormatError", {
-            min: tablePageSizeMin,
-            max: tablePageSizeMax,
-          }),
-        );
-        return false;
-      }
-
-      form.table_default_page_size = normalizedTableDefaultPageSize;
-      form.table_page_size_options = normalizedTablePageSizeOptions;
-
-      const normalizedLoginAgreementDocuments =
-        normalizeLoginAgreementDocumentsForSave();
-      if (form.login_agreement_enabled && normalizedLoginAgreementDocuments.length === 0) {
-        appStore.showError(
-          localText(
-            "启用登录条款确认时，至少需要保留一份文档。",
-            "At least one document is required when login agreement is enabled.",
-          ),
-        );
-        return false;
-      }
-      const emptyTitleDocument = normalizedLoginAgreementDocuments.find(
-        (doc) => !doc.title,
-      );
-      if (emptyTitleDocument) {
-        appStore.showError(
-          localText(
-            "登录条款文档名称不能为空。",
-            "Login agreement document title cannot be empty.",
-          ),
-        );
-        return false;
-      }
-      const duplicateLoginAgreementDocumentId =
-        findDuplicateLoginAgreementDocumentId(normalizedLoginAgreementDocuments);
-      if (duplicateLoginAgreementDocumentId) {
-        appStore.showError(
-          localText(
-            `登录条款文档路由不能重复：/legal/${duplicateLoginAgreementDocumentId}`,
-            `Login agreement document routes cannot be duplicated: /legal/${duplicateLoginAgreementDocumentId}`,
-          ),
-        );
-        return false;
-      }
-      form.login_agreement_mode =
-        form.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
-      form.login_agreement_documents = normalizedLoginAgreementDocuments;
-      form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
-        form.forwarded_client_ip_headers,
-      );
-
-      const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionSettings(
-        form.default_subscriptions,
-      );
-
-      for (const authSource of authSourceDefaultsMeta.value) {
-        authSourceDefaults[authSource.source].subscriptions =
-          normalizeDefaultSubscriptionSettings(
-            authSourceDefaults[authSource.source].subscriptions,
-          );
-      }
-
-      if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-        appStore.showError(
-          localText(
-            "公众号和移动应用不能同时启用。",
-            "Official Account and Mobile App cannot be enabled at the same time.",
-          ),
-        );
-        return false;
-      }
-      // Validate URL fields — novalidate disables browser-native checks, so we validate here
-      const isValidHttpUrl = (url: string): boolean => {
-        if (!url) return true;
-        try {
-          const u = new URL(url);
-          return u.protocol === "http:" || u.protocol === "https:";
-        } catch {
-          return false;
-        }
-      };
-      // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
-      if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
-      if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
-      syncWeChatConnectMode();
-      const wechatStoredMode = deriveWeChatConnectStoredMode(
-        form.wechat_connect_open_enabled,
-        form.wechat_connect_mp_enabled,
-        form.wechat_connect_mobile_enabled,
-        form.wechat_connect_mode,
-      );
       const claudeOAuthSystemPromptBlocksJSON =
         serializeClaudeOAuthSystemPromptBlocksToJSON(
           claudeOAuthSystemPromptBlocks.value,
@@ -2077,163 +884,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         claudeOAuthSystemPromptBlocksJSON;
 
       const payload: UpdateSettingsRequest = {
-        registration_enabled: form.registration_enabled,
-        email_verify_enabled: form.email_verify_enabled,
-        registration_email_suffix_whitelist:
-          registrationEmailSuffixWhitelistTags.value.map((suffix) =>
-            suffix.startsWith("*.") ? suffix : `@${suffix}`,
-          ),
-        registration_email_domain_quota_enabled:
-          form.registration_email_domain_quota_enabled,
-        invitation_code_enabled: form.invitation_code_enabled,
-        password_reset_enabled: form.password_reset_enabled,
-        passkey_enabled: form.passkey_enabled,
-        session_binding_enabled: form.session_binding_enabled,
-        step_up_enabled: form.step_up_enabled,
-        // 清空数字框时 v-model.number 会得到空串，后端 int 字段解析空串会 400 拒绝整次保存；
-        // 空/非法值回退默认 180（与后端 parseAuditLogRetentionDays("") 语义一致，0 仍表示永久保留）。
-        audit_log_retention_days: Number.isFinite(form.audit_log_retention_days)
-          ? form.audit_log_retention_days
-          : 180,
-        login_agreement_enabled: form.login_agreement_enabled,
-        login_agreement_mode: form.login_agreement_mode,
-        login_agreement_updated_at: form.login_agreement_updated_at,
-        login_agreement_documents: form.login_agreement_documents,
-        default_balance: form.default_balance,
-        default_concurrency: form.default_concurrency,
-        default_subscriptions: normalizedDefaultSubscriptions,
-        force_email_on_third_party_signup: form.force_email_on_third_party_signup,
-        default_user_rpm_limit: form.default_user_rpm_limit,
-        site_name: form.site_name,
-        site_logo: form.site_logo,
-        site_subtitle: form.site_subtitle,
-        api_base_url: form.api_base_url,
-        contact_info: form.contact_info,
-        doc_url: form.doc_url,
-        home_content: form.home_content,
-        compact_home_enabled: form.compact_home_enabled,
-        backend_mode_enabled: form.backend_mode_enabled,
-        hide_ccs_import_button: form.hide_ccs_import_button,
-        table_default_page_size: form.table_default_page_size,
-        table_page_size_options: form.table_page_size_options,
-        custom_menu_items: form.custom_menu_items,
-        custom_endpoints: form.custom_endpoints,
-        frontend_url: form.frontend_url,
-        smtp_host: form.smtp_host,
-        smtp_port: form.smtp_port,
-        smtp_username: form.smtp_username,
-        smtp_password: form.smtp_password || undefined,
-        smtp_from_email: form.smtp_from_email,
-        smtp_from_name: form.smtp_from_name,
-        smtp_use_tls: form.smtp_use_tls,
-        turnstile_enabled: form.turnstile_enabled,
-        turnstile_site_key: form.turnstile_site_key,
-        turnstile_secret_key: form.turnstile_secret_key || undefined,
-        tencent_captcha_enabled: form.tencent_captcha_enabled,
-        tencent_captcha_app_id: form.tencent_captcha_app_id,
-        tencent_captcha_app_secret_key:
-          form.tencent_captcha_app_secret_key || undefined,
-        tencent_captcha_cloud_secret_id:
-          form.tencent_captcha_cloud_secret_id || undefined,
-        tencent_captcha_cloud_secret_key:
-          form.tencent_captcha_cloud_secret_key || undefined,
-        tencent_captcha_region: form.tencent_captcha_region,
-        aliyun_captcha_enabled: form.aliyun_captcha_enabled,
-        aliyun_captcha_access_key_id: form.aliyun_captcha_access_key_id,
-        aliyun_captcha_access_key_secret:
-          form.aliyun_captcha_access_key_secret || undefined,
-        aliyun_captcha_scene_id: form.aliyun_captcha_scene_id,
-        aliyun_captcha_prefix: form.aliyun_captcha_prefix,
-        aliyun_captcha_region: form.aliyun_captcha_region,
-        api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
-        forwarded_client_ip_headers: form.forwarded_client_ip_headers,
-        linuxdo_connect_enabled: form.linuxdo_connect_enabled,
-        linuxdo_connect_client_id: form.linuxdo_connect_client_id,
-        linuxdo_connect_client_secret:
-          form.linuxdo_connect_client_secret || undefined,
-        linuxdo_connect_redirect_url: form.linuxdo_connect_redirect_url,
-        dingtalk_connect_enabled: form.dingtalk_connect_enabled,
-        dingtalk_connect_client_id: form.dingtalk_connect_client_id,
-        dingtalk_connect_client_secret:
-          form.dingtalk_connect_client_secret || undefined,
-        dingtalk_connect_redirect_url: form.dingtalk_connect_redirect_url,
-        dingtalk_connect_corp_restriction_policy:
-          form.dingtalk_connect_corp_restriction_policy,
-        dingtalk_connect_internal_corp_id: form.dingtalk_connect_internal_corp_id,
-        dingtalk_connect_bypass_registration: form.dingtalk_connect_bypass_registration,
-        dingtalk_connect_sync_corp_email: form.dingtalk_connect_sync_corp_email,
-        dingtalk_connect_sync_display_name: form.dingtalk_connect_sync_display_name,
-        dingtalk_connect_sync_dept: form.dingtalk_connect_sync_dept,
-        dingtalk_connect_sync_corp_email_attr_key: form.dingtalk_connect_sync_corp_email_attr_key,
-        dingtalk_connect_sync_display_name_attr_key: form.dingtalk_connect_sync_display_name_attr_key,
-        dingtalk_connect_sync_dept_attr_key: form.dingtalk_connect_sync_dept_attr_key,
-        dingtalk_connect_sync_corp_email_attr_name: form.dingtalk_connect_sync_corp_email_attr_name,
-        dingtalk_connect_sync_display_name_attr_name: form.dingtalk_connect_sync_display_name_attr_name,
-        dingtalk_connect_sync_dept_attr_name: form.dingtalk_connect_sync_dept_attr_name,
-        wechat_connect_enabled: form.wechat_connect_enabled,
-        wechat_connect_app_id:
-          form.wechat_connect_open_app_id ||
-          form.wechat_connect_mp_app_id ||
-          form.wechat_connect_mobile_app_id ||
-          form.wechat_connect_app_id,
-        wechat_connect_app_secret: form.wechat_connect_app_secret || undefined,
-        wechat_connect_open_app_id: form.wechat_connect_open_app_id,
-        wechat_connect_open_app_secret:
-          form.wechat_connect_open_app_secret || undefined,
-        wechat_connect_mp_app_id: form.wechat_connect_mp_app_id,
-        wechat_connect_mp_app_secret:
-          form.wechat_connect_mp_app_secret || undefined,
-        wechat_connect_mobile_app_id: form.wechat_connect_mobile_app_id,
-        wechat_connect_mobile_app_secret:
-          form.wechat_connect_mobile_app_secret || undefined,
-        wechat_connect_open_enabled: form.wechat_connect_open_enabled,
-        wechat_connect_mp_enabled: form.wechat_connect_mp_enabled,
-        wechat_connect_mobile_enabled: form.wechat_connect_mobile_enabled,
-        wechat_connect_mode: wechatStoredMode,
-        wechat_connect_scopes:
-          defaultWeChatConnectScopesForMode(wechatStoredMode),
-        wechat_connect_redirect_url: form.wechat_connect_redirect_url,
-        wechat_connect_frontend_redirect_url:
-          form.wechat_connect_frontend_redirect_url,
-        oidc_connect_enabled: form.oidc_connect_enabled,
-        oidc_connect_provider_name: form.oidc_connect_provider_name,
-        oidc_connect_client_id: form.oidc_connect_client_id,
-        oidc_connect_client_secret: form.oidc_connect_client_secret || undefined,
-        oidc_connect_issuer_url: form.oidc_connect_issuer_url,
-        oidc_connect_discovery_url: form.oidc_connect_discovery_url,
-        oidc_connect_authorize_url: form.oidc_connect_authorize_url,
-        oidc_connect_token_url: form.oidc_connect_token_url,
-        oidc_connect_userinfo_url: form.oidc_connect_userinfo_url,
-        oidc_connect_jwks_url: form.oidc_connect_jwks_url,
-        oidc_connect_scopes: form.oidc_connect_scopes,
-        oidc_connect_redirect_url: form.oidc_connect_redirect_url,
-        oidc_connect_frontend_redirect_url:
-          form.oidc_connect_frontend_redirect_url,
-        oidc_connect_token_auth_method: form.oidc_connect_token_auth_method,
-        oidc_connect_use_pkce: form.oidc_connect_use_pkce,
-        oidc_connect_validate_id_token: form.oidc_connect_validate_id_token,
-        oidc_connect_allowed_signing_algs: form.oidc_connect_allowed_signing_algs,
-        oidc_connect_clock_skew_seconds: form.oidc_connect_clock_skew_seconds,
-        oidc_connect_require_email_verified:
-          form.oidc_connect_require_email_verified,
-        oidc_connect_userinfo_email_path: form.oidc_connect_userinfo_email_path,
-        oidc_connect_userinfo_id_path: form.oidc_connect_userinfo_id_path,
-        oidc_connect_userinfo_username_path:
-          form.oidc_connect_userinfo_username_path,
-        github_oauth_enabled: form.github_oauth_enabled,
-        github_oauth_client_id: form.github_oauth_client_id,
-        github_oauth_client_secret:
-          form.github_oauth_client_secret || undefined,
-        github_oauth_redirect_url: form.github_oauth_redirect_url,
-        github_oauth_frontend_redirect_url:
-          form.github_oauth_frontend_redirect_url,
-        google_oauth_enabled: form.google_oauth_enabled,
-        google_oauth_client_id: form.google_oauth_client_id,
-        google_oauth_client_secret:
-          form.google_oauth_client_secret || undefined,
-        google_oauth_redirect_url: form.google_oauth_redirect_url,
-        google_oauth_frontend_redirect_url:
-          form.google_oauth_frontend_redirect_url,
         grok_default_text_model:
           form.grok_default_text_model.trim() || "grok-4.5",
         grok_cross_client_model_map_enabled:
@@ -2280,54 +930,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         codex_cli_only_whitelist: serializeCodexRowsToJSON(
           codexWhitelistRows.value,
         ),
-        // Payment configuration
-        payment_enabled: form.payment_enabled,
         risk_control_enabled: form.risk_control_enabled,
-        payment_min_amount: Number(form.payment_min_amount) || 0,
-        payment_max_amount: Number(form.payment_max_amount) || 0,
-        payment_daily_limit: Number(form.payment_daily_limit) || 0,
-        payment_max_pending_orders: Number(form.payment_max_pending_orders) || 0,
-        payment_order_timeout_minutes:
-          Number(form.payment_order_timeout_minutes) || 0,
-        payment_usd_to_cny_rate: Number(form.payment_usd_to_cny_rate) || 0,
-        payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
-        payment_enabled_types: form.payment_enabled_types,
-        payment_load_balance_strategy: form.payment_load_balance_strategy,
-        payment_product_name_prefix: form.payment_product_name_prefix,
-        payment_product_name_suffix: form.payment_product_name_suffix,
-        payment_help_image_url: form.payment_help_image_url,
-        payment_help_text: form.payment_help_text,
-        payment_cancel_rate_limit_enabled: form.payment_cancel_rate_limit_enabled,
-        payment_cancel_rate_limit_max:
-          Number(form.payment_cancel_rate_limit_max) || 10,
-        payment_cancel_rate_limit_window:
-          Number(form.payment_cancel_rate_limit_window) || 1,
-        payment_cancel_rate_limit_unit: form.payment_cancel_rate_limit_unit,
-        payment_cancel_rate_limit_window_mode:
-          form.payment_cancel_rate_limit_window_mode,
-        payment_alipay_force_qrcode: form.payment_alipay_force_qrcode,
-        payment_alipay_mobile_precreate_deep_link:
-          form.payment_alipay_mobile_precreate_deep_link,
-        // 余额、订阅到期与账号限额通知
-        balance_low_notify_enabled: form.balance_low_notify_enabled,
-        balance_low_notify_threshold:
-          Number(form.balance_low_notify_threshold) || 0,
-        balance_low_notify_recharge_url: (form.balance_low_notify_recharge_url =
-          form.balance_low_notify_recharge_url || currentOrigin),
-        subscription_expiry_notify_enabled:
-          form.subscription_expiry_notify_enabled,
-        account_quota_notify_enabled: form.account_quota_notify_enabled,
-        account_quota_notify_emails: (
-          form.account_quota_notify_emails || []
-        ).filter((e) => e.email.trim() !== ""),
-        // Channel Monitor feature switch
-        channel_monitor_enabled: form.channel_monitor_enabled,
-        // Ops monitoring feature switch
-        ops_monitoring_enabled: form.ops_monitoring_enabled,
-        // Available Channels feature switch
-        // Model Plaza feature switches + description
-        model_plaza_description: form.model_plaza_description,
-        allow_user_view_error_requests: form.allow_user_view_error_requests,
         profit_control_enabled: form.profit_control_enabled,
         profit_min_margin: form.profit_min_margin,
         profit_safety_buffer: form.profit_safety_buffer,
@@ -2368,67 +971,17 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       payload.account_scheduling_thresholds = sanitizeAccountSchedulingThresholdsMap(
         form.account_scheduling_thresholds,
       );
-      appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
-      const updated = await settingsStepUp.run(() =>
-        adminAPI.settings.updateSettings(payload),
-      );
+      const updated = await adminAPI.settings.updateSettings(payload);
       for (const [key, value] of Object.entries(updated)) {
         if (key === "openai_fast_policy_settings") continue;
         if (value !== null && value !== undefined) {
           (form as Record<string, unknown>)[key] = value;
         }
       }
-      Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
       form.account_scheduling_thresholds = normalizeAccountSchedulingThresholdsMap(
         updated.account_scheduling_thresholds,
       );
-      registrationEmailSuffixWhitelistTags.value =
-        normalizeRegistrationEmailSuffixDomains(
-          updated.registration_email_suffix_whitelist,
-        );
-      form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
-        updated.forwarded_client_ip_headers,
-      );
-      forwardedClientIpHeaderDraft.value = "";
-      tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
-        Array.isArray(updated.table_page_size_options)
-          ? updated.table_page_size_options
-          : [10, 20, 50, 100],
-      );
-      registrationEmailSuffixWhitelistDraft.value = "";
-      form.smtp_password = "";
-      smtpPasswordManuallyEdited.value = false;
-      form.turnstile_secret_key = "";
-      form.aliyun_captcha_access_key_secret = "";
-      form.linuxdo_connect_client_secret = "";
-      form.dingtalk_connect_client_secret = "";
-      form.github_oauth_client_secret = "";
-      form.google_oauth_client_secret = "";
-      form.wechat_connect_app_secret = "";
-      form.wechat_connect_open_app_secret = "";
-      form.wechat_connect_mp_app_secret = "";
-      form.wechat_connect_mobile_app_secret = "";
-      const updatedWechatCapabilities = resolveWeChatConnectModeCapabilities(
-        updated.wechat_connect_open_enabled,
-        updated.wechat_connect_mp_enabled,
-        updated.wechat_connect_mobile_enabled,
-        updated.wechat_connect_mode,
-      );
-      form.wechat_connect_open_enabled = updatedWechatCapabilities.openEnabled;
-      form.wechat_connect_mp_enabled = updatedWechatCapabilities.mpEnabled;
-      form.wechat_connect_mobile_enabled =
-        updatedWechatCapabilities.mobileEnabled;
-      form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-        updatedWechatCapabilities.openEnabled,
-        updatedWechatCapabilities.mpEnabled,
-        updatedWechatCapabilities.mobileEnabled,
-        updated.wechat_connect_mode,
-      );
-      form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-        form.wechat_connect_mode,
-      );
-      form.oidc_connect_client_secret = "";
       // Refresh OpenAI fast/flex policy from server response
       if (
         updated.openai_fast_policy_settings &&
@@ -2448,31 +1001,11 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       const wsOk = await saveWebSearchConfig();
       // Refresh cached settings so sidebar/header update immediately
       await appStore.fetchPublicSettings(true);
-      await adminSettingsStore.fetch(true);
       if (wsOk) {
         appStore.showSuccess(t("admin.settings.settingsSaved"));
       }
       return wsOk;
     } catch (error: unknown) {
-      // 用户取消 step-up 验证：静默返回，不弹错误
-      if (isStepUpCancelled(error)) {
-        return false;
-      }
-      if (isStepUpBlocked(error)) {
-        appStore.showError(
-          stepUpBlockReason(error) === "STEP_UP_ADMIN_API_KEY_FORBIDDEN"
-            ? t("stepUp.adminApiKeyForbidden")
-            : t("stepUp.notEnabled"),
-        );
-        return false;
-      }
-      // 开启 step-up 开关但本人未启用 2FA：给出可操作的专用提示
-      if (
-        (error as { reason?: string })?.reason === "STEP_UP_ENABLE_REQUIRES_TOTP"
-      ) {
-        appStore.showError(t("admin.settings.security.stepUpEnableRequiresTotp"));
-        return false;
-      }
       appStore.showError(
         extractApiErrorMessage(error, t("admin.settings.failedToSave")),
       );
@@ -2480,126 +1013,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     } finally {
       saving.value = false;
     }
-  }
-
-  async function testSmtpConnection() {
-    testingSmtp.value = true;
-    try {
-      const smtpPasswordForTest = smtpPasswordManuallyEdited.value
-        ? form.smtp_password
-        : "";
-      const result = await adminAPI.settings.testSmtpConnection({
-        smtp_host: form.smtp_host,
-        smtp_port: form.smtp_port,
-        smtp_username: form.smtp_username,
-        smtp_password: smtpPasswordForTest,
-        smtp_use_tls: form.smtp_use_tls,
-      });
-      // API returns { message: "..." } on success, errors are thrown as exceptions
-      appStore.showSuccess(
-        result.message || t("admin.settings.smtpConnectionSuccess"),
-      );
-    } catch (error: unknown) {
-      appStore.showError(
-        extractApiErrorMessage(error, t("admin.settings.failedToTestSmtp")),
-      );
-    } finally {
-      testingSmtp.value = false;
-    }
-  }
-
-  async function sendTestEmail() {
-    if (!testEmailAddress.value) {
-      appStore.showError(t("admin.settings.testEmail.enterRecipientHint"));
-      return;
-    }
-
-    sendingTestEmail.value = true;
-    try {
-      const smtpPasswordForSend = smtpPasswordManuallyEdited.value
-        ? form.smtp_password
-        : "";
-      const result = await adminAPI.settings.sendTestEmail({
-        email: testEmailAddress.value,
-        smtp_host: form.smtp_host,
-        smtp_port: form.smtp_port,
-        smtp_username: form.smtp_username,
-        smtp_password: smtpPasswordForSend,
-        smtp_from_email: form.smtp_from_email,
-        smtp_from_name: form.smtp_from_name,
-        smtp_use_tls: form.smtp_use_tls,
-      });
-      // API returns { message: "..." } on success, errors are thrown as exceptions
-      appStore.showSuccess(result.message || t("admin.settings.testEmailSent"));
-    } catch (error: unknown) {
-      appStore.showError(
-        extractApiErrorMessage(error, t("admin.settings.failedToSendTestEmail")),
-      );
-    } finally {
-      sendingTestEmail.value = false;
-    }
-  }
-
-  // Admin API Key 方法
-  async function loadAdminApiKey() {
-    adminApiKeyLoading.value = true;
-    try {
-      const status = await adminAPI.settings.getAdminApiKey();
-      adminApiKeyExists.value = status.exists;
-      adminApiKeyMasked.value = status.masked_key;
-    } catch (_error: unknown) {
-      // Silent fail - admin API key status is non-critical
-    } finally {
-      adminApiKeyLoading.value = false;
-    }
-  }
-
-  async function createAdminApiKey() {
-    adminApiKeyOperating.value = true;
-    try {
-      const result = await adminAPI.settings.regenerateAdminApiKey();
-      newAdminApiKey.value = result.key;
-      adminApiKeyExists.value = true;
-      adminApiKeyMasked.value =
-        result.key.substring(0, 10) + "..." + result.key.slice(-4);
-      appStore.showSuccess(t("admin.settings.adminApiKey.keyGenerated"));
-    } catch (error: unknown) {
-      appStore.showError(extractApiErrorMessage(error, t("common.error")));
-    } finally {
-      adminApiKeyOperating.value = false;
-    }
-  }
-
-  async function regenerateAdminApiKey() {
-    if (!confirm(t("admin.settings.adminApiKey.regenerateConfirm"))) return;
-    await createAdminApiKey();
-  }
-
-  async function deleteAdminApiKey() {
-    if (!confirm(t("admin.settings.adminApiKey.deleteConfirm"))) return;
-    adminApiKeyOperating.value = true;
-    try {
-      await adminAPI.settings.deleteAdminApiKey();
-      adminApiKeyExists.value = false;
-      adminApiKeyMasked.value = "";
-      newAdminApiKey.value = "";
-      appStore.showSuccess(t("admin.settings.adminApiKey.keyDeleted"));
-    } catch (error: unknown) {
-      appStore.showError(extractApiErrorMessage(error, t("common.error")));
-    } finally {
-      adminApiKeyOperating.value = false;
-    }
-  }
-
-  function copyNewKey() {
-    navigator.clipboard
-      .writeText(newAdminApiKey.value)
-      .then(() => {
-        appStore.showSuccess(t("admin.settings.adminApiKey.keyCopied"));
-      })
-      .catch(() => {
-        appStore.showError(t("common.copyFailed"));
-      });
   }
 
   async function loadUpstreamBillingProbeSettings() {
@@ -2704,45 +1117,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       return false;
     } finally {
       overloadCooldownSaving.value = false;
-    }
-  }
-
-  // Panel API Rate Limit 方法
-  async function loadPanelRateLimitSettings() {
-    panelRateLimitLoading.value = true;
-    try {
-      const settings = await adminAPI.settings.getPanelRateLimitSettings();
-      Object.assign(panelRateLimitForm, settings);
-    } catch (_error: unknown) {
-      // Silent fail - settings will use defaults
-    } finally {
-      panelRateLimitLoading.value = false;
-    }
-  }
-
-  async function savePanelRateLimitSettings(): Promise<boolean> {
-    panelRateLimitSaving.value = true;
-    try {
-      const updated = await adminAPI.settings.updatePanelRateLimitSettings({
-        enabled: panelRateLimitForm.enabled,
-        user_rpm: panelRateLimitForm.user_rpm,
-        heavy_rpm: panelRateLimitForm.heavy_rpm,
-        exempt_admin: panelRateLimitForm.exempt_admin,
-        public_ip_rpm: panelRateLimitForm.public_ip_rpm,
-      });
-      Object.assign(panelRateLimitForm, updated);
-      appStore.showSuccess(t("admin.settings.panelRateLimit.saved"));
-      return true;
-    } catch (error: unknown) {
-      appStore.showError(
-        extractApiErrorMessage(
-          error,
-          t("admin.settings.panelRateLimit.saveFailed"),
-        ),
-      );
-      return false;
-    } finally {
-      panelRateLimitSaving.value = false;
     }
   }
 
@@ -3067,380 +1441,16 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  // ==================== Provider Management ====================
-
-  const allPaymentTypes = computed(() => [
-    { value: "easypay", label: t("payment.methods.easypay") },
-    { value: "alipay", label: t("payment.methods.alipay") },
-    { value: "wxpay", label: t("payment.methods.wxpay") },
-    { value: "stripe", label: t("payment.methods.stripe") },
-    { value: "airwallex", label: t("payment.methods.airwallex") },
-  ]);
-
-  function isPaymentTypeEnabled(type: string): boolean {
-    return form.payment_enabled_types.includes(type);
-  }
-
-  const hasAnyPaymentTypeEnabled = computed(
-    () => form.payment_enabled_types.length > 0,
-  );
-
-  function togglePaymentType(type: string) {
-    if (form.payment_enabled_types.includes(type)) {
-      form.payment_enabled_types = form.payment_enabled_types.filter(
-        (t) => t !== type,
-      );
-      // Disable all provider instances matching this type
-      disableProvidersByType(type);
-    } else {
-      form.payment_enabled_types = [...form.payment_enabled_types, type];
-    }
-  }
-
-  async function disableProvidersByType(type: string) {
-    const matching = providers.value.filter(
-      (p) => p.provider_key === type && p.enabled,
-    );
-    for (const p of matching) {
-      try {
-        await adminAPI.payment.updateProvider(p.id, { enabled: false });
-        p.enabled = false;
-      } catch (err: unknown) {
-        slog("disable provider failed", p.id, err);
-      }
-    }
-  }
-
-  function slog(...args: unknown[]) {
-    console.warn("[payment]", ...args);
-  }
-
-  const providersLoading = ref(false);
-  const providerSaving = ref(false);
-  const providers = ref<ProviderInstance[]>([]);
-  const showProviderDialog = ref(false);
-  const showDeleteProviderDialog = ref(false);
-  const editingProvider = ref<ProviderInstance | null>(null);
-  const deletingProviderId = ref<number | null>(null);
-  const providerDialogRef = ref<InstanceType<
-    typeof PaymentProviderDialog
-  > | null>(null);
-
-  const providerKeyOptions = computed(() => [
-    { value: "easypay", label: t("admin.settings.payment.providerEasypay") },
-    { value: "alipay", label: t("admin.settings.payment.providerAlipay") },
-    { value: "wxpay", label: t("admin.settings.payment.providerWxpay") },
-    { value: "stripe", label: t("admin.settings.payment.providerStripe") },
-    { value: "airwallex", label: t("admin.settings.payment.providerAirwallex") },
-  ]);
-
-  const enabledProviderKeyOptions = computed(() => {
-    const enabled = form.payment_enabled_types;
-    return providerKeyOptions.value.filter((opt) => enabled.includes(opt.value));
-  });
-
-  const loadBalanceOptions = computed(() => [
-    {
-      value: "round-robin",
-      label: t("admin.settings.payment.strategyRoundRobin"),
-    },
-    {
-      value: "least-amount",
-      label: t("admin.settings.payment.strategyLeastAmount"),
-    },
-  ]);
-
-  const cancelRateLimitUnitOptions = computed(() => [
-    {
-      value: "minute",
-      label: t("admin.settings.payment.cancelRateLimitUnitMinute"),
-    },
-    { value: "hour", label: t("admin.settings.payment.cancelRateLimitUnitHour") },
-    { value: "day", label: t("admin.settings.payment.cancelRateLimitUnitDay") },
-  ]);
-
-  const cancelRateLimitModeOptions = computed(() => [
-    {
-      value: "rolling",
-      label: t("admin.settings.payment.cancelRateLimitWindowModeRolling"),
-    },
-    {
-      value: "fixed",
-      label: t("admin.settings.payment.cancelRateLimitWindowModeFixed"),
-    },
-  ]);
-
-  type ProviderEnablementCandidate = Pick<
-    ProviderInstance,
-    "id" | "provider_key" | "supported_types" | "enabled" | "name"
-  >;
-
-  function getProviderVisibleMethods(
-    provider: ProviderEnablementCandidate,
-  ): Array<"alipay" | "wxpay"> {
-    if (!provider.enabled) {
-      return [];
-    }
-
-    const supportedTypes = Array.isArray(provider.supported_types)
-      ? provider.supported_types
-      : [];
-    const methods = new Set<"alipay" | "wxpay">();
-    const addMethod = (type: string) => {
-      const method = normalizeVisibleMethod(type);
-      if (method === "alipay" || method === "wxpay") {
-        methods.add(method);
-      }
-    };
-
-    if (provider.provider_key === "alipay") {
-      if (supportedTypes.length === 0) {
-        methods.add("alipay");
-      } else {
-        supportedTypes.forEach((type) => {
-          if (normalizeVisibleMethod(type) === "alipay") {
-            methods.add("alipay");
-          }
-        });
-      }
-    } else if (provider.provider_key === "wxpay") {
-      if (supportedTypes.length === 0) {
-        methods.add("wxpay");
-      } else {
-        supportedTypes.forEach((type) => {
-          if (normalizeVisibleMethod(type) === "wxpay") {
-            methods.add("wxpay");
-          }
-        });
-      }
-    } else if (provider.provider_key === "easypay") {
-      supportedTypes.forEach(addMethod);
-    }
-
-    return Array.from(methods);
-  }
-
-  function findProviderEnablementConflict(
-    candidate: ProviderEnablementCandidate,
-  ): { method: "alipay" | "wxpay"; conflicting: ProviderInstance } | null {
-    const claimedMethods = getProviderVisibleMethods(candidate);
-    if (claimedMethods.length === 0) {
-      return null;
-    }
-
-    for (const other of providers.value) {
-      if (other.id === candidate.id || !other.enabled) {
-        continue;
-      }
-
-      const otherMethods = getProviderVisibleMethods(other);
-      const matchedMethod = claimedMethods.find((method) =>
-        otherMethods.includes(method),
-      );
-      if (matchedMethod) {
-        return {
-          method: matchedMethod,
-          conflicting: other,
-        };
-      }
-    }
-
-    return null;
-  }
-
-  function showProviderEnablementConflict(
-    conflict: { method: "alipay" | "wxpay"; conflicting: ProviderInstance },
-  ) {
-    appStore.showError(
-      t("admin.settings.payment.enableConflict", {
-        method: t(`payment.methods.${conflict.method}`),
-        provider: conflict.conflicting.name,
-      }),
-    );
-  }
-
-  async function loadProviders() {
-    providersLoading.value = true;
-    try {
-      const res = await adminAPI.payment.getProviders();
-      // Normalize supported_types: backend returns null when the list is empty
-      // (Go nil slice → JSON null). Without this, ProviderCard's isSelected()
-      // throws TypeError on null.includes(), causing the card to vanish.
-      providers.value = (res.data || []).map((p) => ({
-        ...p,
-        supported_types: Array.isArray(p.supported_types)
-          ? p.supported_types
-          : [],
-      }));
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    } finally {
-      providersLoading.value = false;
-    }
-  }
-
-  function openCreateProvider() {
-    editingProvider.value = null;
-    providerDialogRef.value?.reset(
-      enabledProviderKeyOptions.value[0]?.value || "easypay",
-    );
-    showProviderDialog.value = true;
-  }
-
-  function openEditProvider(provider: ProviderInstance) {
-    editingProvider.value = provider;
-    providerDialogRef.value?.loadProvider(provider);
-    showProviderDialog.value = true;
-  }
-
-  async function handleSaveProvider(payload: Partial<ProviderInstance>) {
-    providerSaving.value = true;
-    try {
-      const candidate: ProviderEnablementCandidate = {
-        id: editingProvider.value?.id ?? 0,
-        provider_key:
-          payload.provider_key ?? editingProvider.value?.provider_key ?? "",
-        supported_types:
-          payload.supported_types ?? editingProvider.value?.supported_types ?? [],
-        enabled: payload.enabled ?? editingProvider.value?.enabled ?? false,
-        name: payload.name ?? editingProvider.value?.name ?? "",
-      };
-      const conflict = findProviderEnablementConflict(candidate);
-      if (conflict) {
-        showProviderEnablementConflict(conflict);
-        return;
-      }
-
-      if (editingProvider.value) {
-        await adminAPI.payment.updateProvider(editingProvider.value.id, payload);
-      } else {
-        await adminAPI.payment.createProvider(payload);
-      }
-      showProviderDialog.value = false;
-      // Reload full list (API returns decrypted/formatted data with correct sort order)
-      await loadProviders();
-      // Auto-save settings so provider changes take effect immediately
-      await saveSettings();
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    } finally {
-      providerSaving.value = false;
-    }
-  }
-
-  async function handleToggleField(
-    provider: ProviderInstance,
-    field: "enabled" | "refund_enabled" | "allow_user_refund",
-  ) {
-    let newValue: boolean;
-    if (field === "enabled") newValue = !provider.enabled;
-    else if (field === "refund_enabled") newValue = !provider.refund_enabled;
-    else newValue = !provider.allow_user_refund;
-
-    if (field === "enabled" && newValue) {
-      const conflict = findProviderEnablementConflict({
-        id: provider.id,
-        provider_key: provider.provider_key,
-        supported_types: provider.supported_types,
-        enabled: true,
-        name: provider.name,
-      });
-      if (conflict) {
-        showProviderEnablementConflict(conflict);
-        return;
-      }
-    }
-
-    const payload: Record<string, boolean> = { [field]: newValue };
-    // Cascade: turning off refund_enabled also turns off allow_user_refund
-    if (field === "refund_enabled" && !newValue) {
-      payload.allow_user_refund = false;
-    }
-    try {
-      await adminAPI.payment.updateProvider(provider.id, payload);
-      await loadProviders();
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    }
-  }
-
-  async function handleToggleType(provider: ProviderInstance, type: string) {
-    const currentTypes = Array.isArray(provider.supported_types)
-      ? provider.supported_types
-      : [];
-    const updated = currentTypes.includes(type)
-      ? currentTypes.filter((t) => t !== type)
-      : [...currentTypes, type];
-    const conflict = findProviderEnablementConflict({
-      id: provider.id,
-      provider_key: provider.provider_key,
-      supported_types: updated,
-      enabled: provider.enabled,
-      name: provider.name,
-    });
-    if (conflict) {
-      showProviderEnablementConflict(conflict);
-      return;
-    }
-    try {
-      await adminAPI.payment.updateProvider(provider.id, {
-        supported_types: updated,
-      } as any);
-      await loadProviders();
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    }
-  }
-
-  function confirmDeleteProvider(provider: ProviderInstance) {
-    deletingProviderId.value = provider.id;
-    showDeleteProviderDialog.value = true;
-  }
-
-  async function handleReorderProviders(
-    updates: { id: number; sort_order: number }[],
-  ) {
-    try {
-      await Promise.all(
-        updates.map((u) =>
-          adminAPI.payment.updateProvider(u.id, {
-            sort_order: u.sort_order,
-          } as Partial<ProviderInstance>),
-        ),
-      );
-      await loadProviders();
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-      loadProviders();
-    }
-  }
-
-  async function handleDeleteProvider() {
-    if (!deletingProviderId.value) return;
-    try {
-      await adminAPI.payment.deleteProvider(deletingProviderId.value);
-      appStore.showSuccess(t("common.deleted"));
-      showDeleteProviderDialog.value = false;
-      loadProviders();
-    } catch (err: unknown) {
-      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    }
-  }
-
   onMounted(async () => {
     await Promise.allSettled([
       loadSettings(),
-      loadSubscriptionPlans(),
-      loadAdminApiKey(),
       loadUpstreamBillingProbeSettings(),
       loadOllamaCloudUsageSettings(),
       loadOverloadCooldownSettings(),
       loadRateLimit429CooldownSettings(),
-      loadPanelRateLimitSettings(),
       loadStreamTimeoutSettings(),
       loadRectifierSettings(),
       loadBetaPolicySettings(),
-      loadProviders(),
     ]);
     // 加载后的规整（watch / 子组件回写）都跑完再取基线，页面一打开不应显示「有未保存的修改」
     await nextTick();
@@ -3448,27 +1458,11 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     markAllClean();
   });
 
-  // bypass_registration 与身份同步三开关仅在 internal_only 模式下生效。切换 policy 到其它值时，
-  // 立即把相关字段重置为 false，避免保存请求里残留旧值。后端 admin handler 与
-  // 配置加载层都有 coerce 兜底，这里是 UX 层的同步而非安全防线。
-  watch(
-    () => form.dingtalk_connect_corp_restriction_policy,
-    (policy) => {
-      if (policy !== "internal_only") {
-        if (form.dingtalk_connect_bypass_registration) form.dingtalk_connect_bypass_registration = false;
-        if (form.dingtalk_connect_sync_corp_email) form.dingtalk_connect_sync_corp_email = false;
-        if (form.dingtalk_connect_sync_display_name) form.dingtalk_connect_sync_display_name = false;
-        if (form.dingtalk_connect_sync_dept) form.dingtalk_connect_sync_dept = false;
-      }
-    },
-  );
-
   // =========================
   // A6-2 每节保存
   // =========================
   // 同一时间只有当前小节可能有改动：切走时有改动会先问「放弃 / 留下」，放弃就恢复成已保存的值。
-  // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）：saveSettings 里
-  // 有跨小节的校验与规整（分页、条款文档、人机验证、OAuth 回调……），按节拆请求体风险大、收益小。
+  // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）。
   // （后端本身支持只发部分字段：没发送的值类型字段不写库，见 setting_handler_update.go omittedSettingKeys。）
   // 改动判断：每块状态与「上次加载 / 保存后的基线」比较。
 
@@ -3482,7 +1476,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     streamTimeout: { section: "cooldown", state: streamTimeoutForm, save: saveStreamTimeoutSettings },
     rectifier: { section: "forwarding", state: rectifierForm, save: saveRectifierSettings },
     betaPolicy: { section: "forwarding", state: betaPolicyForm, save: saveBetaPolicySettings },
-    panelRateLimit: { section: "security", state: panelRateLimitForm, save: savePanelRateLimitSettings },
     upstreamBillingProbe: { section: "upstream", state: upstreamBillingProbeForm, save: saveUpstreamBillingProbeSettings },
     ollamaCloudUsage: { section: "upstream", state: ollamaCloudUsageForm, save: saveOllamaCloudUsageSettings },
   };
@@ -3493,16 +1486,10 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   function mainState() {
     return {
       form,
-      registrationEmailSuffixWhitelistTags: registrationEmailSuffixWhitelistTags.value,
-      registrationEmailSuffixWhitelistDraft: registrationEmailSuffixWhitelistDraft.value,
-      forwardedClientIpHeaderDraft: forwardedClientIpHeaderDraft.value,
-      tablePageSizeOptionsInput: tablePageSizeOptionsInput.value,
-      captchaProviderSelection: captchaProviderSelection.value,
       claudeOAuthSystemPromptBlocks: claudeOAuthSystemPromptBlocks.value,
       codexBlacklistRows: codexBlacklistRows.value,
       codexWhitelistRows: codexWhitelistRows.value,
       codexFingerprintRows: codexFingerprintRows.value,
-      authSourceDefaults,
       openaiFastPolicyForm,
       webSearchConfig,
     };
@@ -3521,16 +1508,10 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   function restoreMain(saved: ReturnType<typeof mainState>) {
     const copy = JSON.parse(JSON.stringify(saved)) as ReturnType<typeof mainState>;
     Object.assign(form, copy.form);
-    registrationEmailSuffixWhitelistTags.value = copy.registrationEmailSuffixWhitelistTags;
-    registrationEmailSuffixWhitelistDraft.value = copy.registrationEmailSuffixWhitelistDraft;
-    forwardedClientIpHeaderDraft.value = copy.forwardedClientIpHeaderDraft;
-    tablePageSizeOptionsInput.value = copy.tablePageSizeOptionsInput;
-    captchaProviderSelection.value = copy.captchaProviderSelection;
     claudeOAuthSystemPromptBlocks.value = copy.claudeOAuthSystemPromptBlocks;
     codexBlacklistRows.value = copy.codexBlacklistRows;
     codexWhitelistRows.value = copy.codexWhitelistRows;
     codexFingerprintRows.value = copy.codexFingerprintRows;
-    Object.assign(authSourceDefaults, copy.authSourceDefaults);
     Object.assign(openaiFastPolicyForm, copy.openaiFastPolicyForm);
     Object.assign(webSearchConfig, copy.webSearchConfig);
   }
@@ -3610,39 +1591,22 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   }
 
 return {
-    addAuthSourceDefaultSubscription,
     addClaudeOAuthSystemPromptBlock,
     addCodexBlacklistRow,
     addCodexFingerprintRow,
     addCodexWhitelistRow,
-    addDefaultSubscription,
-    addEndpoint,
-    addLoginAgreementDocument,
-    addMenuItem,
     addOpenAIFastPolicyModelPattern,
     addOpenAIFastPolicyRule,
     addQuickPattern,
-    addQuotaNotifyEmail,
     addWebSearchProvider,
-    adminApiKeyExists,
-    adminApiKeyLoading,
-    adminApiKeyMasked,
-    adminApiKeyOperating,
-    allPaymentTypes,
     apiKeyVisible,
     applyBetaPreset,
     applyClaudeOAuthSystemPromptPreset,
-    authSourceDefaults,
-    authSourceDefaultsMeta,
     betaPolicyActionOptions,
     betaPolicyForm,
     betaPolicyLoading,
     betaPolicyScopeOptions,
     betaPresets,
-    cancelRateLimitModeOptions,
-    cancelRateLimitUnitOptions,
-    captchaMasterEnabled,
-    captchaProviderSelection,
     claudeOAuthSystemPromptBlockTypeOptions,
     claudeOAuthSystemPromptBlocks,
     claudeOAuthSystemPromptCacheTTLOptions,
@@ -3652,61 +1616,22 @@ return {
     codexFingerprintRows,
     codexSyncedVersionLabel,
     codexWhitelistRows,
-    commitForwardedClientIpHeaderDraft,
-    commitRegistrationEmailSuffixWhitelistDraft,
     commonModelPatterns,
-    confirmDeleteProvider,
     copyApiKey,
-    copyNewKey,
-    createAdminApiKey,
-    currentOrigin,
-    defaultSubscriptionPlanOptions,
-    deleteAdminApiKey,
     discardSection,
-    editingProvider,
-    enabledProviderKeyOptions,
     expandedProviders,
     form,
     formatSubscribedAt,
-    forwardedClientIpHeaderDraft,
     getBetaDisplayName,
     getClaudeOAuthPresetLabel,
-    githubOAuthRedirectUrlSuggestion,
-    googleOAuthRedirectUrlSuggestion,
-    handleDeleteProvider,
-    handleForwardedClientIpHeaderKeydown,
-    handleForwardedClientIpHeaderPaste,
-    handleRegistrationEmailSuffixWhitelistDraftInput,
-    handleRegistrationEmailSuffixWhitelistDraftKeydown,
-    handleRegistrationEmailSuffixWhitelistPaste,
-    handleReorderProviders,
-    handleSaveProvider,
-    handleToggleField,
-    handleToggleType,
-    handleWeChatMPEnabledChange,
-    handleWeChatMobileEnabledChange,
-    handleWeChatOpenEnabledChange,
-    hasAnyPaymentTypeEnabled,
     hasOpenAIFastPolicyTargetModels,
-    isPaymentTypeEnabled,
     isSectionDirty,
-    isZhLocale,
-    linuxdoRedirectUrlSuggestion,
-    loadBalanceOptions,
     loadFailed,
-    loadProviders,
     loading,
-    localText,
-    loginAgreementRoutePath,
     markClaudeOAuthSystemPromptBlockCustom,
     moveClaudeOAuthSystemPromptBlock,
-    moveMenuItem,
-    newAdminApiKey,
-    oidcRedirectUrlSuggestion,
     ollamaCloudUsageForm,
     ollamaCloudUsageLoading,
-    openCreateProvider,
-    openEditProvider,
     openTestDialog,
     openaiFastPolicyActionOptions,
     openaiFastPolicyActionSummary,
@@ -3715,37 +1640,18 @@ return {
     openaiFastPolicyTierOptions,
     overloadCooldownForm,
     overloadCooldownLoading,
-    panelRateLimitForm,
-    panelRateLimitLoading,
     parseSubscribedAt,
-    paymentGuideHref,
-    paymentMethodsHref,
-    providerDialogRef,
-    providerKeyOptions,
-    providerSaving,
-    providers,
-    providersLoading,
     quotaPercentage,
     rateLimit429CooldownForm,
     rateLimit429CooldownLoading,
     rectifierForm,
     rectifierLoading,
-    regenerateAdminApiKey,
-    registrationEmailSuffixWhitelistDraft,
-    registrationEmailSuffixWhitelistTags,
-    removeAuthSourceDefaultSubscription,
     removeClaudeOAuthSystemPromptBlock,
     removeCodexBlacklistRow,
     removeCodexFingerprintRow,
     removeCodexWhitelistRow,
-    removeDefaultSubscription,
-    removeEndpoint,
-    removeForwardedClientIpHeader,
-    removeLoginAgreementDocument,
-    removeMenuItem,
     removeOpenAIFastPolicyModelPattern,
     removeOpenAIFastPolicyRule,
-    removeRegistrationEmailSuffixWhitelistTag,
     removeWebSearchProvider,
     resetClaudeOAuthSystemPromptBlocks,
     resetWebSearchUsage,
@@ -3754,35 +1660,16 @@ return {
     saveUpstreamBillingProbeSettings,
     schedulingThresholdPlatforms,
     sectionSaving,
-    selectCaptchaProvider,
-    sendTestEmail,
-    sendingTestEmail,
-    setAndCopyEmailOAuthRedirectUrl,
-    setAndCopyLinuxdoRedirectUrl,
-    setAndCopyOIDCRedirectUrl,
-    setAndCopyWeChatRedirectUrl,
-    settingsStepUp,
-    showDeleteProviderDialog,
-    showProviderDialog,
-    smtpPasswordManuallyEdited,
     streamTimeoutForm,
     streamTimeoutLoading,
-    subscriptionPlans,
     t,
-    tablePageSizeOptionsInput,
-    tencentCaptchaLinks,
-    testEmailAddress,
-    testSmtpConnection,
     testWebSearchProvider,
-    testingSmtp,
     toggleClaudeOAuthSystemPromptBlock,
-    togglePaymentType,
     toggleProviderExpand,
     upstreamBillingProbeForm,
     upstreamBillingProbeLoading,
     webSearchConfig,
     webSearchProxies,
-    wechatRedirectUrlSuggestion,
     wsTestDialogOpen,
     wsTestLoading,
     wsTestQuery,

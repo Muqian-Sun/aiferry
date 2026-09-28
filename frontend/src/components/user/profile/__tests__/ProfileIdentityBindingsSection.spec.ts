@@ -46,9 +46,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
         if (key === 'profile.authBindings.status.bound') return 'Bound'
         if (key === 'profile.authBindings.status.notBound') return 'Not bound'
         if (key === 'profile.authBindings.providers.email') return 'Email'
-        if (key === 'profile.authBindings.providers.linuxdo') return 'LinuxDo'
         if (key === 'profile.authBindings.providers.wechat') return 'WeChat'
-        if (key === 'profile.authBindings.providers.oidc') return params?.providerName || 'OIDC'
         if (key === 'profile.authBindings.bindAction') return `Bind ${params?.providerName || ''}`.trim()
         if (key === 'profile.authBindings.emailPlaceholder') return 'Email address'
         if (key === 'profile.authBindings.codePlaceholder') return 'Verification code'
@@ -130,14 +128,9 @@ describe('ProfileIdentityBindingsSection', () => {
         user: createUser({
           auth_bindings: {
             email: { bound: true },
-            linuxdo: { bound: true },
-            oidc: { bound: false },
             wechat: false,
           },
         }),
-        linuxdoEnabled: true,
-        oidcEnabled: true,
-        oidcProviderName: 'ExampleID',
         wechatEnabled: true,
         wechatOpenEnabled: true,
         wechatMpEnabled: false,
@@ -145,11 +138,6 @@ describe('ProfileIdentityBindingsSection', () => {
     })
 
     expect(wrapper.get('[data-testid="profile-binding-email-status"]').text()).toBe('Bound')
-    expect(wrapper.get('[data-testid="profile-binding-linuxdo-status"]').text()).toBe('Bound')
-    expect(wrapper.get('[data-testid="profile-binding-oidc-status"]').text()).toBe('Not bound')
-    expect(wrapper.get('[data-testid="profile-binding-oidc-action"]').text()).toBe(
-      'Bind ExampleID'
-    )
     expect(wrapper.get('[data-testid="profile-binding-wechat-action"]').text()).toBe('Bind WeChat')
   })
 
@@ -160,8 +148,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser(),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: true,
         wechatOpenEnabled: true,
         wechatMpEnabled: false,
@@ -183,8 +169,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser(),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: true,
         wechatOpenEnabled: false,
         wechatMpEnabled: true,
@@ -201,8 +185,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser(),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: true,
       },
     })
@@ -217,8 +199,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser(),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: true,
       },
     })
@@ -256,12 +236,9 @@ describe('ProfileIdentityBindingsSection', () => {
       table_page_size_options: [10, 20, 50, 100],
       custom_menu_items: [],
       custom_endpoints: [],
-      linuxdo_oauth_enabled: false,
       wechat_oauth_enabled: true,
       wechat_oauth_open_enabled: true,
       wechat_oauth_mp_enabled: false,
-      oidc_oauth_enabled: false,
-      oidc_oauth_provider_name: 'OIDC',
       backend_mode_enabled: false,
       version: 'test',
       balance_low_notify_enabled: false,
@@ -276,8 +253,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser(),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: true,
       },
     })
@@ -300,7 +275,7 @@ describe('ProfileIdentityBindingsSection', () => {
     const appStore = useAppStore()
     const authStore = useAuthStore()
     authStore.user = createUser({
-      email: 'legacy-user@linuxdo-connect.invalid',
+      email: 'legacy-user@wechat-connect.invalid',
       email_bound: false,
       auth_bindings: {
         email: { bound: false },
@@ -314,8 +289,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: authStore.user,
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -352,8 +325,6 @@ describe('ProfileIdentityBindingsSection', () => {
             email: { bound: false },
           },
         }),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -369,19 +340,17 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: createUser({
-          email: 'legacy-user@linuxdo-connect.invalid',
+          email: 'legacy-user@wechat-connect.invalid',
           email_bound: false,
           auth_bindings: {
             email: { bound: false },
           },
         }),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
 
-    expect(wrapper.text()).not.toContain('legacy-user@linuxdo-connect.invalid')
+    expect(wrapper.text()).not.toContain('legacy-user@wechat-connect.invalid')
     expect(wrapper.get('[data-testid="profile-binding-email-status"]').text()).toBe('Not bound')
   })
 
@@ -397,8 +366,6 @@ describe('ProfileIdentityBindingsSection', () => {
             email: { bound: false },
           },
         }),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -426,8 +393,6 @@ describe('ProfileIdentityBindingsSection', () => {
             } as any,
           },
         }),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -466,8 +431,6 @@ describe('ProfileIdentityBindingsSection', () => {
       },
       props: {
         user: authStore.user,
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -515,8 +478,6 @@ describe('ProfileIdentityBindingsSection', () => {
           },
         }),
         compact: true,
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -533,10 +494,10 @@ describe('ProfileIdentityBindingsSection', () => {
     userApiMocks.unbindAuthIdentity.mockResolvedValue(
       createUser({
         email_bound: true,
-        linuxdo_bound: false,
+        wechat_bound: false,
         auth_bindings: {
           email: { bound: true },
-          linuxdo: { bound: false, can_unbind: false },
+          wechat: { bound: false, can_unbind: false },
         },
       })
     )
@@ -548,33 +509,34 @@ describe('ProfileIdentityBindingsSection', () => {
       props: {
         user: createUser({
           email_bound: true,
-          linuxdo_bound: true,
+          wechat_bound: true,
           auth_bindings: {
             email: { bound: true },
-            linuxdo: {
+            wechat: {
               bound: true,
-              display_name: 'linuxdo-handle',
-              subject_hint: 'lin***3456',
-              note: 'Linked from LinuxDo',
+              display_name: 'wechat-handle',
+              subject_hint: 'wx***3456',
+              note: 'Linked from WeChat',
               can_unbind: true,
             },
           },
         }),
         compact: true,
-        linuxdoEnabled: true,
-        oidcEnabled: false,
-        wechatEnabled: false,
+        wechatEnabled: true,
+        wechatOpenEnabled: true,
+        wechatMpEnabled: false,
       },
     })
 
-    expect(wrapper.text()).toContain('linuxdo-handle')
-    expect(wrapper.text()).not.toContain('lin***3456')
-    expect(wrapper.text()).toContain('Linked from LinuxDo')
+    expect(wrapper.text()).toContain('wechat-handle')
+    // 有显示名时不再显示打码后的第三方用户 ID（P2 规则）
+    expect(wrapper.text()).not.toContain('wx***3456')
+    expect(wrapper.text()).toContain('Linked from WeChat')
 
-    await wrapper.get('[data-testid="profile-binding-linuxdo-unbind"]').trigger('click')
+    await wrapper.get('[data-testid="profile-binding-wechat-unbind"]').trigger('click')
 
-    expect(userApiMocks.unbindAuthIdentity).toHaveBeenCalledWith('linuxdo')
-    expect(wrapper.get('[data-testid="profile-binding-linuxdo-status"]').text()).toBe('Not bound')
+    expect(userApiMocks.unbindAuthIdentity).toHaveBeenCalledWith('wechat')
+    expect(wrapper.get('[data-testid="profile-binding-wechat-status"]').text()).toBe('Not bound')
   })
 
   it('localizes third-party unbind guidance from note_key', () => {
@@ -585,20 +547,18 @@ describe('ProfileIdentityBindingsSection', () => {
       props: {
         user: createUser({
           email_bound: true,
-          linuxdo_bound: true,
+          wechat_bound: true,
           auth_bindings: {
             email: { bound: true },
-            linuxdo: {
+            wechat: {
               bound: true,
-              display_name: 'linuxdo-handle',
+              display_name: 'wechat-handle',
               note_key: 'profile.authBindings.notes.canUnbind',
               note: 'You can unbind this sign-in method.',
               can_unbind: true,
             } as any,
           },
         }),
-        linuxdoEnabled: true,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
@@ -615,17 +575,13 @@ describe('ProfileIdentityBindingsSection', () => {
       props: {
         user: createUser({
           auth_bindings: {
-            linuxdo: { bound: false, can_bind: true },
-            oidc: { bound: false, can_bind: true },
+            wechat: { bound: false, can_bind: true },
           },
         }),
-        linuxdoEnabled: false,
-        oidcEnabled: false,
         wechatEnabled: false,
       },
     })
 
-    expect(wrapper.find('[data-testid="profile-binding-linuxdo-action"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="profile-binding-oidc-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="profile-binding-wechat-action"]').exists()).toBe(false)
   })
 })

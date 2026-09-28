@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 
@@ -215,11 +216,8 @@ type UserIdentitySummary struct {
 }
 
 type UserIdentitySummarySet struct {
-	Email    UserIdentitySummary `json:"email"`
-	LinuxDo  UserIdentitySummary `json:"linuxdo"`
-	OIDC     UserIdentitySummary `json:"oidc"`
-	WeChat   UserIdentitySummary `json:"wechat"`
-	DingTalk UserIdentitySummary `json:"dingtalk"`
+	Email  UserIdentitySummary `json:"email"`
+	WeChat UserIdentitySummary `json:"wechat"`
 }
 
 type StartUserIdentityBindingRequest struct {
@@ -281,7 +279,7 @@ type ChangePasswordRequest struct {
 // UserService 用户服务
 type UserService struct {
 	userRepo             UserRepository
-	settingRepo          SettingRepository
+	weChatConnect        config.WeChatConnectConfig
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCache         BillingCache
 	lastActiveTouchL1    sync.Map
@@ -289,13 +287,17 @@ type UserService struct {
 }
 
 // NewUserService 创建用户服务实例
-func NewUserService(userRepo UserRepository, settingRepo SettingRepository, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache BillingCache) *UserService {
-	return &UserService{
+// cfg 只用来判断微信登录开没开（资料页的「绑定微信」入口），可以传 nil（等于没开）。
+func NewUserService(userRepo UserRepository, cfg *config.Config, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache BillingCache) *UserService {
+	svc := &UserService{
 		userRepo:             userRepo,
-		settingRepo:          settingRepo,
 		authCacheInvalidator: authCacheInvalidator,
 		billingCache:         billingCache,
 	}
+	if cfg != nil {
+		svc.weChatConnect = cfg.WeChat
+	}
+	return svc
 }
 
 // GetFirstAdmin 获取首个管理员用户（用于 Admin API Key 认证）
@@ -335,54 +337,21 @@ func (s *UserService) GetProfileIdentitySummaries(ctx context.Context, userID in
 	}
 
 	summaries := UserIdentitySummarySet{
-		Email:    s.buildEmailIdentitySummary(user, records),
-		LinuxDo:  s.buildProviderIdentitySummary("linuxdo", user, records),
-		OIDC:     s.buildProviderIdentitySummary("oidc", user, records),
-		WeChat:   s.buildProviderIdentitySummary("wechat", user, records),
-		DingTalk: s.buildProviderIdentitySummary("dingtalk", user, records),
+		Email:  s.buildEmailIdentitySummary(user, records),
+		WeChat: s.buildProviderIdentitySummary("wechat", user, records),
 	}
 
-	s.applyExplicitProviderAvailability(ctx, &summaries)
+	s.applyProviderAvailability(&summaries)
 	return summaries, nil
 }
 
-func (s *UserService) applyExplicitProviderAvailability(ctx context.Context, summaries *UserIdentitySummarySet) {
-	if s == nil || summaries == nil || s.settingRepo == nil {
+// applyProviderAvailability 部署配置没开（或凭证不全）的第三方登录不给「绑定」入口；已绑定的照常显示、可解绑。
+func (s *UserService) applyProviderAvailability(summaries *UserIdentitySummarySet) {
+	if s == nil || summaries == nil {
 		return
 	}
-
-	settings, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyLinuxDoConnectEnabled,
-		SettingKeyOIDCConnectEnabled,
-		SettingKeyWeChatConnectEnabled,
-		SettingKeyWeChatConnectOpenEnabled,
-		SettingKeyWeChatConnectMPEnabled,
-		SettingKeyWeChatConnectMobileEnabled,
-		SettingKeyWeChatConnectMode,
-		SettingKeyDingTalkConnectEnabled,
-	})
-	if err != nil {
-		return
-	}
-
-	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.LinuxDo)
-	}
-	if raw, ok := settings[SettingKeyDingTalkConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.DingTalk)
-	}
-	if raw, ok := settings[SettingKeyOIDCConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.OIDC)
-	}
-	if raw, ok := settings[SettingKeyWeChatConnectEnabled]; ok && strings.TrimSpace(raw) != "" {
-		if raw != "true" {
-			disableIdentityBindAction(&summaries.WeChat)
-			return
-		}
-		openEnabled, mpEnabled, _ := parseWeChatConnectCapabilitySettings(settings, true, settings[SettingKeyWeChatConnectMode])
-		if !openEnabled && !mpEnabled {
-			disableIdentityBindAction(&summaries.WeChat)
-		}
+	if _, err := validateWeChatConnectOAuthConfig(weChatConnectOAuthConfigFrom(s.weChatConnect)); err != nil {
+		disableIdentityBindAction(&summaries.WeChat)
 	}
 }
 
@@ -785,7 +754,7 @@ func (s *UserService) canUnbindProvider(provider string, user *User, records []U
 		return true
 	}
 
-	for _, candidate := range []string{"linuxdo", "oidc", "wechat", "dingtalk"} {
+	for _, candidate := range []string{"wechat"} {
 		if candidate == provider {
 			continue
 		}
@@ -855,14 +824,8 @@ func buildUserIdentityBindAuthorizeURL(provider, redirectTo string) (string, err
 
 	path := ""
 	switch provider {
-	case "linuxdo":
-		path = "/api/v1/auth/oauth/linuxdo/bind/start"
-	case "oidc":
-		path = "/api/v1/auth/oauth/oidc/bind/start"
 	case "wechat":
 		path = "/api/v1/auth/oauth/wechat/bind/start"
-	case "dingtalk":
-		path = "/api/v1/auth/oauth/dingtalk/bind/start"
 	default:
 		return "", ErrIdentityProviderInvalid
 	}
@@ -875,14 +838,8 @@ func buildUserIdentityBindAuthorizeURL(provider, redirectTo string) (string, err
 
 func normalizeUserIdentityProvider(provider string) string {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "linuxdo":
-		return "linuxdo"
-	case "oidc":
-		return "oidc"
 	case "wechat":
 		return "wechat"
-	case "dingtalk":
-		return "dingtalk"
 	case "email":
 		return "email"
 	default:
@@ -1265,12 +1222,7 @@ func saveNotifyVerifyCode(ctx context.Context, cache EmailCache, email, code str
 
 // sendNotifyVerifyEmail builds and sends the verification email.
 func (s *UserService) sendNotifyVerifyEmail(ctx context.Context, emailService *EmailService, userID int64, email, code, locale string) error {
-	siteName := defaultSiteName
-	if s.settingRepo != nil {
-		if name, err := s.settingRepo.GetValue(ctx, SettingKeySiteName); err == nil && name != "" {
-			siteName = name
-		}
-	}
+	siteName := SiteName
 	if emailService.notificationEmailService != nil {
 		if err := emailService.notificationEmailService.Send(ctx, NotificationEmailSendInput{
 			Event:          NotificationEmailEventNotificationEmailVerifyCode,

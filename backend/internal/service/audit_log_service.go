@@ -211,18 +211,14 @@ func (s *AuditLogService) runRetentionLoop() {
 	}
 }
 
+// auditLogRetentionDays 操作日志保留天数，写死（方案 2026-09-25：不再让管理员配置）。
+const auditLogRetentionDays = 180
+
 func (s *AuditLogService) runRetentionOnce() {
 	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Minute)
 	defer cancel()
 
-	days := 0
-	if s.settingService != nil {
-		days = s.settingService.GetAuditLogRetentionDays(ctx)
-	}
-	if days <= 0 {
-		return // 0 或负值表示永久保留，仅支持手动清空
-	}
-	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	cutoff := time.Now().UTC().AddDate(0, 0, -auditLogRetentionDays)
 	for {
 		deleted, err := s.repo.DeleteBefore(ctx, cutoff, auditRetentionBatchSize)
 		if err != nil {

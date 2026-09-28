@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -14,17 +13,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
-func normalizeLoginAgreementMode(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "checkbox":
-		return "checkbox"
-	default:
-		return defaultLoginAgreementMode
-	}
-}
-
-// DefaultLoginAgreementDocuments 是站点没配置登录协议文档时的默认两份文档（使用政策 / 隐私政策），正文见 legal/*.md。
-func DefaultLoginAgreementDocuments() []LoginAgreementDocument {
+// LoginAgreementDocuments 登录条款：正文是仓库里的 legal/*.md，由代码决定，后台不能改。
+func LoginAgreementDocuments() []LoginAgreementDocument {
 	return []LoginAgreementDocument{
 		{
 			ID:        "usage-policy",
@@ -91,34 +81,6 @@ func normalizeLoginAgreementDocuments(docs []LoginAgreementDocument) []LoginAgre
 	return normalized
 }
 
-func parseLoginAgreementDocuments(raw string) []LoginAgreementDocument {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return DefaultLoginAgreementDocuments()
-	}
-	var docs []LoginAgreementDocument
-	if err := json.Unmarshal([]byte(raw), &docs); err != nil {
-		return DefaultLoginAgreementDocuments()
-	}
-	docs = normalizeLoginAgreementDocuments(docs)
-	if len(docs) == 0 {
-		return DefaultLoginAgreementDocuments()
-	}
-	return docs
-}
-
-func marshalLoginAgreementDocuments(docs []LoginAgreementDocument) (string, error) {
-	normalized := normalizeLoginAgreementDocuments(docs)
-	if len(normalized) == 0 {
-		normalized = DefaultLoginAgreementDocuments()
-	}
-	b, err := json.Marshal(normalized)
-	if err != nil {
-		return "", fmt.Errorf("marshal login agreement documents: %w", err)
-	}
-	return string(b), nil
-}
-
 func buildLoginAgreementRevision(updatedAt string, docs []LoginAgreementDocument) string {
 	normalized := normalizeLoginAgreementDocuments(docs)
 	payload, err := json.Marshal(struct {
@@ -135,86 +97,18 @@ func buildLoginAgreementRevision(updatedAt string, docs []LoginAgreementDocument
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// GetFrontendURL 获取前端基础URL（数据库优先，fallback 到配置文件）
+// GetFrontendURL 用户站地址：部署时由 SERVER_FRONTEND_URL 配置，后台不再能改。
+// API 与用户站同一个域名，邮件链接、第三方登录回调、给用户看的 API 地址都从它来。
 func (s *SettingService) GetFrontendURL(ctx context.Context) string {
-	val, err := s.settingRepo.GetValue(ctx, SettingKeyFrontendURL)
-	if err == nil && strings.TrimSpace(val) != "" {
-		return strings.TrimSpace(val)
+	if s == nil || s.cfg == nil {
+		return ""
 	}
-	return s.cfg.Server.FrontendURL
+	return strings.TrimSpace(s.cfg.Server.FrontendURL)
 }
 
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingKeyRegistrationEnabled,
-		SettingKeyEmailVerifyEnabled,
-		SettingKeyForceEmailOnThirdPartySignup,
-		SettingKeyRegistrationEmailSuffixWhitelist,
-		SettingKeyRegistrationEmailDomainQuotaEnabled,
-		SettingKeyPasswordResetEnabled,
-		SettingKeyInvitationCodeEnabled,
-		SettingKeyPasskeyEnabled,
-		SettingKeyLoginAgreementEnabled,
-		SettingKeyLoginAgreementMode,
-		SettingKeyLoginAgreementUpdatedAt,
-		SettingKeyLoginAgreementDocuments,
-		SettingKeyTurnstileEnabled,
-		SettingKeyTurnstileSiteKey,
-		SettingKeyTencentCaptchaEnabled,
-		SettingKeyTencentCaptchaAppID,
-		SettingKeyTencentCaptchaRegion,
-		SettingKeyAliyunCaptchaEnabled,
-		SettingKeyAliyunCaptchaSceneID,
-		SettingKeyAliyunCaptchaPrefix,
-		SettingKeyAliyunCaptchaRegion,
-		SettingKeyAPIKeyACLTrustForwardedIP,
-		SettingKeySiteName,
-		SettingKeySiteLogo,
-		SettingKeySiteSubtitle,
-		SettingKeyAPIBaseURL,
-		SettingKeyContactInfo,
-		SettingKeyDocURL,
-		SettingKeyHomeContent,
-		SettingKeyCompactHomeEnabled,
-		SettingKeyHideCcsImportButton,
-		SettingKeyTableDefaultPageSize,
-		SettingKeyTablePageSizeOptions,
-		SettingKeyCustomMenuItems,
-		SettingKeyCustomEndpoints,
-		SettingKeyLinuxDoConnectEnabled,
-		SettingKeyDingTalkConnectEnabled,
-		SettingKeyWeChatConnectEnabled,
-		SettingKeyWeChatConnectAppID,
-		SettingKeyWeChatConnectAppSecret,
-		SettingKeyWeChatConnectOpenAppID,
-		SettingKeyWeChatConnectOpenAppSecret,
-		SettingKeyWeChatConnectMPAppID,
-		SettingKeyWeChatConnectMPAppSecret,
-		SettingKeyWeChatConnectMobileAppID,
-		SettingKeyWeChatConnectMobileAppSecret,
-		SettingKeyWeChatConnectOpenEnabled,
-		SettingKeyWeChatConnectMPEnabled,
-		SettingKeyWeChatConnectMobileEnabled,
-		SettingKeyWeChatConnectMode,
-		SettingKeyWeChatConnectScopes,
-		SettingKeyWeChatConnectRedirectURL,
-		SettingKeyWeChatConnectFrontendRedirectURL,
-		SettingKeyBackendModeEnabled,
-		SettingPaymentEnabled,
-		SettingKeyOIDCConnectEnabled,
-		SettingKeyOIDCConnectProviderName,
-		SettingKeyGitHubOAuthEnabled,
-		SettingKeyGitHubOAuthClientID,
-		SettingKeyGitHubOAuthClientSecret,
-		SettingKeyGoogleOAuthEnabled,
-		SettingKeyGoogleOAuthClientID,
-		SettingKeyGoogleOAuthClientSecret,
-		SettingKeyBalanceLowNotifyEnabled,
-		SettingKeyBalanceLowNotifyThreshold,
-		SettingKeyBalanceLowNotifyRechargeURL,
-		SettingKeyAccountQuotaNotifyEnabled,
-		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
@@ -222,7 +116,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
-		SettingKeyAllowUserViewErrorRequests,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -230,110 +123,73 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		return nil, fmt.Errorf("get public settings: %w", err)
 	}
 
-	linuxDoEnabled := false
-	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
-		linuxDoEnabled = raw == "true"
-	} else {
-		linuxDoEnabled = s.cfg != nil && s.cfg.LinuxDo.Enabled
-	}
-	dingTalkEnabled := false
-	if raw, ok := settings[SettingKeyDingTalkConnectEnabled]; ok {
-		dingTalkEnabled = raw == "true"
-	} else {
-		dingTalkEnabled = s.cfg != nil && s.cfg.DingTalk.Enabled
-	}
-	oidcEnabled := false
-	if raw, ok := settings[SettingKeyOIDCConnectEnabled]; ok {
-		oidcEnabled = raw == "true"
-	} else {
-		oidcEnabled = s.cfg != nil && s.cfg.OIDC.Enabled
-	}
-	oidcProviderName := strings.TrimSpace(settings[SettingKeyOIDCConnectProviderName])
-	if oidcProviderName == "" && s.cfg != nil {
-		oidcProviderName = strings.TrimSpace(s.cfg.OIDC.ProviderName)
-	}
-	if oidcProviderName == "" {
-		oidcProviderName = "OIDC"
-	}
-	gitHubEnabled := s.emailOAuthPublicEnabled(settings, "github")
-	googleEnabled := s.emailOAuthPublicEnabled(settings, "google")
-	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilitiesFromSettings(settings)
+	// 第三方登录只认部署配置（setting_oauth.go）
+	gitHubEnabled := emailOAuthEnabled(s.effectiveEmailOAuthConfig("github"))
+	googleEnabled := emailOAuthEnabled(s.effectiveEmailOAuthConfig("google"))
+	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilities()
 
-	// Password reset requires email verification to be enabled
-	emailVerifyEnabled := settings[SettingKeyEmailVerifyEnabled] == "true"
-	passwordResetEnabled := emailVerifyEnabled && settings[SettingKeyPasswordResetEnabled] == "true"
-	registrationEmailSuffixWhitelist := ParseRegistrationEmailSuffixWhitelist(
-		settings[SettingKeyRegistrationEmailSuffixWhitelist],
-	)
-	tableDefaultPageSize, tablePageSizeOptions := parseTablePreferences(
-		settings[SettingKeyTableDefaultPageSize],
-		settings[SettingKeyTablePageSizeOptions],
-	)
-	loginAgreementDocuments := parseLoginAgreementDocuments(settings[SettingKeyLoginAgreementDocuments])
-	loginAgreementUpdatedAt := strings.TrimSpace(settings[SettingKeyLoginAgreementUpdatedAt])
-	if loginAgreementUpdatedAt == "" {
-		loginAgreementUpdatedAt = defaultLoginAgreementDate
-	}
+	// 邮箱验证、忘记密码都跟着 SMTP 走（能发信才开）
+	emailVerifyEnabled := s.smtpConfigured()
+	passwordResetEnabled := emailVerifyEnabled
+	loginAgreementDocuments := LoginAgreementDocuments()
+	captcha := s.CaptchaProviderConfig()
 
-	var balanceLowNotifyThreshold float64
-	if v, err := strconv.ParseFloat(settings[SettingKeyBalanceLowNotifyThreshold], 64); err == nil && v >= 0 {
-		balanceLowNotifyThreshold = v
+	// 通知跟着 SMTP 走，阈值与充值页由代码决定
+	notifyEnabled := s.smtpConfigured()
+	rechargeURL := ""
+	if base := strings.TrimRight(s.GetFrontendURL(ctx), "/"); base != "" {
+		rechargeURL = base + rechargePagePath
 	}
 
 	return &PublicSettings{
-		RegistrationEnabled:                 settings[SettingKeyRegistrationEnabled] == "true",
+		RegistrationEnabled:                 RegistrationOpen,
 		EmailVerifyEnabled:                  emailVerifyEnabled,
-		ForceEmailOnThirdPartySignup:        settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
-		RegistrationEmailSuffixWhitelist:    registrationEmailSuffixWhitelist,
-		RegistrationEmailDomainQuotaEnabled: settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
+		ForceEmailOnThirdPartySignup:        ForceEmailOnThirdPartySignup,
+		RegistrationEmailSuffixWhitelist:    RegistrationEmailSuffixWhitelist(),
+		RegistrationEmailDomainQuotaEnabled: RegistrationEmailDomainQuotaEnabled,
 		PasswordResetEnabled:                passwordResetEnabled,
-		InvitationCodeEnabled:               settings[SettingKeyInvitationCodeEnabled] == "true",
-		PasskeyEnabled:                      s.passkeyConfigured() && s.passkeySettingEnabled(settings),
-		LoginAgreementEnabled:               settings[SettingKeyLoginAgreementEnabled] == "true" && len(loginAgreementDocuments) > 0,
-		LoginAgreementMode:                  normalizeLoginAgreementMode(settings[SettingKeyLoginAgreementMode]),
-		LoginAgreementUpdatedAt:             loginAgreementUpdatedAt,
-		LoginAgreementRevision:              buildLoginAgreementRevision(loginAgreementUpdatedAt, loginAgreementDocuments),
+		InvitationCodeEnabled:               InvitationCodeRequired,
+		PasskeyEnabled:                      s.PasskeyEnabled(),
+		LoginAgreementEnabled:               LoginAgreementEnabled && len(loginAgreementDocuments) > 0,
+		LoginAgreementMode:                  LoginAgreementMode,
+		LoginAgreementUpdatedAt:             LoginAgreementUpdatedAt,
+		LoginAgreementRevision:              buildLoginAgreementRevision(LoginAgreementUpdatedAt, loginAgreementDocuments),
 		LoginAgreementDocuments:             loginAgreementDocuments,
-		TurnstileEnabled:                    settings[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSiteKey:                    settings[SettingKeyTurnstileSiteKey],
-		TencentCaptchaEnabled:               settings[SettingKeyTencentCaptchaEnabled] == "true",
-		TencentCaptchaAppID:                 settings[SettingKeyTencentCaptchaAppID],
-		TencentCaptchaRegion:                normalizeTencentCaptchaRegion(settings[SettingKeyTencentCaptchaRegion]),
-		AliyunCaptchaEnabled:                settings[SettingKeyAliyunCaptchaEnabled] == "true",
-		AliyunCaptchaSceneID:                settings[SettingKeyAliyunCaptchaSceneID],
-		AliyunCaptchaPrefix:                 settings[SettingKeyAliyunCaptchaPrefix],
-		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, defaultSiteName),
-		SiteLogo:                            settings[SettingKeySiteLogo],
-		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, defaultSiteSubtitle),
-		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
-		ContactInfo:                         settings[SettingKeyContactInfo],
-		DocURL:                              settings[SettingKeyDocURL],
-		HomeContent:                         settings[SettingKeyHomeContent],
-		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
-		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
-		TableDefaultPageSize:                tableDefaultPageSize,
-		TablePageSizeOptions:                tablePageSizeOptions,
-		CustomMenuItems:                     settings[SettingKeyCustomMenuItems],
-		CustomEndpoints:                     settings[SettingKeyCustomEndpoints],
-		LinuxDoOAuthEnabled:                 linuxDoEnabled,
-		DingTalkOAuthEnabled:                dingTalkEnabled,
-		WeChatOAuthEnabled:                  weChatEnabled,
-		WeChatOAuthOpenEnabled:              weChatOpenEnabled,
-		WeChatOAuthMPEnabled:                weChatMPEnabled,
-		WeChatOAuthMobileEnabled:            weChatMobileEnabled,
-		BackendModeEnabled:                  settings[SettingKeyBackendModeEnabled] == "true",
-		PaymentEnabled:                      settings[SettingPaymentEnabled] == "true",
-		OIDCOAuthEnabled:                    oidcEnabled,
-		OIDCOAuthProviderName:               oidcProviderName,
-		GitHubOAuthEnabled:                  gitHubEnabled,
-		GoogleOAuthEnabled:                  googleEnabled,
-		BalanceLowNotifyEnabled:             settings[SettingKeyBalanceLowNotifyEnabled] == "true",
-		AccountQuotaNotifyEnabled:           settings[SettingKeyAccountQuotaNotifyEnabled] == "true",
-		BalanceLowNotifyThreshold:           balanceLowNotifyThreshold,
-		BalanceLowNotifyRechargeURL:         settings[SettingKeyBalanceLowNotifyRechargeURL],
+		// 人机验证只认部署配置（CaptchaProviderConfig），这里只给前端公开字段，密钥不出去。
+		TurnstileEnabled:      captcha.TurnstileEnabled,
+		TurnstileSiteKey:      captcha.TurnstileSiteKey,
+		TencentCaptchaEnabled: captcha.Tencent.Enabled,
+		TencentCaptchaAppID:   captcha.Tencent.AppID,
+		TencentCaptchaRegion:  captcha.Tencent.Region,
+		AliyunCaptchaEnabled:  captcha.Aliyun.Enabled,
+		AliyunCaptchaSceneID:  captcha.Aliyun.SceneID,
+		AliyunCaptchaPrefix:   captcha.Aliyun.Prefix,
+		AliyunCaptchaRegion:   captcha.Aliyun.Region,
+		// 站点相关由代码决定（site_features.go）；API 地址就是用户站地址，没配时前端用当前域名。
+		SiteName:                    SiteName,
+		SiteLogo:                    SiteLogo,
+		SiteSubtitle:                defaultSiteSubtitle,
+		APIBaseURL:                  s.GetFrontendURL(ctx),
+		ContactInfo:                 SiteContactInfo,
+		DocURL:                      SiteDocURL,
+		TableDefaultPageSize:        TableDefaultPageSize,
+		TablePageSizeOptions:        TablePageSizeOptions(),
+		CustomMenuItems:             "[]",
+		CustomEndpoints:             "[]",
+		WeChatOAuthEnabled:          weChatEnabled,
+		WeChatOAuthOpenEnabled:      weChatOpenEnabled,
+		WeChatOAuthMPEnabled:        weChatMPEnabled,
+		WeChatOAuthMobileEnabled:    weChatMobileEnabled,
+		BackendModeEnabled:          BackendModeEnabled,
+		PaymentEnabled:              PaymentEnabled,
+		GitHubOAuthEnabled:          gitHubEnabled,
+		GoogleOAuthEnabled:          googleEnabled,
+		BalanceLowNotifyEnabled:     notifyEnabled,
+		AccountQuotaNotifyEnabled:   notifyEnabled,
+		BalanceLowNotifyThreshold:   BalanceLowNotifyThreshold,
+		BalanceLowNotifyRechargeURL: rechargeURL,
 
-		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
+		ChannelMonitorEnabled:                ChannelMonitorEnabled,
 		ChannelMonitorMode:                   ChannelMonitorModeV2,
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
@@ -346,7 +202,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
-		AllowUserViewErrorRequests: settings[SettingKeyAllowUserViewErrorRequests] == "true",
+		AllowUserViewErrorRequests: AllowUserViewErrorRequests,
 	}, nil
 }
 
@@ -423,7 +279,6 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		}
 	}
 	vals, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
@@ -438,7 +293,7 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		}
 	}
 	return ChannelMonitorRuntime{
-		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
+		Enabled:                ChannelMonitorEnabled,
 		Mode:                   ChannelMonitorModeV2,
 		DefaultIntervalSeconds: parseChannelMonitorInterval(vals[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 		HideThroughput:         !isFalseSettingValue(vals[SettingKeyChannelMonitorHideThroughput]),
@@ -447,24 +302,15 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 	}
 }
 
-// GetModelPlazaDescription 读模型广场顶部的 Markdown 说明；读不到按空处理（说明只是文案，不影响目录本身）。
+// GetModelPlazaDescription 模型广场顶部的 Markdown 说明：由代码决定（site_features.go）。
 func (s *SettingService) GetModelPlazaDescription(ctx context.Context) string {
-	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyModelPlazaDescription})
-	if err != nil {
-		return ""
-	}
-	return vals[SettingKeyModelPlazaDescription]
+	return ModelPlazaDescription
 }
 
 // IsUserErrorViewAllowed reads the user-facing error-requests visibility switch
 // directly from the settings store. Fail-closed: on error returns false (opt-in default).
 func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
-	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyAllowUserViewErrorRequests})
-	if err != nil {
-		slog.Warn("failed to get allow_user_view_error_requests setting, defaulting to false", "error", err)
-		return false
-	}
-	return vals[SettingKeyAllowUserViewErrorRequests] == "true"
+	return AllowUserViewErrorRequests
 }
 
 // PublicSettingsInjectionPayload is the JSON shape embedded into HTML as
@@ -515,14 +361,10 @@ type PublicSettingsInjectionPayload struct {
 	TablePageSizeOptions                []int                    `json:"table_page_size_options"`
 	CustomMenuItems                     json.RawMessage          `json:"custom_menu_items"`
 	CustomEndpoints                     json.RawMessage          `json:"custom_endpoints"`
-	LinuxDoOAuthEnabled                 bool                     `json:"linuxdo_oauth_enabled"`
-	DingTalkOAuthEnabled                bool                     `json:"dingtalk_oauth_enabled"`
 	WeChatOAuthEnabled                  bool                     `json:"wechat_oauth_enabled"`
 	WeChatOAuthOpenEnabled              bool                     `json:"wechat_oauth_open_enabled"`
 	WeChatOAuthMPEnabled                bool                     `json:"wechat_oauth_mp_enabled"`
 	WeChatOAuthMobileEnabled            bool                     `json:"wechat_oauth_mobile_enabled"`
-	OIDCOAuthEnabled                    bool                     `json:"oidc_oauth_enabled"`
-	OIDCOAuthProviderName               string                   `json:"oidc_oauth_provider_name"`
 	GitHubOAuthEnabled                  bool                     `json:"github_oauth_enabled"`
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
@@ -600,14 +442,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		TablePageSizeOptions:                settings.TablePageSizeOptions,
 		CustomMenuItems:                     filterUserVisibleMenuItems(settings.CustomMenuItems),
 		CustomEndpoints:                     safeRawJSONArray(settings.CustomEndpoints),
-		LinuxDoOAuthEnabled:                 settings.LinuxDoOAuthEnabled,
-		DingTalkOAuthEnabled:                settings.DingTalkOAuthEnabled,
 		WeChatOAuthEnabled:                  settings.WeChatOAuthEnabled,
 		WeChatOAuthOpenEnabled:              settings.WeChatOAuthOpenEnabled,
 		WeChatOAuthMPEnabled:                settings.WeChatOAuthMPEnabled,
 		WeChatOAuthMobileEnabled:            settings.WeChatOAuthMobileEnabled,
-		OIDCOAuthEnabled:                    settings.OIDCOAuthEnabled,
-		OIDCOAuthProviderName:               settings.OIDCOAuthProviderName,
 		GitHubOAuthEnabled:                  settings.GitHubOAuthEnabled,
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,

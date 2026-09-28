@@ -7,6 +7,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -364,15 +365,7 @@ func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanDefaultName(t *testing
 func TestMaybeBuildWeChatOAuthRequiredResponse(t *testing.T) {
 	t.Setenv("PAYMENT_RESUME_SIGNING_KEY", "0123456789abcdef0123456789abcdef")
 
-	svc := newWeChatPaymentOAuthTestService(map[string]string{
-		SettingKeyWeChatConnectEnabled:             "true",
-		SettingKeyWeChatConnectAppID:               "wx123456",
-		SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-		SettingKeyWeChatConnectMode:                "mp",
-		SettingKeyWeChatConnectScopes:              "snsapi_base",
-		SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-		SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
-	})
+	svc := newWeChatPaymentOAuthTestService(map[string]string{})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
 		Amount:          12.5,
@@ -411,6 +404,7 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresMPConfigInWeChat(t *testin
 	t.Parallel()
 
 	svc := newWeChatPaymentOAuthTestService(nil)
+	svc.weChatConnect = config.WeChatConnectConfig{} // 部署配置里没开微信公众号
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
 		Amount:          12.5,
@@ -436,16 +430,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresResumeSigningKey(t *testin
 	t.Parallel()
 
 	svc := &PaymentService{
+		weChatConnect: testWeChatMPConnectConfig(),
 		configService: &PaymentConfigService{
-			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
-				SettingKeyWeChatConnectEnabled:             "true",
-				SettingKeyWeChatConnectAppID:               "wx123456",
-				SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-				SettingKeyWeChatConnectMode:                "mp",
-				SettingKeyWeChatConnectScopes:              "snsapi_base",
-				SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-				SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
-			}},
+			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{}},
 			// Intentionally missing payment resume signing key.
 			encryptionKey: nil,
 		},
@@ -473,16 +460,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresResumeSigningKey(t *testin
 
 func TestMaybeBuildWeChatOAuthRequiredResponseFallsBackToConfiguredLegacySigningKey(t *testing.T) {
 	svc := &PaymentService{
+		weChatConnect: testWeChatMPConnectConfig(),
 		configService: &PaymentConfigService{
-			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
-				SettingKeyWeChatConnectEnabled:             "true",
-				SettingKeyWeChatConnectAppID:               "wx123456",
-				SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-				SettingKeyWeChatConnectMode:                "mp",
-				SettingKeyWeChatConnectScopes:              "snsapi_base",
-				SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-				SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
-			}},
+			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{}},
 			// Legacy stable signing key remains available for no-config upgrade compatibility.
 			encryptionKey: []byte("0123456789abcdef0123456789abcdef"),
 		},
@@ -510,15 +490,7 @@ func TestMaybeBuildWeChatOAuthRequiredResponseFallsBackToConfiguredLegacySigning
 }
 
 func TestMaybeBuildWeChatOAuthRequiredResponseForSelectionSkipsEasyPayProvider(t *testing.T) {
-	svc := newWeChatPaymentOAuthTestService(map[string]string{
-		SettingKeyWeChatConnectEnabled:             "true",
-		SettingKeyWeChatConnectAppID:               "wx123456",
-		SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-		SettingKeyWeChatConnectMode:                "mp",
-		SettingKeyWeChatConnectScopes:              "snsapi_base",
-		SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-		SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
-	})
+	svc := newWeChatPaymentOAuthTestService(map[string]string{})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponseForSelection(context.Background(), CreateOrderRequest{
 		Amount:          12.5,
@@ -536,11 +508,38 @@ func TestMaybeBuildWeChatOAuthRequiredResponseForSelectionSkipsEasyPayProvider(t
 	}
 }
 
+// testWeChatMPConnectConfig 部署配置里开了微信公众号 OAuth（微信内支付要用它拿 openid）。
+func testWeChatMPConnectConfig() config.WeChatConnectConfig {
+	return config.WeChatConnectConfig{
+		Enabled:             true,
+		Mode:                "mp",
+		AppID:               "wx123456",
+		AppSecret:           "wechat-secret",
+		Scopes:              "snsapi_base",
+		RedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
+		FrontendRedirectURL: "/auth/wechat/callback",
+	}
+}
+
 func newWeChatPaymentOAuthTestService(values map[string]string) *PaymentService {
 	return &PaymentService{
+		weChatConnect: testWeChatMPConnectConfig(),
 		configService: &PaymentConfigService{
 			settingRepo:   &paymentConfigSettingRepoStub{values: values},
 			encryptionKey: []byte("0123456789abcdef0123456789abcdef"),
 		},
+	}
+}
+
+// 微信内支付取公众号凭证只认部署配置：ProvidePaymentService 要把 cfg.WeChat 交给支付服务。
+func TestProvidePaymentServiceUsesDeploymentWeChatConfig(t *testing.T) {
+	svc := ProvidePaymentService(nil, nil, nil, nil, nil, nil, nil, nil, nil, &config.Config{WeChat: testWeChatMPConnectConfig()})
+
+	appID, appSecret, err := svc.getWeChatPaymentOAuthCredential()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if appID != "wx123456" || appSecret != "wechat-secret" {
+		t.Fatalf("credential = %q/%q, want wx123456/wechat-secret", appID, appSecret)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 var (
@@ -63,7 +65,7 @@ func waitForOpsRefresh(t *testing.T, timeout time.Duration, condition func() boo
 
 func TestOpsRuntimeSettingsSnapshotLoadsOnceAndServesHotPath(t *testing.T) {
 	repo := newRuntimeSettingRepoStub()
-	repo.values[SettingKeyOpsMonitoringEnabled] = "false"
+	repo.values["ops_monitoring_enabled"] = "false" // 旧软开关：运维监控只认 OPS_ENABLED，不读它
 	repo.values[SettingKeyOpsAdvancedSettings] = `{"ignore_context_canceled":false,"auto_refresh_interval_seconds":45}`
 
 	svc := &OpsService{settingRepo: repo}
@@ -73,8 +75,8 @@ func TestOpsRuntimeSettingsSnapshotLoadsOnceAndServesHotPath(t *testing.T) {
 	}
 
 	for range 1000 {
-		if svc.IsMonitoringEnabled(context.Background()) {
-			t.Fatal("monitoring enabled, want false")
+		if !svc.IsMonitoringEnabled(context.Background()) {
+			t.Fatal("monitoring disabled by a database row, want it to follow OPS_ENABLED only")
 		}
 		cfg, err := svc.GetOpsAdvancedSettings(context.Background())
 		if err != nil {
@@ -93,11 +95,6 @@ func TestOpsRuntimeSettingsAdministrativeUpdatesAreImmediatelyVisible(t *testing
 	svc := &OpsService{}
 	svc.initRuntimeSettings(context.Background())
 
-	svc.SetMonitoringEnabled(false)
-	if svc.IsMonitoringEnabled(context.Background()) {
-		t.Fatal("monitoring update was not visible")
-	}
-
 	cfg := defaultOpsAdvancedSettings()
 	cfg.IgnoreNoAvailableAccounts = true
 	svc.storeAdvancedSettingsSnapshot(cfg)
@@ -108,30 +105,42 @@ func TestOpsRuntimeSettingsAdministrativeUpdatesAreImmediatelyVisible(t *testing
 	if !got.IgnoreNoAvailableAccounts {
 		t.Fatal("advanced settings update was not visible")
 	}
-	if svc.IsMonitoringEnabled(context.Background()) {
-		t.Fatal("advanced update overwrote monitoring setting")
+}
+
+// 运维监控只认部署配置 OPS_ENABLED：关了就关，库里旧的软开关开着也没用。
+func TestOpsMonitoringFollowsDeploymentConfigOnly(t *testing.T) {
+	repo := newRuntimeSettingRepoStub()
+	repo.values["ops_monitoring_enabled"] = "true"
+
+	disabled := &OpsService{settingRepo: repo, cfg: &config.Config{Ops: config.OpsConfig{Enabled: false}}}
+	disabled.initRuntimeSettings(context.Background())
+	if disabled.IsMonitoringEnabled(context.Background()) {
+		t.Fatal("OPS_ENABLED=false must disable monitoring")
+	}
+
+	enabled := &OpsService{settingRepo: newRuntimeSettingRepoStub(), cfg: &config.Config{Ops: config.OpsConfig{Enabled: true}}}
+	enabled.initRuntimeSettings(context.Background())
+	if !enabled.IsMonitoringEnabled(context.Background()) {
+		t.Fatal("OPS_ENABLED=true must enable monitoring")
 	}
 }
 
 func TestOpsRuntimeSettingsBackgroundRefreshConverges(t *testing.T) {
 	repo := &opsRuntimeRefreshRepo{values: map[string]string{
-		SettingKeyOpsMonitoringEnabled: "false",
-		SettingKeyOpsRuntimeLogConfig:  `{"persist_access_logs":false}`,
+		SettingKeyOpsRuntimeLogConfig: `{"persist_access_logs":false}`,
 	}}
 	sink := &OpsSystemLogSink{}
 	svc := &OpsService{settingRepo: repo, systemLogSink: sink}
 	svc.initRuntimeSettings(context.Background())
-	if svc.IsMonitoringEnabled(context.Background()) {
-		t.Fatal("initial monitoring state = true, want false")
+	if sink.persistAccessLogs.Load() {
+		t.Fatal("initial access-log persistence = true, want false")
 	}
 
-	repo.set(SettingKeyOpsMonitoringEnabled, "true")
 	repo.set(SettingKeyOpsRuntimeLogConfig, `{"persist_access_logs":true}`)
 	svc.startRuntimeSettingsRefresh(context.Background(), 5*time.Millisecond, 0, 50*time.Millisecond)
 	t.Cleanup(svc.StopRuntimeSettingsRefresh)
 	waitForOpsRefresh(t, time.Second, func() bool {
-		return svc.IsMonitoringEnabled(context.Background()) &&
-			sink.persistAccessLogs.Load() &&
+		return sink.persistAccessLogs.Load() &&
 			svc.RuntimeSettingsRefreshHealth().SuccessTotal > 0
 	})
 }
@@ -158,9 +167,8 @@ func TestOpsRuntimeSettingsRefreshUsesSafeAccessLogDefault(t *testing.T) {
 
 func TestOpsRuntimeSettingsRefreshFailuresKeepLastKnownGoodSnapshot(t *testing.T) {
 	repo := &opsRuntimeRefreshRepo{values: map[string]string{
-		SettingKeyOpsMonitoringEnabled: "false",
-		SettingKeyOpsAdvancedSettings:  `{"ignore_no_available_accounts":true}`,
-		SettingKeyOpsRuntimeLogConfig:  `{"persist_access_logs":true}`,
+		SettingKeyOpsAdvancedSettings: `{"ignore_no_available_accounts":true}`,
+		SettingKeyOpsRuntimeLogConfig: `{"persist_access_logs":true}`,
 	}}
 	sink := &OpsSystemLogSink{}
 	svc := &OpsService{settingRepo: repo, systemLogSink: sink}
@@ -175,9 +183,6 @@ func TestOpsRuntimeSettingsRefreshFailuresKeepLastKnownGoodSnapshot(t *testing.T
 		return svc.RuntimeSettingsRefreshHealth().FailureTotal >= 3
 	})
 
-	if svc.IsMonitoringEnabled(context.Background()) {
-		t.Fatal("failed refresh overwrote last known monitoring state")
-	}
 	if !svc.OpsAdvancedSettingsSnapshot().IgnoreNoAvailableAccounts {
 		t.Fatal("failed refresh overwrote last known advanced settings")
 	}

@@ -54,8 +54,9 @@ func newPlazaHandlerForTest(values map[string]string) *ModelPlazaHandler {
 
 func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	// 价格说明由代码决定（service.ModelPlazaDescription），库里旧值不生效
 	h := newPlazaHandlerForTest(map[string]string{
-		service.SettingKeyModelPlazaDescription: "hello",
+		"model_plaza_description": "stale",
 	})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -71,7 +72,7 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
-	require.Equal(t, "hello", envelope.Data.Description)
+	require.Equal(t, service.ModelPlazaDescription, envelope.Data.Description)
 	require.Len(t, envelope.Data.Models, 2)
 	require.NotContains(t, w.Body.String(), `"groups"`, "the plaza is flat: no groups")
 

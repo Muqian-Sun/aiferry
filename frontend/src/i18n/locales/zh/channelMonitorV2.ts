@@ -22,7 +22,6 @@ export default {
       saveFailed: '配置保存失败',
       enableTitle: '启用汇总',
       enableHint: '关闭后只停止这里的汇总；整个渠道健康功能的开关在「设置 › 开关」',
-      disabledBanner: '渠道健康已在「设置 › 开关」关闭，汇总不会运行；这里的配置可以先保存。',
       refreshTitle: '汇总频率',
       refreshHint: '影响矩阵时间粒度与刷新节奏',
       refreshAria: '汇总频率',

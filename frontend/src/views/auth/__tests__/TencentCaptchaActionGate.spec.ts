@@ -86,9 +86,6 @@ function mountLogin() {
         LoginAgreementPrompt: true,
         TotpLoginModal: true,
         EmailOAuthButtons: OAuthButtonStub,
-        LinuxDoOAuthSection: true,
-        DingTalkOAuthSection: true,
-        OidcOAuthSection: true,
         WechatOAuthSection: true
       }
     }

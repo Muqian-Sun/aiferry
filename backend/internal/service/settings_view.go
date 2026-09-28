@@ -12,157 +12,6 @@ func firstNonEmpty(values ...string) string {
 }
 
 type SystemSettings struct {
-	RegistrationEnabled                 bool
-	EmailVerifyEnabled                  bool
-	RegistrationEmailSuffixWhitelist    []string
-	RegistrationEmailDomainQuotaEnabled bool // 白名单非空时放行非白名单域名限量注册（默认关闭）
-	PasswordResetEnabled                bool
-	FrontendURL                         string
-	InvitationCodeEnabled               bool
-	PasskeyEnabled                      bool // Passkey 登录
-	SessionBindingEnabled               bool // 会话 IP/UA 绑定（变更即失效）
-	StepUpEnabled                       bool // 敏感操作 step-up 2FA 门控
-	AuditLogRetentionDays               int  // 审计日志保留天数（<=0 永久保留）
-	LoginAgreementEnabled               bool
-	LoginAgreementMode                  string
-	LoginAgreementUpdatedAt             string
-	LoginAgreementDocuments             []LoginAgreementDocument
-
-	SMTPHost               string
-	SMTPPort               int
-	SMTPUsername           string
-	SMTPPassword           string
-	SMTPPasswordConfigured bool
-	SMTPFrom               string
-	SMTPFromName           string
-	SMTPUseTLS             bool
-
-	TurnstileEnabled                       bool
-	TurnstileSiteKey                       string
-	TurnstileSecretKey                     string
-	TurnstileSecretKeyConfigured           bool
-	TencentCaptchaEnabled                  bool
-	TencentCaptchaAppID                    string
-	TencentCaptchaAppSecretKey             string
-	TencentCaptchaAppSecretKeyConfigured   bool
-	TencentCaptchaCloudSecretID            string
-	TencentCaptchaCloudSecretIDConfigured  bool
-	TencentCaptchaCloudSecretKey           string
-	TencentCaptchaCloudSecretKeyConfigured bool
-	TencentCaptchaRegion                   string
-	AliyunCaptchaEnabled                   bool
-	AliyunCaptchaAccessKeyID               string
-	AliyunCaptchaAccessKeySecret           string
-	AliyunCaptchaAccessKeySecretConfigured bool
-	AliyunCaptchaSceneID                   string
-	AliyunCaptchaPrefix                    string
-	AliyunCaptchaRegion                    string
-	APIKeyACLTrustForwardedIP              bool
-	ForwardedClientIPHeaders               []string
-
-	// LinuxDo Connect OAuth 登录
-	LinuxDoConnectEnabled                bool
-	LinuxDoConnectClientID               string
-	LinuxDoConnectClientSecret           string
-	LinuxDoConnectClientSecretConfigured bool
-	LinuxDoConnectRedirectURL            string
-
-	// DingTalk Connect OAuth 登录
-	DingTalkConnectEnabled                 bool
-	DingTalkConnectClientID                string
-	DingTalkConnectClientSecret            string
-	DingTalkConnectClientSecretConfigured  bool
-	DingTalkConnectRedirectURL             string
-	DingTalkConnectCorpRestrictionPolicy   string
-	DingTalkConnectInternalCorpID          string
-	DingTalkConnectBypassRegistration      bool
-	DingTalkConnectSyncCorpEmail           bool
-	DingTalkConnectSyncDisplayName         bool
-	DingTalkConnectSyncDept                bool
-	DingTalkConnectSyncCorpEmailAttrKey    string
-	DingTalkConnectSyncDisplayNameAttrKey  string
-	DingTalkConnectSyncDeptAttrKey         string
-	DingTalkConnectSyncCorpEmailAttrName   string
-	DingTalkConnectSyncDisplayNameAttrName string
-	DingTalkConnectSyncDeptAttrName        string
-
-	// WeChat Connect OAuth 登录
-	WeChatConnectEnabled                   bool
-	WeChatConnectAppID                     string
-	WeChatConnectAppSecret                 string
-	WeChatConnectAppSecretConfigured       bool
-	WeChatConnectOpenAppID                 string
-	WeChatConnectOpenAppSecret             string
-	WeChatConnectOpenAppSecretConfigured   bool
-	WeChatConnectMPAppID                   string
-	WeChatConnectMPAppSecret               string
-	WeChatConnectMPAppSecretConfigured     bool
-	WeChatConnectMobileAppID               string
-	WeChatConnectMobileAppSecret           string
-	WeChatConnectMobileAppSecretConfigured bool
-	WeChatConnectOpenEnabled               bool
-	WeChatConnectMPEnabled                 bool
-	WeChatConnectMobileEnabled             bool
-	WeChatConnectMode                      string
-	WeChatConnectScopes                    string
-	WeChatConnectRedirectURL               string
-	WeChatConnectFrontendRedirectURL       string
-
-	// Generic OIDC OAuth 登录
-	OIDCConnectEnabled                bool
-	OIDCConnectProviderName           string
-	OIDCConnectClientID               string
-	OIDCConnectClientSecret           string
-	OIDCConnectClientSecretConfigured bool
-	OIDCConnectIssuerURL              string
-	OIDCConnectDiscoveryURL           string
-	OIDCConnectAuthorizeURL           string
-	OIDCConnectTokenURL               string
-	OIDCConnectUserInfoURL            string
-	OIDCConnectJWKSURL                string
-	OIDCConnectScopes                 string
-	OIDCConnectRedirectURL            string
-	OIDCConnectFrontendRedirectURL    string
-	OIDCConnectTokenAuthMethod        string
-	OIDCConnectUsePKCE                bool
-	OIDCConnectValidateIDToken        bool
-	OIDCConnectAllowedSigningAlgs     string
-	OIDCConnectClockSkewSeconds       int
-	OIDCConnectRequireEmailVerified   bool
-	OIDCConnectUserInfoEmailPath      string
-	OIDCConnectUserInfoIDPath         string
-	OIDCConnectUserInfoUsernamePath   string
-
-	// GitHub / Google 邮箱快捷登录
-	GitHubOAuthEnabled                bool
-	GitHubOAuthClientID               string
-	GitHubOAuthClientSecret           string
-	GitHubOAuthClientSecretConfigured bool
-	GitHubOAuthRedirectURL            string
-	GitHubOAuthFrontendRedirectURL    string
-	GoogleOAuthEnabled                bool
-	GoogleOAuthClientID               string
-	GoogleOAuthClientSecret           string
-	GoogleOAuthClientSecretConfigured bool
-	GoogleOAuthRedirectURL            string
-	GoogleOAuthFrontendRedirectURL    string
-
-	SiteName             string
-	SiteLogo             string
-	SiteSubtitle         string
-	APIBaseURL           string
-	ContactInfo          string
-	DocURL               string
-	HomeContent          string
-	CompactHomeEnabled   bool
-	HideCcsImportButton  bool
-	TableDefaultPageSize int
-	TablePageSizeOptions []int
-	CustomMenuItems      string // JSON array of custom menu items
-	CustomEndpoints      string // JSON array of custom endpoints
-
-	DefaultConcurrency           int
-	DefaultBalance               float64
 	RiskControlEnabled           bool
 	CyberSessionBlockEnabled     bool
 	CyberSessionBlockTTLSeconds  int
@@ -172,21 +21,17 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
-	DefaultUserRPMLimit          int
-	DefaultSubscriptions         []DefaultSubscriptionSetting
 
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
 
 	// Ops monitoring (vNext)
-	OpsMonitoringEnabled         bool
 	OpsRealtimeMonitoringEnabled bool
 	OpsQueryModeDefault          string
 	OpsMetricsIntervalSeconds    int
 
 	// Channel Monitor feature
-	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
@@ -198,18 +43,12 @@ type SystemSettings struct {
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
-	// Available Channels feature (user-facing aggregate view)
-
 	// Model Plaza feature (public group/model pricing showcase)
-	ModelPlazaDescription   string `json:"model_plaza_description"`
-	PluginManagementEnabled bool   `json:"plugin_management_enabled"`
+	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
 	// Claude Code version check
 	MinClaudeCodeVersion string
 	MaxClaudeCodeVersion string
-
-	// Backend 模式：禁用用户注册和自助服务，仅管理员可登录
-	BackendModeEnabled bool
 
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         string // Responses first_token_ms 统计口径（默认 semantic）
@@ -237,31 +76,8 @@ type SystemSettings struct {
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
 
-	// Payment visible method routing
-	PaymentVisibleMethodAlipaySource  string
-	PaymentVisibleMethodWxpaySource   string
-	PaymentVisibleMethodAlipayEnabled bool
-	PaymentVisibleMethodWxpayEnabled  bool
-
-	// OpenAI 账号调度
-
-	// 余额不足提醒
-	BalanceLowNotifyEnabled     bool
-	BalanceLowNotifyThreshold   float64
-	BalanceLowNotifyRechargeURL string
-
-	// 订阅到期提醒
-	SubscriptionExpiryNotifyEnabled bool
-
-	// 账号限额通知
-	AccountQuotaNotifyEnabled bool
-	AccountQuotaNotifyEmails  []NotifyEmailEntry
-
 	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
-
-	// 允许终端用户在用量页查看自己的失败请求
-	AllowUserViewErrorRequests bool
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool
@@ -269,7 +85,7 @@ type SystemSettings struct {
 	ProfitSafetyBuffer   float64
 }
 
-// DefaultSubscriptionSetting 注册 / 认证来源默认订阅：一个列表最多一项（同一时间只允许一条有效订阅）
+// DefaultSubscriptionSetting 新用户自动赠送的一条订阅（见 site_features.go 的 newUserDefaultSubscriptions）。
 type DefaultSubscriptionSetting struct {
 	PlanID       int64 `json:"plan_id"`
 	ValidityDays int   `json:"validity_days"`
@@ -313,16 +129,12 @@ type PublicSettings struct {
 	CustomMenuItems      string // JSON array of custom menu items
 	CustomEndpoints      string // JSON array of custom endpoints
 
-	LinuxDoOAuthEnabled      bool
-	DingTalkOAuthEnabled     bool
 	WeChatOAuthEnabled       bool
 	WeChatOAuthOpenEnabled   bool
 	WeChatOAuthMPEnabled     bool
 	WeChatOAuthMobileEnabled bool
 	BackendModeEnabled       bool
 	PaymentEnabled           bool
-	OIDCOAuthEnabled         bool
-	OIDCOAuthProviderName    string
 	GitHubOAuthEnabled       bool
 	GoogleOAuthEnabled       bool
 	Version                  string
@@ -344,8 +156,6 @@ type PublicSettings struct {
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
-
-	// Available Channels feature (user-facing aggregate view)
 
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`

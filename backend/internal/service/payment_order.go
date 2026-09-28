@@ -357,7 +357,7 @@ func (s *PaymentService) prepareCreateOrderSelectionContext(ctx context.Context,
 	if !s.usesOfficialWxpayVisibleMethod(ctx) {
 		return ctx, nil
 	}
-	expectedAppID, _, err := s.getWeChatPaymentOAuthCredential(ctx)
+	expectedAppID, _, err := s.getWeChatPaymentOAuthCredential()
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +571,7 @@ func (s *PaymentService) maybeBuildWeChatOAuthRequiredResponseForSelection(ctx c
 }
 
 func (s *PaymentService) buildWeChatOAuthRequiredResponse(ctx context.Context, req CreateOrderRequest, amount, payAmount, feeRate float64) (*CreateOrderResponse, error) {
-	appID, _, err := s.getWeChatPaymentOAuthCredential(ctx)
+	appID, _, err := s.getWeChatPaymentOAuthCredential()
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +603,7 @@ func (s *PaymentService) validateSelectedCreateOrderInstance(ctx context.Context
 	if !requiresWeChatJSAPICompatibleSelection(req, sel) {
 		return nil
 	}
-	expectedAppID, _, err := s.getWeChatPaymentOAuthCredential(ctx)
+	expectedAppID, _, err := s.getWeChatPaymentOAuthCredential()
 	if err != nil {
 		return err
 	}
@@ -668,14 +668,14 @@ func requiresWeChatJSAPICompatibleSelection(req CreateOrderRequest, sel *payment
 	return req.IsWeChatBrowser || strings.TrimSpace(req.OpenID) != ""
 }
 
-func (s *PaymentService) getWeChatPaymentOAuthCredential(ctx context.Context) (string, string, error) {
-	if s == nil || s.configService == nil || s.configService.settingRepo == nil {
+func (s *PaymentService) getWeChatPaymentOAuthCredential() (string, string, error) {
+	if s == nil {
 		return "", "", infraerrors.ServiceUnavailable(
 			"WECHAT_PAYMENT_MP_NOT_CONFIGURED",
 			"wechat in-app payment requires a complete WeChat MP OAuth credential",
 		)
 	}
-	cfg, err := (&SettingService{settingRepo: s.configService.settingRepo}).GetWeChatConnectOAuthConfig(ctx)
+	cfg, err := validateWeChatConnectOAuthConfig(weChatConnectOAuthConfigFrom(s.weChatConnect))
 	appID := strings.TrimSpace(cfg.AppIDForMode("mp"))
 	appSecret := strings.TrimSpace(cfg.AppSecretForMode("mp"))
 	if err != nil || !cfg.SupportsMode("mp") || appID == "" || appSecret == "" {

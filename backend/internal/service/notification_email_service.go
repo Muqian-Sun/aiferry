@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 const (
@@ -81,6 +83,7 @@ var (
 type NotificationEmailService struct {
 	settingRepo  SettingRepository
 	emailService *EmailService
+	cfg          *config.Config
 }
 
 type NotificationEmailEventInfo struct {
@@ -187,8 +190,8 @@ type notificationEmailUnsubscribeClaims struct {
 	Exp   int64  `json:"exp"`
 }
 
-func NewNotificationEmailService(settingRepo SettingRepository, emailService *EmailService) *NotificationEmailService {
-	svc := &NotificationEmailService{settingRepo: settingRepo, emailService: emailService}
+func NewNotificationEmailService(settingRepo SettingRepository, emailService *EmailService, cfg *config.Config) *NotificationEmailService {
+	svc := &NotificationEmailService{settingRepo: settingRepo, emailService: emailService, cfg: cfg}
 	if emailService != nil {
 		emailService.SetNotificationEmailService(svc)
 	}
@@ -517,7 +520,7 @@ func (s *NotificationEmailService) sampleVariables(ctx context.Context, event, l
 	for key, value := range notificationEmailSampleVariables(locale) {
 		variables[key] = value
 	}
-	variables["site_name"] = s.siteName(ctx)
+	variables["site_name"] = SiteName
 	if variables["unsubscribe_url"] == "" && info.Optional {
 		variables["unsubscribe_url"] = "https://example.com/unsubscribe"
 	}
@@ -557,7 +560,7 @@ func (s *NotificationEmailService) runtimeVariables(ctx context.Context, event, 
 			}
 		}
 	}
-	variables["site_name"] = s.siteName(ctx)
+	variables["site_name"] = SiteName
 	variables["recipient_email"] = input.RecipientEmail
 	if strings.TrimSpace(input.RecipientName) != "" {
 		variables["recipient_name"] = input.RecipientName
@@ -570,28 +573,12 @@ func (s *NotificationEmailService) runtimeVariables(ctx context.Context, event, 
 	return variables
 }
 
-func (s *NotificationEmailService) siteName(ctx context.Context) string {
-	if s == nil || s.settingRepo == nil {
-		return defaultSiteName
-	}
-	name, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
-	if err != nil || strings.TrimSpace(name) == "" {
-		return defaultSiteName
-	}
-	return strings.TrimSpace(name)
-}
-
+// baseURL 邮件里链接的站点地址：用户站地址（SERVER_FRONTEND_URL）。
 func (s *NotificationEmailService) baseURL(ctx context.Context) string {
-	if s == nil || s.settingRepo == nil {
+	if s == nil || s.cfg == nil {
 		return ""
 	}
-	for _, key := range []string{SettingKeyAPIBaseURL, SettingKeyFrontendURL} {
-		value, err := s.settingRepo.GetValue(ctx, key)
-		if err == nil && strings.TrimSpace(value) != "" {
-			return strings.TrimRight(strings.TrimSpace(value), "/")
-		}
-	}
-	return ""
+	return strings.TrimRight(strings.TrimSpace(s.cfg.Server.FrontendURL), "/")
 }
 
 func (s *NotificationEmailService) buildUnsubscribeURL(ctx context.Context, email, event string) (string, error) {
@@ -898,7 +885,7 @@ func isSafeNotificationEmailURL(raw string) bool {
 func notificationEmailSampleVariables(locale string) map[string]string {
 	if normalizeNotificationLocale(locale) == notificationEmailLocaleChinese {
 		variables := map[string]string{
-			"site_name":           defaultSiteName,
+			"site_name":           SiteName,
 			"recipient_name":      "张三",
 			"recipient_email":     "user@example.com",
 			"verification_code":   "123456",
@@ -945,7 +932,7 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		return variables
 	}
 	variables := map[string]string{
-		"site_name":           defaultSiteName,
+		"site_name":           SiteName,
 		"recipient_name":      "Alex",
 		"recipient_email":     "user@example.com",
 		"verification_code":   "123456",

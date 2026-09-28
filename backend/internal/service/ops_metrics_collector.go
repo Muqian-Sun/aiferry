@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -230,27 +229,8 @@ func (c *OpsMetricsCollector) isMonitoringEnabled(ctx context.Context) bool {
 	if c.cfg != nil && !c.cfg.Ops.Enabled {
 		return false
 	}
-	if c.settingRepo == nil {
-		return true
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	value, err := c.settingRepo.GetValue(ctx, SettingKeyOpsMonitoringEnabled)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			return true
-		}
-		// Fail-open: collector should not become a hard dependency.
-		return true
-	}
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "false", "0", "off", "disabled":
-		return false
-	default:
-		return true
-	}
+	// 运维监控只认部署配置 OPS_ENABLED，后台不再有软开关。
+	return true
 }
 
 func (c *OpsMetricsCollector) collectAndPersist(ctx context.Context) error {

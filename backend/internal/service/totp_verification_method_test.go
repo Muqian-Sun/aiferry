@@ -7,6 +7,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,11 +49,11 @@ func (s *totpVMSettingRepoStub) GetValue(ctx context.Context, key string) (strin
 func newTotpVMService(t *testing.T, user *User, emailVerifyEnabled bool) (*TotpService, *totpVMUserRepoStub) {
 	t.Helper()
 	userRepo := &totpVMUserRepoStub{user: user}
-	values := map[string]string{}
+	cfg := &config.Config{}
 	if emailVerifyEnabled {
-		values[SettingKeyEmailVerifyEnabled] = "true"
+		cfg.SMTP = testSMTPConfigured // 配了 SMTP 才有邮箱验证
 	}
-	settingSvc := NewSettingService(&totpVMSettingRepoStub{values: values}, nil)
+	settingSvc := NewSettingService(&totpVMSettingRepoStub{values: map[string]string{}}, cfg)
 	return NewTotpService(userRepo, nil, nil, settingSvc, nil, nil), userRepo
 }
 

@@ -47,7 +47,6 @@ var (
 	ErrInvitationCodeRequired  = infraerrors.BadRequest("INVITATION_CODE_REQUIRED", "invitation code is required")
 	ErrInvitationCodeInvalid   = infraerrors.BadRequest("INVITATION_CODE_INVALID", "invalid or used invitation code")
 	ErrOAuthInvitationRequired = infraerrors.Forbidden("OAUTH_INVITATION_REQUIRED", "invitation code required to complete oauth registration")
-	ErrCaptchaProviderConflict = infraerrors.ServiceUnavailable("CAPTCHA_PROVIDER_CONFLICT", "multiple captcha providers are enabled")
 )
 
 // maxTokenLength 限制 token 大小，避免超长 header 触发解析时的异常内存分配。
@@ -161,7 +160,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		return "", nil, ErrRegDisabled
 	}
 
-	// 防止用户注册 LinuxDo OAuth 合成邮箱，避免第三方登录与本地账号发生碰撞。
+	// 防止用户注册第三方登录的合成邮箱，避免第三方登录与本地账号发生碰撞。
 	if isReservedEmail(email) {
 		return "", nil, ErrEmailReserved
 	}
@@ -221,13 +220,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		return "", nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	grantPlan := s.resolveSignupGrantPlan(ctx, "email")
-
-	// 新用户默认 RPM（0 = 不限制）。注册时写入，后续作为用户级兜底。
-	var defaultRPMLimit int
-	if s.settingService != nil {
-		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-	}
+	grantPlan := s.newSignupGrantPlan()
 
 	// 创建用户
 	user := &User{
@@ -237,7 +230,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Balance:        grantPlan.Balance,
 		Concurrency:    grantPlan.Concurrency,
 		RateMultiplier: grantPlan.RateMultiplier,
-		RPMLimit:       defaultRPMLimit,
+		RPMLimit:       NewUserRPMLimit,
 		Status:         StatusActive,
 	}
 
@@ -314,13 +307,7 @@ func (s *AuthService) SendVerifyCode(ctx context.Context, email string, locale .
 		return errors.New("email service not configured")
 	}
 
-	// 获取网站名称
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-
-	return s.emailService.SendVerifyCode(ctx, email, siteName, firstEmailLocale(locale))
+	return s.emailService.SendVerifyCode(ctx, email, SiteName, firstEmailLocale(locale))
 }
 
 // SendVerifyCodeAsync 异步发送邮箱验证码并返回倒计时
@@ -356,15 +343,9 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, loc
 		return nil, errors.New("email queue service not configured")
 	}
 
-	// 获取网站名称
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-
 	// 异步发送
 	logger.LegacyPrintf("service.auth", "[Auth] Enqueueing verify code for: %s", email)
-	if err := s.emailQueueService.EnqueueVerifyCode(email, siteName, firstEmailLocale(locale)); err != nil {
+	if err := s.emailQueueService.EnqueueVerifyCode(email, SiteName, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to enqueue: %v", err)
 		return nil, fmt.Errorf("enqueue verify code: %w", err)
 	}
@@ -395,17 +376,10 @@ func (s *AuthService) VerifyCaptcha(ctx context.Context, proof CaptchaProof, rem
 		return nil
 	}
 
-	providerConfig, err := s.settingService.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "%s", "[Auth] Failed to read captcha provider settings")
-		return ErrServiceUnavailable
-	}
+	providerConfig := s.settingService.CaptchaProviderConfig()
 	turnstileEnabled := providerConfig.TurnstileEnabled
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
-	if captchaProvidersConflict(turnstileEnabled, tencentEnabled, aliyunEnabled) {
-		return ErrCaptchaProviderConflict
-	}
 	if tencentEnabled {
 		if s.tencentCaptchaService == nil {
 			return ErrTencentCaptchaNotConfigured
@@ -430,17 +404,6 @@ func (s *AuthService) VerifyCaptcha(ctx context.Context, proof CaptchaProof, rem
 	return nil
 }
 
-// captchaProvidersConflict 同一时间仅允许启用一家人机验证服务商
-func captchaProvidersConflict(enabled ...bool) bool {
-	count := 0
-	for _, e := range enabled {
-		if e {
-			count++
-		}
-	}
-	return count > 1
-}
-
 // VerifyActionCaptchaIfEnabled 仅保护动作触发的扩展入口（OAuth 登录启动、passkey 登录），
 // 腾讯天御与阿里云验证码启用时拦截；不扩大 Cloudflare Turnstile 的既有覆盖范围。
 func (s *AuthService) VerifyActionCaptchaIfEnabled(ctx context.Context, proof CaptchaProof, remoteIP string) error {
@@ -448,18 +411,11 @@ func (s *AuthService) VerifyActionCaptchaIfEnabled(ctx context.Context, proof Ca
 		return ErrServiceUnavailable
 	}
 
-	providerConfig, err := s.settingService.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "%s", "[Auth] Failed to read captcha provider settings")
-		return ErrServiceUnavailable
-	}
+	providerConfig := s.settingService.CaptchaProviderConfig()
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
 	if !tencentEnabled && !aliyunEnabled {
 		return nil
-	}
-	if captchaProvidersConflict(providerConfig.TurnstileEnabled, tencentEnabled, aliyunEnabled) {
-		return ErrCaptchaProviderConflict
 	}
 	if aliyunEnabled {
 		if s.aliyunCaptchaService == nil {
@@ -549,7 +505,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 // - 如果邮箱已存在：直接登录（不需要本地密码）
 // - 如果邮箱不存在：创建新用户并登录
 //
-// 注意：该函数用于 LinuxDo OAuth 登录场景（不同于上游账号的 OAuth，例如 Claude/OpenAI/Gemini）。
+// 注意：该函数用于站内第三方登录场景（不同于上游账号的 OAuth，例如 Claude/OpenAI/Gemini）。
 // 为了满足现有数据库约束（需要密码哈希），新用户会生成随机密码并进行哈希保存。
 func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username string) (string, *User, error) {
 	email = strings.TrimSpace(email)
@@ -584,12 +540,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			}
 
 			signupSource := inferLegacySignupSource(email)
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
-			var defaultRPMLimit int
-			if s.settingService != nil {
-				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-			}
-
+			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
 				Email:          email,
 				Username:       username,
@@ -598,7 +549,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 				Balance:        grantPlan.Balance,
 				Concurrency:    grantPlan.Concurrency,
 				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       defaultRPMLimit,
+				RPMLimit:       NewUserRPMLimit,
 				Status:         StatusActive,
 				SignupSource:   signupSource,
 			}
@@ -645,24 +596,11 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 	return token, user, nil
 }
 
-// canBypassRegistrationDisabledForOAuth 在钉钉企业模式（internal_only）且
-// dingtalk_connect_bypass_registration=true 时，允许跳过全局 registration_enabled 检查。
-func (s *AuthService) canBypassRegistrationDisabledForOAuth(ctx context.Context, signupSource string) bool {
-	if signupSource != "dingtalk" {
-		return false
-	}
-	cfg, err := s.settingService.GetDingTalkConnectOAuthConfig(ctx)
-	if err != nil || !cfg.Enabled || !cfg.BypassRegistration {
-		return false
-	}
-	return cfg.CorpRestrictionPolicy == "internal_only"
-}
-
 // LoginOrRegisterOAuthWithTokenPair 用于第三方 OAuth/SSO 登录，返回完整的 TokenPair。
 // 与 LoginOrRegisterOAuth 功能相同，但返回 TokenPair 而非单个 token。
 // invitationCode 仅在邀请码注册模式下新用户注册时使用；已有账号登录时忽略。
 // affiliateCode 用于邀请返利绑定，仅在新用户注册时使用。
-// signupSource 标识来源渠道（"dingtalk"/"linuxdo"/"wechat"/"oidc" 等），仅用于豁免检查。
+// signupSource 标识来源渠道（"wechat" / "github" / "google" 等），用于按来源发放注册默认值。
 func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, email, username, invitationCode, affiliateCode, signupSource string) (*TokenPair, *User, error) {
 	// 检查 refreshTokenCache 是否可用
 	if s.refreshTokenCache == nil {
@@ -686,7 +624,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			// OAuth 首次登录视为注册
-			if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
+			if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 				return nil, nil, ErrRegDisabled
 			}
 
@@ -716,17 +654,12 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				return nil, nil, fmt.Errorf("hash password: %w", err)
 			}
 
-			// 优先用 caller 显式传入的 signupSource（如 "dingtalk" / "linuxdo" / "oidc" / "wechat"），
+			// 优先用 caller 显式传入的 signupSource（如 "wechat" / "github" / "google"），
 			// 否则才按邮箱后缀推断——避免有真实邮箱的 OAuth 用户被推断为 "email" 渠道，导致渠道授权错读。
 			if strings.TrimSpace(signupSource) == "" {
 				signupSource = inferLegacySignupSource(email)
 			}
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
-			var defaultRPMLimit int
-			if s.settingService != nil {
-				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-			}
-
+			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
 				Email:          email,
 				Username:       username,
@@ -735,7 +668,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				Balance:        grantPlan.Balance,
 				Concurrency:    grantPlan.Concurrency,
 				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       defaultRPMLimit,
+				RPMLimit:       NewUserRPMLimit,
 				Status:         StatusActive,
 				SignupSource:   signupSource,
 			}
@@ -838,62 +771,18 @@ func (s *AuthService) assignSubscriptions(ctx context.Context, userID int64, ite
 	}
 }
 
-func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource string) signupGrantPlan {
-	plan := signupGrantPlan{RateMultiplier: 1}
-	if s != nil && s.cfg != nil {
-		plan.Balance = s.cfg.Default.UserBalance
-		plan.Concurrency = s.cfg.Default.UserConcurrency
-		if s.cfg.Default.RateMultiplier > 0 {
-			plan.RateMultiplier = s.cfg.Default.RateMultiplier
-		}
+// newSignupGrantPlan 新用户注册时的初始值：由代码决定（site_features.go），不分注册来源。
+func (s *AuthService) newSignupGrantPlan() signupGrantPlan {
+	plan := signupGrantPlan{
+		Balance:        NewUserBalance,
+		Concurrency:    NewUserConcurrency,
+		RateMultiplier: 1,
+		Subscriptions:  NewUserDefaultSubscriptions(),
 	}
-	if s == nil || s.settingService == nil {
-		return plan
+	if s != nil && s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
+		plan.RateMultiplier = s.cfg.Default.RateMultiplier
 	}
-
-	plan.Balance = s.settingService.GetDefaultBalance(ctx)
-	plan.Concurrency = s.settingService.GetDefaultConcurrency(ctx)
-	plan.Subscriptions = s.settingService.GetDefaultSubscriptions(ctx)
-
-	resolved, enabled, err := s.settingService.ResolveAuthSourceGrantSettings(ctx, signupSource, false)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to load auth source signup defaults for %s: %v", signupSource, err)
-		return plan
-	}
-	if !enabled {
-		return plan
-	}
-
-	plan.Balance = resolved.Balance
-	plan.Concurrency = resolved.Concurrency
-	plan.Subscriptions = resolved.Subscriptions
-
 	return plan
-}
-
-func authSourceSignupSettings(defaults *AuthSourceDefaultSettings, signupSource string) (ProviderDefaultGrantSettings, bool) {
-	if defaults == nil {
-		return ProviderDefaultGrantSettings{}, false
-	}
-
-	switch strings.ToLower(strings.TrimSpace(signupSource)) {
-	case "email":
-		return defaults.Email, true
-	case "linuxdo":
-		return defaults.LinuxDo, true
-	case "oidc":
-		return defaults.OIDC, true
-	case "wechat":
-		return defaults.WeChat, true
-	case "github":
-		return defaults.GitHub, true
-	case "google":
-		return defaults.Google, true
-	case "dingtalk":
-		return defaults.DingTalk, true
-	default:
-		return ProviderDefaultGrantSettings{}, false
-	}
 }
 
 // bindOAuthAffiliate initializes the affiliate profile and binds the inviter
@@ -958,75 +847,7 @@ func (s *AuthService) backfillEmailIdentityOnSuccessfulLogin(ctx context.Context
 	if s == nil || user == nil || user.ID <= 0 {
 		return
 	}
-	identity, created := s.ensureEmailAuthIdentity(ctx, user, "auth_service_login_backfill")
-	if s.shouldApplyEmailFirstBindDefaults(ctx, user.ID, identity, created) {
-		if err := s.ApplyProviderDefaultSettingsOnFirstBind(ctx, user.ID, "email"); err != nil {
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to apply email first bind defaults: user_id=%d err=%v", user.ID, err)
-		}
-	}
-}
-
-func (s *AuthService) shouldApplyEmailFirstBindDefaults(
-	ctx context.Context,
-	userID int64,
-	identity *dbent.AuthIdentity,
-	created bool,
-) bool {
-	source := emailAuthIdentitySource(identity.Metadata)
-	if source == "auth_service_login_backfill" {
-		return false
-	}
-	if created {
-		return true
-	}
-	if s == nil || s.entClient == nil || userID <= 0 || identity == nil || identity.UserID != userID {
-		return false
-	}
-	if source != "auth_service_dual_write" {
-		return false
-	}
-
-	hasGrant, err := s.hasProviderGrantRecord(ctx, userID, "email", "first_bind")
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to inspect email first bind grant state: user_id=%d err=%v", userID, err)
-		return false
-	}
-	return !hasGrant
-}
-
-func emailAuthIdentitySource(metadata map[string]any) string {
-	if len(metadata) == 0 {
-		return ""
-	}
-	raw, ok := metadata["source"]
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(raw))
-}
-
-func (s *AuthService) hasProviderGrantRecord(
-	ctx context.Context,
-	userID int64,
-	providerType string,
-	grantReason string,
-) (bool, error) {
-	if s == nil || s.entClient == nil || userID <= 0 {
-		return false, nil
-	}
-
-	rows, err := s.entClient.QueryContext(
-		ctx,
-		`SELECT 1 FROM user_provider_default_grants WHERE user_id = $1 AND provider_type = $2 AND grant_reason = $3 LIMIT 1`,
-		userID,
-		strings.TrimSpace(providerType),
-		strings.TrimSpace(grantReason),
-	)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = rows.Close() }()
-	return rows.Next(), rows.Err()
+	s.ensureEmailAuthIdentity(ctx, user, "auth_service_login_backfill")
 }
 
 func (s *AuthService) ensureEmailAuthIdentity(ctx context.Context, user *User, source string) (*dbent.AuthIdentity, bool) {
@@ -1104,12 +925,6 @@ func (s *AuthService) ensureEmailAuthIdentity(ctx context.Context, user *User, s
 func inferLegacySignupSource(email string) string {
 	normalized := strings.ToLower(strings.TrimSpace(email))
 	switch {
-	case strings.HasSuffix(normalized, DingTalkConnectSyntheticEmailDomain):
-		return "dingtalk"
-	case strings.HasSuffix(normalized, LinuxDoConnectSyntheticEmailDomain):
-		return "linuxdo"
-	case strings.HasSuffix(normalized, OIDCConnectSyntheticEmailDomain):
-		return "oidc"
 	case strings.HasSuffix(normalized, WeChatConnectSyntheticEmailDomain):
 		return "wechat"
 	default:
@@ -1324,10 +1139,7 @@ func randomHexString(byteLength int) (string, error) {
 
 func isReservedEmail(email string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(email))
-	return strings.HasSuffix(normalized, LinuxDoConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(normalized, OIDCConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(normalized, WeChatConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(normalized, DingTalkConnectSyntheticEmailDomain)
+	return strings.HasSuffix(normalized, WeChatConnectSyntheticEmailDomain)
 }
 
 // GenerateToken 生成JWT access token
@@ -1457,37 +1269,31 @@ func (s *AuthService) IsPasswordResetEnabled(ctx context.Context) bool {
 }
 
 // preparePasswordReset validates the password reset request and returns necessary data
-// Returns (siteName, resetURL, shouldProceed)
+// Returns (resetURL, shouldProceed)
 // shouldProceed is false when we should silently return success (to prevent enumeration)
-func (s *AuthService) preparePasswordReset(ctx context.Context, email, frontendBaseURL string) (string, string, bool) {
+func (s *AuthService) preparePasswordReset(ctx context.Context, email, frontendBaseURL string) (string, bool) {
 	// Check if user exists (but don't reveal this to the caller)
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			// Security: Log but don't reveal that user doesn't exist
 			logger.LegacyPrintf("service.auth", "[Auth] Password reset requested for non-existent email: %s", email)
-			return "", "", false
+			return "", false
 		}
 		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email for password reset: %v", err)
-		return "", "", false
+		return "", false
 	}
 
 	// Check if user is active
 	if !user.IsActive() {
 		logger.LegacyPrintf("service.auth", "[Auth] Password reset requested for inactive user: %s", email)
-		return "", "", false
-	}
-
-	// Get site name
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
+		return "", false
 	}
 
 	// Build reset URL base
 	resetURL := fmt.Sprintf("%s/reset-password", strings.TrimSuffix(frontendBaseURL, "/"))
 
-	return siteName, resetURL, true
+	return resetURL, true
 }
 
 // RequestPasswordReset 请求密码重置（同步发送）
@@ -1500,12 +1306,12 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email, frontendB
 		return ErrServiceUnavailable
 	}
 
-	siteName, resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
+	resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
 	if !shouldProceed {
 		return nil // Silent success to prevent enumeration
 	}
 
-	if err := s.emailService.SendPasswordResetEmail(ctx, email, siteName, resetURL, firstEmailLocale(locale)); err != nil {
+	if err := s.emailService.SendPasswordResetEmail(ctx, email, SiteName, resetURL, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to send password reset email to %s: %v", email, err)
 		return nil // Silent success to prevent enumeration
 	}
@@ -1524,12 +1330,12 @@ func (s *AuthService) RequestPasswordResetAsync(ctx context.Context, email, fron
 		return ErrServiceUnavailable
 	}
 
-	siteName, resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
+	resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
 	if !shouldProceed {
 		return nil // Silent success to prevent enumeration
 	}
 
-	if err := s.emailQueueService.EnqueuePasswordReset(email, siteName, resetURL, firstEmailLocale(locale)); err != nil {
+	if err := s.emailQueueService.EnqueuePasswordReset(email, SiteName, resetURL, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to enqueue password reset email for %s: %v", email, err)
 		return nil // Silent success to prevent enumeration
 	}

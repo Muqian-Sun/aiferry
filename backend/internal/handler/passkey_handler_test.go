@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -79,40 +78,6 @@ func TestBindPasskeyFinishRequestRejectsOversizedBody(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 
-func TestPasskeyBeginLoginRejectsDisabledAdminSwitch(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	repo := &passkeySwitchSettingRepo{value: "false"}
-	settings := service.NewSettingService(repo, &config.Config{
-		WebAuthn: config.WebAuthnConfig{Enabled: true},
-	})
-	handler := NewPasskeyHandler(nil, nil, settings)
-	recorder := httptest.NewRecorder()
-	ginContext, _ := gin.CreateTestContext(recorder)
-	ginContext.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/passkey/login/begin", nil)
-
-	handler.BeginLogin(ginContext)
-
-	require.Equal(t, http.StatusForbidden, recorder.Code)
-	require.Contains(t, recorder.Body.String(), "PASSKEY_DISABLED")
-}
-
-func TestPasskeyBeginLoginReportsSettingStoreFailure(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	settings := service.NewSettingService(
-		&passkeySwitchSettingRepo{err: errors.New("database unavailable")},
-		&config.Config{WebAuthn: config.WebAuthnConfig{Enabled: true}},
-	)
-	handler := NewPasskeyHandler(nil, nil, settings)
-	recorder := httptest.NewRecorder()
-	ginContext, _ := gin.CreateTestContext(recorder)
-	ginContext.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/passkey/login/begin", nil)
-
-	handler.BeginLogin(ginContext)
-
-	require.Equal(t, http.StatusInternalServerError, recorder.Code)
-	require.NotContains(t, recorder.Body.String(), "PASSKEY_DISABLED")
-}
-
 func newTencentProtectedPasskeyHandler(t *testing.T) (*PasskeyHandler, *passkeyCaptchaVerifierStub, *passkeyBeginSessionStoreStub) {
 	t.Helper()
 	cfg := &config.Config{WebAuthn: config.WebAuthnConfig{
@@ -121,16 +86,13 @@ func newTencentProtectedPasskeyHandler(t *testing.T) (*PasskeyHandler, *passkeyC
 		RPID:          "sub2api.example.com",
 		RPOrigins:     []string{"https://sub2api.example.com"},
 	}}
-	repo := &passkeySwitchSettingRepo{
-		value: "true",
-		values: map[string]string{
-			service.SettingKeyTencentCaptchaEnabled:        "true",
-			service.SettingKeyTencentCaptchaAppID:          "123456789",
-			service.SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-			service.SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-			service.SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-		},
+	cfg.TencentCaptcha = config.TencentCaptchaConfig{
+		AppID:          "123456789",
+		AppSecretKey:   "app-secret",
+		CloudSecretID:  "cloud-secret-id",
+		CloudSecretKey: "cloud-secret-key",
 	}
+	repo := &passkeySwitchSettingRepo{value: "true", values: map[string]string{}}
 	settings := service.NewSettingService(repo, cfg)
 	verifier := &passkeyCaptchaVerifierStub{}
 	authService := service.NewAuthService(nil, nil, nil, nil, cfg, settings, nil, nil, nil, nil, nil)

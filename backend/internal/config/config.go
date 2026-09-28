@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -72,16 +73,16 @@ type Config struct {
 	Security                SecurityConfig                `mapstructure:"security"`
 	Billing                 BillingConfig                 `mapstructure:"billing"`
 	Turnstile               TurnstileConfig               `mapstructure:"turnstile"`
+	TencentCaptcha          TencentCaptchaConfig          `mapstructure:"tencent_captcha"`
+	AliyunCaptcha           AliyunCaptchaConfig           `mapstructure:"aliyun_captcha"`
+	SMTP                    SMTPConfig                    `mapstructure:"smtp"`
 	Database                DatabaseConfig                `mapstructure:"database"`
 	Redis                   RedisConfig                   `mapstructure:"redis"`
 	Ops                     OpsConfig                     `mapstructure:"ops"`
 	JWT                     JWTConfig                     `mapstructure:"jwt"`
 	Totp                    TotpConfig                    `mapstructure:"totp"`
 	WebAuthn                WebAuthnConfig                `mapstructure:"webauthn"`
-	LinuxDo                 LinuxDoConnectConfig          `mapstructure:"linuxdo_connect"`
 	WeChat                  WeChatConnectConfig           `mapstructure:"wechat_connect"`
-	OIDC                    OIDCConnectConfig             `mapstructure:"oidc_connect"`
-	DingTalk                DingTalkConnectConfig         `mapstructure:"dingtalk_connect"`
 	GitHubOAuth             EmailOAuthProviderConfig      `mapstructure:"github_oauth"`
 	GoogleOAuth             EmailOAuthProviderConfig      `mapstructure:"google_oauth"`
 	Default                 DefaultConfig                 `mapstructure:"default"`
@@ -290,26 +291,6 @@ func (c *ImageStorageConfig) MissingCredentialKeys() []string {
 	return missing
 }
 
-type LinuxDoConnectConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	ClientID            string `mapstructure:"client_id"`
-	ClientSecret        string `mapstructure:"client_secret"`
-	AuthorizeURL        string `mapstructure:"authorize_url"`
-	TokenURL            string `mapstructure:"token_url"`
-	UserInfoURL         string `mapstructure:"userinfo_url"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`          // 后端回调地址（需在提供方后台登记）
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"` // 前端接收 token 的路由（默认：/auth/linuxdo/callback）
-	TokenAuthMethod     string `mapstructure:"token_auth_method"`     // client_secret_post / client_secret_basic / none
-	UsePKCE             bool   `mapstructure:"use_pkce"`
-
-	// 可选：用于从 userinfo JSON 中提取字段的 gjson 路径。
-	// 为空时，服务端会尝试一组常见字段名。
-	UserInfoEmailPath    string `mapstructure:"userinfo_email_path"`
-	UserInfoIDPath       string `mapstructure:"userinfo_id_path"`
-	UserInfoUsernamePath string `mapstructure:"userinfo_username_path"`
-}
-
 type WeChatConnectConfig struct {
 	Enabled             bool   `mapstructure:"enabled"`
 	AppID               string `mapstructure:"app_id"`
@@ -329,79 +310,8 @@ type WeChatConnectConfig struct {
 	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
 }
 
-type OIDCConnectConfig struct {
-	Enabled                 bool   `mapstructure:"enabled"`
-	ProviderName            string `mapstructure:"provider_name"` // 显示名: "Keycloak" 等
-	ClientID                string `mapstructure:"client_id"`
-	ClientSecret            string `mapstructure:"client_secret"`
-	IssuerURL               string `mapstructure:"issuer_url"`
-	DiscoveryURL            string `mapstructure:"discovery_url"`
-	AuthorizeURL            string `mapstructure:"authorize_url"`
-	TokenURL                string `mapstructure:"token_url"`
-	UserInfoURL             string `mapstructure:"userinfo_url"`
-	JWKSURL                 string `mapstructure:"jwks_url"`
-	Scopes                  string `mapstructure:"scopes"`                // 默认 "openid email profile"
-	RedirectURL             string `mapstructure:"redirect_url"`          // 后端回调地址（需在提供方后台登记）
-	FrontendRedirectURL     string `mapstructure:"frontend_redirect_url"` // 前端接收 token 的路由（默认：/auth/oidc/callback）
-	TokenAuthMethod         string `mapstructure:"token_auth_method"`     // client_secret_post / client_secret_basic / none
-	UsePKCE                 bool   `mapstructure:"use_pkce"`
-	ValidateIDToken         bool   `mapstructure:"validate_id_token"`
-	UsePKCEExplicit         bool   `mapstructure:"-" yaml:"-"`
-	ValidateIDTokenExplicit bool   `mapstructure:"-" yaml:"-"`
-	AllowedSigningAlgs      string `mapstructure:"allowed_signing_algs"`   // 默认 "RS256,ES256,PS256"
-	ClockSkewSeconds        int    `mapstructure:"clock_skew_seconds"`     // 默认 120
-	RequireEmailVerified    bool   `mapstructure:"require_email_verified"` // 默认 false
-
-	// 可选：用于从 userinfo JSON 中提取字段的 gjson 路径。
-	// 为空时，服务端会尝试一组常见字段名。
-	UserInfoEmailPath    string `mapstructure:"userinfo_email_path"`
-	UserInfoIDPath       string `mapstructure:"userinfo_id_path"`
-	UserInfoUsernamePath string `mapstructure:"userinfo_username_path"`
-}
-
-type DingTalkConnectConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	ClientID            string `mapstructure:"client_id"`
-	ClientSecret        string `mapstructure:"client_secret"`
-	AuthorizeURL        string `mapstructure:"authorize_url"`
-	TokenURL            string `mapstructure:"token_url"`
-	UserInfoURL         string `mapstructure:"userinfo_url"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
-
-	// 平台底座 + 业务行为
-	DingTalkAppKind string `mapstructure:"dingtalk_app_kind"` // 仅 "internal_app"（V4 fail-closed）
-	AppType         string `mapstructure:"app_type"`          // "public" (default) | "internal"
-
-	// Corp 限定（none | internal_only）
-	CorpRestrictionPolicy   string `mapstructure:"corp_restriction_policy"`
-	InternalCorpID          string `mapstructure:"internal_corp_id"`
-	BypassRegistration      bool   `mapstructure:"bypass_registration"`
-	SyncCorpEmail           bool   `mapstructure:"sync_corp_email"`
-	SyncDisplayName         bool   `mapstructure:"sync_display_name"`
-	SyncDept                bool   `mapstructure:"sync_dept"`
-	SyncCorpEmailAttrKey    string `mapstructure:"sync_corp_email_attr_key"`
-	SyncDisplayNameAttrKey  string `mapstructure:"sync_display_name_attr_key"`
-	SyncDeptAttrKey         string `mapstructure:"sync_dept_attr_key"`
-	SyncCorpEmailAttrName   string `mapstructure:"sync_corp_email_attr_name"`
-	SyncDisplayNameAttrName string `mapstructure:"sync_display_name_attr_name"`
-	SyncDeptAttrName        string `mapstructure:"sync_dept_attr_name"`
-
-	// 邮箱 + Username
-	RequireEmail            bool   `mapstructure:"require_email"`
-	UsernameOverwritePolicy string `mapstructure:"username_overwrite_policy"`
-
-	// Attribute（私有版扩展点；开源版仅声明）
-	UsernameAttributeKey         string   `mapstructure:"username_attribute_key"`
-	EnableAttributeMatching      bool     `mapstructure:"enable_attribute_matching"`
-	EnableAttributeSync          bool     `mapstructure:"enable_attribute_sync"`
-	AttributeSyncFields          []string `mapstructure:"attribute_sync_fields"`
-	AttributeSyncOverwritePolicy string   `mapstructure:"attribute_sync_overwrite_policy"`
-}
-
+// EmailOAuthProviderConfig Google / GitHub 登录：配了 client_id 和 client_secret 就开，没有单独的开关。
 type EmailOAuthProviderConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
 	ClientID            string `mapstructure:"client_id"`
 	ClientSecret        string `mapstructure:"client_secret"`
 	AuthorizeURL        string `mapstructure:"authorize_url"`
@@ -502,14 +412,6 @@ func shouldApplyLegacyWeChatEnv(configKey, envKey string) bool {
 	}
 	_, hasNewEnv := os.LookupEnv(envKey)
 	return !hasNewEnv
-}
-
-func hasExplicitConfigOrEnv(configKey, envKey string) bool {
-	if viper.InConfig(configKey) {
-		return true
-	}
-	_, ok := os.LookupEnv(envKey)
-	return ok
 }
 
 func applyLegacyWeChatConnectEnvCompatibility(cfg *WeChatConnectConfig) {
@@ -1650,17 +1552,126 @@ type TotpConfig struct {
 	EncryptionKeyConfigured bool `mapstructure:"-"`
 }
 
+// SMTPConfig 发信用的 SMTP 服务器（部署时配置，后台不能改）。host 与 from 都配了才算「配了 SMTP」：
+// 邮箱验证、忘记密码、余额 / 渠道额度 / 订阅到期提醒都跟着它开关。发件人名称用站点名。
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"use_tls"`
+}
+
+// Configured 主机与发件人都配了。
+func (c SMTPConfig) Configured() bool {
+	return strings.TrimSpace(c.Host) != "" && strings.TrimSpace(c.From) != ""
+}
+
+// 人机验证（Cloudflare Turnstile / 腾讯天御 / 阿里云验证码 2.0）只认部署配置：配齐了哪家就开哪家，
+// 同一时间最多一家；后台不再能配。
+
+// TurnstileConfig Cloudflare Turnstile：配了 site_key 和 secret_key 就开（TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY）。
+// Required=true 时 release 模式下注册必须过人机验证，哪家都没配就拒绝注册。
 type TurnstileConfig struct {
-	Required bool `mapstructure:"required"`
+	Required  bool   `mapstructure:"required"`
+	SiteKey   string `mapstructure:"site_key"`
+	SecretKey string `mapstructure:"secret_key"`
+}
+
+func (c TurnstileConfig) Configured() bool {
+	return strings.TrimSpace(c.SiteKey) != "" && strings.TrimSpace(c.SecretKey) != ""
+}
+
+func (c TurnstileConfig) anySet() bool {
+	return strings.TrimSpace(c.SiteKey) != "" || strings.TrimSpace(c.SecretKey) != ""
+}
+
+// TencentCaptchaConfig 腾讯天御：四项凭证都配了就开（TENCENT_CAPTCHA_APP_ID / _APP_SECRET_KEY /
+// _CLOUD_SECRET_ID / _CLOUD_SECRET_KEY）；地域 TENCENT_CAPTCHA_REGION = cn（默认）| intl。
+type TencentCaptchaConfig struct {
+	AppID          string `mapstructure:"app_id"`
+	AppSecretKey   string `mapstructure:"app_secret_key"`
+	CloudSecretID  string `mapstructure:"cloud_secret_id"`
+	CloudSecretKey string `mapstructure:"cloud_secret_key"`
+	Region         string `mapstructure:"region"`
+}
+
+func (c TencentCaptchaConfig) Configured() bool {
+	return strings.TrimSpace(c.AppID) != "" && strings.TrimSpace(c.AppSecretKey) != "" &&
+		strings.TrimSpace(c.CloudSecretID) != "" && strings.TrimSpace(c.CloudSecretKey) != ""
+}
+
+func (c TencentCaptchaConfig) anySet() bool {
+	return strings.TrimSpace(c.AppID) != "" || strings.TrimSpace(c.AppSecretKey) != "" ||
+		strings.TrimSpace(c.CloudSecretID) != "" || strings.TrimSpace(c.CloudSecretKey) != ""
+}
+
+// AliyunCaptchaConfig 阿里云验证码 2.0：四项都配了就开（ALIYUN_CAPTCHA_ACCESS_KEY_ID / _ACCESS_KEY_SECRET /
+// _SCENE_ID / _PREFIX）；地域 ALIYUN_CAPTCHA_REGION = cn（默认）| sgp。
+type AliyunCaptchaConfig struct {
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	AccessKeySecret string `mapstructure:"access_key_secret"`
+	SceneID         string `mapstructure:"scene_id"`
+	Prefix          string `mapstructure:"prefix"`
+	Region          string `mapstructure:"region"`
+}
+
+func (c AliyunCaptchaConfig) Configured() bool {
+	return strings.TrimSpace(c.AccessKeyID) != "" && strings.TrimSpace(c.AccessKeySecret) != "" &&
+		strings.TrimSpace(c.SceneID) != "" && strings.TrimSpace(c.Prefix) != ""
+}
+
+func (c AliyunCaptchaConfig) anySet() bool {
+	return strings.TrimSpace(c.AccessKeyID) != "" || strings.TrimSpace(c.AccessKeySecret) != "" ||
+		strings.TrimSpace(c.SceneID) != "" || strings.TrimSpace(c.Prefix) != ""
+}
+
+// validateCaptchaConfig 每家凭证要么配齐要么全空；地域只认已支持的值；同一时间最多一家。
+func (c *Config) validateCaptchaConfig() error {
+	configured := 0
+	if c.Turnstile.anySet() {
+		if !c.Turnstile.Configured() {
+			return fmt.Errorf("turnstile.site_key and turnstile.secret_key must be both set or both empty")
+		}
+		configured++
+	}
+	if c.TencentCaptcha.anySet() {
+		if !c.TencentCaptcha.Configured() {
+			return fmt.Errorf("tencent_captcha.app_id, app_secret_key, cloud_secret_id and cloud_secret_key must be all set or all empty")
+		}
+		if appID, err := strconv.ParseUint(strings.TrimSpace(c.TencentCaptcha.AppID), 10, 64); err != nil || appID == 0 {
+			return fmt.Errorf("tencent_captcha.app_id must be a positive integer")
+		}
+		configured++
+	}
+	switch strings.TrimSpace(c.TencentCaptcha.Region) {
+	case "", "cn", "intl":
+	default:
+		return fmt.Errorf("tencent_captcha.region must be cn or intl")
+	}
+	if c.AliyunCaptcha.anySet() {
+		if !c.AliyunCaptcha.Configured() {
+			return fmt.Errorf("aliyun_captcha.access_key_id, access_key_secret, scene_id and prefix must be all set or all empty")
+		}
+		configured++
+	}
+	switch strings.TrimSpace(c.AliyunCaptcha.Region) {
+	case "", "cn", "sgp":
+	default:
+		return fmt.Errorf("aliyun_captcha.region must be cn or sgp")
+	}
+	if configured > 1 {
+		return fmt.Errorf("only one captcha provider (turnstile / tencent_captcha / aliyun_captcha) can be configured")
+	}
+	return nil
 }
 
 type DefaultConfig struct {
-	AdminEmail      string  `mapstructure:"admin_email"`
-	AdminPassword   string  `mapstructure:"admin_password"`
-	UserConcurrency int     `mapstructure:"user_concurrency"`
-	UserBalance     float64 `mapstructure:"user_balance"`
-	APIKeyPrefix    string  `mapstructure:"api_key_prefix"`
-	RateMultiplier  float64 `mapstructure:"rate_multiplier"`
+	AdminEmail     string  `mapstructure:"admin_email"`
+	AdminPassword  string  `mapstructure:"admin_password"`
+	APIKeyPrefix   string  `mapstructure:"api_key_prefix"`
+	RateMultiplier float64 `mapstructure:"rate_multiplier"`
 }
 
 type RateLimitConfig struct {
@@ -1839,39 +1850,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 	cfg.Server.FrontendURL = strings.TrimSpace(cfg.Server.FrontendURL)
 	cfg.JWT.Secret = strings.TrimSpace(cfg.JWT.Secret)
-	cfg.LinuxDo.ClientID = strings.TrimSpace(cfg.LinuxDo.ClientID)
-	cfg.LinuxDo.ClientSecret = strings.TrimSpace(cfg.LinuxDo.ClientSecret)
-	cfg.LinuxDo.AuthorizeURL = strings.TrimSpace(cfg.LinuxDo.AuthorizeURL)
-	cfg.LinuxDo.TokenURL = strings.TrimSpace(cfg.LinuxDo.TokenURL)
-	cfg.LinuxDo.UserInfoURL = strings.TrimSpace(cfg.LinuxDo.UserInfoURL)
-	cfg.LinuxDo.Scopes = strings.TrimSpace(cfg.LinuxDo.Scopes)
-	cfg.LinuxDo.RedirectURL = strings.TrimSpace(cfg.LinuxDo.RedirectURL)
-	cfg.LinuxDo.FrontendRedirectURL = strings.TrimSpace(cfg.LinuxDo.FrontendRedirectURL)
-	cfg.LinuxDo.TokenAuthMethod = strings.ToLower(strings.TrimSpace(cfg.LinuxDo.TokenAuthMethod))
-	cfg.LinuxDo.UserInfoEmailPath = strings.TrimSpace(cfg.LinuxDo.UserInfoEmailPath)
-	cfg.LinuxDo.UserInfoIDPath = strings.TrimSpace(cfg.LinuxDo.UserInfoIDPath)
-	cfg.LinuxDo.UserInfoUsernamePath = strings.TrimSpace(cfg.LinuxDo.UserInfoUsernamePath)
 	applyLegacyWeChatConnectEnvCompatibility(&cfg.WeChat)
 	normalizeWeChatConnectConfig(&cfg.WeChat)
-	cfg.OIDC.ProviderName = strings.TrimSpace(cfg.OIDC.ProviderName)
-	cfg.OIDC.ClientID = strings.TrimSpace(cfg.OIDC.ClientID)
-	cfg.OIDC.ClientSecret = strings.TrimSpace(cfg.OIDC.ClientSecret)
-	cfg.OIDC.IssuerURL = strings.TrimSpace(cfg.OIDC.IssuerURL)
-	cfg.OIDC.DiscoveryURL = strings.TrimSpace(cfg.OIDC.DiscoveryURL)
-	cfg.OIDC.AuthorizeURL = strings.TrimSpace(cfg.OIDC.AuthorizeURL)
-	cfg.OIDC.TokenURL = strings.TrimSpace(cfg.OIDC.TokenURL)
-	cfg.OIDC.UserInfoURL = strings.TrimSpace(cfg.OIDC.UserInfoURL)
-	cfg.OIDC.JWKSURL = strings.TrimSpace(cfg.OIDC.JWKSURL)
-	cfg.OIDC.Scopes = strings.TrimSpace(cfg.OIDC.Scopes)
-	cfg.OIDC.RedirectURL = strings.TrimSpace(cfg.OIDC.RedirectURL)
-	cfg.OIDC.FrontendRedirectURL = strings.TrimSpace(cfg.OIDC.FrontendRedirectURL)
-	cfg.OIDC.TokenAuthMethod = strings.ToLower(strings.TrimSpace(cfg.OIDC.TokenAuthMethod))
-	cfg.OIDC.AllowedSigningAlgs = strings.TrimSpace(cfg.OIDC.AllowedSigningAlgs)
-	cfg.OIDC.UserInfoEmailPath = strings.TrimSpace(cfg.OIDC.UserInfoEmailPath)
-	cfg.OIDC.UserInfoIDPath = strings.TrimSpace(cfg.OIDC.UserInfoIDPath)
-	cfg.OIDC.UserInfoUsernamePath = strings.TrimSpace(cfg.OIDC.UserInfoUsernamePath)
-	cfg.OIDC.UsePKCEExplicit = hasExplicitConfigOrEnv("oidc_connect.use_pkce", "OIDC_CONNECT_USE_PKCE")
-	cfg.OIDC.ValidateIDTokenExplicit = hasExplicitConfigOrEnv("oidc_connect.validate_id_token", "OIDC_CONNECT_VALIDATE_ID_TOKEN")
 	cfg.Dashboard.KeyPrefix = strings.TrimSpace(cfg.Dashboard.KeyPrefix)
 	cfg.CORS.AllowedOrigins = normalizeStringSlice(cfg.CORS.AllowedOrigins)
 	cfg.Security.ResponseHeaders.AdditionalAllowed = normalizeStringSlice(cfg.Security.ResponseHeaders.AdditionalAllowed)
@@ -2077,22 +2057,18 @@ func setDefaults() {
 
 	// Turnstile
 	viper.SetDefault("turnstile.required", false)
-
-	// LinuxDo Connect OAuth 登录
-	viper.SetDefault("linuxdo_connect.enabled", false)
-	viper.SetDefault("linuxdo_connect.client_id", "")
-	viper.SetDefault("linuxdo_connect.client_secret", "")
-	viper.SetDefault("linuxdo_connect.authorize_url", "https://connect.linux.do/oauth2/authorize")
-	viper.SetDefault("linuxdo_connect.token_url", "https://connect.linux.do/oauth2/token")
-	viper.SetDefault("linuxdo_connect.userinfo_url", "https://connect.linux.do/api/user")
-	viper.SetDefault("linuxdo_connect.scopes", "user")
-	viper.SetDefault("linuxdo_connect.redirect_url", "")
-	viper.SetDefault("linuxdo_connect.frontend_redirect_url", "/auth/linuxdo/callback")
-	viper.SetDefault("linuxdo_connect.token_auth_method", "client_secret_post")
-	viper.SetDefault("linuxdo_connect.use_pkce", false)
-	viper.SetDefault("linuxdo_connect.userinfo_email_path", "")
-	viper.SetDefault("linuxdo_connect.userinfo_id_path", "")
-	viper.SetDefault("linuxdo_connect.userinfo_username_path", "")
+	viper.SetDefault("turnstile.site_key", "")
+	viper.SetDefault("turnstile.secret_key", "")
+	viper.SetDefault("tencent_captcha.app_id", "")
+	viper.SetDefault("tencent_captcha.app_secret_key", "")
+	viper.SetDefault("tencent_captcha.cloud_secret_id", "")
+	viper.SetDefault("tencent_captcha.cloud_secret_key", "")
+	viper.SetDefault("tencent_captcha.region", "cn")
+	viper.SetDefault("aliyun_captcha.access_key_id", "")
+	viper.SetDefault("aliyun_captcha.access_key_secret", "")
+	viper.SetDefault("aliyun_captcha.scene_id", "")
+	viper.SetDefault("aliyun_captcha.prefix", "")
+	viper.SetDefault("aliyun_captcha.region", "cn")
 
 	// WeChat Connect OAuth 登录
 	viper.SetDefault("wechat_connect.enabled", false)
@@ -2111,43 +2087,6 @@ func setDefaults() {
 	viper.SetDefault("wechat_connect.scopes", defaultWeChatConnectScopes)
 	viper.SetDefault("wechat_connect.redirect_url", "")
 	viper.SetDefault("wechat_connect.frontend_redirect_url", defaultWeChatConnectFrontendRedirect)
-
-	// Generic OIDC OAuth 登录
-	viper.SetDefault("oidc_connect.enabled", false)
-	viper.SetDefault("oidc_connect.provider_name", "OIDC")
-	viper.SetDefault("oidc_connect.client_id", "")
-	viper.SetDefault("oidc_connect.client_secret", "")
-	viper.SetDefault("oidc_connect.issuer_url", "")
-	viper.SetDefault("oidc_connect.discovery_url", "")
-	viper.SetDefault("oidc_connect.authorize_url", "")
-	viper.SetDefault("oidc_connect.token_url", "")
-	viper.SetDefault("oidc_connect.userinfo_url", "")
-	viper.SetDefault("oidc_connect.jwks_url", "")
-	viper.SetDefault("oidc_connect.scopes", "openid email profile")
-	viper.SetDefault("oidc_connect.redirect_url", "")
-	viper.SetDefault("oidc_connect.frontend_redirect_url", "/auth/oidc/callback")
-	viper.SetDefault("oidc_connect.token_auth_method", "client_secret_post")
-	viper.SetDefault("oidc_connect.use_pkce", true)
-	viper.SetDefault("oidc_connect.validate_id_token", true)
-	viper.SetDefault("oidc_connect.allowed_signing_algs", "RS256,ES256,PS256")
-	viper.SetDefault("oidc_connect.clock_skew_seconds", 120)
-	viper.SetDefault("oidc_connect.require_email_verified", false)
-	viper.SetDefault("oidc_connect.userinfo_email_path", "")
-	viper.SetDefault("oidc_connect.userinfo_id_path", "")
-	viper.SetDefault("oidc_connect.userinfo_username_path", "")
-
-	// DingTalk Connect OAuth 登录
-	viper.SetDefault("dingtalk_connect.enabled", false)
-	viper.SetDefault("dingtalk_connect.authorize_url", "https://login.dingtalk.com/oauth2/auth")
-	viper.SetDefault("dingtalk_connect.token_url", "https://api.dingtalk.com/v1.0/oauth2/userAccessToken")
-	viper.SetDefault("dingtalk_connect.userinfo_url", "https://api.dingtalk.com/v1.0/contact/users/me")
-	viper.SetDefault("dingtalk_connect.scopes", "openid")
-	viper.SetDefault("dingtalk_connect.frontend_redirect_url", "/auth/dingtalk/callback")
-	viper.SetDefault("dingtalk_connect.dingtalk_app_kind", "internal_app")
-	viper.SetDefault("dingtalk_connect.app_type", "public")
-	viper.SetDefault("dingtalk_connect.corp_restriction_policy", "none")
-	viper.SetDefault("dingtalk_connect.require_email", true)
-	viper.SetDefault("dingtalk_connect.username_overwrite_policy", "if_empty")
 
 	// Database
 	viper.SetDefault("database.host", "localhost")
@@ -2268,8 +2207,6 @@ func setDefaults() {
 	// Do not ship fixed defaults here to avoid insecure "known credentials" in production.
 	viper.SetDefault("default.admin_email", "")
 	viper.SetDefault("default.admin_password", "")
-	viper.SetDefault("default.user_concurrency", 5)
-	viper.SetDefault("default.user_balance", 0)
 	viper.SetDefault("default.api_key_prefix", "sk-")
 	viper.SetDefault("default.rate_multiplier", 1.0)
 
@@ -2600,11 +2537,17 @@ func setEnvReachableDefaults() {
 	_ = viper.BindEnv("server.trusted_proxies", "SERVER_TRUSTED_PROXIES")
 	_ = viper.BindEnv("security.forwarded_client_ip_headers", "SECURITY_FORWARDED_CLIENT_IP_HEADERS")
 
-	// Third-party login providers. These carry client secrets and are exactly
-	// the settings an operator expects to inject via the environment, but every
-	// key here was previously unreachable that way.
+	// SMTP：部署时由 SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM / SMTP_USE_TLS 配置。
+	viper.SetDefault("smtp.host", "")
+	viper.SetDefault("smtp.port", 587)
+	viper.SetDefault("smtp.username", "")
+	viper.SetDefault("smtp.password", "")
+	viper.SetDefault("smtp.from", "")
+	viper.SetDefault("smtp.use_tls", false)
+
+	// Google / GitHub 登录：部署时由 GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET（Google 同理）配置，
+	// 配了 ID 和 Secret 就开；其余键留空用内置默认值，回调地址留空按 server.frontend_url 推出来。
 	for _, provider := range []string{"github_oauth", "google_oauth"} {
-		viper.SetDefault(provider+".enabled", false)
 		viper.SetDefault(provider+".client_id", "")
 		viper.SetDefault(provider+".client_secret", "")
 		viper.SetDefault(provider+".authorize_url", "")
@@ -2616,25 +2559,6 @@ func setEnvReachableDefaults() {
 		viper.SetDefault(provider+".frontend_redirect_url", "")
 	}
 
-	viper.SetDefault("dingtalk_connect.client_id", "")
-	viper.SetDefault("dingtalk_connect.client_secret", "")
-	viper.SetDefault("dingtalk_connect.internal_corp_id", "")
-	viper.SetDefault("dingtalk_connect.redirect_url", "")
-	viper.SetDefault("dingtalk_connect.bypass_registration", false)
-	viper.SetDefault("dingtalk_connect.username_attribute_key", "")
-	viper.SetDefault("dingtalk_connect.enable_attribute_matching", false)
-	viper.SetDefault("dingtalk_connect.enable_attribute_sync", false)
-	viper.SetDefault("dingtalk_connect.attribute_sync_fields", []string{})
-	viper.SetDefault("dingtalk_connect.attribute_sync_overwrite_policy", "")
-	viper.SetDefault("dingtalk_connect.sync_display_name", false)
-	viper.SetDefault("dingtalk_connect.sync_display_name_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_display_name_attr_name", "")
-	viper.SetDefault("dingtalk_connect.sync_dept", false)
-	viper.SetDefault("dingtalk_connect.sync_dept_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_dept_attr_name", "")
-	viper.SetDefault("dingtalk_connect.sync_corp_email", false)
-	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_name", "")
 }
 
 func (c *Config) Validate() error {
@@ -2861,57 +2785,34 @@ func (c *Config) Validate() error {
 	if c.Security.CSP.Enabled && strings.TrimSpace(c.Security.CSP.Policy) == "" {
 		return fmt.Errorf("security.csp.policy is required when CSP is enabled")
 	}
-	if c.LinuxDo.Enabled {
-		if strings.TrimSpace(c.LinuxDo.ClientID) == "" {
-			return fmt.Errorf("linuxdo_connect.client_id is required when linuxdo_connect.enabled=true")
+	if err := c.validateCaptchaConfig(); err != nil {
+		return err
+	}
+	for _, provider := range []struct {
+		key string
+		cfg EmailOAuthProviderConfig
+	}{{"github_oauth", c.GitHubOAuth}, {"google_oauth", c.GoogleOAuth}} {
+		clientID := strings.TrimSpace(provider.cfg.ClientID)
+		clientSecret := strings.TrimSpace(provider.cfg.ClientSecret)
+		if (clientID == "") != (clientSecret == "") {
+			return fmt.Errorf("%s.client_id and %s.client_secret must be both set or both empty", provider.key, provider.key)
 		}
-		if strings.TrimSpace(c.LinuxDo.AuthorizeURL) == "" {
-			return fmt.Errorf("linuxdo_connect.authorize_url is required when linuxdo_connect.enabled=true")
+		if clientID == "" {
+			continue
 		}
-		if strings.TrimSpace(c.LinuxDo.TokenURL) == "" {
-			return fmt.Errorf("linuxdo_connect.token_url is required when linuxdo_connect.enabled=true")
+		// 回调地址没配时按 server.frontend_url 推出来，两个都没有就无法登录。
+		if redirectURL := strings.TrimSpace(provider.cfg.RedirectURL); redirectURL != "" {
+			if err := ValidateAbsoluteHTTPURL(redirectURL); err != nil {
+				return fmt.Errorf("%s.redirect_url invalid: %w", provider.key, err)
+			}
+		} else if strings.TrimSpace(c.Server.FrontendURL) == "" {
+			return fmt.Errorf("%s.redirect_url is required when server.frontend_url is empty", provider.key)
 		}
-		if strings.TrimSpace(c.LinuxDo.UserInfoURL) == "" {
-			return fmt.Errorf("linuxdo_connect.userinfo_url is required when linuxdo_connect.enabled=true")
+		if frontendRedirect := strings.TrimSpace(provider.cfg.FrontendRedirectURL); frontendRedirect != "" {
+			if err := ValidateFrontendRedirectURL(frontendRedirect); err != nil {
+				return fmt.Errorf("%s.frontend_redirect_url invalid: %w", provider.key, err)
+			}
 		}
-		if strings.TrimSpace(c.LinuxDo.RedirectURL) == "" {
-			return fmt.Errorf("linuxdo_connect.redirect_url is required when linuxdo_connect.enabled=true")
-		}
-		method := strings.ToLower(strings.TrimSpace(c.LinuxDo.TokenAuthMethod))
-		switch method {
-		case "", "client_secret_post", "client_secret_basic", "none":
-		default:
-			return fmt.Errorf("linuxdo_connect.token_auth_method must be one of: client_secret_post/client_secret_basic/none")
-		}
-		if (method == "" || method == "client_secret_post" || method == "client_secret_basic") &&
-			strings.TrimSpace(c.LinuxDo.ClientSecret) == "" {
-			return fmt.Errorf("linuxdo_connect.client_secret is required when linuxdo_connect.enabled=true and token_auth_method is client_secret_post/client_secret_basic")
-		}
-		if strings.TrimSpace(c.LinuxDo.FrontendRedirectURL) == "" {
-			return fmt.Errorf("linuxdo_connect.frontend_redirect_url is required when linuxdo_connect.enabled=true")
-		}
-
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.AuthorizeURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.authorize_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.TokenURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.token_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.UserInfoURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.userinfo_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.RedirectURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.redirect_url invalid: %w", err)
-		}
-		if err := ValidateFrontendRedirectURL(c.LinuxDo.FrontendRedirectURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.frontend_redirect_url invalid: %w", err)
-		}
-
-		warnIfInsecureURL("linuxdo_connect.authorize_url", c.LinuxDo.AuthorizeURL)
-		warnIfInsecureURL("linuxdo_connect.token_url", c.LinuxDo.TokenURL)
-		warnIfInsecureURL("linuxdo_connect.userinfo_url", c.LinuxDo.UserInfoURL)
-		warnIfInsecureURL("linuxdo_connect.redirect_url", c.LinuxDo.RedirectURL)
-		warnIfInsecureURL("linuxdo_connect.frontend_redirect_url", c.LinuxDo.FrontendRedirectURL)
 	}
 	if c.WeChat.Enabled {
 		weChat := c.WeChat
@@ -2951,84 +2852,6 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("wechat_connect.frontend_redirect_url invalid: %w", err)
 		}
 		warnIfInsecureURL("wechat_connect.frontend_redirect_url", weChat.FrontendRedirectURL)
-	}
-	if c.OIDC.Enabled {
-		if strings.TrimSpace(c.OIDC.ClientID) == "" {
-			return fmt.Errorf("oidc_connect.client_id is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.IssuerURL) == "" {
-			return fmt.Errorf("oidc_connect.issuer_url is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.RedirectURL) == "" {
-			return fmt.Errorf("oidc_connect.redirect_url is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.FrontendRedirectURL) == "" {
-			return fmt.Errorf("oidc_connect.frontend_redirect_url is required when oidc_connect.enabled=true")
-		}
-		if !scopeContainsOpenID(c.OIDC.Scopes) {
-			return fmt.Errorf("oidc_connect.scopes must contain openid")
-		}
-
-		method := strings.ToLower(strings.TrimSpace(c.OIDC.TokenAuthMethod))
-		switch method {
-		case "", "client_secret_post", "client_secret_basic", "none":
-		default:
-			return fmt.Errorf("oidc_connect.token_auth_method must be one of: client_secret_post/client_secret_basic/none")
-		}
-		if (method == "" || method == "client_secret_post" || method == "client_secret_basic") &&
-			strings.TrimSpace(c.OIDC.ClientSecret) == "" {
-			return fmt.Errorf("oidc_connect.client_secret is required when oidc_connect.enabled=true and token_auth_method is client_secret_post/client_secret_basic")
-		}
-		if c.OIDC.ClockSkewSeconds < 0 || c.OIDC.ClockSkewSeconds > 600 {
-			return fmt.Errorf("oidc_connect.clock_skew_seconds must be between 0 and 600")
-		}
-		if c.OIDC.ValidateIDToken && strings.TrimSpace(c.OIDC.AllowedSigningAlgs) == "" {
-			return fmt.Errorf("oidc_connect.allowed_signing_algs is required when oidc_connect.validate_id_token=true")
-		}
-
-		if err := ValidateAbsoluteHTTPURL(c.OIDC.IssuerURL); err != nil {
-			return fmt.Errorf("oidc_connect.issuer_url invalid: %w", err)
-		}
-		if v := strings.TrimSpace(c.OIDC.DiscoveryURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.discovery_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.AuthorizeURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.authorize_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.TokenURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.token_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.UserInfoURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.userinfo_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.JWKSURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.jwks_url invalid: %w", err)
-			}
-		}
-		if err := ValidateAbsoluteHTTPURL(c.OIDC.RedirectURL); err != nil {
-			return fmt.Errorf("oidc_connect.redirect_url invalid: %w", err)
-		}
-		if err := ValidateFrontendRedirectURL(c.OIDC.FrontendRedirectURL); err != nil {
-			return fmt.Errorf("oidc_connect.frontend_redirect_url invalid: %w", err)
-		}
-
-		warnIfInsecureURL("oidc_connect.issuer_url", c.OIDC.IssuerURL)
-		warnIfInsecureURL("oidc_connect.discovery_url", c.OIDC.DiscoveryURL)
-		warnIfInsecureURL("oidc_connect.authorize_url", c.OIDC.AuthorizeURL)
-		warnIfInsecureURL("oidc_connect.token_url", c.OIDC.TokenURL)
-		warnIfInsecureURL("oidc_connect.userinfo_url", c.OIDC.UserInfoURL)
-		warnIfInsecureURL("oidc_connect.jwks_url", c.OIDC.JWKSURL)
-		warnIfInsecureURL("oidc_connect.redirect_url", c.OIDC.RedirectURL)
-		warnIfInsecureURL("oidc_connect.frontend_redirect_url", c.OIDC.FrontendRedirectURL)
 	}
 	if c.Billing.CircuitBreaker.Enabled {
 		if c.Billing.CircuitBreaker.FailureThreshold <= 0 {
@@ -3702,9 +3525,6 @@ func (c *Config) Validate() error {
 	if c.Gateway.Grok.FreeQuotaStatsCacheSeconds < 0 {
 		return fmt.Errorf("gateway.grok.free_quota_stats_cache_seconds must be non-negative")
 	}
-	if err := ValidateDingTalkConfig(c.DingTalk); err != nil {
-		return fmt.Errorf("dingtalk_connect: %w", err)
-	}
 	return nil
 }
 
@@ -3834,15 +3654,6 @@ func ValidateFrontendRedirectURL(raw string) error {
 		return fmt.Errorf("must not include fragment")
 	}
 	return nil
-}
-
-func scopeContainsOpenID(scopes string) bool {
-	for _, scope := range strings.Fields(strings.ToLower(strings.TrimSpace(scopes))) {
-		if scope == "openid" {
-			return true
-		}
-	}
-	return false
 }
 
 // isHTTPScheme 检查是否为 HTTP 或 HTTPS 协议

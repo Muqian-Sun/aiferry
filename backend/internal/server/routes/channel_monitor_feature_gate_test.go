@@ -51,27 +51,12 @@ func (s *channelMonitorRouteSettingRepoStub) Delete(context.Context, string) err
 	panic("unexpected Delete call")
 }
 
-func newChannelMonitorRouteSettings(enabled bool) *service.SettingService {
-	value := "false"
-	if enabled {
-		value = "true"
-	}
+// 渠道监控开关写死在代码里（service.ChannelMonitorEnabled）；库里旧的 channel_monitor_enabled 关着也不生效。
+func newChannelMonitorModeSettings(mode string) *service.SettingService {
 	return service.NewSettingService(&channelMonitorRouteSettingRepoStub{
 		values: map[string]string{
-			service.SettingKeyChannelMonitorEnabled: value,
-		},
-	}, &config.Config{})
-}
-
-func newChannelMonitorModeSettings(enabled bool, mode string) *service.SettingService {
-	enabledVal := "false"
-	if enabled {
-		enabledVal = "true"
-	}
-	return service.NewSettingService(&channelMonitorRouteSettingRepoStub{
-		values: map[string]string{
-			service.SettingKeyChannelMonitorEnabled: enabledVal,
-			service.SettingKeyChannelMonitorMode:    mode,
+			"channel_monitor_enabled":            "false",
+			service.SettingKeyChannelMonitorMode: mode,
 		},
 	}, &config.Config{})
 }
@@ -88,13 +73,8 @@ func TestChannelMonitorAdminFeatureGuard(t *testing.T) {
 			wantStatus: http.StatusForbidden,
 		},
 		{
-			name:       "disabled blocks",
-			svc:        newChannelMonitorRouteSettings(false),
-			wantStatus: http.StatusForbidden,
-		},
-		{
-			name:       "enabled allows",
-			svc:        newChannelMonitorRouteSettings(true),
+			name:       "enabled by code allows",
+			svc:        newChannelMonitorModeSettings(service.ChannelMonitorModeV2),
 			wantStatus: http.StatusOK,
 		},
 	}
@@ -135,20 +115,14 @@ func TestChannelMonitorModeV2Guard(t *testing.T) {
 			wantCode:   "CHANNEL_MONITOR_DISABLED",
 		},
 		{
-			name:       "feature off blocks",
-			svc:        newChannelMonitorModeSettings(false, service.ChannelMonitorModeV2),
-			wantStatus: http.StatusForbidden,
-			wantCode:   "CHANNEL_MONITOR_DISABLED",
-		},
-		{
 			// V1 已下线：库里存量的 v1（旧默认值）按 v2 处理，不再被挡
 			name:       "stored v1 is treated as v2",
-			svc:        newChannelMonitorModeSettings(true, service.ChannelMonitorModeV1),
+			svc:        newChannelMonitorModeSettings(service.ChannelMonitorModeV1),
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "mode v2 allows",
-			svc:        newChannelMonitorModeSettings(true, service.ChannelMonitorModeV2),
+			svc:        newChannelMonitorModeSettings(service.ChannelMonitorModeV2),
 			wantStatus: http.StatusOK,
 		},
 	}

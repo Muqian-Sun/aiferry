@@ -947,69 +947,34 @@ totp:
   encryption_key: ""
 
 # =============================================================================
-# LinuxDo Connect OAuth Login (SSO)
-# LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
+# Third-party Login (deployment config only; cannot be changed from admin UI)
+# 第三方登录（只认部署配置，后台不能开也不能改）
 # =============================================================================
-linuxdo_connect:
-  enabled: false
+# Google / GitHub：配了 client_id 和 client_secret 就开（两者要么都配、要么都留空）。
+# redirect_url 留空时按 server.frontend_url 推出来，需在提供方后台登记：
+#   {frontend_url}/api/v1/auth/oauth/github/callback（Google 同理）
+# 环境变量：GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET / GITHUB_OAUTH_REDIRECT_URL（Google 同理）
+github_oauth:
   client_id: ""
   client_secret: ""
-  authorize_url: "https://connect.linux.do/oauth2/authorize"
-  token_url: "https://connect.linux.do/oauth2/token"
-  userinfo_url: "https://connect.linux.do/api/user"
-  scopes: "user"
-  # 示例: "https://your-domain.com/api/v1/auth/oauth/linuxdo/callback"
   redirect_url: ""
-  # 安全提示：
-  # - 建议使用同源相对路径（以 / 开头），避免把 token 重定向到意外的第三方域名
-  # - 该地址不应包含 #fragment（本实现使用 URL fragment 传递 access_token）
-  frontend_redirect_url: "/auth/linuxdo/callback"
-  token_auth_method: "client_secret_post" # client_secret_post | client_secret_basic | none
-  # 注意：当 token_auth_method=none（public client）时，必须启用 PKCE
-  use_pkce: true
-  userinfo_email_path: ""
-  userinfo_id_path: ""
-  userinfo_username_path: ""
+google_oauth:
+  client_id: ""
+  client_secret: ""
+  redirect_url: ""
 
-# =============================================================================
-# Generic OIDC OAuth Login (SSO)
-# 通用 OIDC OAuth 登录（用于 Sub2API 用户登录）
-# =============================================================================
-oidc_connect:
+# 微信：enabled 打开，再按形态配凭证（PC 扫码 open_*、公众号 mp_*、移动应用 mobile_*）。
+# 环境变量：WECHAT_CONNECT_ENABLED / WECHAT_CONNECT_OPEN_ENABLED / WECHAT_CONNECT_OPEN_APP_ID …
+wechat_connect:
   enabled: false
-  provider_name: "OIDC"
-  client_id: ""
-  client_secret: ""
-  # 例如: "https://keycloak.example.com/realms/myrealm"
-  issuer_url: ""
-  # 可选: OIDC Discovery URL。为空时可手动填写 authorize/token/userinfo/jwks
-  discovery_url: ""
-  authorize_url: ""
-  token_url: ""
-  # 可选（仅补充 email/username，不用于 sub 可信绑定）
-  userinfo_url: ""
-  # validate_id_token=true 时必填
-  jwks_url: ""
-  scopes: "openid email profile"
-  # 示例: "https://your-domain.com/api/v1/auth/oauth/oidc/callback"
+  open_enabled: false
+  open_app_id: ""
+  open_app_secret: ""
+  mp_enabled: false
+  mp_app_id: ""
+  mp_app_secret: ""
+  # 示例: "https://your-domain.com/api/v1/auth/oauth/wechat/callback"
   redirect_url: ""
-  # 安全提示：
-  # - 建议使用同源相对路径（以 / 开头），避免把 token 重定向到意外的第三方域名
-  # - 该地址不应包含 #fragment（本实现使用 URL fragment 传递 access_token）
-  frontend_redirect_url: "/auth/oidc/callback"
-  token_auth_method: "client_secret_post" # client_secret_post | client_secret_basic | none
-  # 注意：当 token_auth_method=none（public client）时，必须启用 PKCE
-  use_pkce: false
-  # 开启后强制校验 id_token 的签名和 claims（推荐）
-  validate_id_token: true
-  allowed_signing_algs: "RS256,ES256,PS256"
-  # 允许的时钟偏移（秒）
-  clock_skew_seconds: 120
-  # 若 Provider 返回 email_verified=false，是否拒绝登录
-  require_email_verified: false
-  userinfo_email_path: ""
-  userinfo_id_path: ""
-  userinfo_username_path: ""
 
 # =============================================================================
 # Default Settings
@@ -1021,14 +986,7 @@ default:
   admin_email: "admin@example.com"
   admin_password: "admin123"
 
-  # Default settings for new users
-  # 新用户默认设置
-  # Max concurrent requests per user
-  # 每用户最大并发请求数
-  user_concurrency: 5
-  # Initial balance for new users
-  # 新用户初始余额
-  user_balance: 0
+  # 新用户默认值（并发 / 余额 / RPM）由代码决定（backend/internal/service/site_features.go），这里不再配置。
 
   # API key settings
   # API 密钥设置
@@ -1133,13 +1091,32 @@ billing:
   user_platform_quota_cache_ttl_seconds: 86400
 
 # =============================================================================
-# Turnstile Configuration
-# Turnstile 人机验证配置
+# Captcha (deployment config only; cannot be changed from admin UI)
+# 人机验证（只认部署配置，后台不能开也不能改）
 # =============================================================================
+# 配齐了哪家就开哪家，同一时间最多一家（配了两家启动失败）；每家的凭证要么配齐、要么全空。
+# 环境变量按「段_键」：TURNSTILE_SITE_KEY、TENCENT_CAPTCHA_APP_ID、ALIYUN_CAPTCHA_SCENE_ID …
 turnstile:
-  # Require Turnstile in release mode (when enabled, login/register will fail if not configured)
-  # 在 release 模式下要求 Turnstile 验证（启用后，若未配置则登录/注册会失败）
+  # 在 release 模式下要求注册必须过人机验证（哪家都没配时注册会失败）
   required: false
+  site_key: ""
+  secret_key: ""
+
+# 腾讯天御：四项凭证都配了就开；region = cn（默认）| intl
+tencent_captcha:
+  app_id: ""
+  app_secret_key: ""
+  cloud_secret_id: ""
+  cloud_secret_key: ""
+  region: "cn"
+
+# 阿里云验证码 2.0：四项都配了就开；region = cn（默认）| sgp
+aliyun_captcha:
+  access_key_id: ""
+  access_key_secret: ""
+  scene_id: ""
+  prefix: ""
+  region: "cn"
 
 # =============================================================================
 # Gemini OAuth (Required for Gemini accounts)

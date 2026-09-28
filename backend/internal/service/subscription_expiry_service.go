@@ -122,9 +122,6 @@ func (s *SubscriptionExpiryService) sendExpiryReminders(ctx context.Context) {
 	if s == nil || s.userSubRepo == nil || s.notificationEmailService == nil {
 		return
 	}
-	if !s.expiryReminderEnabled(ctx) {
-		return
-	}
 	if !s.smtpConfigured(ctx) {
 		return
 	}
@@ -149,21 +146,6 @@ func (s *SubscriptionExpiryService) sendExpiryReminders(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (s *SubscriptionExpiryService) expiryReminderEnabled(ctx context.Context) bool {
-	if s == nil || s.settingRepo == nil {
-		return true
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeySubscriptionExpiryNotifyEnabled)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			return true
-		}
-		log.Printf("[SubscriptionExpiry] Read expiry reminder switch failed: %v", err)
-		return false
-	}
-	return !isFalseSettingValue(value)
 }
 
 func (s *SubscriptionExpiryService) smtpConfigured(ctx context.Context) bool {
