@@ -16,7 +16,8 @@ import (
 func TestListErrorLogs_ReturnsInsertedRow(t *testing.T) {
 	ctx := context.Background()
 	_, _ = integrationDB.ExecContext(ctx, "TRUNCATE ops_error_logs RESTART IDENTITY CASCADE")
-	repo := NewOpsRepository(integrationDB).(*opsRepository)
+	repo, ok := NewOpsRepository(integrationDB).(*opsRepository)
+	require.True(t, ok)
 
 	_, err := repo.InsertErrorLog(ctx, &service.OpsInsertErrorLogInput{
 		RequestID:  "req-list-error-logs",

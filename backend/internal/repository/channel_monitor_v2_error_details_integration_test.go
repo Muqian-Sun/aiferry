@@ -17,7 +17,8 @@ import (
 func TestChannelMonitorV2LoadErrorDetails_ReturnsSamples(t *testing.T) {
 	ctx := context.Background()
 	_, _ = integrationDB.ExecContext(ctx, "TRUNCATE ops_error_logs RESTART IDENTITY CASCADE")
-	repo := NewChannelMonitorV2Repository(integrationDB).(*channelMonitorV2Repository)
+	repo, ok := NewChannelMonitorV2Repository(integrationDB).(*channelMonitorV2Repository)
+	require.True(t, ok)
 
 	now := time.Now()
 	_, err := integrationDB.ExecContext(ctx, `
