@@ -78,7 +78,6 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-import { adminAPI } from '@/api/admin'
 import CreateAccountModal from '../CreateAccountModal.vue'
 import { findAccessSource } from '../accessSources'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
@@ -811,24 +810,19 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   })
 
   it('shows Anthropic protocol settings for a Kimi key with an anthropic endpoint and submits them', async () => {
-    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.kimi)
     await switchProtocol(wrapper, 'anthropic')
     await fillKeyBasics(wrapper, 'kimi relay')
 
-    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
-    await wrapper.get('[data-testid="create-web-search-emulation-toggle"]').trigger('click')
     await wrapper.get('[data-testid="create-bedrock-cc-compat-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
     expect(payload).not.toHaveProperty('platform')
     expect(payload?.protocol_endpoints).toEqual({ anthropic: PROTOCOL_DEFAULTS.defaults.kimi.default.anthropic })
     expect(payload?.extra).toMatchObject({
-      anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer',
-      web_search_emulation: true,
       bedrock_cc_compat: true
     })
   })
@@ -836,18 +830,15 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   it('hides Anthropic protocol settings once an Anthropic-labelled key drops its anthropic endpoint', async () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.anthropic)
-    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(true)
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
     await switchProtocol(wrapper, 'chat_completions')
-    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
     await fillKeyBasics(wrapper, 'anthropic label without anthropic endpoint')
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
     expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
   })
 
@@ -858,10 +849,10 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await fillKeyBasics(wrapper, 'antigravity relay')
 
-    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
+    expect(payload?.extra).toMatchObject({ anthropic_apikey_auth_scheme: 'authorization_bearer' })
   })
 
   it('submits endpoint capabilities and the b64 toggle for a Kimi key with an OpenAI endpoint', async () => {

@@ -43,7 +43,7 @@ export default {
       },
       webSearchEmulation: {
         title: 'Web Search Emulation',
-        description: 'Inject web search capability for Anthropic API Key channels that don\'t natively support it. Active as soon as a provider has an API key (used in list order, falling over to the next on failure); turn it on per channel in the channel settings.',
+        description: 'Inject web search capability for Anthropic API Key channels that don\'t natively support it. Active as soon as a provider has an API key (used in list order, falling over to the next on failure); applies to every third-party key on the Anthropic protocol whose address is not the official Anthropic one, with no per-channel switch.',
         providers: 'Search Providers',
         addProvider: 'Add Provider',
         providerType: 'Provider Type',

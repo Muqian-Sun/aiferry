@@ -341,10 +341,10 @@
               <div class="min-w-0">
                 <div class="flex items-center gap-2 text-sm font-medium text-af-ink">
                   <Icon name="upload" size="sm" />
-                  <span>{{ vertexClientEmail ? t('admin.accounts.vertexSaJsonLoaded') : t('admin.accounts.vertexSaJsonDrop') }}</span>
+                  <span>{{ vertexServiceAccountJson ? t('admin.accounts.vertexSaJsonLoaded') : t('admin.accounts.vertexSaJsonDrop') }}</span>
                 </div>
                 <p class="mt-1 text-xs text-af-ink-3">
-                  {{ vertexClientEmail ? t('admin.accounts.vertexSaJsonKeyHidden') : t('admin.accounts.vertexSaJsonDropHint') }}
+                  {{ vertexServiceAccountJson ? t('admin.accounts.vertexSaJsonKeyHidden') : t('admin.accounts.vertexSaJsonDropHint') }}
                 </p>
               </div>
               <button
@@ -356,51 +356,32 @@
                 {{ t('admin.accounts.vertexSaJsonSelectBtn') }}
               </button>
             </div>
-            <div
-              v-if="vertexClientEmail"
-              class="mt-3 rounded-md border border-af-hairline bg-af-sheet px-3 py-2 text-xs text-af-ink-2"
-            >
-              <div class="truncate">Project ID: <span class="font-mono">{{ vertexProjectId }}</span></div>
-              <div class="truncate">Client Email: <span class="font-mono">{{ vertexClientEmail }}</span></div>
-            </div>
           </div>
           <p class="input-hint">{{ t('admin.accounts.vertexSaJsonUploadHint') }}</p>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">Project ID</label>
-            <input
-              v-model="vertexProjectId"
-              type="text"
-              class="input font-mono"
-              readonly
-              :placeholder="t('admin.accounts.vertexProjectIdPlaceholder')"
-            />
-          </div>
-          <div>
-            <label class="input-label">Location</label>
-            <select
-              v-model="vertexLocation"
-              required
-              class="input font-mono"
+        <div>
+          <label class="input-label">Location</label>
+          <select
+            v-model="vertexLocation"
+            required
+            class="input font-mono"
+          >
+            <optgroup
+              v-for="group in VERTEX_LOCATION_OPTIONS"
+              :key="group.label"
+              :label="group.label"
             >
-              <optgroup
-                v-for="group in VERTEX_LOCATION_OPTIONS"
-                :key="group.label"
-                :label="group.label"
+              <option
+                v-for="option in group.options"
+                :key="option.value"
+                :value="option.value"
               >
-                <option
-                  v-for="option in group.options"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </optgroup>
-            </select>
-            <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
-          </div>
+                {{ option.label }}
+              </option>
+            </optgroup>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
         </div>
       </div>
 
@@ -451,15 +432,6 @@
               required
               class="input font-mono"
             />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSessionToken') }}</label>
-            <input
-              v-model="bedrockSessionToken"
-              type="password"
-              class="input font-mono"
-            />
-            <p class="input-hint">{{ t('admin.accounts.bedrockSessionTokenHint') }}</p>
           </div>
         </template>
 
@@ -913,37 +885,6 @@
       <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
       <div
         v-if="anthropicKeySettingsVisible"
-        data-testid="create-anthropic-passthrough"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.apiKeyPassthroughDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="create-anthropic-passthrough-toggle"
-            @click="anthropicPassthroughEnabled = !anthropicPassthroughEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              anthropicPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                anthropicPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <div
-        v-if="anthropicKeySettingsVisible"
         class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between gap-4">
@@ -961,38 +902,6 @@
             <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
             <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
           </select>
-        </div>
-      </div>
-
-      <!-- Web Search Emulation（Anthropic 协议上的 key 设置，全局关闭时隐藏） -->
-      <div
-        v-if="anthropicKeySettingsVisible && webSearchGlobalEnabled"
-        data-testid="create-web-search-emulation"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="create-web-search-emulation-toggle"
-            @click="webSearchEmulationEnabled = !webSearchEmulationEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              webSearchEmulationEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                webSearchEmulationEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
         </div>
       </div>
 
@@ -1275,7 +1184,7 @@
         />
       </div>
 
-      <!-- 配额控制 (Anthropic OAuth/SetupToken: 窗口费用 + 会话 + RPM) -->
+      <!-- 配额控制 (Anthropic OAuth/SetupToken: 会话 + RPM) -->
       <div
         v-if="form.platform === 'anthropic' && accountCategory === 'oauth-based'"
         class="border-t border-af-hairline pt-4 space-y-4"
@@ -1285,66 +1194,6 @@
           <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
-        </div>
-
-        <!-- Window Cost Limit -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.windowCost.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="windowCostEnabled = !windowCostEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                windowCostEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  windowCostEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="windowCostEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.limit') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
-                <input
-                  v-model.number="windowCostLimit"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.limitHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.stickyReserve') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
-                <input
-                  v-model.number="windowCostStickyReserve"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.stickyReserveHint') }}</p>
-            </div>
-          </div>
         </div>
 
         <!-- Session Limit -->
@@ -1373,34 +1222,17 @@
             </button>
           </div>
 
-          <div v-if="sessionLimitEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
-              <input
-                v-model.number="maxSessions"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeout') }}</label>
-              <div class="relative">
-                <input
-                  v-model.number="sessionIdleTimeout"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="input pr-12"
-                  :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"
-                />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-af-ink-3">{{ t('common.minutes') }}</span>
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint') }}</p>
-            </div>
+          <div v-if="sessionLimitEnabled">
+            <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
+            <input
+              v-model.number="maxSessions"
+              type="number"
+              min="1"
+              step="1"
+              class="input"
+              :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
+            />
+            <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
           </div>
         </div>
 
@@ -1443,76 +1275,6 @@
                 :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
               />
               <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
-            </div>
-
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'tiered'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'tiered'
-                      ? 'bg-af-brand-tint text-af-brand'
-                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyTiered') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyTieredHint') }}</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'sticky_exempt'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'sticky_exempt'
-                      ? 'bg-af-brand-tint text-af-brand'
-                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExemptHint') }}</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div v-if="rpmStrategy === 'tiered'">
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
-              <input
-                v-model.number="rpmStickyBuffer"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
-            </div>
-
-          </div>
-
-          <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
-          <div class="mt-4">
-            <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3 mb-2">
-              {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
-            </p>
-            <div class="flex space-x-2">
-              <button type="button" v-for="opt in umqModeOptions" :key="opt.value"
-                @click="userMsgQueueMode = opt.value"
-                :class="[
-                  'px-3 py-1.5 text-sm rounded-md border transition-colors',
-                  userMsgQueueMode === opt.value
-                    ? 'bg-af-brand text-af-on-brand border-af-brand'
-                    : 'bg-af-sheet text-af-ink-2 border-af-hairline-strong hover:bg-af-sunken'
-                ]">
-                {{ opt.label }}
-              </button>
             </div>
           </div>
         </div>
@@ -1687,71 +1449,6 @@
               </span>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Bedrock 的池模式 -->
-      <!-- Pool Mode Section for Bedrock -->
-      <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.poolModeHint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="poolModeEnabled = !poolModeEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              poolModeEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-        <div v-if="poolModeEnabled" class="rounded-lg bg-af-sunken p-3">
-          <p class="text-xs text-af-ink-2">
-            <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-            {{ t('admin.accounts.poolModeInfo') }}
-          </p>
-        </div>
-        <div v-if="poolModeEnabled" class="mt-3">
-          <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-          <input
-            v-model.number="poolModeRetryCount"
-            type="number"
-            min="0"
-            :max="MAX_POOL_MODE_RETRY_COUNT"
-            step="1"
-            class="input"
-          />
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{
-              t('admin.accounts.poolModeRetryCountHint', {
-                default: DEFAULT_POOL_MODE_RETRY_COUNT,
-                max: MAX_POOL_MODE_RETRY_COUNT
-              })
-            }}
-          </p>
-        </div>
-        <div v-if="poolModeEnabled" class="mt-3">
-          <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-          <input
-            v-model="poolModeRetryStatusCodesInput"
-            type="text"
-            class="input"
-            :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
-          />
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
-          </p>
         </div>
       </div>
 
@@ -1978,114 +1675,6 @@
               ]"
             />
           </button>
-        </div>
-      </div>
-
-      <!-- Anthropic OAuth/SetupToken：TLS 指纹、会话 ID 伪装、缓存 TTL 覆盖 -->
-      <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'oauth-based'"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <!-- TLS Fingerprint -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.tlsFingerprint.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="tlsFingerprintEnabled = !tlsFingerprintEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                tlsFingerprintEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  tlsFingerprintEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <!-- Profile selector -->
-          <div v-if="tlsFingerprintEnabled" class="mt-3">
-            <select v-model="tlsFingerprintProfileId" class="input">
-              <option :value="null">{{ t('admin.accounts.quotaControl.tlsFingerprint.defaultProfile') }}</option>
-              <option v-if="tlsFingerprintProfiles.length > 0" :value="-1">{{ t('admin.accounts.quotaControl.tlsFingerprint.randomProfile') }}</option>
-              <option v-for="p in tlsFingerprintProfiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Session ID Masking -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.sessionIdMasking.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="sessionIdMaskingEnabled = !sessionIdMaskingEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                sessionIdMaskingEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  sessionIdMaskingEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-        </div>
-
-        <!-- Cache TTL Override -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.cacheTTLOverride.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="cacheTTLOverrideEnabled = !cacheTTLOverrideEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                cacheTTLOverrideEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  cacheTTLOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <div v-if="cacheTTLOverrideEnabled" class="mt-3">
-            <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.cacheTTLOverride.target') }}</label>
-            <select
-              v-model="cacheTTLOverrideTarget"
-              class="mt-1 block w-full rounded-md border border-af-hairline-strong bg-af-sheet px-3 py-2 text-sm focus:border-af-brand focus:outline-none focus:ring-1 focus:ring-af-brand"
-            >
-              <option value="5m">5m</option>
-              <option value="1h">1h</option>
-            </select>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.quotaControl.cacheTTLOverride.targetHint') }}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -2979,22 +2568,14 @@ const codexFingerprintModeOptions = computed(() => [
   { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
 ])
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
-const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
-const webSearchEmulationEnabled = ref(false)
 const bedrockCCCompatEnabled = ref(false)
-const webSearchGlobalEnabled = ref(false)
 
 const {
   globalEnabled: quotaNotifyGlobalEnabled,
   state: quotaNotifyState,
   writeToExtra: writeQuotaNotifyToExtra,
 } = useQuotaNotifyState()
-
-// Load global feature states once
-adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
-  webSearchGlobalEnabled.value = cfg?.enabled === true && (cfg?.providers?.length ?? 0) > 0
-}).catch(() => { webSearchGlobalEnabled.value = false })
 
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
@@ -3003,14 +2584,11 @@ const antigravityProjectId = ref('')
 const bedrockAuthMode = ref<'sigv4' | 'apikey'>('sigv4')
 const bedrockAccessKeyId = ref('')
 const bedrockSecretAccessKey = ref('')
-const bedrockSessionToken = ref('')
 const bedrockRegion = ref('us-east-1')
 const bedrockForceGlobal = ref(false)
 const bedrockApiKeyValue = ref('')
 const vertexServiceAccountFileInput = ref<HTMLInputElement | null>(null)
 const vertexServiceAccountJson = ref('')
-const vertexProjectId = ref('')
-const vertexClientEmail = ref('')
 const vertexLocation = ref('global')
 const vertexServiceAccountDragActive = ref(false)
 const tempUnschedEnabled = ref(false)
@@ -3086,28 +2664,12 @@ const showAdvancedOAuth = ref(false)
 const showGeminiHelpDialog = ref(false)
 
 // Quota control state (Anthropic OAuth/SetupToken only)
-const windowCostEnabled = ref(false)
-const windowCostLimit = ref<number | null>(null)
-const windowCostStickyReserve = ref<number | null>(null)
+// 空闲超时、RPM 策略 / 粘性缓冲、用户消息限速、TLS 指纹、会话 ID 伪装、缓存 TTL 替换已写死在后端
+// （channel_features_anthropic.go），表单不再提供。
 const sessionLimitEnabled = ref(false)
 const maxSessions = ref<number | null>(null)
-const sessionIdleTimeout = ref<number | null>(null)
 const rpmLimitEnabled = ref(false)
 const baseRpm = ref<number | null>(null)
-const rpmStrategy = ref<'tiered' | 'sticky_exempt'>('tiered')
-const rpmStickyBuffer = ref<number | null>(null)
-const userMsgQueueMode = ref('')
-const umqModeOptions = computed(() => [
-  { value: '', label: t('admin.accounts.quotaControl.rpmLimit.umqModeOff') },
-  { value: 'throttle', label: t('admin.accounts.quotaControl.rpmLimit.umqModeThrottle') },
-  { value: 'serialize', label: t('admin.accounts.quotaControl.rpmLimit.umqModeSerialize') },
-])
-const tlsFingerprintEnabled = ref(false)
-const tlsFingerprintProfileId = ref<number | null>(null)
-const tlsFingerprintProfiles = ref<{ id: number; name: string }[]>([])
-const sessionIdMaskingEnabled = ref(false)
-const cacheTTLOverrideEnabled = ref(false)
-const cacheTTLOverrideTarget = ref<string>('5m')
 
 // Gemini tier selection (used as fallback when auto-detection is unavailable/fails)
 const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
@@ -3308,17 +2870,10 @@ const canExchangeCode = computed(() => {
 watch(
   () => props.show,
   (newVal) => {
-    if (newVal) {
-      // Load TLS fingerprint profiles
-      adminAPI.tlsFingerprintProfiles.list()
-        .then(profiles => { tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name })) })
-        .catch(() => { tlsFingerprintProfiles.value = [] })
-    } else {
+    if (!newVal) {
       resetForm()
     }
-  },
-  // 整页挂载时已经是打开状态，需要立即跑一次打开逻辑
-  { immediate: props.show }
+  }
 )
 
 // Sync form.type based on accountCategory, addMethod, and platform-specific type
@@ -3377,14 +2932,11 @@ watch(
     // Reset Bedrock fields when switching platforms
     bedrockAccessKeyId.value = ''
     bedrockSecretAccessKey.value = ''
-    bedrockSessionToken.value = ''
     bedrockRegion.value = 'us-east-1'
     bedrockForceGlobal.value = false
     bedrockAuthMode.value = 'sigv4'
     bedrockApiKeyValue.value = ''
     vertexServiceAccountJson.value = ''
-    vertexProjectId.value = ''
-    vertexClientEmail.value = ''
     vertexLocation.value = 'global'
     // Reset Anthropic/Antigravity-specific settings when switching to other platforms
     if (newPlatform !== 'anthropic' && newPlatform !== 'antigravity') {
@@ -3397,16 +2949,14 @@ watch(
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
     }
-    // 第三方 key 也能配的协议设置（OpenAI 自动透传 / key 的 WS mode / Compact，Anthropic 透传 /
-    // 认证方式 / web search 模拟）：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
+    // 第三方 key 也能配的协议设置（OpenAI 自动透传 / key 的 WS mode / Compact，Anthropic
+    // 认证方式 / Bedrock CC 兼容）：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
     // 同一平台内删掉地址行导致的隐藏，由提交时的可见性判断保证不写入。
     openaiPassthroughEnabled.value = false
     openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
     openAICompactMode.value = 'auto'
     openAICompactModelMappings.value = []
-    anthropicPassthroughEnabled.value = false
     anthropicAPIKeyAuthScheme.value = 'x_api_key'
-    webSearchEmulationEnabled.value = false
     bedrockCCCompatEnabled.value = false
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
@@ -3738,32 +3288,16 @@ const resetForm = () => {
   codexCLIOnlyEnabled.value = false
   codexCLIOnlyAppServerEnabled.value = false
   codexFingerprintMode.value = 'off'
-  anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
-  webSearchEmulationEnabled.value = false
   bedrockCCCompatEnabled.value = false
   // Reset quota control state
-  windowCostEnabled.value = false
-  windowCostLimit.value = null
-  windowCostStickyReserve.value = null
   sessionLimitEnabled.value = false
   maxSessions.value = null
-  sessionIdleTimeout.value = null
   rpmLimitEnabled.value = false
   baseRpm.value = null
-  rpmStrategy.value = 'tiered'
-  rpmStickyBuffer.value = null
-  userMsgQueueMode.value = ''
-  tlsFingerprintEnabled.value = false
-  tlsFingerprintProfileId.value = null
-  sessionIdMaskingEnabled.value = false
-  cacheTTLOverrideEnabled.value = false
-  cacheTTLOverrideTarget.value = '5m'
   allowOverages.value = false
   antigravityProjectId.value = ''
   vertexServiceAccountJson.value = ''
-  vertexProjectId.value = ''
-  vertexClientEmail.value = ''
   vertexLocation.value = 'global'
   tempUnschedEnabled.value = false
   tempUnschedRules.value = []
@@ -3875,20 +3409,10 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
   }
 
   const extra: Record<string, unknown> = { ...(base || {}) }
-  if (anthropicPassthroughEnabled.value) {
-    extra.anthropic_passthrough = true
-  } else {
-    delete extra.anthropic_passthrough
-  }
   if (anthropicAPIKeyAuthScheme.value === 'authorization_bearer') {
     extra.anthropic_apikey_auth_scheme = 'authorization_bearer'
   } else {
     delete extra.anthropic_apikey_auth_scheme
-  }
-  if (webSearchEmulationEnabled.value) {
-    extra.web_search_emulation = true
-  } else {
-    delete extra.web_search_emulation
   }
   if (bedrockCCCompatEnabled.value) {
     extra.bedrock_cc_compat = true
@@ -3917,11 +3441,11 @@ const normalizePoolModeRetryCount = (value: number) => {
   return normalized
 }
 
+// Service Account JSON 原样交给后端，Project ID / Client Email 由后端从 JSON 里取（不另存副本）；
+// 这里只校验三个必需字段在不在。
 const applyVertexServiceAccountJson = (value: string) => {
   const raw = value.trim()
   if (!raw) {
-    vertexProjectId.value = ''
-    vertexClientEmail.value = ''
     return false
   }
   try {
@@ -3933,8 +3457,6 @@ const applyVertexServiceAccountJson = (value: string) => {
       appStore.showError(t('admin.accounts.vertexSaJsonMissingFields'))
       return false
     }
-    vertexProjectId.value = projectId
-    vertexClientEmail.value = clientEmail
     vertexServiceAccountJson.value = JSON.stringify(parsed)
     return true
   } catch {
@@ -3997,9 +3519,6 @@ const handleSubmit = async () => {
       }
       credentials.aws_access_key_id = bedrockAccessKeyId.value.trim()
       credentials.aws_secret_access_key = bedrockSecretAccessKey.value.trim()
-      if (bedrockSessionToken.value.trim()) {
-        credentials.aws_session_token = bedrockSessionToken.value.trim()
-      }
     } else {
       if (!bedrockApiKeyValue.value.trim()) {
         appStore.showError(t('admin.accounts.bedrockApiKeyRequired'))
@@ -4016,16 +3535,6 @@ const handleSubmit = async () => {
     const modelMapping = buildRenameMapping()
     if (modelMapping) {
       credentials.model_mapping = modelMapping
-    }
-
-    // Pool mode
-    if (poolModeEnabled.value) {
-      credentials.pool_mode = true
-      credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-      const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-      if (parsedRetryStatusCodes.length > 0) {
-        credentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
-      }
     }
 
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
@@ -4048,8 +3557,6 @@ const handleSubmit = async () => {
     }
     const credentials: Record<string, unknown> = {
       service_account_json: vertexServiceAccountJson.value.trim(),
-      project_id: vertexProjectId.value.trim(),
-      client_email: vertexClientEmail.value.trim(),
       location: vertexLocation.value.trim(),
       tier_id: 'vertex'
     }
@@ -5151,16 +4658,9 @@ const handleAnthropicExchange = async (authCode: string) => {
     const baseExtra = oauth.buildExtraInfo(tokenInfo) || {}
     const extra: Record<string, unknown> = { ...baseExtra }
 
-    // Add window cost limit settings
-    if (windowCostEnabled.value && windowCostLimit.value != null && windowCostLimit.value > 0) {
-      extra.window_cost_limit = windowCostLimit.value
-      extra.window_cost_sticky_reserve = windowCostStickyReserve.value ?? 10
-    }
-
     // Add session limit settings
     if (sessionLimitEnabled.value && maxSessions.value != null && maxSessions.value > 0) {
       extra.max_sessions = maxSessions.value
-      extra.session_idle_timeout_minutes = sessionIdleTimeout.value ?? 5
     }
 
     // Add RPM limit settings
@@ -5169,34 +4669,6 @@ const handleAnthropicExchange = async (authCode: string) => {
       extra.base_rpm = (baseRpm.value != null && baseRpm.value > 0)
         ? baseRpm.value
         : DEFAULT_BASE_RPM
-      extra.rpm_strategy = rpmStrategy.value
-      if (rpmStickyBuffer.value != null && rpmStickyBuffer.value > 0) {
-        extra.rpm_sticky_buffer = rpmStickyBuffer.value
-      }
-    }
-
-    // UMQ mode（独立于 RPM）
-    if (userMsgQueueMode.value) {
-      extra.user_msg_queue_mode = userMsgQueueMode.value
-    }
-
-    // Add TLS fingerprint settings
-    if (tlsFingerprintEnabled.value) {
-      extra.enable_tls_fingerprint = true
-      if (tlsFingerprintProfileId.value) {
-        extra.tls_fingerprint_profile_id = tlsFingerprintProfileId.value
-      }
-    }
-
-    // Add session ID masking settings
-    if (sessionIdMaskingEnabled.value) {
-      extra.session_id_masking_enabled = true
-    }
-
-    // Add cache TTL override settings
-    if (cacheTTLOverrideEnabled.value) {
-      extra.cache_ttl_override_enabled = true
-      extra.cache_ttl_override_target = cacheTTLOverrideTarget.value
     }
 
     const credentials: Record<string, unknown> = { ...tokenInfo }
@@ -5270,16 +4742,9 @@ const handleCookieAuth = async (sessionKey: string) => {
         const baseExtra = oauth.buildExtraInfo(tokenInfo) || {}
         const extra: Record<string, unknown> = { ...baseExtra }
 
-        // Add window cost limit settings
-        if (windowCostEnabled.value && windowCostLimit.value != null && windowCostLimit.value > 0) {
-          extra.window_cost_limit = windowCostLimit.value
-          extra.window_cost_sticky_reserve = windowCostStickyReserve.value ?? 10
-        }
-
         // Add session limit settings
         if (sessionLimitEnabled.value && maxSessions.value != null && maxSessions.value > 0) {
           extra.max_sessions = maxSessions.value
-          extra.session_idle_timeout_minutes = sessionIdleTimeout.value ?? 5
         }
 
         // Add RPM limit settings
@@ -5288,34 +4753,6 @@ const handleCookieAuth = async (sessionKey: string) => {
           extra.base_rpm = (baseRpm.value != null && baseRpm.value > 0)
             ? baseRpm.value
             : DEFAULT_BASE_RPM
-          extra.rpm_strategy = rpmStrategy.value
-          if (rpmStickyBuffer.value != null && rpmStickyBuffer.value > 0) {
-            extra.rpm_sticky_buffer = rpmStickyBuffer.value
-          }
-        }
-
-        // UMQ mode（独立于 RPM）
-        if (userMsgQueueMode.value) {
-          extra.user_msg_queue_mode = userMsgQueueMode.value
-        }
-
-        // Add TLS fingerprint settings
-        if (tlsFingerprintEnabled.value) {
-          extra.enable_tls_fingerprint = true
-          if (tlsFingerprintProfileId.value) {
-            extra.tls_fingerprint_profile_id = tlsFingerprintProfileId.value
-          }
-        }
-
-        // Add session ID masking settings
-        if (sessionIdMaskingEnabled.value) {
-          extra.session_id_masking_enabled = true
-        }
-
-        // Add cache TTL override settings
-        if (cacheTTLOverrideEnabled.value) {
-          extra.cache_ttl_override_enabled = true
-          extra.cache_ttl_override_target = cacheTTLOverrideTarget.value
         }
 
         const accountName = keys.length > 1 ? `${form.name} #${i + 1}` : form.name

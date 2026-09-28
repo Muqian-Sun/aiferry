@@ -336,11 +336,6 @@ export default {
       // 容量（详情抽屉「用量」页签）
       capacity: {
         concurrency: '并发',
-        windowCost: {
-          label: '5 小时窗口费用',
-          blocked: '已到上限，渠道停到这个 5 小时窗口结束',
-          normal: '按标价累计，到上限后渠道停到窗口结束'
-        },
         sessions: {
           label: '活跃会话',
           full: '活跃会话已满，新会话需等待（空闲超时：{idle}分钟）',
@@ -354,10 +349,7 @@ export default {
           tieredNormal: '分层限流：正常',
           tieredWarning: '分层限流：接近上限',
           tieredStickyOnly: '分层限流：已到上限，只接粘性会话（缓冲 {buffer}）',
-          tieredBlocked: '分层限流：超出缓冲 {buffer}，暂停调度',
-          stickyExemptNormal: '粘性豁免：正常',
-          stickyExemptWarning: '粘性豁免：接近上限',
-          stickyExemptOver: '粘性豁免：已到上限，只接粘性会话'
+          tieredBlocked: '分层限流：超出缓冲 {buffer}，暂停调度'
         },
       },
       clearRateLimit: '清除速率限制',
@@ -757,12 +749,9 @@ export default {
       vertexSaJsonSelectBtn: '选择 JSON',
       vertexSaJsonUploadHint: '上传或拖入 JSON 后会自动读取 project_id，密钥内容仅用于创建渠道提交。',
       vertexSaJsonEditHint: 'Service Account JSON 不在编辑页显示；需要更换 JSON 时请删除渠道后重新创建。',
-      vertexProjectIdPlaceholder: '从 JSON 自动读取',
       vertexLocationHint: '不同 Vertex 模型可用 location 可能不同，这里选择渠道默认 endpoint location。',
       vertexLocationRequired: '请填写 Vertex location',
       vertexSaJsonMissingFields: 'Service Account JSON 缺少 project_id、client_email 或 private_key',
-      vertexSaJsonMissingProjectId: 'Service Account JSON 缺少 project_id',
-      vertexSaJsonMissingClientEmail: 'Service Account JSON 缺少 client_email',
       vertexSaJsonInvalid: 'Service Account JSON 格式无效',
       vertexSaJsonRequired: '请上传 Service Account JSON',
       addMethod: '添加方式',
@@ -939,16 +928,10 @@ export default {
         noResponseBody: '服务器未返回响应体'
       },
       anthropic: {
-        apiKeyPassthrough: '自动透传（仅替换认证）',
-        apiKeyPassthroughDesc:
-          '仅对配了 Anthropic 协议地址的第三方 key 生效。开启后，messages/count_tokens 请求将透传上游并仅替换认证，保留计费/并发/审计及必要安全过滤；关闭即可回滚到现有兼容链路。',
         apiKeyAuthScheme: '上游认证方式',
         apiKeyAuthSchemeDesc: '选择转发到 Anthropic-compatible 上游时使用的 API Key 认证头。Ollama Cloud 使用 Authorization: Bearer。',
         apiKeyAuthSchemeXApiKey: 'x-api-key',
         apiKeyAuthSchemeBearer: 'Authorization: Bearer',
-        webSearchEmulation: 'Web Search 模拟',
-        webSearchEmulationDesc:
-          '为该 API Key 渠道启用 web search 模拟。客户端发送纯 web_search 请求时，由网关调用第三方搜索 API 并构造响应返回。',
         bedrockCCCompat: 'Bedrock CC 兼容',
         bedrockCCCompatDesc:
           '转发前清理 Claude Code 专有请求字段并过滤上游不支持的 anthropic-beta，适用于按 Bedrock Anthropic 方言接入的上游。',
@@ -1077,26 +1060,13 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: '配额控制',
-        hint: '配置费用窗口、会话限制、客户端亲和等调度控制。',
-        windowCost: {
-          label: '5h窗口费用控制',
-          hint: '限制渠道在5小时窗口内的费用使用',
-          limit: '费用阈值',
-          limitPlaceholder: '50',
-          limitHint: '达到阈值后不参与新请求调度',
-          stickyReserve: '粘性预留额度',
-          stickyReservePlaceholder: '10',
-          stickyReserveHint: '为粘性会话预留的额外额度'
-        },
+        hint: '配置会话数量、每分钟请求数等调度限制。',
         sessionLimit: {
           label: '会话数量控制',
           hint: '限制同时活跃的会话数量',
           maxSessions: '最大会话数',
           maxSessionsPlaceholder: '3',
-          maxSessionsHint: '同时活跃的最大会话数量',
-          idleTimeout: '空闲超时',
-          idleTimeoutPlaceholder: '5',
-          idleTimeoutHint: '会话空闲超时后自动释放'
+          maxSessionsHint: '同时活跃的最大会话数量；会话空闲 5 分钟后自动释放'
         },
         rpmLimit: {
           label: 'RPM 限制',
@@ -1107,8 +1077,6 @@ export default {
           strategy: 'RPM 策略',
           strategyTiered: '三区模型',
           strategyStickyExempt: '粘性豁免',
-          strategyTieredHint: '绿区→黄区→仅粘性→阻塞，逐步限流',
-          strategyStickyExemptHint: '超限后仅允许粘性会话',
           strategyHint: '三区模型: 超限后逐步限制; 粘性豁免: 已有会话不受限',
           stickyBuffer: '粘性缓冲区',
           stickyBufferPlaceholder: '默认: base RPM 的 20%',
@@ -1118,22 +1086,6 @@ export default {
           umqModeOff: '关闭',
           umqModeThrottle: '软性限速',
           umqModeSerialize: '串行队列',
-        },
-        tlsFingerprint: {
-          label: 'TLS 指纹模拟',
-          hint: '模拟 Node.js/Claude Code 客户端的 TLS 指纹',
-          defaultProfile: '内置默认',
-          randomProfile: '随机'
-        },
-        sessionIdMasking: {
-          label: '会话 ID 伪装',
-          hint: '启用后将在 15 分钟内固定 metadata.user_id 中的 session ID，使上游认为请求来自同一会话'
-        },
-        cacheTTLOverride: {
-          label: '缓存 TTL 强制替换',
-          hint: '将所有缓存创建 token 强制按指定的 TTL 类型（5分钟或1小时）计费',
-          target: '目标 TTL',
-          targetHint: '选择计费使用的 TTL 类型'
         },
         clientAffinity: {
           label: '客户端亲和调度',
@@ -1189,7 +1141,6 @@ export default {
       pleaseEnterApiKey: '请输入 API Key',
       bedrockAccessKeyId: 'AWS Access Key ID',
       bedrockSecretAccessKey: 'AWS Secret Access Key',
-      bedrockSessionToken: 'AWS Session Token',
       bedrockRegion: 'AWS Region',
       bedrockRegionHint: '例如 us-east-1, us-west-2, eu-west-1',
       bedrockForceGlobal: '强制使用 Global 跨区域推理',
@@ -1197,7 +1148,6 @@ export default {
       bedrockAccessKeyIdRequired: '请输入 AWS Access Key ID',
       bedrockSecretAccessKeyRequired: '请输入 AWS Secret Access Key',
       bedrockRegionRequired: '请选择 AWS Region',
-      bedrockSessionTokenHint: '可选，用于临时凭证',
       bedrockSecretKeyLeaveEmpty: '留空以保持当前密钥',
       bedrockAuthMode: '认证方式',
       bedrockAuthModeSigv4: 'SigV4 签名',

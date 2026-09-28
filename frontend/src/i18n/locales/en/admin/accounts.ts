@@ -431,11 +431,6 @@ export default {
       // Capacity (detail drawer, Usage tab)
       capacity: {
         concurrency: 'Concurrency',
-        windowCost: {
-          label: '5-hour window cost',
-          blocked: 'Limit reached; the channel is paused until this 5-hour window ends',
-          normal: 'Accumulated at list price; the channel pauses until the window ends once the limit is reached'
-        },
         sessions: {
           label: 'Active sessions',
           full: 'Active sessions full, new sessions must wait (idle timeout: {idle} min)',
@@ -449,10 +444,7 @@ export default {
           tieredNormal: 'Tiered: normal',
           tieredWarning: 'Tiered: approaching the limit',
           tieredStickyOnly: 'Tiered: limit reached, sticky sessions only (buffer {buffer})',
-          tieredBlocked: 'Tiered: over the {buffer} buffer, scheduling paused',
-          stickyExemptNormal: 'Sticky exempt: normal',
-          stickyExemptWarning: 'Sticky exempt: approaching the limit',
-          stickyExemptOver: 'Sticky exempt: limit reached, sticky sessions only'
+          tieredBlocked: 'Tiered: over the {buffer} buffer, scheduling paused'
         },
       },
       tempUnschedulable: {
@@ -635,12 +627,9 @@ export default {
       vertexSaJsonSelectBtn: 'Select JSON',
       vertexSaJsonUploadHint: 'After uploading or dropping a JSON file, the project_id will be auto-extracted. Key content is only used for account creation.',
       vertexSaJsonEditHint: 'Service Account JSON is not shown on the edit page; to change the JSON, delete the account and recreate it.',
-      vertexProjectIdPlaceholder: 'Auto-extracted from JSON',
       vertexLocationHint: 'Available locations vary by Vertex model. Select the default endpoint location for this account.',
       vertexLocationRequired: 'Please enter a Vertex location',
       vertexSaJsonMissingFields: 'Service Account JSON is missing project_id, client_email, or private_key',
-      vertexSaJsonMissingProjectId: 'Service Account JSON is missing project_id',
-      vertexSaJsonMissingClientEmail: 'Service Account JSON is missing client_email',
       vertexSaJsonInvalid: 'Service Account JSON format is invalid',
       vertexSaJsonRequired: 'Please upload a Service Account JSON',
       addMethod: 'Add Method',
@@ -825,16 +814,10 @@ export default {
         noResponseBody: 'No response body from server'
       },
       anthropic: {
-        apiKeyPassthrough: 'Auto passthrough (auth only)',
-        apiKeyPassthroughDesc:
-          'Only applies to third-party keys with an Anthropic protocol endpoint. When enabled, messages/count_tokens are forwarded in passthrough mode with auth replacement only, while billing/concurrency/audit and safety filtering are preserved. Disable to roll back immediately.',
         apiKeyAuthScheme: 'Upstream auth scheme',
         apiKeyAuthSchemeDesc: 'Choose the API key auth header used when forwarding to an Anthropic-compatible upstream. Ollama Cloud uses Authorization: Bearer.',
         apiKeyAuthSchemeXApiKey: 'x-api-key',
         apiKeyAuthSchemeBearer: 'Authorization: Bearer',
-        webSearchEmulation: 'Web Search Emulation',
-        webSearchEmulationDesc:
-          'Enable web search emulation for this API Key account. When a pure web_search request is detected, the gateway calls a third-party search API and constructs the response locally.',
         bedrockCCCompat: 'Bedrock CC compatibility',
         bedrockCCCompatDesc:
           'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
@@ -969,26 +952,13 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: 'Quota Control',
-        hint: 'Configure cost window, session limits, client affinity and other scheduling controls.',
-        windowCost: {
-          label: '5h Window Cost Limit',
-          hint: 'Limit account cost usage within the 5-hour window',
-          limit: 'Cost Threshold',
-          limitPlaceholder: '50',
-          limitHint: 'Account will not participate in new scheduling after reaching threshold',
-          stickyReserve: 'Sticky Reserve',
-          stickyReservePlaceholder: '10',
-          stickyReserveHint: 'Additional reserve for sticky sessions'
-        },
+        hint: 'Configure session count, requests per minute and other scheduling limits.',
         sessionLimit: {
           label: 'Session Count Limit',
           hint: 'Limit the number of active concurrent sessions',
           maxSessions: 'Max Sessions',
           maxSessionsPlaceholder: '3',
-          maxSessionsHint: 'Maximum number of active concurrent sessions',
-          idleTimeout: 'Idle Timeout',
-          idleTimeoutPlaceholder: '5',
-          idleTimeoutHint: 'Sessions will be released after idle timeout'
+          maxSessionsHint: 'Maximum number of active concurrent sessions; a session is released after 5 idle minutes'
         },
         rpmLimit: {
           label: 'RPM Limit',
@@ -999,8 +969,6 @@ export default {
           strategy: 'RPM Strategy',
           strategyTiered: 'Tiered Model',
           strategyStickyExempt: 'Sticky Exempt',
-          strategyTieredHint: 'Green → Yellow → Sticky only → Blocked, progressive throttling',
-          strategyStickyExemptHint: 'Only sticky sessions allowed when over limit',
           strategyHint: 'Tiered: gradually restrict when exceeded; Sticky Exempt: existing sessions unrestricted',
           stickyBuffer: 'Sticky Buffer',
           stickyBufferPlaceholder: 'Default: 20% of base RPM',
@@ -1010,22 +978,6 @@ export default {
           umqModeOff: 'Off',
           umqModeThrottle: 'Throttle',
           umqModeSerialize: 'Serialize',
-        },
-        tlsFingerprint: {
-          label: 'TLS Fingerprint Simulation',
-          hint: 'Simulate Node.js/Claude Code client TLS fingerprint',
-          defaultProfile: 'Built-in Default',
-          randomProfile: 'Random'
-        },
-        sessionIdMasking: {
-          label: 'Session ID Masking',
-          hint: 'When enabled, fixes the session ID in metadata.user_id for 15 minutes, making upstream think requests come from the same session'
-        },
-        cacheTTLOverride: {
-          label: 'Cache TTL Override',
-          hint: 'Force all cache creation tokens to be billed as the selected TTL tier (5m or 1h)',
-          target: 'Target TTL',
-          targetHint: 'Select the TTL tier for billing'
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',
@@ -1081,7 +1033,6 @@ export default {
       pleaseEnterApiKey: 'Please enter API Key',
       bedrockAccessKeyId: 'AWS Access Key ID',
       bedrockSecretAccessKey: 'AWS Secret Access Key',
-      bedrockSessionToken: 'AWS Session Token',
       bedrockRegion: 'AWS Region',
       bedrockRegionHint: 'e.g. us-east-1, us-west-2, eu-west-1',
       bedrockForceGlobal: 'Force Global cross-region inference',
@@ -1089,7 +1040,6 @@ export default {
       bedrockAccessKeyIdRequired: 'Please enter AWS Access Key ID',
       bedrockSecretAccessKeyRequired: 'Please enter AWS Secret Access Key',
       bedrockRegionRequired: 'Please select AWS Region',
-      bedrockSessionTokenHint: 'Optional, for temporary credentials',
       bedrockSecretKeyLeaveEmpty: 'Leave empty to keep current key',
       bedrockAuthMode: 'Authentication Mode',
       bedrockAuthModeSigv4: 'SigV4 Signing',
