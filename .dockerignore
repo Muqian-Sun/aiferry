@@ -66,15 +66,9 @@ temp/
 *.tmp
 
 # Deploy files (not needed in image)
-deploy/install.sh
-deploy/sub2api.service
-deploy/sub2api-sudoers
 deploy/data/
 deploy/postgres_data/
 deploy/redis_data/
-
-# GoReleaser
-.goreleaser.yaml
 
 # GitHub
 .github/
