@@ -167,7 +167,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAuth: false,
       title: 'Models',
       titleKey: 'userUi.models.title',
-      descriptionKey: 'userUi.models.description'
+      descriptionKey: 'userUi.models.description',
+      preload: (_to, prefetch) => import('@/views/modelPlazaQuery').then((m) => m.preloadModelPlaza(prefetch))
     }
   },
 
@@ -188,7 +189,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: false,
       title: 'Overview',
-      titleKey: 'userUi.overview.title'
+      titleKey: 'userUi.overview.title',
+      preload: (to, prefetch) => import('@/views/user/overviewQuery').then((m) => m.preloadOverview(to, prefetch))
     }
   },
   {
@@ -200,7 +202,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'API Keys',
       titleKey: 'keys.title',
-      descriptionKey: 'keys.description'
+      descriptionKey: 'keys.description',
+      preload: (to, prefetch) => import('@/views/user/keysQuery').then((m) => m.preloadKeys(to, prefetch))
     }
   },
   {
@@ -226,7 +229,9 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Usage',
       titleKey: 'userUi.usage.title',
-      descriptionKey: 'userUi.usage.description'
+      descriptionKey: 'userUi.usage.description',
+      // 数据到了再换页：首屏几个请求在进入前发完（muqian 2026-09-27）
+      preload: (to, prefetch) => import('@/views/user/usageQuery').then((m) => m.preloadUsage(to, prefetch))
     }
   },
 
@@ -256,7 +261,8 @@ export const userRoutes: RouteRecordRaw[] = [
           title: 'Top up',
           titleKey: 'nav.recharge',
           descriptionKey: 'purchase.rechargeDescription',
-          requiresPayment: true
+          requiresPayment: true,
+          preload: (_to, prefetch) => import('@/views/user/billing/checkoutPreload').then((m) => m.preloadCheckoutInfo(prefetch))
         }
       },
       {

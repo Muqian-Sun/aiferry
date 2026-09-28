@@ -233,7 +233,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter, type LocationQuery } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { keysAPI, usageAPI } from '@/api'
@@ -264,7 +264,7 @@ import { useColumnSettings } from '@/composables/useColumnSettings'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCurrency, formatDateTime, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
 import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode } from '@/utils/billingMode'
-import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
+import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import type {
   ApiKey,
   ModelStat,
@@ -276,6 +276,21 @@ import type {
 } from '@/types'
 import type { Column } from '@/components/common/types'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
+import { adoptPreloaded } from '@/router/routePreload'
+import {
+  EMPTY_ERROR_FILTER,
+  ERROR_PAGE_SIZE,
+  USAGE_DEFAULT_SORT,
+  initialUsageFilters,
+  normalizeUsageFilters,
+  readUsageRoute,
+  usageErrorCountParams,
+  usageErrorListParams,
+  usageListParams,
+  usageModelStatsParams,
+  usageRequestKey,
+  type UsageErrorFilter,
+} from './usageQuery'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -297,48 +312,17 @@ const statsError = ref(false)
 const modelStatsError = ref(false)
 const logsError = ref(false)
 
-// ---------- 地址栏参数 ----------
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const queryString = (query: LocationQuery, key: string): string => {
-  const value = query[key]
-  return typeof value === 'string' ? value : ''
-}
-const initialQuery: LocationQuery = route?.query ?? {}
-
-const formatLocalDate = (date: Date): string =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-
-const getLast24HoursRangeDates = () => {
-  const end = new Date()
-  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
-  return { start: formatLocalDate(start), end: formatLocalDate(end) }
-}
-
-const defaultRange = getLast24HoursRangeDates()
-const queryStart = queryString(initialQuery, 'start')
-const queryEnd = queryString(initialQuery, 'end')
-const hasQueryRange = DATE_RE.test(queryStart) && DATE_RE.test(queryEnd) && queryStart <= queryEnd
-const startDate = ref(hasQueryRange ? queryStart : defaultRange.start)
-const endDate = ref(hasQueryRange ? queryEnd : defaultRange.end)
-
-const queryKeyId = Number(queryString(initialQuery, 'key'))
-const queryModel = queryString(initialQuery, 'model').trim()
+// ---------- 地址栏参数（解析与请求参数和进入页面前的预加载共用，见 ./usageQuery.ts） ----------
+const routeState = readUsageRoute(route?.query ?? {})
+const { defaultRange, wantsErrorTab } = routeState
+const startDate = ref(routeState.startDate)
+const endDate = ref(routeState.endDate)
 
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
 // 地址栏要错误页签时先记下：公开设置可能比页面晚到，到了且允许看错误才切过去
-const wantsErrorTab = queryString(initialQuery, 'tab') === 'errors'
 const activeTab = ref<'usage' | 'errors'>(wantsErrorTab && errorViewEnabled.value ? 'errors' : 'usage')
 
-const filters = ref<UsageQueryParams>({
-  start_date: startDate.value,
-  end_date: endDate.value,
-  api_key_id: Number.isInteger(queryKeyId) && queryKeyId > 0 ? queryKeyId : undefined,
-  model: queryModel || undefined,
-  request_type: undefined,
-  native_compaction_v2: null,
-  billing_type: null,
-  billing_mode: null,
-})
+const filters = ref<UsageQueryParams>(initialUsageFilters(routeState))
 
 /** 把当前范围、密钥、模型、页签写回地址栏（replace，不堆历史）；地址栏里的其他参数原样保留 */
 function syncQuery() {
@@ -413,16 +397,11 @@ const recordTabs = computed<SectionTab[]>(() => [
 const errorRows = ref<UserErrorRequest[]>([])
 const errorLoading = ref(false)
 const errorPage = ref(1)
-const errorPageSize = ref(20)
-const errorSortBy = ref('created_at')
-const errorSortOrder = ref<'asc' | 'desc'>('desc')
+const errorPageSize = ref(ERROR_PAGE_SIZE)
+const errorSortBy = ref(USAGE_DEFAULT_SORT.sort_by)
+const errorSortOrder = ref<'asc' | 'desc'>(USAGE_DEFAULT_SORT.sort_order)
 const errorTotal = ref(0)
-const errorFilter = ref<{ model: string; category: string; api_key_id: number | null; status_code: number | null }>({
-  model: '',
-  category: '',
-  api_key_id: null,
-  status_code: null,
-})
+const errorFilter = ref<UsageErrorFilter>({ ...EMPTY_ERROR_FILTER })
 
 /** 筛选标签的值：空串 = 全部；数字类维度在这里转回数字 / null */
 const numberChip = (read: () => number | null | undefined, write: (value: number | null) => void) =>
@@ -466,7 +445,7 @@ const applyErrorFilters = () => {
 }
 
 const clearErrorFilters = () => {
-  errorFilter.value = { model: '', category: '', api_key_id: null, status_code: null }
+  errorFilter.value = { ...EMPTY_ERROR_FILTER }
   applyErrorFilters()
 }
 
@@ -480,10 +459,7 @@ const pagination = reactive({
   page_size: getPersistedPageSize(),
   total: 0,
 })
-const sortState = reactive({
-  sort_by: 'created_at',
-  sort_order: 'desc' as 'asc' | 'desc',
-})
+const sortState = reactive({ ...USAGE_DEFAULT_SORT })
 
 // ---------- 用量筛选 ----------
 const requestTypeOptions = computed<FilterOption[]>(() => [
@@ -509,7 +485,7 @@ const billingModeOptions = computed<FilterOption[]>(() => [
 ])
 
 const apiKeys = ref<ApiKey[]>([])
-const modelOptionValues = ref<string[]>(queryModel ? [queryModel] : [])
+const modelOptionValues = ref<string[]>(routeState.model ? [routeState.model] : [])
 
 const apiKeyOptions = computed<FilterOption[]>(() => apiKeys.value.map((key) => ({ value: key.id, label: key.name })))
 const modelOptions = computed<FilterOption[]>(() => modelOptionValues.value.map((model) => ({ value: model, label: model })))
@@ -544,24 +520,10 @@ const moreFiltersOpen = ref(false)
 const showMoreFilters = computed(() => moreFiltersOpen.value || moreFiltersActive.value)
 const usageFiltersActive = computed(() => Boolean(filters.value.api_key_id || filters.value.model) || moreFiltersActive.value)
 
-const normalizedFilters = computed<UsageQueryParams>(() => {
-  const requestType = filters.value.request_type
-  const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
-  return {
-    ...filters.value,
-    start_date: startDate.value,
-    end_date: endDate.value,
-    stream: legacyStream === null ? undefined : legacyStream,
-  }
-})
+const normalizedFilters = computed<UsageQueryParams>(() => normalizeUsageFilters(filters.value, startDate.value, endDate.value))
 
-const buildUsageListParams = (page: number, pageSize: number): UsageQueryParams => ({
-  page,
-  page_size: pageSize,
-  ...normalizedFilters.value,
-  sort_by: sortState.sort_by,
-  sort_order: sortState.sort_order,
-})
+const buildUsageListParams = (page: number, pageSize: number): UsageQueryParams =>
+  usageListParams(normalizedFilters.value, page, pageSize, sortState)
 
 // ---------- 加载 ----------
 const loadLogs = async () => {
@@ -571,9 +533,8 @@ const loadLogs = async () => {
   loading.value = true
   logsError.value = false
   try {
-    const res = await usageAPI.query(buildUsageListParams(pagination.page, pagination.page_size), {
-      signal: controller.signal,
-    })
+    const params = buildUsageListParams(pagination.page, pagination.page_size)
+    const res = await adoptPreloaded(usageRequestKey.logs(params), () => usageAPI.query(params, { signal: controller.signal }))
     if (!controller.signal.aborted) {
       usageLogs.value = res.items
       pagination.total = res.total
@@ -593,7 +554,8 @@ const loadStats = async () => {
   statsLoading.value = true
   statsError.value = false
   try {
-    const stats = await usageAPI.getStats(normalizedFilters.value)
+    const params = normalizedFilters.value
+    const stats = await adoptPreloaded(usageRequestKey.stats(params), () => usageAPI.getStats(params))
     if (seq !== statsReqSeq) return
     usageStats.value = stats
   } catch (error) {
@@ -610,14 +572,8 @@ const loadErrorCount = async () => {
   if (!errorViewEnabled.value) return
   const seq = ++errorCountSeq
   try {
-    const resp = await usageAPI.listMyErrorRequests({
-      page: 1,
-      page_size: 1,
-      start_date: startDate.value,
-      end_date: endDate.value,
-      api_key_id: filters.value.api_key_id ?? undefined,
-      model: filters.value.model || undefined,
-    })
+    const params = usageErrorCountParams(startDate.value, endDate.value, filters.value)
+    const resp = await adoptPreloaded(usageRequestKey.errors(params), () => usageAPI.listMyErrorRequests(params))
     if (seq === errorCountSeq) errorCount.value = resp.total
   } catch (error) {
     if (seq !== errorCountSeq) return
@@ -631,10 +587,8 @@ const loadModelStats = async () => {
   modelStatsLoading.value = true
   modelStatsError.value = false
   try {
-    const response = await usageAPI.getDashboardModels({
-      ...normalizedFilters.value,
-      model_source: 'requested',
-    })
+    const params = usageModelStatsParams(normalizedFilters.value)
+    const response = await adoptPreloaded(usageRequestKey.modelStats(params), () => usageAPI.getDashboardModels(params))
     if (seq !== modelStatsReqSeq) return
     requestedModelStats.value = response.models || []
     refreshModelOptions(response.models || [])
@@ -930,18 +884,15 @@ const resetErrorRows = () => {
 const loadErrors = async () => {
   errorLoading.value = true
   try {
-    const resp = await usageAPI.listMyErrorRequests({
+    const params = usageErrorListParams({
       page: errorPage.value,
-      page_size: errorPageSize.value,
-      start_date: startDate.value,
-      end_date: endDate.value,
-      model: errorFilter.value.model.trim() || undefined,
-      category: errorFilter.value.category || undefined,
-      api_key_id: errorFilter.value.api_key_id ?? undefined,
-      status_code: errorFilter.value.status_code ?? undefined,
-      sort_by: errorSortBy.value,
-      sort_order: errorSortOrder.value,
+      pageSize: errorPageSize.value,
+      startDate: startDate.value,
+      endDate: endDate.value,
+      filter: errorFilter.value,
+      sort: { sort_by: errorSortBy.value, sort_order: errorSortOrder.value },
     })
+    const resp = await adoptPreloaded(usageRequestKey.errors(params), () => usageAPI.listMyErrorRequests(params))
     errorRows.value = resp.items
     errorTotal.value = resp.total
   } catch (error) {
@@ -991,7 +942,8 @@ watch(errorViewEnabled, (enabled) => {
   if (wantsErrorTab) activeTab.value = 'errors'
 })
 
-// 首次打开：摘要、费用分布、请求明细（含失败数）都回来后再一起出现
+// 首次打开：摘要、费用分布、请求明细（含失败数）都回来后再一起出现。
+// 从别的页面进来时这些请求已由路由预加载发完（preloadUsage），这里接手结果，加载态不会上屏；刷新 / 预加载超时才看得到它。
 const firstLoadDone = ref(false)
 
 onMounted(async () => {

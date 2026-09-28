@@ -6,6 +6,7 @@
 | --- | --- |
 | `createSiteRouter.ts` | 建 router：history、滚动到顶、导航进度条、chunk 失败重载、`beforeProtectedRoute` 钩子 |
 | `siteGuard.ts` | 全局守卫：登录态与站点角色匹配、功能开关门（`requiresPayment` / `requiresAffiliate` / `requiresRiskControl` 看公开设置；`siteFeature`（订阅 / 批量生图 / 账户安全页）看代码常量 `utils/siteFeatures.ts`）、simple mode、backend mode、`/setup` |
+| `routePreload.ts` | 数据到了再换页：路由 `meta.preload` 在 `beforeResolve` 里先发首屏请求，页面挂载时用 `adoptPreloaded` 接手同名同参的结果；用户站用在控制台各页（概览、密钥、用量明细、模型、充值） |
 | `defaultAuthedPath.ts` | 登录后落地页：两站都是 `/dashboard`（用户站 = 概览，管理站 = 仪表盘） |
 | `setupRedirect.ts` | 安装向导跳转 |
 | `title.ts` | 按路由 meta 的 `titleKey` 设页面标题 |
