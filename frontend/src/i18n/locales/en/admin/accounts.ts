@@ -792,13 +792,6 @@ export default {
       poolModeHint: 'Enable when upstream is an account pool; errors won\'t mark local account status',
       poolModeInfo:
         'When enabled, upstream 429/403/401 errors will auto-retry without marking the account as rate-limited or errored. Suitable for upstream pointing to another sub2api instance.',
-      poolModeRetryCount: 'Same-Account Retries',
-      poolModeRetryCountHint:
-        'Only applies in pool mode. Use 0 to disable in-place retry. Default {default}, maximum {max}.',
-      poolModeRetryStatusCodes: 'Retry Status Codes',
-      poolModeRetryStatusCodesHint:
-        'Comma-separated HTTP status codes (100-599) that trigger same-account retry in pool mode. Leave blank to use defaults ({default}).',
-      selectedErrorCodes: 'Selected',
       interceptWarmupRequests: 'Intercept Warmup Requests',
       interceptWarmupRequestsDesc:
         'When enabled, warmup requests like title generation will return mock responses without consuming upstream tokens',
@@ -890,18 +883,6 @@ export default {
           baseRpm: 'Base RPM',
           baseRpmPlaceholder: '15',
           baseRpmHint: 'Max requests per minute, 0 or empty means no limit',
-          strategy: 'RPM Strategy',
-          strategyTiered: 'Tiered Model',
-          strategyStickyExempt: 'Sticky Exempt',
-          strategyHint: 'Tiered: gradually restrict when exceeded; Sticky Exempt: existing sessions unrestricted',
-          stickyBuffer: 'Sticky Buffer',
-          stickyBufferPlaceholder: 'Default: 20% of base RPM',
-          stickyBufferHint: 'Extra requests allowed for sticky sessions after exceeding base RPM. Leave empty to use default (20% of base RPM, min 1)',
-          userMsgQueue: 'User Message Rate Control',
-          userMsgQueueHint: 'Rate-limit user messages to avoid triggering upstream RPM limits',
-          umqModeOff: 'Off',
-          umqModeThrottle: 'Throttle',
-          umqModeSerialize: 'Serialize',
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',
