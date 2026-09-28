@@ -89,7 +89,8 @@ func TestForwardResponses_ForceChatCompletionsOmitsNoneReasoningEffort(t *testin
 	require.Nil(t, result.ReasoningEffort)
 }
 
-func TestForwardResponses_PassthroughFlagWithUnsupportedResponsesUsesAccountMapping(t *testing.T) {
+// 库里残留的 openai_passthrough / compact_model_mapping（2026-09-28 P5 都删了）不影响 chat 回退：照常套账号映射。
+func TestForwardResponses_LegacyPassthroughAndCompactKeysOnChatFallbackUseAccountMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	for _, path := range []string{"/v1/responses", "/v1/responses/compact"} {

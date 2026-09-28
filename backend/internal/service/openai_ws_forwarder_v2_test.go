@@ -40,6 +40,8 @@ func TestForwardOpenAIWSV2_KeepsOutboundAndObservedServiceTiersSeparate(t *testi
 			cfg.Gateway.OpenAIWS.Enabled = true
 			cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 			cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+			cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+			cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 			cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 			cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
 			cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
@@ -74,7 +76,7 @@ func TestForwardOpenAIWSV2_KeepsOutboundAndObservedServiceTiersSeparate(t *testi
 				Schedulable:       true,
 				Concurrency:       1,
 				Credentials:       map[string]any{"api_key": "sk-test"},
-				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				Extra:             map[string]any{},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 
@@ -147,7 +149,7 @@ func TestForwardOpenAIWSV2_MarksCyberPolicyForFailureEventShapes(t *testing.T) {
 				ID: 5883, Name: "openai-ws-v2-cyber", Platform: PlatformOpenAI,
 				Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1,
 				Credentials:       map[string]any{"api_key": "sk-test"},
-				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				Extra:             map[string]any{},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 

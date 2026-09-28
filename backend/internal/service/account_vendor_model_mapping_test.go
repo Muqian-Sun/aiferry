@@ -166,18 +166,21 @@ func TestModelLookupCustomtoolsAliasFollowsVendor(t *testing.T) {
 	require.Equal(t, "gemini-3.1-pro-preview", mapped)
 }
 
-func TestOpenAIPassthroughAllowAll_OnlyForOpenAIOrRelayVendor(t *testing.T) {
+// OpenAI 自动透传 2026-09-28 P5 写死关：库里残留 openai_passthrough=true 的 key 也按 model_mapping 白名单
+// 判模型（改之前透传 key 在选号阶段放行所有模型）。
+func TestOpenAILegacyPassthroughKeyNoLongerBypassesModelAllowlist(t *testing.T) {
 	svc := &GatewayService{}
 	passthrough := map[string]any{"openai_passthrough": true}
 
-	t.Run("relay keeps allow-all despite leftover mapping", func(t *testing.T) {
+	t.Run("relay with leftover mapping is gated by the mapping", func(t *testing.T) {
 		account := vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: vendorTestRelayURL})
 		account.Extra = passthrough
 		account.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"}}
 		require.Empty(t, account.Vendor())
 
-		require.True(t, account.IsModelSupported("gpt-9"))
-		require.True(t, svc.isModelSupportedByAccount(account, "gpt-9"))
+		require.False(t, account.IsModelSupported("gpt-9"))
+		require.False(t, svc.isModelSupportedByAccount(account, "gpt-9"))
+		require.True(t, account.IsModelSupported("gpt-5.4"))
 	})
 
 	t.Run("known non-openai vendor does not bypass its allowlist", func(t *testing.T) {

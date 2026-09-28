@@ -27,8 +27,6 @@ type UpdateSettingsRequest struct {
 
 	// Gateway forwarding behavior
 
-	// codex_cli_only 加固（global-only）
-
 	// Channel Monitor feature switch
 	ChannelMonitorMode                   *string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds *int    `json:"channel_monitor_default_interval_seconds"`

@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
@@ -34,7 +33,7 @@ func TestPrepareOpenAICompactFallbackRetryRequiresExplicitCompact(t *testing.T) 
 	errorBody := []byte(`{"error":{"code":"context_length_exceeded","message":"maximum context length exceeded"}}`)
 
 	retryBody, fallbackModel, retry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", body, http.StatusBadRequest, "maximum context length exceeded", errorBody, false,
+		c, nil, body, http.StatusBadRequest, "maximum context length exceeded", errorBody, false,
 	)
 
 	require.False(t, retry)
@@ -52,7 +51,7 @@ func TestPrepareOpenAICompactFallbackRetryPreservesNativeTriggerAndContext(t *te
 	pathBefore := openAIResponsesRequestPathSuffix(c)
 
 	retryBody, fallbackModel, retry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", body, http.StatusBadRequest, "context window exceeded", errorBody, false,
+		c, nil, body, http.StatusBadRequest, "context window exceeded", errorBody, false,
 	)
 
 	require.True(t, retry)
@@ -63,14 +62,14 @@ func TestPrepareOpenAICompactFallbackRetryPreservesNativeTriggerAndContext(t *te
 	require.Equal(t, pathBefore, openAIResponsesRequestPathSuffix(c))
 }
 
-func TestResolveOpenAICompactFallbackModelPrefersAccountMapping(t *testing.T) {
+// 渠道级 compact 专属映射 2026-09-28 P5 删了：库里残留的 compact_model_mapping 不再生效，只看全局。
+func TestResolveOpenAICompactFallbackModelIgnoresLegacyAccountMapping(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{OpenAICompactModel: "global-compact"}}}
 	account := &Account{Credentials: map[string]any{
 		"compact_model_mapping": map[string]any{"gpt-5.5": "account-compact"},
 	}}
 
-	require.Equal(t, "account-compact", svc.resolveOpenAICompactFallbackModel(account, "gpt-5.5"))
-	require.Equal(t, "global-compact", svc.resolveOpenAICompactFallbackModel(account, "unmapped-model"))
+	require.Equal(t, "global-compact", svc.resolveOpenAICompactFallbackModel(account))
 }
 
 func TestOpenAIGatewayForwardUsesGlobalCompactModelOnInitialLegacyRequest(t *testing.T) {
@@ -111,14 +110,14 @@ func TestPrepareOpenAICompactFallbackRetryLegacyPathAndSingleAttemptGuard(t *tes
 	errorBody := []byte(`{"response":{"status":"failed","error":null}}`)
 
 	retryBody, fallbackModel, retry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", body, http.StatusBadRequest, "", errorBody, false,
+		c, nil, body, http.StatusBadRequest, "", errorBody, false,
 	)
 	require.True(t, retry)
 	require.Equal(t, "gpt-5.4", fallbackModel)
 	require.Equal(t, "/compact", openAIResponsesRequestPathSuffix(c))
 
 	secondBody, secondModel, secondRetry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", retryBody, http.StatusBadRequest, "", errorBody, true,
+		c, nil, retryBody, http.StatusBadRequest, "", errorBody, true,
 	)
 	require.False(t, secondRetry)
 	require.Empty(t, secondModel)
@@ -133,7 +132,7 @@ func TestPrepareOpenAICompactFallbackRetryDoesNotHideSpecificBusinessFailure(t *
 	errorBody := []byte(`{"response":{"status":"failed","error":{"type":"permission_error","message":"workspace denied"}}}`)
 
 	retryBody, fallbackModel, retry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", body, http.StatusBadRequest, "workspace denied", errorBody, false,
+		c, nil, body, http.StatusBadRequest, "workspace denied", errorBody, false,
 	)
 
 	require.False(t, retry)
@@ -172,7 +171,7 @@ func TestPrepareOpenAICompactFallbackRetrySkipsSameModel(t *testing.T) {
 	errorBody := []byte(`{"error":{"code":"model_not_found","message":"model not found"}}`)
 
 	_, _, retry := svc.prepareOpenAICompactFallbackRetry(
-		c, nil, "gpt-5.5", body, http.StatusNotFound, "model not found", errorBody, false,
+		c, nil, body, http.StatusNotFound, "model not found", errorBody, false,
 	)
 	require.False(t, retry)
 }
@@ -473,49 +472,4 @@ func TestOpenAIGatewayForwardDoesNotRecurseWhenCompactFallbackAlsoFails(t *testi
 		require.Nil(t, ev.ProxyID)
 		require.Equal(t, opsProxyNameDirect, ev.ProxyName)
 	}
-}
-
-func TestOpenAIPassthroughCompactFallbackSecondStreamFailureUsesStandardErrorPath(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-5.5","stream":true,"input":[{"type":"compaction_trigger"}]}`)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
-	c.Request.Header.Set("Content-Type", "application/json")
-	MarkOpenAINativeCompactionV2(c)
-
-	failed := "event: response.failed\n" +
-		`data: {"type":"response.failed","response":{"status":"failed","error":{"code":"context_length_exceeded","message":"context window exceeded"}}}` + "\n\n"
-	upstream := &httpUpstreamRecorder{responses: []*http.Response{
-		{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(failed))},
-		{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(failed))},
-	}}
-	svc := &OpenAIGatewayService{
-		cfg:          &config.Config{Gateway: config.GatewayConfig{OpenAICompactModel: "gpt-5.4"}},
-		httpUpstream: upstream,
-	}
-	account, proxy := compactFallbackManagedProxyAccount()
-
-	result, err := svc.forwardOpenAIPassthrough(
-		context.Background(), c, account, body, body, "gpt-5.5", false, nil, true, time.Now(),
-	)
-
-	require.Error(t, err)
-	require.Nil(t, result)
-	require.Len(t, upstream.bodies, 2)
-	var compactSignal *openAICompactFallbackSignal
-	require.False(t, errors.As(err, &compactSignal))
-	require.Equal(t, http.StatusBadRequest, recorder.Code)
-	require.Contains(t, recorder.Body.String(), "context window exceeded")
-	rawEvents, ok := c.Get(OpsUpstreamErrorsKey)
-	require.True(t, ok)
-	events, ok := rawEvents.([]*OpsUpstreamErrorEvent)
-	require.True(t, ok)
-	require.Len(t, events, 2)
-	require.Equal(t, "retry", events[0].Kind)
-	require.Equal(t, "compact_model_fallback", events[0].Reason)
-	require.Equal(t, "http_error", events[1].Kind)
-	require.True(t, events[1].Passthrough)
-	require.Equal(t, proxy.URL(), upstream.lastProxyURL)
-	requireCompactEventsAttributedTo(t, events, proxy)
 }

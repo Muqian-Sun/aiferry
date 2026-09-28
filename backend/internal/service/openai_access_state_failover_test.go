@@ -78,7 +78,6 @@ func TestOpenAIUpstreamAccessStateClassification(t *testing.T) {
 				return
 			}
 			require.True(t, (&OpenAIGatewayService{}).shouldFailoverOpenAIUpstreamResponse(newOpenAIUpstreamErrorTestAccount(), http.StatusForbidden, "", body))
-			require.True(t, shouldFailoverOpenAIPassthroughResponse(&Account{Type: AccountTypeOAuth}, http.StatusForbidden, body))
 
 			err := newOpenAIUpstreamFailoverError(http.StatusForbidden, nil, body, "", true)
 			require.True(t, err.IsCredentialFailure())
@@ -96,7 +95,6 @@ func TestOpenAIUpstreamAccessStateClassification(t *testing.T) {
 func TestOpenAIUpstreamAccessStateDoesNotScanEchoedJSON(t *testing.T) {
 	body := []byte(`{"error":{"code":"invalid_request_error","message":"Invalid input"},"echo":{"prompt":"my account is disabled"}}`)
 	require.False(t, isOpenAIUpstreamAccessStateError("", body))
-	require.False(t, shouldFailoverOpenAIPassthroughResponse(&Account{Type: AccountTypeOAuth}, http.StatusBadRequest, body))
 }
 
 func TestOpenAIHTTPAccessStateDoesNotTrustBadRequestMessage(t *testing.T) {
@@ -106,7 +104,6 @@ func TestOpenAIHTTPAccessStateDoesNotTrustBadRequestMessage(t *testing.T) {
 	require.False(t, isOpenAIUpstreamAccessStateError("", body), "free-form stream messages are not durable account evidence")
 	require.False(t, isOpenAIHTTPUpstreamAccessStateError(http.StatusBadRequest, "", body))
 	require.False(t, svc.shouldFailoverOpenAIUpstreamResponse(newOpenAIUpstreamErrorTestAccount(), http.StatusBadRequest, "", body))
-	require.False(t, shouldFailoverOpenAIPassthroughResponse(&Account{Type: AccountTypeOAuth}, http.StatusBadRequest, body))
 
 	err := newOpenAIUpstreamFailoverError(http.StatusBadRequest, nil, body, "", false)
 	require.False(t, err.IsCredentialFailure())
@@ -190,7 +187,6 @@ func TestOpenAICyberPolicyWrapped5xxNeverFailsOver(t *testing.T) {
 	body := []byte(`{"error":{"code":"cyber_policy","message":"blocked"}}`)
 	svc := &OpenAIGatewayService{}
 	require.False(t, svc.shouldFailoverOpenAIUpstreamResponse(newOpenAIUpstreamErrorTestAccount(), http.StatusBadGateway, "wrapped upstream failure", body))
-	require.False(t, shouldFailoverOpenAIPassthroughResponse(&Account{Type: AccountTypeOAuth}, http.StatusBadGateway, body))
 }
 
 func TestOpenAICapacityFailoverCarriesSafeTerminalResponse(t *testing.T) {
@@ -366,38 +362,6 @@ func TestOpenAIStreamPairedFailureAppliesAccountSideEffectsOnce(t *testing.T) {
 		}
 
 		result, err := svc.handleStreamingResponse(context.Background(), resp, c, account, time.Now(), "gpt-5", "gpt-5")
-
-		require.Error(t, err)
-		require.NotNil(t, result)
-		require.Equal(t, 1, repo.setErrorCalls)
-	})
-
-	t.Run("passthrough", func(t *testing.T) {
-		gin.SetMode(gin.TestMode)
-		repo := &openAIStream403AccountRepo{}
-		svc := &OpenAIGatewayService{
-			cfg:              &config.Config{},
-			rateLimitService: &RateLimitService{accountRepo: repo},
-		}
-		account := &Account{ID: 922, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
-		writer := &passthroughFlushTestWriter{
-			ResponseWriter:  c.Writer,
-			recorder:        recorder,
-			failAfterWrites: -1,
-		}
-		c.Writer = writer
-		resp := &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-			Body:       io.NopCloser(strings.NewReader(upstream)),
-		}
-
-		result, err := svc.handleStreamingResponsePassthrough(
-			context.Background(), resp, c, account, time.Now(), "gpt-5", "gpt-5",
-		)
 
 		require.Error(t, err)
 		require.NotNil(t, result)

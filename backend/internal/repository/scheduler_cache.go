@@ -721,11 +721,11 @@ func filterSchedulerCredentials(credentials map[string]any) map[string]any {
 	// 选号阶段（candidateAdmits 等）在本投影上判断，读到的键漏了就按零值静默放行 / 误拒；
 	// scheduler_cache_admission_keys_test.go 用 AST 扫描选号路径守着这份清单。
 	keys := []string{
-		"model_mapping", "compact_model_mapping", "api_key", "project_id", "oauth_type", "plan_type", "account_scheduling_threshold",
+		"model_mapping", "api_key", "project_id", "oauth_type", "plan_type", "account_scheduling_threshold",
 		// 「只改名」标记：漏了映射就变成白名单，没列进映射的目录模型被判不支持
 		"model_mapping_rename_only",
-		// 端点能力集与 OpenAI 认证方式（live / chat 等能力门）
-		"openai_capabilities", "auth_mode", "openai_auth_mode",
+		// OpenAI 认证方式（live 等能力门）
+		"auth_mode", "openai_auth_mode",
 		// Grok：免费档判断（生图门）与团队级模型限流
 		"subscription_tier", "team_id",
 		// Bedrock：模型 ID 按区域解析（模型支持判断）
@@ -771,26 +771,10 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"quota_reset_timezone",
 		// RPM 限制：漏了 base_rpm 就是 0，快照命中时 RPM 不限
 		"base_rpm",
-		// Compact 分级：手动开关与探测结果
-		"openai_compact_mode",
+		// Compact 分级：探测结果（渠道级手动开关已删）
 		"openai_compact_supported",
 		"max_sessions",
-		"openai_oauth_responses_websockets_v2_enabled",
-		"openai_oauth_responses_websockets_v2_mode",
-		"openai_apikey_responses_websockets_v2_enabled",
-		"openai_apikey_responses_websockets_v2_mode",
-		"responses_websockets_v2_enabled",
-		"openai_ws_enabled",
 		"openai_ws_force_http",
-		// 透传开关必须进投影：候选过滤(ListSchedulableAccounts)读的是本投影，
-		// 而 Account.IsModelSupported 靠 extra 上的这两个键短路 model_mapping 白名单。
-		// 裁掉它们，透传账号在选号阶段会退回按(常为过期的)白名单判定并被误判为
-		// model_not_supported —— 转发阶段却仍按透传工作，表现为"单独测账号能通、
-		// 走网关报 no available accounts"。
-		"openai_passthrough",
-		"openai_oauth_passthrough",
-		"codex_fingerprint_mode",
-		"codex_fingerprint_seed",
 		"codex_5h_used_percent",
 		"codex_7d_used_percent",
 		"codex_5h_reset_at",
@@ -798,15 +782,10 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"codex_5h_reset_after_seconds",
 		"codex_7d_reset_after_seconds",
 		"codex_usage_updated_at",
-		"auto_pause_5h_threshold",
-		"auto_pause_7d_threshold",
-		"auto_pause_5h_disabled",
-		"auto_pause_7d_disabled",
 		"model_rate_limits",
 		// SchedulingState 的模型级限流放行（Antigravity overages 有积分）要从快照还原，开关必须进投影。
 		"allow_overages",
 		service.UpstreamBillingProbeExtraKey,
-		service.GrokMediaEligibleExtraKey,
 		"grok_billing_snapshot",
 	}
 	filtered := make(map[string]any)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -49,8 +50,7 @@ func codexAccountIdentitySource(c *gin.Context, fallback *Account) *Account {
 // codexAccountIdentityNamespace returns a stable, credential-scoped namespace.
 // Multiple local rows that use the same ChatGPT account intentionally share the
 // same namespace. Setup tokens use an irreversible bearer fingerprint because
-// they have no refresh lifecycle or imported account metadata. Refreshable OAuth
-// otherwise falls back only to a persistent fingerprint seed: local row IDs are
+// they have no refresh lifecycle or imported account metadata. Local row IDs are
 // deployment-relative and must never become upstream identity.
 func codexAccountIdentityNamespace(account *Account) string {
 	if account == nil || !account.IsOpenAIOAuthLike() {
@@ -61,9 +61,6 @@ func codexAccountIdentityNamespace(account *Account) string {
 			return "chatgpt:" + upstreamAccountID + ":user:" + upstreamUserID
 		}
 		return "chatgpt:" + upstreamAccountID
-	}
-	if seed, ok := codexFingerprintSeed(account.Extra); ok {
-		return "seed:" + seed
 	}
 	if account.Type == AccountTypeSetupToken {
 		if token := strings.TrimSpace(account.GetOpenAIAccessToken()); token != "" {
@@ -272,4 +269,19 @@ func applyCodexAccountIdentityHeaders(headers http.Header, account *Account, api
 			}
 		}
 	}
+}
+
+// deriveStableUUIDv4 从种子确定性派生一个 UUIDv4 格式的字符串。
+// 同一种子永远返回同一值。
+func deriveStableUUIDv4(seed string) string {
+	h := sha256.Sum256([]byte(seed))
+	b := h[:16]
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 1
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		binary.BigEndian.Uint32(b[0:4]),
+		binary.BigEndian.Uint16(b[4:6]),
+		binary.BigEndian.Uint16(b[6:8]),
+		binary.BigEndian.Uint16(b[8:10]),
+		b[10:16])
 }

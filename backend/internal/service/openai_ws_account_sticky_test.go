@@ -13,15 +13,13 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_Hit(t *testing.T) {
 	scopeID := int64(23)
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	account := Account{
-		ID:          2,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 2,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       2,
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
@@ -48,15 +46,13 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_QuotaPausedMiss(t *
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	pausedUntil := time.Now().Add(time.Hour)
 	account := Account{
-		ID:          77,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 2,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                      77,
+		Platform:                PlatformOpenAI,
+		Type:                    AccountTypeAPIKey,
+		Status:                  StatusActive,
+		Schedulable:             true,
+		Concurrency:             2,
+		Extra:                   map[string]any{},
 		TempUnschedulableUntil:  &pausedUntil,
 		TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 5h window 96.0% used"),
 		ProtocolEndpoints:       map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
@@ -86,16 +82,14 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_RateLimitedMiss(t *
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	rateLimitedUntil := time.Now().Add(30 * time.Minute)
 	account := Account{
-		ID:               12,
-		Platform:         PlatformOpenAI,
-		Type:             AccountTypeAPIKey,
-		Status:           StatusActive,
-		Schedulable:      true,
-		Concurrency:      1,
-		RateLimitResetAt: &rateLimitedUntil,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                12,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		RateLimitResetAt:  &rateLimitedUntil,
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
@@ -123,28 +117,24 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_DBRuntimeRecheckRat
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	rateLimitedUntil := time.Now().Add(30 * time.Minute)
 	staleAccount := &Account{
-		ID:          13,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                13,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	dbAccount := Account{
-		ID:               13,
-		Platform:         PlatformOpenAI,
-		Type:             AccountTypeAPIKey,
-		Status:           StatusActive,
-		Schedulable:      true,
-		Concurrency:      1,
-		RateLimitResetAt: &rateLimitedUntil,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                13,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		RateLimitResetAt:  &rateLimitedUntil,
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
@@ -175,15 +165,13 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_Excluded(t *testing
 	scopeID := int64(23)
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	account := Account{
-		ID:          8,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
+		ID:                8,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
@@ -214,8 +202,7 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_APIKeyForceHTTPHit(
 		Schedulable: true,
 		Concurrency: 1,
 		Extra: map[string]any{
-			"openai_ws_force_http":            true,
-			"responses_websockets_v2_enabled": true,
+			"openai_ws_force_http": true,
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
@@ -247,8 +234,7 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_OAuthForceHTTPIgnor
 		Schedulable: true,
 		Concurrency: 1,
 		Extra: map[string]any{
-			"openai_ws_force_http":            true,
-			"responses_websockets_v2_enabled": true,
+			"openai_ws_force_http": true,
 		},
 	}
 	cache := &stubGatewayCache{}
@@ -272,29 +258,25 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_BusyKeepsSticky(t *
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
 	accounts := []Account{
 		{
-			ID:          21,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-			},
+			ID:                21,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          22,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    9,
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-			},
+			ID:                22,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          9,
+			Extra:             map[string]any{},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
@@ -332,21 +314,17 @@ func TestOpenAIGatewayService_ResolvePreviousResponseAccount_BusyKeepsSticky(t *
 func TestOpenAIGatewayService_ResolvePreviousResponseAccount_CapabilityMismatchKeepsSticky(t *testing.T) {
 	scopeID := int64(25)
 	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
+	// 能力不匹配用成品号不接 embeddings 来构造（渠道级 openai_capabilities 2026-09-28 P5 删了）。
 	account := Account{
 		ID:          31,
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
-		Credentials: map[string]any{
-			"openai_capabilities": []any{"chat_completions"},
-		},
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		Extra:       map[string]any{},
 	}
+	require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
 	cfg := newOpenAIWSV2TestConfig()
@@ -373,6 +351,9 @@ func newOpenAIWSV2TestConfig() *config.Config {
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	// 渠道级 WS 开关 2026-09-28 P5 删了，WS 只能经 mode_router_v2 的全局默认模式打开。
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.StickyResponseIDTTLSeconds = 3600
 	return cfg
 }

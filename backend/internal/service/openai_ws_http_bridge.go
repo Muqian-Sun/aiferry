@@ -536,7 +536,6 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		proxyURL = account.Proxy.URL()
 	}
 	if c != nil {
-		c.Set("openai_passthrough", true)
 		c.Set("openai_ws_http_bridge", true)
 	}
 

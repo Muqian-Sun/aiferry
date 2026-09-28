@@ -40,20 +40,3 @@ func resolveOpenAIImageIntentHint(
 	SetOpenAIImageIntentHint(c, imageIntent)
 	return imageIntent
 }
-
-func resolveOpenAIPassthroughImageIntent(
-	c *gin.Context,
-	canonicalRequestedModel string,
-	canonicalBody []byte,
-	attemptRequestedModel string,
-	attemptBody []byte,
-	attemptInvalidated bool,
-	classify openAIImageIntentClassifier,
-) bool {
-	imageIntent := resolveOpenAIImageIntentHint(c, canonicalRequestedModel, canonicalBody, classify)
-	if attemptInvalidated {
-		// strip/compact 改写只重算当前 attempt，不得把变换后的结果写回请求级 canonical hint。
-		imageIntent = classify(openAIResponsesEndpoint, attemptRequestedModel, attemptBody)
-	}
-	return imageIntent
-}

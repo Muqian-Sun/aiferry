@@ -14,12 +14,11 @@ import (
 )
 
 const (
-	grokConversationIDHeader         = "X-Grok-Conv-Id"
-	claudeCodeSessionHeader          = "X-Claude-Code-Session-Id"
-	grokClientToolCacheOptInHeader   = "X-Sub2API-Grok-Client-Tool-Cache"
-	grokFreeCacheNativeToolsJSON     = `[{"type":"web_search"},{"type":"x_search"}]`
-	grokFreeCacheDisabledToolChoice  = "none"
-	grokClientToolCacheOptInExtraKey = "grok_client_tool_cache_enabled"
+	grokConversationIDHeader        = "X-Grok-Conv-Id"
+	claudeCodeSessionHeader         = "X-Claude-Code-Session-Id"
+	grokClientToolCacheOptInHeader  = "X-Sub2API-Grok-Client-Tool-Cache"
+	grokFreeCacheNativeToolsJSON    = `[{"type":"web_search"},{"type":"x_search"}]`
+	grokFreeCacheDisabledToolChoice = "none"
 )
 
 // Claude Code metadata.user_id often ends with _session_<uuid>.
@@ -207,10 +206,9 @@ func hasGrokResponsesToolIntent(body []byte) bool {
 // applyGrokFreeMessagesFunctionToolCacheRoute enables xAI's cache-capable
 // mixed-tools route only for known Free accounts. Pure client tools default to
 // the cache-capable route so an intermediate sub2api does not need to preserve
-// client-specific opt-in headers. Operators can explicitly disable this per
-// account when native search tools would change the desired behavior (#4486).
+// client-specific opt-in headers (#4486). 渠道级开关 2026-09-28 P5 写死开（GrokClientToolCacheEnabled）。
 func applyGrokFreeMessagesFunctionToolCacheRoute(body, intentSourceBody []byte, account *Account, cacheIdentity string) ([]byte, error) {
-	allowPureClientTools, _ := grokClientToolCacheAccountPolicy(account)
+	allowPureClientTools := grokClientToolCacheAccountPolicy(account)
 	return applyGrokFreeToolCacheRoute(body, intentSourceBody, account, cacheIdentity, allowPureClientTools, true)
 }
 
@@ -218,76 +216,27 @@ func applyGrokFreeMessagesFunctionToolCacheRoute(body, intentSourceBody []byte, 
 // sub2api header is consumed locally because buildGrokResponsesRequest only
 // forwards the explicitly supported OpenAI-Beta header from downstream.
 func applyGrokFreeRequestToolCacheRoute(c *gin.Context, body, intentSourceBody []byte, account *Account, cacheIdentity string) ([]byte, error) {
-	allowPureClientTools, accountPolicyExplicit := grokClientToolCacheAccountPolicy(account)
-	requestOptOut := false
+	allowPureClientTools := grokClientToolCacheAccountPolicy(account)
 	if c != nil {
 		switch strings.ToLower(strings.TrimSpace(c.GetHeader(grokClientToolCacheOptInHeader))) {
 		case "1", "true", "yes", "on", "prefer-cache":
 			allowPureClientTools = true
 		case "0", "false", "no", "off":
 			allowPureClientTools = false
-			requestOptOut = true
 		}
 	}
-	if !allowPureClientTools && !accountPolicyExplicit && !requestOptOut && isGrokClaudeDesktopResponsesCacheRequest(c) {
-		allowPureClientTools = true
-	}
 	// A function merely named web_search/x_search is still a client function.
-	// Known Free OAuth accounts use the cache route by default; a request-scoped
-	// opt-in may override an account opt-out, while an explicit request opt-out
-	// always wins. The legacy Claude fingerprint remains only as a compatibility
-	// fallback when no account policy has been recorded (#4486).
+	// Known Free OAuth accounts use the cache route; an explicit request opt-out
+	// always wins. (原来给「账号显式关了」时留的 Claude Desktop 指纹兜底随渠道开关
+	// 写死开一起删了：Free 号本来就开着，非 Free 号 applyGrokFreeToolCacheRoute 不改写。)
 	return applyGrokFreeToolCacheRoute(body, intentSourceBody, account, cacheIdentity, allowPureClientTools, allowPureClientTools)
 }
 
-// grokClientToolCacheAccountPolicy is intentionally strict for configured
-// values: only a JSON boolean is accepted. A missing key defaults on solely for
-// accounts positively identified as Grok Free OAuth; paid, API-key, and unknown
-// accounts remain fail-closed.
-func grokClientToolCacheAccountPolicy(account *Account) (enabled, explicit bool) {
-	if !isKnownGrokFreeAccount(account) {
-		return false, false
-	}
-	if account.Extra == nil {
-		return true, false
-	}
-	value, exists := account.Extra[grokClientToolCacheOptInExtraKey]
-	if !exists {
-		return true, false
-	}
-	enabled, valid := value.(bool)
-	if !valid {
-		return false, true
-	}
-	return enabled, true
-}
-
-// isGrokClaudeDesktopResponsesCacheRequest recognizes the strict wire
-// fingerprint emitted when Claude Desktop's local agent is translated by
-// CC Switch into an OpenAI Responses request. Requiring every independent
-// signal prevents a generic Claude-compatible client (or the Chat bridge)
-// from silently opting into the mixed native/client tool route.
-func isGrokClaudeDesktopResponsesCacheRequest(c *gin.Context) bool {
-	if c == nil || c.Request == nil || c.Request.URL == nil || isOpenAIResponsesCompactPath(c) {
-		return false
-	}
-	path := strings.TrimRight(strings.TrimSpace(c.Request.URL.Path), "/")
-	if !strings.HasSuffix(path, "/responses") {
-		return false
-	}
-
-	if !claudeCodeUAPattern.MatchString(strings.TrimSpace(c.GetHeader("User-Agent"))) {
-		return false
-	}
-	switch strings.ToLower(strings.TrimSpace(c.GetHeader("X-App"))) {
-	case "cli", "cli-bg":
-	default:
-		return false
-	}
-	if !strings.EqualFold(strings.TrimSpace(c.GetHeader("anthropic-client-platform")), "desktop_app") {
-		return false
-	}
-	return strings.TrimSpace(c.GetHeader("X-Claude-Code-Session-Id")) != ""
+// grokClientToolCacheAccountPolicy 渠道级开关写死开（GrokClientToolCacheEnabled）：只对
+// 已识别的 Grok Free 成品号生效；付费、API key 与未知账号仍 fail-closed。库里旧的
+// grok_client_tool_cache_enabled 不再读。
+func grokClientToolCacheAccountPolicy(account *Account) bool {
+	return GrokClientToolCacheEnabled && isKnownGrokFreeAccount(account)
 }
 
 func applyGrokFreeToolCacheRoute(body, intentSourceBody []byte, account *Account, cacheIdentity string, allowPureClientTools, allowFunctionSearch bool) ([]byte, error) {

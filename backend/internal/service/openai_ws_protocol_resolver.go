@@ -103,22 +103,9 @@ func (r *defaultOpenAIWSProtocolResolver) Resolve(account *Account) OpenAIWSProt
 		}
 		return openAIWSHTTPDecision("feature_disabled")
 	}
-	if !account.IsOpenAIResponsesWebSocketV2Enabled() {
-		return openAIWSHTTPDecision("account_disabled")
-	}
-	if wsCfg.ResponsesWebsocketsV2 {
-		return OpenAIWSProtocolDecision{
-			Transport: OpenAIUpstreamTransportResponsesWebsocketV2,
-			Reason:    "ws_v2_enabled",
-		}
-	}
-	if wsCfg.ResponsesWebsockets {
-		return OpenAIWSProtocolDecision{
-			Transport: OpenAIUpstreamTransportResponsesWebsocket,
-			Reason:    "ws_v1_enabled",
-		}
-	}
-	return openAIWSHTTPDecision("feature_disabled")
+	// legacy 路径（mode_router_v2 关）恒走 HTTP：渠道级 WS 开关 2026-09-28 P5 删了。
+	// 要开 WS 用 GATEWAY_OPENAI_WS_MODE_ROUTER_V2_ENABLED（走上面的 ingress_mode_default）。
+	return openAIWSHTTPDecision("account_disabled")
 }
 
 func openAIWSHTTPDecision(reason string) OpenAIWSProtocolDecision {

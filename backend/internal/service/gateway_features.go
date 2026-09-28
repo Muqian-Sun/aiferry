@@ -1,15 +1,11 @@
 package service
 
-import (
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-)
-
 // 网关行为（2026-09-27 P4：转发、重试冷却、Claude Code / Codex、余额探测写进代码，后台不再能改）。
 // 取值等于改之前的默认值（共享 dev 库里这些设置当时也都是默认值，逐项核过），
 // 除了 2026-09-28 muqian 定的四项：API Key 渠道签名整流开、首 token 按第一个可见输出算、
 // 流式中途超时要处理渠道、Ollama Cloud 用量定时刷新开。
 // 要改就改这里、重新发版。后台只留最低毛利率（利润门）与 Web Search 模拟的服务商和 Key。
-// 带规则的几项（Beta / Fast 策略、Codex 限制、整流、流超时、停调阈值）是结构体没法写成 const，
+// 带规则的几项（Beta / Fast 策略、整流、流超时、停调阈值）是结构体没法写成 const，
 // 用包级变量；只有测试会临时替换它们，运行时只读。
 
 // 重试与冷却
@@ -144,14 +140,11 @@ var openAIFastPolicy = OpenAIFastPolicySettings{}
 // （"grok" / "grok-latest" 别名指向的默认文本模型是 xai.DefaultTextModel。）
 const GrokDefaultBaseURLMode = GrokDefaultBaseURLModeCLI
 
-// Claude Code / Codex 客户端限制：版本上下限都不限；codex_cli_only 渠道不设黑白名单、
-// 不放行 app-server 类客户端、引擎指纹信号用内置默认。
+// Claude Code 客户端版本上下限：都不限。（Codex「仅允许官方客户端」2026-09-28 P5 随渠道开关一起删了。）
 const (
 	MinClaudeCodeVersion = ""
 	MaxClaudeCodeVersion = ""
 )
-
-var codexRestrictionPolicy = CodexRestrictionPolicy{EngineFingerprintSignals: openai.DefaultEngineFingerprintSignals}
 
 // OpenAICodexVersionAutoSyncEnabled 定时从官方仓库同步 Codex 客户端最新稳定版，出站身份跟着走。
 const OpenAICodexVersionAutoSyncEnabled = true

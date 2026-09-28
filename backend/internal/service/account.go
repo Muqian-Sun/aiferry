@@ -100,18 +100,15 @@ const (
 	// require this capability so already-submitted requests remain queryable.
 	OpenAIEndpointCapabilityGrokMediaGeneration OpenAIEndpointCapability = "grok_media_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
-	// 与其他能力不同：第三方 key 的支持状态来自 responses 协议地址，而非
-	// credentials["openai_capabilities"] 配置集。仅用于生图意图的 /v1/responses
+	// 第三方 key 的支持状态来自 responses 协议地址。仅用于生图意图的 /v1/responses
 	// 调度，避免把请求调度到会在 forward 阶段被降级为 Chat Completions 的账号（#4417）。
 	OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
 )
 
+// openAIEndpointCapabilitiesCredentialKey 渠道级「端点能力」配置集的键。2026-09-28 P5 起
+// 运行时不再读它（不按渠道限制）；只剩批量编辑的规范化（openai_bulk_account_settings.go）
+// 还引用，随批量入口一起删。
 const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
-
-// GrokMediaEligibleExtraKey is an optional per-account override stored in
-// accounts.extra. true forces media routing on, false disables it, and an
-// absent/null value uses provider observations.
-const GrokMediaEligibleExtraKey = "grok_media_eligible"
 
 const (
 	OpenAIAuthModePersonalAccessToken = "personalAccessToken"
@@ -529,26 +526,6 @@ func parseTempUnschedInt(value any) int {
 	return 0
 }
 
-const (
-	// OpenAICompactModeAuto follows compact-probe results when deciding compact eligibility.
-	OpenAICompactModeAuto = "auto"
-	// OpenAICompactModeForceOn always treats the account as compact-supported.
-	OpenAICompactModeForceOn = "force_on"
-	// OpenAICompactModeForceOff always treats the account as compact-unsupported.
-	OpenAICompactModeForceOff = "force_off"
-)
-
-func normalizeOpenAICompactMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case OpenAICompactModeForceOn:
-		return OpenAICompactModeForceOn
-	case OpenAICompactModeForceOff:
-		return OpenAICompactModeForceOff
-	default:
-		return OpenAICompactModeAuto
-	}
-}
-
 func stringMappingFromRaw(raw any) map[string]string {
 	switch mapping := raw.(type) {
 	case map[string]any:
@@ -899,15 +876,6 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 // 并误触发 per-(账号,模型) 30 分钟冷却；带 [1m] 上下文后缀的写法先归一化再比对。
 // 标签为 deepseek、地址指向中转的 key 不受白名单约束。
 func (a *Account) IsModelSupported(requestedModel string) bool {
-	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
-	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
-	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
-	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
-	// 透传是 OpenAI 标准协议特性：只对官方 OpenAI 与通用中转生效，其他已知厂商
-	// 的 key 即使带着开关也不放行，避免绕过该厂商的模型白名单。
-	if openAIProtocolFeaturesApply(a) && a.IsOpenAIPassthroughEnabled() {
-		return true
-	}
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {
 		if a.IsOpenAIOAuth() {
@@ -965,30 +933,13 @@ func (a *Account) ResolveMappedModel(requestedModel string) (mappedModel string,
 	return requestedModel, false
 }
 
-// GetOpenAICompactMode returns the compact routing mode for an OpenAI account.
-// Missing or invalid values fall back to "auto".
-func (a *Account) GetOpenAICompactMode() string {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return OpenAICompactModeAuto
-	}
-	mode, _ := a.Extra["openai_compact_mode"].(string)
-	return normalizeOpenAICompactMode(mode)
-}
-
 // OpenAICompactSupportKnown reports whether compact capability is known for this
-// account and, when known, whether it is supported.
+// account and, when known, whether it is supported. 只看探测结果
+// openai_compact_supported：渠道级「Compact 模式」手动开关 2026-09-28 P5 写死 auto（删了）。
 func (a *Account) OpenAICompactSupportKnown() (supported bool, known bool) {
 	if !openAIProtocolFeaturesApply(a) {
 		return false, false
 	}
-
-	switch a.GetOpenAICompactMode() {
-	case OpenAICompactModeForceOn:
-		return true, true
-	case OpenAICompactModeForceOff:
-		return false, true
-	}
-
 	if a.Extra == nil {
 		return false, false
 	}
@@ -1011,29 +962,6 @@ func (a *Account) AllowsOpenAICompact() bool {
 		return true
 	}
 	return supported
-}
-
-// GetCompactModelMapping returns compact-only model remapping configuration.
-// This mapping is intended for /responses/compact only and does not affect
-// normal /responses traffic.
-func (a *Account) GetCompactModelMapping() map[string]string {
-	if a == nil || a.Credentials == nil {
-		return nil
-	}
-	return stringMappingFromRaw(a.Credentials["compact_model_mapping"])
-}
-
-// ResolveCompactMappedModel resolves compact-only model remapping and reports
-// whether a compact-specific mapping rule matched.
-func (a *Account) ResolveCompactMappedModel(requestedModel string) (mappedModel string, matched bool) {
-	mapping := a.GetCompactModelMapping()
-	if len(mapping) == 0 {
-		return requestedModel, false
-	}
-	if mappedModel, matched := resolveRequestedModelInMapping(mapping, requestedModel); matched {
-		return mappedModel, true
-	}
-	return requestedModel, false
 }
 
 // GetBaseURL 返回第三方 key 的 Anthropic 协议上游地址。
@@ -1679,9 +1607,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 			!a.IsOpenAIPersonalAccessToken() &&
 			!a.IsOpenAIAgentIdentity()
 	case OpenAIEndpointCapabilityResponses:
-		// 成品号走厂商的 Responses 通道，不排除。支持 Responses 的上游同样需具备
-		// chat 能力：复用下方 chat_completions 配置集校验。
-		capability = OpenAIEndpointCapabilityChatCompletions
+		// 成品号走厂商的 Responses 通道，不排除。
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 的转发按账号类型分流：OAuth/PAT 走
 		// chatgpt.com/backend-api/codex/alpha/search，API key 走
@@ -1697,11 +1623,12 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	default:
 		return false
 	}
-	return a.openAIEndpointCapabilityConfigured(capability)
+	// 渠道级「端点能力」配置集 2026-09-28 P5 删了：不再按渠道限制。
+	return true
 }
 
 // keySupportsOpenAIEndpointCapability 是第三方 key 的端点能力判定：平台只是展示标签，
-// 能力由协议地址、厂商（地址是否指向官方域名）、账号类型与管理员配置的能力集决定。
+// 能力由协议地址、厂商（地址是否指向官方域名）与账号类型决定（渠道级能力集已删，不限制）。
 func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
@@ -1711,8 +1638,6 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		if a.ProtocolEndpoint(APIProtocolResponses) == "" {
 			return false
 		}
-		// 与成品号一致：支持 Responses 的上游同样需具备 chat 能力。
-		capability = OpenAIEndpointCapabilityChatCompletions
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
 		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点；base_url 是扩展端点根地址。
@@ -1725,46 +1650,25 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 			return false
 		}
 	case OpenAIEndpointCapabilityGrokMediaGeneration:
-		// xAI 的图片/视频生成是厂商私有端点：管理员显式开关优先，否则只有地址指向 xAI 官方的 key 具备。
-		if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
-			return override
-		}
+		// xAI 的图片/视频生成是厂商私有端点：只有地址指向 xAI 官方的 key 具备（渠道级覆盖 2026-09-28 P5 删了）。
 		return a.Vendor() == PlatformGrok
 	default:
 		// live 是 ChatGPT OAuth 专属能力，第三方 key 不具备。
 		return false
 	}
-	return a.openAIEndpointCapabilityConfigured(capability)
-}
-
-// openAIEndpointCapabilityConfigured 按管理员配置的 openai_capabilities 能力集判定；未配置时不限制。
-func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCapability) bool {
-	configured, found := a.openAIEndpointCapabilitySet()
-	if !found {
-		return true
-	}
-	if capability == OpenAIEndpointCapabilityAlphaSearch && configured[string(OpenAIEndpointCapabilityChatCompletions)] {
-		return true
-	}
-	return configured[string(capability)]
+	return true
 }
 
 // GrokMediaGenerationEligibility reports whether a Grok account may receive
 // new image/video generation requests. Explicit evidence of a forbidden or
 // free account blocks media, while an incomplete successful billing response
-// remains eligible for backwards compatibility. An explicit operator
-// override takes precedence over probe data.
+// remains eligible for backwards compatibility. 渠道级手动覆盖（grok_media_eligible）
+// 2026-09-28 P5 删了，只按探测结果自动判断。
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
 	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
 	// 否则会出现调度放行、转发拒绝的错位。
 	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
-	}
-	if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
-		if override {
-			return true, "override_enabled"
-		}
-		return false, "override_disabled"
 	}
 	if a.Type != AccountTypeOAuth {
 		return true, "non_oauth"
@@ -1784,85 +1688,10 @@ func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
 		// Billing endpoints can return 200 with an account-specific schema that
 		// omits plan/quota fields (for example, some SuperGrok accounts). An
 		// incomplete observation is not proof of ineligibility; keep the account
-		// routable and expose the reason for diagnostics. Operators can still
-		// quarantine a known-bad account with grok_media_eligible=false.
+		// routable and expose the reason for diagnostics.
 		return true, "billing_inconclusive"
 	}
 	return true, "eligible"
-}
-
-func grokMediaEligibilityOverride(extra map[string]any) (bool, bool) {
-	if extra == nil {
-		return false, false
-	}
-	raw, exists := extra[GrokMediaEligibleExtraKey]
-	if !exists || raw == nil {
-		return false, false
-	}
-	value, ok := raw.(bool)
-	return value, ok
-}
-
-func (a *Account) openAIEndpointCapabilitySet() (map[string]bool, bool) {
-	if a == nil || a.Credentials == nil {
-		return nil, false
-	}
-	raw, found := a.Credentials[openAIEndpointCapabilitiesCredentialKey]
-	if !found || raw == nil {
-		return nil, false
-	}
-
-	result := make(map[string]bool)
-	add := func(value string) {
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			return
-		}
-		result[value] = true
-	}
-
-	// 空容器（{} / []）与未配置一致：不限制任何能力。
-	// 避免 OAuth 账号因 API 直写/导入/历史数据遗留的空对象而被调度器静默排除（#5530）。
-	// 注意：非空但全 false / 类型异常的数据仍视为「已配置且不含能力」，保持原行为。
-	switch capabilities := raw.(type) {
-	case []any:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for _, item := range capabilities {
-			if value, ok := item.(string); ok {
-				add(value)
-			}
-		}
-	case []string:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for _, value := range capabilities {
-			add(value)
-		}
-	case map[string]any:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for key, value := range capabilities {
-			enabled, ok := value.(bool)
-			if ok && enabled {
-				add(key)
-			}
-		}
-	case map[string]bool:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for key, enabled := range capabilities {
-			if enabled {
-				add(key)
-			}
-		}
-	}
-
-	return result, true
 }
 
 func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapability) bool {
@@ -1931,60 +1760,6 @@ func (a *Account) IsOveragesEnabled() bool {
 	return false
 }
 
-// IsOpenAIPassthroughEnabled 返回 OpenAI 账号是否启用"自动透传（仅替换认证）"。
-//
-// 新字段：accounts.extra.openai_passthrough。
-// 兼容字段：accounts.extra.openai_oauth_passthrough（历史 OAuth 开关）。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-func (a *Account) IsOpenAIPassthroughEnabled() bool {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return false
-	}
-	if enabled, ok := a.Extra["openai_passthrough"].(bool); ok {
-		return enabled
-	}
-	if enabled, ok := a.Extra["openai_oauth_passthrough"].(bool); ok {
-		return enabled
-	}
-	return false
-}
-
-// IsOpenAIResponsesWebSocketV2Enabled 返回 OpenAI 账号是否开启 Responses WebSocket v2。
-//
-// 分类型新字段：
-// - OAuth 账号：accounts.extra.openai_oauth_responses_websockets_v2_enabled
-// - API Key 账号：accounts.extra.openai_apikey_responses_websockets_v2_enabled
-//
-// 兼容字段：
-// - accounts.extra.responses_websockets_v2_enabled
-// - accounts.extra.openai_ws_enabled（历史开关）
-//
-// 优先级：
-// 1. 按账号类型读取分类型字段
-// 2. 分类型字段缺失时，回退兼容字段
-func (a *Account) IsOpenAIResponsesWebSocketV2Enabled() bool {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return false
-	}
-	if a.IsOpenAIOAuthLike() {
-		if enabled, ok := a.Extra["openai_oauth_responses_websockets_v2_enabled"].(bool); ok {
-			return enabled
-		}
-	}
-	if a.IsThirdPartyKey() {
-		if enabled, ok := a.Extra["openai_apikey_responses_websockets_v2_enabled"].(bool); ok {
-			return enabled
-		}
-	}
-	if enabled, ok := a.Extra["responses_websockets_v2_enabled"].(bool); ok {
-		return enabled
-	}
-	if enabled, ok := a.Extra["openai_ws_enabled"].(bool); ok {
-		return enabled
-	}
-	return false
-}
-
 const (
 	OpenAIWSIngressModeOff         = "off"
 	OpenAIWSIngressModeShared      = "shared"
@@ -2023,79 +1798,16 @@ func normalizeOpenAIWSIngressDefaultMode(mode string) string {
 	return OpenAIWSIngressModeCtxPool
 }
 
-// ResolveOpenAIResponsesWebSocketV2Mode 返回账号在 WSv2 ingress 下的有效模式（off/ctx_pool/passthrough）。
+// ResolveOpenAIResponsesWebSocketV2Mode 返回账号在 WSv2 ingress 下的有效模式（off/ctx_pool/passthrough/http_bridge）。
 //
-// 优先级：
-// 1. 分类型 mode 新字段（string）
-// 2. 分类型 enabled 旧字段（bool）
-// 3. 兼容 enabled 旧字段（bool）
-// 4. defaultMode（非法时回退 ctx_pool）
+// 渠道级 WS 模式开关 2026-09-28 P5 删了：OpenAI 协议账号一律取全局
+// gateway.openai_ws.ingress_mode_default（非法值回退 ctx_pool，历史值 shared/dedicated
+// 归并到 ctx_pool）；其余账号 off。库里旧的 openai_*_responses_websockets_v2_* 键不再生效。
 func (a *Account) ResolveOpenAIResponsesWebSocketV2Mode(defaultMode string) string {
-	resolvedDefault := normalizeOpenAIWSIngressDefaultMode(defaultMode)
 	if !openAIProtocolFeaturesApply(a) {
 		return OpenAIWSIngressModeOff
 	}
-	if a.Extra == nil {
-		return resolvedDefault
-	}
-
-	resolveModeString := func(key string) (string, bool) {
-		raw, ok := a.Extra[key]
-		if !ok {
-			return "", false
-		}
-		mode, ok := raw.(string)
-		if !ok {
-			return "", false
-		}
-		normalized := normalizeOpenAIWSIngressMode(mode)
-		if normalized == "" {
-			return "", false
-		}
-		return normalized, true
-	}
-	resolveBoolMode := func(key string) (string, bool) {
-		raw, ok := a.Extra[key]
-		if !ok {
-			return "", false
-		}
-		enabled, ok := raw.(bool)
-		if !ok {
-			return "", false
-		}
-		if enabled {
-			return OpenAIWSIngressModeCtxPool, true
-		}
-		return OpenAIWSIngressModeOff, true
-	}
-
-	if a.IsOpenAIOAuthLike() {
-		if mode, ok := resolveModeString("openai_oauth_responses_websockets_v2_mode"); ok {
-			return mode
-		}
-		if mode, ok := resolveBoolMode("openai_oauth_responses_websockets_v2_enabled"); ok {
-			return mode
-		}
-	}
-	if a.IsThirdPartyKey() {
-		if mode, ok := resolveModeString("openai_apikey_responses_websockets_v2_mode"); ok {
-			return mode
-		}
-		if mode, ok := resolveBoolMode("openai_apikey_responses_websockets_v2_enabled"); ok {
-			return mode
-		}
-	}
-	if mode, ok := resolveBoolMode("responses_websockets_v2_enabled"); ok {
-		return mode
-	}
-	if mode, ok := resolveBoolMode("openai_ws_enabled"); ok {
-		return mode
-	}
-	// 兼容旧值：shared/dedicated 语义都归并到 ctx_pool。
-	if resolvedDefault == OpenAIWSIngressModeShared || resolvedDefault == OpenAIWSIngressModeDedicated {
-		return OpenAIWSIngressModeCtxPool
-	}
-	return resolvedDefault
+	return normalizeOpenAIWSIngressDefaultMode(defaultMode)
 }
 
 // IsOpenAIWSForceHTTPEnabled 返回账号级"强制 HTTP"开关。
@@ -2108,22 +1820,6 @@ func (a *Account) IsOpenAIWSForceHTTPEnabled() bool {
 	return ok && enabled
 }
 
-// IsOpenAIResponsesFlattenNamespacesEnabled 返回账号级"摊平 Codex namespace 工具"开关。
-// 字段：accounts.extra.openai_responses_flatten_namespaces，缺省 false（原样保留）。
-//
-// namespace 是 Codex 后端定义的私有扩展，OAuth 出口恒为 chatgpt.com/backend-api/codex
-// （buildUpstreamRequest 只对 API Key 账号取 base_url），即定义方本身，因此默认保留。
-// 该开关只为把流量转发到不认识 namespace 的兼容上游的部署保留退路：打开后恢复
-// 0.1.166 及更早版本的摊平行为。仅对 OpenAI OAuth 账号有效——API Key 走 chat
-// completions 回退桥时由桥自行摊平，Grok/Anthropic 出口有各自的适配链路。
-func (a *Account) IsOpenAIResponsesFlattenNamespacesEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["openai_responses_flatten_namespaces"].(bool)
-	return ok && enabled
-}
-
 // IsOpenAIWSAllowStoreRecoveryEnabled 返回账号级 store 恢复开关。
 // 字段：accounts.extra.openai_ws_allow_store_recovery。
 func (a *Account) IsOpenAIWSAllowStoreRecoveryEnabled() bool {
@@ -2132,33 +1828,6 @@ func (a *Account) IsOpenAIWSAllowStoreRecoveryEnabled() bool {
 	}
 	enabled, ok := a.Extra["openai_ws_allow_store_recovery"].(bool)
 	return ok && enabled
-}
-
-// IsOpenAIOAuthPassthroughEnabled 兼容旧接口，等价于 OAuth 账号的 IsOpenAIPassthroughEnabled。
-func (a *Account) IsOpenAIOAuthPassthroughEnabled() bool {
-	return a != nil && a.IsOpenAIOAuth() && a.IsOpenAIPassthroughEnabled()
-}
-
-// IsCodexCLIOnlyEnabled 返回 OpenAI OAuth 账号是否启用"仅允许 Codex 官方客户端"。
-// 字段：accounts.extra.codex_cli_only。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-func (a *Account) IsCodexCLIOnlyEnabled() bool {
-	if a == nil || !a.IsOpenAIOAuth() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["codex_cli_only"].(bool)
-	return ok && enabled
-}
-
-// IsCodexCLIOnlyAppServerAllowed 返回 codex_cli_only 账号是否额外放行 Codex app-server
-// 第三方客户端（运行时与全局 app_server 开关 OR）。字段：accounts.extra.codex_cli_only_allow_app_server。
-// 仅在 codex_cli_only 已启用时有意义；字段缺失或类型不符按 false（不放行）处理。
-func (a *Account) IsCodexCLIOnlyAppServerAllowed() bool {
-	if !a.IsCodexCLIOnlyEnabled() {
-		return false
-	}
-	v, ok := a.Extra["codex_cli_only_allow_app_server"].(bool)
-	return ok && v
 }
 
 // WindowCostSchedulability 窗口费用调度状态

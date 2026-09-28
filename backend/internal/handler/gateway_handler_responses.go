@@ -245,7 +245,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 3. Account selection + failover loop
 	fs := NewFailoverState(h.maxAccountSwitches, false)
 	firstOutputSwitches := 0
-	var passthroughState openAIPassthroughFailoverState
 
 	for {
 		if requestCtx.Err() != nil {
@@ -378,9 +377,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		setActualUpstreamEndpoint(c, "")
 		switch forwardTarget {
 		case compatForwardOpenAI:
-			// 跨透传边界的 failover：从透传账号切到非透传账号前剥掉上游私有的加密 reasoning item
-			attemptBody := deriveOpenAIForwardAttemptBody(reqLog, forwardBody, account, &passthroughState)
-			oaResult, err = h.openAIGatewayService.Forward(requestCtx, c, account, attemptBody)
+			oaResult, err = h.openAIGatewayService.Forward(requestCtx, c, account, forwardBody)
 		case compatForwardAntigravity:
 			if h.antigravityGatewayService == nil {
 				h.responsesErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
@@ -515,7 +512,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					streamStarted = true
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
-					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, nil), false, err)
+					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, nil), false, err)
 				}
 				if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputSwitches) {
 					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
@@ -540,7 +537,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				}
 			}
 			if forwardTarget == compatForwardOpenAI {
-				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, oaResult), false, err)
+				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, oaResult), false, err)
 			}
 			var upstreamErrorAlreadyCommunicated bool
 			if forwardTarget == compatForwardOpenAI {
@@ -574,7 +571,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.openAIGatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, oaResult.ResponseHeaders)
 			}
 			// key 健康熔断 / 调度统计的成功观测
-			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, oaResult), openAIForwardSucceededForScheduling(oaResult))
+			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, oaResult), openAIForwardSucceededForScheduling(oaResult))
 		}
 		// 6. Record usage
 		submitAttemptUsage()

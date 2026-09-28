@@ -441,7 +441,7 @@ func canonicalOpenAIAccountSchedulingModel(account *Account, requestedModel stri
 	// 第三方 key 在 OpenAI 网关上不论标签都走同一条转发模型解析链（映射、透传、
 	// 上游归一），调度与瞬时冷却的模型键必须与之一致，不能按标签分叉。
 	if account.IsOpenAI() || account.IsThirdPartyKey() {
-		return resolveOpenAIAccountUpstreamModelForRequest(account, model, false)
+		return resolveOpenAIAccountUpstreamModelForRequest(account, model)
 	}
 	if mapped := strings.TrimSpace(account.GetMappedModel(model)); mapped != "" {
 		return mapped

@@ -2,66 +2,6 @@ package service
 
 import "testing"
 
-func TestAccountGetOpenAICompactMode(t *testing.T) {
-	tests := []struct {
-		name    string
-		account *Account
-		want    string
-	}{
-		{
-			name: "nil account defaults to auto",
-			want: OpenAICompactModeAuto,
-		},
-		{
-			name: "non openai account defaults to auto",
-			account: &Account{
-				Platform: PlatformAnthropic,
-				Extra:    map[string]any{"openai_compact_mode": OpenAICompactModeForceOn},
-			},
-			want: OpenAICompactModeAuto,
-		},
-		{
-			name: "missing extra defaults to auto",
-			account: &Account{
-				Platform: PlatformOpenAI,
-			},
-			want: OpenAICompactModeAuto,
-		},
-		{
-			name: "invalid mode falls back to auto",
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra:    map[string]any{"openai_compact_mode": "  invalid  "},
-			},
-			want: OpenAICompactModeAuto,
-		},
-		{
-			name: "force on is normalized",
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra:    map[string]any{"openai_compact_mode": " FORCE_ON "},
-			},
-			want: OpenAICompactModeForceOn,
-		},
-		{
-			name: "force off is normalized",
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra:    map[string]any{"openai_compact_mode": "force_off"},
-			},
-			want: OpenAICompactModeForceOff,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.account.GetOpenAICompactMode(); got != tt.want {
-				t.Fatalf("GetOpenAICompactMode() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestAccountOpenAICompactSupportKnown(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -83,28 +23,29 @@ func TestAccountOpenAICompactSupportKnown(t *testing.T) {
 			wantSupported: false,
 			wantKnown:     false,
 		},
+		// Compact 模式 2026-09-28 P5 写死 auto：库里残留的 force_on / force_off 不再覆盖探测结果。
 		{
-			name: "force on overrides probe state",
+			name: "legacy force_on key no longer overrides probe state",
 			account: &Account{
 				Platform: PlatformOpenAI,
 				Extra: map[string]any{
-					"openai_compact_mode":      OpenAICompactModeForceOn,
+					"openai_compact_mode":      "force_on",
 					"openai_compact_supported": false,
 				},
 			},
-			wantSupported: true,
+			wantSupported: false,
 			wantKnown:     true,
 		},
 		{
-			name: "force off overrides probe state",
+			name: "legacy force_off key no longer overrides probe state",
 			account: &Account{
 				Platform: PlatformOpenAI,
 				Extra: map[string]any{
-					"openai_compact_mode":      OpenAICompactModeForceOff,
+					"openai_compact_mode":      "force_off",
 					"openai_compact_supported": true,
 				},
 			},
-			wantSupported: false,
+			wantSupported: true,
 			wantKnown:     true,
 		},
 		{
@@ -197,20 +138,12 @@ func TestAccountAllowsOpenAICompact(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "force on is allowed",
+			name: "legacy force_off key without probe state remains allowed",
 			account: &Account{
 				Platform: PlatformOpenAI,
-				Extra:    map[string]any{"openai_compact_mode": OpenAICompactModeForceOn},
+				Extra:    map[string]any{"openai_compact_mode": "force_off"},
 			},
 			want: true,
-		},
-		{
-			name: "force off is rejected",
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra:    map[string]any{"openai_compact_mode": OpenAICompactModeForceOff},
-			},
-			want: false,
 		},
 	}
 
@@ -221,149 +154,4 @@ func TestAccountAllowsOpenAICompact(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestAccountGetCompactModelMapping(t *testing.T) {
-	tests := []struct {
-		name    string
-		account *Account
-		want    map[string]string
-	}{
-		{
-			name: "nil account returns nil",
-			want: nil,
-		},
-		{
-			name: "missing credentials returns nil",
-			account: &Account{
-				Platform: PlatformOpenAI,
-			},
-			want: nil,
-		},
-		{
-			name: "map any is converted",
-			account: &Account{
-				Credentials: map[string]any{
-					"compact_model_mapping": map[string]any{
-						"gpt-5.4": "gpt-5.4-openai-compact",
-						"invalid": 1,
-					},
-				},
-			},
-			want: map[string]string{
-				"gpt-5.4": "gpt-5.4-openai-compact",
-			},
-		},
-		{
-			name: "map string string is copied",
-			account: &Account{
-				Credentials: map[string]any{
-					"compact_model_mapping": map[string]string{
-						"gpt-*": "compact-*",
-					},
-				},
-			},
-			want: map[string]string{
-				"gpt-*": "compact-*",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.account.GetCompactModelMapping()
-			if !equalStringMap(got, tt.want) {
-				t.Fatalf("GetCompactModelMapping() = %#v, want %#v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAccountResolveCompactMappedModel(t *testing.T) {
-	tests := []struct {
-		name           string
-		credentials    map[string]any
-		requestedModel string
-		expectedModel  string
-		expectedMatch  bool
-	}{
-		{
-			name:           "no compact mapping reports unmatched",
-			credentials:    nil,
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4",
-			expectedMatch:  false,
-		},
-		{
-			name: "exact compact mapping matches",
-			credentials: map[string]any{
-				"compact_model_mapping": map[string]any{
-					"gpt-5.4": "gpt-5.4-openai-compact",
-				},
-			},
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4-openai-compact",
-			expectedMatch:  true,
-		},
-		{
-			name: "exact passthrough counts as match",
-			credentials: map[string]any{
-				"compact_model_mapping": map[string]any{
-					"gpt-5.4": "gpt-5.4",
-				},
-			},
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4",
-			expectedMatch:  true,
-		},
-		{
-			name: "longest wildcard wins",
-			credentials: map[string]any{
-				"compact_model_mapping": map[string]any{
-					"gpt-*":         "fallback-compact",
-					"gpt-5.4*":      "gpt-5.4-openai-compact",
-					"gpt-5.4-mini*": "gpt-5.4-mini-openai-compact",
-				},
-			},
-			requestedModel: "gpt-5.4-mini",
-			expectedModel:  "gpt-5.4-mini-openai-compact",
-			expectedMatch:  true,
-		},
-		{
-			name: "missing compact mapping reports unmatched",
-			credentials: map[string]any{
-				"compact_model_mapping": map[string]any{
-					"gpt-5.3": "gpt-5.3-openai-compact",
-				},
-			},
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4",
-			expectedMatch:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			account := &Account{
-				Platform:    PlatformOpenAI,
-				Credentials: tt.credentials,
-			}
-			gotModel, gotMatch := account.ResolveCompactMappedModel(tt.requestedModel)
-			if gotModel != tt.expectedModel || gotMatch != tt.expectedMatch {
-				t.Fatalf("ResolveCompactMappedModel(%q) = (%q, %v), want (%q, %v)", tt.requestedModel, gotModel, gotMatch, tt.expectedModel, tt.expectedMatch)
-			}
-		})
-	}
-}
-
-func equalStringMap(left, right map[string]string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for key, want := range right {
-		if got, ok := left[key]; !ok || got != want {
-			return false
-		}
-	}
-	return true
 }

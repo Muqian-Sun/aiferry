@@ -16,7 +16,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
@@ -41,8 +40,8 @@ const (
 	// 版本段必须来自 codexCLIVersion：UA 与 version 头是同一个版本声明的两个出口，
 	// 各自硬编码会漂移成互相矛盾的身份。
 	codexCLIUserAgent = openai.CodexDefaultOriginator + "/" + codexCLIVersion + codexCLIUserAgentSuffix
-	// codex_cli_only 拒绝时单个请求头日志长度上限（字符）
-	codexCLIOnlyHeaderValueMaxBytes = 256
+	// 诊断日志里单个请求头的长度上限（字符）
+	openAIRequestDebugHeaderValueMaxBytes = 256
 
 	// OpenAI WS Mode 失败后的重连次数上限（不含首次尝试）。
 	// 与 Codex 客户端保持一致：失败后最多重连 5 次。
@@ -104,8 +103,8 @@ var openaiPassthroughAllowedHeaders = map[string]bool{
 	responsesLiteHeaderKey:    true,
 }
 
-// codex_cli_only 拒绝时记录的请求头白名单（仅用于诊断日志，不参与上游透传）
-var codexCLIOnlyDebugHeaderWhitelist = []string{
+// 诊断日志（如上游报 Instructions are required）记录的请求头白名单，不参与上游转发
+var openAIRequestDebugHeaderWhitelist = []string{
 	"User-Agent",
 	"Content-Type",
 	"Accept",
@@ -439,14 +438,14 @@ var ErrNoAvailableCompactAccounts = errors.New("no available accounts support /r
 
 // OpenAIGatewayService handles OpenAI API gateway operations
 type OpenAIGatewayService struct {
-	accountRepo          AccountRepository
-	usageLogRepo         UsageLogRepository
-	usageBillingRepo     UsageBillingRepository
-	userRepo             UserRepository
-	userSubRepo          UserSubscriptionRepository
-	cache                GatewayCache
-	cfg                  *config.Config
-	codexDetector        CodexClientRestrictionDetector
+	accountRepo      AccountRepository
+	usageLogRepo     UsageLogRepository
+	usageBillingRepo UsageBillingRepository
+	userRepo         UserRepository
+	userSubRepo      UserSubscriptionRepository
+	cache            GatewayCache
+	cfg              *config.Config
+
 	schedulerSnapshot    *SchedulerSnapshotService
 	concurrencyService   *ConcurrencyService
 	billingService       *BillingService
@@ -527,14 +526,14 @@ func NewOpenAIGatewayService(
 		SetCodexIdentityEnforcementEnabled(!cfg.Gateway.DisableCodexIdentityEnforcement)
 	}
 	svc := &OpenAIGatewayService{
-		accountRepo:           accountRepo,
-		usageLogRepo:          usageLogRepo,
-		usageBillingRepo:      usageBillingRepo,
-		userRepo:              userRepo,
-		userSubRepo:           userSubRepo,
-		cache:                 cache,
-		cfg:                   cfg,
-		codexDetector:         NewOpenAICodexClientRestrictionDetector(cfg),
+		accountRepo:      accountRepo,
+		usageLogRepo:     usageLogRepo,
+		usageBillingRepo: usageBillingRepo,
+		userRepo:         userRepo,
+		userSubRepo:      userSubRepo,
+		cache:            cache,
+		cfg:              cfg,
+
 		schedulerSnapshot:     schedulerSnapshot,
 		concurrencyService:    concurrencyService,
 		billingService:        billingService,
@@ -573,15 +572,13 @@ func (s *OpenAIGatewayService) Scheduler() *GatewayService {
 	return s.scheduler
 }
 
-func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
-	// 生图未开放（gateway.image_generation_tool_enabled=false）时桥接一律不注入，账号级覆盖也不能放开。
+func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled() bool {
+	// 生图未开放（gateway.image_generation_tool_enabled=false）时桥接一律不注入。
+	// 渠道级覆盖 2026-09-28 P5 删了，只看全局开关。
 	if s == nil || !OpenAIImageGenerationToolEnabled(s.cfg) {
 		return false
 	}
-	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
-		return *override
-	}
-	return s != nil && s.cfg != nil && s.cfg.Gateway.CodexImageGenerationBridgeEnabled
+	return s.cfg != nil && s.cfg.Gateway.CodexImageGenerationBridgeEnabled
 }
 
 // ReplaceModelInBody 替换请求体中的 JSON model 字段（通用 gjson/sjson 实现）。
@@ -644,17 +641,6 @@ func (s *OpenAIGatewayService) logOpenAIWSModeBootstrap() {
 		wsCfg.RetryTotalBudgetMS,
 		openAIWSMessageReadLimitBytes,
 	)
-}
-
-func (s *OpenAIGatewayService) getCodexClientRestrictionDetector() CodexClientRestrictionDetector {
-	if s != nil && s.codexDetector != nil {
-		return s.codexDetector
-	}
-	var cfg *config.Config
-	if s != nil {
-		cfg = s.cfg
-	}
-	return NewOpenAICodexClientRestrictionDetector(cfg)
 }
 
 func (s *OpenAIGatewayService) getOpenAIWSProtocolResolver() OpenAIWSProtocolResolver {
@@ -970,11 +956,6 @@ func SnapshotOpenAICompatibilityFallbackMetrics() OpenAICompatibilityFallbackMet
 	}
 }
 
-func (s *OpenAIGatewayService) detectCodexClientRestriction(c *gin.Context, account *Account, body []byte) CodexClientRestrictionDetectionResult {
-	// codex_cli_only 的全局加固策略写在代码里（gateway_features.go）
-	return s.getCodexClientRestrictionDetector().Detect(c, account, codexRestrictionPolicy, body)
-}
-
 func getAPIKeyIDFromContext(c *gin.Context) int64 {
 	if c == nil {
 		return 0
@@ -1004,39 +985,7 @@ func isolateOpenAISessionID(apiKeyID int64, raw string) string {
 	return fmt.Sprintf("%016x", h.Sum64())
 }
 
-func logCodexCLIOnlyDetection(ctx context.Context, c *gin.Context, account *Account, apiKeyID int64, result CodexClientRestrictionDetectionResult, body []byte) {
-	if !result.Enabled {
-		return
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	accountID := int64(0)
-	if account != nil {
-		accountID = account.ID
-	}
-	fields := []zap.Field{
-		zap.String("component", "service.openai_gateway"),
-		zap.Int64("account_id", accountID),
-		zap.Bool("codex_cli_only_enabled", result.Enabled),
-		zap.Bool("codex_official_client_match", result.Matched),
-		zap.String("reject_reason", result.Reason),
-	}
-	if apiKeyID > 0 {
-		fields = append(fields, zap.Int64("api_key_id", apiKeyID))
-	}
-	if !result.Matched {
-		fields = appendCodexCLIOnlyRejectedRequestFields(fields, c, body)
-	}
-	log := logger.FromContext(ctx).With(fields...)
-	if result.Matched {
-		log.Info("OpenAI codex_cli_only 放行请求")
-		return
-	}
-	log.Warn("OpenAI codex_cli_only 拒绝非官方客户端请求")
-}
-
-func appendCodexCLIOnlyRejectedRequestFields(fields []zap.Field, c *gin.Context, body []byte) []zap.Field {
+func appendOpenAIRequestDebugFields(fields []zap.Field, c *gin.Context, body []byte) []zap.Field {
 	if c == nil || c.Request == nil {
 		return fields
 	}
@@ -1073,13 +1022,13 @@ func snapshotCodexCLIOnlyHeaders(header http.Header) map[string]string {
 	if len(header) == 0 {
 		return nil
 	}
-	result := make(map[string]string, len(codexCLIOnlyDebugHeaderWhitelist))
-	for _, key := range codexCLIOnlyDebugHeaderWhitelist {
+	result := make(map[string]string, len(openAIRequestDebugHeaderWhitelist))
+	for _, key := range openAIRequestDebugHeaderWhitelist {
 		value := strings.TrimSpace(header.Get(key))
 		if value == "" {
 			continue
 		}
-		result[strings.ToLower(key)] = truncateString(value, codexCLIOnlyHeaderValueMaxBytes)
+		result[strings.ToLower(key)] = truncateString(value, openAIRequestDebugHeaderValueMaxBytes)
 	}
 	return result
 }

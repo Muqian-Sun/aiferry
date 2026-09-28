@@ -95,8 +95,8 @@ func shouldMarkOpenAICompactUnsupported(status int, body []byte) bool {
 // buildOpenAICompactProbeExtraUpdates 计算探测结果的账号 extra 更新。
 // compactionFound 是 v2 契约判据：HTTP 2xx 但响应无 compaction item 时同样
 // 记为不支持（链路把 compaction_trigger 吞掉的形态，等价 codex 的 "got 0
-// items" fatal，#5478/#5648）。极端场景（上游链只支持 legacy unary compact）
-// 可用账号级 openai_compact_mode=force_on 人工覆盖。
+// items" fatal，#5478/#5648）。渠道级 force_on / force_off 覆盖 2026-09-28 P5 删了，
+// 只认探测结果。
 func buildOpenAICompactProbeExtraUpdates(resp *http.Response, body []byte, probeErr error, compactionFound bool, now time.Time) map[string]any {
 	updates := map[string]any{
 		"openai_compact_checked_at":  now.Format(time.RFC3339),

@@ -31,8 +31,9 @@ func b64BackfillImageResponse(status int, contentType string, payload []byte) *h
 	}
 }
 
-func b64BackfillAccount(enabled bool) *Account {
-	account := &Account{
+// b64BackfillAccount url 转 b64_json 回填 2026-09-28 P5 写死开，不再看账号上的 images_url_to_b64_json。
+func b64BackfillAccount() *Account {
+	return &Account{
 		ID:       7,
 		Name:     "openai-apikey",
 		Platform: PlatformOpenAI,
@@ -45,18 +46,6 @@ func b64BackfillAccount(enabled bool) *Account {
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
 		},
 	}
-	if enabled {
-		account.Extra = map[string]any{AccountExtraImagesURLToB64JSON: true}
-	}
-	return account
-}
-
-func TestImagesURLToB64JSONEnabled(t *testing.T) {
-	require.False(t, ImagesURLToB64JSONEnabled(nil))
-	require.False(t, ImagesURLToB64JSONEnabled(&Account{}))
-	require.False(t, ImagesURLToB64JSONEnabled(&Account{Extra: map[string]any{AccountExtraImagesURLToB64JSON: "true"}}))
-	require.False(t, ImagesURLToB64JSONEnabled(&Account{Extra: map[string]any{AccountExtraImagesURLToB64JSON: false}}))
-	require.True(t, ImagesURLToB64JSONEnabled(&Account{Extra: map[string]any{AccountExtraImagesURLToB64JSON: true}}))
 }
 
 func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
@@ -64,7 +53,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		enabled       bool
 		parsed        *OpenAIImagesRequest
 		body          string
 		upstream      *httpUpstreamRecorder
@@ -72,16 +60,7 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		wantDownloads int
 	}{
 		{
-			name:          "开关关闭时原样返回",
-			enabled:       false,
-			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png"}]}`,
-			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
-			wantB64:       []string{""},
-			wantDownloads: 0,
-		},
-		{
 			name:          "缺少 b64_json 且有 url 时下载回填并保留 url",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png","revised_prompt":"a cat"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
 			wantB64:       []string{wantB64},
@@ -89,7 +68,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "b64_json 为空串时同样回填",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"b64_json":"","url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
 			wantB64:       []string{wantB64},
@@ -97,7 +75,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "b64_json 已有值时不下载",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"b64_json":"aW1n","url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
 			wantB64:       []string{"aW1n"},
@@ -105,7 +82,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "多项混合时只回填缺失项",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"b64_json":"aW1n"},{"url":"https://cdn.example.com/b.png"},{"revised_prompt":"none"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
 			wantB64:       []string{"aW1n", wantB64, ""},
@@ -113,7 +89,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "data URL 直接取载荷不下载",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"data:image/png;base64,` + wantB64 + `"}]}`,
 			upstream:      &httpUpstreamRecorder{},
 			wantB64:       []string{wantB64},
@@ -121,7 +96,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "客户端显式要求 url 时不回填",
-			enabled:       true,
 			parsed:        &OpenAIImagesRequest{ResponseFormat: "url"},
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
@@ -130,7 +104,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "下载非 2xx 时保留原样",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusNotFound, "text/plain", []byte("gone"))},
 			wantB64:       []string{""},
@@ -138,7 +111,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "下载内容不是图片时保留原样",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "text/html", []byte("<html>login required</html>"))},
 			wantB64:       []string{""},
@@ -146,7 +118,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "响应头未声明图片类型但字节嗅探为图片时回填",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "application/octet-stream", b64BackfillPNGBytes)},
 			wantB64:       []string{wantB64},
@@ -154,7 +125,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "响应头声明图片但字节不是图片时保留原样",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"https://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/svg+xml", []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`))},
 			wantB64:       []string{""},
@@ -162,7 +132,6 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 		},
 		{
 			name:          "非 http(s) 协议的 url 不下载",
-			enabled:       true,
 			body:          `{"created":1,"data":[{"url":"ftp://cdn.example.com/a.png"}]}`,
 			upstream:      &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)},
 			wantB64:       []string{""},
@@ -173,7 +142,7 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: tt.upstream}
-			got := svc.backfillOpenAIImagesB64JSON(context.Background(), b64BackfillAccount(tt.enabled), tt.parsed, []byte(tt.body))
+			got := svc.backfillOpenAIImagesB64JSON(context.Background(), b64BackfillAccount(), tt.parsed, []byte(tt.body))
 			require.True(t, gjson.ValidBytes(got))
 			items := gjson.GetBytes(got, "data").Array()
 			require.Len(t, items, len(tt.wantB64))
@@ -201,7 +170,7 @@ func TestBackfillOpenAIImagesB64JSON(t *testing.T) {
 func TestBackfillOpenAIImagesB64JSON_DownloadRequestShape(t *testing.T) {
 	upstream := &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
-	account := b64BackfillAccount(true)
+	account := b64BackfillAccount()
 	proxyID := int64(3)
 	account.ProxyID = &proxyID
 	account.Proxy = &Proxy{Protocol: "http", Host: "127.0.0.1", Port: 7890}
@@ -227,7 +196,7 @@ func TestBackfillOpenAIImagesB64JSON_RejectsPrivateHosts(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
-	account := b64BackfillAccount(true)
+	account := b64BackfillAccount()
 
 	for _, rawURL := range []string{
 		"http://localhost:8080/api/v1/admin/accounts",
@@ -283,7 +252,7 @@ func TestIsBackfillImageContent(t *testing.T) {
 func TestBackfillOpenAIImagesB64JSON_NonObjectBodies(t *testing.T) {
 	upstream := &httpUpstreamRecorder{resp: b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes)}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
-	account := b64BackfillAccount(true)
+	account := b64BackfillAccount()
 
 	for _, body := range []string{``, `not json`, `{"created":1}`, `{"created":1,"data":{}}`, `{"created":1,"data":[]}`, `{"created":1,"data":["x"]}`} {
 		got := svc.backfillOpenAIImagesB64JSON(context.Background(), account, nil, []byte(body))
@@ -292,93 +261,70 @@ func TestBackfillOpenAIImagesB64JSON_NonObjectBodies(t *testing.T) {
 	require.Empty(t, upstream.requests)
 }
 
+// Images 端点只给 url 时网关下载回填 b64_json：2026-09-28 P5 写死开。改之前渠道没设
+// images_url_to_b64_json（默认）或设成 false 都原样返回 url，这里两种账号都必须回填。
 func TestOpenAIGatewayServiceForwardImages_APIKeyBackfillsB64JSONFromURL(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024"}`)
+	for _, tc := range []struct {
+		name  string
+		extra map[string]any
+	}{
+		{name: "no account setting"},
+		{name: "legacy opt-out ignored", extra: map[string]any{"images_url_to_b64_json": false}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			account := b64BackfillAccount()
+			account.Extra = tc.extra
+			gin.SetMode(gin.TestMode)
+			body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024"}`)
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = req
-	c.Set("api_key", &APIKey{ID: 42})
+			req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = req
+			c.Set("api_key", &APIKey{ID: 42})
 
-	svc := &OpenAIGatewayService{cfg: &config.Config{}}
-	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
-	require.NoError(t, err)
+			svc := &OpenAIGatewayService{cfg: &config.Config{}}
+			parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+			require.NoError(t, err)
 
-	upstream := &httpUpstreamRecorder{
-		responses: []*http.Response{
-			{
-				StatusCode: http.StatusOK,
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-					"X-Request-Id": []string{"req_img_url"},
+			upstream := &httpUpstreamRecorder{
+				responses: []*http.Response{
+					{
+						StatusCode: http.StatusOK,
+						Header: http.Header{
+							"Content-Type": []string{"application/json"},
+							"X-Request-Id": []string{"req_img_url"},
+						},
+						Body: io.NopCloser(strings.NewReader(
+							`{"created":1710000000,"data":[{"url":"https://cdn.example.com/cat.png","revised_prompt":"a cat"}],"usage":{"input_tokens":10,"output_tokens":20}}`,
+						)),
+					},
+					b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes),
 				},
-				Body: io.NopCloser(strings.NewReader(
-					`{"created":1710000000,"data":[{"url":"https://cdn.example.com/cat.png","revised_prompt":"a cat"}],"usage":{"input_tokens":10,"output_tokens":20}}`,
-				)),
-			},
-			b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes),
-		},
+			}
+			svc.httpUpstream = upstream
+
+			result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Equal(t, 1, result.ImageCount)
+			require.False(t, result.Stream)
+
+			require.Len(t, upstream.requests, 2)
+			require.Equal(t, http.MethodPost, upstream.requests[0].Method)
+			require.Equal(t, "https://relay.example.com/v1/images/generations", upstream.requests[0].URL.String())
+			require.Equal(t, http.MethodGet, upstream.requests[1].Method)
+			require.Equal(t, "https://cdn.example.com/cat.png", upstream.requests[1].URL.String())
+			require.True(t, HTTPUpstreamPublicHostsOnly(upstream.requests[1].Context()))
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			wantB64 := base64.StdEncoding.EncodeToString(b64BackfillPNGBytes)
+			require.Equal(t, wantB64, gjson.Get(rec.Body.String(), "data.0.b64_json").String())
+			require.Equal(t, "https://cdn.example.com/cat.png", gjson.Get(rec.Body.String(), "data.0.url").String())
+			require.Equal(t, "a cat", gjson.Get(rec.Body.String(), "data.0.revised_prompt").String())
+			require.Equal(t, int64(1710000000), gjson.Get(rec.Body.String(), "created").Int())
+
+		})
 	}
-	svc.httpUpstream = upstream
-
-	result, err := svc.ForwardImages(context.Background(), c, b64BackfillAccount(true), body, parsed, "")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.Equal(t, 1, result.ImageCount)
-	require.False(t, result.Stream)
-
-	require.Len(t, upstream.requests, 2)
-	require.Equal(t, http.MethodPost, upstream.requests[0].Method)
-	require.Equal(t, "https://relay.example.com/v1/images/generations", upstream.requests[0].URL.String())
-	require.Equal(t, http.MethodGet, upstream.requests[1].Method)
-	require.Equal(t, "https://cdn.example.com/cat.png", upstream.requests[1].URL.String())
-	require.True(t, HTTPUpstreamPublicHostsOnly(upstream.requests[1].Context()))
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	wantB64 := base64.StdEncoding.EncodeToString(b64BackfillPNGBytes)
-	require.Equal(t, wantB64, gjson.Get(rec.Body.String(), "data.0.b64_json").String())
-	require.Equal(t, "https://cdn.example.com/cat.png", gjson.Get(rec.Body.String(), "data.0.url").String())
-	require.Equal(t, "a cat", gjson.Get(rec.Body.String(), "data.0.revised_prompt").String())
-	require.Equal(t, int64(1710000000), gjson.Get(rec.Body.String(), "created").Int())
-}
-
-func TestOpenAIGatewayServiceForwardImages_APIKeyLeavesURLOnlyResponseWhenDisabled(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024"}`)
-
-	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = req
-	c.Set("api_key", &APIKey{ID: 42})
-
-	svc := &OpenAIGatewayService{cfg: &config.Config{}}
-	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
-	require.NoError(t, err)
-
-	upstreamBody := `{"created":1710000000,"data":[{"url":"https://cdn.example.com/cat.png"}]}`
-	upstream := &httpUpstreamRecorder{
-		responses: []*http.Response{
-			{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(upstreamBody)),
-			},
-			b64BackfillImageResponse(http.StatusOK, "image/png", b64BackfillPNGBytes),
-		},
-	}
-	svc.httpUpstream = upstream
-
-	result, err := svc.ForwardImages(context.Background(), c, b64BackfillAccount(false), body, parsed, "")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.Equal(t, 1, result.ImageCount)
-
-	require.Len(t, upstream.requests, 1)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, upstreamBody, rec.Body.String())
 }

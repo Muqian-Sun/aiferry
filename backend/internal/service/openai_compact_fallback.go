@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -49,18 +48,10 @@ func isExplicitOpenAICompactRequest(c *gin.Context, body []byte) bool {
 	return isOpenAIResponsesCompactPath(c) || HasCompactionTriggerInInput(body)
 }
 
-// resolveOpenAICompactFallbackModel prefers the account's compact-only rule
-// for the client-visible model. The process-wide fallback is used only when
-// that account has no matching compact rule.
-func (s *OpenAIGatewayService) resolveOpenAICompactFallbackModel(account *Account, requestedModel string) string {
-	requestedModel = strings.TrimSpace(requestedModel)
-	if account != nil {
-		if mapped, matched := account.ResolveCompactMappedModel(requestedModel); matched {
-			if mapped = strings.TrimSpace(mapped); mapped != "" {
-				return mapped
-			}
-		}
-	}
+// resolveOpenAICompactFallbackModel 返回 compact 请求要换成的上游模型：只看全局
+// GATEWAY_OPENAI_COMPACT_MODEL（渠道级 compact 专属映射 2026-09-28 P5 已删），
+// 再走一遍该账号的普通映射链。没配全局值时返回空串（不换）。
+func (s *OpenAIGatewayService) resolveOpenAICompactFallbackModel(account *Account) string {
 	if s == nil || s.cfg == nil {
 		return ""
 	}
@@ -68,7 +59,7 @@ func (s *OpenAIGatewayService) resolveOpenAICompactFallbackModel(account *Accoun
 	if fallback == "" {
 		return ""
 	}
-	return strings.TrimSpace(resolveOpenAIAccountUpstreamModelForRequest(account, fallback, false))
+	return strings.TrimSpace(resolveOpenAIAccountUpstreamModelForRequest(account, fallback))
 }
 
 func isOpenAICompactModelFailure(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
@@ -238,7 +229,6 @@ func (s *OpenAIGatewayService) appendOpenAICompactFallbackRetryOps(
 func (s *OpenAIGatewayService) prepareOpenAICompactFallbackRetry(
 	c *gin.Context,
 	account *Account,
-	requestedModel string,
 	currentBody []byte,
 	statusCode int,
 	upstreamMsg string,
@@ -249,7 +239,7 @@ func (s *OpenAIGatewayService) prepareOpenAICompactFallbackRetry(
 		!isOpenAICompactModelFailure(statusCode, upstreamMsg, upstreamBody) {
 		return currentBody, "", false
 	}
-	fallbackModel := s.resolveOpenAICompactFallbackModel(account, requestedModel)
+	fallbackModel := s.resolveOpenAICompactFallbackModel(account)
 	currentModel := strings.TrimSpace(gjson.GetBytes(currentBody, "model").String())
 	if fallbackModel == "" || strings.EqualFold(fallbackModel, currentModel) {
 		return currentBody, "", false
@@ -258,42 +248,5 @@ func (s *OpenAIGatewayService) prepareOpenAICompactFallbackRetry(
 	if strings.EqualFold(strings.TrimSpace(gjson.GetBytes(retryBody, "model").String()), currentModel) {
 		return currentBody, "", false
 	}
-	return retryBody, fallbackModel, true
-}
-
-func (s *OpenAIGatewayService) applyOpenAIPassthroughCompactFallbackFromSignal(
-	c *gin.Context,
-	account *Account,
-	requestedModel string,
-	body []byte,
-	err error,
-	alreadyRetried bool,
-	resp *http.Response,
-) ([]byte, string, bool) {
-	signal, ok := asOpenAICompactFallbackSignal(err)
-	if !ok {
-		return body, "", false
-	}
-	retryBody, fallbackModel, retry := s.prepareOpenAICompactFallbackRetry(
-		c, account, requestedModel, body, http.StatusBadRequest, signal.message, signal.payload, alreadyRetried,
-	)
-	if !retry {
-		return body, "", false
-	}
-	s.appendOpenAICompactFallbackRetryOps(c, account, resp, signal.payload, signal.message, true)
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
-	}
-	fromModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())
-	accountName := ""
-	if account != nil {
-		accountName = account.Name
-	}
-	SetOpsUpstreamModel(c, fallbackModel)
-	logger.LegacyPrintf(
-		"service.openai_gateway",
-		"[OpenAI passthrough] Retrying explicit compact request once with fallback model (account: %s, from: %s, to: %s, upstream_code: %s)",
-		accountName, fromModel, fallbackModel, extractUpstreamErrorCode(signal.payload),
-	)
 	return retryBody, fallbackModel, true
 }

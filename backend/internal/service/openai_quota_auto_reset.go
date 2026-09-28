@@ -286,7 +286,7 @@ func (s *OpenAIQuotaAutoResetService) evaluateAccount(ctx context.Context, accou
 	}
 
 	now := time.Now()
-	assessment := s.assessExtra(account, config, now)
+	assessment := s.assessExtra(account, now)
 	state := openAIAutoResetStateFromExtra(account.Extra)
 	needsQuery := openAIAutoResetSnapshotStale(account.Extra, now) || assessment.resetReached
 	if assessment.pauseReached && !assessment.resetReached {
@@ -338,7 +338,7 @@ func (s *OpenAIQuotaAutoResetService) evaluateAccount(ctx context.Context, accou
 	if !config.Enabled {
 		return nil
 	}
-	assessment = s.assessUsage(usage, account, config, now)
+	assessment = s.assessUsage(usage, now)
 	available := usage.RateLimitResetCredits.AvailableCount
 	if !assessment.resetReached {
 		status := OpenAIAutoResetStatusNoCredit
@@ -499,28 +499,29 @@ func decodeOpenAIAutoResetConsumeResult(value any) openAIAutoResetConsumeResult 
 	return decoded
 }
 
-func (s *OpenAIQuotaAutoResetService) assessExtra(account *Account, config OpenAIAutoResetCreditConfig, now time.Time) openAIAutoResetAssessment {
+func (s *OpenAIQuotaAutoResetService) assessExtra(account *Account, now time.Time) openAIAutoResetAssessment {
 	utilization5h, _ := resolveOpenAIQuotaUtilization(account.Extra, "5h", now)
 	utilization7d, _ := resolveOpenAIQuotaUtilization(account.Extra, "7d", now)
-	return s.buildAssessment(account, config, utilization5h, utilization7d)
+	return s.buildAssessment(utilization5h, utilization7d)
 }
 
-func (s *OpenAIQuotaAutoResetService) assessUsage(usage *OpenAIQuotaUsage, account *Account, config OpenAIAutoResetCreditConfig, now time.Time) openAIAutoResetAssessment {
+func (s *OpenAIQuotaAutoResetService) assessUsage(usage *OpenAIQuotaUsage, now time.Time) openAIAutoResetAssessment {
 	updates := buildOpenAIAutoResetUsageUpdates(usage, now)
 	utilization5h := readOpenAIQuotaUsedPercent(updates, "5h") / 100
 	utilization7d := readOpenAIQuotaUsedPercent(updates, "7d") / 100
-	return s.buildAssessment(account, config, utilization5h, utilization7d)
+	return s.buildAssessment(utilization5h, utilization7d)
 }
 
-func (s *OpenAIQuotaAutoResetService) buildAssessment(account *Account, config OpenAIAutoResetCreditConfig, utilization5h, utilization7d float64) openAIAutoResetAssessment {
+// buildAssessment 自动用卡阈值写死 100%（OpenAIAutoResetCreditThreshold5h/7d），停调阈值只看全局。
+func (s *OpenAIQuotaAutoResetService) buildAssessment(utilization5h, utilization7d float64) openAIAutoResetAssessment {
 	assessment := openAIAutoResetAssessment{
 		utilization5h: utilization5h,
 		utilization7d: utilization7d,
-		threshold5h:   config.Threshold5h,
-		threshold7d:   config.Threshold7d,
+		threshold5h:   OpenAIAutoResetCreditThreshold5h,
+		threshold7d:   OpenAIAutoResetCreditThreshold7d,
 	}
-	reset5h := utilization5h >= config.Threshold5h
-	reset7d := utilization7d >= config.Threshold7d
+	reset5h := utilization5h >= OpenAIAutoResetCreditThreshold5h
+	reset7d := utilization7d >= OpenAIAutoResetCreditThreshold7d
 	assessment.resetReached = reset5h || reset7d
 	assessment.triggerWindow = joinOpenAIAutoResetWindows(reset5h, reset7d)
 
@@ -528,9 +529,9 @@ func (s *OpenAIQuotaAutoResetService) buildAssessment(account *Account, config O
 	if s.settings != nil {
 		autoPauseSettings = s.settings.GetOpenAIQuotaAutoPauseSettings(context.Background())
 	}
-	pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(account, autoPauseSettings)
-	pauseReached5h := !resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled") && pause5h > 0 && utilization5h >= pause5h
-	pauseReached7d := !resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled") && pause7d > 0 && utilization7d >= pause7d
+	pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(autoPauseSettings)
+	pauseReached5h := pause5h > 0 && utilization5h >= pause5h
+	pauseReached7d := pause7d > 0 && utilization7d >= pause7d
 	assessment.pauseReached = pauseReached5h || pauseReached7d || assessment.resetReached
 	if assessment.triggerWindow == "" {
 		assessment.triggerWindow = joinOpenAIAutoResetWindows(pauseReached5h, pauseReached7d)

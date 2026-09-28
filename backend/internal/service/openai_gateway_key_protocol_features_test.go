@@ -89,14 +89,12 @@ func TestOpenAIToolSchemaPlatform(t *testing.T) {
 }
 
 func TestOpenAIKeyFeatureSwitchesFollowVendorNotLabel(t *testing.T) {
+	// 渠道级透传 / WS mode / Compact 模式开关 2026-09-28 P5 删了，这里只看还在的开关与探测结果。
 	extra := func() map[string]any {
 		return map[string]any{
-			"openai_passthrough":                            true,
-			"openai_apikey_responses_websockets_v2_enabled": true,
-			"openai_apikey_responses_websockets_v2_mode":    OpenAIWSIngressModePassthrough,
-			"openai_ws_force_http":                          true,
-			"openai_ws_allow_store_recovery":                true,
-			"openai_compact_mode":                           OpenAICompactModeForceOn,
+			"openai_ws_force_http":           true,
+			"openai_ws_allow_store_recovery": true,
+			"openai_compact_supported":       true,
 		}
 	}
 	relay := featureRelayKey(featureRelayEndpoints())
@@ -105,51 +103,45 @@ func TestOpenAIKeyFeatureSwitchesFollowVendorNotLabel(t *testing.T) {
 	vendor.Extra = extra()
 	requireFeatureFixtures(t, relay, vendor)
 
-	require.True(t, relay.IsOpenAIPassthroughEnabled())
-	require.True(t, relay.IsOpenAIResponsesWebSocketV2Enabled())
-	require.Equal(t, OpenAIWSIngressModePassthrough, relay.ResolveOpenAIResponsesWebSocketV2Mode(OpenAIWSIngressModeOff))
+	require.Equal(t, OpenAIWSIngressModeCtxPool, relay.ResolveOpenAIResponsesWebSocketV2Mode(OpenAIWSIngressModeCtxPool))
 	require.True(t, relay.IsOpenAIWSForceHTTPEnabled())
 	require.True(t, relay.IsOpenAIWSAllowStoreRecoveryEnabled())
-	require.Equal(t, OpenAICompactModeForceOn, relay.GetOpenAICompactMode())
 	supported, known := relay.OpenAICompactSupportKnown()
 	require.True(t, supported)
 	require.True(t, known)
 	require.True(t, relay.AllowsOpenAICompact())
 
-	require.False(t, vendor.IsOpenAIPassthroughEnabled())
-	require.False(t, vendor.IsOpenAIResponsesWebSocketV2Enabled())
 	require.Equal(t, OpenAIWSIngressModeOff, vendor.ResolveOpenAIResponsesWebSocketV2Mode(OpenAIWSIngressModeCtxPool))
 	require.False(t, vendor.IsOpenAIWSForceHTTPEnabled())
 	require.False(t, vendor.IsOpenAIWSAllowStoreRecoveryEnabled())
-	require.Equal(t, OpenAICompactModeAuto, vendor.GetOpenAICompactMode())
 	_, known = vendor.OpenAICompactSupportKnown()
 	require.False(t, known)
 	require.False(t, vendor.AllowsOpenAICompact())
 }
 
 func TestOpenAIWSProtocolResolverKeyFollowsVendorAndResponsesEndpoint(t *testing.T) {
+	// 渠道级 WS 开关已删（legacy 路径恒 HTTP），WS 只能经 mode_router_v2 的全局默认模式打开。
 	cfg := &config.Config{}
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
-	wsExtra := func() map[string]any {
-		return map[string]any{"openai_apikey_responses_websockets_v2_enabled": true}
-	}
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	resolver := NewOpenAIWSProtocolResolver(cfg)
 
 	relay := featureRelayKey(featureRelayEndpoints())
-	relay.Extra = wsExtra()
+	relay.Concurrency = 1
 	decision := resolver.Resolve(relay)
 	require.Equal(t, OpenAIUpstreamTransportResponsesWebsocketV2, decision.Transport)
 
 	chatOnly := featureRelayKey(map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})
-	chatOnly.Extra = wsExtra()
+	chatOnly.Concurrency = 1
 	decision = resolver.Resolve(chatOnly)
 	require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 	require.Equal(t, "responses_endpoint_missing", decision.Reason)
 
 	vendor := featureZhipuKey(featureZhipuEndpoints())
-	vendor.Extra = wsExtra()
+	vendor.Concurrency = 1
 	decision = resolver.Resolve(vendor)
 	require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
 	require.Equal(t, "platform_not_openai", decision.Reason)
@@ -166,10 +158,10 @@ func TestOpenAIResponsesNamespaceHandlingFollowsVendorNotLabel(t *testing.T) {
 	requireFeatureFixtures(t, relay, vendor)
 	namespaceBody := []byte(`{"tools":[{"type":"namespace","name":"mcp","tools":[]}]}`)
 
-	require.True(t, shouldStripOpenAIResponsesInputNamespaces(relay, OpenAIUpstreamTransportHTTPSSE, false))
-	require.False(t, shouldStripOpenAIResponsesInputNamespaces(vendor, OpenAIUpstreamTransportHTTPSSE, false))
-	require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(relay, OpenAIUpstreamTransportHTTPSSE, false, false, namespaceBody))
-	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(vendor, OpenAIUpstreamTransportHTTPSSE, false, false, namespaceBody))
+	require.True(t, shouldStripOpenAIResponsesInputNamespaces(relay, OpenAIUpstreamTransportHTTPSSE))
+	require.False(t, shouldStripOpenAIResponsesInputNamespaces(vendor, OpenAIUpstreamTransportHTTPSSE))
+	require.True(t, shouldKeepOpenAIResponsesToolCallNamespaces(relay, OpenAIUpstreamTransportHTTPSSE, false, namespaceBody))
+	require.False(t, shouldKeepOpenAIResponsesToolCallNamespaces(vendor, OpenAIUpstreamTransportHTTPSSE, false, namespaceBody))
 }
 
 // TestOpenAIGatewayKeyResponsesFeaturesFollowVendorNotLabel 走完整的 Responses 转发，
@@ -248,17 +240,6 @@ func TestOpenAIResponsesWebSocketCompatibilityBodyFollowsVendorNotLabel(t *testi
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Equal(t, string(body), string(normalized))
-}
-
-func TestOpenAIGatewayKeyPassthroughFollowsVendorNotLabel(t *testing.T) {
-	relay := featureRelayKey(featureRelayEndpoints())
-	relay.Extra = map[string]any{"openai_passthrough": true}
-	ingress := keyProtocolResponsesIngress
-	ingress.body = []byte(`{"model":"gpt-5.4","stream":false,"input":"hi","tools":[{"type":"custom","name":"apply_patch","description":"patch"}]}`)
-
-	upstream := captureKeyProtocolRequest(t, relay, ingress)
-	require.Equal(t, "function", gjson.GetBytes(upstream.lastBody, "tools.0.type").String(),
-		"passthrough on a standard Responses upstream lowers Codex custom tools to function tools")
 }
 
 func TestOpenAIGatewayKeyCompatPromptCacheKeyFollowsVendorNotLabel(t *testing.T) {

@@ -107,6 +107,68 @@ func TestSelectAccountWithOptions_RequireCompactPrefersKnownSupport(t *testing.T
 	require.Equal(t, tier0.ID, result.Account.ID, "不要求 compact 时 tier 0 照常可用")
 }
 
+// Compact 模式 2026-09-28 P5 写死 auto（A3-13）：库里残留的 openai_compact_mode 不再覆盖探测结果。
+// 改之前 force_on 让探测为不支持的账号照样接 compact，force_off 把探测为支持的账号挡在外面。
+func TestSelectAccountWithOptions_RequireCompactIgnoresLegacyCompactMode(t *testing.T) {
+	ctx := selectOptionsCtx(APIProtocolResponses)
+	for _, loadBatch := range []bool{true, false} {
+		name := map[bool]string{true: "load aware", false: "legacy"}[loadBatch]
+		t.Run(name, func(t *testing.T) {
+			forcedOnUnsupported := openAIKey(81031, 1, map[string]any{"openai_compact_mode": "force_on", "openai_compact_supported": false})
+			svc := newProtocolMatchService(t, loadBatch, nil, forcedOnUnsupported)
+			_, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
+			require.ErrorIs(t, err, ErrNoAvailableCompactAccounts, "残留 force_on 不得让探测为不支持的账号接 compact")
+
+			forcedOffSupported := openAIKey(81032, 1, map[string]any{"openai_compact_mode": "force_off", "openai_compact_supported": true})
+			svc = newProtocolMatchService(t, loadBatch, nil, forcedOffSupported)
+			result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
+			require.NoError(t, err, "残留 force_off 不得挡住探测为支持的账号")
+			require.Equal(t, forcedOffSupported.ID, result.Account.ID)
+		})
+	}
+}
+
+// 渠道级 WS mode 2026-09-28 P5 删了（A3-10）：默认部署（openai_ws 开、mode_router_v2 关，取值同
+// config.go setDefaults）下，库里残留「WS 开」键的 OpenAI 成品号 / key 也只走 HTTP，WS 入站选不到它们；
+// 改之前这些键会让账号承接 WS v2。HTTP 入站照常。
+func TestSelectAccountWithOptions_LegacyWSKeysStayHTTPByDefault(t *testing.T) {
+	legacyOAuth := openAIOAuthSub(81041, 1)
+	legacyOAuth.Extra = map[string]any{
+		"openai_oauth_responses_websockets_v2_enabled": true,
+		"openai_oauth_responses_websockets_v2_mode":    OpenAIWSIngressModeCtxPool,
+		"responses_websockets_v2_enabled":              true,
+		"openai_ws_enabled":                            true,
+	}
+	legacyKey := openAIKey(81042, 1, map[string]any{
+		"openai_apikey_responses_websockets_v2_enabled": true,
+		"openai_apikey_responses_websockets_v2_mode":    OpenAIWSIngressModePassthrough,
+	})
+	ctx := selectOptionsCtx(APIProtocolResponses)
+	for _, loadBatch := range []bool{true, false} {
+		name := map[bool]string{true: "load aware", false: "legacy"}[loadBatch]
+		t.Run(name, func(t *testing.T) {
+			svc := newProtocolMatchService(t, loadBatch, nil, legacyOAuth, legacyKey)
+			svc.cfg.Gateway.OpenAIWS.Enabled = true
+			svc.cfg.Gateway.OpenAIWS.OAuthEnabled = true
+			svc.cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+			svc.cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+			svc.cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = false
+
+			for _, account := range []Account{legacyOAuth, legacyKey} {
+				decision := svc.wsProtocolResolver().Resolve(&account)
+				require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport, account.Name)
+				require.Equal(t, "account_disabled", decision.Reason, account.Name)
+			}
+
+			_, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportResponsesWebsocketV2Ingress})
+			require.True(t, errors.Is(err, ErrNoAvailableAccounts), "残留 WS 键不得让账号承接 WS 入站：%v", err)
+
+			_, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportHTTPSSE})
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestSelectAccountWithOptions_Transport(t *testing.T) {
 	oauth := openAIOAuthSub(81031, 1)
 	svc := newProtocolMatchService(t, true, nil, oauth)

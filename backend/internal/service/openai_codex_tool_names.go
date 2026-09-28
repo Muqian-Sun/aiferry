@@ -210,20 +210,6 @@ func storeCodexToolNameReverse(c *gin.Context, key string, reverse map[string]st
 	c.Set(key, copyMap)
 }
 
-func mergeCodexToolNameReverse(c *gin.Context, reverse map[string]string) {
-	if c == nil || len(reverse) == 0 {
-		return
-	}
-	merged := make(map[string]string, len(reverse)+len(codexToolNameReverseFromContext(c)))
-	for aliased, original := range codexToolNameReverseFromContext(c) {
-		merged[aliased] = original
-	}
-	for aliased, original := range reverse {
-		merged[aliased] = original
-	}
-	storeCodexToolNameReverse(c, codexToolNameReverseKey, merged)
-}
-
 func codexToolNameReverseFromContext(c *gin.Context) map[string]string {
 	return codexToolNameReverseForKey(c, codexToolNameReverseKey)
 }

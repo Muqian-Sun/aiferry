@@ -127,36 +127,6 @@ func TestIsCodexOfficialClientOriginator(t *testing.T) {
 	}
 }
 
-func TestIsCodexOfficialClientRequestStrict(t *testing.T) {
-	tests := []struct {
-		name string
-		ua   string
-		want bool
-	}{
-		// 前缀开头：与 lax 版一致放行
-		{name: "codex_cli_rs 前缀开头", ua: "codex_cli_rs/0.141.0 (x)", want: true},
-		{name: "codex_vscode 前缀开头", ua: "codex_vscode/1.0.0", want: true},
-		{name: "codex_app 前缀开头", ua: "codex_app/2.1.0", want: true},
-		{name: "Codex 家族前缀保留", ua: "Codex Desktop/1.2.3", want: true},
-		{name: "大小写混合前缀开头", ua: "Codex_CLI_Rs/0.141.0", want: true},
-		// UA 尾部兜底保留：cccc override 真实 codex-tui 仍放行
-		{name: "cccc override 尾部兜底仍放行", ua: "cccc/0.141.0 (Mac OS 14.6.1; arm64) Apple_Terminal/453 (codex-tui; 0.141.0)", want: true},
-		// N1 收紧：codex token 不在行首（子串）不再算官方——lax 版会因 Contains 误判 true
-		{name: "浏览器前缀+中段 codex_app 收紧→拒", ua: "Mozilla/5.0 codex_app/0.141.0", want: false},
-		{name: "中段 codex_cli_rs 收紧→拒", ua: "evilclient/1.0 codex_cli_rs/0.141.0", want: false},
-		{name: "非 codex", ua: "curl/8.0.1", want: false},
-		{name: "空字符串", ua: "", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsCodexOfficialClientRequestStrict(tt.ua)
-			if got != tt.want {
-				t.Fatalf("IsCodexOfficialClientRequestStrict(%q) = %v, want %v", tt.ua, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsCodexOfficialClientByHeaders(t *testing.T) {
 	tests := []struct {
 		name       string

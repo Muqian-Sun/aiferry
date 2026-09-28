@@ -1299,22 +1299,22 @@ func TestOpenAIAccountScheduleModelUsesActualOrSharedResolver(t *testing.T) {
 		Platform: service.PlatformOpenAI,
 		Type:     service.AccountTypeOAuth,
 		Credentials: map[string]any{
-			"model_mapping":         map[string]any{"public": "billing"},
+			"model_mapping": map[string]any{"public": "billing"},
+			// 渠道级 compact 专属映射 2026-09-28 P5 删了：残留键不再影响调度模型。
 			"compact_model_mapping": map[string]any{"public": "compact-actual"},
 		},
 	}
 
 	reported := &service.OpenAIForwardResult{UpstreamModel: "observed-actual"}
-	require.Equal(t, "observed-actual", openAIAccountScheduleModel(nil, account, "public", true, reported))
-	require.Equal(t, "compact-actual", openAIAccountScheduleModel(nil, account, "public", true, nil))
-	require.Equal(t, "billing", openAIAccountScheduleModel(nil, account, "public", false, nil))
+	require.Equal(t, "observed-actual", openAIAccountScheduleModel(nil, account, "public", reported))
+	require.Equal(t, "billing", openAIAccountScheduleModel(nil, account, "public", nil))
 
 	c, _ := gin.CreateTestContext(nil)
 	service.SetOpsUpstreamModel(c, "attempt-actual")
-	require.Equal(t, "attempt-actual", openAIAccountScheduleModel(c, account, "public", true, nil))
+	require.Equal(t, "attempt-actual", openAIAccountScheduleModel(c, account, "public", nil))
 
 	setOpsSelectedAccount(c, account.ID, account.Platform)
-	require.Equal(t, "attempt-actual", openAIAccountScheduleModel(c, account, "public", true, nil))
+	require.Equal(t, "attempt-actual", openAIAccountScheduleModel(c, account, "public", nil))
 }
 
 func TestShouldReportOpenAIWSProxyAccountFailure(t *testing.T) {
@@ -1750,7 +1750,7 @@ func (s *openAIWSUsageHandlerUsageLogRepoStub) Create(ctx context.Context, log *
 	return true, nil
 }
 
-func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(t *testing.T) {
+func TestGatewayResponses_APIKeyPool5xxRetriesThenExhaustsMaxSwitches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	accounts := []service.Account{
 		{
@@ -1763,7 +1763,6 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 				"pool_mode_retry_count":        float64(1),
 				"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
 			},
-			Extra:             map[string]any{"openai_passthrough": true},
 			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 		{
@@ -1773,7 +1772,6 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 				"api_key":  "sk-fallback",
 				"base_url": "https://api.example.test",
 			},
-			Extra:             map[string]any{"openai_passthrough": true},
 			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 	}
@@ -1830,7 +1828,7 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 	require.Equal(t, "Upstream service temporarily unavailable", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
 }
 
-func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHealthyAccount(t *testing.T) {
+func TestGatewayResponses_APIKeyPoolAuthFailureRetriesThenSwitchesToHealthyAccount(t *testing.T) {
 	tests := []struct {
 		name       string
 		statusCode int
@@ -1853,7 +1851,6 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 						"pool_mode_retry_count":        float64(1),
 						"pool_mode_retry_status_codes": []any{float64(tt.statusCode)},
 					},
-					Extra:             map[string]any{"openai_passthrough": true},
 					ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 				},
 				{
@@ -1863,7 +1860,6 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 						"api_key":  "sk-fallback",
 						"base_url": "https://api.example.test",
 					},
-					Extra:             map[string]any{"openai_passthrough": true},
 					ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 				},
 			}
@@ -1922,7 +1918,7 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 	}
 }
 
-func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t *testing.T) {
+func TestGatewayResponses_APIKeySSERateLimitUsesConfiguredPoolRetry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	accounts := []service.Account{
 		{
@@ -1935,7 +1931,6 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 				"pool_mode_retry_count":        float64(1),
 				"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
 			},
-			Extra:             map[string]any{"openai_passthrough": true},
 			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 	}
@@ -2058,10 +2053,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 				"api_key":  "sk-first",
 				"base_url": firstUpstream.URL,
 			},
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-				"openai_apikey_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
-			},
+			Extra: map[string]any{},
 		},
 		{
 			ProtocolEndpoints: map[string]string{
@@ -2080,10 +2072,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 				"api_key":  "sk-second",
 				"base_url": secondUpstream.URL,
 			},
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-				"openai_apikey_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
-			},
+			Extra: map[string]any{},
 		},
 	}
 
@@ -2096,6 +2085,8 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
 	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	// 渠道级 WS mode 2026-09-28 P5 删了：passthrough 模式用全局 ingress_mode_default 配。
+	cfg.Gateway.OpenAIWS.IngressModeDefault = service.OpenAIWSIngressModePassthrough
 	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
@@ -2272,10 +2263,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 			Concurrency: 1,
 			Priority:    1,
 			Credentials: map[string]any{"api_key": "sk-first", "base_url": firstUpstream.URL},
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-				"openai_apikey_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
-			},
+			Extra:       map[string]any{},
 		},
 		{
 			ProtocolEndpoints: map[string]string{
@@ -2291,10 +2279,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 			Concurrency: 1,
 			Priority:    2,
 			Credentials: map[string]any{"api_key": "sk-second", "base_url": secondUpstream.URL},
-			Extra: map[string]any{
-				"openai_apikey_responses_websockets_v2_enabled": true,
-				"openai_apikey_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
-			},
+			Extra:       map[string]any{},
 		},
 	}
 
@@ -2308,6 +2293,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
 	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = service.OpenAIWSIngressModePassthrough
 	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
@@ -2482,13 +2468,12 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 			service.APIProtocolResponses:       upstreamServer.URL,
 			service.APIProtocolChatCompletions: upstreamServer.URL,
 		},
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-			"openai_apikey_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
-		},
+		Extra: map[string]any{},
 	}
+	// 渠道级 WS mode 2026-09-28 P5 删了：ingress 模式只能用全局 ingress_mode_default 配。
+	ingressMode := service.OpenAIWSIngressModePassthrough
 	if strings.TrimSpace(tc.ingressMode) != "" {
-		account.Extra["openai_apikey_responses_websockets_v2_mode"] = tc.ingressMode
+		ingressMode = tc.ingressMode
 	}
 
 	cfg := &config.Config{}
@@ -2500,6 +2485,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
 	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = ingressMode
 	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
 	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3

@@ -743,7 +743,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					return
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
-					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, nil), false, err)
+					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, nil), false, err)
 				}
 				switchCountBefore := fs.SwitchCount
 				action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
@@ -791,7 +791,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			reqLog.Error("gateway.forward_failed", forwardFailedFields...)
 			if forwardTarget == compatForwardOpenAI {
-				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), false, err)
+				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, oaResult), false, err)
 			}
 			// Forward 与错误一起返回的部分结果：流中断前上游已计量的 usage 照常入账，
 			// 避免上游已产生消耗的请求完全漏记（#5148）。failover 错误恒定 result=nil，
@@ -826,7 +826,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 		if oaResult != nil {
 			// key 健康熔断 / 调度统计的成功观测
-			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), true)
+			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, oaResult), true)
 		}
 		submitAttemptUsage()
 		// 转发成功，会话槽保持既有空闲超时语义

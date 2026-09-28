@@ -1021,11 +1021,6 @@ func (s *GatewayService) isModelSupportedByAccount(account *Account, requestedMo
 		_, ok := ResolveBedrockModelID(account, requestedModel)
 		return ok
 	}
-	// OpenAI 透传模式：仅替换认证，允许所有模型。透传是 OpenAI 标准协议特性，
-	// 只对官方 OpenAI 与通用中转生效。
-	if openAIProtocolFeaturesApply(account) && account.IsOpenAIPassthroughEnabled() {
-		return true
-	}
 	// OAuth/SetupToken/Vertex 成品号使用 Anthropic 标准映射（短ID → 长ID）。
 	// 第三方 key 不论标签都不走这条：它的模型名由管理员映射决定，不做官方短名展开。
 	if !account.IsThirdPartyKey() && account.Platform == PlatformAnthropic {

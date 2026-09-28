@@ -254,44 +254,38 @@ func TestOpenAIWSIngressSessionPreemptionRespectsResolvedMode(t *testing.T) {
 		c.Set("api_key", &APIKey{ID: 11})
 		return c
 	}
-	newAccount := func(mode string) *Account {
-		return &Account{
-			ID:       1,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Extra: map[string]any{
-				"openai_oauth_responses_websockets_v2_mode": mode,
-			},
-		}
+	// 渠道级 WS mode 2026-09-28 P5 删了：模式只由全局 ingress_mode_default 决定。
+	newService := func(mode string) *OpenAIGatewayService {
+		cfg := &config.Config{}
+		cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+		cfg.Gateway.OpenAIWS.IngressModeDefault = mode
+		return &OpenAIGatewayService{cfg: cfg}
 	}
+	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	firstMessage := []byte(`{"type":"response.create","prompt_cache_key":"session-1","input":"hello"}`)
-	cfg := &config.Config{}
-	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
-	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
-	svc := &OpenAIGatewayService{cfg: cfg}
 
-	passthrough := newAccount(OpenAIWSIngressModePassthrough)
-	firstCtx, firstCleanup, armed := svc.BeginOpenAIWSIngressSessionPreemption(
-		context.Background(), newContext(), passthrough, firstMessage,
+	passthroughSvc := newService(OpenAIWSIngressModePassthrough)
+	firstCtx, firstCleanup, armed := passthroughSvc.BeginOpenAIWSIngressSessionPreemption(
+		context.Background(), newContext(), account, firstMessage,
 	)
 	require.False(t, armed)
 	defer firstCleanup()
-	secondCtx, secondCleanup, armed := svc.BeginOpenAIWSIngressSessionPreemption(
-		context.Background(), newContext(), passthrough, firstMessage,
+	secondCtx, secondCleanup, armed := passthroughSvc.BeginOpenAIWSIngressSessionPreemption(
+		context.Background(), newContext(), account, firstMessage,
 	)
 	require.False(t, armed)
 	defer secondCleanup()
 	require.NoError(t, firstCtx.Err(), "concurrent passthrough request must remain isolated")
 	require.NoError(t, secondCtx.Err())
 
-	ctxPool := newAccount(OpenAIWSIngressModeCtxPool)
-	sharedCtx, sharedCleanup, armed := svc.BeginOpenAIWSIngressSessionPreemption(
-		context.Background(), newContext(), ctxPool, firstMessage,
+	ctxPoolSvc := newService(OpenAIWSIngressModeCtxPool)
+	sharedCtx, sharedCleanup, armed := ctxPoolSvc.BeginOpenAIWSIngressSessionPreemption(
+		context.Background(), newContext(), account, firstMessage,
 	)
 	require.True(t, armed)
 	defer sharedCleanup()
-	_, replacementCleanup, armed := svc.BeginOpenAIWSIngressSessionPreemption(
-		context.Background(), newContext(), ctxPool, firstMessage,
+	_, replacementCleanup, armed := ctxPoolSvc.BeginOpenAIWSIngressSessionPreemption(
+		context.Background(), newContext(), account, firstMessage,
 	)
 	require.True(t, armed)
 	defer replacementCleanup()
@@ -319,6 +313,7 @@ func TestOpenAIWSSessionPreemptRemoteClaimAndStaleReleaseAreAtomic(t *testing.T)
 
 func TestOpenAIWSHTTPBridgeSessionPreemptionEligibility(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	// 渠道级 WS mode 2026-09-28 P5 删了：账号上残留的 mode 键不再覆盖全局默认。
 	tests := []struct {
 		name          string
 		routerEnabled bool
@@ -326,9 +321,9 @@ func TestOpenAIWSHTTPBridgeSessionPreemptionEligibility(t *testing.T) {
 		accountMode   string
 		wantArmed     bool
 	}{
-		{name: "explicit HTTP bridge", routerEnabled: true, defaultMode: OpenAIWSIngressModeCtxPool, accountMode: OpenAIWSIngressModeHTTPBridge},
 		{name: "default HTTP bridge", routerEnabled: true, defaultMode: OpenAIWSIngressModeHTTPBridge},
-		{name: "ctx pool overrides bridge default", routerEnabled: true, defaultMode: OpenAIWSIngressModeHTTPBridge, accountMode: OpenAIWSIngressModeCtxPool, wantArmed: true},
+		{name: "legacy account ctx_pool no longer overrides bridge default", routerEnabled: true, defaultMode: OpenAIWSIngressModeHTTPBridge, accountMode: OpenAIWSIngressModeCtxPool},
+		{name: "legacy account HTTP bridge no longer overrides ctx_pool default", routerEnabled: true, defaultMode: OpenAIWSIngressModeCtxPool, accountMode: OpenAIWSIngressModeHTTPBridge, wantArmed: true},
 		{name: "disabled router retains legacy preemption", defaultMode: OpenAIWSIngressModeHTTPBridge, accountMode: OpenAIWSIngressModeHTTPBridge, wantArmed: true},
 	}
 	for _, tt := range tests {

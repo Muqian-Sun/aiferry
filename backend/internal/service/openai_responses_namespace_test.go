@@ -12,7 +12,7 @@ func TestShouldFlattenOpenAIResponsesNamespaces(t *testing.T) {
 	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	grokOAuth := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth}
-	// 账号级兼容开关：为不认识 namespace 的兼容上游恢复旧的摊平行为。
+	// 渠道级「摊平 namespace」开关 2026-09-28 P5 删了：残留键不再恢复旧的摊平行为。
 	flattenOAuth := &Account{
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeOAuth,
@@ -26,30 +26,26 @@ func TestShouldFlattenOpenAIResponsesNamespaces(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		account            *Account
-		transport          OpenAIUpstreamTransport
-		passthroughEnabled bool
-		compactPath        bool
-		want               bool
+		name        string
+		account     *Account
+		transport   OpenAIUpstreamTransport
+		compactPath bool
+		want        bool
 	}{
 		// 默认保留：OAuth 出口是 namespace 扩展的定义方，摊平会让模型无法按
 		// `to=functions.<namespace>.<tool>` 寻址（issue #4978）。
 		{name: "oauth_http_default_preserves", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
-		{name: "oauth_http_passthrough_default_preserves", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, passthroughEnabled: true, want: false},
 		{name: "oauth_wsv2_default_preserves", account: oauth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: false},
 		// compact 端点 schema 更窄且无实测证据，保持既有摊平行为。
 		{name: "oauth_compact_flattens", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, compactPath: true, want: true},
 		{name: "oauth_compact_wsv2_preserves", account: oauth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, compactPath: true, want: false},
 		{name: "apikey_compact", account: apiKey, transport: OpenAIUpstreamTransportHTTPSSE, compactPath: true, want: false},
-		{name: "oauth_flatten_enabled_http", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
-		{name: "oauth_flatten_enabled_http_passthrough", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, passthroughEnabled: true, want: true},
+		{name: "oauth_legacy_flatten_key_ignored_http", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 		// WSv2 出口原样转发上游事件、不做回程还原，摊平会让客户端收到无法匹配的平名。
-		{name: "oauth_flatten_enabled_wsv2", account: flattenOAuth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: false},
-		// 透传账号先于 WSv2 分支经 HTTP 转发返回，开关打开时仍需摊平。
-		{name: "oauth_flatten_enabled_wsv2_passthrough", account: flattenOAuth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, passthroughEnabled: true, want: true},
-		// 开关仅对 OAuth 生效：API Key 走 chat completions 回退桥时由桥自行摊平。
-		{name: "apikey_flatten_enabled_http", account: flattenAPIKey, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
+		{name: "oauth_legacy_flatten_key_ignored_wsv2", account: flattenOAuth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: false},
+		// compact 照旧摊平，与残留键无关。
+		{name: "oauth_legacy_flatten_key_compact_flattens", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, compactPath: true, want: true},
+		{name: "apikey_legacy_flatten_key_ignored_http", account: flattenAPIKey, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 		{name: "apikey_http", account: apiKey, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 		{name: "grok_oauth_http", account: grokOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 		{name: "nil_account", account: nil, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
@@ -57,7 +53,7 @@ func TestShouldFlattenOpenAIResponsesNamespaces(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, shouldFlattenOpenAIResponsesNamespaces(
-				tt.account, tt.transport, tt.passthroughEnabled, tt.compactPath,
+				tt.account, tt.transport, tt.compactPath,
 			))
 		})
 	}
@@ -74,21 +70,19 @@ func TestShouldKeepOpenAIResponsesToolCallNamespaces(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		account            *Account
-		transport          OpenAIUpstreamTransport
-		passthroughEnabled bool
-		compactPath        bool
-		body               []byte
-		want               bool
+		name        string
+		account     *Account
+		transport   OpenAIUpstreamTransport
+		compactPath bool
+		body        []byte
+		want        bool
 	}{
 		// 上游按 namespace 解析历史调用，缺字段会 400 "Missing namespace for function_call"。
 		{name: "oauth_http_keeps", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
-		{name: "oauth_http_passthrough_keeps", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, passthroughEnabled: true, want: true},
 		// compact 端点 schema 不含该字段，携带即 400 "Unknown parameter: input[N].namespace"。
 		{name: "oauth_compact_strips", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, compactPath: true, want: false},
-		// 摊平后调用项已是平名，残留 namespace 指向的声明不存在。
-		{name: "oauth_flatten_enabled_strips", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
+		// 残留的摊平开关不再生效：非 compact 请求不摊平，调用项的 namespace 照旧保留。
+		{name: "oauth_legacy_flatten_key_keeps", account: flattenOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
 		// WSv2 实际由 shouldStrip 提前短路，此处只钉住策略本身的取值。
 		{name: "oauth_wsv2_keeps", account: oauth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: true},
 		// WSv2 + compact 是唯一「不摊平但仍必须清理」的组合，钉住 compact 判定本身，
@@ -110,7 +104,7 @@ func TestShouldKeepOpenAIResponsesToolCallNamespaces(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, shouldKeepOpenAIResponsesToolCallNamespaces(
-				tt.account, tt.transport, tt.passthroughEnabled, tt.compactPath, tt.body,
+				tt.account, tt.transport, tt.compactPath, tt.body,
 			))
 		})
 	}
@@ -123,25 +117,22 @@ func TestShouldStripOpenAIResponsesInputNamespaces(t *testing.T) {
 	grokOAuth := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth}
 
 	tests := []struct {
-		name               string
-		account            *Account
-		transport          OpenAIUpstreamTransport
-		passthroughEnabled bool
-		want               bool
+		name      string
+		account   *Account
+		transport OpenAIUpstreamTransport
+		want      bool
 	}{
 		{name: "oauth_http", account: oauth, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
 		{name: "apikey_http", account: apiKey, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
 		{name: "oauth_wsv2", account: oauth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: false},
 		{name: "apikey_wsv2", account: apiKey, transport: OpenAIUpstreamTransportResponsesWebsocketV2, want: false},
-		{name: "oauth_wsv2_passthrough", account: oauth, transport: OpenAIUpstreamTransportResponsesWebsocketV2, passthroughEnabled: true, want: true},
-		{name: "apikey_wsv2_passthrough", account: apiKey, transport: OpenAIUpstreamTransportResponsesWebsocketV2, passthroughEnabled: true, want: true},
 		{name: "setup_token_http", account: setupToken, transport: OpenAIUpstreamTransportHTTPSSE, want: true},
 		{name: "grok_oauth_http", account: grokOAuth, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 		{name: "nil_account", account: nil, transport: OpenAIUpstreamTransportHTTPSSE, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, shouldStripOpenAIResponsesInputNamespaces(tt.account, tt.transport, tt.passthroughEnabled))
+			require.Equal(t, tt.want, shouldStripOpenAIResponsesInputNamespaces(tt.account, tt.transport))
 		})
 	}
 }

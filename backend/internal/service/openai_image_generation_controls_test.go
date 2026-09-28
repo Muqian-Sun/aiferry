@@ -24,11 +24,17 @@ func TestOpenAIGatewayServiceForward_CodexImageInjectionFollowsBridgeConfig(t *t
 		name          string
 		bridgeEnabled bool
 		responsesLite bool
+		accountExtra  map[string]any
 		wantInjected  bool
 	}{
 		{name: "skips injection by default", bridgeEnabled: false, wantInjected: false},
 		{name: "injects image tool when bridge enabled", bridgeEnabled: true, wantInjected: true},
 		{name: "responses lite skips hosted image bridge", bridgeEnabled: true, responsesLite: true, wantInjected: false},
+		// 渠道级桥接覆盖与 strip 策略 2026-09-28 P5 删了：残留账号键（含嵌套写法）不再改变全局开关的结果。
+		{name: "legacy account opt-out no longer disables bridge", bridgeEnabled: true,
+			accountExtra: map[string]any{"codex_image_generation_bridge": false, "codex_image_generation_explicit_tool_policy": "strip"}, wantInjected: true},
+		{name: "legacy account opt-in no longer enables bridge", bridgeEnabled: false,
+			accountExtra: map[string]any{PlatformOpenAI: map[string]any{"codex_image_generation_bridge_enabled": true}}, wantInjected: false},
 	}
 
 	for _, tt := range tests {
@@ -47,6 +53,7 @@ func TestOpenAIGatewayServiceForward_CodexImageInjectionFollowsBridgeConfig(t *t
 				c.Request.Header.Set(responsesLiteHeader, "true")
 			}
 			account := newOpenAIImageGenerationControlTestAccount()
+			account.Extra = tt.accountExtra
 
 			result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.4","input":"write code","stream":false}`))
 
@@ -116,7 +123,8 @@ func TestOpenAIGatewayServiceForward_ExplicitImageToolWorksWithBridgeDisabled(t 
 	require.NotContains(t, instructions, "image_generation")
 }
 
-func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *testing.T) {
+// 渠道级 strip 策略 2026-09-28 P5 删了：剥离只在全局生图开关关着时发生。
+func TestOpenAIGatewayServiceForward_ImageToolDisabledStripsExplicitImageTool(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := &httpUpstreamRecorder{
@@ -127,11 +135,9 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *tes
 		},
 	}
 	svc := newOpenAIImageGenerationControlTestService(upstream)
+	svc.cfg.Gateway.ImageGenerationToolEnabled = false
 	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.98.0")
 	account := newOpenAIImageGenerationControlTestAccount()
-	account.Extra = map[string]any{
-		featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip,
-	}
 	body := []byte(`{
 		"model":"gpt-5.4",
 		"input":"draw",
@@ -155,35 +161,23 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsExplicitImageTool(t *tes
 	require.NotContains(t, instructions, "image_generation")
 }
 
-func TestOpenAIGatewayServiceForward_AccountPolicyStripsImageNamespaceTools(t *testing.T) {
+func TestOpenAIGatewayServiceForward_ImageToolDisabledStripsImageNamespaceTools(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	tests := []struct {
-		name        string
-		passthrough bool
-	}{
-		{name: "managed forwarding"},
-		{name: "passthrough forwarding", passthrough: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			upstream := &httpUpstreamRecorder{
-				resp: &http.Response{
-					StatusCode: http.StatusOK,
-					Header:     http.Header{"Content-Type": []string{"application/json"}},
-					Body:       io.NopCloser(strings.NewReader(`{"id":"resp_stripped_namespace","model":"gpt-5.5","usage":{"input_tokens":2,"output_tokens":1}}`)),
-				},
-			}
-			svc := newOpenAIImageGenerationControlTestService(upstream)
-			c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
-			SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
-			account := newOpenAIImageGenerationControlTestAccount()
-			account.Extra = map[string]any{
-				featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip,
-				"openai_passthrough":                             tt.passthrough,
-			}
-			body := []byte(`{
+	t.Run("managed forwarding", func(t *testing.T) {
+		upstream := &httpUpstreamRecorder{
+			resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"id":"resp_stripped_namespace","model":"gpt-5.5","usage":{"input_tokens":2,"output_tokens":1}}`)),
+			},
+		}
+		svc := newOpenAIImageGenerationControlTestService(upstream)
+		svc.cfg.Gateway.ImageGenerationToolEnabled = false
+		c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
+		SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+		account := newOpenAIImageGenerationControlTestAccount()
+		body := []byte(`{
 				"model":"gpt-5.5",
 				"stream":false,
 				"tools":[
@@ -198,23 +192,22 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsImageNamespaceTools(t *t
 				"tool_choice":"auto"
 			}`)
 
-			result, err := svc.Forward(context.Background(), c, account, body)
+		result, err := svc.Forward(context.Background(), c, account, body)
 
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			require.NotNil(t, upstream.lastReq)
-			var forwarded map[string]any
-			require.NoError(t, json.Unmarshal(upstream.lastBody, &forwarded))
-			require.False(t, hasOpenAIImageGenerationTool(forwarded))
-			require.Equal(t, "auto", forwarded["tool_choice"])
-			require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="shell")`).Exists())
-			require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="code_tools")`).Exists())
-			require.Equal(t, "write code", gjson.GetBytes(upstream.lastBody, "input.0.content.0.text").String())
-			cached, known := getOpenAIImageIntentHint(c)
-			require.True(t, known)
-			require.True(t, cached)
-		})
-	}
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.NotNil(t, upstream.lastReq)
+		var forwarded map[string]any
+		require.NoError(t, json.Unmarshal(upstream.lastBody, &forwarded))
+		require.False(t, hasOpenAIImageGenerationTool(forwarded))
+		require.Equal(t, "auto", forwarded["tool_choice"])
+		require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="shell")`).Exists())
+		require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="code_tools")`).Exists())
+		require.Equal(t, "write code", gjson.GetBytes(upstream.lastBody, "input.0.content.0.text").String())
+		cached, known := getOpenAIImageIntentHint(c)
+		require.True(t, known)
+		require.True(t, cached)
+	})
 }
 
 func TestOpenAIGatewayServiceForward_CodexBridgeDoesNotInjectHostedToolAlongsideImageGenNamespace(t *testing.T) {
@@ -355,89 +348,6 @@ func TestOpenAIGatewayServiceForward_CodexBridgeSkipsCompactRequests(t *testing.
 	require.NotContains(t, instructions, "image_generation")
 }
 
-func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *testing.T) {
-
-	tests := []struct {
-		name    string
-		global  bool
-		account *Account
-		want    bool
-	}{
-		{
-			name:   "global default enables bridge",
-			global: true,
-			account: &Account{
-				Platform: PlatformOpenAI,
-			},
-			want: true,
-		},
-		{
-			name:   "account false overrides global true",
-			global: true,
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra:    map[string]any{featureKeyCodexImageGenerationBridge: false},
-			},
-			want: false,
-		},
-		{
-			name:   "nested account true overrides disabled global",
-			global: false,
-			account: &Account{
-				Platform: PlatformOpenAI,
-				Extra: map[string]any{
-					PlatformOpenAI: map[string]any{"codex_image_generation_bridge_enabled": true},
-				},
-			},
-			want: true,
-		},
-		{
-			name:   "non openai account extra is ignored",
-			global: false,
-			account: &Account{
-				Platform: PlatformAnthropic,
-				Extra:    map[string]any{featureKeyCodexImageGenerationBridge: true},
-			},
-			want: false,
-		},
-		// 第三方 key 按厂商，不看平台标签。
-		{
-			name:   "relay key with anthropic label honors account extra",
-			global: false,
-			account: &Account{
-				Platform:          PlatformAnthropic,
-				Type:              AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"},
-				Extra:             map[string]any{featureKeyCodexImageGenerationBridge: true},
-			},
-			want: true,
-		},
-		{
-			name:   "official deepseek key with openai label ignores account extra",
-			global: false,
-			account: &Account{
-				Platform:          PlatformOpenAI,
-				Type:              AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolResponses: DefaultDeepseekBaseURL},
-				Extra:             map[string]any{featureKeyCodexImageGenerationBridge: true},
-			},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := newOpenAIImageGenerationControlTestService(&httpUpstreamRecorder{})
-			svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = tt.global
-			apiKey := &APIKey{}
-
-			got := svc.isCodexImageGenerationBridgeEnabled(context.Background(), tt.account, apiKey)
-
-			require.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestOpenAIGatewayServiceHandleResponsesImageOutputs_NonStreaming(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -489,28 +399,6 @@ func TestOpenAIGatewayServiceHandleResponsesImageOutputs_Streaming(t *testing.T)
 	require.Equal(t, 5, result.usage.OutputTokens)
 	require.Equal(t, 4, result.usage.ImageOutputTokens)
 	require.NotContains(t, recorder.Body.String(), `"status":"generating"`)
-	require.Equal(t, 2, strings.Count(recorder.Body.String(), `"status":"completed"`))
-}
-
-func TestOpenAIGatewayServiceHandleResponsesImageOutputs_StreamingPassthrough(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	svc := newOpenAIImageGenerationControlTestService(&httpUpstreamRecorder{})
-	c, recorder := newOpenAIImageGenerationControlTestContext("unit-test-agent/1.0")
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-		Body: io.NopCloser(strings.NewReader(
-			"data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"ig_stream_1\",\"type\":\"image_generation_call\",\"status\":\"in_progress\",\"result\":\"final-image\"}}\n\n" +
-				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_image_stream\",\"model\":\"gpt-5.5\",\"output\":[{\"id\":\"ig_stream_1\",\"type\":\"image_generation_call\",\"status\":\"in_progress\",\"result\":\"final-image\"}],\"usage\":{\"input_tokens\":11,\"output_tokens\":5,\"output_tokens_details\":{\"image_tokens\":4}}}}\n\n",
-		)),
-	}
-
-	result, err := svc.handleStreamingResponsePassthrough(context.Background(), resp, c, &Account{ID: 1}, time.Now(), "gpt-5.5", "gpt-5.5")
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotContains(t, recorder.Body.String(), `"status":"in_progress"`)
 	require.Equal(t, 2, strings.Count(recorder.Body.String(), `"status":"completed"`))
 }
 
@@ -630,18 +518,4 @@ func newOpenAIImageGenerationControlTestAccount() *Account {
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-}
-
-func TestAccountCodexImageGenerationExplicitToolPolicy_KeysFollowVendorNotLabel(t *testing.T) {
-	strip := map[string]any{featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip}
-
-	openAIOAuth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: strip}
-	relayKey := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}, Extra: strip}
-	deepseekKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: DefaultDeepseekBaseURL}, Extra: strip}
-	grokOAuth := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: strip}
-
-	require.Equal(t, codexImageGenerationExplicitToolPolicyStrip, openAIOAuth.CodexImageGenerationExplicitToolPolicy())
-	require.Equal(t, codexImageGenerationExplicitToolPolicyStrip, relayKey.CodexImageGenerationExplicitToolPolicy())
-	require.Equal(t, codexImageGenerationExplicitToolPolicyAllow, deepseekKey.CodexImageGenerationExplicitToolPolicy())
-	require.Equal(t, codexImageGenerationExplicitToolPolicyAllow, grokOAuth.CodexImageGenerationExplicitToolPolicy())
 }

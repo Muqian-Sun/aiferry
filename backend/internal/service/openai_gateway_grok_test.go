@@ -674,6 +674,64 @@ func TestForwardGrokResponsesCodexAdditionalToolsUsesMixedCacheIntent(t *testing
 	require.Empty(t, upstream.lastReq.Header.Get(grokClientToolCacheOptInHeader))
 }
 
+// Grok 客户端工具缓存 2026-09-28 P5 写死开（A3-27）：库里残留 grok_client_tool_cache_enabled=false 的
+// Free 成品号，经 Responses 转发出站时照样走缓存路由（补 web_search / x_search）；改之前这个值会让
+// 请求原样转发。请求头显式 opt-out 仍然生效。
+func TestForwardGrokResponsesFreeClientToolCacheIgnoresLegacyAccountOptOut(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := []byte(`{
+		"model":"grok","stream":false,
+		"tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}],
+		"input":[{"role":"user","content":[{"type":"input_text","text":"hello"}]}]
+	}`)
+	forward := func(t *testing.T, optOutHeader string) []gjson.Result {
+		t.Helper()
+		account := healthyGrokOAuthGatewayTestAccount(4505, "access-token")
+		account.Credentials["subscription_tier"] = "free"
+		account.Extra = map[string]any{"grok_client_tool_cache_enabled": false}
+		repo := &grokQuotaAccountRepo{
+			mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
+				accountsByID: map[int64]*Account{account.ID: account},
+			},
+		}
+		upstream := &httpUpstreamRecorder{resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{
+				"id":"resp_legacy_opt_out","object":"response","model":"grok-4.5","status":"completed",
+				"output":[],"usage":{"input_tokens":10,"output_tokens":1}
+			}`)),
+		}}
+		svc := &OpenAIGatewayService{
+			httpUpstream:      upstream,
+			grokTokenProvider: NewGrokTokenProvider(repo, nil),
+			accountRepo:       repo,
+		}
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+		if optOutHeader != "" {
+			c.Request.Header.Set(grokClientToolCacheOptInHeader, optOutHeader)
+		}
+		c.Set("api_key", &APIKey{ID: 4505})
+
+		_, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
+		require.NoError(t, err)
+		return gjson.GetBytes(upstream.lastBody, "tools").Array()
+	}
+
+	tools := forward(t, "")
+	require.Len(t, tools, 3, "残留的渠道级 false 不得关掉 Free 号的缓存路由")
+	require.Equal(t, "lookup", tools[0].Get("name").String())
+	require.Equal(t, "web_search", tools[1].Get("type").String())
+	require.Equal(t, "x_search", tools[2].Get("type").String())
+
+	tools = forward(t, "off")
+	require.Len(t, tools, 1, "请求头显式 opt-out 仍然生效")
+	require.Equal(t, "lookup", tools[0].Get("name").String())
+}
+
 func TestForwardGrokResponsesClaudeDesktopClientToolsUseCacheRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

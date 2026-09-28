@@ -547,126 +547,6 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.True(t, grokLabelledRelay.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 	})
 
-	t.Run("显式列表支持同时声明 chat 和 embeddings", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"openai_capabilities": []any{"chat_completions", "embeddings"},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
-	})
-
-	t.Run("显式列表只声明 chat 时不支持 embeddings", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"openai_capabilities": []any{"chat_completions"},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-		// chat 能力隐含放行 alpha search（OAuth/APIKey 语义一致）。
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
-	})
-
-	t.Run("OAuth 显式列表沿用 chat 能力放行 alpha search", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": []any{"chat_completions"},
-			},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
-	})
-
-	t.Run("显式 map 支持单独关闭 chat 并开启 embeddings", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"openai_capabilities": map[string]any{
-					"chat_completions": false,
-					"embeddings":       true,
-				},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
-
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
-	})
-
-	t.Run("空 openai_capabilities（{}）与未配置一致，不排除 OAuth 文本调度", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": map[string]any{},
-			},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
-	})
-
-	t.Run("空 openai_capabilities（[]any）与未配置一致，不排除 OAuth 文本调度", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": []any{},
-			},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-	})
-
-	t.Run("空 openai_capabilities（[]string）与未配置一致，不排除 OAuth 文本调度", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": []string{},
-			},
-		}
-
-		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-	})
-
-	t.Run("非空但全 false 的 map 仍按显式禁用处理，不默认放行", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": map[string]any{"chat_completions": false},
-			},
-		}
-
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-	})
-
-	t.Run("类型异常（字符串）仍视为已配置但不含能力，不默认放行", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"openai_capabilities": "chat_completions",
-			},
-		}
-
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
-	})
-
 	t.Run("未知能力不应默认放行", func(t *testing.T) {
 		account := &Account{
 			Platform:          PlatformOpenAI,
@@ -733,18 +613,30 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
 	})
 
-	t.Run("responses 能力：仍需通过 chat_completions 配置集校验", func(t *testing.T) {
-		// 配了 responses 地址，但显式能力集未声明 chat_completions。
-		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"openai_capabilities": []any{"embeddings"},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
+	// 渠道级「端点能力」2026-09-28 P5 删了：库里残留的 openai_capabilities（任何写法）不再限制调度。
+	t.Run("残留的 openai_capabilities 不再限制任何能力", func(t *testing.T) {
+		for _, raw := range []any{
+			[]any{"embeddings"},
+			[]any{"chat_completions"},
+			map[string]any{"chat_completions": false, "embeddings": true},
+			map[string]any{"chat_completions": false},
+			"chat_completions",
+		} {
+			apiKey := &Account{
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Credentials:       map[string]any{"openai_capabilities": raw},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			}
+			require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions), "%v", raw)
+			require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings), "%v", raw)
+			require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses), "%v", raw)
+			require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch), "%v", raw)
 
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
+			oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"openai_capabilities": raw}}
+			require.True(t, oauth.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions), "%v", raw)
+			require.True(t, oauth.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses), "%v", raw)
+		}
 	})
 }
 
