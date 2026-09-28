@@ -7,7 +7,6 @@ const api = vi.hoisted(() => ({
   getOllamaCloudUsage: vi.fn(),
   saveOllamaCloudUsageSession: vi.fn(),
   deleteOllamaCloudUsageSession: vi.fn(),
-  setOllamaCloudUsageAutoRefresh: vi.fn(),
   refreshOllamaCloudUsage: vi.fn()
 }))
 const notifications = vi.hoisted(() => ({ showSuccess: vi.fn(), showError: vi.fn() }))
@@ -35,7 +34,6 @@ const state = (overrides: Partial<OllamaCloudUsageState> = {}): OllamaCloudUsage
   account_id: 7,
   eligible: true,
   configured: false,
-  auto_refresh_enabled: false,
   encryption_key_configured: true,
   ...overrides
 })
@@ -121,18 +119,6 @@ describe('OllamaCloudUsageSettings', () => {
     expect(wrapper.get('[data-testid="ollama-cloud-session-save"]').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('admin.accounts.ollamaCloud.encryptionKeyRequired')
     expect(api.saveOllamaCloudUsageSession).not.toHaveBeenCalled()
-  })
-
-  it('updates the account-level automatic refresh switch through its dedicated endpoint', async () => {
-    api.setOllamaCloudUsageAutoRefresh.mockResolvedValueOnce(state({ configured: true, auto_refresh_enabled: true }))
-    const wrapper = mount(OllamaCloudUsageSettings, {
-      props: { account: account(state({ configured: true })) }
-    })
-    await flushPromises()
-
-    await wrapper.get('[data-testid="ollama-cloud-auto-refresh"]').trigger('click')
-    await flushPromises()
-    expect(api.setOllamaCloudUsageAutoRefresh).toHaveBeenCalledWith(7, true)
   })
 
   it('keeps plan, balance, model, status, and manual refresh details in the edit settings', async () => {

@@ -410,22 +410,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('protocol_rules')
   })
 
-  it('treats a legacy OpenCode account without account_mode as GO', async () => {
-    const account = buildAccount()
-    account.platform = 'opencode_go'
-    account.protocol_endpoints = { chat_completions: 'https://opencode.ai/zen/go/v1' }
-    account.credentials = {
-      api_key: 'sk-opencode'
-    }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'go' })
-  })
-
   it('preserves Kimi Responses endpoint on submit', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
@@ -484,9 +468,11 @@ describe('EditAccountModal', () => {
   })
 
   it('has no API protocol selector for Chinese provider keys', async () => {
+    // 计费方式按地址识别（与新建同一规则）：地址认得出是智谱、又定不了套餐时才出选择
+    getProtocolDefaultsMock.mockReset().mockResolvedValue({ ...PROTOCOL_DEFAULTS, vendor_hosts: { 'open.bigmodel.cn': 'zhipu' } })
     const account = buildAccount()
     account.platform = 'zhipu'
-    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
+    account.protocol_endpoints = { chat_completions: 'https://open.bigmodel.cn/api/paas/v4' }
     account.credentials = { api_key: 'sk-glm', account_mode: 'payg' }
 
     const wrapper = mountModal(account)
@@ -571,29 +557,6 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
       responses: 'https://eu-west-1.api.x.ai/v1'
-    })
-  })
-
-  it('switches unedited official endpoints when the admin changes the account mode', async () => {
-    const account = buildAccount()
-    account.platform = 'kimi'
-    account.protocol_endpoints = { chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.default.chat_completions }
-    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    await flushPromises()
-    const codingButton = wrapper
-      .findAll('button')
-      .find(button => button.text().includes('admin.accounts.cnProviders.accountMode.coding'))
-    expect(codingButton).toBeDefined()
-    await codingButton!.trigger('click')
-    await flushPromises()
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    // 同一平台换模式保留当前协议
-    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions
     })
   })
 
@@ -683,45 +646,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_flatten_namespaces).toBe(
       true
     )
-  })
-
-  it('writes the upstream request id header into extra only when it changes', async () => {
-    const account = buildAccount()
-    account.extra = { openai_compact_mode: 'force_on' }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const untouched = mountModal(account)
-    await untouched.get('form#edit-account-form').trigger('submit.prevent')
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.upstream_request_id_header).toBeUndefined()
-
-    updateAccountMock.mockClear()
-    const wrapper = mountModal(account)
-    await wrapper.get('[data-testid="upstream-request-id-header"]').setValue(' X-Oneapi-Request-Id ')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toMatchObject({
-      openai_compact_mode: 'force_on',
-      upstream_request_id_header: 'X-Oneapi-Request-Id'
-    })
-  })
-
-  it('removes the upstream request id header from extra when cleared', async () => {
-    const account = buildAccount()
-    account.extra = { upstream_request_id_header: 'X-Request-ID' }
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    expect((wrapper.get('[data-testid="upstream-request-id-header"]').element as HTMLInputElement).value).toBe('X-Request-ID')
-    await wrapper.get('[data-testid="upstream-request-id-header"]').setValue('')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toBeDefined()
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('upstream_request_id_header')
   })
 
   it('writes images_url_to_b64_json into extra when toggled on', async () => {
@@ -1410,7 +1334,6 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   it('offers header overrides for a Gemini-labelled key and submits them', async () => {
     const wrapper = mountModal(buildKey('gemini', { gemini: 'https://generativelanguage.googleapis.com' }))
 
-    await wrapper.get('[data-testid="edit-header-override-toggle"]').trigger('click')
     const section = wrapper.get('[data-testid="edit-header-override"]')
     const addRow = section.findAll('button').find((button) => button.text().includes('admin.accounts.headerOverride.addRow'))
     expect(addRow).toBeDefined()
@@ -1421,9 +1344,9 @@ describe('EditAccountModal third-party key settings do not follow the platform l
 
     const payload = await submitPayload(wrapper)
     expect(payload?.credentials).toMatchObject({
-      header_override_enabled: true,
       header_overrides: { 'x-relay-tenant': 'team-a' }
     })
+    expect(payload?.credentials).not.toHaveProperty('header_override_enabled')
   })
 
   it('keeps header overrides limited to Grok OAuth among subscription accounts', () => {

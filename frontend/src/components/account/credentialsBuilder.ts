@@ -29,7 +29,6 @@ export function applyAntigravityProjectID(
 
 // ========== 请求头覆写（任何第三方 key + Grok OAuth 成品号） ==========
 
-export const HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY = 'header_override_enabled'
 export const HEADER_OVERRIDES_CREDENTIAL_KEY = 'header_overrides'
 
 export interface HeaderOverrideRow {
@@ -226,7 +225,6 @@ export const GROK_BASE_URL_PRESETS: GrokBaseUrlPreset[] = [
 // 转发协议由协议地址决定：同协议请求零转换直通，跨协议组合才走转换链。
 
 export type CnAccountMode = 'payg' | 'coding'
-export type OpenCodeAccountMode = 'zen' | 'go'
 export type CnProviderPlatform = 'kimi' | 'zhipu' | 'deepseek' | 'minimax'
 
 /** OpenCode 按模型分流时可选的原生上游协议。 */
@@ -238,10 +236,6 @@ export function isCNProviderPlatform(platform: string): platform is CnProviderPl
 
 export function isOpenCodeGoPlatform(platform: string): boolean {
   return platform === 'opencode_go'
-}
-
-export function resolveOpenCodeAccountMode(value: unknown): OpenCodeAccountMode {
-  return value === 'zen' ? 'zen' : 'go'
 }
 
 export function isMultiProtocolApiKeyPlatform(platform: string): boolean {
@@ -307,20 +301,18 @@ export function cnBalanceCellVisible(platform: string, accountMode: string): boo
 }
 
 /**
- * 将请求头覆写写入 credentials。
- * create 模式：关闭时不写入任何字段；edit 模式：关闭时删除字段（全量替换语义）。
+ * 将请求头覆写写入 credentials：有条目就生效，没有开关（2026-09-28 P5）。
+ * 有条目写入 header_overrides；没有条目时 create 模式不写，edit 模式删掉该键（全量替换语义）。
  */
 export function applyHeaderOverride(
   credentials: Record<string, unknown>,
-  enabled: boolean,
   rows: HeaderOverrideRow[],
   mode: 'create' | 'edit'
 ): void {
-  if (enabled) {
-    credentials[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY] = true
-    credentials[HEADER_OVERRIDES_CREDENTIAL_KEY] = buildHeaderOverridesObject(rows)
+  const overrides = buildHeaderOverridesObject(rows)
+  if (Object.keys(overrides).length > 0) {
+    credentials[HEADER_OVERRIDES_CREDENTIAL_KEY] = overrides
   } else if (mode === 'edit') {
-    delete credentials[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]
     delete credentials[HEADER_OVERRIDES_CREDENTIAL_KEY]
   }
 }

@@ -61,85 +61,32 @@
         </div>
       </div>
 
-      <!-- API Key 类型：账号模式（OpenCode / 国产厂商）、智谱团队版 ID、API Key -->
+      <!-- API Key 类型：计费方式、智谱团队版 ID、API Key -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
-        <!-- OpenCode Zen vs GO -->
-        <div v-if="isCNApiKeyAccount && account.platform === 'opencode_go'">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              @click="editOpenCodeAccountMode = 'zen'"
-              :class="[
-                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-                editOpenCodeAccountMode === 'zen'
-                  ? 'border-af-brand bg-af-brand-tint'
-                  : 'border-af-hairline hover:border-af-hairline-strong'
-              ]"
-            >
-              <div
-                :class="[
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                  editOpenCodeAccountMode === 'zen' ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
-                ]"
-              >
-                <Icon name="creditCard" size="sm" />
-              </div>
-              <div>
-                <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.zen') }}</span>
-                <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.zenDesc') }}</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              @click="editOpenCodeAccountMode = 'go'"
-              :class="[
-                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-                editOpenCodeAccountMode === 'go'
-                  ? 'border-af-brand bg-af-brand-tint'
-                  : 'border-af-hairline hover:border-af-hairline-strong'
-              ]"
-            >
-              <div
-                :class="[
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                  editOpenCodeAccountMode === 'go' ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
-                ]"
-              >
-                <Icon name="bolt" size="sm" />
-              </div>
-              <div>
-                <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.go') }}</span>
-                <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.goDesc') }}</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- Account Mode Selection (CN providers) -->
-        <div v-if="isCNApiKeyAccount && account.platform !== 'opencode_go'">
+        <!-- 按量 / Coding 套餐：与新建同一规则，地址分得出就不问；MiniMax 两种套餐同一个地址、智谱 Anthropic 同地址才要选 -->
+        <div v-if="keyPlanNeedsChoice" data-testid="edit-key-plan-mode">
           <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
           <div class="mt-2 flex flex-wrap gap-2">
             <button
-              v-for="opt in cnAccountModeOptions"
-              :key="opt.value"
+              v-for="mode in CN_PLAN_MODES"
+              :key="mode"
               type="button"
               :class="[
                 'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
-                editAccountMode === opt.value
+                editAccountMode === mode
                   ? 'border-af-brand bg-af-brand-tint font-medium text-af-brand'
                   : 'border-af-hairline text-af-ink-2 hover:border-af-hairline-strong'
               ]"
-              @click="editAccountMode = opt.value"
+              @click="editAccountMode = mode"
             >
-              {{ t(`admin.accounts.cnProviders.accountMode.${opt.labelKey}`) }}
+              {{ t(`admin.accounts.cnProviders.accountMode.${mode}`) }}
             </button>
           </div>
           <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
         </div>
 
         <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后用量查询走团队版端点） -->
-        <div v-if="account.platform === 'zhipu' && editAccountMode === 'coding'">
+        <div v-if="keyVendor === 'zhipu' && keyAccountMode === 'coding'">
           <div class="flex items-center">
             <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
             <HelpTooltip trigger="click" width-class="w-80">
@@ -328,34 +275,6 @@
           {{ t('admin.accounts.expiresAtHint') }}
           {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
         </p>
-      </div>
-
-      <div>
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{
-              t('admin.accounts.autoPauseOnExpired')
-            }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.autoPauseOnExpiredDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="autoPauseOnExpired = !autoPauseOnExpired"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              autoPauseOnExpired ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                autoPauseOnExpired ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
       </div>
 
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
@@ -855,18 +774,11 @@
 
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
           <input v-model.number="form.concurrency" type="number" min="1" class="input"
             @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.loadFactor') }}</label>
-          <input v-model.number="form.load_factor" type="number" min="1"
-            class="input" :placeholder="String(form.concurrency || 1)"
-            @input="form.load_factor = (form.load_factor &amp;&amp; form.load_factor >= 1) ? form.load_factor : null" />
-          <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.priority') }}</label>
@@ -937,40 +849,9 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
-          :dailyResetMode="editDailyResetMode"
-          :dailyResetHour="editDailyResetHour"
-          :weeklyResetMode="editWeeklyResetMode"
-          :weeklyResetDay="editWeeklyResetDay"
-          :weeklyResetHour="editWeeklyResetHour"
-          :resetTimezone="editResetTimezone"
-          :quotaNotifyGlobalEnabled="quotaNotifyGlobalEnabled"
-          :quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled"
-          :quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold"
-          :quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType"
-          :quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled"
-          :quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold"
-          :quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType"
-          :quotaNotifyTotalEnabled="quotaNotifyState.total.enabled"
-          :quotaNotifyTotalThreshold="quotaNotifyState.total.threshold"
-          :quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType"
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-          @update:dailyResetMode="editDailyResetMode = $event"
-          @update:dailyResetHour="editDailyResetHour = $event"
-          @update:weeklyResetMode="editWeeklyResetMode = $event"
-          @update:weeklyResetDay="editWeeklyResetDay = $event"
-          @update:weeklyResetHour="editWeeklyResetHour = $event"
-          @update:resetTimezone="editResetTimezone = $event"
-          @update:quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled = $event"
-          @update:quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold = $event"
-          @update:quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType = $event"
-          @update:quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled = $event"
-          @update:quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold = $event"
-          @update:quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType = $event"
-          @update:quotaNotifyTotalEnabled="quotaNotifyState.total.enabled = $event"
-          @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
-          @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
         />
       </div>
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
@@ -988,40 +869,9 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
-          :dailyResetMode="editDailyResetMode"
-          :dailyResetHour="editDailyResetHour"
-          :weeklyResetMode="editWeeklyResetMode"
-          :weeklyResetDay="editWeeklyResetDay"
-          :weeklyResetHour="editWeeklyResetHour"
-          :resetTimezone="editResetTimezone"
-          :quotaNotifyGlobalEnabled="quotaNotifyGlobalEnabled"
-          :quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled"
-          :quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold"
-          :quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType"
-          :quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled"
-          :quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold"
-          :quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType"
-          :quotaNotifyTotalEnabled="quotaNotifyState.total.enabled"
-          :quotaNotifyTotalThreshold="quotaNotifyState.total.threshold"
-          :quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType"
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-          @update:dailyResetMode="editDailyResetMode = $event"
-          @update:dailyResetHour="editDailyResetHour = $event"
-          @update:weeklyResetMode="editWeeklyResetMode = $event"
-          @update:weeklyResetDay="editWeeklyResetDay = $event"
-          @update:weeklyResetHour="editWeeklyResetHour = $event"
-          @update:resetTimezone="editResetTimezone = $event"
-          @update:quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled = $event"
-          @update:quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold = $event"
-          @update:quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType = $event"
-          @update:quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled = $event"
-          @update:quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold = $event"
-          @update:quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType = $event"
-          @update:quotaNotifyTotalEnabled="quotaNotifyState.total.enabled = $event"
-          @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
-          @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
         />
       </div>
 
@@ -1269,39 +1119,6 @@
       </div>
 
       <div
-        v-if="supportsAccountSchedulingThresholdOverride"
-        class="border-t border-af-hairline pt-4"
-        data-testid="account-scheduling-threshold-section"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.accountSchedulingThresholdOverride') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.accountSchedulingThresholdOverrideHint') }}
-            </p>
-          </div>
-          <input
-            v-model="accountSchedulingThresholdOverrideEnabled"
-            data-testid="account-scheduling-threshold-override-enabled"
-            type="checkbox"
-            class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div v-if="accountSchedulingThresholdOverrideEnabled">
-          <label class="input-label">{{ t('admin.accounts.accountSchedulingThresholdOverrideValue') }}</label>
-          <input
-            v-model.number="accountSchedulingThresholdOverrideValue"
-            data-testid="account-scheduling-threshold-override-value"
-            type="number"
-            min="1"
-            max="100"
-            class="input"
-          />
-          <p class="input-hint">{{ t('admin.accounts.accountSchedulingThresholdOverrideDisabledHint') }}</p>
-        </div>
-      </div>
-
-      <div
         v-if="account?.platform === 'openai'"
         class="border-t border-af-hairline pt-4 space-y-4"
       >
@@ -1452,7 +1269,7 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
-      <!-- API Key 类型的池模式与自定义错误码 -->
+      <!-- API Key 类型的池模式 -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
         <!-- Pool Mode Section -->
         <div class="border-t border-af-hairline pt-4">
@@ -1484,135 +1301,6 @@
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
-          </div>
-          <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
-              v-model.number="poolModeRetryCount"
-              type="number"
-              min="0"
-              :max="MAX_POOL_MODE_RETRY_COUNT"
-              step="1"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{
-                t('admin.accounts.poolModeRetryCountHint', {
-                  default: DEFAULT_POOL_MODE_RETRY_COUNT,
-                  max: MAX_POOL_MODE_RETRY_COUNT
-                })
-              }}
-            </p>
-          </div>
-          <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
-              v-model="poolModeRetryStatusCodesInput"
-              type="text"
-              class="input"
-              :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
-            />
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Custom Error Codes Section -->
-        <div class="border-t border-af-hairline pt-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.customErrorCodesHint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="customErrorCodesEnabled = !customErrorCodesEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                customErrorCodesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  customErrorCodesEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="customErrorCodesEnabled" class="space-y-3">
-            <div class="rounded-lg bg-af-warning-tint p-3">
-              <p class="text-xs text-af-warning">
-                <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-                {{ t('admin.accounts.customErrorCodesWarning') }}
-              </p>
-            </div>
-
-            <!-- Error Code Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="code in commonErrorCodes"
-                :key="code.value"
-                type="button"
-                @click="toggleErrorCode(code.value)"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  selectedErrorCodes.includes(code.value)
-                    ? 'bg-af-danger-tint text-af-danger ring-1 ring-af-danger'
-                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                ]"
-              >
-                {{ code.value }} {{ code.label }}
-              </button>
-            </div>
-
-            <!-- Manual input -->
-            <div class="flex items-center gap-2">
-              <input
-                v-model.number="customErrorCodeInput"
-                type="number"
-                min="100"
-                max="599"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.enterErrorCode')"
-                @keyup.enter="addCustomErrorCode"
-              />
-              <button type="button" @click="addCustomErrorCode" class="btn btn-secondary px-3">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Selected codes summary -->
-            <div class="flex flex-wrap gap-1.5">
-              <span
-                v-for="code in selectedErrorCodes.sort((a, b) => a - b)"
-                :key="code"
-                class="inline-flex items-center gap-1 rounded-full bg-af-danger-tint px-2.5 py-0.5 text-sm font-medium text-af-danger"
-              >
-                {{ code }}
-                <button
-                  type="button"
-                  @click="removeErrorCode(code)"
-                  class="hover:text-af-danger"
-                >
-                  <Icon name="x" size="sm" :stroke-width="2" />
-                </button>
-              </span>
-              <span v-if="selectedErrorCodes.length === 0" class="text-xs text-af-ink-3">
-                {{ t('admin.accounts.noneSelectedUsesDefault') }}
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -1695,25 +1383,9 @@
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
           </div>
-          <button
-            type="button"
-            data-testid="edit-header-override-toggle"
-            @click="headerOverrideEnabled = !headerOverrideEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
         </div>
 
-        <div v-if="headerOverrideEnabled" class="space-y-3">
+        <div class="space-y-3">
           <div class="rounded-lg bg-af-sunken p-3">
             <p class="text-xs text-af-ink-2">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
@@ -1725,154 +1397,6 @@
             :rows="headerOverrideRows"
             @update:rows="headerOverrideRows = $event"
           />
-        </div>
-      </div>
-
-      <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-af-hairline pt-4 space-y-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.tempUnschedulable.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="tempUnschedEnabled = !tempUnschedEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              tempUnschedEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                tempUnschedEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-
-        <div v-if="tempUnschedEnabled" class="space-y-3">
-          <div class="rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.tempUnschedulable.notice') }}
-            </p>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in tempUnschedPresets"
-              :key="preset.label"
-              type="button"
-              @click="addTempUnschedRule(preset.rule)"
-              class="rounded-lg bg-af-sunken px-3 py-1.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-hairline"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-
-          <div v-if="tempUnschedRules.length > 0" class="space-y-3">
-            <div
-              v-for="(rule, index) in tempUnschedRules"
-              :key="getTempUnschedRuleKey(rule)"
-              class="rounded-lg border border-af-hairline p-3"
-            >
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.accounts.tempUnschedulable.ruleIndex', { index: index + 1 }) }}
-                </span>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    :disabled="index === 0"
-                    @click="moveTempUnschedRule(index, -1)"
-                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Icon name="chevronUp" size="sm" :stroke-width="2" />
-                  </button>
-                  <button
-                    type="button"
-                    :disabled="index === tempUnschedRules.length - 1"
-                    @click="moveTempUnschedRule(index, 1)"
-                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    @click="removeTempUnschedRule(index)"
-                    class="rounded p-1 text-af-danger transition-colors hover:text-af-danger"
-                  >
-                    <Icon name="x" size="sm" :stroke-width="2" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
-                  <input
-                    v-model.number="rule.error_code"
-                    type="number"
-                    min="100"
-                    max="599"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.errorCodePlaceholder')"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.durationMinutes') }}</label>
-                  <input
-                    v-model.number="rule.duration_minutes"
-                    type="number"
-                    min="1"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
-                  <input
-                    v-model="rule.keywords"
-                    type="text"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.keywordsPlaceholder')"
-                  />
-                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.keywordsHint') }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.description') }}</label>
-                  <input
-                    v-model="rule.description"
-                    type="text"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.descriptionPlaceholder')"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addTempUnschedRule()"
-            class="w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-sm text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            {{ t('admin.accounts.tempUnschedulable.addRule') }}
-          </button>
         </div>
       </div>
 
@@ -2159,12 +1683,6 @@
           </div>
         </div>
       </div>
-
-      <UpstreamRequestIdHeaderField
-        v-model="upstreamRequestIdHeader"
-        :platform="account.platform"
-        :type="account.type"
-      />
     </form>
 
     <template #footer>
@@ -2211,7 +1729,6 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 
 import { adminAPI } from '@/api/admin'
-import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
   Proxy,
@@ -2227,7 +1744,6 @@ import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -2251,6 +1767,12 @@ import {
   trimProtocolEndpoints,
   validateProtocolEndpoints
 } from '@/components/account/protocolEndpoints'
+import {
+  VENDORS_WITH_CODING_PLAN,
+  detectKeyVendor,
+  keyAddressPresets,
+  modeOfAddress
+} from '@/components/account/keyAddress'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
 import {
@@ -2260,18 +1782,15 @@ import {
   applyPlanType,
   buildPlanTypeOptions,
   readPlanType,
-  resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
   isCNProviderPlatform,
-  HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   type CnAccountMode,
   type CnBaseUrlPreset,
   type CnProviderPlatform,
-  type HeaderOverrideRow,
-  type OpenCodeAccountMode
+  type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
 import {
   formatDateTime,
@@ -2294,7 +1813,6 @@ import {
 } from '@/utils/openaiWsMode'
 import {
   PLATFORMS_WITH_VENDOR_MODEL_TABLE,
-  commonErrorCodes,
   buildModelMappingObject,
   renamePresetsFor
 } from '@/composables/useModelWhitelist'
@@ -2330,20 +1848,11 @@ interface ModelMapping {
   to: string
 }
 
-interface TempUnschedRuleForm {
-  error_code: number | null
-  keywords: string
-  duration_minutes: number | null
-  description: string
-}
-
 // State
 const submitting = ref(false)
 const editApiKey = ref('')
 
-// ── 国产供应商（Kimi / Zhipu / DeepSeek）account_mode 编辑 ──
-// account_mode 决定额度/余额监控路径，可修正（早期创建的账号可能存错默认值）；
-// 转发协议由协议地址决定，这里不再选。
+// 国产厂商 / OpenCode 的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。
 const isCNApiKeyAccount = computed(
   () =>
     props.account?.type === 'apikey' &&
@@ -2358,11 +1867,8 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
   }
   return 'kimi'
 })
+// 地址分不出套餐时管理员选的计费方式（见下方 keyAccountMode）
 const editAccountMode = ref<CnAccountMode>('payg')
-const editOpenCodeAccountMode = ref<OpenCodeAccountMode>('go')
-function currentOpenCodeOrCNMode(): CnAccountMode | OpenCodeAccountMode {
-  return props.account?.platform === 'opencode_go' ? editOpenCodeAccountMode.value : editAccountMode.value
-}
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const editZhipuOrganization = ref('')
 const editZhipuProject = ref('')
@@ -2378,9 +1884,37 @@ const syncingForm = ref(false)
 const protocolDefaults = ref<ProtocolDefaultsResponse | null>(null)
 const protocolDefaultsLoadFailed = ref(false)
 const editProtocolEndpoints = ref<ProtocolEndpoints>({})
+
+// ── 计费方式（credentials.account_mode）：与新建同一规则（2026-09-28 P5）──
+// 厂商与套餐都按地址识别（官方域名表由后端下发，与后端 Account.Vendor 同口径）；地址分不出套餐
+// （MiniMax 按量与套餐同地址、智谱 Anthropic 同地址）才让管理员选；OpenCode 的 Zen / Go 只看地址；中转不写。
+const CN_PLAN_MODES: readonly CnAccountMode[] = ['payg', 'coding']
+const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
+const keyVendor = computed(() =>
+  props.account?.type === 'apikey'
+    ? detectKeyVendor(editProtocolEndpoints.value, protocolDefaults.value?.vendor_hosts)
+    : null
+)
+const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
+const keyPlanFromAddress = computed(() => {
+  const vendor = keyVendor.value
+  if (!vendor || !keyHasCodingPlan.value) return null
+  const mode = modeOfAddress(keyPresets.value, vendor, editProtocolEndpoints.value)
+  return mode === 'payg' || mode === 'coding' ? mode : null
+})
+const keyPlanNeedsChoice = computed(() => keyHasCodingPlan.value && keyPlanFromAddress.value === null)
+const keyAccountMode = computed<string | undefined>(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return undefined
+  if (vendor === 'opencode_go') return modeOfAddress(keyPresets.value, vendor, editProtocolEndpoints.value) ?? 'zen'
+  if (vendor === 'deepseek') return 'payg'
+  return keyHasCodingPlan.value ? (keyPlanFromAddress.value ?? editAccountMode.value) : undefined
+})
+
 const protocolDefaultsMode = computed(() => {
-  if (props.account?.platform === 'opencode_go') return editOpenCodeAccountMode.value
-  if (isCNProviderPlatform(props.account?.platform ?? '')) return editAccountMode.value
+  const platform = props.account?.platform ?? ''
+  if (platform === 'opencode_go') return modeOfAddress(keyPresets.value, platform, editProtocolEndpoints.value) ?? 'zen'
+  if (isCNProviderPlatform(platform)) return keyPlanFromAddress.value ?? editAccountMode.value
   return undefined
 })
 const officialProtocolEndpoints = computed(() =>
@@ -2420,27 +1954,6 @@ function validatedProtocolEndpoints(): ProtocolEndpoints | null {
   }
   return trimProtocolEndpoints(editProtocolEndpoints.value)
 }
-const cnAccountModeOptions = computed<Array<{ value: CnAccountMode; labelKey: 'payg' | 'coding' }>>(
-  () => {
-    // DeepSeek 无 coding 套餐（与创建弹窗一致），仅保留按量付费。
-    if (props.account?.platform === 'deepseek') {
-      return [{ value: 'payg', labelKey: 'payg' }]
-    }
-    return [
-      { value: 'payg', labelKey: 'payg' },
-      { value: 'coding', labelKey: 'coding' }
-    ]
-  }
-)
-watch(editAccountMode, (mode) => {
-  if (!isCNApiKeyAccount.value || syncingForm.value) return
-  if (props.account?.platform === 'opencode_go') return
-  // deepseek 无 coding 套餐：防御性回退（UI 已隐藏该选项）。
-  const effectiveMode = props.account!.platform === 'deepseek' && mode === 'coding' ? 'payg' : mode
-  if (effectiveMode !== mode) {
-    editAccountMode.value = effectiveMode
-  }
-})
 // 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   editAccountMode.value = preset.mode
@@ -2552,10 +2065,6 @@ function formatPoolModeRetryStatusCodes(value: unknown): string {
   }
   return out.sort((a, b) => a - b).join(', ')
 }
-const customErrorCodesEnabled = ref(false)
-const selectedErrorCodes = ref<number[]>([])
-const customErrorCodeInput = ref<number | null>(null)
-const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
 const headerOverrideCapable = computed(
@@ -2607,7 +2116,6 @@ const loadGrokMediaEligibility = async (accountID: number): Promise<GrokMediaEli
 }
 
 const interceptWarmupRequests = ref(false)
-const autoPauseOnExpired = ref(false)
 const autoPause5hThreshold = ref<number | null>(null)
 const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
@@ -2617,25 +2125,10 @@ const autoResetCredit5hThreshold = ref(100)
 const autoResetCredit7dThreshold = ref(100)
 const upstreamBillingAutoProbeEnabled = ref(false)
 const upstreamBillingRateSyncEnabled = ref(false)
-// 上游ID：直接上游声明请求标识的响应头名，留空不记录。
-const upstreamRequestIdHeader = ref('')
-const readUpstreamRequestIdHeader = (extra: unknown): string => {
-  const value = (extra as Record<string, unknown> | undefined)?.upstream_request_id_header
-  return typeof value === 'string' ? value : ''
-}
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
 const isSyncingAntigravityUpstream = ref(false)
-const tempUnschedEnabled = ref(false)
-const accountSchedulingThresholdOverrideEnabled = ref(false)
-const accountSchedulingThresholdOverrideValue = ref(100)
-const ACCOUNT_SCHEDULING_THRESHOLD_CREDENTIAL_KEY = 'account_scheduling_threshold'
-const supportsAccountSchedulingThresholdOverride = computed(() =>
-  supportsAccountSchedulingThresholdOverridePlatform(props.account?.platform)
-)
-const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
 const getOpenAICompactModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-openai-compact-model-mapping')
-const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('edit-temp-unsched-rule')
 
 
 // Quota control state (Anthropic OAuth/SetupToken only)
@@ -2732,14 +2225,6 @@ const showModelRename = computed(() => {
     account.platform === 'antigravity'
   )
 })
-const {
-  globalEnabled: quotaNotifyGlobalEnabled,
-  state: quotaNotifyState,
-  loadFromExtra: loadQuotaNotifyFromExtra,
-  writeToExtra: writeQuotaNotifyToExtra,
-  reset: resetQuotaNotify,
-} = useQuotaNotifyState()
-
 // Load global feature states once
 adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
   webSearchGlobalEnabled.value = cfg?.enabled === true && (cfg?.providers?.length ?? 0) > 0
@@ -2748,12 +2233,6 @@ adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
-const editDailyResetMode = ref<'rolling' | 'fixed' | null>(null)
-const editDailyResetHour = ref<number | null>(null)
-const editWeeklyResetMode = ref<'rolling' | 'fixed' | null>(null)
-const editWeeklyResetDay = ref<number | null>(null)
-const editWeeklyResetHour = ref<number | null>(null)
-const editResetTimezone = ref<string | null>(null)
 const codexFingerprintModeOptions = computed(() => [
   { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
   { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
@@ -2934,42 +2413,11 @@ const renamePresets = computed(() =>
   renamePresetsFor(props.account?.type === 'bedrock' ? 'bedrock' : (props.account?.platform || 'anthropic'))
 )
 const extendsVendorTable = computed(() => PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(props.account?.platform ?? ''))
-const tempUnschedPresets = computed(() => [
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
-    rule: {
-      error_code: 529,
-      keywords: 'overloaded, too many',
-      duration_minutes: 60,
-      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc')
-    }
-  },
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.rateLimitLabel'),
-    rule: {
-      error_code: 429,
-      keywords: 'rate limit, too many requests',
-      duration_minutes: 10,
-      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc')
-    }
-  },
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.unavailableLabel'),
-    rule: {
-      error_code: 503,
-      keywords: 'unavailable, maintenance',
-      duration_minutes: 30,
-      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc')
-    }
-  }
-])
-
 const form = reactive({
   name: '',
   notes: '',
   proxy_id: null as number | null,
   concurrency: 1,
-  load_factor: null as number | null,
   priority: 1,
   rate_multiplier: 1,
   status: 'active' as 'active' | 'inactive' | 'error',
@@ -3078,7 +2526,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.notes = newAccount.notes || ''
   form.proxy_id = newAccount.proxy_id
   form.concurrency = newAccount.concurrency
-  form.load_factor = newAccount.load_factor ?? null
   form.priority = newAccount.priority
   form.rate_multiplier = newAccount.rate_multiplier ?? 1
   form.status = (newAccount.status === 'active' || newAccount.status === 'inactive' || newAccount.status === 'error')
@@ -3089,7 +2536,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Load intercept warmup requests setting (applies to all account types)
   const credentials = newAccount.credentials as Record<string, unknown> | undefined
   interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
-  autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
   editVertexProjectId.value = ''
   editVertexClientEmail.value = ''
   editVertexLocation.value = 'us-central1'
@@ -3103,7 +2549,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   allowOverages.value = false
 	const extra = newAccount.extra as Record<string, unknown> | undefined
 	allowOverages.value = extra?.allow_overages === true
-	upstreamRequestIdHeader.value = readUpstreamRequestIdHeader(extra)
 	openAIImagesUrlToB64JsonEnabled.value = extra?.images_url_to_b64_json === true
 	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
 	autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
@@ -3219,41 +2664,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaDailyLimit.value = (dailyVal && dailyVal > 0) ? dailyVal : null
     const weeklyVal = extra?.quota_weekly_limit as number | undefined
     editQuotaWeeklyLimit.value = (weeklyVal && weeklyVal > 0) ? weeklyVal : null
-    // Load quota reset mode config
-    editDailyResetMode.value = (extra?.quota_daily_reset_mode as 'rolling' | 'fixed') || null
-    editDailyResetHour.value = (extra?.quota_daily_reset_hour as number) ?? null
-    editWeeklyResetMode.value = (extra?.quota_weekly_reset_mode as 'rolling' | 'fixed') || null
-    editWeeklyResetDay.value = (extra?.quota_weekly_reset_day as number) ?? null
-    editWeeklyResetHour.value = (extra?.quota_weekly_reset_hour as number) ?? null
-    editResetTimezone.value = (extra?.quota_reset_timezone as string) || null
-    // Load quota notify config
-    loadQuotaNotifyFromExtra(extra)
   } else {
     editQuotaLimit.value = null
     editQuotaDailyLimit.value = null
     editQuotaWeeklyLimit.value = null
-    editDailyResetMode.value = null
-    editDailyResetHour.value = null
-    editWeeklyResetMode.value = null
-    editWeeklyResetDay.value = null
-    editWeeklyResetHour.value = null
-    editResetTimezone.value = null
-    resetQuotaNotify()
   }
 
 
   // Load quota control settings (Anthropic OAuth/SetupToken only)
   loadQuotaControlSettings(newAccount)
 
-  loadTempUnschedRules(credentials)
-  loadAccountSchedulingThresholdOverride(newAccount.platform, credentials)
-
   // Load header override state for eligible account platforms/types
-  headerOverrideEnabled.value = false
   headerOverrideRows.value = []
   if (newAccount.credentials && isHeaderOverrideCapable(newAccount.platform, newAccount.type)) {
     const overrideCreds = newAccount.credentials as Record<string, unknown>
-    headerOverrideEnabled.value = overrideCreds[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY] === true
     headerOverrideRows.value = splitHeaderOverridesObject(
       overrideCreds[HEADER_OVERRIDES_CREDENTIAL_KEY]
     )
@@ -3279,39 +2703,16 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
-    // 国产供应商：读取 account_mode 作为可编辑初始值
-    // （编辑弹窗允许修正，用于修复早期存错默认值的账号）。
-    if (isCNProviderPlatform(newAccount.platform) || newAccount.platform === 'opencode_go') {
-      if (newAccount.platform === 'opencode_go') {
-        editOpenCodeAccountMode.value = resolveOpenCodeAccountMode(credentials.account_mode)
-      } else {
-        editAccountMode.value = credentials.account_mode === 'coding' ? 'coding' : 'payg'
-      }
-      // 智谱团队版 Coding Plan：回填组织/项目 ID
-      if (newAccount.platform === 'zhipu') {
-        editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
-        editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
-      }
-    }
+    // 计费方式：地址分不出套餐时回填已存的选择（分得出就跟地址走，见 keyAccountMode）
+    editAccountMode.value = credentials.account_mode === 'coding' ? 'coding' : 'payg'
+    // 智谱团队版 Coding Plan：回填组织/项目 ID（厂商按地址识别，是不是智谱看 keyVendor）
+    editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
+    editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
     // Load model mappings and detect mode
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
 
-    // Load pool mode
+    // Load pool mode（同渠道重试次数与状态码写死在后端，这里只有开关）
     poolModeEnabled.value = credentials.pool_mode === true
-    poolModeRetryCount.value = normalizePoolModeRetryCount(
-      Number(credentials.pool_mode_retry_count ?? DEFAULT_POOL_MODE_RETRY_COUNT)
-    )
-    poolModeRetryStatusCodesInput.value = formatPoolModeRetryStatusCodes(credentials.pool_mode_retry_status_codes)
-
-    // Load custom error codes
-    customErrorCodesEnabled.value = credentials.custom_error_codes_enabled === true
-    const existingErrorCodes = credentials.custom_error_codes as number[] | undefined
-    if (existingErrorCodes && Array.isArray(existingErrorCodes)) {
-      selectedErrorCodes.value = [...existingErrorCodes]
-    } else {
-      selectedErrorCodes.value = []
-    }
-
   } else if (newAccount.type === 'bedrock' && newAccount.credentials) {
     const bedrockCreds = newAccount.credentials as Record<string, unknown>
     const authMode = (bedrockCreds.auth_mode as string) || 'sigv4'
@@ -3337,8 +2738,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaLimit.value = typeof bedrockExtra.quota_limit === 'number' ? bedrockExtra.quota_limit : null
     editQuotaDailyLimit.value = typeof bedrockExtra.quota_daily_limit === 'number' ? bedrockExtra.quota_daily_limit : null
     editQuotaWeeklyLimit.value = typeof bedrockExtra.quota_weekly_limit === 'number' ? bedrockExtra.quota_weekly_limit : null
-    // Load quota notify for bedrock
-    loadQuotaNotifyFromExtra(bedrockExtra)
 
     // Load model mappings for bedrock
     loadModelRestrictionFromMapping(bedrockCreds.model_mapping as Record<string, unknown> | undefined)
@@ -3375,8 +2774,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     poolModeEnabled.value = false
     poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
     poolModeRetryStatusCodesInput.value = ''
-    customErrorCodesEnabled.value = false
-    selectedErrorCodes.value = []
   }
   editApiKey.value = ''
 }
@@ -3461,217 +2858,6 @@ const syncAntigravityUpstreamModels = async () => {
   }
 }
 
-// Error code toggle helper
-const toggleErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index === -1) {
-    // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
-    }
-    selectedErrorCodes.value.push(code)
-  } else {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
-
-// Add custom error code from input
-const addCustomErrorCode = () => {
-  const code = customErrorCodeInput.value
-  if (code === null || code < 100 || code > 599) {
-    appStore.showError(t('admin.accounts.invalidErrorCode'))
-    return
-  }
-  if (selectedErrorCodes.value.includes(code)) {
-    appStore.showInfo(t('admin.accounts.errorCodeExists'))
-    return
-  }
-  // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
-  }
-  selectedErrorCodes.value.push(code)
-  customErrorCodeInput.value = null
-}
-
-// Remove error code
-const removeErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index !== -1) {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
-
-const addTempUnschedRule = (preset?: TempUnschedRuleForm) => {
-  if (preset) {
-    tempUnschedRules.value.push({ ...preset })
-    return
-  }
-  tempUnschedRules.value.push({
-    error_code: null,
-    keywords: '',
-    duration_minutes: 30,
-    description: ''
-  })
-}
-
-const removeTempUnschedRule = (index: number) => {
-  tempUnschedRules.value.splice(index, 1)
-}
-
-const moveTempUnschedRule = (index: number, direction: number) => {
-  const target = index + direction
-  if (target < 0 || target >= tempUnschedRules.value.length) return
-  const rules = tempUnschedRules.value
-  const current = rules[index]
-  rules[index] = rules[target]
-  rules[target] = current
-}
-
-const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
-  const out: Array<{
-    error_code: number
-    keywords: string[]
-    duration_minutes: number
-    description: string
-  }> = []
-
-  for (const rule of rules) {
-    const errorCode = Number(rule.error_code)
-    const duration = Number(rule.duration_minutes)
-    const keywords = splitTempUnschedKeywords(rule.keywords)
-    if (!Number.isFinite(errorCode) || errorCode < 100 || errorCode > 599) {
-      continue
-    }
-    if (!Number.isFinite(duration) || duration <= 0) {
-      continue
-    }
-    if (keywords.length === 0) {
-      continue
-    }
-    out.push({
-      error_code: Math.trunc(errorCode),
-      keywords,
-      duration_minutes: Math.trunc(duration),
-      description: rule.description.trim()
-    })
-  }
-
-  return out
-}
-
-const applyTempUnschedConfig = (credentials: Record<string, unknown>) => {
-  if (!tempUnschedEnabled.value) {
-    delete credentials.temp_unschedulable_enabled
-    delete credentials.temp_unschedulable_rules
-    return true
-  }
-
-  const rules = buildTempUnschedRules(tempUnschedRules.value)
-  if (rules.length === 0) {
-    appStore.showError(t('admin.accounts.tempUnschedulable.rulesInvalid'))
-    return false
-  }
-
-  credentials.temp_unschedulable_enabled = true
-  credentials.temp_unschedulable_rules = rules
-  return true
-}
-
-
-function supportsAccountSchedulingThresholdOverridePlatform(platform: Account['platform'] | undefined) {
-  return platform === 'openai' || platform === 'anthropic' || platform === 'grok'
-}
-
-function normalizeAccountSchedulingThresholdOverride(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) {
-    return null
-  }
-  const integer = Math.trunc(numeric)
-  if (integer < 1 || integer > 100) {
-    return null
-  }
-  return integer
-}
-
-function clampAccountSchedulingThresholdOverride(value: unknown): number {
-  return Math.min(100, Math.max(1, Math.trunc(Number(value) || 100)))
-}
-
-function loadAccountSchedulingThresholdOverride(
-  platform: Account['platform'] | undefined,
-  credentials: Record<string, unknown> | undefined
-) {
-  if (!supportsAccountSchedulingThresholdOverridePlatform(platform)) {
-    accountSchedulingThresholdOverrideEnabled.value = false
-    accountSchedulingThresholdOverrideValue.value = 100
-    return
-  }
-  const value = normalizeAccountSchedulingThresholdOverride(
-    credentials?.[ACCOUNT_SCHEDULING_THRESHOLD_CREDENTIAL_KEY]
-  )
-  accountSchedulingThresholdOverrideEnabled.value = value !== null
-  accountSchedulingThresholdOverrideValue.value = value ?? 100
-}
-
-const applyAccountSchedulingThresholdOverridePatch = (
-  credentials: Record<string, unknown>,
-  currentCredentials: Record<string, unknown>,
-  platform: Account['platform'] | undefined = props.account?.platform
-) => {
-  if (!supportsAccountSchedulingThresholdOverridePlatform(platform)) {
-    return
-  }
-  const current = normalizeAccountSchedulingThresholdOverride(
-    currentCredentials[ACCOUNT_SCHEDULING_THRESHOLD_CREDENTIAL_KEY]
-  )
-  if (!accountSchedulingThresholdOverrideEnabled.value) {
-    if (current !== null) {
-      credentials[ACCOUNT_SCHEDULING_THRESHOLD_CREDENTIAL_KEY] = null
-    }
-    return
-  }
-  const next = clampAccountSchedulingThresholdOverride(accountSchedulingThresholdOverrideValue.value)
-  if (current !== next) {
-    credentials[ACCOUNT_SCHEDULING_THRESHOLD_CREDENTIAL_KEY] = next
-  }
-}
-
-function loadTempUnschedRules(credentials?: Record<string, unknown>) {
-  tempUnschedEnabled.value = credentials?.temp_unschedulable_enabled === true
-  const rawRules = credentials?.temp_unschedulable_rules
-  if (!Array.isArray(rawRules)) {
-    tempUnschedRules.value = []
-    return
-  }
-
-  tempUnschedRules.value = rawRules.map((rule) => {
-    const entry = rule as Record<string, unknown>
-    return {
-      error_code: toPositiveNumber(entry.error_code),
-      keywords: formatTempUnschedKeywords(entry.keywords),
-      duration_minutes: toPositiveNumber(entry.duration_minutes),
-      description: typeof entry.description === 'string' ? entry.description : ''
-    }
-  })
-}
-
 // Load quota control settings from account (Anthropic OAuth/SetupToken only)
 function loadQuotaControlSettings(account: Account) {
   // Reset all quota control state first
@@ -3742,35 +2928,6 @@ function loadQuotaControlSettings(account: Account) {
     cacheTTLOverrideEnabled.value = true
     cacheTTLOverrideTarget.value = account.cache_ttl_override_target || '5m'
   }
-}
-
-function formatTempUnschedKeywords(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item): item is string => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0)
-      .join(', ')
-  }
-  if (typeof value === 'string') {
-    return value
-  }
-  return ''
-}
-
-const splitTempUnschedKeywords = (value: string) => {
-  return value
-    .split(/[,;]/)
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
-
-function toPositiveNumber(value: unknown) {
-  const num = Number(value)
-  if (!Number.isFinite(num) || num <= 0) {
-    return null
-  }
-  return Math.trunc(num)
 }
 
 const formatDateTimeLocal = formatDateTimeLocalInput
@@ -3859,12 +3016,6 @@ const handleSubmit = async () => {
     if (form.expires_at === null) {
       updatePayload.expires_at = 0
     }
-    // load_factor: 空值/NaN/0/负数 时发送 0（后端约定 <= 0 = 清除）
-    const lf = form.load_factor
-    if (lf == null || Number.isNaN(lf) || lf <= 0) {
-      updatePayload.load_factor = 0
-    }
-    updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
     if (props.account.type === 'apikey') {
       updatePayload.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
       updatePayload.upstream_billing_rate_sync_enabled = upstreamBillingRateSyncEnabled.value
@@ -3885,21 +3036,23 @@ const handleSubmit = async () => {
 
       // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      // 国产供应商：模式写入凭据（决定额度/余额探测）。
-      if (isCNApiKeyAccount.value) {
-        newCredentials.account_mode = currentOpenCodeOrCNMode()
-        // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写，清空即移除回落个人版路径）
-        if (props.account.platform === 'zhipu') {
-          const org = editZhipuOrganization.value.trim()
-          const project = editZhipuProject.value.trim()
-          if (org) {
-            newCredentials.zhipu_organization = org
-            if (project) newCredentials.zhipu_project = project
-            else delete newCredentials.zhipu_project
-          } else {
-            delete newCredentials.zhipu_organization
-            delete newCredentials.zhipu_project
-          }
+      // 计费方式与新建同一规则：按地址识别出厂商才写 account_mode（决定额度/余额探测），地址指向中转就去掉。
+      // 官方域名表没拉到时认不出厂商，保留已存的值，免得一次保存把套餐清掉。
+      if (protocolDefaults.value) {
+        if (keyAccountMode.value) newCredentials.account_mode = keyAccountMode.value
+        else delete newCredentials.account_mode
+      }
+      // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写，清空即移除回落个人版路径）
+      if (keyVendor.value === 'zhipu') {
+        const org = editZhipuOrganization.value.trim()
+        const project = editZhipuProject.value.trim()
+        if (org) {
+          newCredentials.zhipu_organization = org
+          if (project) newCredentials.zhipu_project = project
+          else delete newCredentials.zhipu_project
+        } else {
+          delete newCredentials.zhipu_organization
+          delete newCredentials.zhipu_project
         }
       }
 
@@ -3936,47 +3089,23 @@ const handleSubmit = async () => {
         }
       }
 
-      // Add pool mode if enabled
+      // 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只写开关
       if (poolModeEnabled.value) {
         newCredentials.pool_mode = true
-        newCredentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-        const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-        if (parsedRetryStatusCodes.length > 0) {
-          newCredentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
-        } else {
-          delete newCredentials.pool_mode_retry_status_codes
-        }
       } else {
         delete newCredentials.pool_mode
-        delete newCredentials.pool_mode_retry_count
-        delete newCredentials.pool_mode_retry_status_codes
       }
 
-      // Add custom error codes if enabled
-      if (customErrorCodesEnabled.value) {
-        newCredentials.custom_error_codes_enabled = true
-        newCredentials.custom_error_codes = [...selectedErrorCodes.value]
-      } else {
-        delete newCredentials.custom_error_codes_enabled
-        delete newCredentials.custom_error_codes
+      // 请求头覆写对任何第三方 key 开放，有条目就生效
+      const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
+      if (headerError) {
+        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+        return
       }
-
-      // 请求头覆写对任何第三方 key 开放
-      if (headerOverrideEnabled.value) {
-        const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-        if (headerError) {
-          appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-          return
-        }
-      }
-      applyHeaderOverride(newCredentials, headerOverrideEnabled.value, headerOverrideRows.value, 'edit')
+      applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
 
       // Add intercept warmup requests setting
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
-      if (!applyTempUnschedConfig(newCredentials)) {
-        return
-      }
 
       updatePayload.credentials = newCredentials
     } else if ((props.account.platform === 'gemini' || props.account.platform === 'anthropic') && props.account.type === 'service_account') {
@@ -4016,10 +3145,6 @@ const handleSubmit = async () => {
       writeRenameMapping(newCredentials)
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
-      if (!applyTempUnschedConfig(newCredentials)) {
-        return
-      }
 
       updatePayload.credentials = newCredentials
     } else if (props.account.type === 'bedrock') {
@@ -4068,10 +3193,6 @@ const handleSubmit = async () => {
       writeRenameMapping(newCredentials)
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
-      if (!applyTempUnschedConfig(newCredentials)) {
-        return
-      }
 
       updatePayload.credentials = newCredentials
     } else {
@@ -4080,10 +3201,6 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
-      if (!applyTempUnschedConfig(newCredentials)) {
-        return
-      }
 
       updatePayload.credentials = newCredentials
     }
@@ -4111,14 +3228,12 @@ const handleSubmit = async () => {
         ((props.account.credentials as Record<string, unknown>) || {})
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
 
-      if (headerOverrideEnabled.value) {
-        const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-        if (headerError) {
-          appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-          return
-        }
+      const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
+      if (headerError) {
+        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+        return
       }
-      applyHeaderOverride(newCredentials, headerOverrideEnabled.value, headerOverrideRows.value, 'edit')
+      applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
 
       updatePayload.credentials = newCredentials
 
@@ -4444,43 +3559,6 @@ const handleSubmit = async () => {
         delete newExtra.quota_weekly_limit
         delete newExtra.quota_weekly_used
         delete newExtra.quota_weekly_start
-      }
-      // Quota reset mode config
-      if (editDailyResetMode.value === 'fixed') {
-        newExtra.quota_daily_reset_mode = 'fixed'
-        newExtra.quota_daily_reset_hour = editDailyResetHour.value ?? 0
-      } else {
-        delete newExtra.quota_daily_reset_mode
-        delete newExtra.quota_daily_reset_hour
-      }
-      if (editWeeklyResetMode.value === 'fixed') {
-        newExtra.quota_weekly_reset_mode = 'fixed'
-        newExtra.quota_weekly_reset_day = editWeeklyResetDay.value ?? 1
-        newExtra.quota_weekly_reset_hour = editWeeklyResetHour.value ?? 0
-      } else {
-        delete newExtra.quota_weekly_reset_mode
-        delete newExtra.quota_weekly_reset_day
-        delete newExtra.quota_weekly_reset_hour
-      }
-      if (editDailyResetMode.value === 'fixed' || editWeeklyResetMode.value === 'fixed') {
-        newExtra.quota_reset_timezone = editResetTimezone.value || 'UTC'
-      } else {
-        delete newExtra.quota_reset_timezone
-      }
-      // Quota notify config
-      writeQuotaNotifyToExtra(newExtra, 'update')
-      updatePayload.extra = newExtra
-    }
-
-    // 上游ID头名只在改动时写回 extra，避免用弹窗打开时的快照覆盖运行态键。
-    const nextUpstreamRequestIdHeader = upstreamRequestIdHeader.value.trim()
-    if (nextUpstreamRequestIdHeader !== readUpstreamRequestIdHeader(props.account.extra)) {
-      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
-      const newExtra: Record<string, unknown> = { ...currentExtra }
-      if (nextUpstreamRequestIdHeader) {
-        newExtra.upstream_request_id_header = nextUpstreamRequestIdHeader
-      } else {
-        delete newExtra.upstream_request_id_header
       }
       updatePayload.extra = newExtra
     }

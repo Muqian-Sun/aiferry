@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   ANTIGRAVITY_PROJECT_ID_CREDENTIAL_KEY,
-  HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   applyAntigravityProjectID,
   applyHeaderOverride,
@@ -10,7 +9,6 @@ import {
   buildHeaderOverridesObject,
   buildPlanTypeOptions,
   cnQuotaCellVisible,
-  resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   GROK_BASE_URL_PRESETS,
   parseHeaderOverridesJson,
@@ -100,13 +98,6 @@ describe('applyAntigravityProjectID', () => {
 })
 
 describe('openCodeGo account mode', () => {
-  it('resolves missing OpenCode account_mode as GO and zen as Zen', () => {
-    expect(resolveOpenCodeAccountMode(undefined)).toBe('go')
-    expect(resolveOpenCodeAccountMode('coding')).toBe('go')
-    expect(resolveOpenCodeAccountMode('zen')).toBe('zen')
-    expect(resolveOpenCodeAccountMode('go')).toBe('go')
-  })
-
   it('hides the quota cell for Zen and shows it for GO', () => {
     expect(cnQuotaCellVisible('opencode_go', 'zen')).toBe(false)
     expect(cnQuotaCellVisible('opencode_go', 'go')).toBe(true)
@@ -279,39 +270,36 @@ describe('buildHeaderOverridesObject / splitHeaderOverridesObject', () => {
   })
 })
 
+// 有条目就生效，没有开关（2026-09-28 P5）
 describe('applyHeaderOverride', () => {
-  it('create + enabled: writes enabled flag and overrides object', () => {
+  it('create + rows: writes the overrides object and no enabled flag', () => {
     const creds: Record<string, unknown> = { api_key: 'sk' }
-    applyHeaderOverride(creds, true, [{ name: 'User-Agent', value: 'ua' }], 'create')
-    expect(creds[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]).toBe(true)
+    applyHeaderOverride(creds, [{ name: 'User-Agent', value: 'ua' }], 'create')
+    expect('header_override_enabled' in creds).toBe(false)
     expect(creds[HEADER_OVERRIDES_CREDENTIAL_KEY]).toEqual({ 'user-agent': 'ua' })
   })
 
-  it('create + disabled: does not add fields', () => {
+  it('create + no rows: does not add fields', () => {
     const creds: Record<string, unknown> = { api_key: 'sk' }
-    applyHeaderOverride(creds, false, [{ name: 'user-agent', value: 'ua' }], 'create')
-    expect(HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY in creds).toBe(false)
+    applyHeaderOverride(creds, [], 'create')
     expect(HEADER_OVERRIDES_CREDENTIAL_KEY in creds).toBe(false)
   })
 
-  it('edit + disabled: deletes existing fields', () => {
+  it('edit + no rows: deletes the existing overrides', () => {
     const creds: Record<string, unknown> = {
       api_key: 'sk',
-      [HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]: true,
       [HEADER_OVERRIDES_CREDENTIAL_KEY]: { 'user-agent': 'ua' }
     }
-    applyHeaderOverride(creds, false, [], 'edit')
-    expect(HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY in creds).toBe(false)
+    applyHeaderOverride(creds, [], 'edit')
     expect(HEADER_OVERRIDES_CREDENTIAL_KEY in creds).toBe(false)
     expect(creds.api_key).toBe('sk')
   })
 
-  it('edit + enabled: replaces overrides object wholesale', () => {
+  it('edit + rows: replaces overrides object wholesale', () => {
     const creds: Record<string, unknown> = {
-      [HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]: true,
       [HEADER_OVERRIDES_CREDENTIAL_KEY]: { 'x-old': 'old' }
     }
-    applyHeaderOverride(creds, true, [{ name: 'x-new', value: 'new' }], 'edit')
+    applyHeaderOverride(creds, [{ name: 'x-new', value: 'new' }], 'edit')
     expect(creds[HEADER_OVERRIDES_CREDENTIAL_KEY]).toEqual({ 'x-new': 'new' })
   })
 })

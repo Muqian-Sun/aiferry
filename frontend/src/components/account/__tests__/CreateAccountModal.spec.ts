@@ -336,26 +336,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     wrapper.unmount()
   })
 
-  it('omits the upstream request id header from extra when left empty', async () => {
-    await submitApiKeyAccount('openai')
-
-    expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.extra).not.toHaveProperty('upstream_request_id_header')
-  })
-
-  it('sends the trimmed upstream request id header in extra when filled', async () => {
-    const wrapper = mountModal()
-    await selectKey(wrapper, KEY.openai)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('openai account')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="upstream-request-id-header"]').setValue('  X-Oneapi-Request-Id  ')
-    await wrapper.get('form#create-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.upstream_request_id_header).toBe('X-Oneapi-Request-Id')
-  })
-
   it('omits images_url_to_b64_json from extra by default', async () => {
     await submitApiKeyAccount('openai')
 
@@ -787,7 +767,6 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await fillKeyBasics(wrapper, 'antigravity relay')
 
-    await wrapper.get('[data-testid="create-header-override-toggle"]').trigger('click')
     const section = wrapper.get('[data-testid="create-header-override"]')
     await selectButtonByText(wrapper, 'admin.accounts.headerOverride.addRow')
     const [name, value] = section.findAll('input[type="text"]')
@@ -797,9 +776,9 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     const payload = await submitPayload(wrapper)
     expect(payload?.type).toBe('apikey')
     expect(payload?.credentials).toMatchObject({
-      header_override_enabled: true,
       header_overrides: { 'x-relay-tenant': 'team-a' }
     })
+    expect(payload?.credentials).not.toHaveProperty('header_override_enabled')
   })
 
   it('keeps header overrides limited to Grok OAuth among subscription accounts', async () => {
