@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPricingSchedulerBlankRemoteURLDoesNotStart(t *testing.T) {
-	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{RemoteURL: "  \t  "}}, nil)
+func TestPricingSchedulerWithoutPricingFilesDoesNotStart(t *testing.T) {
+	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{FallbackFile: "  \t  "}})
 	defer svc.Stop()
 
 	svc.startUpdateScheduler()
@@ -25,20 +25,53 @@ func TestPricingSchedulerBlankRemoteURLDoesNotStart(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):
-		t.Fatal("blank remote URL must not start scheduler")
+		t.Fatal("no pricing file configured must not start scheduler")
 	}
 }
 
-func TestPricingNonEmptyInvalidRemoteURLStillReturnsValidationError(t *testing.T) {
-	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{
-		RemoteURL: "://invalid",
-		DataDir:   t.TempDir(),
-	}}, nil)
+// 价格只用内置价格文件：数据目录里残留旧版远程同步下载的 model_pricing.json（及其哈希文件）时，
+// 启动加载与计费都按内置价，且不改写那两个旧文件。
+func TestPricingService_IgnoresLegacyDownloadedFileInDataDir(t *testing.T) {
+	dataDir := t.TempDir()
+	legacyPricing := filepath.Join(dataDir, "model_pricing.json")
+	legacyHash := filepath.Join(dataDir, "model_pricing.sha256")
+	legacyBody := []byte(`{
+		"builtin-model": {"litellm_provider": "openai", "mode": "chat",
+			"input_cost_per_token": 9e-06, "output_cost_per_token": 9e-05},
+		"legacy-only-model": {"litellm_provider": "openai", "mode": "chat",
+			"input_cost_per_token": 3e-06, "output_cost_per_token": 6e-06}
+	}`)
+	require.NoError(t, os.WriteFile(legacyPricing, legacyBody, 0644))
+	require.NoError(t, os.WriteFile(legacyHash, []byte("legacy-hash\n"), 0644))
 
-	err := svc.ForceUpdate()
+	builtinFile := filepath.Join(t.TempDir(), "model_prices_and_context_window.json")
+	require.NoError(t, os.WriteFile(builtinFile, []byte(`{
+		"builtin-model": {"litellm_provider": "openai", "mode": "chat",
+			"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}
+	}`), 0644))
 
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid pricing url")
+	cfg := &config.Config{Pricing: config.PricingConfig{DataDir: dataDir, FallbackFile: builtinFile}}
+	svc := NewPricingService(cfg)
+	require.NoError(t, svc.Initialize())
+	defer svc.Stop()
+
+	got := svc.GetModelPricing("builtin-model")
+	require.NotNil(t, got)
+	require.InDelta(t, 1e-6, got.InputCostPerToken, 1e-12, "built-in price must win over the stale downloaded file")
+	require.InDelta(t, 2e-6, got.OutputCostPerToken, 1e-12)
+	require.Nil(t, svc.GetIdentifiedModelPricing("legacy-only-model"), "models only present in the stale file must not be loaded")
+
+	billing := NewBillingService(cfg, svc)
+	pricing, err := billing.GetModelPricing("builtin-model")
+	require.NoError(t, err)
+	require.InDelta(t, 1e-6, pricing.InputPricePerToken, 1e-12, "billing must use the built-in price")
+
+	body, err := os.ReadFile(legacyPricing)
+	require.NoError(t, err)
+	require.Equal(t, string(legacyBody), string(body), "the stale file is neither read nor rewritten")
+	hash, err := os.ReadFile(legacyHash)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-hash\n", string(hash))
 }
 
 func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
@@ -456,39 +489,6 @@ func TestBillingService_GetModelPricing_FailsClosedForImageOnlyEntries(t *testin
 	raw := pricingSvc.GetModelPricing("imagen-9.0-generate")
 	require.NotNil(t, raw)
 	require.InDelta(t, 0.04, raw.OutputCostPerImage, 1e-12)
-}
-
-func TestPricingService_MergesFallbackOnlyModels(t *testing.T) {
-	dir := t.TempDir()
-	fallbackFile := filepath.Join(dir, "fallback.json")
-	require.NoError(t, os.WriteFile(fallbackFile, []byte(`{
-		"remote-model": {
-			"input_cost_per_token": 0.000001,
-			"litellm_provider": "test",
-			"mode": "chat"
-		},
-		"gemini-3.1-flash-lite-image": {
-			"output_cost_per_image": 0.034,
-			"litellm_provider": "vertex_ai-language-models",
-			"mode": "image_generation"
-		}
-	}`), 0644))
-
-	svc := &PricingService{cfg: &config.Config{}}
-	svc.cfg.Pricing.FallbackFile = fallbackFile
-	remoteData, err := svc.parsePricingData([]byte(`{
-		"remote-model": {
-			"input_cost_per_token": 0.000002,
-			"litellm_provider": "test",
-			"mode": "chat"
-		}
-	}`))
-	require.NoError(t, err)
-
-	merged := svc.mergeFallbackPricingData(remoteData)
-	require.InDelta(t, 0.000002, merged["remote-model"].InputCostPerToken, 1e-12)
-	require.NotNil(t, merged["gemini-3.1-flash-lite-image"])
-	require.InDelta(t, 0.034, merged["gemini-3.1-flash-lite-image"].OutputCostPerImage, 1e-12)
 }
 
 func TestGetModelPricing_Gpt53CodexSparkUsesGpt51CodexPricing(t *testing.T) {
