@@ -96,7 +96,8 @@ func TestHandleNonStreamingResponse_ValidJSONUnchanged(t *testing.T) {
 	require.JSONEq(t, string(body), rec.Body.String())
 }
 
-func TestHandleNonStreamingResponse_NonJSON2xxMatchesModelScopedTempUnschedulableRule(t *testing.T) {
+// 非 JSON 的 2xx 仍按 502 换号；渠道级临时不可调度规则 2026-09-28 P5 已删，旧行留着的规则不再按模型停号。
+func TestHandleNonStreamingResponse_NonJSON2xxFailsOverWithoutLegacyTempRule(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -138,8 +139,5 @@ func TestHandleNonStreamingResponse_NonJSON2xxMatchesModelScopedTempUnschedulabl
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
 	require.Equal(t, body, failoverErr.ResponseBody)
 	require.Zero(t, repo.tempUnschedCalls)
-	require.Equal(t, 1, repo.modelRateLimitCalls)
-	require.Equal(t, "claude-sonnet-4-6", repo.modelScope)
-	require.Contains(t, repo.modelReason, `"status_code":502`)
-	require.Contains(t, repo.modelReason, `"matched_keyword":"upstream request failed"`)
+	require.Zero(t, repo.modelRateLimitCalls)
 }

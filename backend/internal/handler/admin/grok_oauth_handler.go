@@ -312,19 +312,17 @@ func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 }
 
 type GrokSSOToOAuthRequest struct {
-	SSOTokens          []string       `json:"sso_tokens"`
-	SSOToken           string         `json:"sso_token"`
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra"`
-	Concurrency        int            `json:"concurrency"`
-	LoadFactor         *int           `json:"load_factor"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	SSOTokens      []string       `json:"sso_tokens"`
+	SSOToken       string         `json:"sso_token"`
+	Name           string         `json:"name"`
+	Notes          *string        `json:"notes"`
+	ProxyID        *int64         `json:"proxy_id"`
+	Credentials    map[string]any `json:"credentials"`
+	Extra          map[string]any `json:"extra"`
+	Concurrency    int            `json:"concurrency"`
+	Priority       int            `json:"priority"`
+	RateMultiplier *float64       `json:"rate_multiplier"`
+	ExpiresAt      *int64         `json:"expires_at"`
 }
 
 type GrokSSOToOAuthItemResult struct {
@@ -422,21 +420,18 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 
 	credentials := grokSSOImportCredentials(h.grokOAuthService.BuildAccountCredentials(tokenInfo), req.Credentials)
 	name := grokSSOImportAccountName(req.Name, tokenInfo, index, total)
-	expiresAt, autoPauseOnExpired := grokSSOImportExpiry(req.ExpiresAt, req.AutoPauseOnExpired, tokenInfo)
 	account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-		Name:               name,
-		Notes:              req.Notes,
-		Platform:           service.PlatformGrok,
-		Type:               service.AccountTypeOAuth,
-		Credentials:        credentials,
-		Extra:              cloneGrokSSOMap(req.Extra),
-		ProxyID:            req.ProxyID,
-		Concurrency:        req.Concurrency,
-		LoadFactor:         req.LoadFactor,
-		Priority:           req.Priority,
-		RateMultiplier:     req.RateMultiplier,
-		ExpiresAt:          expiresAt,
-		AutoPauseOnExpired: autoPauseOnExpired,
+		Name:           name,
+		Notes:          req.Notes,
+		Platform:       service.PlatformGrok,
+		Type:           service.AccountTypeOAuth,
+		Credentials:    credentials,
+		Extra:          cloneGrokSSOMap(req.Extra),
+		ProxyID:        req.ProxyID,
+		Concurrency:    req.Concurrency,
+		Priority:       req.Priority,
+		RateMultiplier: req.RateMultiplier,
+		ExpiresAt:      grokSSOImportExpiry(req.ExpiresAt, tokenInfo),
 	})
 	if err != nil {
 		return grokSSOImportWorkerResult{item: GrokSSOToOAuthItemResult{Index: index, Name: name, Email: tokenInfo.Email, Error: grokSSOImportErrorMessage(err)}}
@@ -461,7 +456,7 @@ func grokSSOImportCredentials(built map[string]any, reqCredentials map[string]an
 	// (password / sso_token / cookie / etc.) into stored credentials.
 	allowedReqKeys := map[string]struct{}{
 		"model_mapping":   {},
-		"header_override": {}, "header_overrides": {}, "header_override_enabled": {},
+		"header_override": {}, "header_overrides": {},
 		"custom_headers": {},
 	}
 	ops := map[string]any{}
@@ -488,17 +483,18 @@ func grokSSOImportCredentials(built map[string]any, reqCredentials map[string]an
 	return service.SanitizeStoredCredentials(service.PlatformGrok, credentials)
 }
 
-func grokSSOImportExpiry(requestExpiresAt *int64, requestAutoPause *bool, tokenInfo *service.GrokTokenInfo) (*int64, *bool) {
+// grokSSOImportExpiry 渠道过期时间：没有 refresh_token 时取 access token 过期与请求值中较早的一个
+// （到期即停调，过期自动暂停写死开）。
+func grokSSOImportExpiry(requestExpiresAt *int64, tokenInfo *service.GrokTokenInfo) *int64 {
 	if tokenInfo == nil || strings.TrimSpace(tokenInfo.RefreshToken) != "" || tokenInfo.ExpiresAt <= 0 {
-		return requestExpiresAt, requestAutoPause
+		return requestExpiresAt
 	}
 
 	expiresAt := tokenInfo.ExpiresAt
 	if requestExpiresAt != nil && *requestExpiresAt > 0 && *requestExpiresAt < expiresAt {
 		expiresAt = *requestExpiresAt
 	}
-	autoPause := true
-	return &expiresAt, &autoPause
+	return &expiresAt
 }
 
 func cloneGrokSSOMap(source map[string]any) map[string]any {

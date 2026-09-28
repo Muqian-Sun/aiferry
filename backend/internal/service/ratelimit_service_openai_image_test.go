@@ -296,7 +296,7 @@ func TestRateLimitServiceHandleOpenAIImageCapabilityLoss_IgnoresGenericBadReques
 	require.Empty(t, repo.modelRateLimitCalls)
 }
 
-func TestRateLimitServiceHandleOpenAIImageCapabilityLoss_RespectsPlatformAndErrorCodePolicy(t *testing.T) {
+func TestRateLimitServiceHandleOpenAIImageCapabilityLoss_RespectsPlatform(t *testing.T) {
 	body := []byte(`{"error":{"message":"Tool choice 'image_generation' not found in 'tools' parameter.","param":"tool_choice","type":"invalid_request_error"}}`)
 
 	t.Run("non_openai_platform", func(t *testing.T) {
@@ -304,27 +304,6 @@ func TestRateLimitServiceHandleOpenAIImageCapabilityLoss_RespectsPlatformAndErro
 		svc := &RateLimitService{accountRepo: repo}
 		account := &Account{ID: 208, Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 
-		handled := svc.HandleOpenAIImageCapabilityLoss(context.Background(), account, http.StatusBadRequest, body)
-
-		require.False(t, handled)
-		require.Empty(t, repo.modelRateLimitCalls)
-	})
-
-	t.Run("custom_error_code_policy_excludes_400", func(t *testing.T) {
-		repo := &modelNotFoundAccountRepoStub{}
-		svc := &RateLimitService{accountRepo: repo}
-		account := &Account{
-			ID:       209,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"custom_error_codes_enabled": true,
-				"custom_error_codes":         []any{float64(http.StatusTooManyRequests)},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
-
-		require.False(t, account.ShouldHandleErrorCode(http.StatusBadRequest))
 		handled := svc.HandleOpenAIImageCapabilityLoss(context.Background(), account, http.StatusBadRequest, body)
 
 		require.False(t, handled)

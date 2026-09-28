@@ -629,33 +629,6 @@ func (s *OpenAIGatewayService) handleErrorResponse(
 		return nil, fmt.Errorf("upstream error: %d (passthrough rule matched) message=%s", resp.StatusCode, upstreamMsg)
 	}
 
-	// Check custom error codes
-	if !account.ShouldHandleErrorCode(resp.StatusCode) {
-		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-			ProxyID:            opsUpstreamProxyID(account),
-			ProxyName:          opsUpstreamProxyName(account),
-			Platform:           account.Platform,
-			AccountID:          account.ID,
-			AccountName:        account.Name,
-			UpstreamStatusCode: resp.StatusCode,
-			UpstreamRequestID:  resp.Header.Get("x-request-id"),
-			Kind:               "http_error",
-			Message:            upstreamMsg,
-			Detail:             upstreamDetail,
-		})
-		MarkResponseCommitted(c)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": gin.H{
-				"type":    "upstream_error",
-				"message": "Upstream gateway error",
-			},
-		})
-		if upstreamMsg == "" {
-			return nil, fmt.Errorf("upstream error: %d (not in custom error codes)", resp.StatusCode)
-		}
-		return nil, fmt.Errorf("upstream error: %d (not in custom error codes) message=%s", resp.StatusCode, upstreamMsg)
-	}
-
 	// Handle upstream error (mark account status)
 	var reqModel string
 	if len(requestedModel) > 0 {
@@ -759,7 +732,7 @@ type compatErrorWriter func(c *gin.Context, statusCode int, errType, message str
 
 // handleCompatErrorResponse is the shared non-failover error handler for the
 // Chat Completions and Anthropic Messages compat paths. It mirrors the logic of
-// handleErrorResponse (passthrough rules, ShouldHandleErrorCode, rate-limit
+// handleErrorResponse (passthrough rules, rate-limit
 // tracking, secondary failover) but delegates the final error write to the
 // format-specific writer function.
 func (s *OpenAIGatewayService) handleCompatErrorResponse(
@@ -832,29 +805,6 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 			return nil, fmt.Errorf("upstream error: %d (passthrough rule matched)", resp.StatusCode)
 		}
 		return nil, fmt.Errorf("upstream error: %d (passthrough rule matched) message=%s", resp.StatusCode, upstreamMsg)
-	}
-
-	// Check custom error codes — if the account does not handle this status,
-	// return a generic error without exposing upstream details.
-	if !account.ShouldHandleErrorCode(resp.StatusCode) {
-		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-			ProxyID:            opsUpstreamProxyID(account),
-			ProxyName:          opsUpstreamProxyName(account),
-			Platform:           account.Platform,
-			AccountID:          account.ID,
-			AccountName:        account.Name,
-			UpstreamStatusCode: resp.StatusCode,
-			UpstreamRequestID:  resp.Header.Get("x-request-id"),
-			Kind:               "http_error",
-			Message:            upstreamMsg,
-			Detail:             upstreamDetail,
-		})
-		MarkResponseCommitted(c)
-		writeError(c, http.StatusInternalServerError, "api_error", "Upstream gateway error")
-		if upstreamMsg == "" {
-			return nil, fmt.Errorf("upstream error: %d (not in custom error codes)", resp.StatusCode)
-		}
-		return nil, fmt.Errorf("upstream error: %d (not in custom error codes) message=%s", resp.StatusCode, upstreamMsg)
 	}
 
 	// Track rate limits and decide whether to trigger secondary failover.

@@ -39,9 +39,9 @@ func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
 	repo := newAccountRepositoryWithSQL(client, db, nil)
 
 	mock.ExpectQuery("schedulable account load projection").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "concurrency", "load_factor"}).
-			AddRow(int64(11), 3, nil).
-			AddRow(int64(12), 2, 7))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "concurrency"}).
+			AddRow(int64(11), 3).
+			AddRow(int64(12), 0))
 
 	loads, err := repo.ListSchedulableAccountLoads(context.Background())
 	require.NoError(t, err)
@@ -49,16 +49,17 @@ func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
 	require.Equal(t, int64(11), loads[0].ID)
 	require.Equal(t, 3, loads[0].MaxConcurrency)
 	require.Equal(t, int64(12), loads[1].ID)
-	require.Equal(t, 7, loads[1].MaxConcurrency)
+	require.Equal(t, 1, loads[1].MaxConcurrency, "并发数不大于 0 时负载容量按 1 算")
 	require.NoError(t, mock.ExpectationsWereMet(), "projection path must execute exactly one query")
 
 	normalized := normalizeSQLWhitespace(capturedSQL)
 	selectClause, _, found := strings.Cut(normalized, " FROM ")
 	require.True(t, found, "unexpected projection SQL: %s", normalized)
-	require.Equal(t, 2, strings.Count(selectClause, ","), "projection must select exactly three columns: %s", selectClause)
+	require.Equal(t, 1, strings.Count(selectClause, ","), "projection must select exactly two columns: %s", selectClause)
 	require.Contains(t, selectClause, `"id"`)
 	require.Contains(t, selectClause, `"concurrency"`)
-	require.Contains(t, selectClause, `"load_factor"`)
+	// 负载按并发数算（2026-09-28 P5 删了负载因子）
+	require.NotContains(t, selectClause, `"load_factor"`)
 	require.NotContains(t, selectClause, "credentials")
 	require.NotContains(t, selectClause, "extra")
 	require.NotContains(t, selectClause, "proxy_id")
@@ -69,13 +70,14 @@ func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
 		"schedulable",
 		"temp_unschedulable_until",
 		"expires_at",
-		"auto_pause_on_expired",
 		"overload_until",
 		"rate_limit_reset_at",
 		"deleted_at",
 	} {
 		require.Contains(t, normalized, predicateColumn)
 	}
+	// 过期自动暂停写死开（2026-09-28 P5）：过期判断不再看渠道开关
+	require.NotContains(t, normalized, "auto_pause_on_expired")
 	_, orderClause, hasOrder := strings.Cut(normalized, " ORDER BY ")
 	require.True(t, hasOrder, "projection query must preserve schedulable account order: %s", normalized)
 	require.Contains(t, orderClause, `"priority" ASC`)

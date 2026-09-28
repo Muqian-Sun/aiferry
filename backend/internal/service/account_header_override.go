@@ -13,9 +13,9 @@ import (
 // Grok OAuth。
 // 管理员在账号上配置一组 header name -> value，转发到上游前用配置值覆盖同名请求头
 // （匹配不区分大小写）；value 为空的条目视为"未填写"，不参与覆盖。
+// 覆写表里有条目就生效（渠道级开关 2026-09-28 P5 已删，见 channel_features.go）。
 const (
-	credKeyHeaderOverrideEnabled = "header_override_enabled"
-	credKeyHeaderOverrides       = "header_overrides"
+	credKeyHeaderOverrides = "header_overrides"
 
 	maxHeaderOverrideEntries     = 64
 	maxHeaderOverrideNameLength  = 200
@@ -84,22 +84,13 @@ func (a *Account) IsHeaderOverrideEligible() bool {
 	return a.Platform == PlatformGrok && a.Type == AccountTypeOAuth
 }
 
-// IsHeaderOverrideEnabled 报告账号是否启用了请求头覆写。
-func (a *Account) IsHeaderOverrideEnabled() bool {
-	if !a.IsHeaderOverrideEligible() || a.Credentials == nil {
-		return false
-	}
-	enabled, ok := a.Credentials[credKeyHeaderOverrideEnabled].(bool)
-	return ok && enabled
-}
-
 // GetHeaderOverrides 返回生效的请求头覆写表（key 统一小写）。
-// 未启用、不符合平台/类型条件或配置为空时返回 nil。
+// 不符合平台/类型条件或覆写表为空时返回 nil。
 // 空 value 的条目（模板占位）与非法/禁止的 header 名会被跳过。
 // 结果带热路径缓存（同 GetModelMapping 先例）：同一 credentials 映射在
 // 一次请求 / 一条 WS 会话内的多次调用只做一次解析与校验。
 func (a *Account) GetHeaderOverrides() map[string]string {
-	if !a.IsHeaderOverrideEnabled() {
+	if !a.IsHeaderOverrideEligible() || a.Credentials == nil {
 		return nil
 	}
 	rawMapping, rawIsAnyMap := a.Credentials[credKeyHeaderOverrides].(map[string]any)
@@ -169,7 +160,7 @@ func (a *Account) HeaderOverrideValue(lowerName string) (string, bool) {
 // ApplyHeaderOverrides 将账号配置的请求头覆写应用到出站请求头。
 // 对每个覆写条目：先删除所有大小写变体（转发链路会以 wire casing 直接写入 map，
 // 可能存在非 canonical key），再按已知 wire casing 写入，避免产生重复头。
-// 账号未启用或不符合条件时为 no-op，可安全地在 OAuth/api_key 共用的构建器中调用。
+// 账号没有覆写条目或不符合条件时为 no-op，可安全地在 OAuth/api_key 共用的构建器中调用。
 func (a *Account) ApplyHeaderOverrides(h http.Header) {
 	if h == nil {
 		return
@@ -197,12 +188,6 @@ func (a *Account) ApplyHeaderOverrides(h http.Header) {
 func NormalizeHeaderOverrideCredentials(credentials map[string]any) error {
 	if credentials == nil {
 		return nil
-	}
-	if raw, ok := credentials[credKeyHeaderOverrideEnabled]; ok && raw != nil {
-		if _, isBool := raw.(bool); !isBool {
-			return infraerrors.New(http.StatusBadRequest, "INVALID_HEADER_OVERRIDE",
-				"header_override_enabled must be a boolean")
-		}
 	}
 	raw, ok := credentials[credKeyHeaderOverrides]
 	if !ok || raw == nil {

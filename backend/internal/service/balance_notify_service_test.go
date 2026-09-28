@@ -37,57 +37,23 @@ func TestResolveBalanceThreshold_EmptyType(t *testing.T) {
 
 // ---------- quotaDim.resolvedThreshold ----------
 
-func TestResolvedThreshold_FixedNormal(t *testing.T) {
-	// threshold=400 remaining, limit=1000 → usage trigger at 600
-	d := quotaDim{threshold: 400, thresholdType: thresholdTypeFixed, limit: 1000}
-	require.Equal(t, 600.0, d.resolvedThreshold())
-}
-
-func TestResolvedThreshold_FixedThresholdExceedsLimit(t *testing.T) {
-	// threshold=1200, limit=1000 → returns negative, callers must skip
-	d := quotaDim{threshold: 1200, thresholdType: thresholdTypeFixed, limit: 1000}
-	require.Equal(t, -200.0, d.resolvedThreshold())
-}
-
-func TestResolvedThreshold_FixedThresholdEqualsLimit(t *testing.T) {
-	// threshold=1000, limit=1000 → returns 0 (alert fires at 0 usage)
-	d := quotaDim{threshold: 1000, thresholdType: thresholdTypeFixed, limit: 1000}
-	require.Equal(t, 0.0, d.resolvedThreshold())
-}
-
-func TestResolvedThreshold_PercentageNormal(t *testing.T) {
-	// threshold=30%, limit=1000 → usage trigger at 700 (remaining drops to 30%)
-	d := quotaDim{threshold: 30, thresholdType: thresholdTypePercentage, limit: 1000}
-	require.InDelta(t, 700.0, d.resolvedThreshold(), 0.001)
-}
-
-func TestResolvedThreshold_PercentageZeroPercent(t *testing.T) {
-	// threshold=0%, limit=1000 → fires when remaining drops to 0 (usage=1000)
-	d := quotaDim{threshold: 0, thresholdType: thresholdTypePercentage, limit: 1000}
-	require.InDelta(t, 1000.0, d.resolvedThreshold(), 0.001)
-}
-
-func TestResolvedThreshold_PercentageHundredPercent(t *testing.T) {
-	// threshold=100%, limit=1000 → fires immediately (remaining drops to 100% i.e. nothing used yet)
-	d := quotaDim{threshold: 100, thresholdType: thresholdTypePercentage, limit: 1000}
-	require.InDelta(t, 0.0, d.resolvedThreshold(), 0.001)
-}
-
-func TestResolvedThreshold_PercentageOverHundred(t *testing.T) {
-	// threshold=150%, limit=1000 → returns negative (never triggers; callers skip)
-	d := quotaDim{threshold: 150, thresholdType: thresholdTypePercentage, limit: 1000}
-	require.Less(t, d.resolvedThreshold(), 0.0)
+// 额度提醒写死「剩余降到限额的 20%（用到 80%）时提醒」（2026-09-28 P5，channel_features.go）。
+func TestResolvedThreshold_RemainingPercentFromCode(t *testing.T) {
+	d := quotaDim{limit: 1000}
+	require.InDelta(t, 800.0, d.resolvedThreshold(), 0.001)
+	d = quotaDim{limit: 50}
+	require.InDelta(t, 40.0, d.resolvedThreshold(), 0.001)
 }
 
 func TestResolvedThreshold_ZeroLimit(t *testing.T) {
-	// limit=0 → returns 0 to avoid division and false alerts on unlimited quotas
-	d := quotaDim{threshold: 100, thresholdType: thresholdTypeFixed, limit: 0}
+	// limit=0 → returns 0 to avoid false alerts on unlimited quotas
+	d := quotaDim{limit: 0}
 	require.Equal(t, 0.0, d.resolvedThreshold())
 }
 
 func TestResolvedThreshold_NegativeLimit(t *testing.T) {
 	// Negative limit treated as 0
-	d := quotaDim{threshold: 100, thresholdType: thresholdTypeFixed, limit: -10}
+	d := quotaDim{limit: -10}
 	require.Equal(t, 0.0, d.resolvedThreshold())
 }
 
@@ -120,24 +86,16 @@ func TestSanitizeEmailHeader_MultipleNewlines(t *testing.T) {
 // ---------- buildQuotaDims ----------
 
 func TestBuildQuotaDims_AllDimensionsReturned(t *testing.T) {
-	// Use an account with quota notify config across all 3 dimensions.
 	a := &Account{
 		Platform: PlatformAnthropic,
 		Type:     AccountTypeAPIKey,
 		Extra: map[string]any{
-			"quota_notify_daily_enabled":         true,
-			"quota_notify_daily_threshold":       100.0,
-			"quota_notify_daily_threshold_type":  thresholdTypeFixed,
-			"quota_notify_weekly_enabled":        true,
-			"quota_notify_weekly_threshold":      20.0,
-			"quota_notify_weekly_threshold_type": thresholdTypePercentage,
-			"quota_notify_total_enabled":         false,
-			"quota_daily_limit":                  500.0,
-			"quota_weekly_limit":                 2000.0,
-			"quota_limit":                        10000.0,
-			"quota_daily_used":                   50.0,
-			"quota_weekly_used":                  300.0,
-			"quota_used":                         1000.0,
+			"quota_daily_limit":  500.0,
+			"quota_weekly_limit": 2000.0,
+			"quota_limit":        10000.0,
+			"quota_daily_used":   50.0,
+			"quota_weekly_used":  300.0,
+			"quota_used":         1000.0,
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
@@ -145,30 +103,21 @@ func TestBuildQuotaDims_AllDimensionsReturned(t *testing.T) {
 	dims := buildQuotaDims(a)
 	require.Len(t, dims, 3)
 
-	// Daily
 	require.Equal(t, quotaDimDaily, dims[0].name)
-	require.True(t, dims[0].enabled)
-	require.Equal(t, 100.0, dims[0].threshold)
-	require.Equal(t, thresholdTypeFixed, dims[0].thresholdType)
 	require.Equal(t, 500.0, dims[0].limit)
 	require.Equal(t, 50.0, dims[0].currentUsed)
 
-	// Weekly
 	require.Equal(t, quotaDimWeekly, dims[1].name)
-	require.True(t, dims[1].enabled)
-	require.Equal(t, 20.0, dims[1].threshold)
-	require.Equal(t, thresholdTypePercentage, dims[1].thresholdType)
 	require.Equal(t, 2000.0, dims[1].limit)
+	require.Equal(t, 300.0, dims[1].currentUsed)
 
-	// Total
 	require.Equal(t, quotaDimTotal, dims[2].name)
-	require.False(t, dims[2].enabled)
 	require.Equal(t, 10000.0, dims[2].limit)
 	require.Equal(t, 1000.0, dims[2].currentUsed)
 }
 
 func TestBuildQuotaDims_EmptyExtra(t *testing.T) {
-	// Missing fields default to zero/disabled.
+	// Missing fields default to zero (no limit → no alert).
 	a := &Account{
 		Platform:          PlatformAnthropic,
 		Type:              AccountTypeAPIKey,
@@ -178,27 +127,14 @@ func TestBuildQuotaDims_EmptyExtra(t *testing.T) {
 	dims := buildQuotaDims(a)
 	require.Len(t, dims, 3)
 	for _, d := range dims {
-		require.False(t, d.enabled)
-		require.Equal(t, 0.0, d.threshold)
 		require.Equal(t, 0.0, d.limit)
+		require.Equal(t, 0.0, d.resolvedThreshold())
 	}
 }
 
 // ---------- buildQuotaDimsFromState ----------
 
 func TestBuildQuotaDimsFromState_UsesStateValues(t *testing.T) {
-	// Usage values should come from the state, not the account.
-	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra: map[string]any{
-			"quota_notify_daily_enabled":   true,
-			"quota_notify_daily_threshold": 100.0,
-			"quota_daily_used":             999.0, // should be ignored
-			"quota_daily_limit":            999.0, // should be ignored
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-	}
 	state := &AccountQuotaState{
 		DailyUsed:   77.0,
 		DailyLimit:  500.0,
@@ -207,12 +143,8 @@ func TestBuildQuotaDimsFromState_UsesStateValues(t *testing.T) {
 		TotalUsed:   99.0,
 		TotalLimit:  10000.0,
 	}
-	dims := buildQuotaDimsFromState(a, state)
+	dims := buildQuotaDimsFromState(state)
 	require.Len(t, dims, 3)
-	// Settings from account (enabled, threshold, thresholdType)
-	require.True(t, dims[0].enabled)
-	require.Equal(t, 100.0, dims[0].threshold)
-	// Usage from state
 	require.Equal(t, 77.0, dims[0].currentUsed)
 	require.Equal(t, 500.0, dims[0].limit)
 	require.Equal(t, 88.0, dims[1].currentUsed)

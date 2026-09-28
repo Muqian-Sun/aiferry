@@ -365,7 +365,7 @@ func TestHandleGrokAccountUpstreamErrorDefaultCooldownsRespectPoolMode(t *testin
 	account := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{"pool_mode": true}}
 	require.True(t, account.IsPoolModeRetryableStatus(http.StatusForbidden))
 
-	t.Run("explicit temporary rule still applies", func(t *testing.T) {
+	t.Run("legacy temporary rule ignored", func(t *testing.T) {
 		repo := &grokQuotaAccountRepo{}
 		svc := &OpenAIGatewayService{accountRepo: repo}
 		account := &Account{
@@ -385,51 +385,19 @@ func TestHandleGrokAccountUpstreamErrorDefaultCooldownsRespectPoolMode(t *testin
 			},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		}
-		before := time.Now()
 
 		svc.handleGrokAccountUpstreamError(
 			context.Background(), account, http.StatusForbidden, nil,
 			[]byte(`{"error":{"message":"grok access or entitlement denied"}}`),
 		)
 
-		require.Equal(t, 1, repo.tempUnschedCalls)
-		require.Equal(t, "grok configured forbidden rule", repo.lastTempUnschedReason)
-		require.WithinDuration(t, before.Add(7*time.Minute), repo.lastTempUnschedUntil, time.Second)
-		require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
+		require.Zero(t, repo.tempUnschedCalls, "渠道级临时不可调度规则已删，池模式照旧不动账号状态")
+		require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
 	})
 }
 
-func TestHandleGrokAccountUpstreamError403UsesConfiguredRule(t *testing.T) {
-	repo := &grokQuotaAccountRepo{}
-	svc := &OpenAIGatewayService{accountRepo: repo}
-	account := &Account{
-		ID:       4717,
-		Platform: PlatformGrok,
-		Type:     AccountTypeOAuth,
-		Credentials: map[string]any{
-			"temp_unschedulable_enabled": true,
-			"temp_unschedulable_rules": []any{
-				map[string]any{
-					"error_code":       float64(http.StatusForbidden),
-					"keywords":         []any{"subscription"},
-					"duration_minutes": float64(7),
-				},
-			},
-		},
-	}
-	before := time.Now()
-
-	svc.handleGrokAccountUpstreamError(
-		context.Background(), account, http.StatusForbidden, nil,
-		[]byte(`{"error":{"message":"subscription required"}}`),
-	)
-
-	require.Equal(t, 1, repo.tempUnschedCalls)
-	require.Greater(t, repo.lastTempUnschedUntil, before.Add(6*time.Minute))
-	require.Less(t, repo.lastTempUnschedUntil, before.Add(8*time.Minute))
-}
-
-func TestHandleGrokAccountUpstreamError403ConfiguredUnmatchedKeepsDefaultCooldown(t *testing.T) {
+// 渠道级临时不可调度规则 2026-09-28 P5 已删：旧行留着、能命中的 403 规则也不再生效，照旧走默认的权限冷却。
+func TestHandleGrokAccountUpstreamError403LegacyRuleIgnoredKeepsDefaultCooldown(t *testing.T) {
 	repo := &grokQuotaAccountRepo{}
 	svc := &OpenAIGatewayService{accountRepo: repo}
 	account := &Account{
@@ -441,7 +409,7 @@ func TestHandleGrokAccountUpstreamError403ConfiguredUnmatchedKeepsDefaultCooldow
 			"temp_unschedulable_rules": []any{
 				map[string]any{
 					"error_code":       float64(http.StatusForbidden),
-					"keywords":         []any{"different failure"},
+					"keywords":         []any{"subscription"},
 					"duration_minutes": float64(7),
 				},
 			},

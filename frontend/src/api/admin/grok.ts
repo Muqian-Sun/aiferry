@@ -63,11 +63,9 @@ export interface GrokSSOToOAuthRequest {
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
   concurrency?: number
-  load_factor?: number
   priority?: number
   rate_multiplier?: number
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
 }
 
 export interface GrokSSOToOAuthItemResult {

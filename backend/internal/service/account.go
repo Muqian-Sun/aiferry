@@ -3,7 +3,6 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"hash/fnv"
 	"reflect"
 	"sort"
@@ -31,15 +30,14 @@ type Account struct {
 	Priority                int
 	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
 	// 使用指针用于兼容旧版本调度缓存（Redis）中缺字段的情况：nil 表示按 1.0 处理。
-	RateMultiplier     *float64
-	LoadFactor         *int // 调度负载因子；nil 表示使用 Concurrency
-	Status             string
-	ErrorMessage       string
-	LastUsedAt         *time.Time
-	ExpiresAt          *time.Time
-	AutoPauseOnExpired bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	RateMultiplier *float64
+	Status         string
+	ErrorMessage   string
+	LastUsedAt     *time.Time
+	// ExpiresAt 渠道过期时间：到期即停调（过期自动暂停写死开，见 channel_features.go）。
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	Schedulable bool
 
@@ -125,13 +123,6 @@ func isOpenAIPersonalAccessTokenAuthMode(value string) bool {
 	}
 }
 
-type TempUnschedulableRule struct {
-	ErrorCode       int      `json:"error_code"`
-	Keywords        []string `json:"keywords"`
-	DurationMinutes int      `json:"duration_minutes"`
-	Description     string   `json:"description"`
-}
-
 func (a *Account) IsActive() bool {
 	return a.Status == StatusActive
 }
@@ -162,17 +153,12 @@ func (a *Account) BillingRateMultiplier() float64 {
 	return *a.RateMultiplier
 }
 
+// EffectiveLoadFactor 调度负载图里的容量：一律按并发数算（渠道级负载因子 2026-09-28 P5 已删），至少 1。
 func (a *Account) EffectiveLoadFactor() int {
-	if a == nil {
+	if a == nil || a.Concurrency <= 0 {
 		return 1
 	}
-	if a.LoadFactor != nil && *a.LoadFactor > 0 {
-		return *a.LoadFactor
-	}
-	if a.Concurrency > 0 {
-		return a.Concurrency
-	}
-	return 1
+	return a.Concurrency
 }
 
 // IsSchedulable 报告账号整体此刻可否调度（SchedulingState 的薄封装，给管理端 / 监控等非调度读者用；
@@ -186,7 +172,7 @@ func (a *Account) IsSchedulable() bool {
 //
 // 检查「凭据/账号/传输可用性」:
 //   - 账号 active(非禁用/删除);
-//   - OAuth token 未过期(AutoPauseOnExpired+ExpiresAt);
+//   - 渠道未过期(ExpiresAt);
 //   - 未处于 TempUnschedulableUntil 冷却期 —— 对 OpenAI 账号该字段由 401 鉴权失败 /
 //     token 刷新耗尽 / transport·proxy 故障写入(ratelimit/token_refresh/upstream_transport),
 //     都代表**共享凭据或传输通道坏死**;影子共享母 token+proxy,故母处于该冷却期时影子也不可用。
@@ -199,7 +185,7 @@ func (a *Account) IsCredentialUsableForShadow() bool {
 		return false
 	}
 	now := time.Now()
-	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
+	if a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
 		return false
 	}
 	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) {
@@ -407,94 +393,6 @@ func (a *Account) GetCredentialAsInt64(key string) int64 {
 	return 0
 }
 
-func (a *Account) IsTempUnschedulableEnabled() bool {
-	if a.Credentials == nil {
-		return false
-	}
-	raw, ok := a.Credentials["temp_unschedulable_enabled"]
-	if !ok || raw == nil {
-		return false
-	}
-	enabled, ok := raw.(bool)
-	return ok && enabled
-}
-
-func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
-	if a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["temp_unschedulable_rules"]
-	if !ok || raw == nil {
-		return nil
-	}
-
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-
-	rules := make([]TempUnschedulableRule, 0, len(arr))
-	for _, item := range arr {
-		entry, ok := item.(map[string]any)
-		if !ok || entry == nil {
-			continue
-		}
-
-		rule := TempUnschedulableRule{
-			ErrorCode:       parseTempUnschedInt(entry["error_code"]),
-			Keywords:        parseTempUnschedStrings(entry["keywords"]),
-			DurationMinutes: parseTempUnschedInt(entry["duration_minutes"]),
-			Description:     parseTempUnschedString(entry["description"]),
-		}
-
-		if rule.ErrorCode <= 0 || rule.DurationMinutes <= 0 || len(rule.Keywords) == 0 {
-			continue
-		}
-
-		rules = append(rules, rule)
-	}
-
-	return rules
-}
-
-func parseTempUnschedString(value any) string {
-	s, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(s)
-}
-
-func parseTempUnschedStrings(value any) []string {
-	if value == nil {
-		return nil
-	}
-
-	var raw []string
-	switch v := value.(type) {
-	case []string:
-		raw = v
-	case []any:
-		raw = make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				raw = append(raw, s)
-			}
-		}
-	default:
-		return nil
-	}
-
-	out := make([]string, 0, len(raw))
-	for _, item := range raw {
-		s := strings.TrimSpace(item)
-		if s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
 func normalizeAccountNotes(value *string) *string {
 	if value == nil {
 		return nil
@@ -504,26 +402,6 @@ func normalizeAccountNotes(value *string) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func parseTempUnschedInt(value any) int {
-	switch v := value.(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return int(i)
-		}
-	case string:
-		if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			return i
-		}
-	}
-	return 0
 }
 
 func stringMappingFromRaw(raw any) map[string]string {
@@ -1065,18 +943,6 @@ func matchWildcardMappingResult(mapping map[string]string, requestedModel string
 	return matches[0].target, true
 }
 
-func (a *Account) IsCustomErrorCodesEnabled() bool {
-	if a.Type != AccountTypeAPIKey || a.Credentials == nil {
-		return false
-	}
-	if v, ok := a.Credentials["custom_error_codes_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
 // IsPoolMode 检查第三方 key 是否启用池模式。
 // 池模式下，上游错误不标记本地账号状态，而是在同一账号上重试。
 // 只对第三方 key：Bedrock 的池模式已删（2026-09-28 P5，见 channel_features_anthropic.go）。
@@ -1092,167 +958,15 @@ func (a *Account) IsPoolMode() bool {
 	return false
 }
 
-const (
-	defaultPoolModeRetryCount = 3
-	maxPoolModeRetryCount     = 10
-)
-
-// GetPoolModeRetryCount 返回池模式同账号重试次数。
-// 未配置或配置非法时回退为默认值 3；小于 0 按 0 处理；过大则截断到 10。
+// GetPoolModeRetryCount 返回池模式同渠道重试次数（写死，见 channel_features.go）。
 func (a *Account) GetPoolModeRetryCount() int {
-	if a == nil || !a.IsPoolMode() || a.Credentials == nil {
-		return defaultPoolModeRetryCount
-	}
-	raw, ok := a.Credentials["pool_mode_retry_count"]
-	if !ok || raw == nil {
-		return defaultPoolModeRetryCount
-	}
-	count := parsePoolModeRetryCount(raw)
-	if count < 0 {
-		return 0
-	}
-	if count > maxPoolModeRetryCount {
-		return maxPoolModeRetryCount
-	}
-	return count
+	return PoolModeRetryCount
 }
 
-func parsePoolModeRetryCount(value any) int {
-	switch v := value.(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return int(i)
-		}
-	case string:
-		if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			return i
-		}
-	}
-	return defaultPoolModeRetryCount
-}
-
-// defaultPoolModeRetryableStatusCodes 池模式下默认触发同账号重试的状态码。
-// 未在 Account.Credentials 中显式配置 pool_mode_retry_status_codes 时使用。
-var defaultPoolModeRetryableStatusCodes = []int{401, 403, 429}
-
-// isPoolModeRetryableStatus 池模式下应触发同账号重试的状态码（默认列表）。
-func isPoolModeRetryableStatus(statusCode int) bool {
-	for _, c := range defaultPoolModeRetryableStatusCodes {
-		if c == statusCode {
-			return true
-		}
-	}
-	return false
-}
-
-// GetPoolModeRetryStatusCodes 返回账号自定义的池模式同账号重试状态码列表。
-//
-// 返回值语义：
-//   - nil：未配置 → 调用方应回退到默认值 [401, 403, 429]
-//   - 长度为 0 的切片：管理员显式置空 → 关闭按状态码触发的同账号重试
-//   - 非空切片：去重、过滤为合法 HTTP 状态码（100-599）后的覆盖列表
-func (a *Account) GetPoolModeRetryStatusCodes() []int {
-	if a == nil || a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["pool_mode_retry_status_codes"]
-	if !ok || raw == nil {
-		return nil
-	}
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-	seen := make(map[int]struct{}, len(arr))
-	codes := make([]int, 0, len(arr))
-	for _, v := range arr {
-		var code int
-		switch n := v.(type) {
-		case float64:
-			code = int(n)
-		case int:
-			code = n
-		case int64:
-			code = int(n)
-		case json.Number:
-			i, err := n.Int64()
-			if err != nil {
-				continue
-			}
-			code = int(i)
-		case string:
-			i, err := strconv.Atoi(strings.TrimSpace(n))
-			if err != nil {
-				continue
-			}
-			code = i
-		default:
-			continue
-		}
-		if code < 100 || code > 599 {
-			continue
-		}
-		if _, exists := seen[code]; exists {
-			continue
-		}
-		seen[code] = struct{}{}
-		codes = append(codes, code)
-	}
-	sort.Ints(codes)
-	return codes
-}
-
-// IsPoolModeRetryableStatus 在账号上下文中判断给定状态码是否应触发同账号重试。
-// 若账号未配置 pool_mode_retry_status_codes，则回退到默认列表。
+// IsPoolModeRetryableStatus 判断给定状态码是否触发池模式同渠道重试（写死的状态码表，见 channel_features.go）。
 func (a *Account) IsPoolModeRetryableStatus(statusCode int) bool {
-	codes := a.GetPoolModeRetryStatusCodes()
-	if codes == nil {
-		return isPoolModeRetryableStatus(statusCode)
-	}
-	for _, c := range codes {
+	for _, c := range poolModeRetryStatusCodes {
 		if c == statusCode {
-			return true
-		}
-	}
-	return false
-}
-
-func (a *Account) GetCustomErrorCodes() []int {
-	if a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["custom_error_codes"]
-	if !ok || raw == nil {
-		return nil
-	}
-	if arr, ok := raw.([]any); ok {
-		result := make([]int, 0, len(arr))
-		for _, v := range arr {
-			if f, ok := v.(float64); ok {
-				result = append(result, int(f))
-			}
-		}
-		return result
-	}
-	return nil
-}
-
-func (a *Account) ShouldHandleErrorCode(statusCode int) bool {
-	if !a.IsCustomErrorCodesEnabled() {
-		return true
-	}
-	codes := a.GetCustomErrorCodes()
-	if len(codes) == 0 {
-		return true
-	}
-	for _, code := range codes {
-		if code == statusCode {
 			return true
 		}
 	}
@@ -1939,345 +1653,6 @@ func (a *Account) getExtraString(key string) string {
 	return ""
 }
 
-// getExtraStringDefault 从 Extra 中读取指定 key 的字符串值，不存在时返回 defaultVal
-func (a *Account) getExtraStringDefault(key, defaultVal string) string {
-	if v := a.getExtraString(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-// getExtraInt 从 Extra 中读取指定 key 的 int 值
-func (a *Account) getExtraInt(key string) int {
-	if a.Extra == nil {
-		return 0
-	}
-	if v, ok := a.Extra[key]; ok {
-		return int(parseExtraFloat64(v))
-	}
-	return 0
-}
-
-// GetQuotaDailyResetMode 获取日额度重置模式："rolling"（默认）或 "fixed"
-func (a *Account) GetQuotaDailyResetMode() string {
-	if m := a.getExtraString("quota_daily_reset_mode"); m == "fixed" {
-		return "fixed"
-	}
-	return "rolling"
-}
-
-// GetQuotaDailyResetHour 获取固定重置的小时（0-23），默认 0
-func (a *Account) GetQuotaDailyResetHour() int {
-	return a.getExtraInt("quota_daily_reset_hour")
-}
-
-// GetQuotaWeeklyResetMode 获取周额度重置模式："rolling"（默认）或 "fixed"
-func (a *Account) GetQuotaWeeklyResetMode() string {
-	if m := a.getExtraString("quota_weekly_reset_mode"); m == "fixed" {
-		return "fixed"
-	}
-	return "rolling"
-}
-
-// GetQuotaWeeklyResetDay 获取固定重置的星期几（0=周日, 1=周一, ..., 6=周六），默认 1（周一）
-func (a *Account) GetQuotaWeeklyResetDay() int {
-	if a.Extra == nil {
-		return 1
-	}
-	if _, ok := a.Extra["quota_weekly_reset_day"]; !ok {
-		return 1
-	}
-	return a.getExtraInt("quota_weekly_reset_day")
-}
-
-// GetQuotaWeeklyResetHour 获取周配额固定重置的小时（0-23），默认 0
-func (a *Account) GetQuotaWeeklyResetHour() int {
-	return a.getExtraInt("quota_weekly_reset_hour")
-}
-
-// GetQuotaResetTimezone 获取固定重置的时区名（IANA），默认 "UTC"
-func (a *Account) GetQuotaResetTimezone() string {
-	if tz := a.getExtraString("quota_reset_timezone"); tz != "" {
-		return tz
-	}
-	return "UTC"
-}
-
-// --- Quota Notification Getters ---
-
-// QuotaNotifyConfig returns the notify configuration for a given quota dimension.
-// dim must be one of quotaDimDaily, quotaDimWeekly, quotaDimTotal.
-func (a *Account) QuotaNotifyConfig(dim string) (enabled bool, threshold float64, thresholdType string) {
-	enabled = a.getExtraBool("quota_notify_" + dim + "_enabled")
-	threshold = a.getExtraFloat64("quota_notify_" + dim + "_threshold")
-	thresholdType = a.getExtraStringDefault("quota_notify_"+dim+"_threshold_type", thresholdTypeFixed)
-	return
-}
-
-func (a *Account) GetQuotaNotifyDailyEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimDaily)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyDailyThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimDaily)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyDailyThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimDaily)
-	return tt
-}
-
-func (a *Account) GetQuotaNotifyWeeklyEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimWeekly)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyWeeklyThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimWeekly)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyWeeklyThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimWeekly)
-	return tt
-}
-
-func (a *Account) GetQuotaNotifyTotalEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimTotal)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyTotalThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimTotal)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyTotalThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimTotal)
-	return tt
-}
-
-// nextFixedDailyReset 计算在 after 之后的下一个每日固定重置时间点
-func nextFixedDailyReset(hour int, tz *time.Location, after time.Time) time.Time {
-	t := after.In(tz)
-	today := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	if !after.Before(today) {
-		return today.AddDate(0, 0, 1)
-	}
-	return today
-}
-
-// lastFixedDailyReset 计算 now 之前最近一次的每日固定重置时间点
-func lastFixedDailyReset(hour int, tz *time.Location, now time.Time) time.Time {
-	t := now.In(tz)
-	today := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	if now.Before(today) {
-		return today.AddDate(0, 0, -1)
-	}
-	return today
-}
-
-// nextFixedWeeklyReset 计算在 after 之后的下一个每周固定重置时间点
-// day: 0=Sunday, 1=Monday, ..., 6=Saturday
-func nextFixedWeeklyReset(day, hour int, tz *time.Location, after time.Time) time.Time {
-	t := after.In(tz)
-	todayReset := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	currentDay := int(todayReset.Weekday())
-
-	daysForward := (day - currentDay + 7) % 7
-	if daysForward == 0 && !after.Before(todayReset) {
-		daysForward = 7
-	}
-	return todayReset.AddDate(0, 0, daysForward)
-}
-
-// lastFixedWeeklyReset 计算 now 之前最近一次的每周固定重置时间点
-func lastFixedWeeklyReset(day, hour int, tz *time.Location, now time.Time) time.Time {
-	t := now.In(tz)
-	todayReset := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	currentDay := int(todayReset.Weekday())
-
-	daysBack := (currentDay - day + 7) % 7
-	if daysBack == 0 && now.Before(todayReset) {
-		daysBack = 7
-	}
-	return todayReset.AddDate(0, 0, -daysBack)
-}
-
-// isFixedDailyPeriodExpired 检查日配额是否在固定时间模式下已过期
-func (a *Account) isFixedDailyPeriodExpired(periodStart time.Time) bool {
-	if periodStart.IsZero() {
-		return true
-	}
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		tz = time.UTC
-	}
-	lastReset := lastFixedDailyReset(a.GetQuotaDailyResetHour(), tz, time.Now())
-	return periodStart.Before(lastReset)
-}
-
-// isFixedWeeklyPeriodExpired 检查周配额是否在固定时间模式下已过期
-func (a *Account) isFixedWeeklyPeriodExpired(periodStart time.Time) bool {
-	if periodStart.IsZero() {
-		return true
-	}
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		tz = time.UTC
-	}
-	lastReset := lastFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, time.Now())
-	return periodStart.Before(lastReset)
-}
-
-// ComputeQuotaResetAt 根据当前配置计算并填充 extra 中的 quota_daily_reset_at / quota_weekly_reset_at
-// 在保存账号配置时调用
-func ComputeQuotaResetAt(extra map[string]any) {
-	now := time.Now()
-	tzName, _ := extra["quota_reset_timezone"].(string)
-	if tzName == "" {
-		tzName = "UTC"
-	}
-	tz, err := time.LoadLocation(tzName)
-	if err != nil {
-		tz = time.UTC
-	}
-
-	// 日配额固定重置时间
-	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		resetAt := nextFixedDailyReset(hour, tz, now)
-		extra["quota_daily_reset_at"] = resetAt.UTC().Format(time.RFC3339)
-	} else {
-		delete(extra, "quota_daily_reset_at")
-	}
-
-	// 周配额固定重置时间
-	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" {
-		day := 1 // 默认周一
-		if d, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(d))
-		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		resetAt := nextFixedWeeklyReset(day, hour, tz, now)
-		extra["quota_weekly_reset_at"] = resetAt.UTC().Format(time.RFC3339)
-	} else {
-		delete(extra, "quota_weekly_reset_at")
-	}
-}
-
-// NormalizeFixedQuotaWindows aligns preserved quota usage with the active fixed reset window.
-//
-// Editing an existing account can switch a daily/weekly quota from rolling to fixed reset
-// while preserving quota_*_used and quota_*_start. If the preserved start belongs to the
-// old rolling window, response mapping treats the usage as expired and the dashboard shows
-// 0 until the next reset. Normalize those stale starts before persisting the edited account.
-func NormalizeFixedQuotaWindows(extra map[string]any) {
-	if extra == nil {
-		return
-	}
-	now := time.Now()
-	tzName, _ := extra["quota_reset_timezone"].(string)
-	if tzName == "" {
-		tzName = "UTC"
-	}
-	tz, err := time.LoadLocation(tzName)
-	if err != nil {
-		tz = time.UTC
-	}
-
-	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_daily_limit"]) > 0 {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		lastReset := lastFixedDailyReset(hour, tz, now)
-		start := parseExtraTime(extra["quota_daily_start"])
-		if start.IsZero() || start.Before(lastReset) {
-			extra["quota_daily_used"] = 0.0
-			extra["quota_daily_start"] = lastReset.UTC().Format(time.RFC3339)
-		}
-	}
-
-	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_weekly_limit"]) > 0 {
-		day := 1
-		if rawDay, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(rawDay))
-		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		lastReset := lastFixedWeeklyReset(day, hour, tz, now)
-		start := parseExtraTime(extra["quota_weekly_start"])
-		if start.IsZero() || start.Before(lastReset) {
-			extra["quota_weekly_used"] = 0.0
-			extra["quota_weekly_start"] = lastReset.UTC().Format(time.RFC3339)
-		}
-	}
-}
-
-// ValidateQuotaResetConfig 校验配额固定重置时间配置的合法性
-func ValidateQuotaResetConfig(extra map[string]any) error {
-	if extra == nil {
-		return nil
-	}
-	// 校验时区
-	if tz, ok := extra["quota_reset_timezone"].(string); ok && tz != "" {
-		if _, err := time.LoadLocation(tz); err != nil {
-			return errors.New("invalid quota_reset_timezone: must be a valid IANA timezone name")
-		}
-	}
-	// 日配额重置模式
-	if mode, ok := extra["quota_daily_reset_mode"].(string); ok {
-		if mode != "rolling" && mode != "fixed" {
-			return errors.New("quota_daily_reset_mode must be 'rolling' or 'fixed'")
-		}
-	}
-	// 日配额重置小时
-	if v, ok := extra["quota_daily_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
-			return errors.New("quota_daily_reset_hour must be between 0 and 23")
-		}
-	}
-	// 周配额重置模式
-	if mode, ok := extra["quota_weekly_reset_mode"].(string); ok {
-		if mode != "rolling" && mode != "fixed" {
-			return errors.New("quota_weekly_reset_mode must be 'rolling' or 'fixed'")
-		}
-	}
-	// 周配额重置星期几
-	if v, ok := extra["quota_weekly_reset_day"]; ok {
-		day := int(parseExtraFloat64(v))
-		if day < 0 || day > 6 {
-			return errors.New("quota_weekly_reset_day must be between 0 (Sunday) and 6 (Saturday)")
-		}
-	}
-	// 周配额重置小时
-	if v, ok := extra["quota_weekly_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
-			return errors.New("quota_weekly_reset_hour must be between 0 and 23")
-		}
-	}
-	return nil
-}
-
 // HasAnyQuotaLimit 检查是否配置了任一维度的配额限制
 func (a *Account) HasAnyQuotaLimit() bool {
 	return a.GetQuotaLimit() > 0 || a.GetQuotaDailyLimit() > 0 || a.GetQuotaWeeklyLimit() > 0
@@ -2291,22 +1666,15 @@ func isPeriodExpired(periodStart time.Time, dur time.Duration) bool {
 	return time.Since(periodStart) >= dur
 }
 
-// IsDailyQuotaPeriodExpired 检查日配额周期是否已过期（用于显示层判断是否需要将 used 归零）
+// IsDailyQuotaPeriodExpired 检查日配额周期是否已过期（用于显示层判断是否需要将 used 归零）。
+// 日 / 周限额一律滚动窗口（固定时间重置 2026-09-28 P5 已删）。
 func (a *Account) IsDailyQuotaPeriodExpired() bool {
-	start := a.getExtraTime("quota_daily_start")
-	if a.GetQuotaDailyResetMode() == "fixed" {
-		return a.isFixedDailyPeriodExpired(start)
-	}
-	return isPeriodExpired(start, 24*time.Hour)
+	return isPeriodExpired(a.getExtraTime("quota_daily_start"), 24*time.Hour)
 }
 
 // IsWeeklyQuotaPeriodExpired 检查周配额周期是否已过期（用于显示层判断是否需要将 used 归零）
 func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
-	start := a.getExtraTime("quota_weekly_start")
-	if a.GetQuotaWeeklyResetMode() == "fixed" {
-		return a.isFixedWeeklyPeriodExpired(start)
-	}
-	return isPeriodExpired(start, 7*24*time.Hour)
+	return isPeriodExpired(a.getExtraTime("quota_weekly_start"), 7*24*time.Hour)
 }
 
 // GetMaxSessions 获取最大并发会话数
@@ -2428,18 +1796,6 @@ func parseExtraFloat64(value any) float64 {
 		}
 	}
 	return 0
-}
-
-func parseExtraTime(value any) time.Time {
-	if s, ok := value.(string); ok {
-		if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-			return t
-		}
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			return t
-		}
-	}
-	return time.Time{}
 }
 
 // parseExtraInt 从 extra 字段解析 int 值

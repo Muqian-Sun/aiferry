@@ -54,37 +54,11 @@ func TestIsHeaderOverrideEligible(t *testing.T) {
 
 	var nilAccount *Account
 	require.False(t, nilAccount.IsHeaderOverrideEligible())
-	require.False(t, nilAccount.IsHeaderOverrideEnabled())
 	require.Nil(t, nilAccount.GetHeaderOverrides())
-}
-
-func TestIsHeaderOverrideEnabled(t *testing.T) {
-	acc := headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
-	})
-	require.True(t, acc.IsHeaderOverrideEnabled())
-
-	// 未配置 / 非 bool / false 均视为未启用
-	require.False(t, headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, nil).IsHeaderOverrideEnabled())
-	require.False(t, headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: "true",
-	}).IsHeaderOverrideEnabled())
-	require.False(t, headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: false,
-	}).IsHeaderOverrideEnabled())
-
-	// 成品号（Grok OAuth 除外）即使配置了 true 也不启用；第三方 key 不论标签都启用
-	require.False(t, headerOverrideTestAccount(PlatformAnthropic, AccountTypeOAuth, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
-	}).IsHeaderOverrideEnabled())
-	require.True(t, headerOverrideTestAccount(PlatformGemini, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
-	}).IsHeaderOverrideEnabled())
 }
 
 func TestGetHeaderOverrides(t *testing.T) {
 	acc := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
 		credKeyHeaderOverrides: map[string]any{
 			"User-Agent":    "my-agent/1.0",  // 大写 key 归一化为小写
 			" X-App ":       "cli",           // 名称去空白
@@ -101,23 +75,23 @@ func TestGetHeaderOverrides(t *testing.T) {
 		"x-padded":   "padded",
 	}, overrides)
 
-	// 未启用时返回 nil
-	disabled := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrides: map[string]any{"user-agent": "x"},
+	// 有条目就生效（2026-09-28 P5 删了渠道开关）：库里旧行留着的 header_override_enabled=false 不再挡住覆写
+	legacyOff := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
+		"header_override_enabled": false,
+		credKeyHeaderOverrides:    map[string]any{"user-agent": "x"},
 	})
-	require.Nil(t, disabled.GetHeaderOverrides())
+	require.Equal(t, map[string]string{"user-agent": "x"}, legacyOff.GetHeaderOverrides())
 
-	// 启用但全部为空 value 时返回 nil
+	// 没有覆写表、或全部为空 value 时返回 nil
+	require.Nil(t, headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{"api_key": "sk"}).GetHeaderOverrides())
 	empty := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
-		credKeyHeaderOverrides:       map[string]any{"user-agent": ""},
+		credKeyHeaderOverrides: map[string]any{"user-agent": ""},
 	})
 	require.Nil(t, empty.GetHeaderOverrides())
 
 	// 未经 Normalize 落库的超长数据 / WebSocket 握手头在应用时被防御性跳过
 	oversizedValue := strings.Repeat("a", maxHeaderOverrideValueLength+1)
 	defensive := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
 		credKeyHeaderOverrides: map[string]any{
 			"x-big":                    oversizedValue,
 			"sec-websocket-key":        "forged",
@@ -131,7 +105,6 @@ func TestGetHeaderOverrides(t *testing.T) {
 
 func TestApplyHeaderOverrides(t *testing.T) {
 	acc := headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
 		credKeyHeaderOverrides: map[string]any{
 			"user-agent":     "override-agent/2.0",
 			"anthropic-beta": "custom-beta-1",
@@ -177,24 +150,22 @@ func TestApplyHeaderOverridesNoOpPaths(t *testing.T) {
 
 	// OAuth 账号：即使配置了覆写也不生效
 	oauth := headerOverrideTestAccount(PlatformAnthropic, AccountTypeOAuth, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
-		credKeyHeaderOverrides:       map[string]any{"user-agent": "hacked"},
+		credKeyHeaderOverrides: map[string]any{"user-agent": "hacked"},
 	})
 	h := baseline()
 	oauth.ApplyHeaderOverrides(h)
 	require.Equal(t, "orig", h.Get("User-Agent"))
 
-	// 未启用开关
-	off := headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrides: map[string]any{"user-agent": "hacked"},
+	// 覆写表为空
+	empty := headerOverrideTestAccount(PlatformAnthropic, AccountTypeAPIKey, map[string]any{
+		credKeyHeaderOverrides: map[string]any{},
 	})
 	h = baseline()
-	off.ApplyHeaderOverrides(h)
+	empty.ApplyHeaderOverrides(h)
 	require.Equal(t, "orig", h.Get("User-Agent"))
 
 	// 禁止覆写的头（authorization / x-api-key / host 等）不会被应用
 	blocked := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
-		credKeyHeaderOverrideEnabled: true,
 		credKeyHeaderOverrides: map[string]any{
 			"Authorization":  "Bearer evil",
 			"X-Api-Key":      "evil",
@@ -227,7 +198,6 @@ func TestNormalizeHeaderOverrideCredentials(t *testing.T) {
 
 	t.Run("normalizes names and values", func(t *testing.T) {
 		creds := map[string]any{
-			credKeyHeaderOverrideEnabled: true,
 			credKeyHeaderOverrides: map[string]any{
 				" User-Agent ": " my-agent ",
 				"X-App":        "",
@@ -247,13 +217,6 @@ func TestNormalizeHeaderOverrideCredentials(t *testing.T) {
 		}
 		require.NoError(t, NormalizeHeaderOverrideCredentials(creds))
 		require.Equal(t, map[string]any{"x-app": "cli"}, creds[credKeyHeaderOverrides])
-	})
-
-	t.Run("rejects non-bool enabled", func(t *testing.T) {
-		err := NormalizeHeaderOverrideCredentials(map[string]any{
-			credKeyHeaderOverrideEnabled: "yes",
-		})
-		require.Error(t, err)
 	})
 
 	t.Run("rejects non-object overrides", func(t *testing.T) {

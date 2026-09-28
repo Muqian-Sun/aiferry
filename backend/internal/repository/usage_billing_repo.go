@@ -477,9 +477,6 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 					THEN `+nowUTC+`
 					ELSE COALESCE(extra->>'quota_daily_start', `+nowUTC+`) END
 				)
-				|| CASE WHEN `+dailyExpiredExpr+` AND `+nextDailyResetAtExpr+` IS NOT NULL
-				   THEN jsonb_build_object('quota_daily_reset_at', `+nextDailyResetAtExpr+`)
-				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
 			|| CASE WHEN COALESCE((extra->>'quota_weekly_limit')::numeric, 0) > 0 THEN
 				jsonb_build_object(
@@ -492,9 +489,6 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 					THEN `+nowUTC+`
 					ELSE COALESCE(extra->>'quota_weekly_start', `+nowUTC+`) END
 				)
-				|| CASE WHEN `+weeklyExpiredExpr+` AND `+nextWeeklyResetAtExpr+` IS NOT NULL
-				   THEN jsonb_build_object('quota_weekly_reset_at', `+nextWeeklyResetAtExpr+`)
-				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
 		), updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL

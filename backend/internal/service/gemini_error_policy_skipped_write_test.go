@@ -18,10 +18,10 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// ErrorPolicySkipped 的客户端写出契约（与 OpenAI 网关路径对齐）：
-//   - 池模式：不可 failover 的 4xx 按上游原始状态码/响应体保真写出，不改写成 5xx；
-//   - 自定义错误码未命中：统一 500 + 固定文案，上游细节只进 ops 错误日志；
-//   - 可 failover 的状态码（两种账号）一律换号，不透传。
+// ErrorPolicySkipped（池模式）的客户端写出契约（与 OpenAI 网关路径对齐）：
+//   - 不可 failover 的 4xx 按上游原始状态码/响应体保真写出，不改写成 5xx；
+//   - 可 failover 的状态码一律换号，不透传。
+// 渠道级自定义错误码 2026-09-28 P5 已删：库里旧行留着的配置不再把 4xx 改写成 500。
 // ---------------------------------------------------------------------------
 
 const geminiSkippedTestUpstreamMsg = "antigravity executor: invalid Gemini function call history"
@@ -59,17 +59,13 @@ func geminiPoolModeAPIKeyAccount() *Account {
 	}
 }
 
-func geminiCustomCodesAPIKeyAccount() *Account {
+func geminiLegacyCustomCodesAPIKeyAccount() *Account {
 	return &Account{
 		ID:                701,
 		Platform:          PlatformGemini,
 		Type:              AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-		Credentials: map[string]any{
-			"api_key":                    "test-key",
-			"custom_error_codes_enabled": true,
-			"custom_error_codes":         []any{float64(429)},
-		},
+		Credentials:       legacyErrorPolicyCredentials(map[string]any{"api_key": "test-key", "custom_error_codes": []any{float64(429)}}),
 	}
 }
 
@@ -114,44 +110,23 @@ func TestGeminiForwardNative_PoolModeSkipped503Failover(t *testing.T) {
 	require.Zero(t, rec.Body.Len(), "换号场景不应写客户端响应")
 }
 
-func TestGeminiForwardNative_CustomCodesMiss400HiddenAs500(t *testing.T) {
+func TestGeminiForwardNative_LegacyCustomCodes400NotHiddenAs500(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	svc, _ := newGeminiSkippedWriteService(http.StatusBadRequest, geminiSkippedTestUpstreamBody())
+	upstreamBody := geminiSkippedTestUpstreamBody()
+	svc, _ := newGeminiSkippedWriteService(http.StatusBadRequest, upstreamBody)
 	c, rec := newGeminiNativeTestContext(t)
 
-	result, err := svc.ForwardNative(context.Background(), c, geminiCustomCodesAPIKeyAccount(),
+	result, err := svc.ForwardNative(context.Background(), c, geminiLegacyCustomCodesAPIKeyAccount(),
 		"gemini-2.5-flash", "generateContent", false, []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
 
 	require.Nil(t, result)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "not in custom error codes")
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
-
-	var got map[string]any
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	errObj, ok := got["error"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, geminiCustomCodeSkippedClientMessage, errObj["message"])
-	require.NotContains(t, rec.Body.String(), geminiSkippedTestUpstreamMsg, "上游细节不应透传给客户端")
+	require.NotContains(t, err.Error(), "custom error codes")
+	require.Equal(t, http.StatusBadRequest, rec.Code, "旧的自定义错误码配置不再把 400 改写成 500")
+	require.Contains(t, rec.Body.String(), geminiSkippedTestUpstreamMsg)
 }
 
-func TestGeminiForwardNative_CustomCodesMiss500Failover(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc, _ := newGeminiSkippedWriteService(http.StatusInternalServerError, `{"error":{"message":"internal"}}`)
-	c, rec := newGeminiNativeTestContext(t)
-
-	result, err := svc.ForwardNative(context.Background(), c, geminiCustomCodesAPIKeyAccount(),
-		"gemini-2.5-flash", "generateContent", false, []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`))
-
-	require.Nil(t, result)
-	var failoverErr *UpstreamFailoverError
-	require.True(t, errors.As(err, &failoverErr), "自定义错误码未命中的 500 应换号")
-	require.Equal(t, http.StatusInternalServerError, failoverErr.StatusCode)
-	require.False(t, failoverErr.RetryableOnSameAccount, "非池模式不应同账号重试")
-	require.Zero(t, rec.Body.Len())
-}
-
-func TestGeminiForwardAsChatCompletions_CustomCodesMiss400HiddenAs500(t *testing.T) {
+func TestGeminiForwardAsChatCompletions_LegacyCustomCodes400NotHiddenAs500(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc, _ := newGeminiSkippedWriteService(http.StatusBadRequest, geminiSkippedTestUpstreamBody())
 	rec := httptest.NewRecorder()
@@ -159,19 +134,18 @@ func TestGeminiForwardAsChatCompletions_CustomCodesMiss400HiddenAs500(t *testing
 	body := []byte(`{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hi"}]}`)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(string(body)))
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiCustomCodesAPIKeyAccount(), body)
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, geminiLegacyCustomCodesAPIKeyAccount(), body)
 
 	require.Nil(t, result)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "not in custom error codes")
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NotContains(t, err.Error(), "custom error codes")
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	errObj, ok := got["error"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "api_error", errObj["type"])
-	require.Equal(t, geminiCustomCodeSkippedClientMessage, errObj["message"])
+	require.Equal(t, geminiSkippedTestUpstreamMsg, errObj["message"], "应回传上游 message")
 }
 
 func TestGeminiForwardAsChatCompletions_PoolMode400KeepsUpstreamMessage(t *testing.T) {

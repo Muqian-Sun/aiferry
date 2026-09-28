@@ -687,13 +687,11 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		Platform:                account.Platform,
 		Type:                    account.Type,
 		Concurrency:             account.Concurrency,
-		LoadFactor:              account.LoadFactor,
 		Priority:                account.Priority,
 		RateMultiplier:          account.RateMultiplier,
 		Status:                  account.Status,
 		LastUsedAt:              account.LastUsedAt,
 		ExpiresAt:               account.ExpiresAt,
-		AutoPauseOnExpired:      account.AutoPauseOnExpired,
 		Schedulable:             account.Schedulable,
 		RateLimitedAt:           account.RateLimitedAt,
 		RateLimitResetAt:        account.RateLimitResetAt,
@@ -716,12 +714,10 @@ func filterSchedulerCredentials(credentials map[string]any) map[string]any {
 	if len(credentials) == 0 {
 		return nil
 	}
-	// Candidate-list admission evaluates the account override before hydrating
-	// the full account. Dropping it silently falls back to the platform threshold.
 	// 选号阶段（candidateAdmits 等）在本投影上判断，读到的键漏了就按零值静默放行 / 误拒；
 	// scheduler_cache_admission_keys_test.go 用 AST 扫描选号路径守着这份清单。
 	keys := []string{
-		"model_mapping", "api_key", "project_id", "oauth_type", "plan_type", "account_scheduling_threshold",
+		"model_mapping", "api_key", "project_id", "oauth_type", "plan_type",
 		// 「只改名」标记：漏了映射就变成白名单，没列进映射的目录模型被判不支持
 		"model_mapping_rename_only",
 		// OpenAI 认证方式（live 等能力门）
@@ -760,15 +756,9 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"quota_daily_limit",
 		"quota_daily_used",
 		"quota_daily_start",
-		"quota_daily_reset_mode",
-		"quota_daily_reset_hour",
 		"quota_weekly_limit",
 		"quota_weekly_used",
 		"quota_weekly_start",
-		"quota_weekly_reset_mode",
-		"quota_weekly_reset_day",
-		"quota_weekly_reset_hour",
-		"quota_reset_timezone",
 		// RPM 限制：漏了 base_rpm 就是 0，快照命中时 RPM 不限
 		"base_rpm",
 		// Compact 分级：探测结果（渠道级手动开关已删）

@@ -194,7 +194,6 @@ func TestForwardGrokMediaContentFetchesValidatedSignedURLWithoutCredentials(t *t
 		},
 	}
 	account := grokMediaContentTestAccount()
-	account.Credentials[credKeyHeaderOverrideEnabled] = true
 	account.Credentials[credKeyHeaderOverrides] = map[string]any{"user-agent": "private-agent"}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", map[string]string{

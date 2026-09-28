@@ -107,11 +107,14 @@ func TestSameAccountRetryDeadlineAllows(t *testing.T) {
 	}))
 }
 
-func TestEffectiveSameAccountRetryLimitHonorsErrorCapAndDisabledAccount(t *testing.T) {
-	account := &service.Account{Type: service.AccountTypeAPIKey, Credentials: map[string]any{"pool_mode": true, "pool_mode_retry_count": float64(3)}}
+func TestEffectiveSameAccountRetryLimitHonorsErrorCap(t *testing.T) {
+	account := &service.Account{Type: service.AccountTypeAPIKey, Credentials: map[string]any{"pool_mode": true}}
 	require.Equal(t, 1, effectiveSameAccountRetryLimit(&service.UpstreamFailoverError{SameAccountRetryMax: 1}, account))
+	// 池模式同渠道重试次数写死 3（channel_features.go 的 PoolModeRetryCount，已定取值）
+	require.Equal(t, 3, effectiveSameAccountRetryLimit(&service.UpstreamFailoverError{}, account))
+	// 渠道级 pool_mode_retry_count 已删（2026-09-28 P5）：旧行留着的 0 不再关掉同号重试
 	account.Credentials["pool_mode_retry_count"] = float64(0)
-	require.Equal(t, 0, effectiveSameAccountRetryLimit(&service.UpstreamFailoverError{SameAccountRetryMax: 1}, account))
+	require.Equal(t, 1, effectiveSameAccountRetryLimit(&service.UpstreamFailoverError{SameAccountRetryMax: 1}, account))
 }
 
 // ---------------------------------------------------------------------------
@@ -569,8 +572,8 @@ func TestHandleFailoverError_SameAccountRetry(t *testing.T) {
 	})
 
 	t.Run("尊重账号级retryLimit_配置1次只重试1次", func(t *testing.T) {
-		// 回归测试：Anthropic 等路径此前硬编码同账号重试 3 次，忽略账号
-		// pool_mode_retry_count 配置。此处验证传入 retryLimit=1 时只重试 1 次即切换。
+		// 回归测试：Anthropic 等路径此前硬编码同账号重试 3 次，忽略调用方传入的上限。
+		// 此处验证传入 retryLimit=1 时只重试 1 次即切换。
 		mock := &mockTempUnscheduler{}
 		fs := NewFailoverState(5, false)
 		err := newTestFailoverErr(403, true, false)
@@ -593,7 +596,7 @@ func TestHandleFailoverError_SameAccountRetry(t *testing.T) {
 	})
 
 	t.Run("retryLimit为0时立即切换不重试", func(t *testing.T) {
-		// pool_mode_retry_count=0 表示关闭同账号重试（如 GPT Image 账号）。
+		// retryLimit=0 表示关闭同账号重试。
 		mock := &mockTempUnscheduler{}
 		fs := NewFailoverState(5, false)
 		err := newTestFailoverErr(403, true, false)

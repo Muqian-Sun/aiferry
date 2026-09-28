@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -198,18 +197,17 @@ func (s *AntigravityGatewayService) getUpstreamErrorDetail(body []byte) string {
 }
 
 // checkErrorPolicy nil 安全的包装
-func (s *AntigravityGatewayService) checkErrorPolicy(ctx context.Context, account *Account, statusCode int, body []byte, requestedModel ...string) ErrorPolicyResult {
+func (s *AntigravityGatewayService) checkErrorPolicy(account *Account, statusCode int) ErrorPolicyResult {
 	if s.rateLimitService == nil {
 		return ErrorPolicyNone
 	}
-	return s.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, body, firstRequestedModel(requestedModel))
+	return s.rateLimitService.CheckErrorPolicy(account, statusCode)
 }
 
 // applyErrorPolicy 应用错误策略结果，返回是否应终止当前循环及应返回的状态码。
-// ErrorPolicySkipped 时 outStatus 为 500（前端约定：未命中的错误返回 500）。
+// ErrorPolicySkipped（池模式）时 outStatus 为 500。
 func (s *AntigravityGatewayService) applyErrorPolicy(p antigravityRetryLoopParams, statusCode int, headers http.Header, respBody []byte) (handled bool, outStatus int, retErr error) {
-	modelKey := resolveFinalAntigravityModelKey(p.ctx, p.account, p.requestedModel)
-	switch s.checkErrorPolicy(p.ctx, p.account, statusCode, respBody, modelKey) {
+	switch s.checkErrorPolicy(p.account, statusCode) {
 	case ErrorPolicySkipped:
 		if s.handleAntigravityModelRateLimitBeforePolicy(p, statusCode, headers, respBody) {
 			return true, statusCode, nil
@@ -222,10 +220,6 @@ func (s *AntigravityGatewayService) applyErrorPolicy(p antigravityRetryLoopParam
 		_ = p.handleError(p.ctx, p.prefix, p.account, statusCode, headers, respBody,
 			p.requestedModel, p.scopeID, p.sessionHash, p.isStickySession)
 		return true, statusCode, nil
-	case ErrorPolicyTempUnscheduled:
-		slog.Info("temp_unschedulable_matched",
-			"prefix", p.prefix, "status_code", statusCode, "account_id", p.account.ID)
-		return true, statusCode, &AntigravityAccountSwitchError{OriginalAccountID: p.account.ID, RateLimitedModel: p.requestedModel, IsStickySession: p.isStickySession}
 	}
 	return false, statusCode, nil
 }

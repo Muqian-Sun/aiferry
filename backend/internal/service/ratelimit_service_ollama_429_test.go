@@ -676,11 +676,11 @@ func (r *ollama429LinkRepo) casUpdatedCount() int {
 // snapshot persist moved UpdatedAt, because it is bound to the version re-read at
 // callback time, not the scheduling-time version.
 func TestOllama429RealProbeLinkage_SnapshotPersistThenWriteBack(t *testing.T) {
+	// 配了 Cookie 的渠道会被定时刷新拉（2026-09-28 P5）；这里只测 429 探测链路，关掉定时刷新免得它抢先拉取。
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
 	account := ollamaUsageAccount(701)
+	// The probe is a 429-event recovery query (it still needs the configured cookie/session).
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	// The probe is a 429-event recovery query and must run even when the periodic
-	// auto_refresh switch is off (it still needs the configured cookie/session).
-	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = false
 
 	reset := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
 	body := []byte(`
@@ -697,13 +697,6 @@ func TestOllama429RealProbeLinkage_SnapshotPersistThenWriteBack(t *testing.T) {
 	upstream := &ollamaUsageHTTPStub{body: body}
 
 	usageSvc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
-
-	// With auto_refresh off, a requireEnabled refresh is a (nil,nil) no-op. When
-	// the 429-event probe piggybacks such a timed-cycle no-op through the shared
-	// singleflight, runOllamaCloudUsageProbe must not record it as a real attempt.
-	noop, noopErr := usageSvc.refreshAccount(context.Background(), account.ID, true)
-	require.NoError(t, noopErr)
-	require.Nil(t, noop, "auto_refresh-disabled refresh is a nil,nil no-op")
 
 	usageSvc.Start()
 	t.Cleanup(usageSvc.Stop)
@@ -727,8 +720,8 @@ func TestOllama429RealProbeLinkage_SnapshotPersistThenWriteBack(t *testing.T) {
 		return ok && rec.reason == "ollama_cloud_usage_429_probe"
 	}, 10*time.Second, 5*time.Millisecond, "exhaustion write-back through the real probe must update once and notify")
 
-	// The 429-event probe actually performed a usage fetch despite auto_refresh=off.
-	require.Greater(t, upstream.calls.Load(), int64(0), "probe must query usage even with auto_refresh disabled")
+	// The 429-event probe actually performed a usage fetch.
+	require.Greater(t, upstream.calls.Load(), int64(0), "probe must query usage")
 
 	rec, ok := blocker.last()
 	require.True(t, ok)

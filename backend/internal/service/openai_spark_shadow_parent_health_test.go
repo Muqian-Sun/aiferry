@@ -177,16 +177,15 @@ func TestParentHealthyForShadow(t *testing.T) {
 	})
 
 	t.Run("expired_parent_credentials_block_shadow", func(t *testing.T) {
-		// 凭据真正过期(AutoPauseOnExpired + ExpiresAt 已过)→ 透传 token 不可用 → 影子应被挡。
+		// 凭据真正过期(ExpiresAt 已过)→ 透传 token 不可用 → 影子应被挡。
 		expiredAt := time.Now().Add(-1 * time.Hour)
 		expiredParent := &Account{
-			ID:                 100,
-			Platform:           PlatformOpenAI,
-			Type:               AccountTypeOAuth,
-			Status:             StatusActive,
-			Schedulable:        true,
-			AutoPauseOnExpired: true,
-			ExpiresAt:          &expiredAt,
+			ID:          100,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			ExpiresAt:   &expiredAt,
 		}
 		lookup := func(id int64) *Account {
 			if id == expiredParent.ID {

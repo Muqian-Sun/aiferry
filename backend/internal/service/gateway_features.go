@@ -161,6 +161,6 @@ const (
 	OllamaCloudUsageDebounceMinutes = 1
 )
 
-// ollamaCloudUsageEnabled 定时拉 Ollama Cloud 用量：开。哪些渠道拉由渠道自己的「自动刷新」决定；
+// ollamaCloudUsageEnabled 定时拉 Ollama Cloud 用量：开。配了浏览器 Cookie 的渠道都拉（channel_features.go）；
 // 手动刷新不受影响。写成变量是为了测试能关掉它、测关闭分支。
 var ollamaCloudUsageEnabled = true

@@ -101,14 +101,12 @@ type Account struct {
 	ProxyFallbackOriginID   *int64                         `json:"proxy_fallback_origin_id"`
 	ProxyFallbackOriginName *string                        `json:"proxy_fallback_origin_name,omitempty"`
 	Concurrency             int                            `json:"concurrency"`
-	LoadFactor              *int                           `json:"load_factor,omitempty"`
 	Priority                int                            `json:"priority"`
 	RateMultiplier          float64                        `json:"rate_multiplier"`
 	Status                  string                         `json:"status"`
 	ErrorMessage            string                         `json:"error_message"`
 	LastUsedAt              *time.Time                     `json:"last_used_at"`
 	ExpiresAt               *int64                         `json:"expires_at"`
-	AutoPauseOnExpired      bool                           `json:"auto_pause_on_expired"`
 	CreatedAt               time.Time                      `json:"created_at"`
 	UpdatedAt               time.Time                      `json:"updated_at"`
 
@@ -141,24 +139,6 @@ type Account struct {
 	QuotaDailyUsed   *float64 `json:"quota_daily_used,omitempty"`
 	QuotaWeeklyLimit *float64 `json:"quota_weekly_limit,omitempty"`
 	QuotaWeeklyUsed  *float64 `json:"quota_weekly_used,omitempty"`
-
-	// 配额固定时间重置配置
-	QuotaDailyResetMode  *string `json:"quota_daily_reset_mode,omitempty"`
-	QuotaDailyResetHour  *int    `json:"quota_daily_reset_hour,omitempty"`
-	QuotaWeeklyResetMode *string `json:"quota_weekly_reset_mode,omitempty"`
-	QuotaWeeklyResetDay  *int    `json:"quota_weekly_reset_day,omitempty"`
-	QuotaWeeklyResetHour *int    `json:"quota_weekly_reset_hour,omitempty"`
-	QuotaResetTimezone   *string `json:"quota_reset_timezone,omitempty"`
-	QuotaDailyResetAt    *string `json:"quota_daily_reset_at,omitempty"`
-	QuotaWeeklyResetAt   *string `json:"quota_weekly_reset_at,omitempty"`
-
-	// 配额通知配置
-	QuotaNotifyDailyEnabled    *bool    `json:"quota_notify_daily_enabled,omitempty"`
-	QuotaNotifyDailyThreshold  *float64 `json:"quota_notify_daily_threshold,omitempty"`
-	QuotaNotifyWeeklyEnabled   *bool    `json:"quota_notify_weekly_enabled,omitempty"`
-	QuotaNotifyWeeklyThreshold *float64 `json:"quota_notify_weekly_threshold,omitempty"`
-	QuotaNotifyTotalEnabled    *bool    `json:"quota_notify_total_enabled,omitempty"`
-	QuotaNotifyTotalThreshold  *float64 `json:"quota_notify_total_threshold,omitempty"`
 
 	// 影子账号关系（spark 维度影子）
 	ParentAccountID *int64 `json:"parent_account_id,omitempty"`
@@ -200,14 +180,12 @@ type AccountListItem struct {
 	ProxyFallbackOriginID   *int64     `json:"proxy_fallback_origin_id"`
 	ProxyFallbackOriginName *string    `json:"proxy_fallback_origin_name,omitempty"`
 	Concurrency             int        `json:"concurrency"`
-	LoadFactor              *int       `json:"load_factor,omitempty"`
 	Priority                int        `json:"priority"`
 	RateMultiplier          float64    `json:"rate_multiplier"`
 	Status                  string     `json:"status"`
 	ErrorMessage            string     `json:"error_message"`
 	LastUsedAt              *time.Time `json:"last_used_at"`
 	ExpiresAt               *int64     `json:"expires_at"`
-	AutoPauseOnExpired      bool       `json:"auto_pause_on_expired"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 
@@ -234,22 +212,6 @@ type AccountListItem struct {
 	QuotaDailyUsed   *float64 `json:"quota_daily_used,omitempty"`
 	QuotaWeeklyLimit *float64 `json:"quota_weekly_limit,omitempty"`
 	QuotaWeeklyUsed  *float64 `json:"quota_weekly_used,omitempty"`
-
-	QuotaDailyResetMode  *string `json:"quota_daily_reset_mode,omitempty"`
-	QuotaDailyResetHour  *int    `json:"quota_daily_reset_hour,omitempty"`
-	QuotaWeeklyResetMode *string `json:"quota_weekly_reset_mode,omitempty"`
-	QuotaWeeklyResetDay  *int    `json:"quota_weekly_reset_day,omitempty"`
-	QuotaWeeklyResetHour *int    `json:"quota_weekly_reset_hour,omitempty"`
-	QuotaResetTimezone   *string `json:"quota_reset_timezone,omitempty"`
-	QuotaDailyResetAt    *string `json:"quota_daily_reset_at,omitempty"`
-	QuotaWeeklyResetAt   *string `json:"quota_weekly_reset_at,omitempty"`
-
-	QuotaNotifyDailyEnabled    *bool    `json:"quota_notify_daily_enabled,omitempty"`
-	QuotaNotifyDailyThreshold  *float64 `json:"quota_notify_daily_threshold,omitempty"`
-	QuotaNotifyWeeklyEnabled   *bool    `json:"quota_notify_weekly_enabled,omitempty"`
-	QuotaNotifyWeeklyThreshold *float64 `json:"quota_notify_weekly_threshold,omitempty"`
-	QuotaNotifyTotalEnabled    *bool    `json:"quota_notify_total_enabled,omitempty"`
-	QuotaNotifyTotalThreshold  *float64 `json:"quota_notify_total_threshold,omitempty"`
 
 	ParentAccountID             *int64 `json:"parent_account_id,omitempty"`
 	QuotaDimension              string `json:"quota_dimension,omitempty"`

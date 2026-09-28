@@ -27,10 +27,11 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+// 配了浏览器 Cookie 的渠道就定时刷新用量（渠道级「自动刷新」开关 2026-09-28 P5 已删，
+// 全站开关见 gateway_features.go 的 ollamaCloudUsageEnabled）。
 const (
-	OllamaCloudUsageSessionExtraKey     = "ollama_cloud_usage_session"
-	OllamaCloudUsageAutoRefreshExtraKey = "ollama_cloud_usage_auto_refresh"
-	OllamaCloudUsageSnapshotExtraKey    = "ollama_cloud_usage_snapshot"
+	OllamaCloudUsageSessionExtraKey  = "ollama_cloud_usage_session"
+	OllamaCloudUsageSnapshotExtraKey = "ollama_cloud_usage_snapshot"
 
 	// OllamaCloudUsageMinFetchInterval is the hard floor between two successful
 	// fetches of the same group, mirroring the floor nextOllamaCloudUsageDelay
@@ -135,18 +136,15 @@ type OllamaCloudUsageState struct {
 	AccountID               int64                     `json:"account_id"`
 	Eligible                bool                      `json:"eligible"`
 	Configured              bool                      `json:"configured"`
-	AutoRefreshEnabled      bool                      `json:"auto_refresh_enabled"`
 	EncryptionKeyConfigured bool                      `json:"encryption_key_configured"`
 	Snapshot                *OllamaCloudUsageSnapshot `json:"snapshot,omitempty"`
 }
 
 type ollamaCloudUsageRepository interface {
 	ListOllamaCloudUsageGroupAccounts(context.Context, []*Account) ([]Account, error)
-	SaveOllamaCloudUsageSession(context.Context, *Account, string, bool) error
+	SaveOllamaCloudUsageSession(context.Context, *Account, string) error
 	DeleteOllamaCloudUsageSession(context.Context, *Account) error
-	SetOllamaCloudUsageAutoRefresh(context.Context, *Account, bool) error
 	UpdateOllamaCloudUsageSnapshot(context.Context, *Account, *OllamaCloudUsageSnapshot) error
-	DisableOllamaCloudUsageAutoRefresh(context.Context, *Account) error
 	ListDueOllamaCloudUsageAccounts(context.Context, time.Time, time.Duration, time.Duration, int) ([]Account, error)
 }
 
@@ -471,7 +469,6 @@ func applyOllamaCloudUsageManagedExtra(target, source *Account) {
 	}
 	for _, key := range []string{
 		OllamaCloudUsageSessionExtraKey,
-		OllamaCloudUsageAutoRefreshExtraKey,
 		OllamaCloudUsageSnapshotExtraKey,
 	} {
 		delete(target.Extra, key)
@@ -512,8 +509,7 @@ func (s *OllamaCloudUsageService) SaveSession(ctx context.Context, accountID int
 	if !ok {
 		return nil, ErrOllamaCloudUsageUnavailable
 	}
-	preserveAutoRefresh := ollamaCloudUsageConfigured(account) && ollamaCloudUsageAutoRefreshEnabled(account)
-	if err := writer.SaveOllamaCloudUsageSession(ctx, account, ciphertext, preserveAutoRefresh); err != nil {
+	if err := writer.SaveOllamaCloudUsageSession(ctx, account, ciphertext); err != nil {
 		return nil, err
 	}
 	return s.GetState(ctx, accountID)
@@ -538,33 +534,6 @@ func (s *OllamaCloudUsageService) DeleteSession(ctx context.Context, accountID i
 		return nil, ErrOllamaCloudUsageUnavailable
 	}
 	if err := writer.DeleteOllamaCloudUsageSession(ctx, account); err != nil {
-		return nil, err
-	}
-	return s.GetState(ctx, accountID)
-}
-
-func (s *OllamaCloudUsageService) SetAutoRefresh(ctx context.Context, accountID int64, enabled bool) (*OllamaCloudUsageState, error) {
-	if s == nil || s.accountRepo == nil {
-		return nil, ErrOllamaCloudUsageUnavailable
-	}
-	account, err := s.accountRepo.GetByID(ctx, accountID)
-	if err != nil {
-		return nil, err
-	}
-	if !IsOllamaCloudUsageAccount(account) {
-		return nil, ErrOllamaCloudUsageAccountInvalid
-	}
-	if err := s.ResolveAccounts(ctx, []*Account{account}); err != nil {
-		return nil, err
-	}
-	if enabled && !ollamaCloudUsageConfigured(account) {
-		return nil, ErrOllamaCloudUsageSessionRequired
-	}
-	writer, ok := s.accountRepo.(ollamaCloudUsageRepository)
-	if !ok {
-		return nil, ErrOllamaCloudUsageUnavailable
-	}
-	if err := writer.SetOllamaCloudUsageAutoRefresh(ctx, account, enabled); err != nil {
 		return nil, err
 	}
 	return s.GetState(ctx, accountID)
@@ -607,7 +576,7 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 	for index := range accounts {
 		account := accounts[index]
 		fingerprint, valid := ollamaCloudUsageGroupFingerprint(&account)
-		if !valid || !account.IsActive() || !ollamaCloudUsageConfigured(&account) || !ollamaCloudUsageAutoRefreshEnabled(&account) {
+		if !valid || !account.IsActive() || !ollamaCloudUsageConfigured(&account) {
 			continue
 		}
 		if _, duplicate := seenGroups[fingerprint]; duplicate {
@@ -620,15 +589,9 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 			continue
 		}
 		accountID := account.ID
-		expected := account
 		group.Go(func() error {
+			// 身份在列表与刷新之间变了（改了 key / 代理、代理被删）也只记一笔：下一轮按新身份重新判断是否到期。
 			if _, refreshErr := s.refreshAccount(ctx, accountID, true); refreshErr != nil {
-				if errors.Is(refreshErr, ErrOllamaCloudUsageIdentityChanged) {
-					if disableErr := writer.DisableOllamaCloudUsageAutoRefresh(ctx, &expected); disableErr != nil {
-						logger.LegacyPrintf("service.ollama_cloud_usage", "disable_auto_refresh_failed: account_id=%d err=%v", accountID, disableErr)
-					}
-					return nil
-				}
 				logger.LegacyPrintf("service.ollama_cloud_usage", "refresh_due_failed: account_id=%d err=%v", accountID, refreshErr)
 			}
 			return nil
@@ -688,7 +651,7 @@ func (s *OllamaCloudUsageService) refreshAccount(ctx context.Context, accountID 
 			}
 		}
 		if requireEnabled {
-			if !account.IsActive() || !ollamaCloudUsageAutoRefreshEnabled(account) {
+			if !account.IsActive() {
 				return nil, nil
 			}
 			groupLastUsed := account.LastUsedAt
@@ -869,7 +832,6 @@ func OllamaCloudUsageStateFromAccount(account *Account) *OllamaCloudUsageState {
 		return state
 	}
 	state.Configured = ollamaCloudUsageConfigured(account)
-	state.AutoRefreshEnabled = state.Configured && ollamaCloudUsageAutoRefreshEnabled(account)
 	state.Snapshot = decodeOllamaCloudUsageSnapshot(account.Extra)
 	return state
 }
@@ -1025,14 +987,6 @@ func ollamaCloudUsageConfigured(account *Account) bool {
 	}
 	value, ok := account.Extra[OllamaCloudUsageSessionExtraKey].(string)
 	return ok && strings.TrimSpace(value) != ""
-}
-
-func ollamaCloudUsageAutoRefreshEnabled(account *Account) bool {
-	if account == nil || account.Extra == nil {
-		return false
-	}
-	enabled, ok := account.Extra[OllamaCloudUsageAutoRefreshExtraKey].(bool)
-	return ok && enabled
 }
 
 func decodeOllamaCloudUsageSnapshot(extra map[string]any) *OllamaCloudUsageSnapshot {

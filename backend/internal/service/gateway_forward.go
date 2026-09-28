@@ -33,13 +33,8 @@ const (
 )
 
 func (s *GatewayService) shouldRetryUpstreamError(account *Account, statusCode int) bool {
-	// OAuth/Setup Token 账号：仅 403 重试
-	if account.IsOAuth() {
-		return statusCode == 403
-	}
-
-	// API Key 账号：未配置的错误码重试
-	return !account.ShouldHandleErrorCode(statusCode)
+	// OAuth/Setup Token 账号：仅 403 重试；其余账号不在这里重试（池模式的同渠道重试另有一套）
+	return account.IsOAuth() && statusCode == 403
 }
 
 // shouldFailoverUpstreamError determines whether an upstream error should trigger account failover.

@@ -39,7 +39,7 @@ func (a *Account) SchedulingState(now time.Time) SchedulingState {
 		state.Blocked, state.Reason = true, "disabled"
 	case !a.Schedulable:
 		state.Blocked, state.Reason = true, "unschedulable"
-	case a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt):
+	case a.ExpiresAt != nil && !now.Before(*a.ExpiresAt):
 		state.Blocked, state.Reason = true, "expired"
 	case a.OverloadUntil != nil && now.Before(*a.OverloadUntil):
 		state.Blocked, state.Reason, state.BlockedUntil = true, "overloaded", cloneTimePtr(a.OverloadUntil)

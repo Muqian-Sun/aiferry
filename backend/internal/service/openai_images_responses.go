@@ -954,32 +954,6 @@ func (s *OpenAIGatewayService) handleOpenAIImagesErrorResponse(
 		return nil, upErr
 	}
 
-	// If the account is not configured to handle this status code, fall back to
-	// a generic gateway error without exposing upstream internals (mirrors
-	// handleCompatErrorResponse).
-	if !account.ShouldHandleErrorCode(resp.StatusCode) {
-		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-			ProxyID:            opsUpstreamProxyID(account),
-			ProxyName:          opsUpstreamProxyName(account),
-			Platform:           account.Platform,
-			AccountID:          account.ID,
-			AccountName:        account.Name,
-			UpstreamStatusCode: resp.StatusCode,
-			UpstreamRequestID:  resp.Header.Get("x-request-id"),
-			Kind:               "http_error",
-			Message:            upstreamMsg,
-			Detail:             upstreamDetail,
-		})
-		upErr := &OpenAIImagesUpstreamError{
-			StatusCode:        http.StatusInternalServerError,
-			ErrorType:         "upstream_error",
-			Message:           "Upstream gateway error",
-			UpstreamRequestID: strings.TrimSpace(resp.Header.Get("x-request-id")),
-		}
-		writeOpenAIImagesUpstreamErrorResponse(c, upErr)
-		return nil, upErr
-	}
-
 	// 主控不可用不代表图片模型配额耗尽，直接透传，避免误冷却整个图片账号池。
 	if account.IsOpenAIOAuthLike() && isOpenAIImagesMainModelError(resp.StatusCode, body) {
 		upErr := openAIImagesUpstreamErrorFromHTTP(resp.StatusCode, resp.Header, body)

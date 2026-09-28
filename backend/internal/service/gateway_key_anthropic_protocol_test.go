@@ -26,9 +26,8 @@ func openAILabelledAnthropicKey(extra map[string]any) *Account {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":                    "relay-key",
-			credKeyHeaderOverrideEnabled: true,
-			credKeyHeaderOverrides:       map[string]any{"x-relay-tenant": "tenant-1"},
+			"api_key":              "relay-key",
+			credKeyHeaderOverrides: map[string]any{"x-relay-tenant": "tenant-1"},
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
 		Extra:             extra,

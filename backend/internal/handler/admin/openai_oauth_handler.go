@@ -170,18 +170,16 @@ type OpenAIRefreshTokenRequest struct {
 }
 
 type OpenAICodexPATCreateRequest struct {
-	AccessToken        string         `json:"access_token" binding:"required"`
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Concurrency        *int           `json:"concurrency"`
-	Priority           *int           `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	LoadFactor         *int           `json:"load_factor"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
-	CredentialExtras   map[string]any `json:"credential_extras"`
-	Extra              map[string]any `json:"extra"`
+	AccessToken      string         `json:"access_token" binding:"required"`
+	Name             string         `json:"name"`
+	Notes            *string        `json:"notes"`
+	ProxyID          *int64         `json:"proxy_id"`
+	Concurrency      *int           `json:"concurrency"`
+	Priority         *int           `json:"priority"`
+	RateMultiplier   *float64       `json:"rate_multiplier"`
+	ExpiresAt        *int64         `json:"expires_at"`
+	CredentialExtras map[string]any `json:"credential_extras"`
+	Extra            map[string]any `json:"extra"`
 }
 
 // RefreshToken refreshes an OpenAI OAuth token
@@ -373,10 +371,6 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 		response.BadRequest(c, "rate_multiplier must be >= 0")
 		return
 	}
-	if req.LoadFactor != nil && *req.LoadFactor > 10000 {
-		response.BadRequest(c, "load_factor must be <= 10000")
-		return
-	}
 
 	var proxyURL string
 	if req.ProxyID != nil {
@@ -417,19 +411,17 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 	}
 
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
-		Name:               buildOpenAICodexPATAccountName(req.Name, tokenInfo),
-		Notes:              req.Notes,
-		Platform:           service.PlatformOpenAI,
-		Type:               service.AccountTypeOAuth,
-		Credentials:        credentials,
-		Extra:              extra,
-		ProxyID:            req.ProxyID,
-		Concurrency:        concurrency,
-		Priority:           priority,
-		RateMultiplier:     req.RateMultiplier,
-		LoadFactor:         req.LoadFactor,
-		ExpiresAt:          req.ExpiresAt,
-		AutoPauseOnExpired: req.AutoPauseOnExpired,
+		Name:           buildOpenAICodexPATAccountName(req.Name, tokenInfo),
+		Notes:          req.Notes,
+		Platform:       service.PlatformOpenAI,
+		Type:           service.AccountTypeOAuth,
+		Credentials:    credentials,
+		Extra:          extra,
+		ProxyID:        req.ProxyID,
+		Concurrency:    concurrency,
+		Priority:       priority,
+		RateMultiplier: req.RateMultiplier,
+		ExpiresAt:      req.ExpiresAt,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

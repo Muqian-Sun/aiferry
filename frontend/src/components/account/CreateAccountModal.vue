@@ -630,34 +630,6 @@
         </p>
       </div>
 
-      <div>
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{
-              t('admin.accounts.autoPauseOnExpired')
-            }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.autoPauseOnExpiredDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="autoPauseOnExpired = !autoPauseOnExpired"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              autoPauseOnExpired ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                autoPauseOnExpired ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
       <div v-if="form.platform === 'antigravity'">
         <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
         <input
@@ -822,18 +794,11 @@
 
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
           <input v-model.number="form.concurrency" type="number" min="1" class="input"
             @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.loadFactor') }}</label>
-          <input v-model.number="form.load_factor" type="number" min="1"
-            class="input" :placeholder="String(form.concurrency || 1)"
-            @input="form.load_factor = (form.load_factor &amp;&amp; form.load_factor >= 1) ? form.load_factor : null" />
-          <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.priority') }}</label>
@@ -867,40 +832,9 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
-          :quotaNotifyGlobalEnabled="quotaNotifyGlobalEnabled"
-          :quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled"
-          :quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold"
-          :quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType"
-          :quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled"
-          :quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold"
-          :quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType"
-          :quotaNotifyTotalEnabled="quotaNotifyState.total.enabled"
-          :quotaNotifyTotalThreshold="quotaNotifyState.total.threshold"
-          :quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType"
-          :dailyResetMode="editDailyResetMode"
-          :dailyResetHour="editDailyResetHour"
-          :weeklyResetMode="editWeeklyResetMode"
-          :weeklyResetDay="editWeeklyResetDay"
-          :weeklyResetHour="editWeeklyResetHour"
-          :resetTimezone="editResetTimezone"
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-          @update:quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled = $event"
-          @update:quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold = $event"
-          @update:quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType = $event"
-          @update:quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled = $event"
-          @update:quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold = $event"
-          @update:quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType = $event"
-          @update:quotaNotifyTotalEnabled="quotaNotifyState.total.enabled = $event"
-          @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
-          @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
-          @update:dailyResetMode="editDailyResetMode = $event"
-          @update:dailyResetHour="editDailyResetHour = $event"
-          @update:weeklyResetMode="editWeeklyResetMode = $event"
-          @update:weeklyResetDay="editWeeklyResetDay = $event"
-          @update:weeklyResetHour="editWeeklyResetHour = $event"
-          @update:resetTimezone="editResetTimezone = $event"
         />
       </div>
 
@@ -919,40 +853,9 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
-          :quotaNotifyGlobalEnabled="quotaNotifyGlobalEnabled"
-          :quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled"
-          :quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold"
-          :quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType"
-          :quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled"
-          :quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold"
-          :quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType"
-          :quotaNotifyTotalEnabled="quotaNotifyState.total.enabled"
-          :quotaNotifyTotalThreshold="quotaNotifyState.total.threshold"
-          :quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType"
-          :dailyResetMode="editDailyResetMode"
-          :dailyResetHour="editDailyResetHour"
-          :weeklyResetMode="editWeeklyResetMode"
-          :weeklyResetDay="editWeeklyResetDay"
-          :weeklyResetHour="editWeeklyResetHour"
-          :resetTimezone="editResetTimezone"
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-          @update:quotaNotifyDailyEnabled="quotaNotifyState.daily.enabled = $event"
-          @update:quotaNotifyDailyThreshold="quotaNotifyState.daily.threshold = $event"
-          @update:quotaNotifyDailyThresholdType="quotaNotifyState.daily.thresholdType = $event"
-          @update:quotaNotifyWeeklyEnabled="quotaNotifyState.weekly.enabled = $event"
-          @update:quotaNotifyWeeklyThreshold="quotaNotifyState.weekly.threshold = $event"
-          @update:quotaNotifyWeeklyThresholdType="quotaNotifyState.weekly.thresholdType = $event"
-          @update:quotaNotifyTotalEnabled="quotaNotifyState.total.enabled = $event"
-          @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
-          @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
-          @update:dailyResetMode="editDailyResetMode = $event"
-          @update:dailyResetHour="editDailyResetHour = $event"
-          @update:weeklyResetMode="editWeeklyResetMode = $event"
-          @update:weeklyResetDay="editWeeklyResetDay = $event"
-          @update:weeklyResetHour="editWeeklyResetHour = $event"
-          @update:resetTimezone="editResetTimezone = $event"
         />
       </div>
 
@@ -1059,7 +962,7 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
-      <!-- API Key 类型的池模式与自定义错误码 -->
+      <!-- API Key 类型的池模式 -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
         <!-- Pool Mode Section -->
         <div class="border-t border-af-hairline pt-4">
@@ -1092,135 +995,6 @@
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
           </div>
-          <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
-              v-model.number="poolModeRetryCount"
-              type="number"
-              min="0"
-              :max="MAX_POOL_MODE_RETRY_COUNT"
-              step="1"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{
-                t('admin.accounts.poolModeRetryCountHint', {
-                  default: DEFAULT_POOL_MODE_RETRY_COUNT,
-                  max: MAX_POOL_MODE_RETRY_COUNT
-                })
-              }}
-            </p>
-          </div>
-          <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
-              v-model="poolModeRetryStatusCodesInput"
-              type="text"
-              class="input"
-              :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
-            />
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Custom Error Codes Section -->
-        <div class="border-t border-af-hairline pt-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.customErrorCodesHint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="customErrorCodesEnabled = !customErrorCodesEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                customErrorCodesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  customErrorCodesEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="customErrorCodesEnabled" class="space-y-3">
-            <div class="rounded-lg bg-af-warning-tint p-3">
-              <p class="text-xs text-af-warning">
-                <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-                {{ t('admin.accounts.customErrorCodesWarning') }}
-              </p>
-            </div>
-
-            <!-- Error Code Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="code in commonErrorCodes"
-                :key="code.value"
-                type="button"
-                @click="toggleErrorCode(code.value)"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  selectedErrorCodes.includes(code.value)
-                    ? 'bg-af-danger-tint text-af-danger ring-1 ring-af-danger'
-                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                ]"
-              >
-                {{ code.value }} {{ code.label }}
-              </button>
-            </div>
-
-            <!-- Manual input -->
-            <div class="flex items-center gap-2">
-              <input
-                v-model.number="customErrorCodeInput"
-                type="number"
-                min="100"
-                max="599"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.enterErrorCode')"
-                @keyup.enter="addCustomErrorCode"
-              />
-              <button type="button" @click="addCustomErrorCode" class="btn btn-secondary px-3">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Selected codes summary -->
-            <div class="flex flex-wrap gap-1.5">
-              <span
-                v-for="code in selectedErrorCodes.sort((a, b) => a - b)"
-                :key="code"
-                class="inline-flex items-center gap-1 rounded-full bg-af-danger-tint px-2.5 py-0.5 text-sm font-medium text-af-danger"
-              >
-                {{ code }}
-                <button
-                  type="button"
-                  @click="removeErrorCode(code)"
-                  class="hover:text-af-danger"
-                >
-                  <Icon name="x" size="sm" :stroke-width="2" />
-                </button>
-              </span>
-              <span v-if="selectedErrorCodes.length === 0" class="text-xs text-af-ink-3">
-                {{ t('admin.accounts.noneSelectedUsesDefault') }}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1237,25 +1011,9 @@
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
           </div>
-          <button
-            type="button"
-            data-testid="create-header-override-toggle"
-            @click="headerOverrideEnabled = !headerOverrideEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
         </div>
 
-        <div v-if="headerOverrideEnabled" class="space-y-3">
+        <div class="space-y-3">
           <div class="rounded-lg bg-af-sunken p-3">
             <p class="text-xs text-af-ink-2">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
@@ -1267,154 +1025,6 @@
             :rows="headerOverrideRows"
             @update:rows="headerOverrideRows = $event"
           />
-        </div>
-      </div>
-
-      <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-af-hairline pt-4 space-y-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.tempUnschedulable.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="tempUnschedEnabled = !tempUnschedEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              tempUnschedEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                tempUnschedEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-
-        <div v-if="tempUnschedEnabled" class="space-y-3">
-          <div class="rounded-lg bg-af-sunken p-3">
-              <p class="text-xs text-af-ink-2">
-                <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-                {{ t('admin.accounts.tempUnschedulable.notice') }}
-              </p>
-            </div>
-
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in tempUnschedPresets"
-              :key="preset.label"
-              type="button"
-              @click="addTempUnschedRule(preset.rule)"
-              class="rounded-lg bg-af-sunken px-3 py-1.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-hairline"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-
-          <div v-if="tempUnschedRules.length > 0" class="space-y-3">
-            <div
-              v-for="(rule, index) in tempUnschedRules"
-              :key="getTempUnschedRuleKey(rule)"
-              class="rounded-lg border border-af-hairline p-3"
-            >
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.accounts.tempUnschedulable.ruleIndex', { index: index + 1 }) }}
-                </span>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    :disabled="index === 0"
-                    @click="moveTempUnschedRule(index, -1)"
-                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Icon name="chevronUp" size="sm" :stroke-width="2" />
-                  </button>
-                  <button
-                    type="button"
-                    :disabled="index === tempUnschedRules.length - 1"
-                    @click="moveTempUnschedRule(index, 1)"
-                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    @click="removeTempUnschedRule(index)"
-                    class="rounded p-1 text-af-danger transition-colors hover:text-af-danger"
-                  >
-                    <Icon name="x" size="sm" :stroke-width="2" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
-                  <input
-                    v-model.number="rule.error_code"
-                    type="number"
-                    min="100"
-                    max="599"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.errorCodePlaceholder')"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.durationMinutes') }}</label>
-                  <input
-                    v-model.number="rule.duration_minutes"
-                    type="number"
-                    min="1"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
-                  <input
-                    v-model="rule.keywords"
-                    type="text"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.keywordsPlaceholder')"
-                  />
-                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.keywordsHint') }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.description') }}</label>
-                  <input
-                    v-model="rule.description"
-                    type="text"
-                    class="input"
-                    :placeholder="t('admin.accounts.tempUnschedulable.descriptionPlaceholder')"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addTempUnschedRule()"
-            class="w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-sm text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            {{ t('admin.accounts.tempUnschedulable.addRule') }}
-          </button>
         </div>
       </div>
 
@@ -1450,11 +1060,6 @@
         </div>
       </div>
 
-      <UpstreamRequestIdHeaderField
-        v-model="upstreamRequestIdHeader"
-        :platform="form.platform"
-        :type="form.type"
-      />
       </template>
     </form>
 
@@ -1803,12 +1408,10 @@ import { useAppStore } from '@/stores/app'
 
 import {
   PLATFORMS_WITH_VENDOR_MODEL_TABLE,
-  commonErrorCodes,
   buildModelMappingObject,
   renamePresetsFor
 } from '@/composables/useModelWhitelist'
 import { adminAPI } from '@/api/admin'
-import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import {
   useAccountOAuth,
   type AddMethod,
@@ -1833,7 +1436,6 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
@@ -1881,7 +1483,6 @@ import {
   getBrowserTimeZone,
   parseDateTimeLocalInput
 } from '@/utils/format'
-import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
@@ -1912,15 +1513,6 @@ const oauthStepTitle = computed(() => {
   if (form.platform === 'grok') return t('admin.accounts.oauth.grok.title')
   return t('admin.accounts.oauth.title')
 })
-
-// Platform-specific hints for API Key type
-// 上游ID：直接上游声明请求标识的响应头名，留空不记录。
-const upstreamRequestIdHeader = ref('')
-const withUpstreamRequestIdHeader = <T extends Record<string, unknown> | undefined>(extra: T): T | Record<string, unknown> => {
-  const name = upstreamRequestIdHeader.value.trim()
-  if (!name) return extra
-  return { ...(extra || {}), upstream_request_id_header: name }
-}
 
 // API Key 的提示与占位跟着按地址识别出的厂商走；中转用通用说法
 const apiKeyHint = computed(() => {
@@ -2013,13 +1605,6 @@ const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
 interface ModelMapping {
   from: string
   to: string
-}
-
-interface TempUnschedRuleForm {
-  error_code: number | null
-  keywords: string
-  duration_minutes: number | null
-  description: string
 }
 
 // State
@@ -2166,61 +1751,28 @@ function validatedProtocolEndpoints(): ProtocolEndpoints | null {
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
-const editDailyResetMode = ref<'rolling' | 'fixed' | null>(null)
-const editDailyResetHour = ref<number | null>(null)
-const editWeeklyResetMode = ref<'rolling' | 'fixed' | null>(null)
-const editWeeklyResetDay = ref<number | null>(null)
-const editWeeklyResetHour = ref<number | null>(null)
-const editResetTimezone = ref<string | null>(null)
 // 模型改名（可选）：只改名、不兼任白名单，写入时带 model_mapping_rename_only（见 withRenameOnlyMapping）
 const modelMappings = ref<ModelMapping[]>([])
 const buildRenameMapping = () => buildModelMappingObject('mapping', [], modelMappings.value)
-const DEFAULT_POOL_MODE_RETRY_COUNT = 3
-const MAX_POOL_MODE_RETRY_COUNT = 10
-const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
+// 池模式同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关
 const poolModeEnabled = ref(false)
-const poolModeRetryCount = ref(DEFAULT_POOL_MODE_RETRY_COUNT)
-const poolModeRetryStatusCodesInput = ref('')
-
-function parsePoolModeRetryStatusCodes(input: string): number[] {
-  if (!input || !input.trim()) return []
-  const seen = new Set<number>()
-  const out: number[] = []
-  for (const token of input.split(/[,\s]+/)) {
-    const trimmed = token.trim()
-    if (!trimmed) continue
-    const n = Number(trimmed)
-    if (!Number.isFinite(n) || !Number.isInteger(n)) continue
-    if (n < 100 || n > 599) continue
-    if (seen.has(n)) continue
-    seen.add(n)
-    out.push(n)
-  }
-  return out.sort((a, b) => a - b)
-}
-const customErrorCodesEnabled = ref(false)
-const selectedErrorCodes = ref<number[]>([])
-const customErrorCodeInput = ref<number | null>(null)
-const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
 // 请求头覆写的前置校验，失败时提示并返回 false。
 // Grok OAuth 三条创建路径（授权码/RT 批量/SSO 批量）必须在兑换 code 之前调用，
 // 避免校验失败时白白消耗一次性授权码。
 const validateHeaderOverrideForm = (): boolean => {
-  if (headerOverrideEnabled.value) {
-    const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-    if (headerError) {
-      appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-      return false
-    }
+  const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
+  if (headerError) {
+    appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+    return false
   }
   return true
 }
 
 // 把已通过校验的请求头覆写写入 credentials（Grok OAuth 成品号只走官方地址，只有这一项上游配置）
 const applyGrokOAuthUpstreamConfig = (credentials: Record<string, unknown>) => {
-  applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  applyHeaderOverride(credentials, headerOverrideRows.value, 'create')
 }
 
 // 第三方 key（含 Antigravity 上游 key）的请求头覆写：校验通过才写入 credentials。
@@ -2228,20 +1780,14 @@ const applyKeyHeaderOverride = (credentials: Record<string, unknown>): boolean =
   if (!validateHeaderOverrideForm()) {
     return false
   }
-  applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  applyHeaderOverride(credentials, headerOverrideRows.value, 'create')
   return true
 }
 const interceptWarmupRequests = ref(false)
-const autoPauseOnExpired = ref(true)
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
 const bedrockCCCompatEnabled = ref(false)
 
-const {
-  globalEnabled: quotaNotifyGlobalEnabled,
-  state: quotaNotifyState,
-  writeToExtra: writeQuotaNotifyToExtra,
-} = useQuotaNotifyState()
 
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
@@ -2257,10 +1803,6 @@ const vertexServiceAccountFileInput = ref<HTMLInputElement | null>(null)
 const vertexServiceAccountJson = ref('')
 const vertexLocation = ref('global')
 const vertexServiceAccountDragActive = ref(false)
-const tempUnschedEnabled = ref(false)
-const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
-
-const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('create-temp-unsched-rule')
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('google_one')
 const geminiAIStudioOAuthEnabled = ref(false)
 function buildAntigravityExtra(): Record<string, unknown> | undefined {
@@ -2303,36 +1845,6 @@ const renamePresets = computed(() => {
 const extendsVendorTable = computed(() =>
   PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(isKeyMode.value ? (keyVendor.value ?? '') : form.platform)
 )
-const tempUnschedPresets = computed(() => [
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
-    rule: {
-      error_code: 529,
-      keywords: 'overloaded, too many',
-      duration_minutes: 60,
-      description: t('admin.accounts.tempUnschedulable.presets.overloadDesc')
-    }
-  },
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.rateLimitLabel'),
-    rule: {
-      error_code: 429,
-      keywords: 'rate limit, too many requests',
-      duration_minutes: 10,
-      description: t('admin.accounts.tempUnschedulable.presets.rateLimitDesc')
-    }
-  },
-  {
-    label: t('admin.accounts.tempUnschedulable.presets.unavailableLabel'),
-    rule: {
-      error_code: 503,
-      keywords: 'unavailable, maintenance',
-      duration_minutes: 30,
-      description: t('admin.accounts.tempUnschedulable.presets.unavailableDesc')
-    }
-  }
-])
-
 const form = reactive({
   name: '',
   notes: '',
@@ -2341,7 +1853,6 @@ const form = reactive({
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
   concurrency: 10,
-  load_factor: null as number | null,
   priority: 1,
   rate_multiplier: 1,
   expires_at: null as number | null
@@ -2463,7 +1974,6 @@ watch(
       accountCategory.value = 'oauth-based'
       addMethod.value = 'oauth'
       form.concurrency = 1
-      form.load_factor = null
     }
     if (newPlatform !== 'gemini' && newPlatform !== 'anthropic' && accountCategory.value === 'service_account') {
       accountCategory.value = 'oauth-based'
@@ -2490,7 +2000,6 @@ watch(
     bedrockCCCompatEnabled.value = false
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
-    headerOverrideEnabled.value = false
     headerOverrideRows.value = []
     // Reset OAuth states
     oauth.resetState()
@@ -2527,142 +2036,6 @@ const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | '
   geminiOAuthType.value = oauthType
 }
 
-
-// Error code toggle helper
-const toggleErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index === -1) {
-    // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
-    }
-    selectedErrorCodes.value.push(code)
-  } else {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
-
-// Add custom error code from input
-const addCustomErrorCode = () => {
-  const code = customErrorCodeInput.value
-  if (code === null || code < 100 || code > 599) {
-    appStore.showError(t('admin.accounts.invalidErrorCode'))
-    return
-  }
-  if (selectedErrorCodes.value.includes(code)) {
-    appStore.showInfo(t('admin.accounts.errorCodeExists'))
-    return
-  }
-  // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
-  }
-  selectedErrorCodes.value.push(code)
-  customErrorCodeInput.value = null
-}
-
-// Remove error code
-const removeErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index !== -1) {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
-
-const addTempUnschedRule = (preset?: TempUnschedRuleForm) => {
-  if (preset) {
-    tempUnschedRules.value.push({ ...preset })
-    return
-  }
-  tempUnschedRules.value.push({
-    error_code: null,
-    keywords: '',
-    duration_minutes: 30,
-    description: ''
-  })
-}
-
-const removeTempUnschedRule = (index: number) => {
-  tempUnschedRules.value.splice(index, 1)
-}
-
-const moveTempUnschedRule = (index: number, direction: number) => {
-  const target = index + direction
-  if (target < 0 || target >= tempUnschedRules.value.length) return
-  const rules = tempUnschedRules.value
-  const current = rules[index]
-  rules[index] = rules[target]
-  rules[target] = current
-}
-
-const buildTempUnschedRules = (rules: TempUnschedRuleForm[]) => {
-  const out: Array<{
-    error_code: number
-    keywords: string[]
-    duration_minutes: number
-    description: string
-  }> = []
-
-  for (const rule of rules) {
-    const errorCode = Number(rule.error_code)
-    const duration = Number(rule.duration_minutes)
-    const keywords = splitTempUnschedKeywords(rule.keywords)
-    if (!Number.isFinite(errorCode) || errorCode < 100 || errorCode > 599) {
-      continue
-    }
-    if (!Number.isFinite(duration) || duration <= 0) {
-      continue
-    }
-    if (keywords.length === 0) {
-      continue
-    }
-    out.push({
-      error_code: Math.trunc(errorCode),
-      keywords,
-      duration_minutes: Math.trunc(duration),
-      description: rule.description.trim()
-    })
-  }
-
-  return out
-}
-
-const applyTempUnschedConfig = (credentials: Record<string, unknown>) => {
-  if (!tempUnschedEnabled.value) {
-    delete credentials.temp_unschedulable_enabled
-    delete credentials.temp_unschedulable_rules
-    return true
-  }
-
-  const rules = buildTempUnschedRules(tempUnschedRules.value)
-  if (rules.length === 0) {
-    appStore.showError(t('admin.accounts.tempUnschedulable.rulesInvalid'))
-    return false
-  }
-
-  credentials.temp_unschedulable_enabled = true
-  credentials.temp_unschedulable_rules = rules
-  return true
-}
-
-const splitTempUnschedKeywords = (value: string) => {
-  return value
-    .split(/[,;]/)
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
 
 // 映射只改名（muqian 2026-09-25 去掉白名单）：写了 model_mapping 就一并打标记，渠道承接哪些模型看目录绑定。
 const withRenameOnlyMapping = (credentials: Record<string, unknown>): Record<string, unknown> => {
@@ -2751,7 +2124,6 @@ const resetForm = () => {
   form.credentials = {}
   form.proxy_id = null
   form.concurrency = 10
-  form.load_factor = null
   form.priority = 1
   form.rate_multiplier = 1
   form.expires_at = null
@@ -2762,32 +2134,18 @@ const resetForm = () => {
   zhipuOrganization.value = ''
   zhipuProject.value = ''
   apiKeyValue.value = ''
-  upstreamRequestIdHeader.value = ''
   upstreamBillingAutoProbeEnabled.value = true
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
-  editDailyResetMode.value = null
-  editDailyResetHour.value = null
-  editWeeklyResetMode.value = null
-  editWeeklyResetDay.value = null
-  editWeeklyResetHour.value = null
-  editResetTimezone.value = null
   modelMappings.value = []
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
   selectedCatalogEntryIds.value = []
   catalogSelectionTouched.value = false
   showMoreSettings.value = false
   poolModeEnabled.value = false
-  poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
-  poolModeRetryStatusCodesInput.value = ''
-  customErrorCodesEnabled.value = false
-  selectedErrorCodes.value = []
-  customErrorCodeInput.value = null
-  headerOverrideEnabled.value = false
   headerOverrideRows.value = []
   interceptWarmupRequests.value = false
-  autoPauseOnExpired.value = true
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   bedrockCCCompatEnabled.value = false
   // Reset quota control state
@@ -2799,8 +2157,6 @@ const resetForm = () => {
   antigravityProjectId.value = ''
   vertexServiceAccountJson.value = ''
   vertexLocation.value = 'global'
-  tempUnschedEnabled.value = false
-  tempUnschedRules.value = []
   geminiOAuthType.value = 'code_assist'
   oauth.resetState()
   openaiOAuth.resetState()
@@ -2836,20 +2192,6 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
 
 const doCreateAccount = async (payload: CreateAccountRequest) => {
   await submitCreateAccount(payload)
-}
-
-const normalizePoolModeRetryCount = (value: number) => {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_POOL_MODE_RETRY_COUNT
-  }
-  const normalized = Math.trunc(value)
-  if (normalized < 0) {
-    return 0
-  }
-  if (normalized > MAX_POOL_MODE_RETRY_COUNT) {
-    return MAX_POOL_MODE_RETRY_COUNT
-  }
-  return normalized
 }
 
 // Service Account JSON 原样交给后端，Project ID / Client Email 由后端从 JSON 里取（不另存副本）；
@@ -3009,20 +2351,9 @@ const handleSubmit = async () => {
     credentials.model_mapping = modelMapping
   }
 
-  // Add pool mode if enabled
+  // 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只写开关
   if (poolModeEnabled.value) {
     credentials.pool_mode = true
-    credentials.pool_mode_retry_count = normalizePoolModeRetryCount(poolModeRetryCount.value)
-    const parsedRetryStatusCodes = parsePoolModeRetryStatusCodes(poolModeRetryStatusCodesInput.value)
-    if (parsedRetryStatusCodes.length > 0) {
-      credentials.pool_mode_retry_status_codes = parsedRetryStatusCodes
-    }
-  }
-
-  // Add custom error codes if enabled
-  if (customErrorCodesEnabled.value) {
-    credentials.custom_error_codes_enabled = true
-    credentials.custom_error_codes = [...selectedErrorCodes.value]
   }
 
   // 请求头覆写对任何第三方 key 开放
@@ -3031,9 +2362,6 @@ const handleSubmit = async () => {
   }
 
   applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-  if (!applyTempUnschedConfig(credentials)) {
-    return
-  }
 
   form.credentials = credentials
   const extra = buildAnthropicExtra()
@@ -3041,9 +2369,8 @@ const handleSubmit = async () => {
   await doCreateAccount({
     ...form,
     protocol_endpoints: apiKeyEndpoints,
-    extra: withQuotaExtra(withUpstreamRequestIdHeader(extra)),
-    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
-    auto_pause_on_expired: autoPauseOnExpired.value
+    extra: withQuotaExtra(extra),
+    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value
   })
 }
 
@@ -3092,8 +2419,8 @@ const handleValidateSessionToken = (_sessionToken: string) => {
 const formatDateTimeLocal = formatDateTimeLocalInput
 const parseDateTimeLocal = parseDateTimeLocalInput
 
-// 限额（日 / 周 / 总）、重置方式与提醒写进 extra。第三方 key 的提交分支和 Bedrock / Vertex 共用，
-// 任何一条漏调，界面上填的限额就会被静默丢掉。
+// 限额（日 / 周 / 总）写进 extra（重置方式固定滚动、提醒固定用到 80% 发一次，都不用写）。
+// 第三方 key 的提交分支和 Bedrock / Vertex 共用，任何一条漏调，界面上填的限额就会被静默丢掉。
 const withQuotaExtra = (extra?: Record<string, unknown>): Record<string, unknown> | undefined => {
   const quotaExtra: Record<string, unknown> = { ...(extra || {}) }
   if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
@@ -3105,21 +2432,6 @@ const withQuotaExtra = (extra?: Record<string, unknown>): Record<string, unknown
   if (editQuotaWeeklyLimit.value != null && editQuotaWeeklyLimit.value > 0) {
     quotaExtra.quota_weekly_limit = editQuotaWeeklyLimit.value
   }
-  // Quota reset mode config
-  if (editDailyResetMode.value === 'fixed') {
-    quotaExtra.quota_daily_reset_mode = 'fixed'
-    quotaExtra.quota_daily_reset_hour = editDailyResetHour.value ?? 0
-  }
-  if (editWeeklyResetMode.value === 'fixed') {
-    quotaExtra.quota_weekly_reset_mode = 'fixed'
-    quotaExtra.quota_weekly_reset_day = editWeeklyResetDay.value ?? 1
-    quotaExtra.quota_weekly_reset_hour = editWeeklyResetHour.value ?? 0
-  }
-  if (editDailyResetMode.value === 'fixed' || editWeeklyResetMode.value === 'fixed') {
-    quotaExtra.quota_reset_timezone = editResetTimezone.value || 'UTC'
-  }
-  // Quota notify config
-  writeQuotaNotifyToExtra(quotaExtra, 'create')
   return Object.keys(quotaExtra).length > 0 ? quotaExtra : extra
 }
 
@@ -3131,11 +2443,8 @@ const createAccountAndFinish = async (
   extra?: Record<string, unknown>,
   protocolEndpointsForKey?: ProtocolEndpoints
 ) => {
-  if (!applyTempUnschedConfig(credentials)) {
-    return
-  }
   // Inject quota limits for apikey/bedrock accounts
-  let finalExtra = withUpstreamRequestIdHeader(extra)
+  let finalExtra = extra
   if (type === 'apikey' || type === 'bedrock') {
     finalExtra = withQuotaExtra(finalExtra)
   }
@@ -3157,14 +2466,12 @@ const createAccountAndFinish = async (
     extra: finalExtra,
     proxy_id: form.proxy_id,
     concurrency: form.concurrency,
-    load_factor: form.load_factor ?? undefined,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
     expires_at: form.expires_at,
     // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
     // 非 apikey 类型（bedrock/oauth）不传，后端不动作。
-    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined,
-    auto_pause_on_expired: autoPauseOnExpired.value
+    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined
   })
 }
 
@@ -3210,9 +2517,6 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
         if (modelMapping) {
           credentials.model_mapping = modelMapping
         }
-        if (!applyTempUnschedConfig(credentials)) {
-          return
-        }
 
         await createAccountRecord({
           name: accountName,
@@ -3220,14 +2524,12 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           platform: 'grok',
           type: 'oauth',
           credentials,
-          extra: withUpstreamRequestIdHeader(extra),
+          extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
-          load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          expires_at: form.expires_at,
-          auto_pause_on_expired: autoPauseOnExpired.value
+          expires_at: form.expires_at
         })
         successCount++
       } catch (error: any) {
@@ -3276,10 +2578,6 @@ const handleGrokImportSSO = async (ssoInput: string) => {
   if (modelMapping) {
     credentials.model_mapping = modelMapping
   }
-  if (!applyTempUnschedConfig(credentials)) {
-    grokOAuth.loading.value = false
-    return
-  }
 
   try {
     const result = await adminAPI.grok.createFromSSO({
@@ -3289,11 +2587,9 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       proxy_id: form.proxy_id,
       credentials: withRenameOnlyMapping(credentials),
       concurrency: form.concurrency,
-      load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
-      expires_at: form.expires_at,
-      auto_pause_on_expired: autoPauseOnExpired.value
+      expires_at: form.expires_at
     })
     await bindSelectedCatalogEntries(
       (result.created ?? []).flatMap((item) => (item.account ? [item.account.id] : []))
@@ -3384,9 +2680,6 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
         if (modelMapping) {
           credentials.model_mapping = modelMapping
         }
-        if (!applyTempUnschedConfig(credentials)) {
-          return
-        }
 
         await createAccountRecord({
           name: accountName,
@@ -3394,14 +2687,12 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           platform: 'grok',
           type: 'oauth',
           credentials,
-          extra: withUpstreamRequestIdHeader(extra),
+          extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
-          load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          expires_at: form.expires_at,
-          auto_pause_on_expired: autoPauseOnExpired.value
+          expires_at: form.expires_at
         })
         successCount++
       } catch (error: any) {
@@ -3474,9 +2765,6 @@ const handleOpenAIExchange = async (authCode: string) => {
     }
 
     // 应用临时不可调度配置
-    if (!applyTempUnschedConfig(credentials)) {
-      return
-    }
 
     if (shouldCreateOpenAI) {
       await createAccountRecord({
@@ -3485,14 +2773,12 @@ const handleOpenAIExchange = async (authCode: string) => {
         platform: 'openai',
         type: 'oauth',
         credentials,
-        extra: withUpstreamRequestIdHeader(extra),
+        extra,
         proxy_id: form.proxy_id,
         concurrency: form.concurrency,
-        load_factor: form.load_factor ?? undefined,
         priority: form.priority,
         rate_multiplier: form.rate_multiplier,
-        expires_at: form.expires_at,
-        auto_pause_on_expired: autoPauseOnExpired.value
+        expires_at: form.expires_at
       })
       appStore.showSuccess(t('admin.accounts.accountCreated'))
     }
@@ -3518,9 +2804,6 @@ const buildOpenAICodexImportCredentialExtras = (): Record<string, unknown> | nul
     credentials.model_mapping = modelMapping
   }
 
-  if (!applyTempUnschedConfig(credentials)) {
-    return null
-  }
   return credentials
 }
 
@@ -3584,13 +2867,10 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
-      load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
       expires_at: form.expires_at,
-      auto_pause_on_expired: autoPauseOnExpired.value,
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
-      extra: withUpstreamRequestIdHeader(undefined),
       update_existing: true
     })
 
@@ -3660,13 +2940,10 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
-      load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
       expires_at: form.expires_at,
-      auto_pause_on_expired: autoPauseOnExpired.value,
-      credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
-      extra: withUpstreamRequestIdHeader(undefined)
+      credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined
     })
 
     appStore.showSuccess(t('admin.accounts.accountCreated'))
@@ -3747,14 +3024,12 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             platform: 'openai',
             type: 'oauth',
             credentials,
-            extra: withUpstreamRequestIdHeader(extra),
+            extra,
             proxy_id: form.proxy_id,
             concurrency: form.concurrency,
-            load_factor: form.load_factor ?? undefined,
             priority: form.priority,
             rate_multiplier: form.rate_multiplier,
-            expires_at: form.expires_at,
-            auto_pause_on_expired: autoPauseOnExpired.value
+            expires_at: form.expires_at
           })
         }
 
@@ -3845,14 +3120,12 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           platform: 'antigravity',
           type: 'oauth',
           credentials,
-          extra: withUpstreamRequestIdHeader({}),
+          extra: {},
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
-          load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          expires_at: form.expires_at,
-          auto_pause_on_expired: autoPauseOnExpired.value
+          expires_at: form.expires_at
         }
         await createAccountRecord(createPayload)
         successCount++
@@ -4081,14 +3354,6 @@ const handleCookieAuth = async (sessionKey: string) => {
       return
     }
 
-    const tempUnschedPayload = tempUnschedEnabled.value
-      ? buildTempUnschedRules(tempUnschedRules.value)
-      : []
-    if (tempUnschedEnabled.value && tempUnschedPayload.length === 0) {
-      appStore.showError(t('admin.accounts.tempUnschedulable.rulesInvalid'))
-      return
-    }
-
     const endpoint =
       addMethod.value === 'oauth'
         ? '/admin/accounts/cookie-auth'
@@ -4127,10 +3392,6 @@ const handleCookieAuth = async (sessionKey: string) => {
 
         const credentials: Record<string, unknown> = { ...tokenInfo }
         applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-        if (tempUnschedEnabled.value) {
-          credentials.temp_unschedulable_enabled = true
-          credentials.temp_unschedulable_rules = tempUnschedPayload
-        }
 
         await createAccountRecord({
           name: accountName,
@@ -4138,14 +3399,12 @@ const handleCookieAuth = async (sessionKey: string) => {
           platform: form.platform,
           type: addMethod.value, // Use addMethod as type: 'oauth' or 'setup-token'
           credentials,
-          extra: withUpstreamRequestIdHeader(extra),
+          extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
-          load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
-          expires_at: form.expires_at,
-          auto_pause_on_expired: autoPauseOnExpired.value
+          expires_at: form.expires_at
         })
 
         successCount++

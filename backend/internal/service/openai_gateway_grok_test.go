@@ -1012,7 +1012,6 @@ func TestBuildGrokResponsesRequestAppliesHeaderOverridesLast(t *testing.T) {
 		Platform: PlatformGrok,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
-			"header_override_enabled": true,
 			"header_overrides": map[string]any{
 				"User-Agent":            "relay-client/2.0",
 				"X-Grok-Client-Version": "9.9.9",
@@ -1042,7 +1041,6 @@ func TestBuildGrokResponsesRequestIgnoresBlockedHeaderOverrides(t *testing.T) {
 		Platform: PlatformGrok,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"header_override_enabled": true,
 			"header_overrides": map[string]any{
 				"Authorization":  "Bearer stolen",
 				"x-grok-conv-id": "pinned-conversation",
@@ -1901,7 +1899,8 @@ func TestGrokMediaVideoRequestBindingIsScopedToUserAndAPIKey(t *testing.T) {
 	require.Zero(t, accountID)
 }
 
-func TestForwardGrokMedia429ReconcilesRateLimitBeforeCustomErrorBypass(t *testing.T) {
+// 渠道级自定义错误码 2026-09-28 P5 已删：旧行留着的 [400] 不再把 429 改写成 500 隐藏，照常记限流并换号。
+func TestForwardGrokMedia429ReconcilesRateLimitAndFailsOverDespiteLegacyCustomCodes(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	gin.SetMode(gin.TestMode)
 
@@ -1940,9 +1939,10 @@ func TestForwardGrokMedia429ReconcilesRateLimitBeforeCustomErrorBypass(t *testin
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.Error(t, err)
 	require.Nil(t, result)
-	require.Equal(t, http.StatusInternalServerError, recorder.Code)
-	require.Contains(t, recorder.Body.String(), "Upstream gateway error")
-	require.NotContains(t, recorder.Body.String(), "do not expose")
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.StatusCode)
+	require.Zero(t, recorder.Body.Len(), "换号场景不写客户端响应")
 	require.Equal(t, 1, repo.rateLimitedCalls)
 	require.Zero(t, repo.tempUnschedCalls)
 	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))

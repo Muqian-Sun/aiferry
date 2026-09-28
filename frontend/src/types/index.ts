@@ -781,7 +781,6 @@ export interface OllamaCloudUsageState {
   account_id: number
   eligible: boolean
   configured: boolean
-  auto_refresh_enabled: boolean
   encryption_key_configured: boolean
   snapshot?: OllamaCloudUsageSnapshot
 }
@@ -838,7 +837,6 @@ export interface Account {
   proxy_fallback_origin_id?: number | null
   proxy_fallback_origin_name?: string | null
   concurrency: number
-  load_factor?: number | null
   current_concurrency?: number // Real-time concurrency count from Redis
   priority: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
@@ -846,7 +844,6 @@ export interface Account {
   error_message: string | null
   last_used_at: string | null
   expires_at: number | null
-  auto_pause_on_expired: boolean
   created_at: string
   updated_at: string
   proxy?: Proxy
@@ -878,16 +875,6 @@ export interface Account {
   quota_daily_used?: number | null
   quota_weekly_limit?: number | null
   quota_weekly_used?: number | null
-
-  // 配额固定时间重置配置
-  quota_daily_reset_mode?: 'rolling' | 'fixed' | null
-  quota_daily_reset_hour?: number | null
-  quota_weekly_reset_mode?: 'rolling' | 'fixed' | null
-  quota_weekly_reset_day?: number | null
-  quota_weekly_reset_hour?: number | null
-  quota_reset_timezone?: string | null
-  quota_daily_reset_at?: string | null
-  quota_weekly_reset_at?: string | null
 
   // 运行时状态（仅当启用对应限制时返回）
   active_sessions?: number | null // 当前活跃会话数
@@ -1074,11 +1061,9 @@ export interface CreateAccountRequest {
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number
-  load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   confirm_mixed_channel_risk?: boolean
 }
@@ -1092,13 +1077,11 @@ export interface UpdateAccountRequest {
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number
-  load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   upstream_billing_rate_sync_enabled?: boolean
   confirm_mixed_channel_risk?: boolean
@@ -1165,7 +1148,6 @@ export interface AdminDataAccount {
   priority: number
   rate_multiplier?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
 }
 
 export interface AdminDataImportError {
@@ -1193,9 +1175,7 @@ export interface CodexSessionImportRequest {
   concurrency?: number
   priority?: number
   rate_multiplier?: number
-  load_factor?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   update_existing?: boolean
@@ -1210,9 +1190,7 @@ export interface OpenAICodexPATCreateRequest {
   concurrency?: number
   priority?: number
   rate_multiplier?: number
-  load_factor?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   confirm_mixed_channel_risk?: boolean

@@ -320,46 +320,25 @@ func quotaCounterPauseDecision(account *Account, now time.Time) (time.Time, stri
 	return time.Time{}, "", false
 }
 
-// quotaDailyPeriodEnd 返回当前日配额周期的结束时刻；周期未开始或已过期（下次递增会重置）返回 false。
+// quotaDailyPeriodEnd 返回当前日配额周期的结束时刻（滚动窗口：周期起点 + 24 小时）；
+// 周期未开始或已过期（下次递增会重置）返回 false。
 func (a *Account) quotaDailyPeriodEnd(now time.Time) (time.Time, bool) {
 	start := a.getExtraTime("quota_daily_start")
 	if start.IsZero() {
 		return time.Time{}, false
 	}
-	if a.GetQuotaDailyResetMode() == "fixed" {
-		tz := a.quotaResetLocation()
-		if start.Before(lastFixedDailyReset(a.GetQuotaDailyResetHour(), tz, now)) {
-			return time.Time{}, false
-		}
-		return nextFixedDailyReset(a.GetQuotaDailyResetHour(), tz, now), true
-	}
 	end := start.Add(24 * time.Hour)
 	return end, now.Before(end)
 }
 
-// quotaWeeklyPeriodEnd 返回当前周配额周期的结束时刻；周期未开始或已过期返回 false。
+// quotaWeeklyPeriodEnd 返回当前周配额周期的结束时刻（滚动窗口：周期起点 + 7 天）；周期未开始或已过期返回 false。
 func (a *Account) quotaWeeklyPeriodEnd(now time.Time) (time.Time, bool) {
 	start := a.getExtraTime("quota_weekly_start")
 	if start.IsZero() {
 		return time.Time{}, false
 	}
-	if a.GetQuotaWeeklyResetMode() == "fixed" {
-		tz := a.quotaResetLocation()
-		if start.Before(lastFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, now)) {
-			return time.Time{}, false
-		}
-		return nextFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, now), true
-	}
 	end := start.Add(7 * 24 * time.Hour)
 	return end, now.Before(end)
-}
-
-func (a *Account) quotaResetLocation() *time.Location {
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		return time.UTC
-	}
-	return tz
 }
 
 // resolveAccountExtraBool 读 account.Extra 里的布尔值，容忍 JSON 反序列化可能给出的几种形状

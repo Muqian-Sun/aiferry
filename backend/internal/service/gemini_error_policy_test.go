@@ -53,125 +53,45 @@ func TestShouldFailoverGeminiUpstreamError(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
+	geminiEndpoints := map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}
 	tests := []struct {
 		name       string
 		account    *Account
 		statusCode int
-		body       []byte
 		expected   ErrorPolicyResult
 	}{
 		{
-			name: "gemini_apikey_custom_codes_hit",
-			account: &Account{
-				ID:       100,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429), float64(500)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
-			statusCode: 429,
-			body:       []byte(`{"error":"rate limited"}`),
-			expected:   ErrorPolicyMatched,
+			name:       "gemini_apikey_no_policy_returns_none",
+			account:    &Account{ID: 102, Type: AccountTypeAPIKey, Platform: PlatformGemini, ProtocolEndpoints: geminiEndpoints},
+			statusCode: 500,
+			expected:   ErrorPolicyNone,
 		},
 		{
-			name: "gemini_apikey_custom_codes_miss",
+			name: "gemini_apikey_pool_mode_returns_skipped",
 			account: &Account{
-				ID:       101,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				ID: 106, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: map[string]any{"pool_mode": true}, ProtocolEndpoints: geminiEndpoints,
 			},
 			statusCode: 500,
-			body:       []byte(`{"error":"internal"}`),
 			expected:   ErrorPolicySkipped,
 		},
 		{
-			name: "gemini_apikey_no_custom_codes_returns_none",
+			name: "gemini_apikey_legacy_custom_codes_ignored",
 			account: &Account{
-				ID:                102,
-				Type:              AccountTypeAPIKey,
-				Platform:          PlatformGemini,
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				ID: 100, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: legacyErrorPolicyCredentials(nil), ProtocolEndpoints: geminiEndpoints,
 			},
-			statusCode: 500,
-			body:       []byte(`{"error":"internal"}`),
+			statusCode: 429,
 			expected:   ErrorPolicyNone,
 		},
 		{
-			name: "gemini_apikey_temp_unschedulable_hit",
+			name: "gemini_apikey_legacy_temp_rule_ignored",
 			account: &Account{
-				ID:       103,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				ID: 103, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: legacyErrorPolicyCredentials(nil), ProtocolEndpoints: geminiEndpoints,
 			},
 			statusCode: 503,
-			body:       []byte(`overloaded service`),
-			expected:   ErrorPolicyTempUnscheduled,
-		},
-		{
-			name: "gemini_apikey_temp_unschedulable_401_second_hit_returns_none",
-			account: &Account{
-				ID:                      105,
-				Type:                    AccountTypeAPIKey,
-				Platform:                PlatformGemini,
-				TempUnschedulableReason: `{"status_code":401,"until_unix":1735689600}`,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(401),
-							"keywords":         []any{"unauthorized"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
-			statusCode: 401,
-			body:       []byte(`unauthorized`),
 			expected:   ErrorPolicyNone,
-		},
-		{
-			name: "gemini_custom_codes_override_temp_unschedulable",
-			account: &Account{
-				ID:       104,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(503)},
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
-			statusCode: 503,
-			body:       []byte(`overloaded`),
-			expected:   ErrorPolicyMatched, // custom codes take precedence
 		},
 	}
 
@@ -180,7 +100,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 			repo := &errorPolicyRepoStub{}
 			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 
-			result := svc.CheckErrorPolicy(context.Background(), tt.account, tt.statusCode, tt.body)
+			result := svc.CheckErrorPolicy(tt.account, tt.statusCode)
 			require.Equal(t, tt.expected, result)
 		})
 	}
@@ -196,6 +116,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 
 func TestGeminiErrorPolicyIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	geminiEndpoints := map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}
 
 	tests := []struct {
 		name                 string
@@ -205,91 +126,56 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 		expectFailover       bool // expect UpstreamFailoverError
 		expectHandleError    bool // expect handleGeminiUpstreamError to be called
 		expectShouldFailover bool // for None path, whether shouldFailover triggers
-		expectModelScope     string
+		expectNoStateWrites  bool // no account / model state is written
 	}{
 		{
-			name: "custom_codes_matched_429_failover",
+			name: "pool_mode_skipped_500_failover",
 			account: &Account{
-				ID:       200,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				ID: 201, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: map[string]any{"pool_mode": true}, ProtocolEndpoints: geminiEndpoints,
 			},
-			statusCode:        429,
-			respBody:          []byte(`{"error":"rate limited"}`),
+			statusCode:          500,
+			respBody:            []byte(`{"error":"internal"}`),
+			expectFailover:      true,
+			expectHandleError:   false,
+			expectNoStateWrites: true,
+		},
+		{
+			name: "pool_mode_skipped_400_no_failover",
+			account: &Account{
+				ID: 205, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: map[string]any{"pool_mode": true}, ProtocolEndpoints: geminiEndpoints,
+			},
+			statusCode:          400,
+			respBody:            []byte(`{"error":"bad request"}`),
+			expectFailover:      false,
+			expectHandleError:   false,
+			expectNoStateWrites: true,
+		},
+		{
+			name:              "overload_529_matched_failover",
+			account:           &Account{ID: 200, Type: AccountTypeAPIKey, Platform: PlatformGemini, ProtocolEndpoints: geminiEndpoints},
+			statusCode:        529,
+			respBody:          []byte(`{"error":"overloaded"}`),
 			expectFailover:    true,
 			expectHandleError: true,
 		},
 		{
-			name: "custom_codes_skipped_500_failover",
+			name: "legacy_temp_rule_ignored_503_failover_without_state",
 			account: &Account{
-				ID:       201,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				ID: 202, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+				Credentials: legacyErrorPolicyCredentials(nil), ProtocolEndpoints: geminiEndpoints,
 			},
-			statusCode:        500,
-			respBody:          []byte(`{"error":"internal"}`),
-			expectFailover:    true,
-			expectHandleError: false,
+			statusCode:           503,
+			respBody:             []byte(`overloaded`),
+			expectFailover:       true,
+			expectHandleError:    true,
+			expectShouldFailover: true,
+			expectNoStateWrites:  true,
 		},
 		{
-			name: "custom_codes_skipped_400_no_failover",
-			account: &Account{
-				ID:       205,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
-			statusCode:        400,
-			respBody:          []byte(`{"error":"bad request"}`),
-			expectFailover:    false,
-			expectHandleError: false,
-		},
-		{
-			name: "temp_unschedulable_matched_failover",
-			account: &Account{
-				ID:       202,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
-			statusCode:        503,
-			respBody:          []byte(`overloaded`),
-			expectFailover:    true,
-			expectHandleError: false,
-			expectModelScope:  "gemini-2.5-pro",
-		},
-		{
-			name: "no_policy_429_failover_via_shouldFailover",
-			account: &Account{
-				ID:                203,
-				Type:              AccountTypeAPIKey,
-				Platform:          PlatformGemini,
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
+			name:                 "no_policy_429_failover_via_shouldFailover",
+			account:              &Account{ID: 203, Type: AccountTypeAPIKey, Platform: PlatformGemini, ProtocolEndpoints: geminiEndpoints},
 			statusCode:           429,
 			respBody:             []byte(`{"error":"rate limited"}`),
 			expectFailover:       true,
@@ -297,13 +183,8 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			expectShouldFailover: true,
 		},
 		{
-			name: "no_policy_400_no_failover",
-			account: &Account{
-				ID:                204,
-				Type:              AccountTypeAPIKey,
-				Platform:          PlatformGemini,
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-			},
+			name:              "no_policy_400_no_failover",
+			account:           &Account{ID: 204, Type: AccountTypeAPIKey, Platform: PlatformGemini, ProtocolEndpoints: geminiEndpoints},
 			statusCode:        400,
 			respBody:          []byte(`{"error":"bad request"}`),
 			expectFailover:    false,
@@ -336,8 +217,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 			headers := http.Header{}
 
 			if svc.rateLimitService != nil {
-				policy := svc.rateLimitService.CheckErrorPolicy(ctx, account, statusCode, respBody, "gemini-2.5-pro")
-				switch policy {
+				switch svc.rateLimitService.CheckErrorPolicy(account, statusCode) {
 				case ErrorPolicySkipped:
 					// Skipped → 不标记账号状态；可 failover 的状态码仍换号
 					handleErrorCalled = false
@@ -346,10 +226,6 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 				case ErrorPolicyMatched:
 					svc.handleGeminiUpstreamError(ctx, account, statusCode, headers, respBody)
 					handleErrorCalled = true
-					gotFailover = true
-					goto verify
-				case ErrorPolicyTempUnscheduled:
-					handleErrorCalled = false
 					gotFailover = true
 					goto verify
 				}
@@ -365,11 +241,11 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 		verify:
 			require.Equal(t, tt.expectFailover, gotFailover, "failover mismatch")
 			require.Equal(t, tt.expectHandleError, handleErrorCalled, "handleGeminiUpstreamError call mismatch")
-			if tt.expectModelScope != "" {
-				require.Equal(t, 1, repo.setModelRateLimitedCalls)
-				require.Equal(t, tt.expectModelScope, repo.lastModelScope)
+			if tt.expectNoStateWrites {
+				require.Zero(t, repo.setModelRateLimitedCalls)
 				require.Zero(t, repo.setTempCalls)
-				require.Zero(t, repo.setRateLimitedCalls, "model temp rule must not be widened into an account rate limit")
+				require.Zero(t, repo.setErrorCalls)
+				require.Zero(t, repo.setRateLimitedCalls)
 			}
 
 			if tt.expectShouldFailover {
@@ -381,9 +257,8 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestSkippedErrorPolicyFailoverError — ErrorPolicySkipped（池模式、或自定义
-// 错误码未命中）不豁免换号：可 failover 的状态码返回 UpstreamFailoverError，
-// 仅池模式账号可携带同账号重试标记。
+// TestSkippedErrorPolicyFailoverError — ErrorPolicySkipped（池模式）不豁免换号：
+// 可 failover 的状态码返回 UpstreamFailoverError，并按写死的池模式状态码携带同账号重试标记。
 // ---------------------------------------------------------------------------
 
 func TestSkippedErrorPolicyFailoverError(t *testing.T) {
@@ -397,14 +272,6 @@ func TestSkippedErrorPolicyFailoverError(t *testing.T) {
 		}
 		return &Account{ID: 300, Type: AccountTypeAPIKey, Platform: PlatformGemini, Credentials: creds}
 	}
-	customCodesAccount := &Account{
-		ID: 301, Type: AccountTypeAPIKey, Platform: PlatformGemini,
-		Credentials: map[string]any{
-			"custom_error_codes_enabled": true,
-			"custom_error_codes":         []any{float64(429)},
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-	}
 
 	tests := []struct {
 		name              string
@@ -415,12 +282,10 @@ func TestSkippedErrorPolicyFailoverError(t *testing.T) {
 	}{
 		{"pool_500_failover_no_same_account_retry", poolAccount(nil), 500, true, false},
 		{"pool_429_failover_with_same_account_retry", poolAccount(nil), 429, true, true},
-		{"pool_custom_retry_codes_500", poolAccount(map[string]any{
+		{"pool_legacy_retry_codes_ignored_500", poolAccount(map[string]any{
 			"pool_mode_retry_status_codes": []any{float64(500)},
-		}), 500, true, true},
+		}), 500, true, false},
 		{"pool_400_not_failover_worthy", poolAccount(nil), 400, false, false},
-		{"custom_codes_miss_500_failover_no_same_account_retry", customCodesAccount, 500, true, false},
-		{"custom_codes_miss_400_not_failover_worthy", customCodesAccount, 400, false, false},
 	}
 
 	for _, tt := range tests {
@@ -460,13 +325,9 @@ func TestGeminiErrorPolicy_NilRateLimitService(t *testing.T) {
 
 	ctx := context.Background()
 	account := &Account{
-		ID:       300,
-		Type:     AccountTypeAPIKey,
-		Platform: PlatformGemini,
-		Credentials: map[string]any{
-			"custom_error_codes_enabled": true,
-			"custom_error_codes":         []any{float64(429)},
-		},
+		ID:                300,
+		Type:              AccountTypeAPIKey,
+		Platform:          PlatformGemini,
 		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 	}
 
@@ -552,32 +413,13 @@ func TestHandleGeminiUpstreamError_PoolMode429(t *testing.T) {
 			expectRateLimited: false,
 		},
 		{
-			name: "custom_error_codes_hit_overrides_pool_mode",
+			name: "pool_mode_legacy_custom_codes_do_not_override",
 			account: &Account{
 				ID:                601,
 				Platform:          PlatformGemini,
 				Type:              AccountTypeAPIKey,
 				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-				Credentials: map[string]any{
-					"pool_mode":                  true,
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-			},
-			expectRateLimited: true,
-		},
-		{
-			name: "custom_error_codes_miss_skips",
-			account: &Account{
-				ID:                602,
-				Platform:          PlatformGemini,
-				Type:              AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-				Credentials: map[string]any{
-					"pool_mode":                  true,
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(500)},
-				},
+				Credentials:       legacyErrorPolicyCredentials(map[string]any{"pool_mode": true}),
 			},
 			expectRateLimited: false,
 		},
