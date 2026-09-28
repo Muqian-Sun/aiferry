@@ -56,6 +56,7 @@ export default {
   userSubscriptions: {
     title: '我的订阅',
     description: '查看您的订阅计划和用量',
+    unnamedPlan: '订阅套餐',
     noActiveSubscriptions: '暂无有效订阅',
     noActiveSubscriptionsDesc: '您没有任何有效订阅。请联系管理员获取订阅。',
     failedToLoad: '加载订阅失败',
@@ -393,6 +394,10 @@ export default {
       refundRequestReason: '申请原因',
       auditLogs: '操作日志',
       operator: '操作人',
+      operatorUser: '用户',
+      operatorUserWithEmail: '用户（{email}）',
+      operatorAdmin: '管理员',
+      operatorSystem: '系统',
       channelName: '渠道名称',
       channelDescription: '渠道描述',
       createChannel: '创建渠道',

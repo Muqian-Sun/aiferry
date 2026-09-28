@@ -62,7 +62,7 @@
           </p>
           <div v-if="Object.keys(runtime.endpoints).length" class="mt-3 flex flex-wrap gap-2">
             <span v-for="(probe, id) in runtime.endpoints" :key="id" class="rounded-md px-2 py-1 text-xs" :class="probe.ok ? 'bg-af-success-tint text-af-success' : 'bg-af-danger-tint text-af-danger'">
-              {{ id }} · {{ probe.status }} · {{ probe.latency_ms }} ms
+              {{ endpointName(String(id)) }} · {{ probe.status }} · {{ probe.latency_ms }} ms
             </span>
           </div>
         </div>
@@ -76,7 +76,13 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PromptAuditRuntime } from '../types'
 
-const props = defineProps<{ runtime: PromptAuditRuntime | null; loading: boolean; error: string }>()
+const props = defineProps<{
+  runtime: PromptAuditRuntime | null
+  loading: boolean
+  error: string
+  /** 节点 id → 节点名称（来自已保存的配置）；没加载到配置时不传 */
+  endpointNames?: Record<string, string>
+}>()
 defineEmits<{ (event: 'refresh'): void }>()
 const { t, locale } = useI18n()
 
@@ -107,6 +113,12 @@ const guardMetricItems = computed(() => {
     { label: 'P95', value: metrics.latency_p95_ms != null ? `${metrics.latency_p95_ms} ms` : '—' },
   ]
 })
+
+// 节点探测结果写节点名称，不写内部节点 id；配置里没有了就是已删除
+function endpointName(id: string): string {
+  if (!props.endpointNames) return '—'
+  return props.endpointNames[id] || t('admin.entity.deletedGuardNode')
+}
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value))

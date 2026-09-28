@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
+import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { buildBillingTabs } from '@/views/user/billing/billingTabs'
 import { useBillingFlags } from '@/views/user/billing/useBillingFlags'
 import { buildConsoleNav, type NavIcon, type NavTab } from './navItems'
@@ -32,6 +33,7 @@ export function useConsoleNav() {
       backendMode: appStore.backendModeEnabled,
       batchImageEnabled: SITE_FEATURES.batchImage && canUseBatchImage.value,
       accountSecurityEnabled: SITE_FEATURES.accountSecurity,
+      serviceStatusEnabled: resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.channelMonitor),
       billingItems: buildBillingTabs(billingFlags.value, t).map(
         (tab): NavTab => ({ path: tab.to as string, label: tab.label, icon: BILLING_ICONS[tab.key] })
       ),

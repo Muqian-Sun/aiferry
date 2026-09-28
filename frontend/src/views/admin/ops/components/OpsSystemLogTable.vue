@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsRuntimeLogConfig, type OpsSystemLog, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
+import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
@@ -50,6 +51,7 @@ const runtimeConfig = reactive<OpsRuntimeLogConfig>({
   retention_days: 30
 })
 
+// 用户 / 密钥 / 渠道按名字选（EntityPicker），存的是选中对象的 id，不让人手填
 const filters = reactive({
   time_range: '1h' as '5m' | '30m' | '1h' | '6h' | '24h' | '7d' | '30d',
   start_time: '',
@@ -59,13 +61,19 @@ const filters = reactive({
   component: '',
   request_id: '',
   client_request_id: '',
-  user_id: '',
-  api_key_id: '',
-  account_id: '',
+  user_id: undefined as number | undefined,
+  api_key_id: undefined as number | undefined,
+  account_id: undefined as number | undefined,
   platform: '',
   model: '',
   q: ''
 })
+
+// 换了用户，原来选的密钥不一定属于新用户，一并清掉
+const onUserFilterChange = (userId: number | undefined) => {
+  filters.user_id = userId
+  filters.api_key_id = undefined
+}
 
 const runtimeLevelOptions = [
   { value: 'debug', label: 'debug' },
@@ -144,12 +152,10 @@ const formatSystemLogDetail = (row: OpsSystemLog) => {
   if (protocol) accessParts.push(`proto=${protocol}`)
   if (accessParts.length > 0) parts.push(accessParts.join(' '))
 
+  // 只留请求 ID（排查时按它搜）；日志里没有用户 / 密钥 / 渠道的名字，内部 id 不显示
   const corrParts: string[] = []
   if (row.request_id) corrParts.push(`req=${row.request_id}`)
   if (row.client_request_id) corrParts.push(`client_req=${row.client_request_id}`)
-  if (row.user_id != null) corrParts.push(`user=${row.user_id}`)
-  if (row.api_key_id != null) corrParts.push(`key=${row.api_key_id}`)
-  if (row.account_id != null) corrParts.push(`acc=${row.account_id}`)
   if (row.platform) corrParts.push(`platform=${row.platform}`)
   if (row.model) corrParts.push(`model=${row.model}`)
   if (corrParts.length > 0) parts.push(corrParts.join(' '))
@@ -187,18 +193,9 @@ const buildQuery = () => {
   if (filters.component.trim()) query.component = filters.component.trim()
   if (filters.request_id.trim()) query.request_id = filters.request_id.trim()
   if (filters.client_request_id.trim()) query.client_request_id = filters.client_request_id.trim()
-  if (filters.user_id.trim()) {
-    const v = Number.parseInt(filters.user_id.trim(), 10)
-    if (Number.isFinite(v) && v > 0) query.user_id = v
-  }
-  if (filters.api_key_id.trim()) {
-    const v = Number.parseInt(filters.api_key_id.trim(), 10)
-    if (Number.isFinite(v) && v > 0) query.api_key_id = v
-  }
-  if (filters.account_id.trim()) {
-    const v = Number.parseInt(filters.account_id.trim(), 10)
-    if (Number.isFinite(v) && v > 0) query.account_id = v
-  }
+  if (filters.user_id) query.user_id = filters.user_id
+  if (filters.api_key_id) query.api_key_id = filters.api_key_id
+  if (filters.account_id) query.account_id = filters.account_id
   if (filters.platform.trim()) query.platform = filters.platform.trim()
   if (filters.model.trim()) query.model = filters.model.trim()
   if (filters.q.trim()) query.q = filters.q.trim()
@@ -304,9 +301,9 @@ const cleanupCurrentFilter = async () => {
       component: filters.component.trim() || undefined,
       request_id: filters.request_id.trim() || undefined,
       client_request_id: filters.client_request_id.trim() || undefined,
-      user_id: filters.user_id.trim() ? Number.parseInt(filters.user_id.trim(), 10) : undefined,
-      api_key_id: filters.api_key_id.trim() ? Number.parseInt(filters.api_key_id.trim(), 10) : undefined,
-      account_id: filters.account_id.trim() ? Number.parseInt(filters.account_id.trim(), 10) : undefined,
+      user_id: filters.user_id,
+      api_key_id: filters.api_key_id,
+      account_id: filters.account_id,
       platform: filters.platform.trim() || undefined,
       model: filters.model.trim() || undefined,
       q: filters.q.trim() || undefined
@@ -334,9 +331,9 @@ const resetFilters = () => {
   filters.component = ''
   filters.request_id = ''
   filters.client_request_id = ''
-  filters.user_id = ''
-  filters.api_key_id = ''
-  filters.account_id = ''
+  filters.user_id = undefined
+  filters.api_key_id = undefined
+  filters.account_id = undefined
   filters.platform = props.platformFilter || ''
   filters.model = ''
   filters.q = ''
@@ -482,25 +479,25 @@ onMounted(async () => {
         <input v-model="filters.host" type="text" class="input mt-1" />
       </label>
       <label class="text-xs text-af-ink-2">
-        request_id
+        {{ t('admin.ops.systemLogs.requestId') }}
         <input v-model="filters.request_id" type="text" class="input mt-1" />
       </label>
       <label class="text-xs text-af-ink-2">
-        client_request_id
+        {{ t('admin.ops.systemLogs.clientRequestId') }}
         <input v-model="filters.client_request_id" type="text" class="input mt-1" />
       </label>
-      <label class="text-xs text-af-ink-2">
-        user_id
-        <input v-model="filters.user_id" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.keyId') }}
-        <input v-model="filters.api_key_id" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        account_id
-        <input v-model="filters.account_id" type="text" class="input mt-1" />
-      </label>
+      <div class="text-xs text-af-ink-2">
+        {{ t('admin.ops.systemLogs.user') }}
+        <EntityPicker :model-value="filters.user_id" kind="user" class="mt-1" @update:model-value="onUserFilterChange" />
+      </div>
+      <div class="text-xs text-af-ink-2">
+        {{ t('admin.ops.systemLogs.apiKey') }}
+        <EntityPicker v-model="filters.api_key_id" kind="apiKey" class="mt-1" :user-id="filters.user_id" />
+      </div>
+      <div class="text-xs text-af-ink-2">
+        {{ t('admin.ops.systemLogs.account') }}
+        <EntityPicker v-model="filters.account_id" kind="channel" class="mt-1" />
+      </div>
       <label class="text-xs text-af-ink-2">
         {{ t('admin.ops.systemLogs.platform') }}
         <input v-model="filters.platform" type="text" class="input mt-1" />

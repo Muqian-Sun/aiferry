@@ -151,15 +151,3 @@ export function makeSidebarFlag(flag: FeatureFlagDefinition): () => boolean {
 export function isChannelMonitorRouteEnabled(): boolean {
   return isFeatureFlagEnabled(FeatureFlags.channelMonitor)
 }
-
-/** Hide RPM/TPM on user-facing monitor (scale privacy). Admin always shows full metrics. */
-export function isChannelMonitorThroughputHidden(): boolean {
-  const appStore = useAppStore()
-  return Boolean(appStore.cachedPublicSettings?.channel_monitor_hide_throughput)
-}
-
-/** Hide the user ranking tab on user-facing monitor v2. Admin always keeps it. */
-export function isChannelMonitorUserRankingHidden(): boolean {
-  const appStore = useAppStore()
-  return Boolean(appStore.cachedPublicSettings?.channel_monitor_hide_user_ranking)
-}

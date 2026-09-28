@@ -93,14 +93,11 @@
     </div>
 
     <BaseDialog :show="Boolean(editing)" :title="editingIndex < 0 ? t('admin.promptAudit.pool.add') : t('admin.promptAudit.pool.edit')" width="wide" @close="closeEditor">
+      <!-- 节点 id 由新增时自动生成（createDefaultEndpoint），不让站长看到或手填 -->
       <form v-if="editing" class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveEditor">
-        <label class="space-y-1 text-sm text-af-ink-2">
+        <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
           <span>{{ t('admin.promptAudit.pool.name') }}</span>
           <input v-model="editing.name" class="input w-full" required :aria-label="t('admin.promptAudit.pool.name')" />
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2">
-          <span>{{ t('admin.promptAudit.pool.id') }}</span>
-          <input v-model="editing.id" class="input w-full" required :disabled="editingIndex >= 0" :aria-label="t('admin.promptAudit.pool.id')" />
         </label>
         <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
           <span>{{ t('admin.promptAudit.pool.baseUrl') }}</span>

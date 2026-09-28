@@ -113,7 +113,6 @@ export default {
       },
       // User detail drawer (A5)
       detail: {
-        eyebrow: 'User #{id}',
         tabs: {
           overview: 'Overview',
           balance: 'Balance history',
@@ -223,7 +222,6 @@ export default {
       },
       columns: {
         user: 'User',
-        id: 'ID',
         email: 'Email',
         username: 'Username',
         notes: 'Notes',

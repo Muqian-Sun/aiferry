@@ -1011,7 +1011,6 @@ export default {
         userSearchPlaceholder: 'Search by user email',
         userSearchEmpty: 'No matching users found',
         userDeleted: '(deleted)',
-        userIdFallback: 'User #{id}',
         removeUser: 'Remove user',
         errorMessage: 'Error message',
         errorMessagePlaceholder: 'Custom error message when blocked',

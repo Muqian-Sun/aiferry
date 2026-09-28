@@ -5,7 +5,6 @@ import OpenAIFastPolicyUserSelector from '../OpenAIFastPolicyUserSelector.vue'
 
 const messages: Record<string, string> = {
   'admin.settings.openaiFastPolicy.userDeleted': '(deleted)',
-  'admin.settings.openaiFastPolicy.userIdFallback': 'User #{id}',
   'admin.settings.openaiFastPolicy.removeUser': 'Remove user',
   'admin.settings.openaiFastPolicy.userSearchPlaceholder': 'Search users',
   'admin.settings.openaiFastPolicy.userSearchEmpty': 'No users found',
@@ -66,7 +65,7 @@ describe('OpenAIFastPolicyUserSelector', () => {
 
     expect(mockGetUserById).toHaveBeenCalledWith(7, true)
     expect(wrapper.text()).toContain('existing@example.com')
-    expect(wrapper.text()).toContain('#7')
+    expect(wrapper.text()).not.toContain('#7')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
@@ -97,7 +96,7 @@ describe('OpenAIFastPolicyUserSelector', () => {
   })
 
   it('keeps an unresolved saved ID visible and removable', async () => {
-    mockGetUserById.mockRejectedValue(new Error('not found'))
+    mockGetUserById.mockRejectedValue({ status: 404, message: 'not found' })
 
     const wrapper = mount(OpenAIFastPolicyUserSelector, {
       props: { modelValue: [42] },
@@ -105,7 +104,8 @@ describe('OpenAIFastPolicyUserSelector', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('User #42')
+    expect(wrapper.text()).toContain('(deleted)')
+    expect(wrapper.text()).not.toContain('42')
     await wrapper.get('button[aria-label="Remove user"]').trigger('click')
     expect(wrapper.emitted('update:modelValue')).toEqual([[[]]])
   })

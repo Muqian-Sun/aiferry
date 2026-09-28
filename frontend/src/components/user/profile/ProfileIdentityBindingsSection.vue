@@ -48,8 +48,8 @@
                 >
                   {{ item.details.display_name }}
                 </p>
-                <p v-if="item.provider !== 'email' && item.details?.subject_hint">
-                  {{ item.details.subject_hint }}
+                <p v-if="item.provider !== 'email' && showSubjectHint(item.details)">
+                  {{ item.details?.subject_hint }}
                 </p>
                 <p v-if="bindingCountLabel(item.details)">
                   {{ bindingCountLabel(item.details) }}
@@ -449,6 +449,16 @@ function providerSummary(provider: UserAuthProvider): string {
     return getDisplayableEmail(currentUser.value)
   }
   return ''
+}
+
+/**
+ * 第三方账号的打码 ID（subject_hint）只在没有显示名时兜底；
+ * 打码后的邮箱（含 @）对用户有辨识意义，有显示名时也保留。
+ */
+function showSubjectHint(details: UserAuthBindingStatus | null): boolean {
+  const hint = details?.subject_hint
+  if (!hint) return false
+  return !details?.display_name || hint.includes('@')
 }
 
 function bindingCountLabel(details: UserAuthBindingStatus | null): string {

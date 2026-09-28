@@ -30,6 +30,7 @@ export default {
     filters: {
       searchTaskName: '搜索任务名称',
       allApiKeys: '全部 API Key',
+      unnamedApiKey: '未命名密钥',
       allStatuses: '全部状态',
       allDownloadStates: '全部下载状态',
       downloaded: '已下载',

@@ -424,11 +424,12 @@ func (h *UsageHandler) SearchAPIKeys(c *gin.Context) {
 		return
 	}
 
-	// Return simplified API key list (only id and name)
+	// 精简的密钥列表：id 只给前端当选中值用，界面上同名密钥靠所属用户邮箱区分
 	type SimpleAPIKey struct {
-		ID     int64  `json:"id"`
-		Name   string `json:"name"`
-		UserID int64  `json:"user_id"`
+		ID        int64  `json:"id"`
+		Name      string `json:"name"`
+		UserID    int64  `json:"user_id"`
+		UserEmail string `json:"user_email"`
 	}
 
 	result := make([]SimpleAPIKey, len(keys))
@@ -437,6 +438,9 @@ func (h *UsageHandler) SearchAPIKeys(c *gin.Context) {
 			ID:     k.ID,
 			Name:   k.Name,
 			UserID: k.UserID,
+		}
+		if k.User != nil {
+			result[i].UserEmail = k.User.Email
 		}
 	}
 

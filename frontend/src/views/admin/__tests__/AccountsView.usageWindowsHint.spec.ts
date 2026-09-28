@@ -181,7 +181,7 @@ describe('admin AccountsView usage windows hint', () => {
 
   it('renders the upstream billing trust warning next to the declared-rate column', async () => {
     // A5 起上游声明倍率默认收在列设置里，这里先打开全部列
-    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 3, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 

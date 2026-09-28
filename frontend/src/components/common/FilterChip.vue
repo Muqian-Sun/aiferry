@@ -63,6 +63,11 @@ const props = defineProps<{
   modelValue: string | number | null | undefined
   options: FilterOption[]
   testId?: string
+  /**
+   * 选中值不在选项里时显示的文字（选项还在加载，或那一项已删除）。
+   * 用户站按 ID 筛选时必须传，免得把内部 ID 当名字显示；不传时显示原始值（管理站按 ID 筛选保持原样）。
+   */
+  missingLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -76,7 +81,10 @@ const clearLabel = computed(() => t('common.clear'))
 
 const isSet = computed(() => props.modelValue !== '' && props.modelValue !== null && props.modelValue !== undefined)
 const selectedLabel = computed(
-  () => props.options.find((o) => String(o.value) === String(props.modelValue))?.label ?? String(props.modelValue)
+  () =>
+    props.options.find((o) => String(o.value) === String(props.modelValue))?.label ??
+    props.missingLabel ??
+    String(props.modelValue)
 )
 
 function select(value: string | number) {

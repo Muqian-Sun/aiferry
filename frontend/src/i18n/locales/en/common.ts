@@ -105,6 +105,11 @@ export default {
     today: 'Today',
     tomorrow: 'Tomorrow',
     unknown: 'Unknown',
+    // Name for a referenced user / channel / plan that no longer exists; never fall back to internal ids
+    deletedUser: 'Deleted user',
+    deletedChannel: 'Deleted channel',
+    deletedPlan: 'Deleted plan',
+    deletedKey: 'Deleted key',
     minutes: 'min',
     time: {
       never: 'Never',
@@ -223,7 +228,6 @@ export default {
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
-    channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
     auditLogs: 'Audit Logs',
   },

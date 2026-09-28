@@ -42,7 +42,6 @@
                   <span :class="statusClass(task.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
                     {{ statusLabel(task.status) }}
                   </span>
-                  <span class="text-xs text-af-ink-3">#{{ task.id }}</span>
                   <button
                     v-if="canCancel(task)"
                     type="button"

@@ -11,7 +11,6 @@ export default {
       },
       // Channel detail drawer (A5)
       detail: {
-        eyebrow: 'Channel #{id}',
         tabs: {
           overview: 'Overview',
           models: 'Listed models',
@@ -110,7 +109,7 @@ export default {
         backToList: 'Channels',
         backToListAction: 'Back to channels',
         loading: 'Loading channel…',
-        notFound: 'Channel #{id} was not found. It may have been deleted.',
+        notFound: 'This channel does not exist or has been deleted.',
         loadFailed: 'Failed to load the channel: {message}',
         retry: 'Retry',
         sections: {
@@ -311,7 +310,6 @@ export default {
       catalogNone: 'Not bound to any model',
       columns: {
         name: 'Name',
-        id: 'Channel ID',
         catalog: 'Listed models',
         platformType: 'Vendor/Type',
         platform: 'Platform',

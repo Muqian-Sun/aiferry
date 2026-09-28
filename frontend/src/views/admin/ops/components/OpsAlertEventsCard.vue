@@ -72,6 +72,24 @@ const statusOptions = computed(() => [
   { value: 'manual_resolved', label: t('admin.ops.alertEvents.status.manualResolved') }
 ])
 
+// 规则列写规则名称（不写内部编号）：按 rule_id 查规则列表；列表里没有了就是规则已删除。
+// 规则列表没加载成功（null）时写「—」，不误报成已删除
+const ruleNames = ref<Map<number, string> | null>(null)
+async function loadRuleNames() {
+  try {
+    const rules = await opsAPI.listAlertRules()
+    ruleNames.value = new Map(
+      rules.filter((rule): rule is typeof rule & { id: number } => typeof rule.id === 'number').map((rule) => [rule.id, rule.name])
+    )
+  } catch (err) {
+    console.error('[OpsAlertEventsCard] Failed to load alert rules', err)
+  }
+}
+function ruleName(ruleId: number): string {
+  if (!ruleNames.value) return '—'
+  return ruleNames.value.get(ruleId) || t('admin.entity.deletedRule')
+}
+
 const emailSent = ref<string>('')
 const emailSentOptions = computed(() => [
   { value: '', label: t('common.all') },
@@ -307,6 +325,7 @@ async function manualResolve() {
 
 onMounted(() => {
   loadFirstPage()
+  loadRuleNames()
 })
 
 watch([timeRange, severity, status, emailSent], () => {
@@ -411,7 +430,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               {{ row.description }}
             </div>
             <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-af-ink-3">
-              <span><span class="font-mono">#{{ row.rule_id }}</span> · {{ formatDurationLabel(row) }}</span>
+              <span>{{ ruleName(row.rule_id) }} · {{ formatDurationLabel(row) }}</span>
               <span class="inline-flex items-center gap-1">
                 <Icon
                   v-if="row.email_sent"
@@ -444,7 +463,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
                 {{ t('admin.ops.alertEvents.table.platform') }}
               </th>
               <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
-                {{ t('admin.ops.alertEvents.table.ruleId') }}
+                {{ t('admin.ops.alertEvents.table.rule') }}
               </th>
               <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.title') }}
@@ -485,7 +504,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
                 {{ getDimensionString(row, 'platform') || '-' }}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-xs text-af-ink-2">
-                <span class="font-mono">#{{ row.rule_id }}</span>
+                {{ ruleName(row.rule_id) }}
               </td>
               <td class="min-w-[260px] px-4 py-3 text-xs text-af-ink-2">
                 <div class="font-semibold truncate max-w-[360px]">{{ row.title || '-' }}</div>
@@ -605,9 +624,9 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               <div class="mt-1 text-sm font-medium text-af-ink">{{ selected.resolved_at ? formatDateTime(selected.resolved_at) : '-' }}</div>
             </div>
             <div class="rounded-xl bg-af-sunken p-4">
-              <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.detail.ruleId') }}</div>
+              <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.detail.rule') }}</div>
               <div class="mt-1 flex flex-wrap items-center gap-2">
-                <div class="font-mono text-sm font-bold text-af-ink">#{{ selected.rule_id }}</div>
+                <div class="text-sm font-bold text-af-ink">{{ ruleName(selected.rule_id) }}</div>
                 <a
                   class="inline-flex items-center gap-1 rounded-md bg-af-sheet px-2 py-1 text-[11px] font-bold text-af-ink-2 ring-1 ring-af-hairline hover:bg-af-sunken"
                   :href="`/ops?open_alert_rules=1&alert_rule_id=${selected.rule_id}`"

@@ -96,8 +96,13 @@ export interface PaymentOrder {
   refund_amount: number
   refund_reason?: string
   refund_requested_at?: string
-  refund_requested_by?: number
+  /** 后端写成字符串形式的申请人用户 ID（申请人只会是下单用户本人） */
+  refund_requested_by?: string
   refund_request_reason?: string
+  /** 管理端返回：下单时记下的用户邮箱 / 用户名快照 */
+  user_email?: string
+  user_name?: string
+  user_notes?: string
   plan_id?: number
   provider_instance_id?: string
 }

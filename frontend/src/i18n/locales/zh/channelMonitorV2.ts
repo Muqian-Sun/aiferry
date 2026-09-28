@@ -1,77 +1,8 @@
-/** Channel Monitor V2 (user + admin passive monitor UI) */
+/** 渠道健康（V2 被动监控）：管理站汇总配置面板的文案与错误分类名。用户站服务状态页的文案在 userUi.serviceStatus */
 export default {
   channelMonitorV2: {
-    title: '渠道监控',
-    updating: '正在更新数据',
-    updatedTo: '更新至 {time}',
-    partialCoverage: '部分历史覆盖',
-    bootstrap: {
-      title: '正在补齐历史监控数据',
-      description:
-        '首次启用被动监控时，系统会在后台静默聚合 90 分钟、24 小时、7 天与 30 天窗口；完成后可切换全部时间范围。',
-      progress: '进度 {percent}%',
-      working: '后台聚合中…',
-    },
-    timeRange: '时间范围',
-    clearFilters: '重置',
-    refreshingFilters: '筛选条件已变化，正在刷新矩阵、趋势和明细…',
-    switchingData: '正在切换筛选数据…',
-    summaryAria: '筛选范围整体汇总',
-    loadFailed: '渠道监控加载失败',
-    detailLoadFailed: '渠道监控明细加载失败',
-    otherModels: '其他模型',
-    ignored: '忽略',
-    currentUser: '当前用户',
-    ranges: { '90m': '90m', '24h': '24h', '7d': '7d', '30d': '30d' },
-    filters: {
-      model: '模型', allModels: '全部',
-      empty: '暂无可选项', selectedCount: '{count} 项', labelValue: '{label}：{value}'
-    },
-    trendView: { label: '趋势视图', pulse: '色块矩阵', line: '折线图' },
-    healthMode: { label: '健康显示', overall: '综合', success: '错误率', ttft: '首 Token', cache: '缓存率' },
-    tabs: { aria: '明细维度', models: '模型', errors: '错误原因', users: '用户排行' },
-    metrics: {
-      rpm: 'RPM',
-      tpm: 'TPM',
-      tps: '每秒 Token',
-      rpmDetail: '每分钟请求数',
-      tpmDetail: '每分钟 Token 数',
-      tpsDetail: '由 TPM ÷ 60 换算',
-      errorRate: '错误率',
-      ttft: '首 Token',
-      ttftP50: '首 Token P50',
-      durationP50: '请求时长 P50',
-      cacheRate: '缓存率',
-      cacheDetail: '读缓存占比',
-      successRate: '成功率',
-      successRateValue: '成功率 {value}',
-      errorRateValue: '错误率 {value}',
-      rpmValue: 'RPM {value}',
-      tpmValue: 'TPM {value}',
-      tpsValue: '每秒 Token {value}',
-      ttftValue: '首 Token {value}',
-      durationValue: '请求时长 {value}',
-      cacheRateValue: '缓存率 {value}',
-    },
-    table: { model: '模型', rank: '排名', user: '用户' },
-    empty: { title: '没有可展示的数据', description: '尝试调整时间范围或筛选条件' },
-    bucket: { minutes: '{count} 分钟粒度', hours: '{count} 小时粒度', days: '{count} 天粒度' },
-    matrix: {
-      title: '可用性趋势', description: '每行是一个模型，每个色块代表一个统计区间；悬停查看明细', wheelZoom: '在色块上滚轮放大（区间变窄、色块变宽）', wheelZoomX: '在色块上滚轮放大（区间变窄、色块变宽）', dimension: '模型', emptyTitle: '当前筛选窗口没有矩阵数据', legendAria: '健康分数图例', bad: '差', good: '好', healthyLegend: '健康 (≥80)', warningLegend: '需关注 (50–79)', criticalLegend: '异常 (<50)', unknownLegend: '无流量 / 样本不足', noTraffic: '该区间无流量', noTrafficAt: '{time} · 无流量', scoreLine: '健康分 {score}', resetZoom: '重置缩放'
-    },
-    chart: {
-      title: '可用性趋势', description: '平滑趋势：错误率 · 首 Token P50 · 缓存率', emptyTitle: '当前筛选窗口没有趋势数据', errorLegend: '错误率（左轴 %）', cacheLegend: '缓存率（左轴 %）', ttftLegend: '首 Token P50（右轴）', errorDataset: '错误率趋势 %', cacheDataset: '缓存率趋势 %', ttftDataset: '首 Token 趋势 P50 (ms)', percentAxis: '比率 %', resetZoom: '重置缩放'
-    },
-    errorDetail: { http: 'HTTP {code}', upstream: '上游 {code}', noMessage: '无错误消息', empty: '仅展示分类占比（样本消息仅管理员可见）' },
     errorCategories: {
       content_policy: '内容策略', authentication: '认证失败', context_limit: '上下文超限', invalid_request: '请求格式', model_unsupported: '模型不支持', quota_or_balance: '额度或余额', account_pool_unavailable: '账号池不可用', rate_or_capacity: '限流或容量', timeout: '超时', transport_or_stream: '传输或流', upstream_forbidden: '上游拒绝', not_found: '资源不存在', client_cancelled: '客户端取消', upstream_5xx: '上游 5xx', internal: '内部错误', other: '其他'
-    },
-    rank: {
-      gold: '第 1 名 金',
-      silver: '第 2 名 银',
-      bronze: '第 3 名 铜',
-      place: '第 {n} 名',
-      unranked: '未上榜',
     },
     settings: {
       visibility: {

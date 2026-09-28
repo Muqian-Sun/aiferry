@@ -957,7 +957,7 @@ const apiKeyFilterOptions = computed<SelectOption[]>(() => [
   { value: '', label: t('batchImage.filters.allApiKeys') },
   ...geminiApiKeys.value.map(key => ({
     value: String(key.id),
-    label: key.name || `API Key #${key.id}`,
+    label: key.name || t('batchImage.filters.unnamedApiKey'),
   })),
 ])
 
@@ -1857,6 +1857,15 @@ function rootBatchIdForRetry(job: BatchImageJobRow | BatchImageJob) {
   return job.parent_batch_id || job.id
 }
 
+/** 下载的压缩包名：任务名 + 创建日期，不用内部任务 ID；文件名里不允许的字符换成下划线 */
+function batchZipFileName(job: BatchImageJobRow | Pick<BatchImageJob, 'id'>) {
+  const created = 'created_at' in job && job.created_at ? new Date(job.created_at * 1000) : new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const date = `${created.getFullYear()}-${pad(created.getMonth() + 1)}-${pad(created.getDate())}`
+  const name = ('task_name' in job ? job.task_name : '').trim() || t('batchImageGuide.title')
+  return `${`${name} ${date}`.replace(/[\\/:*?"<>|]+/g, '_')}.zip`
+}
+
 async function downloadJob(job: (BatchImageJobRow | Pick<BatchImageJob, 'id'>)) {
   if (downloading.value) return
   closeMoreMenu()
@@ -1867,7 +1876,7 @@ async function downloadJob(job: (BatchImageJobRow | Pick<BatchImageJob, 'id'>)) 
   downloadingBatchId.value = job.id
   try {
     const blob = await downloadBatchImageZip(key.key, job.id)
-    saveBlob(blob, `${job.id}.zip`)
+    saveBlob(blob, batchZipFileName(job))
     markJobDownloaded(job.id)
   } catch (error: any) {
     appStore.showError(batchImageErrorMessage(error, batchImageText('downloadFailed')))
@@ -1887,7 +1896,7 @@ async function downloadSelectedJobs() {
       downloading.value = true
       downloadingBatchId.value = row.id
       const blob = await downloadBatchImageZip(key.key, row.id)
-      saveBlob(blob, `${row.id}.zip`)
+      saveBlob(blob, batchZipFileName(row))
       markJobDownloaded(row.id)
     }
     appStore.showSuccess(batchImageText('batchDownloadStarted'))
@@ -2220,8 +2229,9 @@ function detailJobsForBatch(batchId: string): BatchImageJobRow[] {
   return [base, ...(childrenByParent.value.get(base.id) || [])]
 }
 
-function detailSourceName(job: Pick<BatchImageJobRow, 'id' | 'task_name' | 'parent_batch_id'>, rootBatchId: string) {
-  const name = job.task_name || job.id
+function detailSourceName(job: Pick<BatchImageJobRow, 'id' | 'task_name' | 'parent_batch_id' | 'created_at'>, rootBatchId: string) {
+  // 没有任务名时和列表一样用创建时间，不拿内部任务 ID 顶替
+  const name = job.task_name || defaultTaskName(job.created_at)
   if (job.id === rootBatchId) return t('batchImage.detail.mainTask', { name })
   return t('batchImage.detail.childTask', { name })
 }

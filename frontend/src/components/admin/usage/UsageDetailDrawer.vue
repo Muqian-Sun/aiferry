@@ -8,7 +8,7 @@
     :show="!!log"
     :title="log?.model ?? ''"
     :eyebrow="log ? formatDateTime(log.created_at) : ''"
-    :subtitle="log?.user?.email ?? ''"
+    :subtitle="log ? (log.user?.email || t('common.deletedUser')) : ''"
     @close="emit('close')"
   >
     <div v-if="log" class="space-y-8" data-testid="usage-detail">
@@ -50,11 +50,11 @@
                 {{ t('admin.usage.userDeletedBadge') }}
               </span>
             </template>
-            <template v-else>—</template>
-            <span class="ml-1 text-af-ink-3">#{{ log.user_id }}</span>
+            <template v-else>{{ t('common.deletedUser') }}</template>
           </DetailField>
-          <DetailField :label="t('usage.apiKeyFilter')" :value="log.api_key?.name" />
-          <DetailField :label="t('admin.usage.account')" :value="log.account?.name" />
+          <!-- 名字查不到就是已删除（不露内部 id） -->
+          <DetailField :label="t('usage.apiKeyFilter')" :value="log.api_key?.name || t('common.deletedKey')" />
+          <DetailField :label="t('admin.usage.account')" :value="log.account?.name || t('common.deletedChannel')" />
           <DetailField :label="t('usage.model')">
             <div class="space-y-0.5">
               <div class="break-all">{{ log.model }}</div>

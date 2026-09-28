@@ -134,7 +134,7 @@
 
           <template #cell-used_by="{ value, row }">
             <span v-if="row.user?.email || value" class="text-af-ink-2">
-              {{ row.user?.email || t('admin.redeem.userPrefix', { id: value }) }}
+              {{ row.user?.email || t('common.deletedUser') }}
             </span>
             <span v-else class="text-af-ink-4">-</span>
           </template>

@@ -36,10 +36,6 @@
         <!-- Order Info -->
         <div v-if="order" class="border-t border-af-hairline pt-5">
           <div class="space-y-3 text-sm">
-            <div v-if="hasOrderId(order)" class="flex justify-between">
-              <span class="text-af-ink-3">{{ t('payment.orders.orderId') }}</span>
-              <span class="font-medium text-af-ink">#{{ order.id }}</span>
-            </div>
             <div v-if="order.out_trade_no" class="flex justify-between">
               <span class="text-af-ink-3">{{ t('payment.orders.orderNo') }}</span>
               <span class="font-medium text-af-ink">{{ order.out_trade_no }}</span>

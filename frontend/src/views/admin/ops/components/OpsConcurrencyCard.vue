@@ -140,7 +140,8 @@ const accountRows = computed((): AccountRow[] => {
 
       return {
         key: aid,
-        name: String(conc.account_name || avail.account_name || `Account ${aid}`),
+        // 名字缺失说明渠道已删除，不回退成「Account 5」这类内部编号
+        name: String(conc.account_name || avail.account_name || t('common.deletedChannel')),
         platform: String(conc.platform || avail.platform || ''),
         current_in_use: safeNumber(conc.current_in_use),
         max_capacity: safeNumber(conc.max_capacity),
@@ -176,7 +177,7 @@ const userRows = computed((): UserRow[] => {
       return {
         key: uid,
         user_id: safeNumber(u.user_id),
-        user_email: u.user_email || `User ${uid}`,
+        user_email: u.user_email || t('common.deletedUser'),
         username: u.username || '',
         current_in_use: safeNumber(u.current_in_use),
         max_capacity: safeNumber(u.max_capacity),

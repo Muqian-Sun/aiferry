@@ -18,7 +18,6 @@
       <template v-if="account">
         <span class="text-af-ink-4" aria-hidden="true">/</span>
         <span class="min-w-0 truncate font-medium text-af-ink" data-testid="account-form-name">{{ account.name }}</span>
-        <span class="shrink-0 tabular-nums text-af-ink-4">#{{ account.id }}</span>
       </template>
     </div>
 
@@ -31,7 +30,7 @@
       <p class="text-base text-af-ink">
         {{
           loadError === 'not-found'
-            ? t('admin.accounts.formPage.notFound', { id: routeId })
+            ? t('admin.accounts.formPage.notFound')
             : t('admin.accounts.formPage.loadFailed', { message: loadError })
         }}
       </p>

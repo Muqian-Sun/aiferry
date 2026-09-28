@@ -11,7 +11,6 @@ describe('OpenAI Fast/Flex policy locale keys', () => {
       userSearchPlaceholder: '输入用户邮箱搜索',
       userSearchEmpty: '未找到匹配用户',
       userDeleted: '（已删除）',
-      userIdFallback: '用户 #{id}',
       removeUser: '移除用户'
     })
   })
@@ -23,7 +22,6 @@ describe('OpenAI Fast/Flex policy locale keys', () => {
       userSearchPlaceholder: 'Search by user email',
       userSearchEmpty: 'No matching users found',
       userDeleted: '(deleted)',
-      userIdFallback: 'User #{id}',
       removeUser: 'Remove user'
     })
   })

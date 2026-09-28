@@ -56,6 +56,7 @@ export default {
   userSubscriptions: {
     title: 'My Subscriptions',
     description: 'View your subscription plans and usage',
+    unnamedPlan: 'Subscription plan',
     noActiveSubscriptions: 'No Active Subscriptions',
     noActiveSubscriptionsDesc:
       "You don't have any active subscriptions. Contact administrator to get one.",
@@ -390,6 +391,10 @@ export default {
       refundRequestReason: 'Request Reason',
       auditLogs: 'Audit Logs',
       operator: 'Operator',
+      operatorUser: 'User',
+      operatorUserWithEmail: 'User ({email})',
+      operatorAdmin: 'Admin',
+      operatorSystem: 'System',
       channelName: 'Channel Name',
       channelDescription: 'Channel Description',
       createChannel: 'Create Channel',

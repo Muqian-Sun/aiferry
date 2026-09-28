@@ -11,6 +11,7 @@ export default {
       billing: 'Billing',
       account: 'Account',
       batchImage: 'Batch images',
+      status: 'Status',
       more: 'More',
       product: 'Product',
       pricing: 'Models & pricing',
@@ -267,6 +268,37 @@ export default {
     },
     status: {
       loading: 'Loading'
+    },
+    serviceStatus: {
+      title: 'Service status',
+      description: 'Recent availability and time to first token for each model, measured from real requests on this site',
+      range: { label: 'Time range', '90m': '90 min', '24h': '24 hours', '7d': '7 days', '30d': '30 days' },
+      headline: {
+        healthy: 'All models are operating normally',
+        warning: '{count} model(s) responding unevenly',
+        critical: '{count} model(s) having problems',
+        unknown: 'Too few requests in this period to tell'
+      },
+      updatedAt: 'Updated {time}',
+      noDataYet: 'No statistics yet',
+      backfill: 'Filling in history ({percent}%); longer ranges are incomplete for now',
+      stats: { availability: 'Availability', ttft: 'Time to first token (median)', ttftP90: '90% within {value}' },
+      models: {
+        title: 'Models',
+        description: 'Time runs left to right, one block per period; hover a block for its numbers',
+        search: 'Search models',
+        empty: 'No model data for this period yet',
+        noMatch: 'No matching models',
+        other: 'Other models',
+        stripLabel: '{model} status by period'
+      },
+      columns: { model: 'Model', trend: 'By period', availability: 'Availability', ttft: 'First token' },
+      legend: { healthy: 'Normal', warning: 'Unstable', critical: 'Problems', unknown: 'Too few requests' },
+      slot: { detail: '{time}  Availability {availability} · First token {ttft}', fewRequests: ' (too few requests to rate)', noRequests: '{time}  No requests' },
+      trend: { title: 'Overall trend', empty: 'No data for this period yet' },
+      disabled: { title: 'Service status is not available', description: 'This page is turned off on this site for now' },
+      loadFailed: 'Could not load service status',
+      footnote: 'Measured from real requests on this site. Time to first token is the time from sending a request to receiving the first output.'
     }
   }
 }

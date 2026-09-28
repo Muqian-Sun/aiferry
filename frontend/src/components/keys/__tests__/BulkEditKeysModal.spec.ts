@@ -110,7 +110,7 @@ describe('BulkEditKeysModal', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('#2 Second: Group access denied')
+    expect(wrapper.text()).toContain('Second: Group access denied')
     expect(wrapper.emitted('updated')).toEqual([[[1]]])
     expect(wrapper.emitted('close')).toBeUndefined()
     expect(showSuccess).not.toHaveBeenCalled()

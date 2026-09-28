@@ -14,11 +14,9 @@
         @sort="onSort"
         @rowClick="(row) => emit('openErrorDetail', row.id)"
       >
+        <!-- 请求 ID 只在错误详情里（可复制），列表不放 -->
         <template #cell-created_at="{ row }">
-          <span
-            class="text-sm text-af-ink-2"
-            :title="row.request_id || row.client_request_id"
-          >{{ formatDateTime(row.created_at) }}</span>
+          <span class="text-sm text-af-ink-2">{{ formatDateTime(row.created_at) }}</span>
         </template>
 
         <template #cell-type="{ row }">
@@ -53,6 +51,7 @@
           <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
+        <!-- 身份列不露内部 id：有 id 却查不到名字（后端 LEFT JOIN 为空）就是已删除；没有 id（如认证前就失败）写 - -->
         <template #cell-user="{ row }">
           <div v-if="row.user_id" class="text-sm">
             <button
@@ -63,15 +62,15 @@
             >
               {{ row.user_email }}
             </button>
-            <span v-else class="font-medium text-af-ink">{{ row.user_email || '-' }}</span>
-            <span class="ml-1 text-af-ink-3">#{{ row.user_id }}</span>
+            <span v-else-if="row.user_email" class="font-medium text-af-ink">{{ row.user_email }}</span>
+            <span v-else class="font-medium text-af-ink-3">{{ t('common.deletedUser') }}</span>
           </div>
           <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-api_key="{ row }">
           <div v-if="row.api_key_id || row.api_key_name" class="text-sm">
-            <span class="text-af-ink">{{ row.api_key_name || '#' + row.api_key_id }}</span>
+            <span class="text-af-ink">{{ row.api_key_name || t('common.deletedKey') }}</span>
             <span
               v-if="row.api_key_deleted"
               class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
@@ -81,11 +80,7 @@
         </template>
 
         <template #cell-account="{ row }">
-          <span
-            v-if="row.account_id"
-            class="text-sm text-af-ink"
-            :title="t('admin.ops.errorLog.accountId') + ' ' + row.account_id"
-          >{{ row.account_name || '#' + row.account_id }}</span>
+          <span v-if="row.account_id" class="text-sm text-af-ink">{{ row.account_name || t('common.deletedChannel') }}</span>
           <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 

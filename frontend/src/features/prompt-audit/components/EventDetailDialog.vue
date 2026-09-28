@@ -62,7 +62,7 @@
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.promptHash') }}</dt><dd class="break-all font-mono">{{ event.snapshot.prompt_hash }}</dd>
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.scanner') }}</dt><dd>{{ event.scanner_backend }} · {{ event.scanner_version }}</dd>
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.policy') }}</dt><dd>{{ event.policy_id }} · v{{ event.policy_version }}</dd>
-          <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.guardEndpoint') }}</dt><dd>{{ event.guard_endpoint_id }}</dd>
+          <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.guardEndpoint') }}</dt><dd>{{ guardEndpointName(event.guard_endpoint_id) }}</dd>
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.config') }}</dt><dd>v{{ event.config_version }}</dd>
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.chunks') }}</dt><dd>{{ event.chunk_total }}</dd>
           <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.technical.latency') }}</dt><dd>{{ event.latency_ms }} ms</dd>
@@ -81,7 +81,13 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PromptAuditEvent, PromptIssueSummary } from '../types'
 import { SCANNER_CATALOG } from '../viewModel'
 
-const props = defineProps<{ show: boolean; event: PromptAuditEvent | null; loading: boolean }>()
+const props = defineProps<{
+  show: boolean
+  event: PromptAuditEvent | null
+  loading: boolean
+  /** 节点 id → 节点名称（来自已保存的配置）；没加载到配置时不传 */
+  endpointNames?: Record<string, string>
+}>()
 defineEmits<{ (event: 'close'): void }>()
 const { t } = useI18n()
 const tabs = ['summary', 'risks', 'technical'] as const
@@ -91,6 +97,12 @@ watch(() => props.event?.id, () => { activeTab.value = 'summary' })
 const DECISIONS = new Set(['pass', 'flag', 'critical'])
 const ACTIONS = new Set(['Allow', 'Warn', 'Block'])
 const RISK_LEVELS = new Set(['low', 'medium', 'high', 'critical'])
+
+// Guard 节点写名称，不写内部节点 id；配置里已经没有这个节点就是已删除
+function guardEndpointName(id: string): string {
+  if (!id || !props.endpointNames) return '—'
+  return props.endpointNames[id] || t('admin.entity.deletedGuardNode')
+}
 
 function displayPrompt(event: PromptAuditEvent): string {
   return event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
@@ -132,7 +144,6 @@ function formatGuardReturn(event: PromptAuditEvent): string {
     scanner_evidence: evidence,
     scanner_backend: event.scanner_backend,
     scanner_version: event.scanner_version,
-    guard_endpoint_id: event.guard_endpoint_id,
     chunk_total: event.chunk_total,
     latency_ms: event.latency_ms,
   }, null, 2)

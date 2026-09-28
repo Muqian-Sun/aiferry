@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -73,9 +74,10 @@ func (h *ChannelMonitorV2Handler) Dimensions(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	// Admin and user share this handler; only non-admin responses strip volume.
+	// 管理员与用户共用这个 handler：用户站只拿模型名（服务状态页的白名单结构）。
 	if !admin {
-		service.RedactChannelMonitorV2Dimensions(result)
+		response.Success(c, dto.ServiceStatusDimensionsFromService(result))
+		return
 	}
 	response.Success(c, result)
 }
@@ -99,6 +101,10 @@ func (h *ChannelMonitorV2Handler) snapshot(c *gin.Context, admin bool) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if !admin {
+		response.Success(c, dto.ServiceStatusSnapshotFromService(result))
+		return
+	}
 	response.Success(c, result)
 }
 
@@ -110,6 +116,10 @@ func (h *ChannelMonitorV2Handler) models(c *gin.Context, admin bool) {
 	result, err := h.service.Models(c.Request.Context(), filter, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
+		return
+	}
+	if !admin {
+		response.Success(c, dto.ServiceStatusModelsFromService(result))
 		return
 	}
 	response.Success(c, result)
@@ -130,6 +140,10 @@ func (h *ChannelMonitorV2Handler) matrix(c *gin.Context, admin bool) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if !admin {
+		response.Success(c, dto.ServiceStatusMatrixFromService(result))
+		return
+	}
 	response.Success(c, result)
 }
 
@@ -142,6 +156,10 @@ func (h *ChannelMonitorV2Handler) Errors(c *gin.Context) {
 	result, err := h.service.ErrorsForViewer(c.Request.Context(), filter, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
+		return
+	}
+	if !admin {
+		response.Success(c, dto.ServiceStatusErrorsFromService(result))
 		return
 	}
 	response.Success(c, result)
@@ -160,6 +178,10 @@ func (h *ChannelMonitorV2Handler) users(c *gin.Context, admin bool) {
 	result, err := h.service.Users(c.Request.Context(), filter, subject.UserID, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
+		return
+	}
+	if !admin {
+		response.Success(c, dto.ServiceStatusSelfFromService(result))
 		return
 	}
 	response.Success(c, result)

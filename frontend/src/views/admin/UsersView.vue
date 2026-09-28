@@ -205,7 +205,7 @@
                 class="inline-flex items-center gap-1.5 rounded-md bg-af-sunken px-2 py-0.5 text-xs font-medium text-af-ink-2"
                 :title="sub.expires_at ? formatDateTime(sub.expires_at) : ''"
               >
-                <span class="truncate">{{ sub.plan?.name || `#${sub.plan_id}` }}</span>
+                <span class="truncate">{{ sub.plan?.name || t('common.deletedPlan') }}</span>
                 <span v-if="sub.expires_at" :class="subscriptionDaysClass(getDaysRemaining(sub.expires_at))">
                   {{ subscriptionDaysLabel(getDaysRemaining(sub.expires_at)) }}
                 </span>
@@ -467,7 +467,6 @@ const getAttributeValue = (userId: number, attrId: number): string => {
 // 原来按平台写死的四个用量子列（Claude / OpenAI / Gemini / Antigravity）已删：按平台看放在「近 30 天消费」的悬停里，平台不写死。
 const allColumns = computed<Column[]>(() => [
   { key: 'email', label: t('admin.users.columns.user'), sortable: true },
-  { key: 'id', label: t('admin.users.columns.id'), sortable: true },
   { key: 'username', label: t('admin.users.columns.username'), sortable: true },
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
@@ -487,15 +486,15 @@ const allColumns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.users.columns.actions'), sortable: false }
 ])
 
-// 列设置（A4 共用实现）：用户列与操作列恒显示；ID、用户名与「用户」列（邮箱 + 用户名小字）重复，默认收起。
-// 方案改了默认列，version 加一让本机旧设置作废、回到新默认。
+// 列设置（A4 共用实现）：用户列与操作列恒显示；用户名与「用户」列（邮箱 + 用户名小字）重复，默认收起。
+// 方案改了默认列，version 加一让本机旧设置作废、回到新默认（v4：内部 ID 列删掉，管理站不显示数字 ID）。
 const DEFAULT_HIDDEN_COLUMNS = [
-  'id', 'username', 'role', 'concurrency', 'subscriptions',
+  'username', 'role', 'concurrency', 'subscriptions',
   'last_active_at', 'created_at', 'notes'
 ]
 const columnSettings = useColumnSettings({
   storageKey: 'admin-users-columns',
-  version: 3,
+  version: 4,
   columns: allColumns,
   defaultHidden: DEFAULT_HIDDEN_COLUMNS,
   // 自定义属性列是异步加载后才出现的，按列名规则默认收起（方案：默认只留六列）

@@ -11,6 +11,7 @@ export default {
       billing: '账务',
       account: '账户',
       batchImage: '批量生图',
+      status: '服务状态',
       more: '更多',
       product: '产品',
       pricing: '模型与价格',
@@ -267,6 +268,37 @@ export default {
     },
     status: {
       loading: '加载中'
+    },
+    serviceStatus: {
+      title: '服务状态',
+      description: '各模型最近的可用率和首字延迟，按本站的真实请求统计',
+      range: { label: '时间范围', '90m': '90 分钟', '24h': '24 小时', '7d': '7 天', '30d': '30 天' },
+      headline: {
+        healthy: '各模型运行正常',
+        warning: '{count} 个模型响应不稳定',
+        critical: '{count} 个模型出现异常',
+        unknown: '这段时间请求太少，暂不下结论'
+      },
+      updatedAt: '数据更新于 {time}',
+      noDataYet: '还没有统计数据',
+      backfill: '正在补齐历史数据（{percent}%），较长的时间范围暂时不完整',
+      stats: { availability: '可用率', ttft: '首字延迟（中位数）', ttftP90: '九成请求在 {value} 内' },
+      models: {
+        title: '各模型',
+        description: '色条从左到右是时间，一格是一段；悬停看那一段的数字',
+        search: '搜索模型',
+        empty: '这段时间还没有模型的数据',
+        noMatch: '没有匹配的模型',
+        other: '其他模型',
+        stripLabel: '{model} 各时段状态'
+      },
+      columns: { model: '模型', trend: '各时段', availability: '可用率', ttft: '首字延迟' },
+      legend: { healthy: '正常', warning: '不稳定', critical: '异常', unknown: '请求太少' },
+      slot: { detail: '{time}　可用率 {availability} · 首字延迟 {ttft}', fewRequests: '（请求较少，不评状态）', noRequests: '{time}　没有请求' },
+      trend: { title: '整体趋势', empty: '这段时间还没有数据' },
+      disabled: { title: '服务状态暂未开放', description: '本站暂时没有开放这个页面' },
+      loadFailed: '服务状态没有加载出来',
+      footnote: '数据来自本站的真实请求。首字延迟是从发出请求到收到第一段输出的时间。'
     }
   }
 }

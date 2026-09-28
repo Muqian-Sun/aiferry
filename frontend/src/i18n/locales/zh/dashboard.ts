@@ -84,7 +84,6 @@ export default {
     },
     deleteKey: '删除密钥',
     deleteConfirmMessage: "确定要删除 '{name}' 吗？此操作无法撤销。",
-    id: 'ID',
     apiKey: 'API 密钥',
     currentConcurrency: '当前并发',
     created: '创建时间',
@@ -428,21 +427,6 @@ export default {
     },
     pollEvery: '{n}s 轮询',
     updatedAt: '更新于 {time}',
-  },
-
-  // Channel Status (user-facing read-only view)
-  channelStatus: {
-    title: '渠道状态',
-    description: '查看渠道可用性、延迟和近期状态',
-    searchPlaceholder: '搜索渠道...',
-    allProviders: '全部供应商',
-    columns: {
-      name: '名称',
-      provider: '供应商',
-      primaryModel: '主模型',
-      availability7d: '7 天可用率',
-      latency: '延迟 (ms)'
-    },
   },
 
   // Model Plaza (public group/model pricing showcase)

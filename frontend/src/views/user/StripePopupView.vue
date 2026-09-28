@@ -3,12 +3,9 @@
     <div
       class="w-full max-w-md space-y-4 rounded-lg border border-af-hairline bg-af-sheet p-6"
     >
-      <!-- Amount + Order ID -->
+      <!-- 金额（订单只带内部 ID、没有订单编号，不显示） -->
       <div v-if="amount" class="text-center">
         <p class="text-2xl font-semibold tabular-nums text-af-ink">¥{{ amount }}</p>
-        <p v-if="orderId" class="mt-1 text-sm text-af-ink-3">
-          {{ t('payment.orders.orderId') }}: {{ orderId }}
-        </p>
       </div>
 
       <!-- Error -->

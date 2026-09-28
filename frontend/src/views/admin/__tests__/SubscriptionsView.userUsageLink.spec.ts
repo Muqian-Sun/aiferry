@@ -32,8 +32,7 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string, params?: { id?: number }) =>
-        key === 'admin.redeem.userPrefix' ? `User #${params?.id}` : key
+      t: (key: string) => key
     })
   }
 })
@@ -220,7 +219,7 @@ describe('admin subscription users', () => {
     expect(link.props('to')).toEqual({ path: '/usage', query: { user_id: 42 } })
   })
 
-  it('uses the user ID label for the usage link when username mode has no username', async () => {
+  it('falls back to the email for the usage link when username mode has no username', async () => {
     localStorage.setItem('subscription-user-column-mode', 'username')
     listSubscriptions.mockResolvedValue({
       items: [{
@@ -248,7 +247,7 @@ describe('admin subscription users', () => {
     await flushPromises()
 
     const link = wrapper.getComponent(RouterLinkStub)
-    expect(link.text()).toBe('User #42')
+    expect(link.text()).toBe('reader@example.com')
     expect(link.props('to')).toEqual({ path: '/usage', query: { user_id: 42 } })
   })
 })

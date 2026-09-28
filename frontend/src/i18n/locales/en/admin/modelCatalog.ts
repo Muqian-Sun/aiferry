@@ -36,6 +36,7 @@ export default {
     bulk: {
       list: 'List',
       unlist: 'Unlist',
+      selectEntry: 'Select {model}',
       nothingToDo: 'The selected entries already have that status',
       listedDone: 'Listed {count} models',
       unlistedDone: 'Unlisted {count} models',
@@ -76,7 +77,7 @@ export default {
       backToList: 'Models',
       backToListAction: 'Back to models',
       loading: 'Loading the model…',
-      notFound: 'Model #{id} was not found. It may have been deleted.',
+      notFound: 'This model does not exist or has been deleted.',
       loadFailed: 'Failed to load the model: {message}',
       retry: 'Retry',
       saved: 'Model saved'
@@ -85,7 +86,6 @@ export default {
     empty: 'The catalog is empty. Import from the price file or create an entry.',
     // Model detail drawer (A5)
     drawer: {
-      eyebrow: 'Model #{id}',
       tabs: {
         overview: 'Overview',
         channels: 'Channels'
@@ -214,7 +214,7 @@ export default {
       title: 'Channels serving this model',
       hint: 'Ticked channels serve requests for this model; leave priority empty to follow the channel.',
       selected: '{count} selected',
-      search: 'Search channels by name or ID',
+      search: 'Search channels by name',
       boundOnly: 'Selected only',
       loading: 'Loading channels…',
       loadFailed: 'Failed to load channels',

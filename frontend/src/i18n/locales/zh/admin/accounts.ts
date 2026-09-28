@@ -11,7 +11,6 @@ export default {
       },
       // 渠道详情抽屉（A5）
       detail: {
-        eyebrow: '渠道 #{id}',
         tabs: {
           overview: '概况',
           models: '上架模型',
@@ -110,7 +109,7 @@ export default {
         backToList: '渠道',
         backToListAction: '返回渠道列表',
         loading: '正在加载渠道…',
-        notFound: '找不到渠道 #{id}，可能已被删除。',
+        notFound: '该渠道不存在或已被删除。',
         loadFailed: '渠道加载失败：{message}',
         retry: '重试',
         sections: {
@@ -216,7 +215,6 @@ export default {
       catalogNone: '未绑定任何模型',
       columns: {
         name: '名称',
-        id: '渠道 ID',
         catalog: '已上架模型',
         platformType: '厂商/类型',
         platform: '平台',

@@ -120,14 +120,14 @@ async function load() {
 
 const boundIds = computed(() => new Set(props.modelValue.map((binding) => binding.account_id)))
 
-// 已绑定但不在列表里的渠道（列表没取到）也要列出来，否则取消不了
+// 已绑定但不在列表里的渠道（已被删除）也要列出来，否则取消不了；没有名字就写「已删除渠道」
 const rows = computed<ModelCatalogBindingAccount[]>(() => {
   const byId = new Map(channels.value.map((channel) => [channel.id, channel]))
   for (const binding of props.modelValue) {
     if (!byId.has(binding.account_id)) {
       byId.set(binding.account_id, binding.account ?? {
         id: binding.account_id,
-        name: `#${binding.account_id}`,
+        name: t('common.deletedChannel'),
         platform: '',
         type: '',
         vendor: '',
@@ -138,7 +138,7 @@ const rows = computed<ModelCatalogBindingAccount[]>(() => {
   const q = query.value.trim().toLowerCase()
   return [...byId.values()]
     .filter((row) => !boundOnly.value || boundIds.value.has(row.id))
-    .filter((row) => !q || row.name.toLowerCase().includes(q) || String(row.id) === q)
+    .filter((row) => !q || row.name.toLowerCase().includes(q))
     .sort((a, b) => Number(boundIds.value.has(b.id)) - Number(boundIds.value.has(a.id)) || a.name.localeCompare(b.name))
 })
 

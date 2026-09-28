@@ -43,20 +43,21 @@
             >
               {{ row.user.email }}
             </button>
-            <span v-else class="font-medium text-af-ink">-</span>
+            <!-- 用户列只有管理站有；查不到用户（已被彻底删除）时写「已删除用户」，不露内部 id -->
+            <span v-else class="font-medium text-af-ink-3">{{ t('common.deletedUser') }}</span>
             <span v-if="row.user?.deleted_at" class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30">
               {{ t('admin.usage.userDeletedBadge') }}
             </span>
-            <span class="ml-1 text-af-ink-3">#{{ row.user_id }}</span>
           </div>
         </template>
 
+        <!-- 管理站：密钥 / 渠道查不到名字就是已删除；用户站保持原样 -->
         <template #cell-api_key="{ row }">
-          <span class="text-sm text-af-ink">{{ row.api_key?.name || '-' }}</span>
+          <span class="text-sm text-af-ink">{{ row.api_key?.name || (isAdmin ? t('common.deletedKey') : '-') }}</span>
         </template>
 
         <template #cell-account="{ row }">
-          <span class="text-sm text-af-ink">{{ row.account?.name || '-' }}</span>
+          <span class="text-sm text-af-ink">{{ row.account?.name || (isAdmin ? t('common.deletedChannel') : '-') }}</span>
         </template>
 
         <template #cell-model="{ row }">
@@ -254,25 +255,6 @@
           <span class="text-sm text-af-ink-2">{{ formatDateTime(value) }}</span>
         </template>
 
-        <!-- 只有管理站有这一列（列设置里，默认关）；请求 ID 在详情抽屉 -->
-        <template #cell-upstream_request_id="{ row }">
-          <div v-if="row.upstream_request_id" class="flex max-w-[160px] items-center gap-1.5">
-            <span class="truncate font-mono text-xs text-af-ink-3" :title="row.upstream_request_id">
-              {{ row.upstream_request_id }}
-            </span>
-            <button
-              type="button"
-              class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-              :class="copiedRequestId === row.upstream_request_id ? 'text-af-success hover:text-af-success' : ''"
-              :title="copiedRequestId === row.upstream_request_id ? t('keys.copied') : t('keys.copyToClipboard')"
-              @click.stop="copyUpstreamRequestId(row.upstream_request_id)"
-            >
-              <Icon :name="copiedRequestId === row.upstream_request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <span v-else class="text-sm text-af-ink-4">-</span>
-        </template>
-
         <template #cell-user_agent="{ row }">
           <span v-if="row.user_agent" class="text-sm text-af-ink-2 block max-w-[320px] truncate" :title="row.user_agent">{{ row.user_agent }}</span>
           <span v-else class="text-sm text-af-ink-4">-</span>
@@ -345,7 +327,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { formatMoney, formatMoneyExact } from '@/utils/money'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens } from '@/utils/formatters'
@@ -408,8 +389,6 @@ const emit = defineEmits<{
   ipGeoBatchFailed: []
 }>()
 const { t } = useI18n()
-const appStore = useAppStore()
-const copiedRequestId = ref<string | null>(null)
 const isAdmin = computed(() => props.mode === 'admin')
 const ipGeoBatchLoading = ref(false)
 
@@ -442,22 +421,6 @@ const handleBatchFetchIpGeo = async () => {
     ipGeoBatchLoading.value = false
   }
 }
-
-const copyIdentifier = async (value: string, copiedMessage: string) => {
-  try {
-    await navigator.clipboard.writeText(value)
-    copiedRequestId.value = value
-    appStore.showSuccess(copiedMessage)
-    window.setTimeout(() => {
-      if (copiedRequestId.value === value) copiedRequestId.value = null
-    }, 2000)
-  } catch {
-    appStore.showError(t('common.copyFailed'))
-  }
-}
-
-const copyUpstreamRequestId = (upstreamRequestId: string) =>
-  copyIdentifier(upstreamRequestId, t('admin.usage.upstreamRequestIdCopied'))
 
 // Tooltip state - cost
 const tooltipVisible = ref(false)

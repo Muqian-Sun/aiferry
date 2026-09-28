@@ -599,42 +599,6 @@ describe('admin UsageTable tooltip', () => {
   })
 })
 
-describe('admin UsageTable request ID column', () => {
-  beforeEach(() => {
-    appStoreMocks.showSuccess.mockReset()
-    appStoreMocks.showError.mockReset()
-  })
-
-  it('renders and copies the upstream ID', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
-
-    const wrapper = mount(UsageTable, {
-      props: {
-        data: [{ ...baseImageRow, request_id: '', upstream_request_id: '20260903082826779695' }],
-        loading: false,
-        columns: [{ key: 'upstream_request_id', label: 'Upstream ID' }],
-      },
-      global: {
-        stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
-          Icon: true,
-          Teleport: true,
-        },
-      },
-    })
-
-    expect(wrapper.text()).toContain('20260903082826779695')
-    const copyButtons = wrapper.findAll('button[title="Copy to clipboard"]')
-    expect(copyButtons).toHaveLength(1)
-    await copyButtons[0].trigger('click')
-
-    expect(writeText).toHaveBeenCalledWith('20260903082826779695')
-    expect(appStoreMocks.showSuccess).toHaveBeenCalledWith('Upstream ID copied')
-  })
-})
-
 describe('admin UsageTable IP geolocation batch toolbar', () => {
   const DataTableStubWithIp = {
     props: ['data'],

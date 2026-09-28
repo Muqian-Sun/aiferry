@@ -84,7 +84,6 @@ export default {
     },
     deleteKey: 'Delete API Key',
     deleteConfirmMessage: "Are you sure you want to delete '{name}'? This action cannot be undone.",
-    id: 'ID',
     apiKey: 'API Key',
     currentConcurrency: 'Current Concurrency',
     created: 'Created',
@@ -426,21 +425,6 @@ export default {
     },
     pollEvery: '{n}s polling',
     updatedAt: 'Updated {time}',
-  },
-
-  // Channel Status (user-facing read-only view)
-  channelStatus: {
-    title: 'Channel Status',
-    description: 'Inspect channel availability, latency and recent status',
-    searchPlaceholder: 'Search channels...',
-    allProviders: 'All Providers',
-    columns: {
-      name: 'Name',
-      provider: 'Provider',
-      primaryModel: 'Primary Model',
-      availability7d: '7d Availability',
-      latency: 'Latency (ms)'
-    },
   },
 
   // Model Plaza (public group/model pricing showcase)
