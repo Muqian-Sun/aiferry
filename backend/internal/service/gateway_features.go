@@ -5,8 +5,10 @@ import (
 )
 
 // 网关行为（2026-09-27 P4：转发、重试冷却、Claude Code / Codex、余额探测写进代码，后台不再能改）。
-// 取值全部等于改之前的默认值；共享 dev 库里这些设置当时也都是默认值（逐项核过）。
-// 要改就改这里、重新发版。后台只留最低毛利率（利润门）与 Web Search 模拟。
+// 取值等于改之前的默认值（共享 dev 库里这些设置当时也都是默认值，逐项核过），
+// 除了 2026-09-28 muqian 定的四项：API Key 渠道签名整流开、首 token 按第一个可见输出算、
+// 流式中途超时要处理渠道、Ollama Cloud 用量定时刷新开。
+// 要改就改这里、重新发版。后台只留最低毛利率（利润门）与 Web Search 模拟的服务商和 Key。
 // 带规则的几项（Beta / Fast 策略、Codex 限制、整流、流超时、停调阈值）是结构体没法写成 const，
 // 用包级变量；只有测试会临时替换它们，运行时只读。
 
@@ -24,11 +26,11 @@ const (
 	OpenAIImagesOAuthUnavailableCooldownMinutes = 30
 )
 
-// streamTimeoutPolicy 流式输出中途超时后怎么处理渠道：关（只断开本次请求，不动渠道状态）。
+// streamTimeoutPolicy 流式输出中途超时后怎么处理渠道：同一渠道 10 分钟内累计超时 3 次，
+// 暂停调度 5 分钟（temp_unsched）；不到 3 次只断开本次请求。
 // 超时本身怎么判定由部署配置 gateway.stream_data_interval_timeout 决定。
-// 打开时：窗口内累计超时达到次数后按 Action 处理。
 var streamTimeoutPolicy = StreamTimeoutSettings{
-	Enabled:                false,
+	Enabled:                true,
 	Action:                 StreamTimeoutActionTempUnsched,
 	TempUnschedMinutes:     5,
 	ThresholdCount:         3,
@@ -44,8 +46,9 @@ var accountSchedulingThresholds = map[string]int{
 
 // 转发行为
 const (
-	// OpenAITTFTMode OpenAI Responses 首 token 耗时的统计口径：semantic = 第一个有内容的事件。
-	OpenAITTFTMode = OpenAITTFTModeSemantic
+	// OpenAITTFTMode OpenAI Responses 首 token 耗时的统计口径：visible = 第一个可见输出
+	// （文本 / 工具参数增量、图片等；空的 reasoning 条目、只带 usage 的终止事件不算）。
+	OpenAITTFTMode = OpenAITTFTModeVisible
 	// FingerprintUnificationEnabled Claude 成品号出站统一客户端指纹。
 	FingerprintUnificationEnabled = true
 	// MetadataPassthroughEnabled 把客户端的 metadata.user_id 原样透传给 Claude 上游（关 = 按渠道重写）。
@@ -65,12 +68,12 @@ const (
 )
 
 // rectifierPolicy 请求整流：上游因 thinking 签名 / budget 报 400 时改写请求重试。
-// API Key 渠道的签名整流单独一个开关，关着。
+// API Key 渠道遇 thinking 签名错误也整流重试（按内置规则识别；不设自定义匹配关键词）。
 var rectifierPolicy = RectifierSettings{
 	Enabled:                  true,
 	ThinkingSignatureEnabled: true,
 	ThinkingBudgetEnabled:    true,
-	APIKeySignatureEnabled:   false,
+	APIKeySignatureEnabled:   true,
 }
 
 // signatureRectifierEnabled thinking 签名整流（总开关 && 签名子开关）。
@@ -165,6 +168,6 @@ const (
 	OllamaCloudUsageDebounceMinutes = 1
 )
 
-// ollamaCloudUsageEnabled 定时拉 Ollama Cloud 用量：关（手动刷新不受影响）。
-// 定时刷新整套逻辑挂在这个开关后面，写成变量是为了测试能打开它、让那部分代码保持有测试。
-var ollamaCloudUsageEnabled = false
+// ollamaCloudUsageEnabled 定时拉 Ollama Cloud 用量：开。哪些渠道拉由渠道自己的「自动刷新」决定；
+// 手动刷新不受影响。写成变量是为了测试能关掉它、测关闭分支。
+var ollamaCloudUsageEnabled = true

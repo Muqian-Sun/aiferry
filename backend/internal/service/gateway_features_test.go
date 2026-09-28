@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -72,36 +73,116 @@ func TestBuildUpstreamRequest_OAuthRewritesMetadataUserID(t *testing.T) {
 	require.Contains(t, userID, "acc-uuid")
 }
 
-// 流式中途超时的处理：关。不计数，也不动渠道状态。
-func TestHandleStreamTimeout_OffByDefault(t *testing.T) {
-	counter := &streamTimeoutCounterSpy{}
-	svc := &RateLimitService{timeoutCounterCache: counter}
-	require.False(t, svc.HandleStreamTimeout(context.Background(), &Account{ID: 1, Platform: PlatformAnthropic}, "claude-sonnet-4-5"))
-	require.Zero(t, counter.increments)
+// 流式中途超时要处理渠道：每次超时按 10 分钟窗口计数；窗口内第 2 次不动渠道，
+// 第 3 次把渠道暂停调度到 now+5 分钟（临时不可调度）并清零计数。
+func TestHandleStreamTimeout_PausesAccountOnThirdTimeoutInWindow(t *testing.T) {
+	ctx := context.Background()
+	account := &Account{ID: 7, Platform: PlatformAnthropic}
+	counter := &streamTimeoutCounterSpy{next: 2}
+	repo := &transportTempUnschedRepoStub{}
+	svc := &RateLimitService{accountRepo: repo, timeoutCounterCache: counter}
+
+	require.False(t, svc.HandleStreamTimeout(ctx, account, "claude-sonnet-4-5"))
+	require.Equal(t, 1, counter.increments)
+	require.Equal(t, 10, counter.lastWindowMinutes)
+	require.Zero(t, repo.calls, "窗口内第 2 次超时不动渠道")
+
+	counter.next = 3
+	before := time.Now()
+	require.True(t, svc.HandleStreamTimeout(ctx, account, "claude-sonnet-4-5"))
+	after := time.Now()
+	require.Equal(t, 2, counter.increments)
+	require.Equal(t, 10, counter.lastWindowMinutes)
+	require.Equal(t, 1, repo.calls, "窗口内第 3 次超时暂停渠道")
+	require.Equal(t, account.ID, repo.lastID)
+	require.False(t, repo.lastUntil.Before(before.Add(5*time.Minute)), "暂停到 now+5 分钟：until=%s before=%s", repo.lastUntil, before)
+	require.False(t, repo.lastUntil.After(after.Add(5*time.Minute)), "暂停到 now+5 分钟：until=%s after=%s", repo.lastUntil, after)
+	require.Contains(t, repo.lastReason, "stream_timeout")
+	require.Equal(t, 1, counter.resets, "暂停后清零计数")
 }
 
-type streamTimeoutCounterSpy struct{ increments int }
+// streamTimeoutCounterSpy 记录计数调用；IncrementTimeoutCount 返回 next（窗口内累计次数）。
+type streamTimeoutCounterSpy struct {
+	next              int64
+	increments        int
+	lastWindowMinutes int
+	resets            int
+}
 
-func (s *streamTimeoutCounterSpy) IncrementTimeoutCount(context.Context, int64, int) (int64, error) {
+func (s *streamTimeoutCounterSpy) IncrementTimeoutCount(_ context.Context, _ int64, windowMinutes int) (int64, error) {
 	s.increments++
-	return 1, nil
+	s.lastWindowMinutes = windowMinutes
+	return s.next, nil
 }
 func (s *streamTimeoutCounterSpy) GetTimeoutCount(context.Context, int64) (int64, error) {
 	return 0, nil
 }
-func (s *streamTimeoutCounterSpy) ResetTimeoutCount(context.Context, int64) error { return nil }
+func (s *streamTimeoutCounterSpy) ResetTimeoutCount(context.Context, int64) error {
+	s.resets++
+	return nil
+}
 func (s *streamTimeoutCounterSpy) GetTimeoutCountTTL(context.Context, int64) (time.Duration, error) {
 	return 0, nil
 }
 
-// 请求整流：成品号遇到 thinking 签名错误要整流重试，API Key 渠道的签名整流关着；budget 整流开。
+// 请求整流：成品号和 API Key 渠道遇到 thinking 签名错误都要整流重试；budget 整流开。
 func TestRectifierPolicy_CodeDefaults(t *testing.T) {
 	svc := &GatewayService{}
 	body := []byte(`{"type":"error","error":{"type":"invalid_request_error","message":"Invalid ` + "`signature`" + ` in ` + "`thinking`" + ` block"}}`)
 	ctx := context.Background()
 	require.True(t, svc.shouldRectifySignatureError(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}, body, "claude-sonnet-4-5"))
-	require.False(t, svc.shouldRectifySignatureError(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, body, "claude-sonnet-4-5"))
+	require.True(t, svc.shouldRectifySignatureError(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, body, "claude-sonnet-4-5"))
 	require.True(t, budgetRectifierEnabled())
+}
+
+// API Key 渠道端到端：上游回 thinking 签名 400 后，去掉 thinking 块重发一次，重发成功就把结果回给客户端。
+func TestGatewayForward_APIKeyChannelRetriesAfterThinkingSignatureError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	upstream := &queuedHTTPUpstream{responses: []*http.Response{
+		newJSONResponse(http.StatusBadRequest, `{"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: Invalid `+"`signature`"+` in `+"`thinking`"+` block"}}`),
+		newJSONResponse(http.StatusOK, `{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":3,"output_tokens":1}}`),
+	}}
+	cfg := &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}
+	svc := &GatewayService{
+		cfg:                  cfg,
+		responseHeaderFilter: compileResponseHeaderFilter(cfg),
+		httpUpstream:         upstream,
+		rateLimitService:     &RateLimitService{},
+		deferredService:      &DeferredService{},
+	}
+	account := &Account{
+		ID:                21,
+		Name:              "anthropic-key",
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "upstream-key", "base_url": "https://api.anthropic.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
+		Status:            StatusActive,
+		Schedulable:       true,
+	}
+	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":64,"thinking":{"type":"enabled","budget_tokens":1024},"messages":[` +
+		`{"role":"user","content":"hi"},` +
+		`{"role":"assistant","content":[{"type":"thinking","thinking":"reasoning","signature":"forged-signature"},{"type":"text","text":"hello"}]},` +
+		`{"role":"user","content":"again"}]}`)
+	parsed, err := ParseGatewayRequest(NewRequestBodyRef(body), PlatformAnthropic)
+	require.NoError(t, err)
+
+	result, err := svc.Forward(context.Background(), c, account, parsed)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, upstream.requests, 2, "签名 400 之后整流重发一次")
+	firstBody, err := io.ReadAll(upstream.requests[0].Body)
+	require.NoError(t, err)
+	require.Contains(t, string(firstBody), "forged-signature")
+	retryBody, err := io.ReadAll(upstream.requests[1].Body)
+	require.NoError(t, err)
+	require.NotContains(t, string(retryBody), "forged-signature", "重发的请求去掉了带签名的 thinking 块")
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"text":"ok"`)
 }
 
 // Claude 请求转 Gemini（Antigravity）时注入身份补丁，用内置模板。

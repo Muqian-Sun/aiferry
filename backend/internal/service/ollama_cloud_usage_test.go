@@ -741,7 +741,6 @@ func TestOllamaCloudUsageSaveAutoRefreshAndDeleteAreGroupScoped(t *testing.T) {
 }
 
 func TestOllamaCloudUsageRefreshSingleflightAndRunnerDeduplicateSharedGroup(t *testing.T) {
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	first := ollamaUsageAccount(91)
 	first.Credentials["api_key"] = "shared-key"
 	first.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=shared"
@@ -911,7 +910,6 @@ func TestOllamaCloudUsageRefreshRejectsIdentityChange(t *testing.T) {
 }
 
 func TestOllamaCloudUsageRunnerHonorsLeaderLockAndBackoff(t *testing.T) {
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	account := ollamaUsageAccount(11)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
 	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
@@ -937,7 +935,6 @@ func TestOllamaCloudUsageRunnerHonorsLeaderLockAndBackoff(t *testing.T) {
 }
 
 func TestOllamaCloudUsageRunnerDisablesAutoRefreshAfterUnpersistableIdentityError(t *testing.T) {
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	account := ollamaUsageAccount(14)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
 	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
@@ -960,7 +957,6 @@ func TestOllamaCloudUsageRunnerDisablesAutoRefreshAfterUnpersistableIdentityErro
 }
 
 func TestOllamaCloudUsageRunnerIdentityChangePreservesOldGroupAndDoesNotLoop(t *testing.T) {
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	anchor := ollamaUsageAccount(15)
 	anchor.Credentials["api_key"] = "shared-before-rotation"
 	anchor.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
@@ -1008,10 +1004,9 @@ func TestOllamaCloudUsageRunnerIdentityChangePreservesOldGroupAndDoesNotLoop(t *
 	require.Equal(t, int64(2), upstream.calls.Load())
 }
 
-// 定时刷新按代码里的防抖 1 分钟、最长等待 60 分钟判断到期（gateway_features.go）。
+// 定时刷新（代码默认开）按代码里的防抖 1 分钟、最长等待 60 分钟判断到期（gateway_features.go）。
 // 原来这两个值由设置决定、只在设置校验里断言过；恢复定时刷新用例时补上按代码值的端到端断言。
 func TestOllamaCloudUsageRunnerDueUsesCodeDebounceAndMaxWait(t *testing.T) {
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	now := time.Date(2026, time.July, 25, 12, 0, 0, 0, time.UTC)
 	withSnapshot := func(id int64, fetchedAgo, lastUsedAgo time.Duration) *Account {
 		account := ollamaUsageAccount(id)
@@ -1064,20 +1059,13 @@ func TestOllamaCloudUsageSingleflightConcurrencyAndRunnerSwitches(t *testing.T) 
 	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: accounts}}
 	unblock := make(chan struct{})
 	entered := make(chan struct{}, 10)
-	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
+	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t), beforeResponse: func(*http.Request) {
+		entered <- struct{}{}
+		<-unblock
+	}}
 	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{}}
 	svc := newOllamaUsageTestService(t, repo, upstream, settingsRepo, true)
 
-	// Global automatic refresh is fail-safe off by default. The stub does not block yet, so if
-	// the default ever flips on, RunDue fetches and returns and this fails at once instead of hanging.
-	require.NoError(t, svc.RunDue(context.Background()))
-	require.Zero(t, upstream.calls.Load())
-	upstream.beforeResponse = func(*http.Request) {
-		entered <- struct{}{}
-		<-unblock
-	}
-
-	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, true)
 	var singleflight sync.WaitGroup
 	singleflight.Add(2)
 	for range 2 {
@@ -1107,4 +1095,24 @@ func TestOllamaCloudUsageSingleflightConcurrencyAndRunnerSwitches(t *testing.T) 
 	<-done
 	require.LessOrEqual(t, upstream.maxActive.Load(), int64(ollamaCloudUsageConcurrency))
 	require.Equal(t, int64(8), upstream.calls.Load())
+}
+
+// 全局定时刷新关着（ollamaCloudUsageEnabled=false）时 RunDue 一个请求都不发；手动刷新不受影响。
+// 代码默认是开（见上面几个 RunDue 用例），这里显式关掉测关闭分支。
+func TestOllamaCloudUsageRunnerOffBranchSendsNothing(t *testing.T) {
+	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)
+	account := ollamaUsageAccount(17)
+	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
+	account.Extra[OllamaCloudUsageAutoRefreshExtraKey] = true
+	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{17: account}}}
+	upstream := &ollamaUsageHTTPStub{body: ollamaUsageFixture(t)}
+	svc := newOllamaUsageTestService(t, repo, upstream, &upstreamBillingProbeSettingRepo{}, true)
+
+	require.NoError(t, svc.RunDue(context.Background()))
+	require.Zero(t, upstream.calls.Load())
+	require.Nil(t, decodeOllamaCloudUsageSnapshot(account.Extra))
+
+	_, err := svc.Refresh(context.Background(), account.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), upstream.calls.Load(), "手动刷新不受全局定时开关影响")
 }
