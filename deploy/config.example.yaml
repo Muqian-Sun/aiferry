@@ -158,12 +158,8 @@ security:
       - "generativelanguage.googleapis.com"
       - "cloudcode-pa.googleapis.com"
       - "*.openai.azure.com"
-    # Allowed hosts for pricing data download
-    # 允许下载定价数据的主机列表
-    pricing_hosts:
-      - "raw.githubusercontent.com"
-    # Allow localhost/private IPs for upstream/pricing (use only in trusted networks)
-    # 允许本地/私有 IP 地址用于上游/定价（仅在可信网络中使用）
+    # Allow localhost/private IPs for upstream (use only in trusted networks)
+    # 允许本地/私有 IP 地址用于上游（仅在可信网络中使用）
     allow_private_hosts: true
     # Allow http:// URLs when allowlist is disabled (default: true; set to false to require https)
     # 白名单禁用时是否允许 http:// URL（默认: true，设为 false 则仅允许 https）
@@ -202,9 +198,9 @@ security:
     #   - url: "https://api64.ipify.org?format=json"
     #     parser: "ipify"
   proxy_fallback:
-    # Allow auxiliary services (update check, pricing data) to fallback to direct
+    # Allow auxiliary services (Codex CLI version sync via GitHub) to fallback to direct
     # connection when proxy initialization fails. Does NOT affect AI gateway connections.
-    # 辅助服务（更新检查、定价数据拉取）代理初始化失败时是否允许回退直连。
+    # 辅助服务（经 GitHub 的 Codex CLI 版本同步）代理初始化失败时是否允许回退直连。
     # 不影响 AI 账号网关连接。默认 false：fail-fast 防止 IP 泄露。
     allow_direct_on_error: false
 
@@ -812,8 +808,6 @@ idempotency:
   observe_only: true
   # 关键写接口幂等记录 TTL（秒）
   default_ttl_seconds: 86400
-  # 系统操作接口（update/rollback/restart）幂等记录 TTL（秒）
-  system_operation_ttl_seconds: 3600
   # processing 锁超时（秒）
   processing_timeout_seconds: 30
   # 可重试失败退避窗口（秒）
@@ -1000,34 +994,31 @@ default:
   rate_multiplier: 1.0
 
 # =============================================================================
-# Pricing Data Source (Optional)
-# 定价数据源（可选）
+# Pricing (built-in price file only, no remote sync)
+# 价格（只用内置价格文件，不做远程同步）
 # =============================================================================
 pricing:
-  # Local data directory for caching
-  # 本地数据缓存目录
+  # Local data directory (custom pages live under pages/; prices are not read from here)
+  # 本地数据目录（自定义页面放在其下 pages/；价格不读写这里）
   data_dir: "./data"
-  # Fallback pricing file: fills in models missing from the catalog. Edits are
-  # detected by content hash at the next hash check and reloaded without restart.
-  # 备用定价文件：只补目录缺失的模型。修改后在下一次哈希检查时按内容哈希自动重载，无需重启。
+  # Built-in pricing file: the only price source. Edits are detected by content
+  # hash at the next check and reloaded without restart.
+  # 内置价格文件：价格的唯一来源。修改后在下一次检查时按内容哈希自动重载，无需重启。
   fallback_file: "./resources/model-pricing/model_prices_and_context_window.json"
   # Override patch file (optional, highest priority): entries are shallow-merged
-  # field-by-field over catalog/fallback data; a null field value removes that field.
+  # field-by-field over the built-in pricing data; a null field value removes that field.
   # Model names must match catalog keys exactly. Edits are detected by content hash
   # at the next hash check and reloaded without restart.
-  # 覆盖补丁文件（可选，优先级最高）：条目按字段浅合并覆盖目录/回退数据，
+  # 覆盖补丁文件（可选，优先级最高）：条目按字段浅合并覆盖内置价格数据，
   # 字段值为 null 表示删除该字段。模型名须与目录键完全一致。
   # 修改后在下一次哈希检查时按内容哈希自动重载，无需重启。
   # override_file: "./data/model_pricing_overrides.json"
-  # Update interval in hours
-  # 更新间隔（小时）
-  update_interval_hours: 24
-  # Hash check interval in minutes. Each check compares the remote catalog hash and
-  # the local fallback/override file contents. Deleting a local file drops its
+  # File check interval in minutes. Each check compares the built-in pricing file
+  # and override file contents. Deleting the override file drops its
   # entries at the next check; a present but non-JSON file keeps the previous data
   # and is retried next check.
-  # 哈希检查间隔（分钟）。每次检查同时比对远程目录哈希与本地 fallback/override 文件内容；
-  # 删除本地文件会在下次检查时移除其条目，文件存在但不是 JSON 时保留旧数据、下次检查再试。
+  # 文件检查间隔（分钟）。每次检查比对内置价格文件与 override 文件内容；
+  # 删除 override 文件会在下次检查时移除其条目，文件存在但不是 JSON 时保留旧数据、下次检查再试。
   hash_check_interval_minutes: 10
 
 # =============================================================================
@@ -1152,6 +1143,18 @@ gemini:
         # Cooldown time (minutes) after hitting quota
         # 达到配额后的冷却时间（分钟）
         cooldown_minutes: 5
+
+# =============================================================================
+# GitHub Access (Codex CLI version sync)
+# GitHub 访问（Codex CLI 版本同步）
+# =============================================================================
+update:
+  # Proxy URL for accessing GitHub (used by Codex CLI version sync, which reads
+  # openai/codex releases). Supports: http, https, socks5, socks5h.
+  # 用于访问 GitHub 的代理地址（Codex CLI 版本同步读取 openai/codex 的 release）。
+  # Examples: "http://127.0.0.1:7890", "socks5://127.0.0.1:1080"
+  # Leave empty for direct connection / 留空表示直连
+  proxy_url: ""
 
 # =============================================================================
 # Image Storage (异步图片任务结果对象存储)
