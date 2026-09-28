@@ -179,9 +179,8 @@ type AccountWithConcurrency struct {
 	simpleMode         bool `json:"-"`
 	CurrentConcurrency int  `json:"current_concurrency"`
 	// 以下字段仅对 Anthropic OAuth/SetupToken 账号有效，且仅在启用相应功能时返回
-	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
-	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
-	CurrentRPM        *int     `json:"current_rpm,omitempty"`         // 当前分钟 RPM 计数
+	ActiveSessions *int `json:"active_sessions,omitempty"` // 当前活跃会话数
+	CurrentRPM     *int `json:"current_rpm,omitempty"`     // 当前分钟 RPM 计数
 }
 
 // AccountListItemWithConcurrency is the compact account-list envelope used
@@ -189,10 +188,9 @@ type AccountWithConcurrency struct {
 // so groups/account_groups never appear in the list payload.
 type AccountListItemWithConcurrency struct {
 	*dto.AccountListItem
-	CurrentConcurrency int      `json:"current_concurrency"`
-	CurrentWindowCost  *float64 `json:"current_window_cost,omitempty"`
-	ActiveSessions     *int     `json:"active_sessions,omitempty"`
-	CurrentRPM         *int     `json:"current_rpm,omitempty"`
+	CurrentConcurrency int  `json:"current_concurrency"`
+	ActiveSessions     *int `json:"active_sessions,omitempty"`
+	CurrentRPM         *int `json:"current_rpm,omitempty"`
 }
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
@@ -235,16 +233,8 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 	}
 
 	if account.IsAnthropicOAuthOrSetupToken() {
-		if h.accountUsageService != nil && account.GetWindowCostLimit() > 0 {
-			startTime := account.GetCurrentWindowStartTime()
-			if stats, err := h.accountUsageService.GetAccountWindowStats(ctx, account.ID, startTime); err == nil && stats != nil {
-				cost := stats.StandardCost
-				item.CurrentWindowCost = &cost
-			}
-		}
-
 		if h.sessionLimitCache != nil && account.GetMaxSessions() > 0 {
-			idleTimeout := time.Duration(account.GetSessionIdleTimeoutMinutes()) * time.Minute
+			idleTimeout := time.Duration(service.SessionIdleTimeoutMinutes) * time.Minute
 			idleTimeouts := map[int64]time.Duration{account.ID: idleTimeout}
 			if sessions, err := h.sessionLimitCache.GetActiveSessionCountBatch(ctx, []int64{account.ID}, idleTimeouts); err == nil {
 				if count, ok := sessions[account.ID]; ok {
@@ -306,7 +296,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	concurrencyCounts := make(map[int64]int)
-	var windowCosts map[int64]float64
 	var activeSessions map[int64]int
 	var rpmCounts map[int64]int
 
@@ -317,20 +306,16 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	// 识别需要查询窗口费用、会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
-	windowCostAccountIDs := make([]int64, 0)
+	// 识别需要查询会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
 	sessionLimitAccountIDs := make([]int64, 0)
 	rpmAccountIDs := make([]int64, 0)
 	sessionIdleTimeouts := make(map[int64]time.Duration) // 各账号的会话空闲超时配置
 	for i := range accounts {
 		acc := &accounts[i]
 		if acc.IsAnthropicOAuthOrSetupToken() {
-			if acc.GetWindowCostLimit() > 0 {
-				windowCostAccountIDs = append(windowCostAccountIDs, acc.ID)
-			}
 			if acc.GetMaxSessions() > 0 {
 				sessionLimitAccountIDs = append(sessionLimitAccountIDs, acc.ID)
-				sessionIdleTimeouts[acc.ID] = time.Duration(acc.GetSessionIdleTimeoutMinutes()) * time.Minute
+				sessionIdleTimeouts[acc.ID] = time.Duration(service.SessionIdleTimeoutMinutes) * time.Minute
 			}
 			if acc.GetBaseRPM() > 0 {
 				rpmAccountIDs = append(rpmAccountIDs, acc.ID)
@@ -354,34 +339,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	// 始终获取窗口费用（PostgreSQL 聚合查询）
-	if len(windowCostAccountIDs) > 0 {
-		windowCosts = make(map[int64]float64)
-		var mu sync.Mutex
-		g, gctx := errgroup.WithContext(c.Request.Context())
-		g.SetLimit(10) // 限制并发数
-
-		for i := range accounts {
-			acc := &accounts[i]
-			if !acc.IsAnthropicOAuthOrSetupToken() || acc.GetWindowCostLimit() <= 0 {
-				continue
-			}
-			accCopy := acc // 闭包捕获
-			g.Go(func() error {
-				// 使用统一的窗口开始时间计算逻辑（考虑窗口过期情况）
-				startTime := accCopy.GetCurrentWindowStartTime()
-				stats, err := h.accountUsageService.GetAccountWindowStats(gctx, accCopy.ID, startTime)
-				if err == nil && stats != nil {
-					mu.Lock()
-					windowCosts[accCopy.ID] = stats.StandardCost // 使用标准费用
-					mu.Unlock()
-				}
-				return nil // 不返回错误，允许部分失败
-			})
-		}
-		_ = g.Wait()
-	}
-
 	// Build response with concurrency info
 	result := make([]AccountWithConcurrency, len(accounts))
 	for i := range accounts {
@@ -394,13 +351,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 			Account:            accountResponse,
 			simpleMode:         h.isSimpleMode(),
 			CurrentConcurrency: concurrencyCounts[acc.ID],
-		}
-
-		// 添加窗口费用（仅当启用时）
-		if windowCosts != nil {
-			if cost, ok := windowCosts[acc.ID]; ok {
-				item.CurrentWindowCost = &cost
-			}
 		}
 
 		// 添加活跃会话数（仅当启用时）
@@ -429,7 +379,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 			compact[i] = AccountListItemWithConcurrency{
 				AccountListItem:    dto.AccountListItemFromAccount(item.Account),
 				CurrentConcurrency: item.CurrentConcurrency,
-				CurrentWindowCost:  item.CurrentWindowCost,
 				ActiveSessions:     item.ActiveSessions,
 				CurrentRPM:         item.CurrentRPM,
 			}
@@ -973,7 +922,7 @@ type ApplyOAuthCredentialsRequest struct {
 // 与通用 PUT /:id (Update) 接口的关键区别：
 //   - 仅接收 type / credentials / extra 三个字段（不接受 concurrency / rpm / quota_* 等可能误传的字段）
 //   - Extra 走 UpdateAccountExtra(JSONB key 级合并)，**绝不**全量覆盖；
-//     避免 base_rpm / window_cost_limit / max_sessions / quota_* / privacy_mode
+//     避免 base_rpm / max_sessions / quota_* / privacy_mode
 //     等持久化配置在重新授权后丢失
 //   - 内置 ClearError + InvalidateToken，避免前端额外两次调用，
 //     并修复旧路径未失效 token 缓存导致重新授权后立即 401 的隐性 bug
@@ -1017,7 +966,7 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		return
 	}
 
-	// 增量合并 Extra（JSONB key 级 merge，绝不覆盖 base_rpm / window_cost_limit /
+	// 增量合并 Extra（JSONB key 级 merge，绝不覆盖 base_rpm /
 	// max_sessions / quota_* / privacy_mode 等持久化键）。
 	// best-effort：失败仅记日志；下方 ClearAccountError 会从 DB 重新读取最新 account，
 	// 因此响应里的 extra 始终以 DB 为准——这里不需要手动维护内存快照。

@@ -155,14 +155,13 @@ var webSearchToolBody = []byte(`{"tools":[{"type":"web_search"}],"messages":[{"r
 // nonWebSearchToolBody is a request body without web_search tool.
 var nonWebSearchToolBody = []byte(`{"tools":[{"type":"text_editor"}],"messages":[{"role":"user","content":"test"}]}`)
 
-// newAnthropicAPIKeyAccount creates a test Account with the given web search emulation switch.
-func newAnthropicAPIKeyAccount(enabled bool) *Account {
+// newRelayAnthropicKeyAccount 指向中转（不是 Anthropic 官方地址）的第三方 key：web_search 模拟适用于它。
+func newRelayAnthropicKeyAccount() *Account {
 	return &Account{
 		ID:                1,
 		Platform:          PlatformAnthropic,
 		Type:              AccountTypeAPIKey,
-		Extra:             map[string]any{featureKeyWebSearchEmulation: enabled},
-		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
 	}
 }
 
@@ -204,7 +203,7 @@ func TestShouldEmulateWebSearch_NilManager(t *testing.T) {
 	defer clearGlobalWebSearchConfig()
 
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(true)
+	account := newRelayAnthropicKeyAccount()
 	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
@@ -220,7 +219,7 @@ func TestShouldEmulateWebSearch_NotOnlyWebSearchTool(t *testing.T) {
 	defer clearGlobalWebSearchConfig()
 
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(true)
+	account := newRelayAnthropicKeyAccount()
 	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nonWebSearchToolBody))
 }
 
@@ -237,11 +236,11 @@ func TestShouldEmulateWebSearch_NoKeyedProvider(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(false)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(true)
+	account := newRelayAnthropicKeyAccount()
 	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
-func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
+func TestShouldEmulateWebSearch_RelayKeyEmulates(t *testing.T) {
 	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
@@ -253,40 +252,6 @@ func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(false)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
-}
-
-func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	settingSvc := newSettingServiceForWebSearchTest(true)
-	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(true)
-	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
-}
-
-// 历史字符串 "enabled" 在网关判定里仍算开（账号读法兼容，见 account_websearch_test.go）。
-func TestShouldEmulateWebSearch_LegacyEnabledString(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}})
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	settingSvc := newSettingServiceForWebSearchTest(true)
-	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(true)
-	account.Extra[featureKeyWebSearchEmulation] = "enabled"
+	account := newRelayAnthropicKeyAccount()
 	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }

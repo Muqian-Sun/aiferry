@@ -861,33 +861,12 @@ export interface Account {
   session_window_end: string | null
   session_window_status: 'allowed' | 'allowed_warning' | 'rejected' | null
 
-  // 5h窗口费用控制（仅 Anthropic OAuth/SetupToken 账号有效）
-  window_cost_limit?: number | null
-  window_cost_sticky_reserve?: number | null
-
   // 会话数量控制（仅 Anthropic OAuth/SetupToken 账号有效）
   max_sessions?: number | null
-  session_idle_timeout_minutes?: number | null
 
   // RPM 限制（仅 Anthropic OAuth/SetupToken 账号有效）
   base_rpm?: number | null
-  rpm_strategy?: string | null
-  rpm_sticky_buffer?: number | null
-  user_msg_queue_mode?: string | null  // "serialize" | "throttle" | null
-
-  // TLS指纹伪装（仅 Anthropic OAuth/SetupToken 账号有效）
-  enable_tls_fingerprint?: boolean | null
-  tls_fingerprint_profile_id?: number | null
-
-  // 会话ID伪装（仅 Anthropic OAuth/SetupToken 账号有效）
-  // 启用后将在15分钟内固定 metadata.user_id 中的 session ID
-  session_id_masking_enabled?: boolean | null
-
-  // 缓存 TTL 强制替换（仅 Anthropic OAuth/SetupToken 账号有效）
-  cache_ttl_override_enabled?: boolean | null
-  cache_ttl_override_target?: string | null
-
-  // 自定义 Base URL 中继转发（仅 Anthropic OAuth/SetupToken 账号有效）
+  rpm_sticky_buffer?: number | null // 后端按并发 / 会话数自动算出的粘性缓冲（只读）
 
   // API Key 账号配额限制
   quota_limit?: number | null
@@ -898,7 +877,6 @@ export interface Account {
   quota_weekly_used?: number | null
 
   // 运行时状态（仅当启用对应限制时返回）
-  current_window_cost?: number | null // 当前窗口费用
   active_sessions?: number | null // 当前活跃会话数
   current_rpm?: number | null // 当前分钟 RPM 计数
 

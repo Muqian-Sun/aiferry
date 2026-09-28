@@ -400,8 +400,8 @@ func (s *IdentityService) RewriteUserID(body []byte, accountID int64, accountUUI
 }
 
 // RewriteUserIDWithMasking 重写body中的metadata.user_id，支持会话ID伪装
-// 如果账号启用了会话ID伪装（session_id_masking_enabled），
-// 则在完成常规重写后，将 session 部分替换为固定的伪装ID（15分钟内保持不变）
+// 会话ID伪装开着（SessionIDMaskingEnabled，现写死关）且是 Anthropic 成品号时，
+// 在完成常规重写后，将 session 部分替换为固定的伪装ID（15分钟内保持不变）
 //
 // 重要：此函数使用 json.RawMessage 保留其他字段的原始字节，
 // 避免重新序列化导致 thinking 块等内容被修改。
@@ -412,8 +412,8 @@ func (s *IdentityService) RewriteUserIDWithMasking(ctx context.Context, body []b
 		return newBody, err
 	}
 
-	// 检查是否启用会话ID伪装
-	if !account.IsSessionIDMaskingEnabled() {
+	// 检查是否启用会话ID伪装（渠道级开关已删，见 channel_features_anthropic.go）
+	if !SessionIDMaskingEnabled || !account.IsAnthropicOAuthOrSetupToken() {
 		return newBody, nil
 	}
 

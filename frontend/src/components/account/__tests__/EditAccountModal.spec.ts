@@ -1360,20 +1360,15 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   })
 
   it('shows Anthropic protocol settings for a Kimi-labelled key with an anthropic endpoint and submits them', async () => {
-    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
     const wrapper = mountModal(buildKey('kimi', { anthropic: 'https://api.moonshot.cn/anthropic' }))
     await flushPromises()
 
-    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
-    await wrapper.get('[data-testid="edit-web-search-emulation-toggle"]').trigger('click')
     await wrapper.get('[data-testid="edit-bedrock-cc-compat-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
     expect(payload?.extra).toMatchObject({
-      anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer',
-      web_search_emulation: true,
       bedrock_cc_compat: true
     })
   })
@@ -1395,30 +1390,15 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     })
   })
 
-  it('loads a legacy string web_search_emulation as on and saves it back as a bool', async () => {
-    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+  it('drops bedrock_cc_compat from extra when the toggle is off', async () => {
     const wrapper = mountModal(buildKey(
       'anthropic',
       { anthropic: 'https://relay.example.com/anthropic' },
-      { web_search_emulation: 'enabled', bedrock_cc_compat: true }
+      { bedrock_cc_compat: false }
     ))
     await flushPromises()
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({ web_search_emulation: true, bedrock_cc_compat: true })
-  })
-
-  it('drops web_search_emulation and bedrock_cc_compat from extra when both toggles are off', async () => {
-    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
-    const wrapper = mountModal(buildKey(
-      'anthropic',
-      { anthropic: 'https://relay.example.com/anthropic' },
-      { web_search_emulation: 'default', bedrock_cc_compat: false }
-    ))
-    await flushPromises()
-
-    const payload = await submitPayload(wrapper)
-    expect(payload?.extra ?? {}).not.toHaveProperty('web_search_emulation')
     expect(payload?.extra ?? {}).not.toHaveProperty('bedrock_cc_compat')
   })
 
@@ -1444,27 +1424,27 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   it('follows the protocol switched in the modal and does not submit hidden Anthropic edits', async () => {
     const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
     await flushPromises()
-    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
-    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
     await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('chat_completions')
-    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
   })
 
   it('saves Anthropic settings for an OpenAI-labelled key with an anthropic endpoint', async () => {
     const wrapper = mountModal(buildKey('openai', { anthropic: 'https://relay.example.com' }))
     await flushPromises()
 
-    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
+    expect(payload?.extra).toMatchObject({ anthropic_apikey_auth_scheme: 'authorization_bearer' })
     expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
   })
 

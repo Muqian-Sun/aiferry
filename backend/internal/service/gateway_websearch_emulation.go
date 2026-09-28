@@ -30,9 +30,6 @@ const (
 	webSearchMsgIDPrefix       = "msg_ws_"
 	webSearchToolUseIDPrefix   = "srvtoolu_ws_"
 	tokenEstimateDivisor       = 4
-
-	// featureKeyWebSearchEmulation is the key used in Account.Extra and Channel.FeaturesConfig.
-	featureKeyWebSearchEmulation = "web_search_emulation"
 )
 
 // webSearchManagerPtr stores *websearch.Manager atomically for concurrent safety.
@@ -49,7 +46,8 @@ func getWebSearchManager() *websearch.Manager {
 
 // shouldEmulateWebSearch checks whether a request should be intercepted.
 //
-// Judgment chain: manager exists → only web_search tool → global enabled → account enabled.
+// Judgment chain: manager exists → only web_search tool → global enabled（配了带 Key 的服务商）
+// → 渠道适用（webSearchEmulationAppliesTo：第三方 key 且不是 Anthropic 官方地址）。
 func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, body []byte) bool {
 	if getWebSearchManager() == nil {
 		return false
@@ -60,7 +58,7 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
 	if !s.settingService.IsWebSearchEmulationEnabled(ctx) {
 		return false
 	}
-	return account.WebSearchEmulationEnabled()
+	return webSearchEmulationAppliesTo(account)
 }
 
 // isOnlyWebSearchToolInBody checks if the body contains exactly one web_search tool.

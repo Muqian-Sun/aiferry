@@ -13,7 +13,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 type nonJSONTempUnschedAccountRepo struct {
@@ -95,99 +94,6 @@ func TestHandleNonStreamingResponse_ValidJSONUnchanged(t *testing.T) {
 	require.Equal(t, 12, usage.InputTokens)
 	require.Equal(t, 7, usage.OutputTokens)
 	require.JSONEq(t, string(body), rec.Body.String())
-}
-
-func TestHandleNonStreamingResponseAnthropicAPIKeyPassthrough_NonJSON2xxTriggersFailover(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-
-	body := []byte("(upstream request failed)")
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/plain"}},
-		Body:       io.NopCloser(bytes.NewReader(body)),
-	}
-	svc := &GatewayService{cfg: &config.Config{}}
-
-	usage, err := svc.handleNonStreamingResponseAnthropicAPIKeyPassthrough(context.Background(), resp, c, &Account{ID: 2})
-
-	require.Nil(t, usage)
-	var failoverErr *UpstreamFailoverError
-	require.True(t, errors.As(err, &failoverErr))
-	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
-	require.Equal(t, body, failoverErr.ResponseBody)
-	require.False(t, c.Writer.Written(), "invalid passthrough response must not be committed before failover")
-}
-
-func TestHandleNonStreamingResponseAnthropicAPIKeyPassthrough_ValidJSONUnchanged(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-
-	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":5,"output_tokens":3}}`)
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(bytes.NewReader(body)),
-	}
-	svc := &GatewayService{cfg: &config.Config{}}
-
-	usage, err := svc.handleNonStreamingResponseAnthropicAPIKeyPassthrough(context.Background(), resp, c, &Account{ID: 2})
-
-	require.NoError(t, err)
-	require.NotNil(t, usage)
-	require.Equal(t, 5, usage.InputTokens)
-	require.Equal(t, 3, usage.OutputTokens)
-	require.JSONEq(t, string(body), rec.Body.String())
-}
-
-func TestHandleNonStreamingResponseAnthropicAPIKeyPassthrough_ForceCacheBillingResponse(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want string
-	}{
-		{
-			name: "converts input tokens for downstream billing",
-			body: `{"id":"msg_1","type":"message","content":[{"type":"text","text":"unchanged"}],"usage":{"input_tokens":5,"output_tokens":3}}`,
-			want: `{"id":"msg_1","type":"message","content":[{"type":"text","text":"unchanged"}],"usage":{"input_tokens":0,"output_tokens":3,"cache_read_input_tokens":5}}`,
-		},
-		{
-			name: "adds to genuine cache reads",
-			body: `{"id":"msg_2","type":"message","usage":{"input_tokens":5,"output_tokens":3,"cache_read_input_tokens":7,"cache_creation_input_tokens":11}}`,
-			want: `{"id":"msg_2","type":"message","usage":{"input_tokens":0,"output_tokens":3,"cache_read_input_tokens":12,"cache_creation_input_tokens":11}}`,
-		},
-		{
-			name: "zero input leaves response unchanged",
-			body: `{"id":"msg_3","type":"message","usage":{"input_tokens":0,"output_tokens":3,"cache_read_input_tokens":7}}`,
-			want: `{"id":"msg_3","type":"message","usage":{"input_tokens":0,"output_tokens":3,"cache_read_input_tokens":7}}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gin.SetMode(gin.TestMode)
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-			resp := &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(bytes.NewBufferString(tt.body)),
-			}
-			svc := &GatewayService{cfg: &config.Config{}}
-
-			usage, err := svc.handleNonStreamingResponseAnthropicAPIKeyPassthrough(WithForceCacheBilling(context.Background()), resp, c, &Account{ID: 2})
-
-			require.NoError(t, err)
-			require.Equal(t, int(gjson.Get(tt.body, "usage.input_tokens").Int()), usage.InputTokens, "local accounting must retain the unclassified usage")
-			require.Equal(t, int(gjson.Get(tt.body, "usage.cache_read_input_tokens").Int()), usage.CacheReadInputTokens, "local accounting must convert exactly once in RecordUsage")
-			require.JSONEq(t, tt.want, rec.Body.String())
-		})
-	}
 }
 
 // 非 JSON 的 2xx 仍按 502 换号；渠道级临时不可调度规则 2026-09-28 P5 已删，旧行留着的规则不再按模型停号。

@@ -507,10 +507,8 @@ func ProvideRateLimitService(
 	settingService *SettingService,
 	tokenCacheInvalidator TokenCacheInvalidator,
 	ollamaCloudUsage *OllamaCloudUsageService,
-	sessionLimitCache SessionLimitCache,
 ) *RateLimitService {
 	svc := NewRateLimitService(accountRepo, usageRepo, cfg, geminiQuotaService, tempUnschedCache)
-	svc.SetSessionLimitCache(sessionLimitCache)
 	if healthCache, ok := tempUnschedCache.(OpenAIAPIKeyHealthCache); ok {
 		svc.SetOpenAIAPIKeyHealthCache(healthCache)
 	}

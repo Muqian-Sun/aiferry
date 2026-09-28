@@ -759,17 +759,12 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"quota_weekly_limit",
 		"quota_weekly_used",
 		"quota_weekly_start",
-		"window_cost_limit",
-		"window_cost_sticky_reserve",
 		// RPM 限制：漏了 base_rpm 就是 0，快照命中时 RPM 不限
 		"base_rpm",
-		"rpm_strategy",
-		"rpm_sticky_buffer",
 		// Compact 分级：手动开关与探测结果
 		"openai_compact_mode",
 		"openai_compact_supported",
 		"max_sessions",
-		"session_idle_timeout_minutes",
 		"openai_oauth_responses_websockets_v2_enabled",
 		"openai_oauth_responses_websockets_v2_mode",
 		"openai_apikey_responses_websockets_v2_enabled",

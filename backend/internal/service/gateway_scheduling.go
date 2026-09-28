@@ -1,7 +1,7 @@
 package service
 
 // 账号选择：唯一入口 SelectAccountWithOptions → 负载感知调度（粘性 → 负载分层 → 兜底排队），
-// 窗口费用与 RPM 预取、候选排序 / 过滤。池由目录路由（条目绑定）或端点声明的平台
+// RPM 预取、候选排序 / 过滤。池由目录路由（条目绑定）或端点声明的平台
 // （SelectOptions.Platform，无模型端点）决定；分组已不存在。
 
 import (
@@ -612,7 +612,7 @@ func (s *GatewayService) isAccountSchedulableForRPM(ctx context.Context, account
 
 // IncrementAccountRPM increments the RPM counter for the given account.
 // 已知 TOCTOU 竞态：调度时读取 RPM 计数与此处递增之间存在时间窗口，
-// 高并发下可能短暂超出 RPM 限制。这是与 WindowCost 一致的 soft-limit
+// 高并发下可能短暂超出 RPM 限制。这是 soft-limit
 // 设计权衡——可接受的少量超额优于加锁带来的延迟和复杂度。
 func (s *GatewayService) IncrementAccountRPM(ctx context.Context, accountID int64) error {
 	if s.rpmCache == nil {
@@ -635,7 +635,7 @@ func (s *GatewayService) checkAndRegisterSession(ctx context.Context, account *A
 		return true // 缓存不可用时允许通过
 	}
 
-	idleTimeout := time.Duration(account.GetSessionIdleTimeoutMinutes()) * time.Minute
+	idleTimeout := time.Duration(SessionIdleTimeoutMinutes) * time.Minute
 
 	allowed, err := s.sessionLimitCache.RegisterSession(ctx, account.ID, sessionID, maxSessions, idleTimeout)
 	if err != nil {
