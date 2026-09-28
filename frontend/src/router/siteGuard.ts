@@ -2,7 +2,6 @@
  * 站点导航守卫。用户站与管理后台共用一套守卫，按站点区分差异：
  * - 两个站点各自只有一种角色（后端签发与鉴权都按站点拦截），已登录访问登录页一律去本站默认落点（defaultAuthedPath）
  * - Backend mode 只作用于用户站；管理后台不受影响
- * - 管理端专属的前置检查（合规确认）由管理后台入口通过 beforeProtectedRoute 注入
  */
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import type { AppSite } from '@/app/site'
@@ -20,8 +19,6 @@ export { defaultAuthedPath }
 export interface SiteGuardOptions {
   site: AppSite
   getCustomMenuItems: () => CustomMenuItem[]
-  /** 进入需要登录的页面前执行，管理后台用于拉取合规确认状态。 */
-  beforeProtectedRoute?: (to: RouteLocationNormalized) => Promise<void>
 }
 
 const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/payment/result', '/payment/airwallex', '/legal']
@@ -125,9 +122,6 @@ export function createSiteGuard(options: SiteGuardOptions) {
       return
     }
 
-    if (options.beforeProtectedRoute) {
-      await options.beforeProtectedRoute(to)
-    }
 
     // 公共设置可能尚未加载（根组件 onMounted 异步拉取晚于首次导航，且纯静态部署
     // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control

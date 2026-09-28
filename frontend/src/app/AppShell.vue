@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 两个站点共用的根外壳：站点品牌（favicon / 标题）、公开设置加载、全局导航进度与提示。
- * 站点专属的全局行为（用户站的订阅与公告、管理后台的合规确认）放在各自根组件的默认插槽里。
+ * 站点专属的全局行为（如用户站的订阅与公告）放在各自根组件的默认插槽里。
  */
 import { RouterView, useRoute } from 'vue-router'
 import { onMounted, watch } from 'vue'

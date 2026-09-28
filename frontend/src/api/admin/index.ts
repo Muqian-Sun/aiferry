@@ -24,7 +24,6 @@ import tlsFingerprintProfileAPI from './tlsFingerprintProfile'
 import modelCatalogAPI from './modelCatalog'
 import adminPaymentAPI from './payment'
 import riskControlAPI from './riskControl'
-import adminComplianceAPI from './compliance'
 import auditAPI from './audit'
 
 /**
@@ -52,7 +51,6 @@ export const adminAPI = {
   modelCatalog: modelCatalogAPI,
   payment: adminPaymentAPI,
   riskControl: riskControlAPI,
-  compliance: adminComplianceAPI,
   audit: auditAPI
 }
 
@@ -77,7 +75,6 @@ export {
   tlsFingerprintProfileAPI,
   adminPaymentAPI,
   riskControlAPI,
-  adminComplianceAPI,
   auditAPI
 }
 
