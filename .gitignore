@@ -13,7 +13,7 @@
 *.dylib
 backend/bin/
 backend/server
-backend/sub2api
+backend/aiferry
 backend/main
 
 # Go 测试二进制

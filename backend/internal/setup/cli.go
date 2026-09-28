@@ -51,7 +51,7 @@ func RunCLI() error {
 
 	fmt.Println()
 	fmt.Println("╔═══════════════════════════════════════════╗")
-	fmt.Println("║       Sub2API Installation Wizard         ║")
+	fmt.Println("║       AiFerry Installation Wizard         ║")
 	fmt.Println("╚═══════════════════════════════════════════╝")
 	fmt.Println()
 
@@ -243,7 +243,7 @@ func RunCLI() error {
 	fmt.Println("╚═══════════════════════════════════════════╝")
 	fmt.Println()
 	fmt.Println("Start the server with:")
-	fmt.Println("  ./sub2api")
+	fmt.Println("  ./aiferry")
 	fmt.Println()
 	fmt.Printf("User site: http://localhost:%d\n", cfg.Server.Port)
 	fmt.Printf("Admin console: http://localhost:%d\n", cfg.Server.AdminPort)

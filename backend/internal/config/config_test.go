@@ -329,6 +329,41 @@ func TestConfigFileTakesPrecedenceOverDataDir(t *testing.T) {
 	require.Equal(t, "192.0.2.30", cfg.Server.Host)
 }
 
+// 配置文件搜索路径是对部署的契约：系统级目录只认 /etc/aiferry，不再找 /etc/sub2api。
+func TestConfigureConfigSourceSearchPaths(t *testing.T) {
+	t.Setenv("CONFIG_FILE", "")
+	t.Setenv("DATA_DIR", "")
+
+	var paths []string
+	configureConfigSource(func(file string) {
+		t.Fatalf("CONFIG_FILE 未设置时不应指定配置文件，却收到 %q", file)
+	}, func(path string) {
+		paths = append(paths, path)
+	})
+
+	require.Equal(t, []string{"/app/data", ".", "./config", "/etc/aiferry"}, paths)
+	require.NotContains(t, paths, "/etc/sub2api")
+}
+
+// 日志 service 字段：没配时用默认值 aiferry，配了（LOG_SERVICE_NAME）以配置为准。
+// viper 未开 AllowEmptyEnv，空串等同未设置。
+func TestLoadLogServiceName(t *testing.T) {
+	t.Run("默认值", func(t *testing.T) {
+		resetViperWithJWTSecret(t)
+		t.Setenv("LOG_SERVICE_NAME", "")
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.Equal(t, "aiferry", cfg.Log.ServiceName)
+	})
+	t.Run("环境变量覆盖", func(t *testing.T) {
+		resetViperWithJWTSecret(t)
+		t.Setenv("LOG_SERVICE_NAME", "custom-svc")
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.Equal(t, "custom-svc", cfg.Log.ServiceName)
+	})
+}
+
 func TestLoadReturnsErrorForMissingConfigFile(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("CONFIG_FILE", filepath.Join(t.TempDir(), "missing.yaml"))

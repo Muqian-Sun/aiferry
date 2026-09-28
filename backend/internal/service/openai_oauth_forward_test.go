@@ -332,7 +332,7 @@ func captureStructuredLog(t *testing.T) (*inMemoryLogSink, func()) {
 	err := logger.Init(logger.InitOptions{
 		Level:       "debug",
 		Format:      "json",
-		ServiceName: "sub2api",
+		ServiceName: "aiferry",
 		Environment: "test",
 		Output: logger.OutputOptions{
 			ToStdout: true,

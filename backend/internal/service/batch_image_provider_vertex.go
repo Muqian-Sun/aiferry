@@ -465,9 +465,9 @@ func vertexBatchDisplayName(input BatchImageInput) string {
 		return v
 	}
 	if v := strings.TrimSpace(input.BatchID); v != "" {
-		return "sub2api-" + v
+		return "aiferry-" + v
 	}
-	return "sub2api-image-batch"
+	return "aiferry-image-batch"
 }
 
 func BuildVertexBatchJSONL(input BatchImageInput) ([]byte, error) {

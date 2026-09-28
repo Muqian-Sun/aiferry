@@ -105,6 +105,13 @@ func TestNormalizeVertexBatchModelPath(t *testing.T) {
 	require.Equal(t, "projects/p/locations/global/models/m", NormalizeVertexBatchModelPath("projects/p/locations/global/models/m"))
 }
 
+// Vertex 批量作业的默认显示名（GCP 控制台可见）用 aiferry 前缀；显式给了名字就原样用。
+func TestVertexBatchDisplayNameDefaults(t *testing.T) {
+	require.Equal(t, "my job", vertexBatchDisplayName(BatchImageInput{DisplayName: " my job ", BatchID: "b1"}))
+	require.Equal(t, "aiferry-b1", vertexBatchDisplayName(BatchImageInput{BatchID: " b1 "}))
+	require.Equal(t, "aiferry-image-batch", vertexBatchDisplayName(BatchImageInput{}))
+}
+
 func TestBuildVertexBatchPredictionJobsEndpoint(t *testing.T) {
 	global, err := BuildVertexBatchPredictionJobsEndpoint("", "my-project", "global")
 	require.NoError(t, err)

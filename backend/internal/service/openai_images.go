@@ -45,7 +45,7 @@ const (
 // of the image_generation tool model. An environment override lets operators
 // recover from upstream model retirement without rebuilding the gateway.
 func openAIImagesResponsesMainModelValue() string {
-	if model := strings.TrimSpace(os.Getenv("SUB2API_IMAGES_MAIN_MODEL")); model != "" {
+	if model := strings.TrimSpace(os.Getenv("AIFERRY_IMAGES_MAIN_MODEL")); model != "" {
 		return model
 	}
 	return openAIImagesResponsesMainModel
