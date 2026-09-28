@@ -13,307 +13,110 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// TestCheckErrorPolicy — 6 table-driven cases for the pure logic function
+// TestCheckErrorPolicy — 池模式与 529 过载（渠道级自定义错误码、临时不可调度规则 2026-09-28 P5 已删）
 // ---------------------------------------------------------------------------
 
+// legacyErrorPolicyCredentials 库里旧行可能留着的渠道级自定义错误码与临时不可调度规则：读取处已删，不再生效。
+func legacyErrorPolicyCredentials(extra map[string]any) map[string]any {
+	credentials := map[string]any{
+		"custom_error_codes_enabled": true,
+		"custom_error_codes":         []any{float64(429), float64(500), float64(503), float64(529)},
+		"temp_unschedulable_enabled": true,
+		"temp_unschedulable_rules": []any{
+			map[string]any{
+				"error_code":       float64(503),
+				"keywords":         []any{"overloaded"},
+				"duration_minutes": float64(10),
+			},
+		},
+	}
+	for key, value := range extra {
+		credentials[key] = value
+	}
+	return credentials
+}
+
 func TestCheckErrorPolicy(t *testing.T) {
+	openAIEndpoints := map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}
 	tests := []struct {
 		name       string
 		account    *Account
 		statusCode int
-		body       []byte
 		expected   ErrorPolicyResult
 	}{
 		{
-			name: "no_policy_oauth_returns_none",
-			account: &Account{
-				ID:       1,
-				Type:     AccountTypeOAuth,
-				Platform: PlatformAntigravity,
-				// no custom error codes, no temp rules
-			},
+			name:       "no_policy_oauth_returns_none",
+			account:    &Account{ID: 1, Type: AccountTypeOAuth, Platform: PlatformAntigravity},
 			statusCode: 500,
-			body:       []byte(`"error"`),
 			expected:   ErrorPolicyNone,
-		},
-		{
-			name: "custom_error_codes_hit_returns_matched",
-			account: &Account{
-				ID:       2,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429), float64(500)},
-				},
-			},
-			statusCode: 500,
-			body:       []byte(`"error"`),
-			expected:   ErrorPolicyMatched,
-		},
-		{
-			name: "custom_error_codes_miss_returns_skipped",
-			account: &Account{
-				ID:       3,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429), float64(500)},
-				},
-			},
-			statusCode: 503,
-			body:       []byte(`"error"`),
-			expected:   ErrorPolicySkipped,
-		},
-		{
-			name: "custom_error_codes_excluding_529_skip_global_cooldown",
-			account: &Account{
-				ID:       33,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			},
-			statusCode: 529,
-			body:       []byte(`{"error":{"message":"overloaded"}}`),
-			expected:   ErrorPolicySkipped,
 		},
 		{
 			name: "pool_mode_skips_global_529_cooldown",
 			account: &Account{
-				ID:       34,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"pool_mode": true,
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				ID: 34, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       map[string]any{"pool_mode": true},
+				ProtocolEndpoints: openAIEndpoints,
 			},
 			statusCode: 529,
-			body:       []byte(`{"error":{"message":"overloaded"}}`),
 			expected:   ErrorPolicySkipped,
 		},
 		{
 			name: "ordinary_account_uses_global_529_cooldown",
 			account: &Account{
-				ID:                35,
-				Type:              AccountTypeAPIKey,
-				Platform:          PlatformOpenAI,
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				ID: 35, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				ProtocolEndpoints: openAIEndpoints,
 			},
 			statusCode: 529,
-			body:       []byte(`{"error":{"message":"overloaded"}}`),
 			expected:   ErrorPolicyMatched,
 		},
 		{
-			name: "custom_error_codes_including_529_take_precedence",
+			name: "pool_mode_returns_skipped",
 			account: &Account{
-				ID:       36,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(529)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			},
-			statusCode: 529,
-			body:       []byte(`{"error":{"message":"overloaded"}}`),
-			expected:   ErrorPolicyMatched,
-		},
-		{
-			name: "temp_unschedulable_hit_returns_temp_unscheduled",
-			account: &Account{
-				ID:       4,
-				Type:     AccountTypeOAuth,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-							"description":      "overloaded rule",
-						},
-					},
-				},
-			},
-			statusCode: 503,
-			body:       []byte(`overloaded service`),
-			expected:   ErrorPolicyTempUnscheduled,
-		},
-		{
-			name: "temp_unschedulable_401_first_hit_returns_temp_unscheduled",
-			account: &Account{
-				ID:       14,
-				Type:     AccountTypeOAuth,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(401),
-							"keywords":         []any{"unauthorized"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
+				ID: 8, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       map[string]any{"pool_mode": true},
+				ProtocolEndpoints: openAIEndpoints,
 			},
 			statusCode: 401,
-			body:       []byte(`unauthorized`),
-			expected:   ErrorPolicyTempUnscheduled,
-		},
-		{
-			// Antigravity 401 不走升级逻辑（由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制），
-			// second hit 仍然返回 TempUnscheduled。
-			name: "temp_unschedulable_401_second_hit_antigravity_stays_temp",
-			account: &Account{
-				ID:                      15,
-				Type:                    AccountTypeOAuth,
-				Platform:                PlatformAntigravity,
-				TempUnschedulableReason: `{"status_code":401,"until_unix":1735689600}`,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(401),
-							"keywords":         []any{"unauthorized"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
-			},
-			statusCode: 401,
-			body:       []byte(`unauthorized`),
-			expected:   ErrorPolicyTempUnscheduled,
-		},
-		{
-			name: "temp_unschedulable_body_miss_returns_none",
-			account: &Account{
-				ID:       5,
-				Type:     AccountTypeOAuth,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-							"description":      "overloaded rule",
-						},
-					},
-				},
-			},
-			statusCode: 503,
-			body:       []byte(`random msg`),
-			expected:   ErrorPolicyNone,
-		},
-		{
-			name: "custom_error_codes_override_temp_unschedulable",
-			account: &Account{
-				ID:       6,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(503)},
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-							"description":      "overloaded rule",
-						},
-					},
-				},
-			},
-			statusCode: 503,
-			body:       []byte(`overloaded`),
-			expected:   ErrorPolicyMatched, // custom codes take precedence
-		},
-		{
-			name: "pool_mode_custom_error_codes_hit_returns_matched",
-			account: &Account{
-				ID:       7,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"pool_mode":                  true,
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(401), float64(403)},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			},
-			statusCode: 401,
-			body:       []byte(`unauthorized`),
-			expected:   ErrorPolicyMatched,
-		},
-		{
-			name: "pool_mode_without_custom_error_codes_returns_skipped",
-			account: &Account{
-				ID:       8,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"pool_mode": true,
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			},
-			statusCode: 401,
-			body:       []byte(`unauthorized`),
 			expected:   ErrorPolicySkipped,
 		},
 		{
-			name: "pool_mode_temp_unschedulable_hit_returns_temp_unscheduled",
+			name: "legacy_custom_codes_and_temp_rules_ignored_500",
 			account: &Account{
-				ID:       9,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"pool_mode":                  true,
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(http.StatusServiceUnavailable),
-							"keywords":         []any{"unavailable"},
-							"duration_minutes": float64(30),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				ID: 2, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       legacyErrorPolicyCredentials(nil),
+				ProtocolEndpoints: openAIEndpoints,
 			},
-			statusCode: http.StatusServiceUnavailable,
-			body:       []byte(`Service temporarily unavailable`),
-			expected:   ErrorPolicyTempUnscheduled,
+			statusCode: 500,
+			expected:   ErrorPolicyNone,
 		},
 		{
-			name: "pool_mode_temp_unschedulable_miss_returns_skipped",
+			name: "legacy_custom_codes_and_temp_rules_ignored_503",
 			account: &Account{
-				ID:       10,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
-				Credentials: map[string]any{
-					"pool_mode":                  true,
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(http.StatusServiceUnavailable),
-							"keywords":         []any{"maintenance"},
-							"duration_minutes": float64(30),
-						},
-					},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				ID: 3, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       legacyErrorPolicyCredentials(nil),
+				ProtocolEndpoints: openAIEndpoints,
 			},
-			statusCode: http.StatusServiceUnavailable,
-			body:       []byte(`Service temporarily unavailable`),
+			statusCode: 503,
+			expected:   ErrorPolicyNone,
+		},
+		{
+			name: "legacy_custom_codes_do_not_change_529",
+			account: &Account{
+				ID: 4, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       legacyErrorPolicyCredentials(nil),
+				ProtocolEndpoints: openAIEndpoints,
+			},
+			statusCode: 529,
+			expected:   ErrorPolicyMatched,
+		},
+		{
+			name: "legacy_custom_codes_do_not_override_pool_mode",
+			account: &Account{
+				ID: 7, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+				Credentials:       legacyErrorPolicyCredentials(map[string]any{"pool_mode": true}),
+				ProtocolEndpoints: openAIEndpoints,
+			},
+			statusCode: 401,
 			expected:   ErrorPolicySkipped,
 		},
 	}
@@ -323,24 +126,23 @@ func TestCheckErrorPolicy(t *testing.T) {
 			repo := &errorPolicyRepoStub{}
 			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 
-			result := svc.CheckErrorPolicy(context.Background(), tt.account, tt.statusCode, tt.body)
+			result := svc.CheckErrorPolicy(tt.account, tt.statusCode)
 			require.Equal(t, tt.expected, result, "unexpected ErrorPolicyResult")
+			require.Zero(t, repo.tempCalls, "策略检查本身不写账号状态")
 		})
 	}
 }
 
 func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
-	t.Run("pool_mode_without_custom_error_codes_still_skips", func(t *testing.T) {
+	openAIEndpoints := map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}
+
+	t.Run("pool_mode_skips_local_error_policy", func(t *testing.T) {
 		repo := &errorPolicyRepoStub{}
 		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 		account := &Account{
-			ID:       30,
-			Type:     AccountTypeAPIKey,
-			Platform: PlatformOpenAI,
-			Credentials: map[string]any{
-				"pool_mode": true,
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			ID: 30, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+			Credentials:       map[string]any{"pool_mode": true},
+			ProtocolEndpoints: openAIEndpoints,
 		}
 
 		shouldDisable := svc.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))
@@ -350,111 +152,53 @@ func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
 		require.Equal(t, 0, repo.tempCalls)
 	})
 
-	t.Run("pool_mode_with_custom_error_codes_uses_local_error_policy", func(t *testing.T) {
+	t.Run("pool_mode_legacy_custom_codes_ignored", func(t *testing.T) {
 		repo := &errorPolicyRepoStub{}
 		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 		account := &Account{
-			ID:       31,
-			Type:     AccountTypeAPIKey,
-			Platform: PlatformOpenAI,
-			Credentials: map[string]any{
-				"pool_mode":                  true,
-				"custom_error_codes_enabled": true,
-				"custom_error_codes":         []any{float64(401)},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			ID: 31, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+			Credentials:       legacyErrorPolicyCredentials(map[string]any{"pool_mode": true, "custom_error_codes": []any{float64(401)}}),
+			ProtocolEndpoints: openAIEndpoints,
 		}
 
 		shouldDisable := svc.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))
 
-		require.True(t, shouldDisable)
-		require.Equal(t, 1, repo.setErrCalls)
+		require.False(t, shouldDisable)
+		require.Equal(t, 0, repo.setErrCalls)
 		require.Equal(t, 0, repo.tempCalls)
 	})
 
-	t.Run("pool_mode_explicit_temp_rule_stops_scheduling", func(t *testing.T) {
+	t.Run("pool_mode_legacy_temp_rule_ignored", func(t *testing.T) {
 		repo := &errorPolicyRepoStub{}
 		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 		account := &Account{
-			ID:       32,
-			Type:     AccountTypeAPIKey,
-			Platform: PlatformOpenAI,
-			Credentials: map[string]any{
-				"pool_mode":                  true,
-				"temp_unschedulable_enabled": true,
-				"temp_unschedulable_rules": []any{
-					map[string]any{
-						"error_code":       float64(http.StatusServiceUnavailable),
-						"keywords":         []any{"unavailable"},
-						"duration_minutes": float64(30),
-					},
-				},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			ID: 32, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+			Credentials:       legacyErrorPolicyCredentials(map[string]any{"pool_mode": true}),
+			ProtocolEndpoints: openAIEndpoints,
 		}
 
-		shouldDisable := svc.HandleUpstreamError(
-			context.Background(),
-			account,
-			http.StatusServiceUnavailable,
-			http.Header{},
-			[]byte("Service temporarily unavailable"),
-		)
-
-		require.True(t, shouldDisable)
-		require.Equal(t, 0, repo.setErrCalls)
-		require.Equal(t, 1, repo.tempCalls)
-	})
-
-	t.Run("pool_mode_temp_rule_miss_still_skips", func(t *testing.T) {
-		repo := &errorPolicyRepoStub{}
-		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-		account := &Account{
-			ID:       33,
-			Type:     AccountTypeAPIKey,
-			Platform: PlatformOpenAI,
-			Credentials: map[string]any{
-				"pool_mode":                  true,
-				"temp_unschedulable_enabled": true,
-				"temp_unschedulable_rules": []any{
-					map[string]any{
-						"error_code":       float64(http.StatusServiceUnavailable),
-						"keywords":         []any{"maintenance"},
-						"duration_minutes": float64(30),
-					},
-				},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}
-
-		shouldDisable := svc.HandleUpstreamError(
-			context.Background(),
-			account,
-			http.StatusServiceUnavailable,
-			http.Header{},
-			[]byte("Service temporarily unavailable"),
-		)
+		shouldDisable := svc.HandleUpstreamError(context.Background(), account, http.StatusServiceUnavailable, http.Header{}, []byte("service overloaded"))
 
 		require.False(t, shouldDisable)
 		require.Equal(t, 0, repo.setErrCalls)
 		require.Equal(t, 0, repo.tempCalls)
+		require.Empty(t, repo.modelRateLimitCalls)
 	})
 }
 
 // ---------------------------------------------------------------------------
-// TestApplyErrorPolicy — 4 table-driven cases for the wrapper method
+// TestApplyErrorPolicy — table-driven cases for the wrapper method
 // ---------------------------------------------------------------------------
 
 func TestApplyErrorPolicy(t *testing.T) {
 	tests := []struct {
-		name              string
-		account           *Account
-		statusCode        int
-		body              []byte
-		expectedHandled   bool
-		expectedStatus    int  // expected outStatus
-		expectedSwitchErr bool // expect *AntigravityAccountSwitchError
-		handleErrorCalls  int
+		name             string
+		account          *Account
+		statusCode       int
+		body             []byte
+		expectedHandled  bool
+		expectedStatus   int // expected outStatus
+		handleErrorCalls int
 	}{
 		{
 			name: "none_not_handled",
@@ -470,65 +214,47 @@ func TestApplyErrorPolicy(t *testing.T) {
 			handleErrorCalls: 0,
 		},
 		{
-			name: "skipped_handled_no_handleError",
+			name: "pool_mode_skipped_handled_no_handleError",
 			account: &Account{
-				ID:       11,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(429)},
-				},
+				ID:          11,
+				Type:        AccountTypeAPIKey,
+				Platform:    PlatformAntigravity,
+				Credentials: map[string]any{"pool_mode": true},
 			},
-			statusCode:       500, // not in custom codes
+			statusCode:       500,
 			body:             []byte(`"error"`),
 			expectedHandled:  true,
 			expectedStatus:   http.StatusInternalServerError, // skipped → 500
 			handleErrorCalls: 0,
 		},
 		{
-			name: "matched_handled_calls_handleError",
+			name: "overload_matched_handled_calls_handleError",
 			account: &Account{
 				ID:       12,
 				Type:     AccountTypeAPIKey,
 				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"custom_error_codes_enabled": true,
-					"custom_error_codes":         []any{float64(500)},
-				},
 			},
-			statusCode:       500,
-			body:             []byte(`"error"`),
+			statusCode:       529,
+			body:             []byte(`"overloaded"`),
 			expectedHandled:  true,
-			expectedStatus:   500, // matched → original status
+			expectedStatus:   529, // matched → original status
 			handleErrorCalls: 1,
 		},
 		{
-			name: "temp_unscheduled_returns_switch_error",
+			name: "legacy_temp_rule_ignored",
 			account: &Account{
 				ID:       13,
 				Type:     AccountTypeOAuth,
 				Platform: PlatformAntigravity,
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{
-						"claude-sonnet-4-5": "claude-sonnet-4-5",
-					},
-					"temp_unschedulable_enabled": true,
-					"temp_unschedulable_rules": []any{
-						map[string]any{
-							"error_code":       float64(503),
-							"keywords":         []any{"overloaded"},
-							"duration_minutes": float64(10),
-						},
-					},
-				},
+				Credentials: legacyErrorPolicyCredentials(map[string]any{
+					"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-5"},
+				}),
 			},
-			statusCode:        503,
-			body:              []byte(`overloaded`),
-			expectedHandled:   true,
-			expectedStatus:    503, // temp_unscheduled → original status
-			expectedSwitchErr: true,
-			handleErrorCalls:  0,
+			statusCode:       503,
+			body:             []byte(`overloaded`),
+			expectedHandled:  false,
+			expectedStatus:   503,
+			handleErrorCalls: 0,
 		},
 	}
 
@@ -558,22 +284,15 @@ func TestApplyErrorPolicy(t *testing.T) {
 			require.Equal(t, tt.expectedHandled, handled, "handled mismatch")
 			require.Equal(t, tt.expectedStatus, outStatus, "outStatus mismatch")
 			require.Equal(t, tt.handleErrorCalls, handleErrorCount, "handleError call count mismatch")
-
-			if tt.expectedSwitchErr {
-				var switchErr *AntigravityAccountSwitchError
-				require.ErrorAs(t, retErr, &switchErr)
-				require.Equal(t, tt.account.ID, switchErr.OriginalAccountID)
-				require.Zero(t, repo.tempCalls)
-				require.Len(t, repo.modelRateLimitCalls, 1)
-				require.Equal(t, "claude-sonnet-4-5", repo.modelRateLimitCalls[0].scope)
-			} else {
-				require.NoError(t, retErr)
-			}
+			require.NoError(t, retErr)
+			require.Zero(t, repo.tempCalls)
+			require.Empty(t, repo.modelRateLimitCalls)
 		})
 	}
 }
 
-func TestApplyErrorPolicy_GeminiRateLimitBypassesCustomSkip(t *testing.T) {
+// 池模式（ErrorPolicySkipped）下，Gemini 模型级限流仍先于跳过分支处理。
+func TestApplyErrorPolicy_GeminiRateLimitBypassesPoolModeSkip(t *testing.T) {
 	repo := &stubAntigravityAccountRepo{}
 	cache := &stubSmartRetryCache{}
 	rlSvc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
@@ -584,13 +303,10 @@ func TestApplyErrorPolicy_GeminiRateLimitBypassesCustomSkip(t *testing.T) {
 	}
 
 	account := &Account{
-		ID:       31,
-		Type:     AccountTypeAPIKey,
-		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"custom_error_codes_enabled": true,
-			"custom_error_codes":         []any{float64(500)},
-		},
+		ID:          31,
+		Type:        AccountTypeAPIKey,
+		Platform:    PlatformAntigravity,
+		Credentials: map[string]any{"pool_mode": true},
 	}
 	body := []byte(`{
 		"error": {
@@ -609,7 +325,7 @@ func TestApplyErrorPolicy_GeminiRateLimitBypassesCustomSkip(t *testing.T) {
 		scopeID:     42,
 		sessionHash: "gemini:sticky",
 		handleError: func(context.Context, string, *Account, int, http.Header, []byte, string, int64, string, bool) *handleModelRateLimitResult {
-			t.Fatal("model rate limit should be handled before custom error fallback")
+			t.Fatal("model rate limit should be handled before the pool-mode skip")
 			return nil
 		},
 	}

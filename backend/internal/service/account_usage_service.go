@@ -795,11 +795,12 @@ func isOpenAICodexSnapshotStale(account *Account, now time.Time) bool {
 	if account == nil || !account.IsOpenAIOAuth() {
 		return false
 	}
-	// 普通账号的 codex 刷新走 probe(/responses 头),要求 WSv2;但 spark 影子走 QueryUsage
+	// 普通账号的 codex 刷新走 probe(/responses 头),原先要求渠道开了 WSv2;渠道级 WS 开关
+	// 2026-09-28 P5 删了(legacy 路径恒 HTTP),普通账号这里恒不算过期。spark 影子走 QueryUsage
 	// (/wham/usage body 的 codex_bengalfox),与 WSv2 无关——不能用 WSv2 门控其 staleness,否则首刷后
 	// codex_5h/7d 已存在→staleness 恒 false→spark 窗口永久冻结(外审第9轮 P1)。影子改按
 	// codex_usage_updated_at TTL 判定;实际查询频率仍由 shouldProbeOpenAICodexSnapshot 的缓存 TTL 节流。
-	if !account.IsShadow() && !account.IsOpenAIResponsesWebSocketV2Enabled() {
+	if !account.IsShadow() {
 		return false
 	}
 	if account.Extra == nil {
@@ -1794,10 +1795,4 @@ func buildGeminiUsageProgress(used, limit int64, resetAt time.Time, tokens int64
 			Cost:     cost,
 		},
 	}
-}
-
-// GetAccountWindowStats 获取账号在指定时间窗口内的使用统计
-// 用于账号列表页面显示当前窗口费用
-func (s *AccountUsageService) GetAccountWindowStats(ctx context.Context, accountID int64, startTime time.Time) (*usagestats.AccountStats, error) {
-	return s.usageLogRepo.GetAccountWindowStats(ctx, accountID, startTime)
 }

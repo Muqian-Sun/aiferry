@@ -71,9 +71,9 @@ func TestCodexAccountIdentityNamespaceUsesStableCredentialSource(t *testing.T) {
 	require.Equal(t, codexAccountIdentityNamespace(firstUser), codexAccountIdentityNamespace(sameUser))
 	require.NotEqual(t, codexAccountIdentityNamespace(firstUser), codexAccountIdentityNamespace(secondUser))
 
-	seed := "11111111-1111-4111-8111-111111111111"
-	seeded := &Account{ID: 11, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{codexFingerprintSeedExtraKey: seed}}
-	require.Equal(t, "seed:"+seed, codexAccountIdentityNamespace(seeded))
+	// Codex 指纹种子 2026-09-28 P5 随收敛一起删了：库里残留的种子不再充当身份命名空间。
+	seeded := &Account{ID: 11, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: map[string]any{"codex_fingerprint_seed": "11111111-1111-4111-8111-111111111111"}}
+	require.Empty(t, codexAccountIdentityNamespace(seeded))
 
 	// Local row IDs repeat across independent deployments, so they are not a
 	// safe fallback for upstream identity.

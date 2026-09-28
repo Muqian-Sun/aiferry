@@ -37,9 +37,8 @@ type astraForwardSetup struct {
 }
 
 // newAstraOAuthSetup builds an OpenAI OAuth account using the minimal
-// svc+account harness pattern (mirrors openai_oauth_passthrough_test.go). When
-// passthrough is true the account routes through forwardOpenAIPassthrough.
-func newAstraOAuthSetup(t *testing.T, passthrough bool) *astraForwardSetup {
+// svc+account harness pattern (mirrors openai_oauth_forward_test.go).
+func newAstraOAuthSetup(t *testing.T) *astraForwardSetup {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -58,7 +57,6 @@ func newAstraOAuthSetup(t *testing.T, passthrough bool) *astraForwardSetup {
 		Type:           AccountTypeOAuth,
 		Concurrency:    1,
 		Credentials:    map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
-		Extra:          map[string]any{"openai_passthrough": passthrough},
 		Status:         StatusActive,
 		Schedulable:    true,
 		RateMultiplier: f64p(1),
@@ -95,7 +93,7 @@ func astraRequestBody(model string, stream bool, mode, effort string) []byte {
 // behavior is preserved for a non-Astra model on an OAuth account.
 func TestForward_AstraOAuth_NonAstraLegacyStillStrips(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	s := newAstraOAuthSetup(t, false)
+	s := newAstraOAuthSetup(t)
 	inner := `{"id":"resp_test","model":"gpt-5.6-sol","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`
 	s.upstream.resp = &http.Response{
 		StatusCode: http.StatusOK,
@@ -118,7 +116,7 @@ func TestForward_AstraOAuth_NonAstraLegacyStillStrips(t *testing.T) {
 }
 
 // TestForward_AstraOAuth_ModeMatrix_Preserved runs the pro/standard/missing-mode
-// x effort=max matrix across both forward branches and both client stream modes.
+// x effort=max matrix across both client stream modes (the passthrough branch was removed in P5).
 // Every attempt receives an upstream SSE fixture; assertions check the final
 // upstream request keeps mode/effort and the URL is the Codex responses endpoint.
 func TestForward_AstraOAuth_ModeMatrix_Preserved(t *testing.T) {
@@ -135,15 +133,12 @@ func TestForward_AstraOAuth_ModeMatrix_Preserved(t *testing.T) {
 		{name: "pro+high", mode: "pro", effort: "high", wantMod: "pro", wantEff: "high"},
 		{name: "pro no effort", mode: "pro", effort: "", wantMod: "pro", wantEff: ""},
 	}
-	for _, passthrough := range []bool{false, true} {
+	{
 		branch := "native-codex"
-		if passthrough {
-			branch = "passthrough"
-		}
 		for _, stream := range []bool{true, false} {
 			for _, tt := range cases {
 				t.Run(tt.name+"/"+branch+"/stream="+map[bool]string{true: "true", false: "false"}[stream], func(t *testing.T) {
-					s := newAstraOAuthSetup(t, passthrough)
+					s := newAstraOAuthSetup(t)
 					inner := `{"id":"resp_test","model":"gpt-6-astra","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`
 					s.upstream.resp = &http.Response{
 						StatusCode: http.StatusOK,
@@ -187,7 +182,7 @@ func TestForward_AstraOAuth_ModeMatrix_Preserved(t *testing.T) {
 // SSE->JSON aggregation.
 func TestForward_AstraOAuth_NonStreamAggregation_PreservesResponseReasoningMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	s := newAstraOAuthSetup(t, false)
+	s := newAstraOAuthSetup(t)
 	// response.completed.response carries a top-level reasoning:{mode:pro,effort:max}.
 	inner := `{"id":"resp_astra","object":"response","created_at":0,"status":"completed","model":"gpt-6-astra","reasoning":{"mode":"pro","effort":"max"},"output":[{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"think"}]},{"type":"message","id":"msg_1","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`
 	s.upstream.resp = &http.Response{
@@ -214,7 +209,7 @@ func TestForward_AstraOAuth_NonStreamAggregation_PreservesResponseReasoningMode(
 // still carries response.reasoning.mode.
 func TestForward_AstraOAuth_Stream_PreservesResponseReasoningMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	s := newAstraOAuthSetup(t, false)
+	s := newAstraOAuthSetup(t)
 	inner := `{"id":"resp_astra","object":"response","created_at":0,"status":"completed","model":"gpt-6-astra","reasoning":{"mode":"pro","effort":"max"},"output":[{"type":"message","id":"msg_1","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`
 	s.upstream.resp = &http.Response{
 		StatusCode: http.StatusOK,

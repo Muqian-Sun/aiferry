@@ -110,7 +110,6 @@ export default {
     deletedChannel: 'Deleted channel',
     deletedPlan: 'Deleted plan',
     deletedKey: 'Deleted key',
-    minutes: 'min',
     time: {
       never: 'Never',
       justNow: 'Just now',

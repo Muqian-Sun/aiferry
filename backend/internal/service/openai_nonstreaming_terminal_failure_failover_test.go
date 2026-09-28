@@ -186,23 +186,6 @@ func TestNonStreamingSSEToJSON_BareErrorEventUsesConservativeClassifier(t *testi
 	})
 }
 
-// 透传路径必须与合成路径同步修复，否则又造出一处新的不对称。
-func TestNonStreamingPassthroughSSEToJSON_CapacityFailedEventFailsOver(t *testing.T) {
-	c, rec := newNonStreamingFailoverContext(t)
-	svc := newNonStreamingFailoverService()
-	body := sseTerminalBody("response.failed",
-		`{"type":"response.failed","error":{"message":"Selected model is at capacity. Please try a different model.","type":"invalid_request_error"}}`)
-
-	result, err := svc.handlePassthroughSSEToJSON(newNonStreamingSSEResponse(), c, newNonStreamingFailoverAccount(), body, "model", "model")
-
-	require.Nil(t, result)
-	var failoverErr *UpstreamFailoverError
-	require.ErrorAs(t, err, &failoverErr)
-	require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
-	require.False(t, c.Writer.Written())
-	require.Empty(t, rec.Body.String())
-}
-
 // 不变式：非流式的裁决必须与流式分类器逐项一致。任何一边以后改了判定，这条会红。
 func TestNonStreamingSSEToJSON_MatchesStreamingClassifierVerdict(t *testing.T) {
 	payloads := []string{

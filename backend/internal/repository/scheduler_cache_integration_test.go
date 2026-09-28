@@ -43,7 +43,8 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 			"huge_blob":     strings.Repeat("x", 4096),
 		},
 		Extra: map[string]any{
-			// 瘦身白名单之外的键必须被丢掉；mixed_scheduling 随分组池下线（7b-2b）。
+			// 瘦身白名单之外的键必须被丢掉；mixed_scheduling 随分组池下线（7b-2b），
+			// 窗口费用与空闲超时随渠道级设置删除 / 写死（2026-09-28 P5）。
 			"mixed_scheduling":             true,
 			"window_cost_limit":            12.5,
 			"window_cost_sticky_reserve":   8.0,
@@ -77,10 +78,10 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 	require.Empty(t, got.GetCredential("access_token"))
 	require.Empty(t, got.GetCredential("huge_blob"))
 	require.NotContains(t, got.Extra, "mixed_scheduling", "混合调度标记随分组池下线（7b-2b）")
-	require.Equal(t, 12.5, got.GetWindowCostLimit())
-	require.Equal(t, 8.0, got.GetWindowCostStickyReserve())
+	require.NotContains(t, got.Extra, "window_cost_limit")
+	require.NotContains(t, got.Extra, "window_cost_sticky_reserve")
 	require.Equal(t, 4, got.GetMaxSessions())
-	require.Equal(t, 11, got.GetSessionIdleTimeoutMinutes())
+	require.NotContains(t, got.Extra, "session_idle_timeout_minutes")
 	require.Nil(t, got.Extra["unused_large_field"])
 
 	full, err := cache.GetAccount(ctx, account.ID)

@@ -16,107 +16,6 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestOpenAIGatewayService_APIKeyPassthrough_StripsInvalidInputItemIDs(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body: io.NopCloser(strings.NewReader(
-			`{"id":"resp_test","model":"gpt-5.6-sol","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`,
-		)),
-	}}
-	svc := newOpenAIImageGenerationControlTestService(upstream)
-	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
-	account := newOpenAIImageGenerationControlTestAccount()
-	account.Extra = map[string]any{"openai_passthrough": true}
-
-	body := []byte(`{
-		"model":"gpt-5.6-sol",
-		"stream":false,
-		"input":[
-			{"type":"message","id":"item_bad_message","role":"assistant","content":[{"type":"output_text","text":"hello"}]},
-			{"type":"function_call","id":"item_bad_call","call_id":"call_123","name":"exec_command","arguments":"{}"},
-			{"type":"message","id":"msg_valid","role":"user","content":[{"type":"input_text","text":"continue"}]},
-			{"type":"function_call","id":"fc_valid","call_id":"call_456","name":"apply_patch","arguments":"{}"},
-			{"type":"custom_tool_call","id":"fc_wrong_custom","call_id":"call_custom_1","name":"apply_patch","input":"patch"},
-			{"type":"custom_tool_call","id":"ctc_valid","call_id":"call_custom_2","name":"apply_patch","input":"patch"},
-			{"type":"tool_search_call","id":"fc_wrong_search","call_id":"call_search_1","arguments":{"query":"docs"}},
-			{"type":"tool_search_call","id":"tsc_valid","call_id":"call_search_2","arguments":{"query":"docs"}},
-			{"type":"function_call_output","id":"item_output","call_id":"call_123","output":"done"},
-			{"type":"web_search_call","id":"item_wrong_web"}
-		]
-	}`)
-
-	result, err := svc.Forward(context.Background(), c, account, body)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-
-	forwarded := upstream.lastBody
-	require.False(t, gjson.GetBytes(forwarded, "input.0.id").Exists())
-	require.Equal(t, "hello", gjson.GetBytes(forwarded, "input.0.content.0.text").String())
-	require.False(t, gjson.GetBytes(forwarded, "input.1.id").Exists())
-	require.Equal(t, "call_123", gjson.GetBytes(forwarded, "input.1.call_id").String())
-	require.Equal(t, "exec_command", gjson.GetBytes(forwarded, "input.1.name").String())
-	require.Equal(t, "{}", gjson.GetBytes(forwarded, "input.1.arguments").String())
-	require.Equal(t, "msg_valid", gjson.GetBytes(forwarded, "input.2.id").String())
-	require.Equal(t, "fc_valid", gjson.GetBytes(forwarded, "input.3.id").String())
-	require.False(t, gjson.GetBytes(forwarded, "input.4.id").Exists())
-	require.Equal(t, "ctc_valid", gjson.GetBytes(forwarded, "input.5.id").String())
-	require.False(t, gjson.GetBytes(forwarded, "input.6.id").Exists())
-	require.Equal(t, "tsc_valid", gjson.GetBytes(forwarded, "input.7.id").String())
-	require.Equal(t, "item_output", gjson.GetBytes(forwarded, "input.8.id").String())
-	require.Equal(t, "call_123", gjson.GetBytes(forwarded, "input.8.call_id").String())
-	require.False(t, gjson.GetBytes(forwarded, "input.9.id").Exists())
-}
-
-func TestOpenAIGatewayService_OAuthPassthrough_SanitizesNativeToolItemIDs(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	for _, accountType := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
-		t.Run(accountType, func(t *testing.T) {
-			upstreamSSE := "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test\",\"model\":\"gpt-5.6-sol\",\"output\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\ndata: [DONE]\n\n"
-			upstream := &httpUpstreamRecorder{resp: &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-				Body:       io.NopCloser(strings.NewReader(upstreamSSE)),
-			}}
-			svc := newOpenAIImageGenerationControlTestService(upstream)
-			c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
-			account := newOpenAIImageGenerationControlTestAccount()
-			account.Type = accountType
-			account.Credentials = map[string]any{
-				"access_token":       "oauth-token",
-				"chatgpt_account_id": "chatgpt-account",
-			}
-			account.Extra = map[string]any{"openai_passthrough": true}
-
-			body := []byte(`{
-		"model":"gpt-5.6-sol",
-		"stream":true,
-		"instructions":"test",
-		"input":[
-			{"type":"custom_tool_call","id":"fc_wrong_custom","call_id":"call_custom_1","name":"apply_patch","input":"patch"},
-			{"type":"custom_tool_call","id":"ctc_valid","call_id":"call_custom_2","name":"apply_patch","input":"patch"},
-			{"type":"tool_search_call","id":"fc_wrong_search","call_id":"call_search_1","arguments":{"query":"docs"}},
-			{"type":"tool_search_call","id":"tsc_valid","call_id":"call_search_2","arguments":{"query":"docs"}}
-		]
-	}`)
-
-			result, err := svc.Forward(context.Background(), c, account, body)
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			require.NotNil(t, upstream.lastReq)
-			require.Equal(t, "https://chatgpt.com/backend-api/codex/responses", upstream.lastReq.URL.String())
-			require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.id").Exists())
-			require.Equal(t, "ctc_valid", gjson.GetBytes(upstream.lastBody, "input.1.id").String())
-			require.False(t, gjson.GetBytes(upstream.lastBody, "input.2.id").Exists())
-			require.Equal(t, "tsc_valid", gjson.GetBytes(upstream.lastBody, "input.3.id").String())
-		})
-	}
-}
-
 func TestOpenAIGatewayService_SetupTokenLegacy_SanitizesAndTransforms(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstreamSSE := "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test\",\"model\":\"gpt-5.6-sol\",\"output\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\ndata: [DONE]\n\n"
@@ -133,7 +32,7 @@ func TestOpenAIGatewayService_SetupTokenLegacy_SanitizesAndTransforms(t *testing
 		"access_token":       "setup-token",
 		"chatgpt_account_id": "chatgpt-account",
 	}
-	account.Extra = map[string]any{"openai_passthrough": false}
+
 	body := []byte(`{
 		"model":"gpt-5.6-sol",
 		"stream":true,
@@ -156,49 +55,6 @@ func TestOpenAIGatewayService_SetupTokenLegacy_SanitizesAndTransforms(t *testing
 	require.False(t, gjson.GetBytes(upstream.lastBody, "reasoning.mode").Exists())
 	require.False(t, gjson.GetBytes(upstream.lastBody, "input.0.id").Exists())
 	require.Len(t, gjson.GetBytes(upstream.lastBody, "input").Array(), 1)
-}
-
-// TestOpenAIGatewayService_APIKeyPassthrough_StripsInvalidReasoningItemIDs
-// verifies that reasoning items with a non-rs id (e.g. item_*) are stripped
-// before forwarding. OpenAI upstream requires reasoning ids to begin with
-// "rs" and rejects item_* with 400:
-// "Expected an ID that begins with 'rs'." (#5410)
-func TestOpenAIGatewayService_APIKeyPassthrough_StripsInvalidReasoningItemIDs(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body: io.NopCloser(strings.NewReader(
-			`{"id":"resp_test","model":"gpt-5.6-sol","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`,
-		)),
-	}}
-	svc := newOpenAIImageGenerationControlTestService(upstream)
-	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
-	account := newOpenAIImageGenerationControlTestAccount()
-	account.Extra = map[string]any{"openai_passthrough": true}
-
-	body := []byte(`{
-		"model":"gpt-5.6-sol",
-		"stream":false,
-		"input":[
-			{"type":"reasoning","id":"item_bad_reasoning","summary":[]},
-			{"type":"reasoning","id":"rs_valid","summary":[]},
-			{"type":"message","id":"msg_valid","role":"user","content":[{"type":"input_text","text":"continue"}]}
-		]
-	}`)
-
-	result, err := svc.Forward(context.Background(), c, account, body)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-
-	forwarded := upstream.lastBody
-	require.False(t, gjson.GetBytes(forwarded, "input.0.id").Exists(),
-		"item_* id should be stripped from reasoning")
-	require.Equal(t, "rs_valid", gjson.GetBytes(forwarded, "input.1.id").String(),
-		"valid rs* id must be preserved")
-	require.Equal(t, "msg_valid", gjson.GetBytes(forwarded, "input.2.id").String())
 }
 
 func TestShouldStripOpenAIResponsesInputItemID_Reasoning(t *testing.T) {

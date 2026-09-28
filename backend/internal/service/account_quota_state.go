@@ -171,23 +171,21 @@ func openAIQuotaPauseDecision(account *Account, settings OpsOpenAIAccountQuotaAu
 			window, utilization*100, threshold*100, detail, until.UTC().Format(time.RFC3339))
 		return until, BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, message), true
 	}
-	disabled5h := resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled")
-	disabled7d := resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled")
 	if config := ResolveOpenAIAutoResetCreditConfig(account); config.Enabled {
 		utilization5h, has5h := resolveOpenAIQuotaUtilization(account.Extra, "5h", now)
 		utilization7d, has7d := resolveOpenAIQuotaUtilization(account.Extra, "7d", now)
-		if has5h && utilization5h >= config.Threshold5h {
+		if has5h && utilization5h >= OpenAIAutoResetCreditThreshold5h {
 			notifyOpenAIAutoReset(account.ID)
-			return pause("5h", config.Threshold5h, utilization5h, "quota_auto_reset_pending_5h")
+			return pause("5h", OpenAIAutoResetCreditThreshold5h, utilization5h, "quota_auto_reset_pending_5h")
 		}
-		if has7d && utilization7d >= config.Threshold7d {
+		if has7d && utilization7d >= OpenAIAutoResetCreditThreshold7d {
 			notifyOpenAIAutoReset(account.ID)
-			return pause("7d", config.Threshold7d, utilization7d, "quota_auto_reset_pending_7d")
+			return pause("7d", OpenAIAutoResetCreditThreshold7d, utilization7d, "quota_auto_reset_pending_7d")
 		}
 
-		pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(account, settings)
-		pauseReached5h := !disabled5h && pause5h > 0 && has5h && utilization5h >= pause5h
-		pauseReached7d := !disabled7d && pause7d > 0 && has7d && utilization7d >= pause7d
+		pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(settings)
+		pauseReached5h := pause5h > 0 && has5h && utilization5h >= pause5h
+		pauseReached7d := pause7d > 0 && has7d && utilization7d >= pause7d
 		if pauseReached5h || pauseReached7d {
 			state := openAIAutoResetStateFromExtra(account.Extra)
 			if state != nil && state.Status == OpenAIAutoResetStatusAvailable && state.AvailableCount > 0 && !openAIAutoResetStateStale(state, now) {
@@ -200,15 +198,14 @@ func openAIQuotaPauseDecision(account *Account, settings OpsOpenAIAccountQuotaAu
 			return pause("7d", pause7d, utilization7d, "quota_auto_reset_credit_check_7d")
 		}
 	}
-	// 账号级显式禁用优先于全局默认阈值：账号阈值留空表示「用全局默认」，
-	// 没有禁用开关管理员就无法把单个账号从自动停调里豁免出来；开关按窗口分开。
-	threshold5h, threshold7d := resolveOpenAIQuotaAutoPauseThresholds(account, settings)
-	if !disabled5h && threshold5h > 0 {
+	// 只用运维设置里的全局阈值：渠道级 5h / 7d 阈值与禁用开关 2026-09-28 P5 删了。
+	threshold5h, threshold7d := resolveOpenAIQuotaAutoPauseThresholds(settings)
+	if threshold5h > 0 {
 		if utilization, ok := resolveOpenAIQuotaUtilization(account.Extra, "5h", now); ok && utilization >= threshold5h {
 			return pause("5h", threshold5h, utilization, "quota_auto_pause")
 		}
 	}
-	if !disabled7d && threshold7d > 0 {
+	if threshold7d > 0 {
 		if utilization, ok := resolveOpenAIQuotaUtilization(account.Extra, "7d", now); ok && utilization >= threshold7d {
 			return pause("7d", threshold7d, utilization, "quota_auto_pause")
 		}
@@ -216,23 +213,10 @@ func openAIQuotaPauseDecision(account *Account, settings OpsOpenAIAccountQuotaAu
 	return time.Time{}, "", false
 }
 
-// resolveOpenAIQuotaAutoPauseThresholds 返回账号生效的 5h / 7d 自动停调阈值：账号自己设了就用账号的，
-// 否则回到全局默认。
-func resolveOpenAIQuotaAutoPauseThresholds(account *Account, settings OpsOpenAIAccountQuotaAutoPauseSettings) (float64, float64) {
-	threshold5h, _ := resolveAccountExtraNumber(account.Extra, "auto_pause_5h_threshold")
-	threshold7d, _ := resolveAccountExtraNumber(account.Extra, "auto_pause_7d_threshold")
-	threshold5h = clamp01(threshold5h)
-	threshold7d = clamp01(threshold7d)
-	if threshold5h > 0 && threshold7d > 0 {
-		return threshold5h, threshold7d
-	}
-	if threshold5h <= 0 {
-		threshold5h = clamp01(settings.DefaultThreshold5h)
-	}
-	if threshold7d <= 0 {
-		threshold7d = clamp01(settings.DefaultThreshold7d)
-	}
-	return threshold5h, threshold7d
+// resolveOpenAIQuotaAutoPauseThresholds 返回 5h / 7d 自动停调阈值：只看运维设置的全局默认
+// （渠道级覆盖 2026-09-28 P5 删了）。
+func resolveOpenAIQuotaAutoPauseThresholds(settings OpsOpenAIAccountQuotaAutoPauseSettings) (float64, float64) {
+	return clamp01(settings.DefaultThreshold5h), clamp01(settings.DefaultThreshold7d)
 }
 
 // grokQuotaPauseDecision 按 xAI 配额快照判断 Grok 成品号是否该停调：retry_after 生效期内、
@@ -336,46 +320,25 @@ func quotaCounterPauseDecision(account *Account, now time.Time) (time.Time, stri
 	return time.Time{}, "", false
 }
 
-// quotaDailyPeriodEnd 返回当前日配额周期的结束时刻；周期未开始或已过期（下次递增会重置）返回 false。
+// quotaDailyPeriodEnd 返回当前日配额周期的结束时刻（滚动窗口：周期起点 + 24 小时）；
+// 周期未开始或已过期（下次递增会重置）返回 false。
 func (a *Account) quotaDailyPeriodEnd(now time.Time) (time.Time, bool) {
 	start := a.getExtraTime("quota_daily_start")
 	if start.IsZero() {
 		return time.Time{}, false
 	}
-	if a.GetQuotaDailyResetMode() == "fixed" {
-		tz := a.quotaResetLocation()
-		if start.Before(lastFixedDailyReset(a.GetQuotaDailyResetHour(), tz, now)) {
-			return time.Time{}, false
-		}
-		return nextFixedDailyReset(a.GetQuotaDailyResetHour(), tz, now), true
-	}
 	end := start.Add(24 * time.Hour)
 	return end, now.Before(end)
 }
 
-// quotaWeeklyPeriodEnd 返回当前周配额周期的结束时刻；周期未开始或已过期返回 false。
+// quotaWeeklyPeriodEnd 返回当前周配额周期的结束时刻（滚动窗口：周期起点 + 7 天）；周期未开始或已过期返回 false。
 func (a *Account) quotaWeeklyPeriodEnd(now time.Time) (time.Time, bool) {
 	start := a.getExtraTime("quota_weekly_start")
 	if start.IsZero() {
 		return time.Time{}, false
 	}
-	if a.GetQuotaWeeklyResetMode() == "fixed" {
-		tz := a.quotaResetLocation()
-		if start.Before(lastFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, now)) {
-			return time.Time{}, false
-		}
-		return nextFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, now), true
-	}
 	end := start.Add(7 * 24 * time.Hour)
 	return end, now.Before(end)
-}
-
-func (a *Account) quotaResetLocation() *time.Location {
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		return time.UTC
-	}
-	return tz
 }
 
 // resolveAccountExtraBool 读 account.Extra 里的布尔值，容忍 JSON 反序列化可能给出的几种形状

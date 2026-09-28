@@ -241,41 +241,6 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 	require.Equal(t, "kimi-key", header.Get("x-api-key"))
 }
 
-// TestGatewayService_AnthropicPassthrough_OllamaCloudBearer：经 passthrough
-// builder 真实构造 http.Request 验证最终 header——Ollama Cloud 强制 Bearer 且
-// 不泄漏客户端入站认证；非 Ollama 上游保持 x-api-key。
-func TestGatewayService_AnthropicPassthrough_OllamaCloudBearer(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	buildReq := func(t *testing.T, baseURL string) *http.Request {
-		t.Helper()
-		rec := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(rec)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-		// 入站认证残留：正确上游只发一种认证头，不得泄漏客户端凭证
-		c.Request.Header.Set("Authorization", "Bearer inbound-token")
-		c.Request.Header.Set("X-Api-Key", "inbound-api-key")
-
-		svc := &GatewayService{cfg: &config.Config{}}
-		account := newOllamaCloudAnthropicAuthAccount(baseURL, nil)
-		body := []byte(`{"model":"claude-3-7-sonnet-20250219","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`)
-		req, _, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "ollama-cloud-key")
-		require.NoError(t, err)
-		return req
-	}
-
-	ollamaReq := buildReq(t, "https://ollama.com/")
-	require.Equal(t, "Bearer ollama-cloud-key", ollamaReq.Header.Get("Authorization"))
-	require.Empty(t, ollamaReq.Header.Get("x-api-key"), "Ollama Cloud 上游不得再发 x-api-key")
-	require.NotContains(t, ollamaReq.Header.Get("Authorization"), "inbound-token")
-	require.Empty(t, ollamaReq.Header.Get("x-inbound"), "sanity")
-
-	anthropicReq := buildReq(t, "https://api.anthropic.com")
-	require.Empty(t, anthropicReq.Header.Get("Authorization"))
-	require.Equal(t, "ollama-cloud-key", anthropicReq.Header.Get("x-api-key"))
-	require.NotContains(t, anthropicReq.Header.Get("x-api-key"), "inbound-api-key")
-}
-
 // TestGatewayService_BuildUpstreamRequest_OllamaCloudBearer：经 Anthropic 原生
 // GetBaseURL builder 真实构造 http.Request 验证最终 header。
 func TestGatewayService_BuildUpstreamRequest_OllamaCloudBearer(t *testing.T) {

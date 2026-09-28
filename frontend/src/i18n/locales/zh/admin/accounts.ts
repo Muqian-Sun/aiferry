@@ -245,8 +245,6 @@ export default {
         deleteSession: '删除会话',
         deleteConfirm: '确定删除已保存的 Ollama 浏览器会话及其用量快照？',
         refreshNow: '刷新用量',
-        autoRefresh: '自动刷新用量',
-        autoRefreshHint: '只有渠道开关和全局开关同时启用时才会定时刷新。',
         plan: '套餐',
         fiveHour: '5 小时',
         fiveHourShort: '5h',
@@ -265,7 +263,6 @@ export default {
         sessionSaveFailed: '保存 Ollama 浏览器会话失败',
         sessionDeleted: 'Ollama 浏览器会话已删除',
         sessionDeleteFailed: '删除 Ollama 浏览器会话失败',
-        autoRefreshFailed: '更新自动刷新设置失败',
         refreshSuccess: 'Ollama Cloud 用量已刷新',
         refreshFailed: '刷新 Ollama Cloud 用量失败',
         errors: {
@@ -336,11 +333,6 @@ export default {
       // 容量（详情抽屉「用量」页签）
       capacity: {
         concurrency: '并发',
-        windowCost: {
-          label: '5 小时窗口费用',
-          blocked: '已到上限，渠道停到这个 5 小时窗口结束',
-          normal: '按标价累计，到上限后渠道停到窗口结束'
-        },
         sessions: {
           label: '活跃会话',
           full: '活跃会话已满，新会话需等待（空闲超时：{idle}分钟）',
@@ -354,10 +346,7 @@ export default {
           tieredNormal: '分层限流：正常',
           tieredWarning: '分层限流：接近上限',
           tieredStickyOnly: '分层限流：已到上限，只接粘性会话（缓冲 {buffer}）',
-          tieredBlocked: '分层限流：超出缓冲 {buffer}，暂停调度',
-          stickyExemptNormal: '粘性豁免：正常',
-          stickyExemptWarning: '粘性豁免：接近上限',
-          stickyExemptOver: '粘性豁免：已到上限，只接粘性会话'
+          tieredBlocked: '分层限流：超出缓冲 {buffer}，暂停调度'
         },
       },
       clearRateLimit: '清除速率限制',
@@ -373,31 +362,8 @@ export default {
       quotaWeeklyLimitHint: '从首次使用起每 7 天自动重置。',
       quotaTotalLimit: '总限额',
       quotaTotalLimitHint: '累计消费上限，不会自动重置 — 使用「重置配额」手动清零。',
-      quotaResetMode: '重置方式',
-      quotaResetModeRolling: '滚动窗口',
-      quotaResetModeFixed: '固定时间',
-      quotaResetHour: '重置时间',
-      quotaWeeklyResetDay: '重置日',
-      quotaResetTimezone: '重置时区',
-      quotaDailyLimitHintFixed: '每天 {hour}:00（{timezone}）重置。',
-      quotaWeeklyLimitHintFixed: '每{day} {hour}:00（{timezone}）重置。',
-      dayOfWeek: {
-        monday: '周一',
-        tuesday: '周二',
-        wednesday: '周三',
-        thursday: '周四',
-        friday: '周五',
-        saturday: '周六',
-        sunday: '周日',
-      },
       quotaLimitAmount: '总限额',
       quotaLimitAmountHint: '累计消费上限，不会自动重置。',
-      quotaNotify: {
-        alert: '提醒阈值',
-        enabled: '启用告警',
-        threshold: '告警金额',
-        thresholdPlaceholder: '输入百分比',
-      },
       testConnection: '测试连接',
       reAuthorize: '重新授权',
       refreshToken: '刷新令牌',
@@ -464,9 +430,7 @@ export default {
       opencodeGo: {
         accountMode: {
           zen: 'Zen',
-          zenDesc: '按量付费网关，消耗账户余额，按 Token 计费。',
           go: 'GO',
-          goDesc: '订阅制网关，按 5 小时 / 周 / 月滚动用量窗口限流。',
         },
       },
       types: {
@@ -478,12 +442,6 @@ export default {
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',
       antigravityProjectIdHint:
         'standard-tier 且未自动返回 project_id 的 Antigravity 账号需要填写用户自带 GCP project。',
-      accountSchedulingThresholdOverride: '渠道自动停调阈值覆盖',
-      accountSchedulingThresholdOverrideHint:
-        '仅对当前渠道覆盖平台级自动停调阈值；关闭后使用平台设置。',
-      accountSchedulingThresholdOverrideValue: '渠道阈值百分比',
-      accountSchedulingThresholdOverrideDisabledHint:
-        '1-100，达到该用量百分比后临时不可调度；100 表示禁用当前渠道自动停调。',
       status: {
         active: '正常',
         inactive: '停用',
@@ -506,27 +464,13 @@ export default {
         tempUnschedulableUntil: '预计 {time} 恢复'
       },
       tempUnschedulable: {
-        title: '临时不可调度',
         statusTitle: '临时不可调度状态',
-        hint: '当错误码与关键词同时匹配时，渠道会在指定时间内被临时禁用。',
-        notice: '规则按顺序匹配，需同时满足错误码与关键词。',
-        addRule: '添加规则',
         ruleOrder: '规则序号',
         multipleErrorTrigger: '{minutes} 分钟内累计 {count} 次匹配错误，达到触发阈值（{threshold}）。',
         multipleErrorTriggerNoWindow: '累计 {count} 次匹配错误，达到触发阈值（{threshold}）。',
         multipleErrorCountInWindow: '{minutes} 分钟内累计发生 {count} 次匹配错误。',
         multipleErrorCount: '本次不可调度由累计 {count} 次匹配错误触发。',
-        ruleIndex: '规则 #{index}',
         errorCode: '错误码',
-        errorCodePlaceholder: '例如 429',
-        durationMinutes: '持续时间（分钟）',
-        durationPlaceholder: '例如 30',
-        keywords: '关键词',
-        keywordsPlaceholder: '例如 overloaded, too many requests',
-        keywordsHint: '多个关键词用逗号分隔，匹配时必须命中其中之一。',
-        description: '描述',
-        descriptionPlaceholder: '可选，便于记忆规则用途',
-        rulesInvalid: '请至少填写一条包含错误码、关键词和时长的规则。',
         viewDetails: '查看临时不可调度详情',
         accountName: '渠道',
         triggeredAt: '触发时间',
@@ -543,14 +487,6 @@ export default {
         remainingMinutes: '约 {minutes} 分钟',
         remainingHours: '约 {hours} 小时',
         remainingHoursMinutes: '约 {hours} 小时 {minutes} 分钟',
-        presets: {
-          overloadLabel: '529 过载',
-          overloadDesc: '服务过载 - 暂停 60 分钟',
-          rateLimitLabel: '429 限流',
-          rateLimitDesc: '触发限流 - 暂停 10 分钟',
-          unavailableLabel: '503 维护',
-          unavailableDesc: '服务不可用 - 暂停 30 分钟'
-        }
       },
       usageWindow: {
         statsTitle: '5小时窗口用量统计',
@@ -757,12 +693,9 @@ export default {
       vertexSaJsonSelectBtn: '选择 JSON',
       vertexSaJsonUploadHint: '上传或拖入 JSON 后会自动读取 project_id，密钥内容仅用于创建渠道提交。',
       vertexSaJsonEditHint: 'Service Account JSON 不在编辑页显示；需要更换 JSON 时请删除渠道后重新创建。',
-      vertexProjectIdPlaceholder: '从 JSON 自动读取',
       vertexLocationHint: '不同 Vertex 模型可用 location 可能不同，这里选择渠道默认 endpoint location。',
       vertexLocationRequired: '请填写 Vertex location',
       vertexSaJsonMissingFields: 'Service Account JSON 缺少 project_id、client_email 或 private_key',
-      vertexSaJsonMissingProjectId: 'Service Account JSON 缺少 project_id',
-      vertexSaJsonMissingClientEmail: 'Service Account JSON 缺少 client_email',
       vertexSaJsonInvalid: 'Service Account JSON 格式无效',
       vertexSaJsonRequired: '请上传 Service Account JSON',
       addMethod: '添加方式',
@@ -791,40 +724,14 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: '您的 Claude Console API Key',
-      upstreamRequestIdHeader: '上游ID',
-      upstreamRequestIdHeaderPlaceholder: '留空不记录',
-      upstreamRequestIdHeaderHelp: {
-        intro: '填写直接上游在响应头中声明请求标识的头名，记录到用量明细的“上游ID”列；留空则不记录。',
-        examplesTitle: '常见取值',
-        sub2apiNote: '对应对方用量明细的请求ID列',
-        official: '{platform} 官方 API'
-      },
       // OpenAI specific hints
       openai: {
         apiKeyHint: '您的 OpenAI API Key',
-        oauthPassthrough: '自动透传（仅替换认证）',
-        oauthPassthroughDesc:
-          '开启后，该 OpenAI 账号将自动透传请求与响应，仅替换认证并保留计费/并发/审计及必要安全过滤；如遇兼容性问题可随时关闭回滚。',
-        keyProtocolSettingsHint:
-          '第三方 key 的自动透传、WS mode 与 Compact 设置只在协议地址指向 OpenAI 官方或通用中转时生效；指向其他厂商官方地址时后端会忽略。',
-        flattenNamespaces: '摊平 Codex namespace 工具（兼容）',
-        flattenNamespacesDesc:
-          '默认关闭：/responses 上的 namespace 工具声明原样转发，这正是 ChatGPT Codex 后端期望的形态。仅当该 OAuth 渠道指向不认识 namespace 的兼容上游时才开启——摊平会把工具改名为 namespace__tool，使按 functions.<命名空间>.<工具> 寻址的模型（如 gpt-5.6 多智能体）无法调用。压缩（compact）请求不受该开关影响，始终摊平。',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           '默认关闭。开启后可启用 responses_websockets_v2 协议能力（受网关全局开关与渠道类型开关约束）。',
-        wsMode: 'WS mode',
-        wsModeDesc:
-          '仅对当前 OpenAI 账号类型生效。选择“关闭”可禁用 WS；其余模式需全局 gateway.openai_ws.mode_router_v2_enabled=true 才按所选方式连接，未开启时统一使用上下文池。',
-        wsModeOff: '关闭（off）',
-        wsModeCtxPool: '上下文池（ctx_pool）',
-        wsModePassthrough: '透传（passthrough）',
-        wsModeHttpBridge: 'HTTP 桥接（http_bridge）',
         wsModeShared: '共享（shared）',
         wsModeDedicated: '独享（dedicated）',
-        wsModeCtxPoolHint: '网关从连接池获取并复用上游 WS 连接，连接池上限由网关配置决定。',
-        wsModePassthroughHint: '网关为每个客户端会话单独建立上游 WS 连接，不使用连接池。',
-        wsModeHttpBridgeHint: '网关将客户端 WS 请求转换为上游 HTTP 请求，再将 SSE 流式响应转换为 WS 消息返回。',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           '仅对 OpenAI OAuth 生效。开启后该渠道才允许使用 OpenAI WebSocket Mode 协议。',
@@ -832,60 +739,13 @@ export default {
         apiKeyResponsesWebsocketsV2Desc:
           '仅对 OpenAI API Key 生效。开启后该渠道才允许使用 OpenAI WebSocket Mode 协议。',
         responsesWebsocketsV2PassthroughHint: '当前已开启自动透传：仅影响 HTTP 透传链路，不影响 WS mode。',
-        imagesUrlToB64Json: '生图结果 URL 转 base64',
-        imagesUrlToB64JsonDesc:
-          '仅对 OpenAI API Key 的 Images 非流式响应生效。上游返回的图片缺少 b64_json 但带 url 时，网关下载该 url 并以 base64 回填 b64_json（url 保留），兼容按官方接口实现的客户端；下载失败则原样返回。',
-        endpointCapabilities: '端点能力',
-        endpointCapabilitiesDesc:
-          '用于调度筛选。文本端点接收 Responses 与 Chat Completions 请求，按已配置的协议地址转发；Embeddings 独立控制 /v1/embeddings。',
-        capabilityText: 'Responses / Chat Completions',
-        capabilityEmbeddings: 'Embeddings',
-        planType: '订阅档位（手动覆盖）',
-        planTypeDesc: '手动纠正本渠道的 ChatGPT 订阅档位（Plus / Pro / Free）。注意：令牌临期刷新或命中 429 限流时，会用真实档位自动覆盖此处设置。',
-        planTypeClear: '清空（自动识别）',
-        codexCLIOnly: '仅允许 Codex 官方客户端',
-        codexCLIOnlyDesc: '仅对 OpenAI OAuth 生效。开启后仅允许 Codex 官方客户端家族访问；关闭后完全绕过并保持原逻辑。',
-        codexCLIOnlyAppServer: '允许 Codex app-server 客户端',
-        codexCLIOnlyAppServerDesc: '仅在上方开关开启时生效。开启后本渠道额外放行内嵌 Codex 引擎、经 app-server 协议接入的第三方客户端（如 Claude Code 的 codex 插件），仍需通过全局引擎指纹门；与全局 app-server 开关取 OR（任一开即放行）。',
-        codexFingerprintMode: 'Codex 指纹收敛',
-        codexFingerprintModeDesc: '多人共享同一 OAuth 渠道时，将各用户的设备/会话标识收敛为渠道级恒定值，减少上游可见的设备数和会话数。默认关闭（原样透传客户端标识），需要时再显式开启；部分渠道开启收敛后出现过额度缩水，请按自己的实测结果选择。',
-        codexFingerprintOff: '关闭（透传，默认）',
-        codexFingerprintDevice: '仅设备',
-        codexFingerprintSession: '设备+会话',
-        codexFingerprintFull: '完全收敛',
-        codexImageTool: 'Codex 图片桥接策略',
-        codexImageToolDesc:
-          '统一控制 Codex /responses 文本请求的 hosted image_generation 桥接和客户端图片工具声明。hosted 工具自动注入仅适用于非 Responses Lite 请求；渠道级策略优先于渠道和全局配置，不影响独立图片生成接口。',
-        codexImageToolInherit: '跟随渠道',
-        codexImageToolInheritDesc: '不写入渠道覆盖；非 Lite 请求是否注入 hosted 工具由渠道或全局策略决定，客户端显式携带的 hosted 工具和本地 image_gen 声明照常放行。',
-        codexImageToolEnabled: '启用 Hosted 桥接',
-        codexImageToolEnabledDesc: '仅为非 Responses Lite 请求注入 hosted image_generation 工具；客户端显式携带的图片工具仍会放行。',
-        codexImageToolDisabled: '不注入 Hosted 工具',
-        codexImageToolDisabledDesc: '不注入 hosted 工具；客户端显式携带的 hosted 工具和本地 image_gen 声明仍会放行。',
-        codexImageToolBlock: '移除客户端图片工具',
-        codexImageToolBlockDesc: '不通过桥接自动注入 hosted 工具，并移除客户端显式携带的 hosted image_generation 工具、本地 image_gen 声明及相关 tool_choice；image-only 模型路由不受影响。',
-        codexImageToolBadgeInherit: '渠道策略',
-        codexImageToolBadgeEnabled: 'Hosted 桥接已开启',
-        codexImageToolBadgeDisabled: '不注入 Hosted 工具',
-        codexImageToolBadgeBlock: '客户端图片工具已移除',
-        compactMode: 'Compact 模式',
-        compactModeDesc:
-          '控制本渠道在 /responses/compact 调度中的参与方式。Auto 跟随探测结果，Force On 强制允许，Force Off 强制排除。',
-        compactModeAuto: '自动',
-        compactModeForceOn: '强制开启',
-        compactModeForceOff: '强制关闭',
-        compactModelMapping: 'Compact 专属模型映射',
-        compactModelMappingDesc:
-          '仅在 /responses/compact 请求中生效。当上游 compact 端点需要特殊 compact 模型时使用。',
         compactSupported: '支持 Compact',
         compactUnsupported: '不支持 Compact',
-        compactAuto: 'Compact Auto',
         compactUnknown: 'Compact Auto',
         compactLastChecked: '最近探测',
         testMode: '测试模式',
         testModeDefault: '常规请求',
         testModeCompact: 'Compact 探测',
-        modelRestrictionDisabledByPassthrough: '已开启自动透传：模型白名单/映射不会生效。',
       },
       grok: {
         baseUrlHint: 'Grok OAuth 渠道会转发到官方 xAI API Base URL。',
@@ -939,22 +799,14 @@ export default {
         noResponseBody: '服务器未返回响应体'
       },
       anthropic: {
-        apiKeyPassthrough: '自动透传（仅替换认证）',
-        apiKeyPassthroughDesc:
-          '仅对配了 Anthropic 协议地址的第三方 key 生效。开启后，messages/count_tokens 请求将透传上游并仅替换认证，保留计费/并发/审计及必要安全过滤；关闭即可回滚到现有兼容链路。',
         apiKeyAuthScheme: '上游认证方式',
         apiKeyAuthSchemeDesc: '选择转发到 Anthropic-compatible 上游时使用的 API Key 认证头。Ollama Cloud 使用 Authorization: Bearer。',
         apiKeyAuthSchemeXApiKey: 'x-api-key',
         apiKeyAuthSchemeBearer: 'Authorization: Bearer',
-        webSearchEmulation: 'Web Search 模拟',
-        webSearchEmulationDesc:
-          '为该 API Key 渠道启用 web search 模拟。客户端发送纯 web_search 请求时，由网关调用第三方搜索 API 并构造响应返回。',
         bedrockCCCompat: 'Bedrock CC 兼容',
         bedrockCCCompatDesc:
           '转发前清理 Claude Code 专有请求字段并过滤上游不支持的 anthropic-beta，适用于按 Bedrock Anthropic 方言接入的上游。',
       },
-      fromModel: '请求模型',
-      toModel: '目标模型',
       requestModel: '请求模型',
       actualModel: '实际模型',
       addMapping: '添加映射',
@@ -983,22 +835,6 @@ export default {
       poolModeHint: '上游为账号池时启用，错误不标记本地渠道状态',
       poolModeInfo:
         '启用后，上游 429/403/401 错误将自动重试而不标记渠道限流或错误，适用于上游指向另一个 sub2api 实例的场景。',
-      poolModeRetryCount: '同渠道重试次数',
-      poolModeRetryCountHint: '仅在池模式下生效。0 表示不原地重试；默认 {default}，最大 {max}。',
-      poolModeRetryStatusCodes: '同渠道重试状态码',
-      poolModeRetryStatusCodesHint: '仅在池模式下生效。以英文逗号分隔的 HTTP 状态码（100-599），命中时触发同渠道重试。留空使用默认值（{default}）。',
-      customErrorCodes: '自定义错误码',
-      customErrorCodesHint: '仅对选中的错误码停止调度',
-      customErrorCodesWarning: '仅选中的错误码会停止调度，其他错误将返回 500。',
-      customErrorCodes429Warning:
-        '429 已有内置的限流处理机制。添加到自定义错误码后，将直接停止调度而非临时限流。确定要添加吗？',
-      customErrorCodes529Warning:
-        '529 已有内置的过载处理机制。添加到自定义错误码后，将直接停止调度而非临时标记过载。确定要添加吗？',
-      selectedErrorCodes: '已选择',
-      noneSelectedUsesDefault: '未选择（使用默认策略）',
-      enterErrorCode: '输入错误码 (100-599)',
-      invalidErrorCode: '请输入有效的 HTTP 错误码 (100-599)',
-      errorCodeExists: '该错误码已被选中',
       interceptWarmupRequests: '拦截预热请求',
       interceptWarmupRequestsDesc: '启用后，标题生成等预热请求将返回 mock 响应，不消耗上游 token',
       headerOverride: {
@@ -1015,7 +851,7 @@ export default {
         importJsonInvalid: 'JSON 格式不正确：需要"请求头名 → 字符串值"的扁平对象',
         copyJson: '复制为 JSON',
         emptyValueHint: '值留空的行不会参与覆盖，仅作为待填写的占位。',
-        bulkDisableHint: '保存后将关闭所选渠道的请求头覆写并清空已有配置。',
+        bulkDisableHint: '保存后将清空所选渠道已有的请求头覆写（有条目才生效，清空即不再覆写）。',
         bulkReplaceHint: '保存后将用下方配置整体替换所选渠道已有的请求头覆写配置。',
         bulkEmptyRows: '请至少添加一行请求头再保存；如需清空已有配置，请关闭上方开关。',
         invalidName: '请求头名称格式不正确（仅允许字母、数字和 !#$%&\'*+-.^_`|~ 字符）',
@@ -1031,23 +867,8 @@ export default {
         }
       },
       grokClientToolCache: {
-        title: '客户端工具缓存（可能改变自动工具选择）',
-        hint: '仅对已识别为 Free 的 Grok OAuth 渠道生效，默认会为 Codex、Trae 等客户端函数工具请求启用上游提示缓存；如不接受自动工具选择行为，可关闭此开关退出。'
       },
       grokMediaEligibility: {
-        title: '媒体生成资格',
-        hint: '控制该 Grok OAuth 渠道是否可被图片和视频生成请求选中。',
-        auto: '自动判断',
-        enabled: '强制启用',
-        disabled: '强制禁用',
-        current: '当前判定：',
-        eligible: '可用',
-        ineligible: '不可用',
-        loading: '正在读取媒体资格…',
-        loadFailed: '无法读取媒体资格',
-        autoHint: '自动判断只会清除手工覆盖，不会主动触发媒体请求。',
-        forceEnableWarning: '强制启用会绕过自动资格检查，仅应对已确认支持生图/生视频的渠道使用。',
-        partialSave: '渠道其他配置可能已保存，但媒体资格未更新，请重试。',
         reasons: {
           eligible: '已确认付费资格',
           billing_inconclusive: 'Billing 信息不明确',
@@ -1058,45 +879,20 @@ export default {
           override_disabled: '手工强制禁用'
         }
       },
-      autoPauseOnExpired: '过期自动暂停调度',
-      autoPauseOnExpiredDesc: '启用后，渠道过期将自动暂停调度',
-	  autoPause5hThreshold: '5h 用量阈值(%)',
-	  autoPause7dThreshold: '7d 用量阈值(%)',
-	  autoPauseThresholdHint: '留空或填 0 表示使用全局默认阈值（在运维设置中配置）；填具体值则覆盖全局默认。达到阈值后仅在调度时跳过渠道，不修改 schedulable。',
-	  autoPause5hDisabled: '禁用 5h 自动暂停',
-	  autoPause7dDisabled: '禁用 7d 自动暂停',
-	  autoPauseDisabledHint: '开启后该渠道永不进入自动暂停（即使全局默认阈值已配置）。',
 	  autoResetCredit: {
 	    title: '自动使用重置卡',
-	    hint: '仅在实际用量达到阈值时使用最早到期的可用卡；默认关闭。无卡或失败时渠道保持暂停。',
-	    threshold5h: '5h 自动用卡阈值(%)',
-	    threshold7d: '7d 自动用卡阈值(%)',
-	    thresholdHint: '两个窗口独立判断，任一达到自身阈值即触发。可填写 0.1–100，默认均为 100。',
-	    thresholdInvalid: '自动使用重置卡阈值必须在 0.1% 到 100% 之间。'
+	    hint: '仅在 5h 或 7d 窗口实际用量达到 100% 时使用最早到期的可用卡；默认关闭。无卡或失败时渠道保持暂停。',
 	  },
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: '配额控制',
-        hint: '配置费用窗口、会话限制、客户端亲和等调度控制。',
-        windowCost: {
-          label: '5h窗口费用控制',
-          hint: '限制渠道在5小时窗口内的费用使用',
-          limit: '费用阈值',
-          limitPlaceholder: '50',
-          limitHint: '达到阈值后不参与新请求调度',
-          stickyReserve: '粘性预留额度',
-          stickyReservePlaceholder: '10',
-          stickyReserveHint: '为粘性会话预留的额外额度'
-        },
+        hint: '配置会话数量、每分钟请求数等调度限制。',
         sessionLimit: {
           label: '会话数量控制',
           hint: '限制同时活跃的会话数量',
           maxSessions: '最大会话数',
           maxSessionsPlaceholder: '3',
-          maxSessionsHint: '同时活跃的最大会话数量',
-          idleTimeout: '空闲超时',
-          idleTimeoutPlaceholder: '5',
-          idleTimeoutHint: '会话空闲超时后自动释放'
+          maxSessionsHint: '同时活跃的最大会话数量；会话空闲 5 分钟后自动释放'
         },
         rpmLimit: {
           label: 'RPM 限制',
@@ -1104,36 +900,6 @@ export default {
           baseRpm: '基础 RPM',
           baseRpmPlaceholder: '15',
           baseRpmHint: '每分钟最大请求数，0 或留空表示不限制',
-          strategy: 'RPM 策略',
-          strategyTiered: '三区模型',
-          strategyStickyExempt: '粘性豁免',
-          strategyTieredHint: '绿区→黄区→仅粘性→阻塞，逐步限流',
-          strategyStickyExemptHint: '超限后仅允许粘性会话',
-          strategyHint: '三区模型: 超限后逐步限制; 粘性豁免: 已有会话不受限',
-          stickyBuffer: '粘性缓冲区',
-          stickyBufferPlaceholder: '默认: base RPM 的 20%',
-          stickyBufferHint: '超过 base RPM 后，粘性会话额外允许的请求数。为空则使用默认值（base RPM 的 20%，最小为 1）',
-          userMsgQueue: '用户消息限速',
-          userMsgQueueHint: '对用户消息施加发送限制，避免触发上游 RPM 限制',
-          umqModeOff: '关闭',
-          umqModeThrottle: '软性限速',
-          umqModeSerialize: '串行队列',
-        },
-        tlsFingerprint: {
-          label: 'TLS 指纹模拟',
-          hint: '模拟 Node.js/Claude Code 客户端的 TLS 指纹',
-          defaultProfile: '内置默认',
-          randomProfile: '随机'
-        },
-        sessionIdMasking: {
-          label: '会话 ID 伪装',
-          hint: '启用后将在 15 分钟内固定 metadata.user_id 中的 session ID，使上游认为请求来自同一会话'
-        },
-        cacheTTLOverride: {
-          label: '缓存 TTL 强制替换',
-          hint: '将所有缓存创建 token 强制按指定的 TTL 类型（5分钟或1小时）计费',
-          target: '目标 TTL',
-          targetHint: '选择计费使用的 TTL 类型'
         },
         clientAffinity: {
           label: '客户端亲和调度',
@@ -1158,8 +924,6 @@ export default {
       proxy: '代理',
       noProxy: '无代理',
       concurrency: '并发数',
-      loadFactor: '负载因子',
-      loadFactorHint: '提高负载因子可以提高对渠道的调度频率',
       priority: '优先级',
       priorityHint: '优先级越小的渠道优先使用',
       billingRateMultiplier: '渠道计费倍率',
@@ -1189,7 +953,6 @@ export default {
       pleaseEnterApiKey: '请输入 API Key',
       bedrockAccessKeyId: 'AWS Access Key ID',
       bedrockSecretAccessKey: 'AWS Secret Access Key',
-      bedrockSessionToken: 'AWS Session Token',
       bedrockRegion: 'AWS Region',
       bedrockRegionHint: '例如 us-east-1, us-west-2, eu-west-1',
       bedrockForceGlobal: '强制使用 Global 跨区域推理',
@@ -1197,7 +960,6 @@ export default {
       bedrockAccessKeyIdRequired: '请输入 AWS Access Key ID',
       bedrockSecretAccessKeyRequired: '请输入 AWS Secret Access Key',
       bedrockRegionRequired: '请选择 AWS Region',
-      bedrockSessionTokenHint: '可选，用于临时凭证',
       bedrockSecretKeyLeaveEmpty: '留空以保持当前密钥',
       bedrockAuthMode: '认证方式',
       bedrockAuthModeSigv4: 'SigV4 签名',
@@ -1475,20 +1237,11 @@ export default {
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
         apiKeyHint: '您的 Gemini API Key（以 AIza 开头）',
         tier: {
-          label: '账号等级',
-          hint: '提示：系统会优先尝试自动识别账号等级；若自动识别不可用或失败，则使用你选择的等级作为回退（本地模拟配额）。',
           googleOne: {
-            free: 'Google One Free',
-            pro: 'Google One Pro',
-            ultra: 'Google One Ultra'
           },
           gcp: {
-            standard: 'GCP Standard',
-            enterprise: 'GCP Enterprise'
           },
           aiStudio: {
-            free: 'Google AI Free',
-            paid: 'Google AI Pay-as-you-go'
           }
         },
         accountType: {

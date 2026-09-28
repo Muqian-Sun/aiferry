@@ -3,16 +3,13 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"hash/fnv"
-	"log/slog"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
@@ -33,15 +30,14 @@ type Account struct {
 	Priority                int
 	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
 	// 使用指针用于兼容旧版本调度缓存（Redis）中缺字段的情况：nil 表示按 1.0 处理。
-	RateMultiplier     *float64
-	LoadFactor         *int // 调度负载因子；nil 表示使用 Concurrency
-	Status             string
-	ErrorMessage       string
-	LastUsedAt         *time.Time
-	ExpiresAt          *time.Time
-	AutoPauseOnExpired bool
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	RateMultiplier *float64
+	Status         string
+	ErrorMessage   string
+	LastUsedAt     *time.Time
+	// ExpiresAt 渠道过期时间：到期即停调（过期自动暂停写死开，见 channel_features.go）。
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	Schedulable bool
 
@@ -102,18 +98,10 @@ const (
 	// require this capability so already-submitted requests remain queryable.
 	OpenAIEndpointCapabilityGrokMediaGeneration OpenAIEndpointCapability = "grok_media_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
-	// 与其他能力不同：第三方 key 的支持状态来自 responses 协议地址，而非
-	// credentials["openai_capabilities"] 配置集。仅用于生图意图的 /v1/responses
+	// 第三方 key 的支持状态来自 responses 协议地址。仅用于生图意图的 /v1/responses
 	// 调度，避免把请求调度到会在 forward 阶段被降级为 Chat Completions 的账号（#4417）。
 	OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
 )
-
-const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
-
-// GrokMediaEligibleExtraKey is an optional per-account override stored in
-// accounts.extra. true forces media routing on, false disables it, and an
-// absent/null value uses provider observations.
-const GrokMediaEligibleExtraKey = "grok_media_eligible"
 
 const (
 	OpenAIAuthModePersonalAccessToken = "personalAccessToken"
@@ -128,13 +116,6 @@ func isOpenAIPersonalAccessTokenAuthMode(value string) bool {
 	default:
 		return false
 	}
-}
-
-type TempUnschedulableRule struct {
-	ErrorCode       int      `json:"error_code"`
-	Keywords        []string `json:"keywords"`
-	DurationMinutes int      `json:"duration_minutes"`
-	Description     string   `json:"description"`
 }
 
 func (a *Account) IsActive() bool {
@@ -167,17 +148,12 @@ func (a *Account) BillingRateMultiplier() float64 {
 	return *a.RateMultiplier
 }
 
+// EffectiveLoadFactor 调度负载图里的容量：一律按并发数算（渠道级负载因子 2026-09-28 P5 已删），至少 1。
 func (a *Account) EffectiveLoadFactor() int {
-	if a == nil {
+	if a == nil || a.Concurrency <= 0 {
 		return 1
 	}
-	if a.LoadFactor != nil && *a.LoadFactor > 0 {
-		return *a.LoadFactor
-	}
-	if a.Concurrency > 0 {
-		return a.Concurrency
-	}
-	return 1
+	return a.Concurrency
 }
 
 // IsSchedulable 报告账号整体此刻可否调度（SchedulingState 的薄封装，给管理端 / 监控等非调度读者用；
@@ -191,7 +167,7 @@ func (a *Account) IsSchedulable() bool {
 //
 // 检查「凭据/账号/传输可用性」:
 //   - 账号 active(非禁用/删除);
-//   - OAuth token 未过期(AutoPauseOnExpired+ExpiresAt);
+//   - 渠道未过期(ExpiresAt);
 //   - 未处于 TempUnschedulableUntil 冷却期 —— 对 OpenAI 账号该字段由 401 鉴权失败 /
 //     token 刷新耗尽 / transport·proxy 故障写入(ratelimit/token_refresh/upstream_transport),
 //     都代表**共享凭据或传输通道坏死**;影子共享母 token+proxy,故母处于该冷却期时影子也不可用。
@@ -204,7 +180,7 @@ func (a *Account) IsCredentialUsableForShadow() bool {
 		return false
 	}
 	now := time.Now()
-	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
+	if a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
 		return false
 	}
 	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) {
@@ -412,94 +388,6 @@ func (a *Account) GetCredentialAsInt64(key string) int64 {
 	return 0
 }
 
-func (a *Account) IsTempUnschedulableEnabled() bool {
-	if a.Credentials == nil {
-		return false
-	}
-	raw, ok := a.Credentials["temp_unschedulable_enabled"]
-	if !ok || raw == nil {
-		return false
-	}
-	enabled, ok := raw.(bool)
-	return ok && enabled
-}
-
-func (a *Account) GetTempUnschedulableRules() []TempUnschedulableRule {
-	if a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["temp_unschedulable_rules"]
-	if !ok || raw == nil {
-		return nil
-	}
-
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-
-	rules := make([]TempUnschedulableRule, 0, len(arr))
-	for _, item := range arr {
-		entry, ok := item.(map[string]any)
-		if !ok || entry == nil {
-			continue
-		}
-
-		rule := TempUnschedulableRule{
-			ErrorCode:       parseTempUnschedInt(entry["error_code"]),
-			Keywords:        parseTempUnschedStrings(entry["keywords"]),
-			DurationMinutes: parseTempUnschedInt(entry["duration_minutes"]),
-			Description:     parseTempUnschedString(entry["description"]),
-		}
-
-		if rule.ErrorCode <= 0 || rule.DurationMinutes <= 0 || len(rule.Keywords) == 0 {
-			continue
-		}
-
-		rules = append(rules, rule)
-	}
-
-	return rules
-}
-
-func parseTempUnschedString(value any) string {
-	s, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(s)
-}
-
-func parseTempUnschedStrings(value any) []string {
-	if value == nil {
-		return nil
-	}
-
-	var raw []string
-	switch v := value.(type) {
-	case []string:
-		raw = v
-	case []any:
-		raw = make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				raw = append(raw, s)
-			}
-		}
-	default:
-		return nil
-	}
-
-	out := make([]string, 0, len(raw))
-	for _, item := range raw {
-		s := strings.TrimSpace(item)
-		if s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
 func normalizeAccountNotes(value *string) *string {
 	if value == nil {
 		return nil
@@ -509,46 +397,6 @@ func normalizeAccountNotes(value *string) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func parseTempUnschedInt(value any) int {
-	switch v := value.(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return int(i)
-		}
-	case string:
-		if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			return i
-		}
-	}
-	return 0
-}
-
-const (
-	// OpenAICompactModeAuto follows compact-probe results when deciding compact eligibility.
-	OpenAICompactModeAuto = "auto"
-	// OpenAICompactModeForceOn always treats the account as compact-supported.
-	OpenAICompactModeForceOn = "force_on"
-	// OpenAICompactModeForceOff always treats the account as compact-unsupported.
-	OpenAICompactModeForceOff = "force_off"
-)
-
-func normalizeOpenAICompactMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case OpenAICompactModeForceOn:
-		return OpenAICompactModeForceOn
-	case OpenAICompactModeForceOff:
-		return OpenAICompactModeForceOff
-	default:
-		return OpenAICompactModeAuto
-	}
 }
 
 func stringMappingFromRaw(raw any) map[string]string {
@@ -901,15 +749,6 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 // 并误触发 per-(账号,模型) 30 分钟冷却；带 [1m] 上下文后缀的写法先归一化再比对。
 // 标签为 deepseek、地址指向中转的 key 不受白名单约束。
 func (a *Account) IsModelSupported(requestedModel string) bool {
-	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
-	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
-	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
-	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
-	// 透传是 OpenAI 标准协议特性：只对官方 OpenAI 与通用中转生效，其他已知厂商
-	// 的 key 即使带着开关也不放行，避免绕过该厂商的模型白名单。
-	if openAIProtocolFeaturesApply(a) && a.IsOpenAIPassthroughEnabled() {
-		return true
-	}
 	mapping := a.GetModelMapping()
 	if len(mapping) == 0 {
 		if a.IsOpenAIOAuth() {
@@ -967,30 +806,13 @@ func (a *Account) ResolveMappedModel(requestedModel string) (mappedModel string,
 	return requestedModel, false
 }
 
-// GetOpenAICompactMode returns the compact routing mode for an OpenAI account.
-// Missing or invalid values fall back to "auto".
-func (a *Account) GetOpenAICompactMode() string {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return OpenAICompactModeAuto
-	}
-	mode, _ := a.Extra["openai_compact_mode"].(string)
-	return normalizeOpenAICompactMode(mode)
-}
-
 // OpenAICompactSupportKnown reports whether compact capability is known for this
-// account and, when known, whether it is supported.
+// account and, when known, whether it is supported. 只看探测结果
+// openai_compact_supported：渠道级「Compact 模式」手动开关 2026-09-28 P5 写死 auto（删了）。
 func (a *Account) OpenAICompactSupportKnown() (supported bool, known bool) {
 	if !openAIProtocolFeaturesApply(a) {
 		return false, false
 	}
-
-	switch a.GetOpenAICompactMode() {
-	case OpenAICompactModeForceOn:
-		return true, true
-	case OpenAICompactModeForceOff:
-		return false, true
-	}
-
 	if a.Extra == nil {
 		return false, false
 	}
@@ -1013,29 +835,6 @@ func (a *Account) AllowsOpenAICompact() bool {
 		return true
 	}
 	return supported
-}
-
-// GetCompactModelMapping returns compact-only model remapping configuration.
-// This mapping is intended for /responses/compact only and does not affect
-// normal /responses traffic.
-func (a *Account) GetCompactModelMapping() map[string]string {
-	if a == nil || a.Credentials == nil {
-		return nil
-	}
-	return stringMappingFromRaw(a.Credentials["compact_model_mapping"])
-}
-
-// ResolveCompactMappedModel resolves compact-only model remapping and reports
-// whether a compact-specific mapping rule matched.
-func (a *Account) ResolveCompactMappedModel(requestedModel string) (mappedModel string, matched bool) {
-	mapping := a.GetCompactModelMapping()
-	if len(mapping) == 0 {
-		return requestedModel, false
-	}
-	if mappedModel, matched := resolveRequestedModelInMapping(mapping, requestedModel); matched {
-		return mappedModel, true
-	}
-	return requestedModel, false
 }
 
 // GetBaseURL 返回第三方 key 的 Anthropic 协议上游地址。
@@ -1139,22 +938,11 @@ func matchWildcardMappingResult(mapping map[string]string, requestedModel string
 	return matches[0].target, true
 }
 
-func (a *Account) IsCustomErrorCodesEnabled() bool {
-	if a.Type != AccountTypeAPIKey || a.Credentials == nil {
-		return false
-	}
-	if v, ok := a.Credentials["custom_error_codes_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// IsPoolMode 检查 API Key 账号是否启用池模式。
+// IsPoolMode 检查第三方 key 是否启用池模式。
 // 池模式下，上游错误不标记本地账号状态，而是在同一账号上重试。
+// 只对第三方 key：Bedrock 的池模式已删（2026-09-28 P5，见 channel_features_anthropic.go）。
 func (a *Account) IsPoolMode() bool {
-	if !a.IsAPIKeyOrBedrock() || a.Credentials == nil {
+	if !a.IsThirdPartyKey() || a.Credentials == nil {
 		return false
 	}
 	if v, ok := a.Credentials["pool_mode"]; ok {
@@ -1165,167 +953,15 @@ func (a *Account) IsPoolMode() bool {
 	return false
 }
 
-const (
-	defaultPoolModeRetryCount = 3
-	maxPoolModeRetryCount     = 10
-)
-
-// GetPoolModeRetryCount 返回池模式同账号重试次数。
-// 未配置或配置非法时回退为默认值 3；小于 0 按 0 处理；过大则截断到 10。
+// GetPoolModeRetryCount 返回池模式同渠道重试次数（写死，见 channel_features.go）。
 func (a *Account) GetPoolModeRetryCount() int {
-	if a == nil || !a.IsPoolMode() || a.Credentials == nil {
-		return defaultPoolModeRetryCount
-	}
-	raw, ok := a.Credentials["pool_mode_retry_count"]
-	if !ok || raw == nil {
-		return defaultPoolModeRetryCount
-	}
-	count := parsePoolModeRetryCount(raw)
-	if count < 0 {
-		return 0
-	}
-	if count > maxPoolModeRetryCount {
-		return maxPoolModeRetryCount
-	}
-	return count
+	return PoolModeRetryCount
 }
 
-func parsePoolModeRetryCount(value any) int {
-	switch v := value.(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return int(i)
-		}
-	case string:
-		if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			return i
-		}
-	}
-	return defaultPoolModeRetryCount
-}
-
-// defaultPoolModeRetryableStatusCodes 池模式下默认触发同账号重试的状态码。
-// 未在 Account.Credentials 中显式配置 pool_mode_retry_status_codes 时使用。
-var defaultPoolModeRetryableStatusCodes = []int{401, 403, 429}
-
-// isPoolModeRetryableStatus 池模式下应触发同账号重试的状态码（默认列表）。
-func isPoolModeRetryableStatus(statusCode int) bool {
-	for _, c := range defaultPoolModeRetryableStatusCodes {
-		if c == statusCode {
-			return true
-		}
-	}
-	return false
-}
-
-// GetPoolModeRetryStatusCodes 返回账号自定义的池模式同账号重试状态码列表。
-//
-// 返回值语义：
-//   - nil：未配置 → 调用方应回退到默认值 [401, 403, 429]
-//   - 长度为 0 的切片：管理员显式置空 → 关闭按状态码触发的同账号重试
-//   - 非空切片：去重、过滤为合法 HTTP 状态码（100-599）后的覆盖列表
-func (a *Account) GetPoolModeRetryStatusCodes() []int {
-	if a == nil || a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["pool_mode_retry_status_codes"]
-	if !ok || raw == nil {
-		return nil
-	}
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-	seen := make(map[int]struct{}, len(arr))
-	codes := make([]int, 0, len(arr))
-	for _, v := range arr {
-		var code int
-		switch n := v.(type) {
-		case float64:
-			code = int(n)
-		case int:
-			code = n
-		case int64:
-			code = int(n)
-		case json.Number:
-			i, err := n.Int64()
-			if err != nil {
-				continue
-			}
-			code = int(i)
-		case string:
-			i, err := strconv.Atoi(strings.TrimSpace(n))
-			if err != nil {
-				continue
-			}
-			code = i
-		default:
-			continue
-		}
-		if code < 100 || code > 599 {
-			continue
-		}
-		if _, exists := seen[code]; exists {
-			continue
-		}
-		seen[code] = struct{}{}
-		codes = append(codes, code)
-	}
-	sort.Ints(codes)
-	return codes
-}
-
-// IsPoolModeRetryableStatus 在账号上下文中判断给定状态码是否应触发同账号重试。
-// 若账号未配置 pool_mode_retry_status_codes，则回退到默认列表。
+// IsPoolModeRetryableStatus 判断给定状态码是否触发池模式同渠道重试（写死的状态码表，见 channel_features.go）。
 func (a *Account) IsPoolModeRetryableStatus(statusCode int) bool {
-	codes := a.GetPoolModeRetryStatusCodes()
-	if codes == nil {
-		return isPoolModeRetryableStatus(statusCode)
-	}
-	for _, c := range codes {
+	for _, c := range poolModeRetryStatusCodes {
 		if c == statusCode {
-			return true
-		}
-	}
-	return false
-}
-
-func (a *Account) GetCustomErrorCodes() []int {
-	if a.Credentials == nil {
-		return nil
-	}
-	raw, ok := a.Credentials["custom_error_codes"]
-	if !ok || raw == nil {
-		return nil
-	}
-	if arr, ok := raw.([]any); ok {
-		result := make([]int, 0, len(arr))
-		for _, v := range arr {
-			if f, ok := v.(float64); ok {
-				result = append(result, int(f))
-			}
-		}
-		return result
-	}
-	return nil
-}
-
-func (a *Account) ShouldHandleErrorCode(statusCode int) bool {
-	if !a.IsCustomErrorCodesEnabled() {
-		return true
-	}
-	codes := a.GetCustomErrorCodes()
-	if len(codes) == 0 {
-		return true
-	}
-	for _, code := range codes {
-		if code == statusCode {
 			return true
 		}
 	}
@@ -1680,9 +1316,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 			!a.IsOpenAIPersonalAccessToken() &&
 			!a.IsOpenAIAgentIdentity()
 	case OpenAIEndpointCapabilityResponses:
-		// 成品号走厂商的 Responses 通道，不排除。支持 Responses 的上游同样需具备
-		// chat 能力：复用下方 chat_completions 配置集校验。
-		capability = OpenAIEndpointCapabilityChatCompletions
+		// 成品号走厂商的 Responses 通道，不排除。
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 的转发按账号类型分流：OAuth/PAT 走
 		// chatgpt.com/backend-api/codex/alpha/search，API key 走
@@ -1698,11 +1332,12 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	default:
 		return false
 	}
-	return a.openAIEndpointCapabilityConfigured(capability)
+	// 渠道级「端点能力」配置集 2026-09-28 P5 删了：不再按渠道限制。
+	return true
 }
 
 // keySupportsOpenAIEndpointCapability 是第三方 key 的端点能力判定：平台只是展示标签，
-// 能力由协议地址、厂商（地址是否指向官方域名）、账号类型与管理员配置的能力集决定。
+// 能力由协议地址、厂商（地址是否指向官方域名）与账号类型决定（渠道级能力集已删，不限制）。
 func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
@@ -1712,8 +1347,6 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		if a.ProtocolEndpoint(APIProtocolResponses) == "" {
 			return false
 		}
-		// 与成品号一致：支持 Responses 的上游同样需具备 chat 能力。
-		capability = OpenAIEndpointCapabilityChatCompletions
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
 		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点；base_url 是扩展端点根地址。
@@ -1726,46 +1359,25 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 			return false
 		}
 	case OpenAIEndpointCapabilityGrokMediaGeneration:
-		// xAI 的图片/视频生成是厂商私有端点：管理员显式开关优先，否则只有地址指向 xAI 官方的 key 具备。
-		if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
-			return override
-		}
+		// xAI 的图片/视频生成是厂商私有端点：只有地址指向 xAI 官方的 key 具备（渠道级覆盖 2026-09-28 P5 删了）。
 		return a.Vendor() == PlatformGrok
 	default:
 		// live 是 ChatGPT OAuth 专属能力，第三方 key 不具备。
 		return false
 	}
-	return a.openAIEndpointCapabilityConfigured(capability)
-}
-
-// openAIEndpointCapabilityConfigured 按管理员配置的 openai_capabilities 能力集判定；未配置时不限制。
-func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCapability) bool {
-	configured, found := a.openAIEndpointCapabilitySet()
-	if !found {
-		return true
-	}
-	if capability == OpenAIEndpointCapabilityAlphaSearch && configured[string(OpenAIEndpointCapabilityChatCompletions)] {
-		return true
-	}
-	return configured[string(capability)]
+	return true
 }
 
 // GrokMediaGenerationEligibility reports whether a Grok account may receive
 // new image/video generation requests. Explicit evidence of a forbidden or
 // free account blocks media, while an incomplete successful billing response
-// remains eligible for backwards compatibility. An explicit operator
-// override takes precedence over probe data.
+// remains eligible for backwards compatibility. 渠道级手动覆盖（grok_media_eligible）
+// 2026-09-28 P5 删了，只按探测结果自动判断。
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
 	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
 	// 否则会出现调度放行、转发拒绝的错位。
 	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
-	}
-	if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
-		if override {
-			return true, "override_enabled"
-		}
-		return false, "override_disabled"
 	}
 	if a.Type != AccountTypeOAuth {
 		return true, "non_oauth"
@@ -1785,85 +1397,10 @@ func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
 		// Billing endpoints can return 200 with an account-specific schema that
 		// omits plan/quota fields (for example, some SuperGrok accounts). An
 		// incomplete observation is not proof of ineligibility; keep the account
-		// routable and expose the reason for diagnostics. Operators can still
-		// quarantine a known-bad account with grok_media_eligible=false.
+		// routable and expose the reason for diagnostics.
 		return true, "billing_inconclusive"
 	}
 	return true, "eligible"
-}
-
-func grokMediaEligibilityOverride(extra map[string]any) (bool, bool) {
-	if extra == nil {
-		return false, false
-	}
-	raw, exists := extra[GrokMediaEligibleExtraKey]
-	if !exists || raw == nil {
-		return false, false
-	}
-	value, ok := raw.(bool)
-	return value, ok
-}
-
-func (a *Account) openAIEndpointCapabilitySet() (map[string]bool, bool) {
-	if a == nil || a.Credentials == nil {
-		return nil, false
-	}
-	raw, found := a.Credentials[openAIEndpointCapabilitiesCredentialKey]
-	if !found || raw == nil {
-		return nil, false
-	}
-
-	result := make(map[string]bool)
-	add := func(value string) {
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			return
-		}
-		result[value] = true
-	}
-
-	// 空容器（{} / []）与未配置一致：不限制任何能力。
-	// 避免 OAuth 账号因 API 直写/导入/历史数据遗留的空对象而被调度器静默排除（#5530）。
-	// 注意：非空但全 false / 类型异常的数据仍视为「已配置且不含能力」，保持原行为。
-	switch capabilities := raw.(type) {
-	case []any:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for _, item := range capabilities {
-			if value, ok := item.(string); ok {
-				add(value)
-			}
-		}
-	case []string:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for _, value := range capabilities {
-			add(value)
-		}
-	case map[string]any:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for key, value := range capabilities {
-			enabled, ok := value.(bool)
-			if ok && enabled {
-				add(key)
-			}
-		}
-	case map[string]bool:
-		if len(capabilities) == 0 {
-			return nil, false
-		}
-		for key, enabled := range capabilities {
-			if enabled {
-				add(key)
-			}
-		}
-	}
-
-	return result, true
 }
 
 func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapability) bool {
@@ -1932,60 +1469,6 @@ func (a *Account) IsOveragesEnabled() bool {
 	return false
 }
 
-// IsOpenAIPassthroughEnabled 返回 OpenAI 账号是否启用"自动透传（仅替换认证）"。
-//
-// 新字段：accounts.extra.openai_passthrough。
-// 兼容字段：accounts.extra.openai_oauth_passthrough（历史 OAuth 开关）。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-func (a *Account) IsOpenAIPassthroughEnabled() bool {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return false
-	}
-	if enabled, ok := a.Extra["openai_passthrough"].(bool); ok {
-		return enabled
-	}
-	if enabled, ok := a.Extra["openai_oauth_passthrough"].(bool); ok {
-		return enabled
-	}
-	return false
-}
-
-// IsOpenAIResponsesWebSocketV2Enabled 返回 OpenAI 账号是否开启 Responses WebSocket v2。
-//
-// 分类型新字段：
-// - OAuth 账号：accounts.extra.openai_oauth_responses_websockets_v2_enabled
-// - API Key 账号：accounts.extra.openai_apikey_responses_websockets_v2_enabled
-//
-// 兼容字段：
-// - accounts.extra.responses_websockets_v2_enabled
-// - accounts.extra.openai_ws_enabled（历史开关）
-//
-// 优先级：
-// 1. 按账号类型读取分类型字段
-// 2. 分类型字段缺失时，回退兼容字段
-func (a *Account) IsOpenAIResponsesWebSocketV2Enabled() bool {
-	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
-		return false
-	}
-	if a.IsOpenAIOAuthLike() {
-		if enabled, ok := a.Extra["openai_oauth_responses_websockets_v2_enabled"].(bool); ok {
-			return enabled
-		}
-	}
-	if a.IsThirdPartyKey() {
-		if enabled, ok := a.Extra["openai_apikey_responses_websockets_v2_enabled"].(bool); ok {
-			return enabled
-		}
-	}
-	if enabled, ok := a.Extra["responses_websockets_v2_enabled"].(bool); ok {
-		return enabled
-	}
-	if enabled, ok := a.Extra["openai_ws_enabled"].(bool); ok {
-		return enabled
-	}
-	return false
-}
-
 const (
 	OpenAIWSIngressModeOff         = "off"
 	OpenAIWSIngressModeShared      = "shared"
@@ -2024,79 +1507,16 @@ func normalizeOpenAIWSIngressDefaultMode(mode string) string {
 	return OpenAIWSIngressModeCtxPool
 }
 
-// ResolveOpenAIResponsesWebSocketV2Mode 返回账号在 WSv2 ingress 下的有效模式（off/ctx_pool/passthrough）。
+// ResolveOpenAIResponsesWebSocketV2Mode 返回账号在 WSv2 ingress 下的有效模式（off/ctx_pool/passthrough/http_bridge）。
 //
-// 优先级：
-// 1. 分类型 mode 新字段（string）
-// 2. 分类型 enabled 旧字段（bool）
-// 3. 兼容 enabled 旧字段（bool）
-// 4. defaultMode（非法时回退 ctx_pool）
+// 渠道级 WS 模式开关 2026-09-28 P5 删了：OpenAI 协议账号一律取全局
+// gateway.openai_ws.ingress_mode_default（非法值回退 ctx_pool，历史值 shared/dedicated
+// 归并到 ctx_pool）；其余账号 off。库里旧的 openai_*_responses_websockets_v2_* 键不再生效。
 func (a *Account) ResolveOpenAIResponsesWebSocketV2Mode(defaultMode string) string {
-	resolvedDefault := normalizeOpenAIWSIngressDefaultMode(defaultMode)
 	if !openAIProtocolFeaturesApply(a) {
 		return OpenAIWSIngressModeOff
 	}
-	if a.Extra == nil {
-		return resolvedDefault
-	}
-
-	resolveModeString := func(key string) (string, bool) {
-		raw, ok := a.Extra[key]
-		if !ok {
-			return "", false
-		}
-		mode, ok := raw.(string)
-		if !ok {
-			return "", false
-		}
-		normalized := normalizeOpenAIWSIngressMode(mode)
-		if normalized == "" {
-			return "", false
-		}
-		return normalized, true
-	}
-	resolveBoolMode := func(key string) (string, bool) {
-		raw, ok := a.Extra[key]
-		if !ok {
-			return "", false
-		}
-		enabled, ok := raw.(bool)
-		if !ok {
-			return "", false
-		}
-		if enabled {
-			return OpenAIWSIngressModeCtxPool, true
-		}
-		return OpenAIWSIngressModeOff, true
-	}
-
-	if a.IsOpenAIOAuthLike() {
-		if mode, ok := resolveModeString("openai_oauth_responses_websockets_v2_mode"); ok {
-			return mode
-		}
-		if mode, ok := resolveBoolMode("openai_oauth_responses_websockets_v2_enabled"); ok {
-			return mode
-		}
-	}
-	if a.IsThirdPartyKey() {
-		if mode, ok := resolveModeString("openai_apikey_responses_websockets_v2_mode"); ok {
-			return mode
-		}
-		if mode, ok := resolveBoolMode("openai_apikey_responses_websockets_v2_enabled"); ok {
-			return mode
-		}
-	}
-	if mode, ok := resolveBoolMode("responses_websockets_v2_enabled"); ok {
-		return mode
-	}
-	if mode, ok := resolveBoolMode("openai_ws_enabled"); ok {
-		return mode
-	}
-	// 兼容旧值：shared/dedicated 语义都归并到 ctx_pool。
-	if resolvedDefault == OpenAIWSIngressModeShared || resolvedDefault == OpenAIWSIngressModeDedicated {
-		return OpenAIWSIngressModeCtxPool
-	}
-	return resolvedDefault
+	return normalizeOpenAIWSIngressDefaultMode(defaultMode)
 }
 
 // IsOpenAIWSForceHTTPEnabled 返回账号级"强制 HTTP"开关。
@@ -2109,22 +1529,6 @@ func (a *Account) IsOpenAIWSForceHTTPEnabled() bool {
 	return ok && enabled
 }
 
-// IsOpenAIResponsesFlattenNamespacesEnabled 返回账号级"摊平 Codex namespace 工具"开关。
-// 字段：accounts.extra.openai_responses_flatten_namespaces，缺省 false（原样保留）。
-//
-// namespace 是 Codex 后端定义的私有扩展，OAuth 出口恒为 chatgpt.com/backend-api/codex
-// （buildUpstreamRequest 只对 API Key 账号取 base_url），即定义方本身，因此默认保留。
-// 该开关只为把流量转发到不认识 namespace 的兼容上游的部署保留退路：打开后恢复
-// 0.1.166 及更早版本的摊平行为。仅对 OpenAI OAuth 账号有效——API Key 走 chat
-// completions 回退桥时由桥自行摊平，Grok/Anthropic 出口有各自的适配链路。
-func (a *Account) IsOpenAIResponsesFlattenNamespacesEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["openai_responses_flatten_namespaces"].(bool)
-	return ok && enabled
-}
-
 // IsOpenAIWSAllowStoreRecoveryEnabled 返回账号级 store 恢复开关。
 // 字段：accounts.extra.openai_ws_allow_store_recovery。
 func (a *Account) IsOpenAIWSAllowStoreRecoveryEnabled() bool {
@@ -2133,77 +1537,6 @@ func (a *Account) IsOpenAIWSAllowStoreRecoveryEnabled() bool {
 	}
 	enabled, ok := a.Extra["openai_ws_allow_store_recovery"].(bool)
 	return ok && enabled
-}
-
-// IsOpenAIOAuthPassthroughEnabled 兼容旧接口，等价于 OAuth 账号的 IsOpenAIPassthroughEnabled。
-func (a *Account) IsOpenAIOAuthPassthroughEnabled() bool {
-	return a != nil && a.IsOpenAIOAuth() && a.IsOpenAIPassthroughEnabled()
-}
-
-// IsAnthropicAPIKeyPassthroughEnabled 返回第三方 key 是否启用"自动透传（仅替换认证）"。
-// 字段：accounts.extra.anthropic_passthrough。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-//
-// 透传是 Anthropic 协议上的转发模式，只在 Anthropic Messages / count_tokens 转发路径上
-// 读取，因此对任何展示标签的第三方 key 都生效；成品号不透传。不按厂商收窄：透传分支
-// 本身已照顾 GLM / Kimi / DeepSeek 这类第三方 Anthropic 上游（见
-// forwardAnthropicAPIKeyPassthroughWithInput 里对 web search 历史块的过滤）。
-func (a *Account) IsAnthropicAPIKeyPassthroughEnabled() bool {
-	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["anthropic_passthrough"].(bool)
-	return ok && enabled
-}
-
-// WebSearch 模拟三态常量
-// WebSearchEmulationEnabled 返回第三方 key 是否开启 web_search 模拟（accounts.extra.web_search_emulation）。
-// 只有第三方 key 有这个开关：模拟只在 Anthropic Messages 转发路径上判定，账号走到那里用的就是
-// Anthropic 协议；成品号恒 false。渠道级开关已删，账号是唯一来源。
-//
-// 读法 fail-closed：bool 原样；历史字符串 "enabled" 算开；其余字符串（"default" / "disabled"）
-// 与其它类型一律关，非 bool 值打 warn 提醒改成开关。
-func (a *Account) WebSearchEmulationEnabled() bool {
-	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
-		return false
-	}
-	raw, present := a.Extra[featureKeyWebSearchEmulation]
-	if !present || raw == nil {
-		return false
-	}
-	switch v := raw.(type) {
-	case bool:
-		return v
-	case string:
-		enabled := v == "enabled"
-		slog.Warn("web_search_emulation: legacy string value, treat as bool", "account_id", a.ID, "value", v, "enabled", enabled)
-		return enabled
-	default:
-		slog.Warn("web_search_emulation: non-bool value treated as off", "account_id", a.ID, "value", raw)
-		return false
-	}
-}
-
-// IsCodexCLIOnlyEnabled 返回 OpenAI OAuth 账号是否启用"仅允许 Codex 官方客户端"。
-// 字段：accounts.extra.codex_cli_only。
-// 字段缺失或类型不正确时，按 false（关闭）处理。
-func (a *Account) IsCodexCLIOnlyEnabled() bool {
-	if a == nil || !a.IsOpenAIOAuth() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra["codex_cli_only"].(bool)
-	return ok && enabled
-}
-
-// IsCodexCLIOnlyAppServerAllowed 返回 codex_cli_only 账号是否额外放行 Codex app-server
-// 第三方客户端（运行时与全局 app_server 开关 OR）。字段：accounts.extra.codex_cli_only_allow_app_server。
-// 仅在 codex_cli_only 已启用时有意义；字段缺失或类型不符按 false（不放行）处理。
-func (a *Account) IsCodexCLIOnlyAppServerAllowed() bool {
-	if !a.IsCodexCLIOnlyEnabled() {
-		return false
-	}
-	v, ok := a.Extra["codex_cli_only_allow_app_server"].(bool)
-	return ok && v
 }
 
 // WindowCostSchedulability 窗口费用调度状态
@@ -2219,124 +1552,14 @@ const (
 )
 
 // IsAnthropicOAuthOrSetupToken 判断是否为 Anthropic OAuth 或 SetupToken 类型账号
-// 仅这两类账号支持 5h 窗口额度控制和会话数量控制
 func (a *Account) IsAnthropicOAuthOrSetupToken() bool {
 	return a.Platform == PlatformAnthropic && (a.Type == AccountTypeOAuth || a.Type == AccountTypeSetupToken)
 }
 
-// IsTLSFingerprintEnabled 检查是否启用 TLS 指纹伪装
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将模拟 Claude Code (Node.js) 客户端的 TLS 握手特征
+// IsTLSFingerprintEnabled 出站是否模拟 Claude Code（Node.js）的 TLS 握手：Anthropic 成品号一律模拟，
+// 其余不模拟（AnthropicSubscriptionTLSFingerprintEnabled，渠道级开关已删，不读 extra）。
 func (a *Account) IsTLSFingerprintEnabled() bool {
-	// 仅支持 Anthropic OAuth/SetupToken 账号
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["enable_tls_fingerprint"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// GetTLSFingerprintProfileID 获取账号绑定的 TLS 指纹模板 ID
-// 返回 0 表示未绑定（使用内置默认 profile）
-func (a *Account) GetTLSFingerprintProfileID() int64 {
-	if a.Extra == nil {
-		return 0
-	}
-	v, ok := a.Extra["tls_fingerprint_profile_id"]
-	if !ok {
-		return 0
-	}
-	switch id := v.(type) {
-	case float64:
-		return int64(id)
-	case int64:
-		return id
-	case int:
-		return int64(id)
-	case json.Number:
-		if i, err := id.Int64(); err == nil {
-			return i
-		}
-	}
-	return 0
-}
-
-// GetUserMsgQueueMode 获取用户消息队列模式
-// "serialize" = 串行队列, "throttle" = 软性限速, "" = 未设置（使用全局配置）
-func (a *Account) GetUserMsgQueueMode() string {
-	if a.Extra == nil {
-		return ""
-	}
-	// 优先读取新字段 user_msg_queue_mode（白名单校验，非法值视为未设置）
-	if mode, ok := a.Extra["user_msg_queue_mode"].(string); ok && mode != "" {
-		if mode == config.UMQModeSerialize || mode == config.UMQModeThrottle {
-			return mode
-		}
-		return "" // 非法值 fallback 到全局配置
-	}
-	// 向后兼容: user_msg_queue_enabled: true → "serialize"
-	if enabled, ok := a.Extra["user_msg_queue_enabled"].(bool); ok && enabled {
-		return config.UMQModeSerialize
-	}
-	return ""
-}
-
-// IsSessionIDMaskingEnabled 检查是否启用会话ID伪装
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将在一段时间内（15分钟）固定 metadata.user_id 中的 session ID，
-// 使上游认为请求来自同一个会话
-func (a *Account) IsSessionIDMaskingEnabled() bool {
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["session_id_masking_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// IsCacheTTLOverrideEnabled 检查是否启用缓存 TTL 强制替换
-// 仅适用于 Anthropic OAuth/SetupToken 类型账号
-// 启用后将所有 cache creation tokens 归入指定的 TTL 类型（5m 或 1h）
-func (a *Account) IsCacheTTLOverrideEnabled() bool {
-	if !a.IsAnthropicOAuthOrSetupToken() {
-		return false
-	}
-	if a.Extra == nil {
-		return false
-	}
-	if v, ok := a.Extra["cache_ttl_override_enabled"]; ok {
-		if enabled, ok := v.(bool); ok {
-			return enabled
-		}
-	}
-	return false
-}
-
-// GetCacheTTLOverrideTarget 获取缓存 TTL 强制替换的目标类型
-// 返回 "5m" 或 "1h"，默认 "5m"
-func (a *Account) GetCacheTTLOverrideTarget() string {
-	if a.Extra == nil {
-		return "5m"
-	}
-	if v, ok := a.Extra["cache_ttl_override_target"]; ok {
-		if target, ok := v.(string); ok && (target == "5m" || target == "1h") {
-			return target
-		}
-	}
-	return "5m"
+	return AnthropicSubscriptionTLSFingerprintEnabled && a != nil && a.IsAnthropicOAuthOrSetupToken()
 }
 
 // GetQuotaLimit 获取 API Key 账号的配额限制（美元）
@@ -2425,345 +1648,6 @@ func (a *Account) getExtraString(key string) string {
 	return ""
 }
 
-// getExtraStringDefault 从 Extra 中读取指定 key 的字符串值，不存在时返回 defaultVal
-func (a *Account) getExtraStringDefault(key, defaultVal string) string {
-	if v := a.getExtraString(key); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
-// getExtraInt 从 Extra 中读取指定 key 的 int 值
-func (a *Account) getExtraInt(key string) int {
-	if a.Extra == nil {
-		return 0
-	}
-	if v, ok := a.Extra[key]; ok {
-		return int(parseExtraFloat64(v))
-	}
-	return 0
-}
-
-// GetQuotaDailyResetMode 获取日额度重置模式："rolling"（默认）或 "fixed"
-func (a *Account) GetQuotaDailyResetMode() string {
-	if m := a.getExtraString("quota_daily_reset_mode"); m == "fixed" {
-		return "fixed"
-	}
-	return "rolling"
-}
-
-// GetQuotaDailyResetHour 获取固定重置的小时（0-23），默认 0
-func (a *Account) GetQuotaDailyResetHour() int {
-	return a.getExtraInt("quota_daily_reset_hour")
-}
-
-// GetQuotaWeeklyResetMode 获取周额度重置模式："rolling"（默认）或 "fixed"
-func (a *Account) GetQuotaWeeklyResetMode() string {
-	if m := a.getExtraString("quota_weekly_reset_mode"); m == "fixed" {
-		return "fixed"
-	}
-	return "rolling"
-}
-
-// GetQuotaWeeklyResetDay 获取固定重置的星期几（0=周日, 1=周一, ..., 6=周六），默认 1（周一）
-func (a *Account) GetQuotaWeeklyResetDay() int {
-	if a.Extra == nil {
-		return 1
-	}
-	if _, ok := a.Extra["quota_weekly_reset_day"]; !ok {
-		return 1
-	}
-	return a.getExtraInt("quota_weekly_reset_day")
-}
-
-// GetQuotaWeeklyResetHour 获取周配额固定重置的小时（0-23），默认 0
-func (a *Account) GetQuotaWeeklyResetHour() int {
-	return a.getExtraInt("quota_weekly_reset_hour")
-}
-
-// GetQuotaResetTimezone 获取固定重置的时区名（IANA），默认 "UTC"
-func (a *Account) GetQuotaResetTimezone() string {
-	if tz := a.getExtraString("quota_reset_timezone"); tz != "" {
-		return tz
-	}
-	return "UTC"
-}
-
-// --- Quota Notification Getters ---
-
-// QuotaNotifyConfig returns the notify configuration for a given quota dimension.
-// dim must be one of quotaDimDaily, quotaDimWeekly, quotaDimTotal.
-func (a *Account) QuotaNotifyConfig(dim string) (enabled bool, threshold float64, thresholdType string) {
-	enabled = a.getExtraBool("quota_notify_" + dim + "_enabled")
-	threshold = a.getExtraFloat64("quota_notify_" + dim + "_threshold")
-	thresholdType = a.getExtraStringDefault("quota_notify_"+dim+"_threshold_type", thresholdTypeFixed)
-	return
-}
-
-func (a *Account) GetQuotaNotifyDailyEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimDaily)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyDailyThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimDaily)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyDailyThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimDaily)
-	return tt
-}
-
-func (a *Account) GetQuotaNotifyWeeklyEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimWeekly)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyWeeklyThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimWeekly)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyWeeklyThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimWeekly)
-	return tt
-}
-
-func (a *Account) GetQuotaNotifyTotalEnabled() bool {
-	e, _, _ := a.QuotaNotifyConfig(quotaDimTotal)
-	return e
-}
-
-func (a *Account) GetQuotaNotifyTotalThreshold() float64 {
-	_, t, _ := a.QuotaNotifyConfig(quotaDimTotal)
-	return t
-}
-
-func (a *Account) GetQuotaNotifyTotalThresholdType() string {
-	_, _, tt := a.QuotaNotifyConfig(quotaDimTotal)
-	return tt
-}
-
-// nextFixedDailyReset 计算在 after 之后的下一个每日固定重置时间点
-func nextFixedDailyReset(hour int, tz *time.Location, after time.Time) time.Time {
-	t := after.In(tz)
-	today := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	if !after.Before(today) {
-		return today.AddDate(0, 0, 1)
-	}
-	return today
-}
-
-// lastFixedDailyReset 计算 now 之前最近一次的每日固定重置时间点
-func lastFixedDailyReset(hour int, tz *time.Location, now time.Time) time.Time {
-	t := now.In(tz)
-	today := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	if now.Before(today) {
-		return today.AddDate(0, 0, -1)
-	}
-	return today
-}
-
-// nextFixedWeeklyReset 计算在 after 之后的下一个每周固定重置时间点
-// day: 0=Sunday, 1=Monday, ..., 6=Saturday
-func nextFixedWeeklyReset(day, hour int, tz *time.Location, after time.Time) time.Time {
-	t := after.In(tz)
-	todayReset := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	currentDay := int(todayReset.Weekday())
-
-	daysForward := (day - currentDay + 7) % 7
-	if daysForward == 0 && !after.Before(todayReset) {
-		daysForward = 7
-	}
-	return todayReset.AddDate(0, 0, daysForward)
-}
-
-// lastFixedWeeklyReset 计算 now 之前最近一次的每周固定重置时间点
-func lastFixedWeeklyReset(day, hour int, tz *time.Location, now time.Time) time.Time {
-	t := now.In(tz)
-	todayReset := time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, tz)
-	currentDay := int(todayReset.Weekday())
-
-	daysBack := (currentDay - day + 7) % 7
-	if daysBack == 0 && now.Before(todayReset) {
-		daysBack = 7
-	}
-	return todayReset.AddDate(0, 0, -daysBack)
-}
-
-// isFixedDailyPeriodExpired 检查日配额是否在固定时间模式下已过期
-func (a *Account) isFixedDailyPeriodExpired(periodStart time.Time) bool {
-	if periodStart.IsZero() {
-		return true
-	}
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		tz = time.UTC
-	}
-	lastReset := lastFixedDailyReset(a.GetQuotaDailyResetHour(), tz, time.Now())
-	return periodStart.Before(lastReset)
-}
-
-// isFixedWeeklyPeriodExpired 检查周配额是否在固定时间模式下已过期
-func (a *Account) isFixedWeeklyPeriodExpired(periodStart time.Time) bool {
-	if periodStart.IsZero() {
-		return true
-	}
-	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
-	if err != nil {
-		tz = time.UTC
-	}
-	lastReset := lastFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, time.Now())
-	return periodStart.Before(lastReset)
-}
-
-// ComputeQuotaResetAt 根据当前配置计算并填充 extra 中的 quota_daily_reset_at / quota_weekly_reset_at
-// 在保存账号配置时调用
-func ComputeQuotaResetAt(extra map[string]any) {
-	now := time.Now()
-	tzName, _ := extra["quota_reset_timezone"].(string)
-	if tzName == "" {
-		tzName = "UTC"
-	}
-	tz, err := time.LoadLocation(tzName)
-	if err != nil {
-		tz = time.UTC
-	}
-
-	// 日配额固定重置时间
-	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		resetAt := nextFixedDailyReset(hour, tz, now)
-		extra["quota_daily_reset_at"] = resetAt.UTC().Format(time.RFC3339)
-	} else {
-		delete(extra, "quota_daily_reset_at")
-	}
-
-	// 周配额固定重置时间
-	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" {
-		day := 1 // 默认周一
-		if d, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(d))
-		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		resetAt := nextFixedWeeklyReset(day, hour, tz, now)
-		extra["quota_weekly_reset_at"] = resetAt.UTC().Format(time.RFC3339)
-	} else {
-		delete(extra, "quota_weekly_reset_at")
-	}
-}
-
-// NormalizeFixedQuotaWindows aligns preserved quota usage with the active fixed reset window.
-//
-// Editing an existing account can switch a daily/weekly quota from rolling to fixed reset
-// while preserving quota_*_used and quota_*_start. If the preserved start belongs to the
-// old rolling window, response mapping treats the usage as expired and the dashboard shows
-// 0 until the next reset. Normalize those stale starts before persisting the edited account.
-func NormalizeFixedQuotaWindows(extra map[string]any) {
-	if extra == nil {
-		return
-	}
-	now := time.Now()
-	tzName, _ := extra["quota_reset_timezone"].(string)
-	if tzName == "" {
-		tzName = "UTC"
-	}
-	tz, err := time.LoadLocation(tzName)
-	if err != nil {
-		tz = time.UTC
-	}
-
-	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_daily_limit"]) > 0 {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		lastReset := lastFixedDailyReset(hour, tz, now)
-		start := parseExtraTime(extra["quota_daily_start"])
-		if start.IsZero() || start.Before(lastReset) {
-			extra["quota_daily_used"] = 0.0
-			extra["quota_daily_start"] = lastReset.UTC().Format(time.RFC3339)
-		}
-	}
-
-	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_weekly_limit"]) > 0 {
-		day := 1
-		if rawDay, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(rawDay))
-		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
-		lastReset := lastFixedWeeklyReset(day, hour, tz, now)
-		start := parseExtraTime(extra["quota_weekly_start"])
-		if start.IsZero() || start.Before(lastReset) {
-			extra["quota_weekly_used"] = 0.0
-			extra["quota_weekly_start"] = lastReset.UTC().Format(time.RFC3339)
-		}
-	}
-}
-
-// ValidateQuotaResetConfig 校验配额固定重置时间配置的合法性
-func ValidateQuotaResetConfig(extra map[string]any) error {
-	if extra == nil {
-		return nil
-	}
-	// 校验时区
-	if tz, ok := extra["quota_reset_timezone"].(string); ok && tz != "" {
-		if _, err := time.LoadLocation(tz); err != nil {
-			return errors.New("invalid quota_reset_timezone: must be a valid IANA timezone name")
-		}
-	}
-	// 日配额重置模式
-	if mode, ok := extra["quota_daily_reset_mode"].(string); ok {
-		if mode != "rolling" && mode != "fixed" {
-			return errors.New("quota_daily_reset_mode must be 'rolling' or 'fixed'")
-		}
-	}
-	// 日配额重置小时
-	if v, ok := extra["quota_daily_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
-			return errors.New("quota_daily_reset_hour must be between 0 and 23")
-		}
-	}
-	// 周配额重置模式
-	if mode, ok := extra["quota_weekly_reset_mode"].(string); ok {
-		if mode != "rolling" && mode != "fixed" {
-			return errors.New("quota_weekly_reset_mode must be 'rolling' or 'fixed'")
-		}
-	}
-	// 周配额重置星期几
-	if v, ok := extra["quota_weekly_reset_day"]; ok {
-		day := int(parseExtraFloat64(v))
-		if day < 0 || day > 6 {
-			return errors.New("quota_weekly_reset_day must be between 0 (Sunday) and 6 (Saturday)")
-		}
-	}
-	// 周配额重置小时
-	if v, ok := extra["quota_weekly_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
-			return errors.New("quota_weekly_reset_hour must be between 0 and 23")
-		}
-	}
-	return nil
-}
-
 // HasAnyQuotaLimit 检查是否配置了任一维度的配额限制
 func (a *Account) HasAnyQuotaLimit() bool {
 	return a.GetQuotaLimit() > 0 || a.GetQuotaDailyLimit() > 0 || a.GetQuotaWeeklyLimit() > 0
@@ -2777,49 +1661,15 @@ func isPeriodExpired(periodStart time.Time, dur time.Duration) bool {
 	return time.Since(periodStart) >= dur
 }
 
-// IsDailyQuotaPeriodExpired 检查日配额周期是否已过期（用于显示层判断是否需要将 used 归零）
+// IsDailyQuotaPeriodExpired 检查日配额周期是否已过期（用于显示层判断是否需要将 used 归零）。
+// 日 / 周限额一律滚动窗口（固定时间重置 2026-09-28 P5 已删）。
 func (a *Account) IsDailyQuotaPeriodExpired() bool {
-	start := a.getExtraTime("quota_daily_start")
-	if a.GetQuotaDailyResetMode() == "fixed" {
-		return a.isFixedDailyPeriodExpired(start)
-	}
-	return isPeriodExpired(start, 24*time.Hour)
+	return isPeriodExpired(a.getExtraTime("quota_daily_start"), 24*time.Hour)
 }
 
 // IsWeeklyQuotaPeriodExpired 检查周配额周期是否已过期（用于显示层判断是否需要将 used 归零）
 func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
-	start := a.getExtraTime("quota_weekly_start")
-	if a.GetQuotaWeeklyResetMode() == "fixed" {
-		return a.isFixedWeeklyPeriodExpired(start)
-	}
-	return isPeriodExpired(start, 7*24*time.Hour)
-}
-
-// GetWindowCostLimit 获取 5h 窗口费用阈值（美元）
-// 返回 0 表示未启用
-func (a *Account) GetWindowCostLimit() float64 {
-	if a.Extra == nil {
-		return 0
-	}
-	if v, ok := a.Extra["window_cost_limit"]; ok {
-		return parseExtraFloat64(v)
-	}
-	return 0
-}
-
-// GetWindowCostStickyReserve 获取粘性会话预留额度（美元）
-// 默认值为 10
-func (a *Account) GetWindowCostStickyReserve() float64 {
-	if a.Extra == nil {
-		return 10.0
-	}
-	if v, ok := a.Extra["window_cost_sticky_reserve"]; ok {
-		val := parseExtraFloat64(v)
-		if val > 0 {
-			return val
-		}
-	}
-	return 10.0
+	return isPeriodExpired(a.getExtraTime("quota_weekly_start"), 7*24*time.Hour)
 }
 
 // GetMaxSessions 获取最大并发会话数
@@ -2832,21 +1682,6 @@ func (a *Account) GetMaxSessions() int {
 		return parseExtraInt(v)
 	}
 	return 0
-}
-
-// GetSessionIdleTimeoutMinutes 获取会话空闲超时分钟数
-// 默认值为 5 分钟
-func (a *Account) GetSessionIdleTimeoutMinutes() int {
-	if a.Extra == nil {
-		return 5
-	}
-	if v, ok := a.Extra["session_idle_timeout_minutes"]; ok {
-		val := parseExtraInt(v)
-		if val > 0 {
-			return val
-		}
-	}
-	return 5
 }
 
 // GetBaseRPM 获取基础 RPM 限制
@@ -2864,36 +1699,10 @@ func (a *Account) GetBaseRPM() int {
 	return 0
 }
 
-// GetRPMStrategy 获取 RPM 策略
-// "tiered" = 三区模型（默认）, "sticky_exempt" = 粘性豁免
-func (a *Account) GetRPMStrategy() string {
-	if a.Extra == nil {
-		return "tiered"
-	}
-	if v, ok := a.Extra["rpm_strategy"]; ok {
-		if s, ok := v.(string); ok && s == "sticky_exempt" {
-			return "sticky_exempt"
-		}
-	}
-	return "tiered"
-}
-
-// GetRPMStickyBuffer 获取 RPM 粘性缓冲数量
+// GetRPMStickyBuffer 获取 RPM 粘性缓冲数量（只按下面的规则自动算，渠道级手填值已删、不读）
 // Cache-driven: buffer = concurrency + maxSessions（覆盖幽灵窗口 + 稳态会话需求）
 // floor = baseRPM / 5（向后兼容 maxSessions=0 且 concurrency=0 场景）
 func (a *Account) GetRPMStickyBuffer() int {
-	if a.Extra == nil {
-		return 0
-	}
-
-	// 手动 override 最高优先级
-	if v, ok := a.Extra["rpm_sticky_buffer"]; ok {
-		val := parseExtraInt(v)
-		if val > 0 {
-			return val
-		}
-	}
-
 	base := a.GetBaseRPM()
 	if base <= 0 {
 		return 0
@@ -2923,8 +1732,9 @@ func (a *Account) GetRPMStickyBuffer() int {
 	return buffer
 }
 
-// CheckRPMSchedulability 根据当前 RPM 计数检查调度状态
+// CheckRPMSchedulability 根据当前 RPM 计数检查调度状态（三区：绿区正常、黄区只放粘性、红区不调度）
 // 复用 WindowCostSchedulability 三态：Schedulable / StickyOnly / NotSchedulable
+// 策略只有这一种（渠道级 rpm_strategy 已删、不读，见 channel_features_anthropic.go）。
 func (a *Account) CheckRPMSchedulability(currentRPM int) WindowCostSchedulability {
 	baseRPM := a.GetBaseRPM()
 	if baseRPM <= 0 {
@@ -2935,38 +1745,11 @@ func (a *Account) CheckRPMSchedulability(currentRPM int) WindowCostSchedulabilit
 		return WindowCostSchedulable
 	}
 
-	strategy := a.GetRPMStrategy()
-	if strategy == "sticky_exempt" {
-		return WindowCostStickyOnly // 粘性豁免无红区
-	}
-
-	// tiered: 黄区 + 红区
+	// 黄区 + 红区
 	buffer := a.GetRPMStickyBuffer()
 	if currentRPM < baseRPM+buffer {
 		return WindowCostStickyOnly
 	}
-	return WindowCostNotSchedulable
-}
-
-// CheckWindowCostSchedulability 根据当前窗口费用检查调度状态
-// - 费用 < 阈值: WindowCostSchedulable（可正常调度）
-// - 费用 >= 阈值 且 < 阈值+预留: WindowCostStickyOnly（仅粘性会话）
-// - 费用 >= 阈值+预留: WindowCostNotSchedulable（不可调度）
-func (a *Account) CheckWindowCostSchedulability(currentWindowCost float64) WindowCostSchedulability {
-	limit := a.GetWindowCostLimit()
-	if limit <= 0 {
-		return WindowCostSchedulable
-	}
-
-	if currentWindowCost < limit {
-		return WindowCostSchedulable
-	}
-
-	stickyReserve := a.GetWindowCostStickyReserve()
-	if currentWindowCost < limit+stickyReserve {
-		return WindowCostStickyOnly
-	}
-
 	return WindowCostNotSchedulable
 }
 
@@ -3008,18 +1791,6 @@ func parseExtraFloat64(value any) float64 {
 		}
 	}
 	return 0
-}
-
-func parseExtraTime(value any) time.Time {
-	if s, ok := value.(string); ok {
-		if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-			return t
-		}
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			return t
-		}
-	}
-	return time.Time{}
 }
 
 // parseExtraInt 从 extra 字段解析 int 值

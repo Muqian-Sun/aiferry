@@ -117,141 +117,52 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 	}
 }
 
-func TestResolveOpenAICompactForwardModel(t *testing.T) {
-	tests := []struct {
-		name          string
-		account       *Account
-		model         string
-		expectedModel string
-	}{
-		{
-			name:          "nil account keeps original model",
-			account:       nil,
-			model:         "gpt-5.4",
-			expectedModel: "gpt-5.4",
-		},
-		{
-			name: "missing compact mapping keeps original model",
-			account: &Account{
-				Credentials: map[string]any{},
-			},
-			model:         "gpt-5.4",
-			expectedModel: "gpt-5.4",
-		},
-		{
-			name: "exact compact mapping overrides model",
-			account: &Account{
-				Credentials: map[string]any{
-					"compact_model_mapping": map[string]any{
-						"gpt-5.4": "gpt-5.4-openai-compact",
-					},
-				},
-			},
-			model:         "gpt-5.4",
-			expectedModel: "gpt-5.4-openai-compact",
-		},
-		{
-			name: "wildcard compact mapping overrides model",
-			account: &Account{
-				Credentials: map[string]any{
-					"compact_model_mapping": map[string]any{
-						"gpt-5.*": "gpt-5-openai-compact",
-					},
-				},
-			},
-			model:         "gpt-5.4",
-			expectedModel: "gpt-5-openai-compact",
-		},
-		{
-			name: "passthrough compact mapping remains unchanged",
-			account: &Account{
-				Credentials: map[string]any{
-					"compact_model_mapping": map[string]any{
-						"gpt-5.4": "gpt-5.4",
-					},
-				},
-			},
-			model:         "gpt-5.4",
-			expectedModel: "gpt-5.4",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := resolveOpenAICompactForwardModel(tt.account, tt.model); got != tt.expectedModel {
-				t.Fatalf("resolveOpenAICompactForwardModel(...) = %q, want %q", got, tt.expectedModel)
-			}
-		})
-	}
-}
-
-func TestResolveOpenAIForwardMappedModels_CompactMappingPrecedence(t *testing.T) {
+// 渠道级 compact 专属映射与 OpenAI 自动透传 2026-09-28 P5 都删了：库里残留的
+// compact_model_mapping / openai_passthrough 不再影响 Forward 与调度的模型解析，一律走普通映射。
+func TestResolveOpenAIForwardMappedModels_IgnoresLegacyCompactMappingAndPassthrough(t *testing.T) {
 	conflictingMappings := map[string]any{
 		"model_mapping":         map[string]any{"gpt-5.5": "gpt-5.4"},
 		"compact_model_mapping": map[string]any{"gpt-5.5": "gpt-5.5-openai-compact"},
 	}
-	mappedOnlyCompact := map[string]any{
-		"model_mapping":         map[string]any{"gpt-5.5": "gpt-5.4"},
-		"compact_model_mapping": map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"},
-	}
 	tests := []struct {
-		name           string
-		account        *Account
-		requireCompact bool
-		wantBilling    string
-		wantUpstream   string
+		name         string
+		account      *Account
+		wantBilling  string
+		wantUpstream string
 	}{
 		{
-			name: "compact uses client-visible model before ordinary mapping",
-			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-				Credentials: conflictingMappings},
-			requireCompact: true,
-			wantBilling:    "gpt-5.4",
-			wantUpstream:   "gpt-5.5-openai-compact",
-		},
-		{
-			name: "non-compact uses ordinary mapping",
+			name: "legacy compact mapping no longer overrides ordinary mapping",
 			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Credentials: conflictingMappings},
 			wantBilling:  "gpt-5.4",
 			wantUpstream: "gpt-5.4",
 		},
 		{
-			name: "compact falls back to ordinary mapped model",
-			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-				Credentials: mappedOnlyCompact},
-			requireCompact: true,
-			wantBilling:    "gpt-5.4",
-			wantUpstream:   "gpt-5.4-openai-compact",
-		},
-		{
-			name: "passthrough ignores ordinary mapping",
+			name: "legacy passthrough key no longer bypasses ordinary mapping",
 			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Credentials: conflictingMappings, Extra: map[string]any{"openai_passthrough": true}},
-			requireCompact: true,
-			wantBilling:    "gpt-5.5",
-			wantUpstream:   "gpt-5.5-openai-compact",
+			wantBilling:  "gpt-5.4",
+			wantUpstream: "gpt-5.4",
 		},
 		{
-			name: "raw chat fallback never applies compact mapping",
+			name: "raw chat fallback uses ordinary mapping",
 			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 				Credentials: conflictingMappings, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"}},
-			requireCompact: true,
-			wantBilling:    "gpt-5.4",
-			wantUpstream:   "gpt-5.4",
+			wantBilling:  "gpt-5.4",
+			wantUpstream: "gpt-5.4",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			billing, upstream := resolveOpenAIForwardMappedModels(tt.account, "gpt-5.5", tt.requireCompact)
+			billing, upstream := resolveOpenAIForwardMappedModels(tt.account, "gpt-5.5")
 			if billing != tt.wantBilling {
 				t.Fatalf("billing model = %q, want %q", billing, tt.wantBilling)
 			}
 			if upstream != tt.wantUpstream {
 				t.Fatalf("upstream model = %q, want %q", upstream, tt.wantUpstream)
 			}
-			if scheduler := resolveOpenAIAccountUpstreamModelForRequest(tt.account, "gpt-5.5", tt.requireCompact); scheduler != upstream {
+			if scheduler := resolveOpenAIAccountUpstreamModelForRequest(tt.account, "gpt-5.5"); scheduler != upstream {
 				t.Fatalf("scheduler model %q disagrees with Forward model %q", scheduler, upstream)
 			}
 		})
@@ -272,12 +183,12 @@ func TestCanonicalOpenAIAccountSchedulingModelMatchesForwardSemantics(t *testing
 			want:    "gpt-5.6-sol",
 		},
 		{
-			name: "OpenAI passthrough ignores ordinary account mapping",
+			name: "legacy OpenAI passthrough key no longer bypasses account mapping",
 			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Credentials: map[string]any{"model_mapping": map[string]any{"public": "private"}},
 				Extra:       map[string]any{"openai_passthrough": true}},
 			model: "public",
-			want:  "public",
+			want:  "private",
 		},
 		{
 			name:    "Grok OAuth does not inherit OpenAI Codex aliases",

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// AccountExpiryService periodically pauses expired accounts when auto-pause is enabled.
+// AccountExpiryService periodically pauses expired accounts（过期自动暂停写死开，见 channel_features.go）.
 type AccountExpiryService struct {
 	accountRepo AccountRepository
 	interval    time.Duration

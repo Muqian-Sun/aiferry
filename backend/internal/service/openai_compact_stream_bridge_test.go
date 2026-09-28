@@ -306,34 +306,6 @@ func TestHandleSSEToJSON_CompactRawOutputItemDoneRepairsEmptyTerminalOutput(t *t
 	require.Equal(t, 4, result.usage.OutputTokens)
 }
 
-// 同一形态经透传分支（handlePassthroughSSEToJSON）也必须修补。
-func TestHandlePassthroughSSEToJSON_CompactRawOutputItemDoneRepairsEmptyTerminalOutput(t *testing.T) {
-	svc := newCompactBridgeTestService()
-	c, rec := newCompactBridgeTestContext(t, true)
-	upstreamSSE := strings.Join([]string{
-		`data: {"type":"response.output_item.done","output_index":0,"item":{"id":"cmp_pt_1","type":"compaction","status":"completed","encrypted_content":"compact-pt-raw"}}`,
-		``,
-		`data: {"type":"response.completed","response":{"id":"resp_compact_pt_raw","object":"response","status":"completed","output":[],"usage":{"input_tokens":6,"output_tokens":2,"total_tokens":8}}}`,
-		``,
-	}, "\n")
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-		Body:       io.NopCloser(strings.NewReader(upstreamSSE)),
-	}
-
-	result, err := svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, nil, "gpt-5.5", "")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-
-	require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
-	events := parseCompactBridgeSSE(t, rec.Body.String())
-	require.Len(t, events, 2)
-	require.Equal(t, "compaction", gjson.Get(events[0][1], "item.type").String())
-	require.Equal(t, "compact-pt-raw", gjson.Get(events[0][1], "item.encrypted_content").String())
-	require.Len(t, gjson.Get(events[1][1], "response.output").Array(), 1)
-}
-
 // path-based（Codex v1 unary、链式 sub2api）未标记 client stream：同一上游
 // 形态修补后仍按 JSON 写回，output 中必须包含 compaction item。
 func TestHandleSSEToJSON_PathBasedCompactRawOutputItemDoneRepairsJSON(t *testing.T) {
@@ -500,31 +472,4 @@ func TestReconstructResponseOutputFromSSE_NonCompactionAddedStillUsesDeltas(t *t
 	items := gjson.ParseBytes(outputJSON).Array()
 	require.Len(t, items, 1)
 	require.Equal(t, "hi", items[0].Get("content.0.text").String())
-}
-
-// 透传分支（OAuth passthrough）同样命中桥接。
-func TestHandleNonStreamingResponsePassthrough_CompactClientStreamBridgesToSSE(t *testing.T) {
-	svc := newCompactBridgeTestService()
-	c, rec := newCompactBridgeTestContext(t, true)
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body: io.NopCloser(strings.NewReader(`{
-			"id":"resp_compact_pt",
-			"output":[{"id":"cmp_pt_1","type":"compaction","encrypted_content":"compact-pt-payload"}],
-			"usage":{"input_tokens":7,"output_tokens":3,"total_tokens":10}
-		}`)),
-	}
-
-	result, err := svc.handleNonStreamingResponsePassthrough(context.Background(), resp, c, nil, "gpt-5.5", "")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-
-	require.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
-	events := parseCompactBridgeSSE(t, rec.Body.String())
-	require.Len(t, events, 2)
-	require.Equal(t, "compaction", gjson.Get(events[0][1], "item.type").String())
-	require.Equal(t, "resp_compact_pt", gjson.Get(events[1][1], "response.id").String())
-	require.NotNil(t, result.usage)
-	require.Equal(t, 7, result.usage.InputTokens)
 }

@@ -114,20 +114,32 @@ func TestMarshalSchedulerCacheAccountKeepsEncodingJSONWireFormat(t *testing.T) {
 	}
 }
 
-func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSFlags(t *testing.T) {
+// 渠道级 WS mode、自动透传、Codex 指纹收敛 2026-09-28 P5 删了：这些键没有读取方，不再进调度投影；
+// openai_ws_force_http 仍在（不是表单项）。
+func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSForceHTTPOnly(t *testing.T) {
 	account := service.Account{
 		ID:       42,
 		Platform: service.PlatformOpenAI,
 		Type:     service.AccountTypeOAuth,
+		Credentials: map[string]any{
+			"openai_capabilities":   []any{"embeddings"},
+			"compact_model_mapping": map[string]any{"gpt-5.5": "gpt-5.5-compact"},
+		},
 		Extra: map[string]any{
 			"openai_oauth_responses_websockets_v2_enabled": true,
 			"openai_oauth_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
+			"responses_websockets_v2_enabled":              true,
+			"openai_ws_enabled":                            true,
 			"openai_ws_force_http":                         true,
+			"openai_passthrough":                           true,
+			"openai_oauth_passthrough":                     true,
+			"openai_compact_mode":                          "force_on",
 			// 已退役的 Responses 探测标记：没有读取方，不进调度投影。
 			"openai_responses_mode":      "force_chat_completions",
 			"openai_responses_supported": false,
 			"codex_fingerprint_mode":     "session",
 			"codex_fingerprint_seed":     "11111111-1111-4111-8111-111111111111",
+			"grok_media_eligible":        false,
 			"mixed_scheduling":           true,
 			"unused_large_field":         "drop-me",
 		},
@@ -135,38 +147,24 @@ func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSFlags(t *testing.T) {
 
 	got := buildSchedulerMetadataAccount(account)
 
-	require.Equal(t, true, got.Extra["openai_oauth_responses_websockets_v2_enabled"])
-	require.Equal(t, service.OpenAIWSIngressModePassthrough, got.Extra["openai_oauth_responses_websockets_v2_mode"])
 	require.Equal(t, true, got.Extra["openai_ws_force_http"])
+	for _, key := range []string{
+		"openai_oauth_responses_websockets_v2_enabled", "openai_oauth_responses_websockets_v2_mode",
+		"responses_websockets_v2_enabled", "openai_ws_enabled",
+		"openai_passthrough", "openai_oauth_passthrough", "openai_compact_mode",
+		"codex_fingerprint_mode", "codex_fingerprint_seed", "grok_media_eligible",
+	} {
+		require.NotContains(t, got.Extra, key)
+	}
+	require.NotContains(t, got.Credentials, "openai_capabilities")
+	require.NotContains(t, got.Credentials, "compact_model_mapping")
 	require.NotContains(t, got.Extra, "openai_responses_mode")
 	require.NotContains(t, got.Extra, "openai_responses_supported")
-	require.Equal(t, "session", got.Extra["codex_fingerprint_mode"])
-	require.Equal(t, "11111111-1111-4111-8111-111111111111", got.Extra["codex_fingerprint_seed"])
 	require.NotContains(t, got.Extra, "mixed_scheduling", "混合调度标记随分组池下线（7b-2b）")
 	require.Nil(t, got.Extra["unused_large_field"])
 }
 
 func TestBuildSchedulerMetadataAccount_KeepsGrokMediaEligibility(t *testing.T) {
-	t.Run("explicit override", func(t *testing.T) {
-		account := service.Account{
-			ID:       43,
-			Platform: service.PlatformGrok,
-			Type:     service.AccountTypeOAuth,
-			Extra: map[string]any{
-				service.GrokMediaEligibleExtraKey: false,
-				"unused_large_field":              "drop-me",
-			},
-		}
-
-		got := buildSchedulerMetadataAccount(account)
-
-		eligible, reason := got.GrokMediaGenerationEligibility()
-		require.False(t, eligible)
-		require.Equal(t, "override_disabled", reason)
-		require.Equal(t, false, got.Extra[service.GrokMediaEligibleExtraKey])
-		require.Nil(t, got.Extra["unused_large_field"])
-	})
-
 	t.Run("forbidden billing observation", func(t *testing.T) {
 		account := service.Account{
 			ID:       44,
@@ -201,10 +199,11 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields(t *testing.T) {
 			"codex_5h_reset_after_seconds": 300,
 			"codex_7d_reset_after_seconds": 600,
 			"codex_usage_updated_at":       "2026-05-29T09:00:00Z",
-			"auto_pause_5h_threshold":      0.95,
-			"auto_pause_7d_threshold":      0.96,
-			"auto_pause_5h_disabled":       true,
-			"auto_pause_7d_disabled":       false,
+			// 渠道级阈值与禁用开关 2026-09-28 P5 删了，不再进投影。
+			"auto_pause_5h_threshold": 0.95,
+			"auto_pause_7d_threshold": 0.96,
+			"auto_pause_5h_disabled":  true,
+			"auto_pause_7d_disabled":  false,
 		},
 	}
 
@@ -217,10 +216,9 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields(t *testing.T) {
 	require.Equal(t, 300, got.Extra["codex_5h_reset_after_seconds"])
 	require.Equal(t, 600, got.Extra["codex_7d_reset_after_seconds"])
 	require.Equal(t, "2026-05-29T09:00:00Z", got.Extra["codex_usage_updated_at"])
-	require.Equal(t, 0.95, got.Extra["auto_pause_5h_threshold"])
-	require.Equal(t, 0.96, got.Extra["auto_pause_7d_threshold"])
-	require.Equal(t, true, got.Extra["auto_pause_5h_disabled"])
-	require.Equal(t, false, got.Extra["auto_pause_7d_disabled"])
+	for _, key := range []string{"auto_pause_5h_threshold", "auto_pause_7d_threshold", "auto_pause_5h_disabled", "auto_pause_7d_disabled"} {
+		require.NotContains(t, got.Extra, key)
+	}
 }
 
 // 配额计数不再由调度器评估（状态服务在用量入账时写成 temp_unschedulable），
@@ -230,7 +228,6 @@ func TestBuildSchedulerMetadataAccount_QuotaCountersDoNotBlockCachedAccounts(t *
 	activeStart := now.Add(-time.Hour).Format(time.RFC3339)
 	expiredDailyStart := now.Add(-25 * time.Hour).Format(time.RFC3339)
 	expiredWeeklyStart := now.Add(-8 * 24 * time.Hour).Format(time.RFC3339)
-	weeklyResetDay := float64(now.AddDate(0, 0, 1).Weekday())
 
 	cases := []struct {
 		name          string
@@ -247,30 +244,26 @@ func TestBuildSchedulerMetadataAccount_QuotaCountersDoNotBlockCachedAccounts(t *
 			name: "gemini api key rolling daily quota exhausted", platform: service.PlatformGemini, typ: service.AccountTypeAPIKey,
 			extra: map[string]any{
 				"quota_daily_limit": 20.0, "quota_daily_used": 20.0,
-				"quota_daily_start": activeStart, "quota_daily_reset_mode": "rolling",
+				"quota_daily_start": activeStart,
 			}, quotaExceeded: true,
 		},
 		{
 			name: "gemini api key expired rolling daily window", platform: service.PlatformGemini, typ: service.AccountTypeAPIKey,
 			extra: map[string]any{
 				"quota_daily_limit": 20.0, "quota_daily_used": 20.0,
-				"quota_daily_start": expiredDailyStart, "quota_daily_reset_mode": "rolling",
+				"quota_daily_start": expiredDailyStart,
 			},
 		},
 		{
-			name: "bedrock fixed weekly quota exhausted", platform: service.PlatformAnthropic, typ: service.AccountTypeBedrock,
+			name: "bedrock rolling weekly quota exhausted", platform: service.PlatformAnthropic, typ: service.AccountTypeBedrock,
 			extra: map[string]any{
 				"quota_weekly_limit": 30.0, "quota_weekly_used": 30.0, "quota_weekly_start": activeStart,
-				"quota_weekly_reset_mode": "fixed", "quota_weekly_reset_day": weeklyResetDay,
-				"quota_weekly_reset_hour": 0.0, "quota_reset_timezone": "UTC",
 			}, quotaExceeded: true,
 		},
 		{
-			name: "bedrock expired fixed weekly window", platform: service.PlatformAnthropic, typ: service.AccountTypeBedrock,
+			name: "bedrock expired rolling weekly window", platform: service.PlatformAnthropic, typ: service.AccountTypeBedrock,
 			extra: map[string]any{
 				"quota_weekly_limit": 30.0, "quota_weekly_used": 30.0, "quota_weekly_start": expiredWeeklyStart,
-				"quota_weekly_reset_mode": "fixed", "quota_weekly_reset_day": weeklyResetDay,
-				"quota_weekly_reset_hour": 0.0, "quota_reset_timezone": "UTC",
 			},
 		},
 	}
@@ -355,7 +348,8 @@ func TestBuildSchedulerMetadataAccount_KeepsSparkShadowRoutingIdentity(t *testin
 	require.Equal(t, parentID, *got.ParentAccountID)
 	require.Equal(t, service.QuotaDimensionSpark, got.QuotaDimension)
 	require.Equal(t, map[string]any{"gpt-5.3-codex-spark": "gpt-5.3-codex-spark"}, got.Credentials["model_mapping"])
-	require.Equal(t, map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"}, got.Credentials["compact_model_mapping"])
+	// 渠道级 compact 专属映射 2026-09-28 P5 删了，不再进调度投影。
+	require.NotContains(t, got.Credentials, "compact_model_mapping")
 	require.Nil(t, got.Credentials["access_token"])
 }
 
@@ -475,48 +469,6 @@ func schedulerCacheBenchmarkAccounts(size int) []service.Account {
 		}
 	}
 	return accounts
-}
-
-// 调度投影必须保留 OpenAI 透传开关。
-//
-// 候选过滤走 ListSchedulableAccounts，读的是 buildSchedulerMetadataAccount 产出的精简投影；
-// Account.IsModelSupported 又靠 extra 上的透传开关短路 model_mapping 白名单（#4936）。
-// 一旦投影把开关裁掉、却保留了白名单，透传账号在选号阶段就会退回白名单判定并被误判成
-// model_not_supported，而转发阶段（读完整账号）仍按透传工作 —— 表现为"单独测这个账号能通、
-// 走网关却报 no available accounts"。#4936 修的是判定逻辑，这里守的是喂给判定的输入。
-func TestBuildSchedulerMetadataAccount_KeepsOpenAIPassthroughForModelGate(t *testing.T) {
-	for _, key := range []string{"openai_passthrough", "openai_oauth_passthrough"} {
-		t.Run(key, func(t *testing.T) {
-			account := service.Account{
-				ID:       383,
-				Platform: service.PlatformOpenAI,
-				Type:     service.AccountTypeOAuth,
-				Credentials: map[string]any{
-					// 账号从白名单模式切到透传后常见的残留映射，未列出请求的模型。
-					"model_mapping": map[string]any{"gpt-5.5": "gpt-5.5"},
-					"access_token":  "drop-me",
-				},
-				Extra: map[string]any{key: true},
-			}
-			require.True(t, account.IsModelSupported("gpt-5.6-sol"),
-				"前置条件：透传账号本应放行白名单外的模型")
-
-			meta := buildSchedulerMetadataAccount(account)
-
-			// 走一遍真实的序列化/反序列化路径（写入 sched:meta 再由 decodeCachedAccount 读回）。
-			payload, err := json.Marshal(meta)
-			require.NoError(t, err)
-			var restored service.Account
-			require.NoError(t, json.Unmarshal(payload, &restored))
-
-			require.Equal(t, true, restored.Extra[key])
-			require.True(t, restored.IsOpenAIPassthroughEnabled())
-			require.True(t, restored.IsModelSupported("gpt-5.6-sol"),
-				"投影裁掉透传开关会让透传账号在候选过滤阶段被误判为 model_not_supported")
-			// 白名单本身仍需保留：非透传账号依赖它做模型门。
-			require.Equal(t, map[string]any{"gpt-5.5": "gpt-5.5"}, restored.Credentials["model_mapping"])
-		})
-	}
 }
 
 // 目录桶的绑定优先级：账号元数据全局共享（装的是账号自身优先级），目录桶用 ZSET score 存

@@ -11,69 +11,63 @@
       {{ t('admin.accounts.modelRename.vendorTableHint') }}
     </p>
 
-    <div v-if="disabled" class="rounded-lg bg-af-warning-tint p-3">
-      <p class="text-xs text-af-warning">{{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}</p>
+    <div v-if="modelValue.length > 0" class="mb-3 space-y-2">
+      <div v-for="(mapping, index) in modelValue" :key="index" class="space-y-1">
+        <div class="flex items-center gap-2">
+          <input
+            :value="mapping.from"
+            type="text"
+            :class="['input flex-1', !isValidWildcardPattern(mapping.from) ? 'border-af-danger' : '']"
+            :placeholder="t('admin.accounts.requestModel')"
+            :data-testid="`model-rename-from-${index}`"
+            @input="updateRow(index, 'from', $event)"
+          />
+          <Icon name="arrowRight" size="sm" class="shrink-0 text-af-ink-3" />
+          <input
+            :value="mapping.to"
+            type="text"
+            :class="['input flex-1', mapping.to.includes('*') ? 'border-af-danger' : '']"
+            :placeholder="t('admin.accounts.actualModel')"
+            :data-testid="`model-rename-to-${index}`"
+            @input="updateRow(index, 'to', $event)"
+          />
+          <button
+            type="button"
+            class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint"
+            :aria-label="t('common.delete')"
+            @click="removeRow(index)"
+          >
+            <Icon name="trash" size="sm" />
+          </button>
+        </div>
+        <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-af-danger">
+          {{ t('admin.accounts.wildcardOnlyAtEnd') }}
+        </p>
+        <p v-if="mapping.to.includes('*')" class="text-xs text-af-danger">
+          {{ t('admin.accounts.targetNoWildcard') }}
+        </p>
+      </div>
     </div>
 
-    <template v-else>
-      <div v-if="modelValue.length > 0" class="mb-3 space-y-2">
-        <div v-for="(mapping, index) in modelValue" :key="index" class="space-y-1">
-          <div class="flex items-center gap-2">
-            <input
-              :value="mapping.from"
-              type="text"
-              :class="['input flex-1', !isValidWildcardPattern(mapping.from) ? 'border-af-danger' : '']"
-              :placeholder="t('admin.accounts.requestModel')"
-              :data-testid="`model-rename-from-${index}`"
-              @input="updateRow(index, 'from', $event)"
-            />
-            <Icon name="arrowRight" size="sm" class="shrink-0 text-af-ink-3" />
-            <input
-              :value="mapping.to"
-              type="text"
-              :class="['input flex-1', mapping.to.includes('*') ? 'border-af-danger' : '']"
-              :placeholder="t('admin.accounts.actualModel')"
-              :data-testid="`model-rename-to-${index}`"
-              @input="updateRow(index, 'to', $event)"
-            />
-            <button
-              type="button"
-              class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint"
-              :aria-label="t('common.delete')"
-              @click="removeRow(index)"
-            >
-              <Icon name="trash" size="sm" />
-            </button>
-          </div>
-          <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-af-danger">
-            {{ t('admin.accounts.wildcardOnlyAtEnd') }}
-          </p>
-          <p v-if="mapping.to.includes('*')" class="text-xs text-af-danger">
-            {{ t('admin.accounts.targetNoWildcard') }}
-          </p>
-        </div>
-      </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="btn btn-secondary btn-sm" data-testid="model-rename-add" @click="addRow('', '')">
+        <Icon name="plus" size="sm" />
+        {{ t('admin.accounts.addMapping') }}
+      </button>
+      <slot name="actions" />
+    </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="btn btn-secondary btn-sm" data-testid="model-rename-add" @click="addRow('', '')">
-          <Icon name="plus" size="sm" />
-          {{ t('admin.accounts.addMapping') }}
-        </button>
-        <slot name="actions" />
-      </div>
-
-      <div v-if="presets.length > 0" class="mt-3 flex flex-wrap gap-2">
-        <button
-          v-for="preset in presets"
-          :key="preset.label"
-          type="button"
-          class="rounded-md border border-af-hairline px-2.5 py-1 text-xs text-af-ink-2 transition-colors hover:border-af-hairline-strong hover:text-af-ink"
-          @click="addPreset(preset.from, preset.to)"
-        >
-          + {{ preset.label }}
-        </button>
-      </div>
-    </template>
+    <div v-if="presets.length > 0" class="mt-3 flex flex-wrap gap-2">
+      <button
+        v-for="preset in presets"
+        :key="preset.label"
+        type="button"
+        class="rounded-md border border-af-hairline px-2.5 py-1 text-xs text-af-ink-2 transition-colors hover:border-af-hairline-strong hover:text-af-ink"
+        @click="addPreset(preset.from, preset.to)"
+      >
+        + {{ preset.label }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -88,14 +82,12 @@ const props = withDefaults(
     modelValue: ModelMappingEntry[]
     /** 快捷改名项（只放真正改名的，同名项没有意义）。 */
     presets?: { label: string; from: string; to: string }[]
-    /** OpenAI 自动透传开着：映射不生效。 */
-    disabled?: boolean
     /** 上游自带模型表（Antigravity / xAI）：表外的模型要加一条改名（可同名）才承接。 */
     extendsVendorTable?: boolean
     /** 外面已有标题（批量编辑的勾选行）时不再重复。 */
     showTitle?: boolean
   }>(),
-  { presets: () => [], disabled: false, extendsVendorTable: false, showTitle: true }
+  { presets: () => [], extendsVendorTable: false, showTitle: true }
 )
 
 const emit = defineEmits<{

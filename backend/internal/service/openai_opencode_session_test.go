@@ -39,9 +39,8 @@ func openCodeSessionTestAccount(baseURL string) *Account {
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"base_url":                   baseURL,
-			credKeyHeaderOverrideEnabled: true,
-			credKeyHeaderOverrides:       map[string]any{"x-opencode-session": "fixed-account-value"},
+			"base_url":             baseURL,
+			credKeyHeaderOverrides: map[string]any{"x-opencode-session": "fixed-account-value"},
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: baseURL, APIProtocolResponses: baseURL,

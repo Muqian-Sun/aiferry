@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-// 本文件是「由我们自己的用量驱动」的额度评估：窗口费用（Anthropic 5h 窗口）、xAI 免费档本地用量、
-// Gemini 本地 RPD/RPM、账号自己的配额计数。它们没有上游快照，只能在每次用量入账后评估。
+// 本文件是「由我们自己的用量驱动」的额度评估：xAI 免费档本地用量、Gemini 本地 RPD/RPM、
+// 账号自己的配额计数。它们没有上游快照，只能在每次用量入账后评估。
+// （渠道级 5h 窗口费用阈值已删，2026-09-28 P5，见 channel_features_anthropic.go。）
 
 const (
-	windowCostSource       = "window_cost_limit"
 	grokFreeQuotaSource    = "grok_free_quota"
 	geminiLocalQuotaReason = "gemini_local_quota"
 	// grokFreeQuotaPauseMin 免费档是滚动 24h 窗口，没有明确的解除点（拍的）：停这么久后靠下一次入账再评、再停。
@@ -21,24 +21,12 @@ const (
 	geminiLocalQuotaScopePrefix = "gemini:"
 )
 
-// SetSessionLimitCache 注入窗口费用缓存：用量入账时累进，评估时读。
-func (s *RateLimitService) SetSessionLimitCache(cache SessionLimitCache) {
-	if s == nil {
-		return
-	}
-	s.sessionLimitCache = cache
-}
-
-// ApplyAccountUsageState 一次用量入账后的额度评估：先把本次标准费用累进窗口费用缓存，再走
-// ApplyAccountQuotaState（配额计数）、窗口费用、xAI 免费档、Gemini 本地配额。
-// model 是入账的模型名（Gemini 按模型档写限流），standardCost 是不含倍率的标准费用。
+// ApplyAccountUsageState 一次用量入账后的额度评估：ApplyAccountQuotaState（配额计数）、xAI 免费档、
+// Gemini 本地配额。model 是入账的模型名（Gemini 按模型档写限流）。
 // 只对设了相应额度的资源做，其余直接返回。
-func (s *RateLimitService) ApplyAccountUsageState(ctx context.Context, account *Account, model string, standardCost float64) {
+func (s *RateLimitService) ApplyAccountUsageState(ctx context.Context, account *Account, model string) {
 	if s == nil || s.accountRepo == nil || account == nil || account.ID <= 0 {
 		return
-	}
-	if account.GetWindowCostLimit() > 0 {
-		s.accumulateWindowCost(ctx, account, standardCost)
 	}
 	if account.GetQuotaLimit() > 0 || account.GetQuotaDailyLimit() > 0 || account.GetQuotaWeeklyLimit() > 0 {
 		// 计数是 DB 原子递增，内存对象没更新：重读一遍再评。
@@ -56,68 +44,9 @@ func (s *RateLimitService) ApplyAccountUsageState(ctx context.Context, account *
 		return
 	}
 	now := time.Now()
-	if until, reason, paused := s.windowCostPauseDecision(ctx, account, now); paused {
-		s.pauseAccountUntil(ctx, account, until, reason, windowCostSource)
-		return
-	}
 	if until, reason, paused := s.grokFreeQuotaPauseDecision(ctx, account, now); paused {
 		s.pauseAccountUntil(ctx, account, until, reason, grokFreeQuotaSource)
 	}
-}
-
-// accumulateWindowCost 把本次标准费用累进窗口费用缓存；缓存未命中不累（下次评估从 DB 聚合）。
-func (s *RateLimitService) accumulateWindowCost(ctx context.Context, account *Account, standardCost float64) {
-	if s.sessionLimitCache == nil || standardCost <= 0 {
-		return
-	}
-	cost, hit, err := s.sessionLimitCache.GetWindowCost(ctx, account.ID)
-	if err != nil || !hit {
-		return
-	}
-	if err := s.sessionLimitCache.SetWindowCost(ctx, account.ID, cost+standardCost); err != nil {
-		slog.Debug("window_cost_accumulate_failed", "account_id", account.ID, "error", err)
-	}
-}
-
-// windowCostPauseDecision 5h 窗口费用到阈值就停到窗口结束。任何设了 window_cost_limit 的资源都算。
-// 原来的「黄区只允许粘性」不再有：状态只有停 / 不停。
-func (s *RateLimitService) windowCostPauseDecision(ctx context.Context, account *Account, now time.Time) (time.Time, string, bool) {
-	limit := account.GetWindowCostLimit()
-	if limit <= 0 {
-		return time.Time{}, "", false
-	}
-	cost, ok := s.currentWindowCost(ctx, account)
-	if !ok || cost < limit {
-		return time.Time{}, "", false
-	}
-	until := time.Time{}
-	if account.SessionWindowEnd != nil && account.SessionWindowEnd.After(now) {
-		until = *account.SessionWindowEnd
-	} else {
-		until = account.GetCurrentWindowStartTime().Add(5 * time.Hour)
-	}
-	message := fmt.Sprintf("window cost %.4f >= limit %.4f; paused until %s", cost, limit, until.UTC().Format(time.RFC3339))
-	return until, BuildTempUnschedReasonPayload(windowCostSource, message), true
-}
-
-// currentWindowCost 当前窗口的标准费用：缓存命中用缓存，否则从用量日志聚合并回填缓存。查不到按不停处理。
-func (s *RateLimitService) currentWindowCost(ctx context.Context, account *Account) (float64, bool) {
-	if s.sessionLimitCache != nil {
-		if cost, hit, err := s.sessionLimitCache.GetWindowCost(ctx, account.ID); err == nil && hit {
-			return cost, true
-		}
-	}
-	if s.usageRepo == nil {
-		return 0, false
-	}
-	stats, err := s.usageRepo.GetAccountWindowStats(ctx, account.ID, account.GetCurrentWindowStartTime())
-	if err != nil || stats == nil {
-		return 0, false
-	}
-	if s.sessionLimitCache != nil {
-		_ = s.sessionLimitCache.SetWindowCost(ctx, account.ID, stats.StandardCost)
-	}
-	return stats.StandardCost, true
 }
 
 // grokFreeQuotaPauseDecision xAI 免费档（明确 free 的 OAuth 成品号）本地滚动窗口用量到软门就停一小段。

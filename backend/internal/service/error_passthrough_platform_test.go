@@ -184,12 +184,6 @@ func TestErrorPassthroughRules_KeyMatchesGatewayPlatformNotLabel(t *testing.T) {
 				_, _ = streamSvc.handleStreamingResponse(c.Request.Context(), sseResponse(), c, responsesKey(label), time.Now(), "gpt-5", "gpt-5")
 			},
 		},
-		{
-			name: "responses passthrough streaming response.failed", label: PlatformAnthropic, gatewayPlatform: PlatformOpenAI,
-			run: func(c *gin.Context, label string) {
-				_, _ = streamSvc.handleStreamingResponsePassthrough(c.Request.Context(), sseResponse(), c, responsesKey(label), time.Now(), "gpt-5", "gpt-5")
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -34,8 +34,9 @@ func TestSchedulingState_AggregatesEachRawField(t *testing.T) {
 		{name: "clean", mutate: func(a *Account) {}, wantReason: ""},
 		{name: "disabled", mutate: func(a *Account) { a.Status = StatusDisabled }, wantReason: "disabled"},
 		{name: "manual unschedulable", mutate: func(a *Account) { a.Schedulable = false }, wantReason: "unschedulable"},
-		{name: "expired with auto pause", mutate: func(a *Account) { a.AutoPauseOnExpired = true; a.ExpiresAt = &past }, wantReason: "expired"},
-		{name: "expired without auto pause stays schedulable", mutate: func(a *Account) { a.ExpiresAt = &past }, wantReason: ""},
+		// 过期自动暂停写死开（2026-09-28 P5）：设了过期时间就到期停调
+		{name: "expired", mutate: func(a *Account) { a.ExpiresAt = &past }, wantReason: "expired"},
+		{name: "not yet expired", mutate: func(a *Account) { a.ExpiresAt = &future }, wantReason: ""},
 		{name: "overloaded", mutate: func(a *Account) { a.OverloadUntil = &future }, wantReason: "overloaded", wantUntil: &future},
 		{name: "overload elapsed", mutate: func(a *Account) { a.OverloadUntil = &past }, wantReason: ""},
 		{name: "rate limited", mutate: func(a *Account) { a.RateLimitResetAt = &future }, wantReason: "rate_limited", wantUntil: &future},

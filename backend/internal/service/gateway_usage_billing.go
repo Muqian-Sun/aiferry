@@ -547,8 +547,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		result.Usage.InputTokens = 0
 	}
 
-	// Cache TTL Override: 确保计费时 token 分类与账号设置一致。
-	// 账号级设置优先；全局 1h 请求注入开启时，默认把 usage 计费归回 5m。
+	// Cache TTL Override: 确保计费时 token 分类与响应改写一致。
+	// 只在全局 1h 请求注入开启时把 usage 计费归回 5m（渠道级强制替换已删）。
 	cacheTTLOverridden := false
 	if overrideTarget, ok := s.resolveCacheTTLUsageOverrideTarget(ctx, account); ok {
 		applyCacheTTLOverride(&result.Usage, overrideTarget)
@@ -592,7 +592,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 		logger.LegacyPrintf("service.gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
-		s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
+		s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model)
 		return nil
 	}
 
@@ -615,8 +615,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		return billingErr
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
-	// 用量入账是「由我们自己的用量驱动」的额度（窗口费用 / 配额计数 / 免费档 / Gemini 本地配额）的状态写入点。
-	s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
+	// 用量入账是「由我们自己的用量驱动」的额度（配额计数 / 免费档 / Gemini 本地配额）的状态写入点。
+	s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model)
 
 	return nil
 }
@@ -769,7 +769,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		APIKeyID:                 apiKey.ID,
 		AccountID:                account.ID,
 		RequestID:                requestID,
-		UpstreamRequestID:        usageUpstreamRequestIDPtr(account, result.UpstreamHeaders, false),
+		UpstreamRequestID:        usageUpstreamRequestIDPtr(result.UpstreamHeaders, false),
 		Model:                    result.Model,
 		RequestedModel:           requestedModel,
 		UpstreamModel:            optionalTrimmedStringPtr(result.UpstreamModel),

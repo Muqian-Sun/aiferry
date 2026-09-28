@@ -240,10 +240,9 @@ func TestResolveCodexImportExpiryForNoRefreshTokenUsesTokenExpiry(t *testing.T) 
 		TokenExpiresAt: &tokenExpiresAt,
 		WarningTexts:   []string{},
 	}
-	disabled := false
-	req := CodexSessionImportRequest{AutoPauseOnExpired: &disabled}
+	req := CodexSessionImportRequest{}
 
-	accountExpiresAt, credentialExpiresAt, autoPause, warnings, err := resolveCodexImportExpiry(req, item)
+	accountExpiresAt, credentialExpiresAt, warnings, err := resolveCodexImportExpiry(req, item)
 	if err != nil {
 		t.Fatalf("resolveCodexImportExpiry error = %v", err)
 	}
@@ -252,9 +251,6 @@ func TestResolveCodexImportExpiryForNoRefreshTokenUsesTokenExpiry(t *testing.T) 
 	}
 	if credentialExpiresAt == nil || credentialExpiresAt.Unix() != tokenExpiresAt.Unix() {
 		t.Fatalf("credential expires_at = %v, want %s", credentialExpiresAt, tokenExpiresAt)
-	}
-	if autoPause == nil || !*autoPause {
-		t.Fatalf("autoPause = %v, want true", autoPause)
 	}
 	if len(warnings) == 0 {
 		t.Fatalf("warnings should not be empty")
@@ -268,7 +264,7 @@ func TestResolveCodexImportExpiryForNoRefreshTokenRequiresExpiry(t *testing.T) {
 		WarningTexts: []string{},
 	}
 
-	_, _, _, _, err := resolveCodexImportExpiry(CodexSessionImportRequest{}, item)
+	_, _, _, err := resolveCodexImportExpiry(CodexSessionImportRequest{}, item)
 	if err == nil {
 		t.Fatal("resolveCodexImportExpiry error = nil, want missing expiry error")
 	}
@@ -289,7 +285,7 @@ func TestResolveCodexImportExpiryForNoRefreshTokenUsesEarlierRequestExpiry(t *te
 	reqUnix := requestExpiresAt.Unix()
 	req := CodexSessionImportRequest{ExpiresAt: &reqUnix}
 
-	accountExpiresAt, credentialExpiresAt, _, _, err := resolveCodexImportExpiry(req, item)
+	accountExpiresAt, credentialExpiresAt, _, err := resolveCodexImportExpiry(req, item)
 	if err != nil {
 		t.Fatalf("resolveCodexImportExpiry error = %v", err)
 	}
@@ -798,9 +794,6 @@ func TestImportCodexSessionsAccessTokenOnlyPreservesExistingRefreshToken(t *test
 	}
 	if update.ExpiresAt != nil {
 		t.Fatalf("ExpiresAt = %v, want nil to preserve OAuth account expiry", *update.ExpiresAt)
-	}
-	if update.AutoPauseOnExpired != nil {
-		t.Fatalf("AutoPauseOnExpired = %v, want nil to preserve OAuth account scheduling", *update.AutoPauseOnExpired)
 	}
 }
 

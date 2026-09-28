@@ -31,30 +31,6 @@ func TestGetBaseRPM(t *testing.T) {
 	}
 }
 
-func TestGetRPMStrategy(t *testing.T) {
-	tests := []struct {
-		name     string
-		extra    map[string]any
-		expected string
-	}{
-		{"nil extra", nil, "tiered"},
-		{"no key", map[string]any{}, "tiered"},
-		{"tiered", map[string]any{"rpm_strategy": "tiered"}, "tiered"},
-		{"sticky_exempt", map[string]any{"rpm_strategy": "sticky_exempt"}, "sticky_exempt"},
-		{"invalid", map[string]any{"rpm_strategy": "foobar"}, "tiered"},
-		{"empty string fallback", map[string]any{"rpm_strategy": ""}, "tiered"},
-		{"numeric value fallback", map[string]any{"rpm_strategy": 123}, "tiered"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &Account{Extra: tt.extra}
-			if got := a.GetRPMStrategy(); got != tt.expected {
-				t.Errorf("GetRPMStrategy() = %q, want %q", got, tt.expected)
-			}
-		})
-	}
-}
-
 func TestCheckRPMSchedulability(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -66,17 +42,12 @@ func TestCheckRPMSchedulability(t *testing.T) {
 		{"green zone", map[string]any{"base_rpm": 15}, 10, WindowCostSchedulable},
 		{"yellow zone tiered", map[string]any{"base_rpm": 15}, 15, WindowCostStickyOnly},
 		{"red zone tiered", map[string]any{"base_rpm": 15}, 18, WindowCostNotSchedulable},
-		{"sticky_exempt at limit", map[string]any{"base_rpm": 15, "rpm_strategy": "sticky_exempt"}, 15, WindowCostStickyOnly},
-		{"sticky_exempt over limit", map[string]any{"base_rpm": 15, "rpm_strategy": "sticky_exempt"}, 100, WindowCostStickyOnly},
-		{"custom buffer", map[string]any{"base_rpm": 10, "rpm_sticky_buffer": 5}, 14, WindowCostStickyOnly},
-		{"custom buffer red", map[string]any{"base_rpm": 10, "rpm_sticky_buffer": 5}, 15, WindowCostNotSchedulable},
 		{"base_rpm=1 green", map[string]any{"base_rpm": 1}, 0, WindowCostSchedulable},
 		{"base_rpm=1 yellow (at limit)", map[string]any{"base_rpm": 1}, 1, WindowCostStickyOnly},
 		{"base_rpm=1 red (at limit+buffer)", map[string]any{"base_rpm": 1}, 2, WindowCostNotSchedulable},
 		{"negative currentRPM", map[string]any{"base_rpm": 15}, -1, WindowCostSchedulable},
 		{"base_rpm negative disabled", map[string]any{"base_rpm": -5}, 10, WindowCostSchedulable},
 		{"very high currentRPM", map[string]any{"base_rpm": 10}, 9999, WindowCostNotSchedulable},
-		{"sticky_exempt very high currentRPM", map[string]any{"base_rpm": 10, "rpm_strategy": "sticky_exempt"}, 9999, WindowCostStickyOnly},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -112,11 +83,9 @@ func TestGetRPMStickyBuffer(t *testing.T) {
 		{"conc=0 sess=0 base=4 → floor 1", 0, map[string]any{"base_rpm": 4}, 1},
 		{"conc=1 sess=0 base=15 → floor 3", 1, map[string]any{"base_rpm": 15}, 3},
 
-		// 手动 override
-		{"custom buffer=5", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": 5, "max_sessions": 10}, 5},
-		{"custom buffer=0 fallback", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": 0, "max_sessions": 10}, 13},
-		{"custom buffer negative fallback", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": -1, "max_sessions": 10}, 13},
-		{"custom buffer with float", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": float64(7)}, 7},
+		// 库里存的手填值不再读（渠道级粘性缓冲已删）：一律按自动算
+		{"stored buffer=0 ignored", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": 0, "max_sessions": 10}, 13},
+		{"stored buffer negative ignored", 3, map[string]any{"base_rpm": 10, "rpm_sticky_buffer": -1, "max_sessions": 10}, 13},
 
 		// 负值 clamp
 		{"negative concurrency clamped", -5, map[string]any{"base_rpm": 15, "max_sessions": 10}, 10},

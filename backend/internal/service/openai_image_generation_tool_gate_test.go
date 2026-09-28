@@ -124,10 +124,11 @@ func TestOpenAIForward_ImageToolSwitchOffStripsForCodexCLI(t *testing.T) {
 	require.Zero(t, result.ImageCount)
 }
 
-func TestOpenAIForward_ImageToolSwitchOffBlocksCodexBridgeEvenWithAccountOverride(t *testing.T) {
+func TestOpenAIForward_ImageToolSwitchOffBlocksCodexBridgeEvenWithLegacyAccountOverride(t *testing.T) {
 	svc, upstream, c, _, account := newImageToolGateForwardFixture(t, false, imageToolGateCodexUA)
 	svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = true
-	account.Extra = map[string]any{featureKeyCodexImageGenerationBridge: true}
+	// 渠道级覆盖 2026-09-28 P5 删了，残留键不起作用。
+	account.Extra = map[string]any{"codex_image_generation_bridge": true}
 
 	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.4","input":"write code","stream":false}`))
 
@@ -136,7 +137,7 @@ func TestOpenAIForward_ImageToolSwitchOffBlocksCodexBridgeEvenWithAccountOverrid
 	require.NotNil(t, upstream.lastReq)
 	require.False(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
 	require.NotContains(t, gjson.GetBytes(upstream.lastBody, "instructions").String(), "image_generation")
-	require.False(t, svc.isCodexImageGenerationBridgeEnabled(context.Background(), account, nil))
+	require.False(t, svc.isCodexImageGenerationBridgeEnabled())
 }
 
 func TestOpenAIForward_ImageToolSwitchOnForwardsUnchanged(t *testing.T) {
@@ -177,6 +178,8 @@ func newImageToolGateWSHarness(t *testing.T, userAgent string, upstreamEvents ..
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
@@ -203,7 +206,7 @@ func newImageToolGateWSHarness(t *testing.T, userAgent string, upstreamEvents ..
 		ID: 41, Name: "openai-ws-image-gate", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 		Status: StatusActive, Schedulable: true, Concurrency: 1,
 		Credentials: map[string]any{"access_token": "test-token"},
-		Extra:       map[string]any{"openai_oauth_responses_websockets_v2_enabled": true},
+		Extra:       map[string]any{},
 	}
 
 	serverErrCh := make(chan error, 1)

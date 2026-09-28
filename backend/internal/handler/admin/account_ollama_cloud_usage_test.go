@@ -46,19 +46,13 @@ func (r *ollamaCloudUsageHandlerTestRepo) ListOllamaCloudUsageGroupAccounts(_ co
 	return result, nil
 }
 
-func (r *ollamaCloudUsageHandlerTestRepo) SaveOllamaCloudUsageSession(context.Context, *service.Account, string, bool) error {
+func (r *ollamaCloudUsageHandlerTestRepo) SaveOllamaCloudUsageSession(context.Context, *service.Account, string) error {
 	return nil
 }
 func (r *ollamaCloudUsageHandlerTestRepo) DeleteOllamaCloudUsageSession(context.Context, *service.Account) error {
 	return nil
 }
-func (r *ollamaCloudUsageHandlerTestRepo) SetOllamaCloudUsageAutoRefresh(context.Context, *service.Account, bool) error {
-	return nil
-}
 func (r *ollamaCloudUsageHandlerTestRepo) UpdateOllamaCloudUsageSnapshot(context.Context, *service.Account, *service.OllamaCloudUsageSnapshot) error {
-	return nil
-}
-func (r *ollamaCloudUsageHandlerTestRepo) DisableOllamaCloudUsageAutoRefresh(context.Context, *service.Account) error {
 	return nil
 }
 func (r *ollamaCloudUsageHandlerTestRepo) ListDueOllamaCloudUsageAccounts(context.Context, time.Time, time.Duration, time.Duration, int) ([]service.Account, error) {
@@ -97,12 +91,6 @@ func TestOllamaCloudUsageHandlersValidateRequestsAndDependencies(t *testing.T) {
 	t.Run("empty session", func(t *testing.T) {
 		ctx, recorder := newOllamaCloudUsageHandlerContext(http.MethodPut, "/admin/accounts/7/ollama-cloud-usage/session", `{"session":""}`, "7")
 		(&AccountHandler{ollamaCloudUsage: svc}).SaveOllamaCloudUsageSession(ctx)
-		require.Equal(t, http.StatusBadRequest, recorder.Code)
-	})
-
-	t.Run("missing enabled", func(t *testing.T) {
-		ctx, recorder := newOllamaCloudUsageHandlerContext(http.MethodPut, "/admin/accounts/7/ollama-cloud-usage/auto-refresh", `{}`, "7")
-		(&AccountHandler{ollamaCloudUsage: svc}).SetOllamaCloudUsageAutoRefresh(ctx)
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
@@ -200,8 +188,7 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 			service.APIProtocolChatCompletions: "https://ollama.com",
 		},
 		Extra: map[string]any{
-			service.OllamaCloudUsageSessionExtraKey:     "ciphertext-secret",
-			service.OllamaCloudUsageAutoRefreshExtraKey: true,
+			service.OllamaCloudUsageSessionExtraKey: "ciphertext-secret",
 			service.OllamaCloudUsageSnapshotExtraKey: &service.OllamaCloudUsageSnapshot{
 				Status: service.OllamaCloudUsageStatusOK, Data: &service.OllamaCloudUsageData{Plan: "pro"},
 				LastAttemptAt: now, NextRefreshAt: now.Add(time.Hour),

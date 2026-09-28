@@ -20,6 +20,18 @@ func quotaStateTestService(t *testing.T) (*RateLimitService, *rateLimitAccountRe
 	return rl, repo
 }
 
+// quotaStateTestServiceWithAutoPause 同 quotaStateTestService，另把运维设置里的全局停调阈值写进缓存
+// （渠道级 auto_pause_* 2026-09-28 P5 删了，阈值只能从这里来）。
+func quotaStateTestServiceWithAutoPause(t *testing.T, settings OpsOpenAIAccountQuotaAutoPauseSettings) (*RateLimitService, *rateLimitAccountRepoStub) {
+	t.Helper()
+	repo := &rateLimitAccountRepoStub{}
+	rl := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	settingService := NewSettingService(newMockSettingRepo(), &config.Config{})
+	settingService.SetOpenAIQuotaAutoPauseSettings(settings)
+	rl.SetSettingService(settingService)
+	return rl, repo
+}
+
 func openAIQuotaStateAccount(id int64, extra map[string]any) *Account {
 	return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Extra: extra}
 }
@@ -29,6 +41,9 @@ func TestOpenAIQuotaPauseDecision_Thresholds(t *testing.T) {
 	now := time.Now().UTC()
 	fresh := now.Add(-time.Minute).Format(time.RFC3339)
 	resetIn := now.Add(time.Hour).Truncate(time.Second)
+	// 停调阈值只在运维设置里配（渠道级 auto_pause_* 2026-09-28 P5 删了）。
+	global5h := OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95}
+	global7d := OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold7d: 0.95}
 	tests := []struct {
 		name       string
 		extra      map[string]any
@@ -36,17 +51,16 @@ func TestOpenAIQuotaPauseDecision_Thresholds(t *testing.T) {
 		wantPause  bool
 		wantWindow string
 	}{
-		{name: "5h at account threshold pauses", extra: map[string]any{"codex_5h_used_percent": 95.0, "auto_pause_5h_threshold": 0.95}, wantPause: true, wantWindow: "5h"},
-		{name: "5h below threshold allows", extra: map[string]any{"codex_5h_used_percent": 80.0, "auto_pause_5h_threshold": 0.95}},
-		{name: "7d at account threshold pauses", extra: map[string]any{"codex_7d_used_percent": 95.0, "auto_pause_7d_threshold": 0.95}, wantPause: true, wantWindow: "7d"},
+		{name: "5h at global threshold pauses", extra: map[string]any{"codex_5h_used_percent": 95.0}, settings: global5h, wantPause: true, wantWindow: "5h"},
+		{name: "5h below threshold allows", extra: map[string]any{"codex_5h_used_percent": 80.0}, settings: global5h},
+		{name: "7d at global threshold pauses", extra: map[string]any{"codex_7d_used_percent": 95.0}, settings: global7d, wantPause: true, wantWindow: "7d"},
 		{name: "no threshold configured keeps legacy behavior", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_7d_used_percent": 99.0}},
-		{name: "global default threshold applies", extra: map[string]any{"codex_5h_used_percent": 95.0}, settings: OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95}, wantPause: true, wantWindow: "5h"},
-		{name: "per-account disable overrides global default", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_disabled": true}, settings: OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95}},
-		{name: "disable is per window", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_7d_used_percent": 99.0, "auto_pause_5h_disabled": true, "auto_pause_7d_threshold": 0.95}, wantPause: true, wantWindow: "7d"},
-		{name: "window already reset skips pause", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": now.Add(-time.Minute).Format(time.RFC3339)}},
-		{name: "fresh window still pauses", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": resetIn.Format(time.RFC3339)}, wantPause: true, wantWindow: "5h"},
-		{name: "stale snapshot skips pause (#2994)", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": resetIn.Format(time.RFC3339), "codex_usage_updated_at": now.Add(-3 * time.Hour).Format(time.RFC3339)}},
-		{name: "fresh exhausted snapshot still pauses (#2994)", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": resetIn.Format(time.RFC3339), "codex_usage_updated_at": fresh}, wantPause: true, wantWindow: "5h"},
+		{name: "legacy per-account threshold no longer applies", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "auto_pause_7d_threshold": 0.95}},
+		{name: "legacy per-account disable no longer overrides global default", extra: map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_disabled": true}, settings: global5h, wantPause: true, wantWindow: "5h"},
+		{name: "window already reset skips pause", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_5h_reset_at": now.Add(-time.Minute).Format(time.RFC3339)}, settings: global5h},
+		{name: "fresh window still pauses", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_5h_reset_at": resetIn.Format(time.RFC3339)}, settings: global5h, wantPause: true, wantWindow: "5h"},
+		{name: "stale snapshot skips pause (#2994)", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_5h_reset_at": resetIn.Format(time.RFC3339), "codex_usage_updated_at": now.Add(-3 * time.Hour).Format(time.RFC3339)}, settings: global5h},
+		{name: "fresh exhausted snapshot still pauses (#2994)", extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_5h_reset_at": resetIn.Format(time.RFC3339), "codex_usage_updated_at": fresh}, settings: global5h, wantPause: true, wantWindow: "5h"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -68,9 +82,9 @@ func TestOpenAIQuotaPauseDecision_Thresholds(t *testing.T) {
 
 func TestOpenAIQuotaPauseDecision_OnlyOpenAISubscriptionsAndKeys(t *testing.T) {
 	now := time.Now().UTC()
-	extra := map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95}
+	extra := map[string]any{"codex_5h_used_percent": 99.0}
 	gemini := &Account{ID: 2, Platform: PlatformGemini, Type: AccountTypeOAuth, Extra: extra}
-	_, _, paused := openAIQuotaPauseDecision(gemini, OpsOpenAIAccountQuotaAutoPauseSettings{}, now)
+	_, _, paused := openAIQuotaPauseDecision(gemini, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95}, now)
 	require.False(t, paused)
 }
 
@@ -136,14 +150,25 @@ func TestQuotaCounterPauseDecision(t *testing.T) {
 		_, _, paused := quotaCounterPauseDecision(account, now)
 		require.False(t, paused)
 	})
-	t.Run("daily fixed exceeded pauses until next fixed reset", func(t *testing.T) {
+	// 限额一律滚动窗口（2026-09-28 P5 删了固定时间重置）：旧行留着的 fixed 配置不再生效
+	t.Run("legacy fixed reset keys ignored, daily stays rolling", func(t *testing.T) {
+		start := now.Add(-time.Hour)
 		account := &Account{ID: 8, Type: AccountTypeAPIKey, Extra: map[string]any{
-			"quota_daily_limit": 1.0, "quota_daily_used": 1.0, "quota_daily_start": now.Add(-time.Hour).Format(time.RFC3339),
+			"quota_daily_limit": 1.0, "quota_daily_used": 1.0, "quota_daily_start": start.Format(time.RFC3339),
 			"quota_daily_reset_mode": "fixed", "quota_daily_reset_hour": 8.0, "quota_reset_timezone": "UTC",
 		}}
 		until, _, paused := quotaCounterPauseDecision(account, now)
 		require.True(t, paused)
-		require.True(t, until.Equal(time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)))
+		require.True(t, until.Equal(start.Add(24*time.Hour)))
+	})
+	t.Run("legacy fixed reset keys ignored, weekly expires after seven days", func(t *testing.T) {
+		account := &Account{ID: 8, Type: AccountTypeAPIKey, Extra: map[string]any{
+			"quota_weekly_limit": 5.0, "quota_weekly_used": 5.0, "quota_weekly_start": now.Add(-8 * 24 * time.Hour).Format(time.RFC3339),
+			"quota_weekly_reset_mode": "fixed", "quota_weekly_reset_day": 1.0, "quota_weekly_reset_hour": 0.0, "quota_reset_timezone": "UTC",
+		}}
+		_, _, paused := quotaCounterPauseDecision(account, now)
+		require.False(t, paused)
+		require.True(t, account.IsWeeklyQuotaPeriodExpired())
 	})
 	t.Run("weekly rolling exceeded pauses until period end", func(t *testing.T) {
 		start := now.Add(-3 * 24 * time.Hour)
@@ -163,10 +188,10 @@ func TestQuotaCounterPauseDecision(t *testing.T) {
 }
 
 func TestApplyAccountQuotaState_OpenAI5hThresholdPauses(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
 	resetAt := time.Now().UTC().Add(time.Hour)
 	account := openAIQuotaStateAccount(1001, map[string]any{
-		"codex_5h_used_percent": 96.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": resetAt.Format(time.RFC3339),
+		"codex_5h_used_percent": 96.0, "codex_5h_reset_at": resetAt.Format(time.RFC3339),
 	})
 
 	require.True(t, rl.ApplyAccountQuotaState(context.Background(), account))
@@ -182,15 +207,17 @@ func TestApplyAccountQuotaState_OpenAI5hThresholdPauses(t *testing.T) {
 	require.False(t, account.SchedulingState(time.Now()).Allows(time.Now()), "调度器读到的状态已是停调")
 }
 
-func TestApplyAccountQuotaState_OpenAIAutoPause5hDisabled(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
+// 渠道级「禁用 5h 自动暂停」2026-09-28 P5 删了：库里残留的 auto_pause_5h_disabled 不再把账号豁免出
+// 全局阈值（改之前这里不停调），也不会用残留的渠道阈值。
+func TestApplyAccountQuotaState_OpenAILegacyAutoPauseDisableIgnored(t *testing.T) {
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
 	account := openAIQuotaStateAccount(1002, map[string]any{
-		"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95, "auto_pause_5h_disabled": true,
+		"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.999, "auto_pause_5h_disabled": true,
 	})
 
-	require.False(t, rl.ApplyAccountQuotaState(context.Background(), account))
-	require.Equal(t, 0, repo.tempCalls)
-	require.Nil(t, account.TempUnschedulableUntil)
+	require.True(t, rl.ApplyAccountQuotaState(context.Background(), account))
+	require.Equal(t, 1, repo.tempCalls)
+	require.NotNil(t, account.TempUnschedulableUntil)
 }
 
 func TestApplyAccountQuotaState_GrokRetryAfterPauses(t *testing.T) {
@@ -221,10 +248,10 @@ func TestApplyAccountQuotaState_QuotaCounterPausesAnyType(t *testing.T) {
 }
 
 func TestApplyAccountQuotaState_SameReasonNotRewritten(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
 	resetAt := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	account := openAIQuotaStateAccount(1005, map[string]any{
-		"codex_5h_used_percent": 96.0, "auto_pause_5h_threshold": 0.95, "codex_5h_reset_at": resetAt.Format(time.RFC3339),
+		"codex_5h_used_percent": 96.0, "codex_5h_reset_at": resetAt.Format(time.RFC3339),
 	})
 
 	require.True(t, rl.ApplyAccountQuotaState(context.Background(), account))
@@ -235,10 +262,10 @@ func TestApplyAccountQuotaState_SameReasonNotRewritten(t *testing.T) {
 }
 
 func TestApplyAccountQuotaState_AlreadyBlockedNotOverwritten(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
 	rateLimitReset := time.Now().Add(10 * time.Minute)
 	account := openAIQuotaStateAccount(1006, map[string]any{
-		"codex_5h_used_percent": 96.0, "auto_pause_5h_threshold": 0.95,
+		"codex_5h_used_percent": 96.0,
 	})
 	account.RateLimitResetAt = &rateLimitReset
 
@@ -247,8 +274,8 @@ func TestApplyAccountQuotaState_AlreadyBlockedNotOverwritten(t *testing.T) {
 }
 
 func TestApplyAccountQuotaState_InactiveAccountSkipped(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	account := openAIQuotaStateAccount(1007, map[string]any{"codex_5h_used_percent": 99.0, "auto_pause_5h_threshold": 0.95})
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
+	account := openAIQuotaStateAccount(1007, map[string]any{"codex_5h_used_percent": 99.0})
 	account.Status = StatusDisabled
 
 	require.False(t, rl.ApplyAccountQuotaState(context.Background(), account))

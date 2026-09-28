@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 标签为 openai、只配了 anthropic 协议地址的 key 在 Anthropic 网关上：透传开关、Bearer
+// 标签为 openai、只配了 anthropic 协议地址的 key 在 Anthropic 网关上：Bearer
 // 认证方式与请求头覆写都跟 anthropic 标签的 key 一样生效。
 
 func openAILabelledAnthropicKey(extra map[string]any) *Account {
@@ -26,9 +26,8 @@ func openAILabelledAnthropicKey(extra map[string]any) *Account {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":                    "relay-key",
-			credKeyHeaderOverrideEnabled: true,
-			credKeyHeaderOverrides:       map[string]any{"x-relay-tenant": "tenant-1"},
+			"api_key":              "relay-key",
+			credKeyHeaderOverrides: map[string]any{"x-relay-tenant": "tenant-1"},
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
 		Extra:             extra,
@@ -56,27 +55,6 @@ func newAnthropicKeyForwardFixture(respBody string) (*gin.Context, *GatewayServi
 		deferredService:      &DeferredService{},
 	}
 	return c, svc, upstream
-}
-
-func TestGatewayServiceForward_OpenAILabelledKeyOnAnthropicProtocolUsesPassthroughBearerAndOverrides(t *testing.T) {
-	c, svc, upstream := newAnthropicKeyForwardFixture(`{"id":"msg_1","type":"message","model":"claude-sonnet-4-5","usage":{"input_tokens":3,"output_tokens":1}}`)
-	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
-	parsed := &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"}
-	account := openAILabelledAnthropicKey(map[string]any{
-		"anthropic_passthrough":        true,
-		"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
-	})
-
-	result, err := svc.Forward(context.Background(), c, account, parsed)
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	passthrough, _ := c.Get("anthropic_passthrough")
-	require.Equal(t, true, passthrough, "passthrough must be enabled for a key of any label")
-	require.Equal(t, "https://anthropic-relay.example.com/v1/messages?beta=true", upstream.lastReq.URL.String())
-	require.Equal(t, "Bearer relay-key", getHeaderRaw(upstream.lastReq.Header, "authorization"))
-	require.Empty(t, getHeaderRaw(upstream.lastReq.Header, "x-api-key"))
-	require.Equal(t, "tenant-1", getHeaderRaw(upstream.lastReq.Header, "x-relay-tenant"))
 }
 
 func TestGatewayServiceBuildUpstreamRequest_OpenAILabelledKeyUsesBearerAndOverrides(t *testing.T) {

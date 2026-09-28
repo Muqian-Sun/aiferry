@@ -44,33 +44,17 @@ func TestOpenAIVisibleOutputClassification(t *testing.T) {
 // 首 token 口径是代码常量 OpenAITTFTMode（visible）：跳过 preamble 与空 reasoning 条目，
 // 等到 120ms 后才出现的可见输出才计首 token。
 func TestOpenAIResponsesTTFTStartsAtVisibleOutput(t *testing.T) {
-	for _, passthrough := range []bool{false, true} {
-		name := "native"
-		if passthrough {
-			name = "passthrough"
-		}
-		t.Run(name, func(t *testing.T) {
-			result := runSyntheticVisibleTTFTStream(t, passthrough, 120*time.Millisecond, 0,
-				`{"type":"response.output_text.delta","delta":"test output"}`)
-			require.NotNil(t, result.firstTokenMs)
-			require.GreaterOrEqual(t, *result.firstTokenMs, 100)
-		})
-	}
+	result := runSyntheticVisibleTTFTStream(t, 120*time.Millisecond, 0,
+		`{"type":"response.output_text.delta","delta":"test output"}`)
+	require.NotNil(t, result.firstTokenMs)
+	require.GreaterOrEqual(t, *result.firstTokenMs, 100)
 }
 
 func TestOpenAIResponsesTTFTStartsAtCompletedImage(t *testing.T) {
-	for _, passthrough := range []bool{false, true} {
-		name := "native"
-		if passthrough {
-			name = "passthrough"
-		}
-		t.Run(name, func(t *testing.T) {
-			result := runSyntheticVisibleTTFTStream(t, passthrough, 120*time.Millisecond, 0,
-				`{"type":"response.output_item.done","item":{"id":"item_test","type":"image_generation_call","result":"dGVzdA=="}}`)
-			require.NotNil(t, result.firstTokenMs)
-			require.GreaterOrEqual(t, *result.firstTokenMs, 100)
-		})
-	}
+	result := runSyntheticVisibleTTFTStream(t, 120*time.Millisecond, 0,
+		`{"type":"response.output_item.done","item":{"id":"item_test","type":"image_generation_call","result":"dGVzdA=="}}`)
+	require.NotNil(t, result.firstTokenMs)
+	require.GreaterOrEqual(t, *result.firstTokenMs, 100)
 }
 
 func TestOpenAINativeMetadataDoesNotDisarmFirstOutputTimeout(t *testing.T) {
@@ -131,7 +115,7 @@ func TestOpenAIStreamDataStartsTTFTByMode(t *testing.T) {
 	}
 }
 
-func runSyntheticVisibleTTFTStream(t *testing.T, passthrough bool, visibleDelay time.Duration, timeoutSeconds int, visibleEvent string) *openaiStreamingResult {
+func runSyntheticVisibleTTFTStream(t *testing.T, visibleDelay time.Duration, timeoutSeconds int, visibleEvent string) *openaiStreamingResult {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{
@@ -157,17 +141,7 @@ func runSyntheticVisibleTTFTStream(t *testing.T, passthrough bool, visibleDelay 
 	account := &Account{ID: 1, Name: "account_test", Platform: PlatformOpenAI}
 	started := time.Now()
 
-	var result *openaiStreamingResult
-	var err error
-	if passthrough {
-		var passthroughResult *openaiStreamingResultPassthrough
-		passthroughResult, err = svc.handleStreamingResponsePassthrough(context.Background(), resp, c, account, started, "test-model", "test-model")
-		if passthroughResult != nil {
-			result = &openaiStreamingResult{firstTokenMs: passthroughResult.firstTokenMs}
-		}
-	} else {
-		result, err = svc.handleStreamingResponse(context.Background(), resp, c, account, started, "test-model", "test-model")
-	}
+	result, err := svc.handleStreamingResponse(context.Background(), resp, c, account, started, "test-model", "test-model")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Contains(t, recorder.Body.String(), `"type":"response.output_item.added"`)

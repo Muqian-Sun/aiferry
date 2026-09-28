@@ -1,5 +1,3 @@
-import { openAIPlanTypeLabel } from '@/utils/planType'
-
 export function applyInterceptWarmup(
   credentials: Record<string, unknown>,
   enabled: boolean,
@@ -29,7 +27,6 @@ export function applyAntigravityProjectID(
 
 // ========== 请求头覆写（任何第三方 key + Grok OAuth 成品号） ==========
 
-export const HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY = 'header_override_enabled'
 export const HEADER_OVERRIDES_CREDENTIAL_KEY = 'header_overrides'
 
 export interface HeaderOverrideRow {
@@ -226,7 +223,6 @@ export const GROK_BASE_URL_PRESETS: GrokBaseUrlPreset[] = [
 // 转发协议由协议地址决定：同协议请求零转换直通，跨协议组合才走转换链。
 
 export type CnAccountMode = 'payg' | 'coding'
-export type OpenCodeAccountMode = 'zen' | 'go'
 export type CnProviderPlatform = 'kimi' | 'zhipu' | 'deepseek' | 'minimax'
 
 /** OpenCode 按模型分流时可选的原生上游协议。 */
@@ -238,10 +234,6 @@ export function isCNProviderPlatform(platform: string): platform is CnProviderPl
 
 export function isOpenCodeGoPlatform(platform: string): boolean {
   return platform === 'opencode_go'
-}
-
-export function resolveOpenCodeAccountMode(value: unknown): OpenCodeAccountMode {
-  return value === 'zen' ? 'zen' : 'go'
 }
 
 export function isMultiProtocolApiKeyPlatform(platform: string): boolean {
@@ -307,95 +299,18 @@ export function cnBalanceCellVisible(platform: string, accountMode: string): boo
 }
 
 /**
- * 将请求头覆写写入 credentials。
- * create 模式：关闭时不写入任何字段；edit 模式：关闭时删除字段（全量替换语义）。
+ * 将请求头覆写写入 credentials：有条目就生效，没有开关（2026-09-28 P5）。
+ * 有条目写入 header_overrides；没有条目时 create 模式不写，edit 模式删掉该键（全量替换语义）。
  */
 export function applyHeaderOverride(
   credentials: Record<string, unknown>,
-  enabled: boolean,
   rows: HeaderOverrideRow[],
   mode: 'create' | 'edit'
 ): void {
-  if (enabled) {
-    credentials[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY] = true
-    credentials[HEADER_OVERRIDES_CREDENTIAL_KEY] = buildHeaderOverridesObject(rows)
+  const overrides = buildHeaderOverridesObject(rows)
+  if (Object.keys(overrides).length > 0) {
+    credentials[HEADER_OVERRIDES_CREDENTIAL_KEY] = overrides
   } else if (mode === 'edit') {
-    delete credentials[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]
     delete credentials[HEADER_OVERRIDES_CREDENTIAL_KEY]
   }
-}
-
-// ===== OpenAI plan_type (ChatGPT 订阅档位) 手动覆盖 =====
-
-export interface PlanTypeOption {
-  value: string
-  label: string
-  // 兼容 common/Select.vue 的 SelectOption(含索引签名)
-  [key: string]: unknown
-}
-
-/**
- * plan_type 值的友好显示标签（ChatGPT 档位命名）。
- * 与 PlatformTypeBadge 共用 openAIPlanTypeLabel，避免两处映射漂移；
- * canonical 值 chatgptpro 显示为 Pro 20x，team 显示为 Business Standard。未知值原样返回。
- */
-export function planTypeDisplayLabel(value: string): string {
-  return openAIPlanTypeLabel(value) || value
-}
-
-/**
- * 从凭据里读取 plan_type，仅接受字符串（脏数据 42/true 等一律视为空，
- * 避免被当作合法自定义项保留）。
- */
-export function readPlanType(credentials: Record<string, unknown> | undefined | null): string {
-  const v = credentials?.plan_type
-  return typeof v === 'string' ? v : ''
-}
-
-/**
- * 构建 plan_type 下拉选项：清空 + Plus/Pro 20x/Pro 5x/Business Premium/Free 预设。
- * 若当前值是某预设的别名（如 chatgptpro↔Pro 20x），用当前的 canonical 值占据该
- * 标签位（保留 canonical，显示友好标签，避免重复项）；若是完全预设外的值
- * （如 team 或异常值），追加为一项，避免编辑时下拉丢失原值。
- */
-export function buildPlanTypeOptions(current: string, clearLabel: string): PlanTypeOption[] {
-  const cur = (current || '').trim()
-  const curLabel = cur ? planTypeDisplayLabel(cur) : ''
-  const presets: PlanTypeOption[] = [
-    { value: 'plus', label: 'Plus' },
-    { value: 'pro', label: 'Pro 20x' },
-    { value: 'prolite', label: 'Pro 5x' },
-    { value: 'self_serve_business_prolite', label: 'Business Premium' },
-    { value: 'free', label: 'Free' }
-  ]
-  const opts: PlanTypeOption[] = [{ value: '', label: clearLabel }]
-  for (const p of presets) {
-    if (cur && p.value !== cur.toLowerCase() && p.label === curLabel) {
-      // 当前值是该预设的别名：用 canonical 当前值占位，标签仍显示友好名
-      opts.push({ value: cur, label: p.label })
-    } else {
-      opts.push(p)
-    }
-  }
-  if (cur && !opts.some(o => o.value.toLowerCase() === cur.toLowerCase())) {
-    opts.push({ value: cur, label: planTypeDisplayLabel(cur) })
-  }
-  return opts
-}
-
-/**
- * 把手动选择的 plan_type 写入凭据：非空则设置，空则删除该键（清空/自动识别）。
- * 直接修改传入对象并返回。
- */
-export function applyPlanType(
-  credentials: Record<string, unknown>,
-  planType: string
-): Record<string, unknown> {
-  const pt = (planType || '').trim()
-  if (pt) {
-    credentials.plan_type = pt
-  } else {
-    delete credentials.plan_type
-  }
-  return credentials
 }

@@ -74,13 +74,6 @@ func TestHandleUpstreamError_529RespectsAccountPolicies(t *testing.T) {
 			name:        "pool mode",
 			credentials: map[string]any{"pool_mode": true},
 		},
-		{
-			name: "custom code filter excludes 529",
-			credentials: map[string]any{
-				"custom_error_codes_enabled": true,
-				"custom_error_codes":         []any{float64(429)},
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -103,7 +96,8 @@ func TestHandleUpstreamError_529RespectsAccountPolicies(t *testing.T) {
 	}
 }
 
-func TestHandleUpstreamError_529CustomCodeDisablesInsteadOfOverloadCooldown(t *testing.T) {
+// 渠道级自定义错误码 2026-09-28 P5 已删：旧行留着的配置不再让 529 停掉渠道，照常走全站过载冷却。
+func TestHandleUpstreamError_529LegacyCustomCodesStillUseOverloadCooldown(t *testing.T) {
 	repo := &overloadAccountRepoStub{}
 	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	account := &Account{
@@ -119,7 +113,7 @@ func TestHandleUpstreamError_529CustomCodeDisablesInsteadOfOverloadCooldown(t *t
 
 	shouldDisable := svc.HandleUpstreamError(context.Background(), account, 529, nil, []byte(`{"error":{"message":"overloaded"}}`))
 
-	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.errorCalls)
-	require.Zero(t, repo.overloadCalls)
+	require.False(t, shouldDisable)
+	require.Zero(t, repo.errorCalls)
+	require.Equal(t, 1, repo.overloadCalls)
 }

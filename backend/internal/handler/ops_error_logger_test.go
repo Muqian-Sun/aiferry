@@ -1277,15 +1277,7 @@ func TestClassifyOpsLocalBusinessLimitErrorsExcludedFromSLA(t *testing.T) {
 			wantErrType: "permission_error",
 			wantPhase:   "request",
 		},
-		{
-			name:        "codex official client policy block",
-			errType:     "forbidden_error",
-			message:     "This account only allows Codex official clients",
-			code:        "",
-			status:      http.StatusForbidden,
-			wantErrType: "forbidden_error",
-			wantPhase:   "request",
-		},
+
 		{
 			name:        "openai wsv1 unsupported feature gate",
 			errType:     "invalid_request_error",
@@ -1293,15 +1285,6 @@ func TestClassifyOpsLocalBusinessLimitErrorsExcludedFromSLA(t *testing.T) {
 			code:        "",
 			status:      http.StatusBadRequest,
 			wantErrType: "invalid_request_error",
-			wantPhase:   "request",
-		},
-		{
-			name:        "openai passthrough instructions policy block",
-			errType:     "forbidden_error",
-			message:     "OpenAI codex passthrough requires a non-empty instructions field",
-			code:        "",
-			status:      http.StatusForbidden,
-			wantErrType: "forbidden_error",
 			wantPhase:   "request",
 		},
 	}
@@ -1520,23 +1503,12 @@ func TestClassifyOpsUpstreamAuthTextStillCountsForSLA(t *testing.T) {
 			code:    "403",
 			status:  http.StatusForbidden,
 		},
-		{
-			name:    "provider codex client policy shaped error",
-			message: "This account only allows Codex official clients",
-			code:    "403",
-			status:  http.StatusForbidden,
-		},
+
 		{
 			name:    "provider wsv1 unsupported shaped error",
 			message: "OpenAI WSv1 is temporarily unsupported. Please enable responses_websockets_v2.",
 			code:    "400",
 			status:  http.StatusBadRequest,
-		},
-		{
-			name:    "provider passthrough instructions shaped error",
-			message: "OpenAI codex passthrough requires a non-empty instructions field",
-			code:    "403",
-			status:  http.StatusForbidden,
 		},
 	}
 

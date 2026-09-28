@@ -7,41 +7,6 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestNormalizeOpenAIPassthroughOAuthBody_RemovesUnsupportedUser(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":"hello","user":"user_123","metadata":{"user_id":"user_123"},"prompt_cache_retention":"24h","safety_identifier":"sid","stream_options":{"include_usage":true}}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-	for _, field := range openAIChatGPTInternalUnsupportedFields {
-		require.False(t, gjson.GetBytes(normalized, field).Exists(), "%s should be stripped", field)
-	}
-	require.True(t, gjson.GetBytes(normalized, "stream").Bool())
-	require.False(t, gjson.GetBytes(normalized, "store").Bool())
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_NormalizesCompatibilityFields(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.5","prompt":"hello","commands":["unsupported"],"truncation":"auto","stop_sequences":["END"],"chat_template_kwargs":{"enable_thinking":true}}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Equal(t, "hello", gjson.GetBytes(normalized, "input.0.content").String())
-	for _, field := range []string{"prompt", "commands", "truncation", "stop_sequences", "chat_template_kwargs"} {
-		require.False(t, gjson.GetBytes(normalized, field).Exists(), field)
-	}
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_NormalizesReasoningMode(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.6-sol","input":"hello","reasoning":{"mode":"pro"}}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Equal(t, "max", gjson.GetBytes(normalized, "reasoning.effort").String())
-	require.False(t, gjson.GetBytes(normalized, "reasoning.mode").Exists())
-}
-
 func TestNormalizeOpenAIOAuthResponsesCompatibilityBody_PreservesExplicitInput(t *testing.T) {
 	body := []byte(`{"model":"gpt-5.5","input":"explicit","prompt":"legacy"}`)
 
@@ -183,15 +148,6 @@ func TestNormalizeOpenAIResponsesReasoningMode_NonAstraKeepsLegacyBehavior(t *te
 	}
 }
 
-func TestNormalizeOpenAIPassthroughOAuthBody_AstraPreservesReasoningMode(t *testing.T) {
-	body := []byte(`{"model":"gpt-6-astra","reasoning":{"mode":"pro","effort":"max"}}`)
-
-	normalized, _, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.Equal(t, "pro", gjson.GetBytes(normalized, "reasoning.mode").String())
-	require.Equal(t, "max", gjson.GetBytes(normalized, "reasoning.effort").String())
-}
-
 func TestNormalizeOpenAIResponsesWebSocketCompatibilityBody_AstraPreservesReasoningMode(t *testing.T) {
 	body := []byte(`{"type":"response.create","model":"gpt-6-astra","reasoning":{"mode":"pro","effort":"max"}}`)
 	for _, accountType := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
@@ -292,87 +248,4 @@ func TestNormalizeOpenAIResponseFormatSchemasBody_PreservesExistingTypeValues(t 
 	require.Equal(t, "null", gjson.GetBytes(normalized, "text.format.schema.properties.union.type.1").String())
 	require.True(t, gjson.GetBytes(normalized, "text.format.schema.properties.custom.type").IsObject())
 	require.Equal(t, "array", gjson.GetBytes(normalized, "text.format.schema.properties.inferred.type").String())
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_CompactRemovesUnsupportedUser(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":"hello","user":"user_123","metadata":{"user_id":"user_123"},"stream":true,"store":true}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, true)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.False(t, gjson.GetBytes(normalized, "user").Exists())
-	require.False(t, gjson.GetBytes(normalized, "metadata").Exists())
-	require.False(t, gjson.GetBytes(normalized, "stream").Exists())
-	require.False(t, gjson.GetBytes(normalized, "store").Exists())
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_StringInputWrappedAsArray(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":"hello world"}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-
-	input := gjson.GetBytes(normalized, "input")
-	require.True(t, input.IsArray(), "string input should be converted to array")
-	items := input.Array()
-	require.Len(t, items, 1)
-	require.Equal(t, "message", items[0].Get("type").String())
-	require.Equal(t, "user", items[0].Get("role").String())
-	require.Equal(t, "hello world", items[0].Get("content").String())
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_EmptyStringInputWrappedAsEmptyArray(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":"  "}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-
-	input := gjson.GetBytes(normalized, "input")
-	require.True(t, input.IsArray())
-	require.Len(t, input.Array(), 0, "whitespace-only input should become empty array")
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_ObjectInputWrappedAsArray(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":{"type":"message","role":"user","content":"hi"}}`)
-
-	normalized, changed, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-	require.True(t, changed)
-
-	input := gjson.GetBytes(normalized, "input")
-	require.True(t, input.IsArray(), "object input should be wrapped in array")
-	items := input.Array()
-	require.Len(t, items, 1)
-	require.Equal(t, "message", items[0].Get("type").String())
-}
-
-func TestNormalizeOpenAIPassthroughOAuthBody_ArrayInputUnchanged(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.4","input":[{"type":"message","role":"user","content":"hi"}]}`)
-
-	normalized, _, err := normalizeOpenAIPassthroughOAuthBody(body, false)
-	require.NoError(t, err)
-
-	input := gjson.GetBytes(normalized, "input")
-	require.True(t, input.IsArray())
-	require.Len(t, input.Array(), 1)
-	require.Equal(t, "message", input.Array()[0].Get("type").String())
-}
-
-func TestDetectOpenAIPassthroughInstructionsRejectReason(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		body string
-		want string
-	}{
-		{name: "missing is optional", body: `{"model":"gpt-5.1-codex"}`, want: ""},
-		{name: "non string remains rejected", body: `{"instructions":{"text":"invalid"}}`, want: "instructions_not_string"},
-		{name: "empty remains rejected", body: `{"instructions":"  "}`, want: "instructions_empty"},
-		{name: "non empty remains accepted", body: `{"instructions":"client guidance"}`, want: ""},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, detectOpenAIPassthroughInstructionsRejectReason("gpt-5.1-codex", []byte(tt.body)))
-		})
-	}
 }

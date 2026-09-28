@@ -17,15 +17,11 @@ import (
 )
 
 func TestOpenAIStreamingRepairsConcatenatedJSONDocumentsInSingleDataLine(t *testing.T) {
-	testOpenAIStreamingRepairsConcatenatedJSONDocuments(t, false, 0)
+	testOpenAIStreamingRepairsConcatenatedJSONDocuments(t, 0)
 }
 
 func TestOpenAIStreamingAsyncScannerRepairsConcatenatedJSONDocumentsInSingleDataLine(t *testing.T) {
-	testOpenAIStreamingRepairsConcatenatedJSONDocuments(t, false, 30)
-}
-
-func TestOpenAIStreamingPassthroughRepairsConcatenatedJSONDocumentsInSingleDataLine(t *testing.T) {
-	testOpenAIStreamingRepairsConcatenatedJSONDocuments(t, true, 0)
+	testOpenAIStreamingRepairsConcatenatedJSONDocuments(t, 30)
 }
 
 func TestOpenAIWSv2StreamingRepairsConcatenatedJSONDocumentsInSingleMessage(t *testing.T) {
@@ -42,6 +38,8 @@ func TestOpenAIWSv2StreamingRepairsConcatenatedJSONDocumentsInSingleMessage(t *t
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
@@ -68,7 +66,7 @@ func TestOpenAIWSv2StreamingRepairsConcatenatedJSONDocumentsInSingleMessage(t *t
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
@@ -114,6 +112,8 @@ func TestOpenAIWSv2RejectsMalformedEventAfterWritingDownstream(t *testing.T) {
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
@@ -140,7 +140,7 @@ func TestOpenAIWSv2RejectsMalformedEventAfterWritingDownstream(t *testing.T) {
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
@@ -177,6 +177,8 @@ func testOpenAIWSv2RejectsMalformedEventBeforeWritingDownstream(t *testing.T, ma
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
@@ -203,7 +205,7 @@ func testOpenAIWSv2RejectsMalformedEventBeforeWritingDownstream(t *testing.T, ma
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
@@ -252,6 +254,8 @@ func TestOpenAIWSv2StreamingBreaksConnectionWhenTerminalHasTrailingDocument(t *t
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
 	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
@@ -278,7 +282,7 @@ func TestOpenAIWSv2StreamingBreaksConnectionWhenTerminalHasTrailingDocument(t *t
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
@@ -294,7 +298,7 @@ func TestOpenAIWSv2StreamingBreaksConnectionWhenTerminalHasTrailingDocument(t *t
 	assertOpenAISSEFrames(t, recorder.Body.String(), []string{"response.completed"})
 }
 
-func testOpenAIStreamingRepairsConcatenatedJSONDocuments(t *testing.T, passthrough bool, streamDataIntervalTimeout int) {
+func testOpenAIStreamingRepairsConcatenatedJSONDocuments(t *testing.T, streamDataIntervalTimeout int) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
@@ -327,19 +331,9 @@ func testOpenAIStreamingRepairsConcatenatedJSONDocuments(t *testing.T, passthrou
 	account := &Account{ID: 1, Name: "test", Platform: PlatformOpenAI}
 
 	var usage *OpenAIUsage
-	var err error
-	if passthrough {
-		result, forwardErr := svc.handleStreamingResponsePassthrough(c.Request.Context(), resp, c, account, time.Now(), "gpt-5.6-sol", "gpt-5.6-sol")
-		err = forwardErr
-		if result != nil {
-			usage = result.usage
-		}
-	} else {
-		result, forwardErr := svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "gpt-5.6-sol", "gpt-5.6-sol")
-		err = forwardErr
-		if result != nil {
-			usage = result.usage
-		}
+	result, err := svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "gpt-5.6-sol", "gpt-5.6-sol")
+	if result != nil {
+		usage = result.usage
 	}
 	require.NoError(t, err)
 	require.NotNil(t, usage)

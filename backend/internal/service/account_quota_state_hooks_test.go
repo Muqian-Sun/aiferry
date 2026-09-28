@@ -20,8 +20,8 @@ import (
 // 快照写入点是状态服务的钩子：写完 Extra 必须立刻评估要不要停调。每个写入点一条。
 
 func TestApplyAccountQuotaStateAfterExtraUpdate_MergesBeforeEvaluating(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	account := openAIQuotaStateAccount(2001, map[string]any{"auto_pause_5h_threshold": 0.9})
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.9})
+	account := openAIQuotaStateAccount(2001, map[string]any{})
 
 	// 内存对象还是写入前的样子（没有用量），更新里带着超限的快照。
 	paused := rl.ApplyAccountQuotaStateAfterExtraUpdate(context.Background(), account, map[string]any{
@@ -35,11 +35,11 @@ func TestApplyAccountQuotaStateAfterExtraUpdate_MergesBeforeEvaluating(t *testin
 }
 
 func TestApplyAccountQuotaStateByID_ReloadsAccount(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.9})
 	repo.accountsByID = map[int64]*Account{
 		2002: openAIQuotaStateAccount(2002, map[string]any{
-			"codex_5h_used_percent": 95.0, "auto_pause_5h_threshold": 0.9,
-			"codex_5h_reset_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"codex_5h_used_percent": 95.0,
+			"codex_5h_reset_at":     time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
 		}),
 	}
 
@@ -50,8 +50,8 @@ func TestApplyAccountQuotaStateByID_ReloadsAccount(t *testing.T) {
 
 // Codex 响应头快照（persistOpenAICodexSnapshot）落库后评估。
 func TestPersistOpenAICodexSnapshot_AppliesQuotaState(t *testing.T) {
-	rl, repo := quotaStateTestService(t)
-	account := openAIQuotaStateAccount(2003, map[string]any{"auto_pause_5h_threshold": 0.9})
+	rl, repo := quotaStateTestServiceWithAutoPause(t, OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.9})
+	account := openAIQuotaStateAccount(2003, map[string]any{})
 	headers := http.Header{}
 	headers.Set("x-codex-secondary-used-percent", "96")
 	headers.Set("x-codex-secondary-reset-after-seconds", "3600")

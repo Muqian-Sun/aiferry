@@ -1882,7 +1882,6 @@ func TestFetchCodexModelsManifestAPIKeyCacheKeyIsolatesRequestIdentity(t *testin
 	fetch(base, "0.145.0")
 
 	differentHeaders := newCodexModelsAPIKeyTestAccount("https://upstream.example")
-	differentHeaders.Credentials[credKeyHeaderOverrideEnabled] = true
 	differentHeaders.Credentials[credKeyHeaderOverrides] = map[string]any{"x-tenant": "other"}
 	fetch(differentHeaders, "0.144.0")
 

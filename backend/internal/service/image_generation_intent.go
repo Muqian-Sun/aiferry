@@ -389,18 +389,6 @@ func openAIAnyToolChoiceSelectsImageGeneration(choice any) bool {
 	return false
 }
 
-func getAPIKeyFromContext(c interface{ Get(string) (any, bool) }) *APIKey {
-	if c == nil {
-		return nil
-	}
-	v, exists := c.Get("api_key")
-	if !exists {
-		return nil
-	}
-	apiKey, _ := v.(*APIKey)
-	return apiKey
-}
-
 type OpenAIResponsesImageBillingConfig struct {
 	Model     string
 	SizeTier  string

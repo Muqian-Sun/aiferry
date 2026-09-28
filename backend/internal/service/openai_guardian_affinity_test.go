@@ -207,13 +207,13 @@ func TestOpenAIGatewayService_PreviousResponseBoundAccountSelectedAsPrefetch(t *
 	bound := Account{
 		ID: 39051, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1,
-		Extra:             map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	fallback := Account{
 		ID: 39052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
-		Extra:             map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	accounts := []Account{bound, fallback}

@@ -113,14 +113,6 @@ func TestGatewayCacheTTLGlobalSetting_TargetResolution(t *testing.T) {
 	target, ok := svc.resolveCacheTTLUsageOverrideTarget(context.Background(), account)
 	require.False(t, ok)
 	require.Equal(t, "", target)
-
-	account.Extra = map[string]any{
-		"cache_ttl_override_enabled": true,
-		"cache_ttl_override_target":  "1h",
-	}
-	target, ok = svc.resolveCacheTTLUsageOverrideTarget(context.Background(), account)
-	require.True(t, ok)
-	require.Equal(t, cacheTTLTarget1h, target)
 }
 
 // 1h 注入是代码值（关）：任何渠道的请求都不改写 cache_control ttl。

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,6 +53,8 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 0
@@ -77,7 +78,7 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{"responses_websockets_v2_enabled": true},
+		Extra: map[string]any{},
 	}
 
 	reqBody := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -120,6 +121,8 @@ func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t 
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
@@ -147,18 +150,14 @@ func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t 
 	const apiKeyID = int64(21)
 	account := &Account{
 		ID:          457,
-		Name:        "openai-oauth-fingerprint-full",
+		Name:        "openai-oauth-exec-scope",
 		Platform:    PlatformOpenAI,
 		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{"access_token": "oauth-token-1"},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-			codexFingerprintModeExtraKey:      "full",
-			codexFingerprintSeedExtraKey:      "11111111-1111-4111-8111-aaaaaaaaaaaa",
-		},
+		Extra:       map[string]any{},
 	}
 
 	forward := func(sessionID, body string) (*gin.Context, []byte) {
@@ -186,12 +185,6 @@ func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t 
 	require.True(t, boundA, "会话 A 的 turn state 应落在按原始 session_id 算出的作用域")
 	_, boundB := stateStore.GetSessionTurnState(scopeB)
 	require.True(t, boundB, "会话 B 的 turn state 应落在按原始 session_id 算出的作用域")
-
-	injected := resolveCodexFingerprintIDs(account, "", codexFingerprintFull)
-	require.NotNil(t, injected)
-	injectedScope, _ := deriveOpenAISessionHashes(fmt.Sprintf("openai_ws_exec:%d|thread=%s", apiKeyID, injected.threadID))
-	_, boundToInjected := stateStore.GetSessionTurnState(injectedScope)
-	require.False(t, boundToInjected, "指纹收敛注入的固定 thread_id 不得成为状态键")
 
 	threadBody := `{"model":"gpt-5.1","stream":false,"client_metadata":{"thread_id":"child-thread"},"input":[{"type":"input_text","text":"hello"}]}`
 	cC, rawC := forward("session-c", threadBody)

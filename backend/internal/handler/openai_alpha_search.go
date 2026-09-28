@@ -170,7 +170,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		service.SetOpsLatencyMs(c, service.OpsResponseLatencyMsKey, time.Since(forwardStart).Milliseconds())
 
 		if err == nil {
-			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, false, result), true)
+			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, result), true)
 			if result != nil {
 				h.recordAlphaSearchUsage(c, apiKey, account, subscription, requestedModel, body, result, subject.UserID)
 			}
@@ -179,7 +179,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 
 		var failoverErr *service.UpstreamFailoverError
 		if !errors.As(err, &failoverErr) {
-			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, false, result), false, err)
+			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, result), false, err)
 			if c.Writer.Size() == writerSizeBeforeForward {
 				h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream request failed")
 			}
@@ -187,7 +187,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			return
 		}
 
-		h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, false, result), false, err)
+		h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, result), false, err)
 		if c.Writer.Size() != writerSizeBeforeForward {
 			h.handleFailoverExhausted(c, failoverErr, true)
 			return

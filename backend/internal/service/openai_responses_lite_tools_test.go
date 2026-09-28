@@ -401,12 +401,8 @@ func TestApplyCodexOAuthTransform_PreservesLiteNamespaceToolChoice(t *testing.T)
 func TestOpenAIGatewayServiceForward_NormalizesResponsesLiteToolsForOAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	for _, passthrough := range []bool{false, true} {
-		name := "managed"
-		if passthrough {
-			name = "passthrough"
-		}
-		t.Run(name, func(t *testing.T) {
+	{
+		t.Run("managed", func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
@@ -425,7 +421,6 @@ func TestOpenAIGatewayServiceForward_NormalizesResponsesLiteToolsForOAuth(t *tes
 				ID: 501, Name: "responses-lite", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
 				Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
-				Extra:       map[string]any{"openai_passthrough": passthrough},
 			}
 			body := []byte(`{
 				"model":"gpt-5.6-terra","stream":true,"instructions":"test",
@@ -520,11 +515,8 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 	}
 
 	for _, accountCase := range accountCases {
-		for _, passthrough := range []bool{false, true} {
+		{
 			mode := "managed"
-			if passthrough {
-				mode = "passthrough"
-			}
 			for _, parallelCase := range parallelCases {
 				name := accountCase.name + "/" + mode + "/" + parallelCase.name
 				t.Run(name, func(t *testing.T) {
@@ -547,7 +539,6 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 						Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
 						Credentials:       accountCase.credentials,
 						ProtocolEndpoints: accountCase.endpoints,
-						Extra:             map[string]any{"openai_passthrough": passthrough},
 					}
 					body := []byte(`{
 						"model":"gpt-5.6-terra","stream":true,"instructions":"test",
@@ -570,12 +561,8 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 func TestOpenAIGatewayServiceForward_DisablesParallelToolCallsForResponsesLiteAPIKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	for _, passthrough := range []bool{false, true} {
-		name := "managed"
-		if passthrough {
-			name = "passthrough"
-		}
-		t.Run(name, func(t *testing.T) {
+	{
+		t.Run("managed", func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
@@ -594,7 +581,6 @@ func TestOpenAIGatewayServiceForward_DisablesParallelToolCallsForResponsesLiteAP
 				ID: 503, Name: "responses-lite-api-key", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
 				Credentials:       map[string]any{"api_key": "sk-test"},
-				Extra:             map[string]any{"openai_passthrough": passthrough},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 			body := []byte(`{

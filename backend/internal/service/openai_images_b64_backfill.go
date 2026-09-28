@@ -17,19 +17,11 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// AccountExtraImagesURLToB64JSON 是账户 extra 中的开关键。开启后，Images 端点的非流式响应里
-// b64_json 缺失或为空但 url 非空的图片项，由网关下载 url 内容并以 base64 回填到 b64_json。
-const AccountExtraImagesURLToB64JSON = "images_url_to_b64_json"
-
 // openAIImageURLDownloadTimeout 是单张图片 url 下载的超时上限。
 const openAIImageURLDownloadTimeout = 60 * time.Second
 
-// ImagesURLToB64JSONEnabled 返回账户是否开启了 url 转 b64_json 回填。
-func ImagesURLToB64JSONEnabled(account *Account) bool {
-	return account != nil && account.getExtraBool(AccountExtraImagesURLToB64JSON)
-}
-
 // backfillOpenAIImagesB64JSON 对 Images 端点的非流式响应做 url 转 b64_json 回填。
+// 开关写死开（OpenAIImagesURLToB64JSONEnabled，渠道级 images_url_to_b64_json 2026-09-28 P5 删了）。
 //
 // 只处理 data[i].b64_json 缺失或为空且 url 非空的项；url 字段原样保留。
 // 单项失败仅记日志并保留该项原样，响应整体照常返回。
@@ -40,7 +32,7 @@ func (s *OpenAIGatewayService) backfillOpenAIImagesB64JSON(
 	parsed *OpenAIImagesRequest,
 	body []byte,
 ) []byte {
-	if !ImagesURLToB64JSONEnabled(account) {
+	if !OpenAIImagesURLToB64JSONEnabled || account == nil {
 		return body
 	}
 	if parsed != nil && parsed.ResponseFormat == "url" {

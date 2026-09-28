@@ -149,14 +149,12 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ProxyFallbackOriginID:   a.ProxyFallbackOriginID,
 		ProxyFallbackOriginName: a.ProxyFallbackOriginName,
 		Concurrency:             a.Concurrency,
-		LoadFactor:              a.LoadFactor,
 		Priority:                a.Priority,
 		RateMultiplier:          a.BillingRateMultiplier(),
 		Status:                  a.Status,
 		ErrorMessage:            a.ErrorMessage,
 		LastUsedAt:              a.LastUsedAt,
 		ExpiresAt:               timeToUnixSeconds(a.ExpiresAt),
-		AutoPauseOnExpired:      a.AutoPauseOnExpired,
 		CreatedAt:               a.CreatedAt,
 		UpdatedAt:               a.UpdatedAt,
 		Schedulable:             a.Schedulable,
@@ -174,51 +172,17 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		Vendor:                  a.Vendor(),
 	}
 
-	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
+	// 提取会话数量与 RPM 限制配置（仅 Anthropic OAuth/SetupToken 账号有效）。
+	// 空闲超时、RPM 策略、TLS 指纹、会话 ID 伪装等已写死在代码里（channel_features_anthropic.go），不回显；
+	// 粘性缓冲只回显按并发 / 会话数自动算出的值，供容量展示用（渠道级手填已删）。
 	if a.IsAnthropicOAuthOrSetupToken() {
-		if limit := a.GetWindowCostLimit(); limit > 0 {
-			out.WindowCostLimit = &limit
-		}
-		if reserve := a.GetWindowCostStickyReserve(); reserve > 0 {
-			out.WindowCostStickyReserve = &reserve
-		}
 		if maxSessions := a.GetMaxSessions(); maxSessions > 0 {
 			out.MaxSessions = &maxSessions
 		}
-		if idleTimeout := a.GetSessionIdleTimeoutMinutes(); idleTimeout > 0 {
-			out.SessionIdleTimeoutMin = &idleTimeout
-		}
 		if rpm := a.GetBaseRPM(); rpm > 0 {
 			out.BaseRPM = &rpm
-			strategy := a.GetRPMStrategy()
-			out.RPMStrategy = &strategy
 			buffer := a.GetRPMStickyBuffer()
 			out.RPMStickyBuffer = &buffer
-		}
-		// 用户消息队列模式
-		if mode := a.GetUserMsgQueueMode(); mode != "" {
-			out.UserMsgQueueMode = &mode
-		}
-		// TLS指纹伪装开关
-		if a.IsTLSFingerprintEnabled() {
-			enabled := true
-			out.EnableTLSFingerprint = &enabled
-		}
-		// TLS指纹模板ID
-		if profileID := a.GetTLSFingerprintProfileID(); profileID > 0 {
-			out.TLSFingerprintProfileID = &profileID
-		}
-		// 会话ID伪装开关
-		if a.IsSessionIDMaskingEnabled() {
-			enabled := true
-			out.EnableSessionIDMasking = &enabled
-		}
-		// 缓存 TTL 强制替换
-		if a.IsCacheTTLOverrideEnabled() {
-			enabled := true
-			out.CacheTTLOverrideEnabled = &enabled
-			target := a.GetCacheTTLOverrideTarget()
-			out.CacheTTLOverrideTarget = &target
 		}
 	}
 
@@ -245,51 +209,6 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			}
 			out.QuotaWeeklyUsed = &used
 		}
-		// 固定时间重置配置
-		if mode := a.GetQuotaDailyResetMode(); mode == "fixed" {
-			out.QuotaDailyResetMode = &mode
-			hour := a.GetQuotaDailyResetHour()
-			out.QuotaDailyResetHour = &hour
-		}
-		if mode := a.GetQuotaWeeklyResetMode(); mode == "fixed" {
-			out.QuotaWeeklyResetMode = &mode
-			day := a.GetQuotaWeeklyResetDay()
-			out.QuotaWeeklyResetDay = &day
-			hour := a.GetQuotaWeeklyResetHour()
-			out.QuotaWeeklyResetHour = &hour
-		}
-		if a.GetQuotaDailyResetMode() == "fixed" || a.GetQuotaWeeklyResetMode() == "fixed" {
-			tz := a.GetQuotaResetTimezone()
-			out.QuotaResetTimezone = &tz
-		}
-		if a.Extra != nil {
-			if v, ok := a.Extra["quota_daily_reset_at"].(string); ok && v != "" {
-				out.QuotaDailyResetAt = &v
-			}
-			if v, ok := a.Extra["quota_weekly_reset_at"].(string); ok && v != "" {
-				out.QuotaWeeklyResetAt = &v
-			}
-		}
-
-		// 配额通知配置
-		if enabled := a.GetQuotaNotifyDailyEnabled(); enabled {
-			out.QuotaNotifyDailyEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyDailyThreshold(); threshold > 0 {
-			out.QuotaNotifyDailyThreshold = &threshold
-		}
-		if enabled := a.GetQuotaNotifyWeeklyEnabled(); enabled {
-			out.QuotaNotifyWeeklyEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyWeeklyThreshold(); threshold > 0 {
-			out.QuotaNotifyWeeklyThreshold = &threshold
-		}
-		if enabled := a.GetQuotaNotifyTotalEnabled(); enabled {
-			out.QuotaNotifyTotalEnabled = &enabled
-		}
-		if threshold := a.GetQuotaNotifyTotalThreshold(); threshold > 0 {
-			out.QuotaNotifyTotalThreshold = &threshold
-		}
 	}
 
 	return out
@@ -303,7 +222,6 @@ func redactAccountManagedExtra(extra map[string]any) map[string]any {
 	for key, value := range extra {
 		switch key {
 		case service.OllamaCloudUsageSessionExtraKey,
-			service.OllamaCloudUsageAutoRefreshExtraKey,
 			service.OllamaCloudUsageSnapshotExtraKey:
 			continue
 		default:
@@ -334,28 +252,17 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		Credentials: a.Credentials, CredentialsStatus: a.CredentialsStatus, Extra: a.Extra,
 		OllamaCloudUsage: a.OllamaCloudUsage,
 		ProxyID:          a.ProxyID, ProxyFallbackOriginID: a.ProxyFallbackOriginID, ProxyFallbackOriginName: a.ProxyFallbackOriginName,
-		Concurrency: a.Concurrency, LoadFactor: a.LoadFactor, Priority: a.Priority, RateMultiplier: a.RateMultiplier,
+		Concurrency: a.Concurrency, Priority: a.Priority, RateMultiplier: a.RateMultiplier,
 		Status: a.Status, ErrorMessage: a.ErrorMessage, LastUsedAt: a.LastUsedAt, ExpiresAt: a.ExpiresAt,
-		AutoPauseOnExpired: a.AutoPauseOnExpired, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
+		CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
 		Schedulable: a.Schedulable, RateLimitedAt: a.RateLimitedAt, RateLimitResetAt: a.RateLimitResetAt,
 		OverloadUntil: a.OverloadUntil, TempUnschedulableUntil: a.TempUnschedulableUntil,
 		TempUnschedulableReason: a.TempUnschedulableReason, SessionWindowStart: a.SessionWindowStart,
 		SessionWindowEnd: a.SessionWindowEnd, SessionWindowStatus: a.SessionWindowStatus,
-		WindowCostLimit: a.WindowCostLimit, WindowCostStickyReserve: a.WindowCostStickyReserve,
-		MaxSessions: a.MaxSessions, SessionIdleTimeoutMin: a.SessionIdleTimeoutMin, BaseRPM: a.BaseRPM,
-		RPMStrategy: a.RPMStrategy, RPMStickyBuffer: a.RPMStickyBuffer, UserMsgQueueMode: a.UserMsgQueueMode,
-		EnableTLSFingerprint: a.EnableTLSFingerprint, TLSFingerprintProfileID: a.TLSFingerprintProfileID,
-		EnableSessionIDMasking: a.EnableSessionIDMasking, CacheTTLOverrideEnabled: a.CacheTTLOverrideEnabled,
-		CacheTTLOverrideTarget: a.CacheTTLOverrideTarget, QuotaLimit: a.QuotaLimit, QuotaUsed: a.QuotaUsed,
+		MaxSessions: a.MaxSessions, BaseRPM: a.BaseRPM, RPMStickyBuffer: a.RPMStickyBuffer,
+		QuotaLimit: a.QuotaLimit, QuotaUsed: a.QuotaUsed,
 		QuotaDailyLimit: a.QuotaDailyLimit, QuotaDailyUsed: a.QuotaDailyUsed, QuotaWeeklyLimit: a.QuotaWeeklyLimit,
-		QuotaWeeklyUsed: a.QuotaWeeklyUsed, QuotaDailyResetMode: a.QuotaDailyResetMode,
-		QuotaDailyResetHour: a.QuotaDailyResetHour, QuotaWeeklyResetMode: a.QuotaWeeklyResetMode,
-		QuotaWeeklyResetDay: a.QuotaWeeklyResetDay, QuotaWeeklyResetHour: a.QuotaWeeklyResetHour,
-		QuotaResetTimezone: a.QuotaResetTimezone, QuotaDailyResetAt: a.QuotaDailyResetAt,
-		QuotaWeeklyResetAt: a.QuotaWeeklyResetAt, QuotaNotifyDailyEnabled: a.QuotaNotifyDailyEnabled,
-		QuotaNotifyDailyThreshold: a.QuotaNotifyDailyThreshold, QuotaNotifyWeeklyEnabled: a.QuotaNotifyWeeklyEnabled,
-		QuotaNotifyWeeklyThreshold: a.QuotaNotifyWeeklyThreshold, QuotaNotifyTotalEnabled: a.QuotaNotifyTotalEnabled,
-		QuotaNotifyTotalThreshold: a.QuotaNotifyTotalThreshold, ParentAccountID: a.ParentAccountID,
+		QuotaWeeklyUsed: a.QuotaWeeklyUsed, ParentAccountID: a.ParentAccountID,
 		QuotaDimension: a.QuotaDimension, ParentEmail: a.ParentEmail, ParentPlanType: a.ParentPlanType,
 		ParentPrivacyMode: a.ParentPrivacyMode, ParentSubscriptionExpiresAt: a.ParentSubscriptionExpiresAt,
 		ParentChatGPTAccountID: a.ParentChatGPTAccountID, Proxy: a.Proxy,

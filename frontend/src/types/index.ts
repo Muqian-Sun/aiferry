@@ -781,7 +781,6 @@ export interface OllamaCloudUsageState {
   account_id: number
   eligible: boolean
   configured: boolean
-  auto_refresh_enabled: boolean
   encryption_key_configured: boolean
   snapshot?: OllamaCloudUsageSnapshot
 }
@@ -823,8 +822,6 @@ export interface Account {
       credits?: { expires_at?: string }[]
     }
     auto_reset_credit_enabled?: boolean
-    auto_reset_credit_5h_threshold?: number
-    auto_reset_credit_7d_threshold?: number
     codex_auto_reset_credit_state?: {
       status?: 'checking' | 'available' | 'resetting' | 'success' | 'no_credit' | 'failed'
       trigger_window?: string
@@ -838,7 +835,6 @@ export interface Account {
   proxy_fallback_origin_id?: number | null
   proxy_fallback_origin_name?: string | null
   concurrency: number
-  load_factor?: number | null
   current_concurrency?: number // Real-time concurrency count from Redis
   priority: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
@@ -846,7 +842,6 @@ export interface Account {
   error_message: string | null
   last_used_at: string | null
   expires_at: number | null
-  auto_pause_on_expired: boolean
   created_at: string
   updated_at: string
   proxy?: Proxy
@@ -864,33 +859,12 @@ export interface Account {
   session_window_end: string | null
   session_window_status: 'allowed' | 'allowed_warning' | 'rejected' | null
 
-  // 5h窗口费用控制（仅 Anthropic OAuth/SetupToken 账号有效）
-  window_cost_limit?: number | null
-  window_cost_sticky_reserve?: number | null
-
   // 会话数量控制（仅 Anthropic OAuth/SetupToken 账号有效）
   max_sessions?: number | null
-  session_idle_timeout_minutes?: number | null
 
   // RPM 限制（仅 Anthropic OAuth/SetupToken 账号有效）
   base_rpm?: number | null
-  rpm_strategy?: string | null
-  rpm_sticky_buffer?: number | null
-  user_msg_queue_mode?: string | null  // "serialize" | "throttle" | null
-
-  // TLS指纹伪装（仅 Anthropic OAuth/SetupToken 账号有效）
-  enable_tls_fingerprint?: boolean | null
-  tls_fingerprint_profile_id?: number | null
-
-  // 会话ID伪装（仅 Anthropic OAuth/SetupToken 账号有效）
-  // 启用后将在15分钟内固定 metadata.user_id 中的 session ID
-  session_id_masking_enabled?: boolean | null
-
-  // 缓存 TTL 强制替换（仅 Anthropic OAuth/SetupToken 账号有效）
-  cache_ttl_override_enabled?: boolean | null
-  cache_ttl_override_target?: string | null
-
-  // 自定义 Base URL 中继转发（仅 Anthropic OAuth/SetupToken 账号有效）
+  rpm_sticky_buffer?: number | null // 后端按并发 / 会话数自动算出的粘性缓冲（只读）
 
   // API Key 账号配额限制
   quota_limit?: number | null
@@ -900,18 +874,7 @@ export interface Account {
   quota_weekly_limit?: number | null
   quota_weekly_used?: number | null
 
-  // 配额固定时间重置配置
-  quota_daily_reset_mode?: 'rolling' | 'fixed' | null
-  quota_daily_reset_hour?: number | null
-  quota_weekly_reset_mode?: 'rolling' | 'fixed' | null
-  quota_weekly_reset_day?: number | null
-  quota_weekly_reset_hour?: number | null
-  quota_reset_timezone?: string | null
-  quota_daily_reset_at?: string | null
-  quota_weekly_reset_at?: string | null
-
   // 运行时状态（仅当启用对应限制时返回）
-  current_window_cost?: number | null // 当前窗口费用
   active_sessions?: number | null // 当前活跃会话数
   current_rpm?: number | null // 当前分钟 RPM 计数
 
@@ -1075,11 +1038,7 @@ export interface CodexUsageSnapshot {
   codex_usage_updated_at?: string // Last update timestamp
 }
 
-export type OpenAICompactMode = 'auto' | 'force_on' | 'force_off'
-export type OpenAIEndpointCapability = 'chat_completions' | 'embeddings'
-
 export interface OpenAICompactState {
-  openai_compact_mode?: OpenAICompactMode
   openai_compact_supported?: boolean
   openai_compact_checked_at?: string
   openai_compact_last_status?: number
@@ -1097,11 +1056,9 @@ export interface CreateAccountRequest {
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number
-  load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   confirm_mixed_channel_risk?: boolean
 }
@@ -1115,26 +1072,16 @@ export interface UpdateAccountRequest {
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number
-  load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   upstream_billing_rate_sync_enabled?: boolean
   confirm_mixed_channel_risk?: boolean
 }
 
-export type GrokMediaEligibilityMode = 'auto' | 'enabled' | 'disabled'
-
-export interface GrokMediaEligibilityState {
-  account_id: number
-  mode: GrokMediaEligibilityMode
-  eligible: boolean
-  reason: string
-}
 
 export interface CreateProxyRequest {
   name: string
@@ -1196,7 +1143,6 @@ export interface AdminDataAccount {
   priority: number
   rate_multiplier?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
 }
 
 export interface AdminDataImportError {
@@ -1224,9 +1170,7 @@ export interface CodexSessionImportRequest {
   concurrency?: number
   priority?: number
   rate_multiplier?: number
-  load_factor?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   update_existing?: boolean
@@ -1241,9 +1185,7 @@ export interface OpenAICodexPATCreateRequest {
   concurrency?: number
   priority?: number
   rate_multiplier?: number
-  load_factor?: number | null
   expires_at?: number | null
-  auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   confirm_mixed_channel_risk?: boolean

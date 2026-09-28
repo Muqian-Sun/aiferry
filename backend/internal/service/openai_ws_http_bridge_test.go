@@ -416,6 +416,8 @@ func TestOpenAIWSHTTPBridgeAPIKeyReusesClientToolMappingWhenFollowupOmitsTools(t
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
@@ -430,7 +432,7 @@ func TestOpenAIWSHTTPBridgeAPIKeyReusesClientToolMappingWhenFollowupOmitsTools(t
 	}
 	account := &Account{
 		ID: 9001, Name: "api-key-custom-followup", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-upstream"}, Extra: map[string]any{"responses_websockets_v2_enabled": true},
+		Credentials: map[string]any{"api_key": "sk-upstream"}, Extra: map[string]any{},
 		Concurrency: 1, Status: StatusActive, Schedulable: true,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
@@ -532,6 +534,8 @@ func TestOpenAIWSHTTPBridgeFullCustomToolHistoryWithoutPreviousResponseIDDoesNot
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
@@ -543,7 +547,7 @@ func TestOpenAIWSHTTPBridgeFullCustomToolHistoryWithoutPreviousResponseIDDoesNot
 	}
 	account := &Account{
 		ID: 9002, Name: "oauth-full-context", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-		Credentials: map[string]any{"access_token": "test-token"}, Extra: map[string]any{"responses_websockets_v2_enabled": true},
+		Credentials: map[string]any{"access_token": "test-token"}, Extra: map[string]any{},
 		Concurrency: 1, Status: StatusActive, Schedulable: true,
 	}
 
@@ -631,6 +635,8 @@ func TestOpenAIWSHTTPBridgeObjectToolOutputWithoutPreviousResponseIDReplaysMatch
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
@@ -642,7 +648,7 @@ func TestOpenAIWSHTTPBridgeObjectToolOutputWithoutPreviousResponseIDReplaysMatch
 	}
 	account := &Account{
 		ID: 9003, Name: "oauth-output-only", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-		Credentials: map[string]any{"access_token": "test-token"}, Extra: map[string]any{"responses_websockets_v2_enabled": true},
+		Credentials: map[string]any{"access_token": "test-token"}, Extra: map[string]any{},
 		Concurrency: 1, Status: StatusActive, Schedulable: true,
 	}
 
@@ -1784,7 +1790,7 @@ func TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB(t *testing.T) {
 				APIKeyEnabled:            true,
 				ResponsesWebsocketsV2:    true,
 				ModeRouterV2Enabled:      true,
-				IngressModeDefault:       OpenAIWSIngressModeCtxPool,
+				IngressModeDefault:       OpenAIWSIngressModePassthrough,
 				ClientReadLimitBytes:     64 * 1024 * 1024,
 				HTTPBridgeEnabled:        true,
 				HTTPBridgeThresholdBytes: 17*1024*1024 + 512,
@@ -1806,10 +1812,7 @@ func TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB(t *testing.T) {
 			"base_url":       "https://env-openai.example/v1",
 			"model_provider": "env-openai",
 		},
-		Extra: map[string]any{
-			"openai_apikey_responses_websockets_v2_enabled": true,
-			"openai_apikey_responses_websockets_v2_mode":    OpenAIWSIngressModePassthrough,
-		},
+		Extra:       map[string]any{},
 		Concurrency: 1,
 		Status:      StatusActive,
 
@@ -1964,6 +1967,8 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
@@ -1988,14 +1993,12 @@ func TestOpenAIWSHTTPBridgeKeepsContinuationFramesOnHTTPWithoutPreviousResponseI
 		openaiWSPool:     pool,
 	}
 	account := &Account{
-		ID:          19,
-		Name:        "api-key-bridge-handoff",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-upstream"},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		ID:                19,
+		Name:              "api-key-bridge-handoff",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "sk-upstream"},
+		Extra:             map[string]any{},
 		Concurrency:       1,
 		Status:            StatusActive,
 		Schedulable:       true,
@@ -2104,6 +2107,8 @@ func TestOpenAIWSHTTPBridge_IdleTimeoutClosesClientSession(t *testing.T) {
 	cfg.Gateway.OpenAIWS.Enabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.HTTPBridgeEnabled = true
 	cfg.Gateway.OpenAIWS.HTTPBridgeThresholdBytes = 1
 	cfg.Gateway.OpenAIWS.IngressInterTurnIdleTimeoutSeconds = 1
@@ -2125,7 +2130,7 @@ func TestOpenAIWSHTTPBridge_IdleTimeoutClosesClientSession(t *testing.T) {
 		Platform:          PlatformOpenAI,
 		Type:              AccountTypeAPIKey,
 		Credentials:       map[string]any{"api_key": "sk-upstream"},
-		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		Extra:             map[string]any{},
 		Concurrency:       1,
 		Status:            StatusActive,
 		Schedulable:       true,

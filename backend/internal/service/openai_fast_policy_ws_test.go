@@ -373,7 +373,6 @@ func TestOpenAIWSPassthroughPolicyModelDoesNotApplyAccountMapping(t *testing.T) 
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{"public-model": "private-model"},
 		},
-		Extra: map[string]any{"openai_passthrough": true},
 	}
 
 	responseCreate := []byte(`{"type":"response.create","model":"public-model"}`)
@@ -428,6 +427,8 @@ func TestWSResponseCreate_IngressFiltersServiceTierBeforeUpstream(t *testing.T) 
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
@@ -467,9 +468,7 @@ func TestWSResponseCreate_IngressFiltersServiceTierBeforeUpstream(t *testing.T) 
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra:             map[string]any{},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -548,6 +547,8 @@ func TestWSResponseCreate_IngressBlockSendsErrorEventAndSkipsUpstream(t *testing
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
 	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
 	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
@@ -595,9 +596,7 @@ func TestWSResponseCreate_IngressBlockSendsErrorEventAndSkipsUpstream(t *testing
 		Schedulable:       true,
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra:             map[string]any{},
 	}
 
 	serverErrCh := make(chan error, 1)

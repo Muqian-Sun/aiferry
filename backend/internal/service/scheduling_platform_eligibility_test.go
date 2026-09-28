@@ -195,7 +195,7 @@ func TestAccountSupportsOpenAIEndpointCapability_KeysIgnoreLabel(t *testing.T) {
 	grokLabelledRelay := schedulingTestKey(3, PlatformGrok, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	officialXAIOpenAILabel := schedulingTestKey(4, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"})
 	grokLabelledRelayOverride := schedulingTestKey(5, PlatformGrok, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
-	grokLabelledRelayOverride.Extra = map[string]any{GrokMediaEligibleExtraKey: true}
+	grokLabelledRelayOverride.Extra = map[string]any{"grok_media_eligible": true}
 	embeddingsOnly := schedulingTestKey(6, PlatformKimi, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	embeddingsOnly.Credentials = map[string]any{"openai_capabilities": []any{"embeddings"}}
 
@@ -210,13 +210,13 @@ func TestAccountSupportsOpenAIEndpointCapability_KeysIgnoreLabel(t *testing.T) {
 	require.True(t, relayChatOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 	require.False(t, relayChatOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityLive))
 
-	// Grok 媒体生成是 xAI 厂商能力：看地址，管理员显式开关优先。
+	// Grok 媒体生成是 xAI 厂商能力：只看地址（渠道级手动覆盖 2026-09-28 P5 删了，残留键不生效）。
 	require.False(t, grokLabelledRelay.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
 	require.True(t, officialXAIOpenAILabel.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
-	require.True(t, grokLabelledRelayOverride.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
+	require.False(t, grokLabelledRelayOverride.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
 
-	// 管理员配置的能力集照旧生效。
-	require.False(t, embeddingsOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
+	// 渠道级「端点能力」2026-09-28 P5 删了：残留的 openai_capabilities 不再限制。
+	require.True(t, embeddingsOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
 	require.True(t, embeddingsOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 }
 
@@ -241,18 +241,18 @@ func TestOpenAICompactSupportTier_KeysByProtocolAndVendor(t *testing.T) {
 func TestOpenAIQuotaPauseDecision_KeysIgnoreLabel(t *testing.T) {
 	codexExtra := func() map[string]any {
 		return map[string]any{
-			"codex_5h_used_percent":   96.0,
-			"auto_pause_5h_threshold": 0.95,
-			"codex_usage_updated_at":  time.Now().UTC().Format(time.RFC3339),
+			"codex_5h_used_percent":  96.0,
+			"codex_usage_updated_at": time.Now().UTC().Format(time.RFC3339),
 		}
 	}
+	settings := OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95}
 	anthropicLabelledKey := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
 	anthropicLabelledKey.Extra = codexExtra()
-	_, _, paused := openAIQuotaPauseDecision(&anthropicLabelledKey, OpsOpenAIAccountQuotaAutoPauseSettings{}, time.Now())
+	_, _, paused := openAIQuotaPauseDecision(&anthropicLabelledKey, settings, time.Now())
 	require.True(t, paused)
 
 	anthropicOAuth := Account{ID: 2, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Extra: codexExtra()}
-	_, _, paused = openAIQuotaPauseDecision(&anthropicOAuth, OpsOpenAIAccountQuotaAutoPauseSettings{}, time.Now())
+	_, _, paused = openAIQuotaPauseDecision(&anthropicOAuth, settings, time.Now())
 	require.False(t, paused)
 }
 

@@ -14,9 +14,9 @@ import (
 
 // 生图未开放期间，语言模型请求不能经 Responses 的 image_generation 工具在上游出图。
 // 全局开关 gateway.image_generation_tool_enabled（默认 false）关着时：
-//   - Codex 官方客户端（或 force_codex_cli）：沿用账号级 strip 策略的剥离路径，剥掉工具后照常转发；
+//   - Codex 官方客户端（或 force_codex_cli）：走 strip 策略的剥离路径，剥掉工具后照常转发；
 //   - 其余客户端：请求里声明了该工具就 400 invalid_request_error，不选号、不打上游；
-//   - Codex 桥接注入（全局 codex_image_generation_bridge_enabled 与账号级覆盖）一律不生效。
+//   - Codex 桥接注入（全局 codex_image_generation_bridge_enabled）一律不生效。
 //
 // 请求的模型本身就是生图模型（model=gpt-image-* / grok-imagine-*）时属于图片产品，不在这里拦。
 
@@ -139,10 +139,10 @@ func BuildOpenAIImageGenerationToolUnavailableWSEvent() []byte {
 }
 
 // codexImageGenerationToolPolicy 返回本次 Codex 请求对显式 image_generation 工具的有效策略：
-// 全局开关关着时一律 strip（账号级 allow 不能放开），开着时沿用账号级策略。
-func (s *OpenAIGatewayService) codexImageGenerationToolPolicy(account *Account) string {
+// 全局生图开关关着时 strip，开着时 allow（渠道级策略 2026-09-28 P5 删了）。
+func (s *OpenAIGatewayService) codexImageGenerationToolPolicy() string {
 	if s == nil || !OpenAIImageGenerationToolEnabled(s.cfg) {
 		return codexImageGenerationExplicitToolPolicyStrip
 	}
-	return account.CodexImageGenerationExplicitToolPolicy()
+	return codexImageGenerationExplicitToolPolicyAllow
 }

@@ -44,10 +44,9 @@ func antigravityLabelledGeminiKeyWithOverrides() *Account {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":                    "relay-key",
-			"model_mapping":              map[string]any{"gemini-2.5-flash": "gemini-2.5-flash"},
-			credKeyHeaderOverrideEnabled: true,
-			credKeyHeaderOverrides:       map[string]any{"x-relay-tenant": "tenant-1"},
+			"api_key":              "relay-key",
+			"model_mapping":        map[string]any{"gemini-2.5-flash": "gemini-2.5-flash"},
+			credKeyHeaderOverrides: map[string]any{"x-relay-tenant": "tenant-1"},
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://gemini-relay.example.com"},
 	}

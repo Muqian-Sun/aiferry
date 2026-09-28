@@ -129,9 +129,7 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 			APIProtocolChatCompletions: "https://api.openai.com",
 			APIProtocolResponses:       "https://api.openai.com",
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 	require.Equal(t, PlatformOpenAI, account.Vendor())
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
@@ -223,9 +221,7 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 			APIProtocolChatCompletions: "https://api.openai.com",
 			APIProtocolResponses:       "https://api.openai.com",
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 	require.Equal(t, PlatformOpenAI, account.Vendor())
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
@@ -276,7 +272,7 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake502RecordsModelTransient(t *t
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: server.URL, APIProtocolResponses: server.URL,
 		},
-		Extra: map[string]any{"responses_websockets_v2_enabled": true},
+		Extra: map[string]any{},
 	}
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -337,9 +333,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ErrorEventUsageL
 		Credentials: map[string]any{
 			"api_key": "sk-test",
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}

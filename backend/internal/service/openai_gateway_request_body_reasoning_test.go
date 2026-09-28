@@ -140,53 +140,6 @@ func TestTrimOpenAIEncryptedReasoningItems_Compaction(t *testing.T) {
 	}
 }
 
-func TestSanitizeOpenAICrossModeFailoverReasoning_DropsWholeEncryptedItem(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.1","input":[` +
-		`{"type":"message","role":"user","content":"hi"},` +
-		`{"type":"reasoning","id":"rs_kiro_1","encrypted_content":"ENC","summary":[{"type":"summary_text","text":"t"}]},` +
-		`{"type":"message","role":"assistant","content":"yo"}` +
-		`]}`)
-
-	sanitized, changed, err := SanitizeOpenAICrossModeFailoverReasoning(body)
-	require.NoError(t, err)
-	require.True(t, changed)
-	// The whole reasoning item is gone — id and summary go with encrypted_content,
-	// unlike trimOpenAIEncryptedReasoningItems which keeps the skeleton.
-	require.NotContains(t, string(sanitized), "reasoning")
-	require.NotContains(t, string(sanitized), "rs_kiro_1")
-	require.NotContains(t, string(sanitized), "summary_text")
-	require.Equal(t, int64(2), gjson.GetBytes(sanitized, "input.#").Int())
-}
-
-func TestSanitizeOpenAICrossModeFailoverReasoning_NoEncryptedIsNoop(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.1","input":[{"type":"reasoning","summary":[{"type":"summary_text","text":"t"}]}]}`)
-	sanitized, changed, err := SanitizeOpenAICrossModeFailoverReasoning(body)
-	require.NoError(t, err)
-	require.False(t, changed, "reasoning without encrypted_content must be preserved")
-	require.Equal(t, string(body), string(sanitized))
-}
-
-func TestSanitizeOpenAICrossModeFailoverReasoning_NoInputIsNoop(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.1"}`)
-	sanitized, changed, err := SanitizeOpenAICrossModeFailoverReasoning(body)
-	require.NoError(t, err)
-	require.False(t, changed)
-	require.Equal(t, string(body), string(sanitized))
-}
-
-func TestSanitizeOpenAICrossModeFailoverReasoning_PreservesLargeIntegers(t *testing.T) {
-	body := []byte(`{"model":"gpt-5.1","input":[` +
-		`{"type":"reasoning","id":"rs_kiro_1","encrypted_content":"ENC"},` +
-		`{"type":"message","role":"user","content":"hi"}` +
-		`],"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object","properties":{"id":{"const":9007199254740993}}}}}]}`)
-
-	sanitized, changed, err := SanitizeOpenAICrossModeFailoverReasoning(body)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Contains(t, string(sanitized), `"const":9007199254740993`,
-		"sanitization must not round JSON integers through float64")
-}
-
 func TestTrimOpenAIEncryptedReasoningItems_ContentNullDropsBareSkeleton(t *testing.T) {
 	reqBody := map[string]any{
 		"input": []any{
@@ -331,7 +284,9 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount(t *testing.T) {
 	}
 }
 
-func TestFilterOpenAIResponsesNoneReasoningEffortForAccount_APIKeyAutomaticPassthroughPreservesRequest(t *testing.T) {
+// OpenAI 自动透传 2026-09-28 P5 写死关：库里残留 openai_passthrough=true 的中转 key 与普通 key 一样
+// 按兼容上游处理，"none" effort 照常过滤（改之前透传 key 原样保留请求）。
+func TestFilterOpenAIResponsesNoneReasoningEffortForAccount_LegacyPassthroughKeyNoLongerPreservesRequest(t *testing.T) {
 	body := []byte(`{"model":"qwen3.8-27b","input":"hi","max_output_tokens":20,"reasoning":{"effort":"none"},"presence_penalty":1.5}`)
 	account := &Account{
 		Platform: PlatformOpenAI,
@@ -346,7 +301,8 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount_APIKeyAutomaticPasst
 	got, err := filterOpenAIResponsesNoneReasoningEffortForAccount(account, body)
 
 	require.NoError(t, err)
-	require.JSONEq(t, string(body), string(got))
+	require.False(t, gjson.GetBytes(got, "reasoning.effort").Exists())
+	require.Equal(t, int64(20), gjson.GetBytes(got, "max_output_tokens").Int())
 }
 
 // Lite 工具迁移到 input[].additional_tools 后，仍应按有工具请求处理。

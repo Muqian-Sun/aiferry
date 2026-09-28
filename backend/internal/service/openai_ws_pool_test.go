@@ -797,15 +797,11 @@ func TestOpenAIWSConnPool_AcquireReusesOnlyMatchingBetaFeatures(t *testing.T) {
 	require.Equal(t, 2, dialer.DialCount())
 }
 
-func activeCodexFingerprintPoolAccountForTest(id int64) *Account {
+func openAIWSPoolOAuthAccountForTest(id int64) *Account {
 	return &Account{
 		ID:       id,
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeOAuth,
-		Extra: map[string]any{
-			codexFingerprintModeExtraKey: "session",
-			codexFingerprintSeedExtraKey: "11111111-1111-4111-8111-111111111111",
-		},
 	}
 }
 
@@ -830,7 +826,7 @@ func TestOpenAIWSConnPool_AcquireReusesSameStableIdentityWithDifferentTurnMetada
 	pool := newOpenAIWSConnPool(cfg)
 	dialer := &openAIWSCountingDialer{}
 	pool.setClientDialerForTest(dialer)
-	account := activeCodexFingerprintPoolAccountForTest(132)
+	account := openAIWSPoolOAuthAccountForTest(132)
 	headers := stableOpenAIWSIdentityHeadersForTest()
 	headers.Set("Authorization", "Bearer token-a")
 	headers.Set("x-codex-turn-metadata", `{"turn_id":"turn-a"}`)
@@ -860,7 +856,9 @@ func TestOpenAIWSConnPool_AcquireReusesSameStableIdentityWithDifferentTurnMetada
 	require.Equal(t, 1, dialer.DialCount(), "stable identity match should ignore auth, turn metadata, and soft routing hints")
 }
 
-func TestOpenAIWSConnPool_AcquireDoesNotReuseDifferentStableIdentity(t *testing.T) {
+// Codex 指纹收敛 2026-09-28 P5 写死关：库里残留 codex_fingerprint_mode / 种子的账号，连接池也不再
+// 按稳定身份头分桶（改之前收敛账号换了任一身份头就不复用空闲连接）。
+func TestOpenAIWSConnPool_LegacyFingerprintKeysNoLongerSplitByStableIdentity(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		header string
@@ -882,7 +880,11 @@ func TestOpenAIWSConnPool_AcquireDoesNotReuseDifferentStableIdentity(t *testing.
 			pool := newOpenAIWSConnPool(cfg)
 			dialer := &openAIWSCountingDialer{}
 			pool.setClientDialerForTest(dialer)
-			account := activeCodexFingerprintPoolAccountForTest(133)
+			account := openAIWSPoolOAuthAccountForTest(133)
+			account.Extra = map[string]any{
+				"codex_fingerprint_mode": "session",
+				"codex_fingerprint_seed": "11111111-1111-4111-8111-111111111111",
+			}
 
 			first, err := pool.Acquire(context.Background(), openAIWSAcquireRequest{
 				Account: account,
@@ -901,10 +903,10 @@ func TestOpenAIWSConnPool_AcquireDoesNotReuseDifferentStableIdentity(t *testing.
 				Headers: nextHeaders,
 			})
 			require.NoError(t, err)
-			require.False(t, second.Reused())
-			require.NotEqual(t, firstConnID, second.ConnID())
+			require.True(t, second.Reused())
+			require.Equal(t, firstConnID, second.ConnID())
 			second.Release()
-			require.Equal(t, 2, dialer.DialCount())
+			require.Equal(t, 1, dialer.DialCount())
 		})
 	}
 }
@@ -918,7 +920,7 @@ func TestOpenAIWSConnPool_AcquireRoutingHintRemainsSoftAffinity(t *testing.T) {
 	pool := newOpenAIWSConnPool(cfg)
 	dialer := &openAIWSCountingDialer{}
 	pool.setClientDialerForTest(dialer)
-	account := activeCodexFingerprintPoolAccountForTest(134)
+	account := openAIWSPoolOAuthAccountForTest(134)
 
 	firstHeaders := stableOpenAIWSIdentityHeadersForTest()
 	firstHeaders.Set(openAICodexRoutingHintHeader, "model=gpt-5.6-codex")
@@ -943,58 +945,6 @@ func TestOpenAIWSConnPool_AcquireRoutingHintRemainsSoftAffinity(t *testing.T) {
 	require.Equal(t, firstConnID, second.ConnID())
 	second.Release()
 	require.Equal(t, 1, dialer.DialCount())
-}
-
-func TestOpenAIWSConnPool_DeviceModeKeysOnlyInstallationIdentity(t *testing.T) {
-	cfg := &config.Config{}
-	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 2
-	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
-	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 2
-
-	pool := newOpenAIWSConnPool(cfg)
-	dialer := &openAIWSCountingDialer{}
-	pool.setClientDialerForTest(dialer)
-	account := activeCodexFingerprintPoolAccountForTest(135)
-	account.Extra[codexFingerprintModeExtraKey] = "device"
-
-	firstHeaders := stableOpenAIWSIdentityHeadersForTest()
-	first, err := pool.Acquire(context.Background(), openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   "wss://example.com/v1/responses",
-		Headers: firstHeaders,
-	})
-	require.NoError(t, err)
-	firstConnID := first.ConnID()
-	first.Release()
-
-	sessionChanged := stableOpenAIWSIdentityHeadersForTest()
-	sessionChanged.Set("session-id", "session-hyphen-b")
-	sessionChanged.Set("session_id", "session-underscore-b")
-	sessionChanged.Set("thread-id", "thread-b")
-	sessionChanged.Set("x-client-request-id", "client-request-b")
-	sessionChanged.Set("x-codex-window-id", "window-b")
-	second, err := pool.Acquire(context.Background(), openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   "wss://example.com/v1/responses",
-		Headers: sessionChanged,
-	})
-	require.NoError(t, err)
-	require.True(t, second.Reused())
-	require.Equal(t, firstConnID, second.ConnID())
-	second.Release()
-
-	installationChanged := sessionChanged.Clone()
-	installationChanged.Set("x-codex-installation-id", "install-b")
-	third, err := pool.Acquire(context.Background(), openAIWSAcquireRequest{
-		Account: account,
-		WSURL:   "wss://example.com/v1/responses",
-		Headers: installationChanged,
-	})
-	require.NoError(t, err)
-	require.False(t, third.Reused())
-	require.NotEqual(t, firstConnID, third.ConnID())
-	third.Release()
-	require.Equal(t, 2, dialer.DialCount())
 }
 
 func TestOpenAIWSConnPool_AcquireReplacesIdleConnWithDifferentBetaFeatures(t *testing.T) {

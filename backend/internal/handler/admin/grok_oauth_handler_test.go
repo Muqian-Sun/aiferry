@@ -284,48 +284,40 @@ func TestGrokOAuthHandlerPasswordCapabilityDefaultsToDisabled(t *testing.T) {
 
 func TestGrokSSOImportExpiryUsesTokenExpiryWithoutRefreshToken(t *testing.T) {
 	tokenExpiry := time.Now().Add(6 * time.Hour).Unix()
-	expiresAt, autoPause := grokSSOImportExpiry(nil, nil, &service.GrokTokenInfo{
+	expiresAt := grokSSOImportExpiry(nil, &service.GrokTokenInfo{
 		ExpiresAt: tokenExpiry,
 	})
 
 	require.NotNil(t, expiresAt)
 	require.Equal(t, tokenExpiry, *expiresAt)
-	require.NotNil(t, autoPause)
-	require.True(t, *autoPause)
 }
 
 func TestGrokSSOImportExpiryUsesEarlierRequestedExpiryWithoutRefreshToken(t *testing.T) {
 	requestedExpiry := time.Now().Add(2 * time.Hour).Unix()
 	tokenExpiry := time.Now().Add(6 * time.Hour).Unix()
-	requestedAutoPause := false
-	expiresAt, autoPause := grokSSOImportExpiry(&requestedExpiry, &requestedAutoPause, &service.GrokTokenInfo{
+	expiresAt := grokSSOImportExpiry(&requestedExpiry, &service.GrokTokenInfo{
 		ExpiresAt: tokenExpiry,
 	})
 
 	require.NotNil(t, expiresAt)
 	require.Equal(t, requestedExpiry, *expiresAt)
-	require.NotNil(t, autoPause)
-	require.True(t, *autoPause)
 }
 
 func TestGrokSSOImportExpiryPreservesRequestSettingsWithRefreshToken(t *testing.T) {
 	requestedExpiry := time.Now().Add(2 * time.Hour).Unix()
-	requestedAutoPause := false
-	expiresAt, autoPause := grokSSOImportExpiry(&requestedExpiry, &requestedAutoPause, &service.GrokTokenInfo{
+	expiresAt := grokSSOImportExpiry(&requestedExpiry, &service.GrokTokenInfo{
 		RefreshToken: "refresh-token",
 		ExpiresAt:    time.Now().Add(6 * time.Hour).Unix(),
 	})
 
 	require.Same(t, &requestedExpiry, expiresAt)
-	require.Same(t, &requestedAutoPause, autoPause)
 }
 
 func TestGrokSSOImportCredentialsRejectsRequestedBaseURL(t *testing.T) {
 	built := map[string]any{"access_token": "at-1"}
 	reqCredentials := map[string]any{
-		"base_url":                "https://relay.example.com/v1",
-		"header_override_enabled": true,
-		"header_overrides":        map[string]any{"x-relay-key": "k"},
+		"base_url":         "https://relay.example.com/v1",
+		"header_overrides": map[string]any{"x-relay-key": "k"},
 	}
 
 	credentials := grokSSOImportCredentials(built, reqCredentials)
@@ -333,7 +325,6 @@ func TestGrokSSOImportCredentialsRejectsRequestedBaseURL(t *testing.T) {
 	// 成品号只走官方地址：请求里的 base_url 不接收；其余运营侧配置照常合并
 	require.Equal(t, "at-1", credentials["access_token"])
 	require.NotContains(t, credentials, "base_url")
-	require.Equal(t, true, credentials["header_override_enabled"])
 	require.Equal(t, map[string]any{"x-relay-key": "k"}, credentials["header_overrides"])
 	// 入参不被污染（req.Credentials 会被多个 worker 并发读取）
 	require.Equal(t, "https://relay.example.com/v1", reqCredentials["base_url"])

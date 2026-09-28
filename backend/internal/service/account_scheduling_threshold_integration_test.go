@@ -44,9 +44,6 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 				Platform:    PlatformKiro,
 				Status:      StatusActive,
 				Schedulable: true,
-				Credentials: map[string]any{
-					"account_scheduling_threshold": 1,
-				},
 				Extra: map[string]any{
 					"kiro_sched_utilization": 95.0,
 					"kiro_sched_reset_at":    time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339),

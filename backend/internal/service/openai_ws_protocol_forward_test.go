@@ -91,6 +91,8 @@ func TestOpenAIGatewayService_Forward_PreservePreviousResponseIDWhenWSEnabled(t 
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -111,9 +113,7 @@ func TestOpenAIGatewayService_Forward_PreservePreviousResponseIDWhenWSEnabled(t 
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_123","input":[{"type":"input_text","text":"hello"}]}`)
@@ -153,6 +153,8 @@ func TestOpenAIGatewayService_Forward_HTTPIngressStaysHTTPWhenWSEnabled(t *testi
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -173,9 +175,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressStaysHTTPWhenWSEnabled(t *testi
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_http_keep","input":[{"type":"input_text","text":"hello"}]}`)
@@ -231,6 +231,8 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesInvalidEncryptedContentO
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -251,9 +253,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesInvalidEncryptedContentO
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_http_retry","input":[{"type":"reasoning","encrypted_content":"gAAA","summary":[{"type":"summary_text","text":"keep me"}]},{"type":"input_text","text":"hello"}]}`)
@@ -323,6 +323,8 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesWrappedInvalidEncryptedC
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -343,9 +345,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesWrappedInvalidEncryptedC
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_http_retry_wrapped","input":[{"type":"reasoning","encrypted_content":"gAAA","summary":[{"type":"summary_text","text":"keep me too"}]},{"type":"input_text","text":"hello"}]}`)
@@ -395,6 +395,8 @@ func TestOpenAIGatewayService_Forward_APIKeyHTTPPreservesPreviousResponseIDWhenW
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 	cfg.Gateway.OpenAIWS.Enabled = false
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -415,9 +417,7 @@ func TestOpenAIGatewayService_Forward_APIKeyHTTPPreservesPreviousResponseIDWhenW
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_123","input":[{"type":"input_text","text":"hello"}]}`)
@@ -457,6 +457,8 @@ func TestOpenAIGatewayService_Forward_WSv2Dial426FallbackHTTP(t *testing.T) {
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -478,9 +480,7 @@ func TestOpenAIGatewayService_Forward_WSv2Dial426FallbackHTTP(t *testing.T) {
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: ws426Server.URL, APIProtocolResponses: ws426Server.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_426","input":[{"type":"input_text","text":"hello"}]}`)
@@ -522,6 +522,8 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 30
 
 	svc := &OpenAIGatewayService{
@@ -543,9 +545,7 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	svc.markOpenAIWSFallbackCooling(account.ID, "upgrade_required")
@@ -585,6 +585,8 @@ func TestOpenAIGatewayService_Forward_ReturnErrorWhenOnlyWSv1Enabled(t *testing.
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsockets = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = false
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -605,9 +607,7 @@ func TestOpenAIGatewayService_Forward_ReturnErrorWhenOnlyWSv1Enabled(t *testing.
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://api.openai.com/v1/responses", APIProtocolResponses: "https://api.openai.com/v1/responses",
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_v1","input":[{"type":"input_text","text":"hello"}]}`)
@@ -678,6 +678,8 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackWhenResponseAlreadyWrittenRetu
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -699,9 +701,7 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackWhenResponseAlreadyWrittenRetu
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: ws426Server.URL, APIProtocolResponses: ws426Server.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -773,6 +773,8 @@ func TestOpenAIGatewayService_Forward_WSv2StreamEarlyCloseFallbackHTTP(t *testin
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -795,9 +797,7 @@ func TestOpenAIGatewayService_Forward_WSv2StreamEarlyCloseFallbackHTTP(t *testin
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":true,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -858,6 +858,8 @@ func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *test
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -880,9 +882,7 @@ func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *test
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":true,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -939,6 +939,8 @@ func TestOpenAIGatewayService_Forward_WSv2PolicyViolationFastFallbackHTTP(t *tes
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 	cfg.Gateway.OpenAIWS.RetryBackoffInitialMS = 1
 	cfg.Gateway.OpenAIWS.RetryBackoffMaxMS = 2
@@ -964,9 +966,7 @@ func TestOpenAIGatewayService_Forward_WSv2PolicyViolationFastFallbackHTTP(t *tes
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -1029,6 +1029,8 @@ func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbac
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1051,9 +1053,7 @@ func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbac
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -1139,6 +1139,8 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundRecoversByDrop
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1161,9 +1163,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundRecoversByDrop
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_missing","input":[{"type":"input_text","text":"hello"}]}`)
@@ -1242,6 +1242,8 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryF
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1264,9 +1266,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryF
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_missing","input":[{"type":"function_call_output","call_id":"call_1","output":"ok"}]}`)
@@ -1343,6 +1343,8 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryW
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1365,9 +1367,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryW
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -1443,6 +1443,8 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundOnlyRecoversOn
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1465,9 +1467,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundOnlyRecoversOn
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_missing","input":[{"type":"input_text","text":"hello"}]}`)
@@ -1561,6 +1561,8 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversOnce(t 
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1583,9 +1585,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversOnce(t 
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_encrypted","input":[{"type":"reasoning","encrypted_content":"gAAA"},{"type":"compaction","encrypted_content":"cAAA"},{"type":"input_text","text":"hello"}]}`)
@@ -1668,6 +1668,8 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentSkipsRecoveryWi
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1690,9 +1692,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentSkipsRecoveryWi
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_encrypted","input":[{"type":"input_text","text":"hello"}]}`)
@@ -1787,6 +1787,8 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversSingleO
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1809,9 +1811,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversSingleO
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_encrypted","input":{"type":"reasoning","encrypted_content":"gAAA","summary":[{"type":"summary_text","text":"keep me"}]}}`)
@@ -1908,6 +1908,8 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentKeepsPreviousRe
 	cfg.Gateway.OpenAIWS.OAuthEnabled = true
 	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
 	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
 	cfg.Gateway.OpenAIWS.FallbackCooldownSeconds = 1
 
 	svc := &OpenAIGatewayService{
@@ -1930,9 +1932,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentKeepsPreviousRe
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
-		Extra: map[string]any{
-			"responses_websockets_v2_enabled": true,
-		},
+		Extra: map[string]any{},
 	}
 
 	body := []byte(`{"model":"gpt-5.3-codex","stream":false,"previous_response_id":"resp_prev_function_call","input":[{"type":"reasoning","encrypted_content":"gAAA"},{"type":"function_call_output","call_id":"call_123","output":"ok"}]}`)

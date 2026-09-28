@@ -155,8 +155,9 @@ func TestOpenAIGatewayService_OAuthCompactKeepsFlattening(t *testing.T) {
 	require.Equal(t, "collaboration__spawn_agent", gjson.GetBytes(forwarded, "input.0.name").String())
 }
 
-// 账号开关为不认识 namespace 的兼容上游保留退路：打开后恢复 0.1.166 的摊平行为。
-func TestOpenAIGatewayService_OAuthFlattenFlagRestoresLegacyBehavior(t *testing.T) {
+// 渠道级「摊平 namespace」开关 2026-09-28 P5 删了：库里残留 openai_responses_flatten_namespaces=true
+// 的账号也保留 namespace（改之前会恢复 0.1.166 的摊平行为）。
+func TestOpenAIGatewayService_OAuthLegacyFlattenKeyIgnored(t *testing.T) {
 	body := []byte(codexNamespaceRequestBody)
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIRejectedFieldTestResponse(http.StatusOK, namespaceForwardOKResponse),
@@ -174,19 +175,11 @@ func TestOpenAIGatewayService_OAuthFlattenFlagRestoresLegacyBehavior(t *testing.
 	require.Len(t, upstream.bodies, 1)
 	forwarded := upstream.bodies[0]
 
-	require.False(t, gjson.GetBytes(forwarded, `tools.#(type=="namespace")`).Exists())
-	require.True(t, gjson.GetBytes(forwarded, `tools.#(name=="collaboration__spawn_agent")`).Exists())
-	require.True(t, gjson.GetBytes(forwarded, `tools.#(name=="collaboration__wait_agent")`).Exists())
-	// 摊平后调用项已改写成平名，不得再带 namespace。
-	require.Equal(t, "collaboration__spawn_agent", gjson.GetBytes(forwarded, "input.0.name").String())
-	require.False(t, gjson.GetBytes(forwarded, "input.0.namespace").Exists())
-	require.False(t, gjson.GetBytes(forwarded, "input.1.namespace").Exists())
-
-	names := openAIResponsesNamespaceNames(c)
-	require.Equal(t,
-		apicompat.ResponsesNamespaceName{Namespace: "collaboration", Name: "spawn_agent"},
-		names["collaboration__spawn_agent"],
-	)
+	require.True(t, gjson.GetBytes(forwarded, `tools.#(type=="namespace")`).Exists())
+	require.False(t, gjson.GetBytes(forwarded, `tools.#(name=="collaboration__spawn_agent")`).Exists())
+	require.Equal(t, "collaboration", gjson.GetBytes(forwarded, "input.0.namespace").String())
+	require.Equal(t, "spawn_agent", gjson.GetBytes(forwarded, "input.0.name").String())
+	require.Empty(t, openAIResponsesNamespaceNames(c))
 }
 
 // handler 的 failover 在同一个 *gin.Context 上重试下一个账号；保留 namespace 的账号

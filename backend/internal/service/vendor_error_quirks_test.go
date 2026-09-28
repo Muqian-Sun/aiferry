@@ -350,27 +350,6 @@ func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {
 	})
 }
 
-func TestTryTempUnschedulable_401EscalationAppliesToAntigravityLabelledKeys(t *testing.T) {
-	credentials := map[string]any{
-		"temp_unschedulable_enabled": true,
-		"temp_unschedulable_rules": []any{
-			map[string]any{"error_code": float64(http.StatusUnauthorized), "keywords": []any{"unauthorized"}, "duration_minutes": float64(10)},
-		},
-	}
-	previous401 := `{"status_code":401}`
-	body := []byte(`{"error":{"message":"unauthorized"}}`)
-
-	subscription := &Account{ID: 9301, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Credentials: credentials, TempUnschedulableReason: previous401}
-	require.True(t, NewRateLimitService(&rateLimitAccountRepoStub{}, nil, &config.Config{}, nil, nil).tryTempUnschedulable(context.Background(), subscription, http.StatusUnauthorized, body),
-		"fixture: antigravity subscriptions skip the 401 escalation and re-apply the rule")
-
-	key := vendorTestKey(PlatformAntigravity, vendorTestRelayAnthropic)
-	key.Credentials = credentials
-	key.TempUnschedulableReason = previous401
-	require.Empty(t, key.Vendor())
-	require.False(t, NewRateLimitService(&rateLimitAccountRepoStub{}, nil, &config.Config{}, nil, nil).tryTempUnschedulable(context.Background(), key, http.StatusUnauthorized, body))
-}
-
 func TestHandleUpstreamModelNotFound_AntigravityLabelledKeyUsesPlainMappedModel(t *testing.T) {
 	ctx := context.WithValue(context.Background(), ctxkey.ThinkingEnabled, true)
 	repo := &modelNotFoundAccountRepoStub{}

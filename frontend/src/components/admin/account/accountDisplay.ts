@@ -148,13 +148,10 @@ export function antigravityTierKey(row: Pick<Account, 'platform' | 'extra'>): 'f
   }
 }
 
-/** OpenAI 的 Compact 支持：强制开 / 关，或探测结果；都没有时是 auto（不写）。非 OpenAI 返回 null。 */
+/** OpenAI 的 Compact 支持：只看探测结果（Compact 模式写死 auto），没探测过是 auto。非 OpenAI 返回 null。 */
 export function openAICompactState(row: Pick<Account, 'platform' | 'type' | 'extra'>): 'active' | 'blocked' | 'auto' | null {
   if (row.platform !== 'openai' || (row.type !== 'oauth' && row.type !== 'apikey')) return null
   const extra = row.extra as Record<string, unknown> | undefined
-  const mode = typeof extra?.openai_compact_mode === 'string' ? extra.openai_compact_mode : 'auto'
-  if (mode === 'force_on') return 'active'
-  if (mode === 'force_off') return 'blocked'
   if (typeof extra?.openai_compact_supported === 'boolean') return extra.openai_compact_supported ? 'active' : 'blocked'
   return 'auto'
 }

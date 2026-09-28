@@ -152,7 +152,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 			return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed after retries: "+safeErr)
 		}
 
-		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp, mappedModel); matched {
+		if matched, rebuilt := s.checkErrorPolicyInLoop(account, resp); matched {
 			resp = rebuilt
 			break
 		} else {
@@ -222,13 +222,8 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 
 	if resp.StatusCode >= 400 {
 		respBody := s.readUpstreamErrorBody(resp)
-		policy := ErrorPolicyNone
-		if s.rateLimitService != nil {
-			policy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
-		}
-		// 与 messages 兼容层一致：只有 None / Matched 才走账号状态处理。
-		// Skipped（池模式、或自定义错误码未命中）与 TempUnscheduled 已由策略层裁决完毕。
-		if policy == ErrorPolicyNone || policy == ErrorPolicyMatched {
+		// 与 messages 兼容层一致：池模式（ErrorPolicySkipped）不走账号状态处理。
+		if s.rateLimitService == nil || s.rateLimitService.CheckErrorPolicy(account, resp.StatusCode) != ErrorPolicySkipped {
 			s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 		}
 		evBody := unwrapIfNeeded(account.Type == AccountTypeOAuth, respBody)
@@ -253,11 +248,6 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 			}
 		}
 
-		if policy == ErrorPolicySkipped && account.IsCustomErrorCodesEnabled() {
-			return nil, s.writeGeminiCustomCodeSkippedError(c, account, resp.StatusCode, requestID, evBody, func() {
-				_ = s.writeChatCompletionsError(c, http.StatusInternalServerError, "api_error", geminiCustomCodeSkippedClientMessage)
-			})
-		}
 		return nil, s.writeGeminiChatCompletionsMappedError(c, account, resp.StatusCode, requestID, evBody)
 	}
 

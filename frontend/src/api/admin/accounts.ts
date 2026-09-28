@@ -23,8 +23,6 @@ import type {
   UpstreamBillingProbeResult,
   UpstreamBillingRatesResponse,
   OllamaCloudUsageState,
-  GrokMediaEligibilityMode,
-  GrokMediaEligibilityState,
   ProtocolEndpoints,
   UpstreamProtocol
 } from '@/types'
@@ -233,23 +231,6 @@ export async function update(id: number, updates: UpdateAccountRequest): Promise
   return data
 }
 
-export async function getGrokMediaEligibility(id: number): Promise<GrokMediaEligibilityState> {
-  const { data } = await apiClient.get<GrokMediaEligibilityState>(
-    `/admin/accounts/${id}/grok-media-eligibility`
-  )
-  return data
-}
-
-export async function updateGrokMediaEligibility(
-  id: number,
-  mode: GrokMediaEligibilityMode
-): Promise<GrokMediaEligibilityState> {
-  const { data } = await apiClient.put<GrokMediaEligibilityState>(
-    `/admin/accounts/${id}/grok-media-eligibility`,
-    { mode }
-  )
-  return data
-}
 
 /**
  * Delete account
@@ -308,7 +289,7 @@ export async function refreshCredentials(id: number): Promise<RefreshCredentials
  *
  * Unlike `update()`, this endpoint:
  * - never overwrites the whole `extra` JSONB (merges incrementally instead),
- *   so persistent settings like `base_rpm`, `window_cost_limit`, `max_sessions`,
+ *   so persistent settings like `base_rpm`, `max_sessions`,
  *   `quota_*` and `privacy_mode` are preserved
  * - clears the account error and invalidates the token cache server-side
  */
@@ -943,13 +924,6 @@ export async function deleteOllamaCloudUsageSession(id: number): Promise<OllamaC
   return data
 }
 
-export async function setOllamaCloudUsageAutoRefresh(id: number, enabled: boolean): Promise<OllamaCloudUsageState> {
-  const { data } = await apiClient.put<OllamaCloudUsageState>(`/admin/accounts/${id}/ollama-cloud-usage/auto-refresh`, {
-    enabled
-  })
-  return data
-}
-
 export async function refreshOllamaCloudUsage(id: number): Promise<OllamaCloudUsageState> {
   const { data } = await apiClient.post<OllamaCloudUsageState>(`/admin/accounts/${id}/ollama-cloud-usage/refresh`)
   return data
@@ -963,8 +937,6 @@ export const accountsAPI = {
   create,
   duplicate,
   update,
-  getGrokMediaEligibility,
-  updateGrokMediaEligibility,
   delete: deleteAccount,
   toggleStatus,
   testAccount,
@@ -1009,7 +981,6 @@ export const accountsAPI = {
   getOllamaCloudUsage,
   saveOllamaCloudUsageSession,
   deleteOllamaCloudUsageSession,
-  setOllamaCloudUsageAutoRefresh,
   refreshOllamaCloudUsage
 }
 

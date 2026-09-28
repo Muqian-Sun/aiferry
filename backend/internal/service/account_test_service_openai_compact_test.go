@@ -140,8 +140,7 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesNativeR
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key": "sk-test",
-			// post-#5641：compact_model_mapping 仅作用于 legacy /responses/compact，
-			// 原生 v2 探测不应用它。
+			// 残留的渠道级 compact 专属映射（2026-09-28 P5 删了）不影响探测。
 			"compact_model_mapping": map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"},
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1"},
@@ -267,9 +266,9 @@ func TestAccountTestService_TestAccountConnection_OpenAICompact2xxWithoutItemMar
 	require.Contains(t, rec.Body.String(), `"type":"error"`)
 }
 
-// 探测与真实转发走同一 /responses 端点，出站身份必须与真实 Codex 同构：
-// session/thread 为 UUID、携带 x-codex-installation-id（收敛账号用收敛值）。
-func TestAccountTestService_TestAccountConnection_OpenAICompactProbeIdentityMatchesRealTraffic(t *testing.T) {
+// Codex 指纹收敛 2026-09-28 P5 写死关：库里残留 codex_fingerprint_mode / 种子的账号，探测也不再
+// 改写出站身份，session 标识就是按账号派生的探测 UUID，不带收敛出的 installation-id。
+func TestAccountTestService_TestAccountConnection_OpenAICompactProbeIgnoresLegacyFingerprintKeys(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	updateCalls := make(chan map[string]any, 1)
@@ -285,10 +284,10 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactProbeIdentityMatc
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
-		// 收敛是显式 opt-in（#5610），这里显式开启以验证探测身份与真实流量同构。
+		// 改之前这两个键会让探测按 session 模式收敛身份。
 		Extra: map[string]any{
-			"codex_fingerprint_mode":     "session",
-			codexFingerprintSeedExtraKey: testCodexFingerprintSeed,
+			"codex_fingerprint_mode": "session",
+			"codex_fingerprint_seed": "11111111-1111-4111-8111-111111111111",
 		},
 	}
 	repo := &snapshotUpdateAccountRepo{
@@ -308,15 +307,11 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactProbeIdentityMatc
 
 	require.NoError(t, svc.TestAccountConnection(c, account.ID, "gpt-5.4", "", AccountTestModeCompact))
 
-	// 显式 session 收敛模式：出站身份 = 账号级收敛值
-	seed, ok := codexFingerprintSeed(account.Extra)
-	require.True(t, ok)
-	converged := resolveConvergedSessionID(seed)
-	require.Equal(t, converged, upstream.lastReq.Header.Get("session-id"))
-	require.Equal(t, converged, upstream.lastReq.Header.Get("session_id"))
-	require.Equal(t, resolveConvergedInstallationID(&account, seed), upstream.lastReq.Header.Get("x-codex-installation-id"),
-		"真实 Codex 每个请求必带 installation-id，探测不得缺失")
-	require.NotContains(t, upstream.lastReq.Header.Get("session-id"), "probe_compact",
+	probeSessionID := compactProbeSessionID(account.ID)
+	require.Equal(t, probeSessionID, upstream.lastReq.Header.Get("session_id"))
+	require.Empty(t, upstream.lastReq.Header.Get("session-id"), "不再写收敛出的 session-id")
+	require.Empty(t, upstream.lastReq.Header.Get("x-codex-installation-id"), "不再写收敛出的 installation-id")
+	require.NotContains(t, upstream.lastReq.Header.Get("session_id"), "probe_compact",
 		"探测标识不得是可被上游一眼识别的字面量")
 	<-updateCalls
 }

@@ -36,7 +36,7 @@ func newMessagesClampTestContext(t *testing.T) *gin.Context {
 }
 
 // messagesClampOllamaAccount 构造挂在实际 ollama.com 上游的 APIKey 账号。
-// builder A / B 的 Messages base 取 GetBaseURL()，builder C 的 Anthropic 协议 base
+// builder A 的 Messages base 取 GetBaseURL()，builder C 的 Anthropic 协议 base
 // 取 anthropic 协议地址，二者同源。
 func messagesClampOllamaAccount(id int64, platform string) *Account {
 	return &Account{
@@ -118,31 +118,6 @@ func TestBuildUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(t *testing.T) {
 	})
 }
 
-// TestBuildUpstreamRequestAnthropicAPIKeyPassthrough_ClampsOllamaCloudDeepSeekMaxTokens
-// 覆盖 Anthropic 平台 APIKey passthrough builder。
-func TestBuildUpstreamRequestAnthropicAPIKeyPassthrough_ClampsOllamaCloudDeepSeekMaxTokens(t *testing.T) {
-	svc := &GatewayService{cfg: messagesClampTestConfig()}
-	c := newMessagesClampTestContext(t)
-
-	body := messagesClampBody("deepseek-v4-flash", 256000)
-	account := messagesClampOllamaAccount(411, PlatformAnthropic)
-
-	req, wireBody, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(
-		context.Background(), c, account, body, "sk-test",
-	)
-	require.NoError(t, err)
-	require.Equal(t, "https://ollama.com/v1/messages?beta=true", req.URL.String())
-	require.Equal(t, int64(65535), gjson.GetBytes(wireBody, "max_tokens").Int())
-
-	// 官方 Anthropic（api.anthropic.com）即使 max_tokens 超过 65535 也字节级不变。
-	official := newAnthropicAPIKeyAccountForTest()
-	_, wire, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(
-		context.Background(), c, official, body, "upstream-anthropic-key",
-	)
-	require.NoError(t, err)
-	require.Equal(t, int64(256000), gjson.GetBytes(wire, "max_tokens").Int())
-}
-
 func TestBuildUpstreamRequest_ClampsTrailingSlashOllamaBase(t *testing.T) {
 	svc := &GatewayService{cfg: messagesClampTestConfig()}
 	c := newMessagesClampTestContext(t)
@@ -159,15 +134,6 @@ func TestBuildUpstreamRequest_ClampsTrailingSlashOllamaBase(t *testing.T) {
 		req, wireBody, err := svc.buildUpstreamRequest(
 			context.Background(), c, newAccount(441), body, "sk-test", "api_key",
 			"deepseek-v4-flash", false, false,
-		)
-		require.NoError(t, err)
-		require.Equal(t, "https://ollama.com/v1/messages?beta=true", req.URL.String())
-		require.Equal(t, int64(65535), gjson.GetBytes(wireBody, "max_tokens").Int())
-	})
-
-	t.Run("builder B trailing slash base is clamped", func(t *testing.T) {
-		req, wireBody, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(
-			context.Background(), c, newAccount(442), body, "sk-test",
 		)
 		require.NoError(t, err)
 		require.Equal(t, "https://ollama.com/v1/messages?beta=true", req.URL.String())

@@ -103,7 +103,7 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 				Schedulable:       true,
 				Concurrency:       1,
 				Credentials:       map[string]any{"api_key": "sk-test"},
-				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				Extra:             map[string]any{},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 			repo := &openAIWSIngressCapacityShedRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
@@ -236,10 +236,8 @@ func TestProxyResponsesWebSocketFromClient_MarksCyberPolicyBeforeEarlyReturn(t *
 			account := &Account{
 				ID: 5402, Name: "openai-ingress-cyber", Platform: PlatformOpenAI,
 				Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1,
-				Credentials: map[string]any{"api_key": "sk-test"},
-				Extra: map[string]any{
-					"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeCtxPool,
-				},
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				Extra:             map[string]any{},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 

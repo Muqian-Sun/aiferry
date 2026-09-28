@@ -53,8 +53,9 @@ func TestShouldRefreshOpenAICodexSnapshot(t *testing.T) {
 		t.Fatal("expected missing 5h snapshot to require refresh")
 	}
 
+	// 渠道级 WS 开关 2026-09-28 P5 删了：普通账号的快照不再按 WSv2 探测判过期，残留的开关键不起作用。
 	staleAt := now.Add(-(openAIProbeCacheTTL + time.Minute)).Format(time.RFC3339)
-	if !shouldRefreshOpenAICodexSnapshot(&Account{
+	if shouldRefreshOpenAICodexSnapshot(&Account{
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeOAuth,
 		Extra: map[string]any{
@@ -62,7 +63,7 @@ func TestShouldRefreshOpenAICodexSnapshot(t *testing.T) {
 			"codex_usage_updated_at":                       staleAt,
 		},
 	}, usage, now) {
-		t.Fatal("expected stale ws snapshot to trigger refresh")
+		t.Fatal("expected legacy ws key to no longer mark a non-shadow snapshot stale")
 	}
 }
 

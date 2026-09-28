@@ -164,7 +164,6 @@ func TestImportCodexSessionsCreatesAgentIdentityWithoutOAuthExpiry(t *testing.T)
 	require.Len(t, svc.createdAccounts, 1)
 	created := svc.createdAccounts[0]
 	require.Nil(t, created.ExpiresAt)
-	require.Nil(t, created.AutoPauseOnExpired)
 	require.Equal(t, service.OpenAIAuthModeAgentIdentity, created.Credentials["auth_mode"])
 	require.NotContains(t, created.Credentials, "access_token")
 	require.NotContains(t, created.Credentials, "refresh_token")

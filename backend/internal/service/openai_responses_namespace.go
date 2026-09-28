@@ -31,24 +31,22 @@ const openAIResponsesNamespaceNamesContextKey = "openai_responses_namespace_name
 // 证据；compact 只做历史摘要、不需要模型寻址工具，回程也没有工具调用可还原，因此
 // 保持 0.1.166 起就在跑的摊平行为，不随本次默认值翻转扩大风险面。
 //
-// 账号开关 openai_responses_flatten_namespaces 为不认识 namespace 的兼容上游保留
-// 退路，打开后恢复旧行为：WSv2 上游原生支持 namespace，且 WS 出口
-// （openai_ws_forwarder_v2）原样转发上游事件、不经 HTTP 回程还原，摊平后的平名
-// 无法还原会破坏客户端工具匹配，因此实际走 WSv2 分支的请求仍保持 namespace 原样；
-// 透传账号先于 WSv2 分支经 HTTP 转发返回，仍需摊平。
+// 渠道级「摊平 namespace」开关已删（2026-09-28 P5）：非 compact 请求一律保留。
+// WSv2 上游原生支持 namespace，且 WS 出口（openai_ws_forwarder_v2）原样转发上游事件、
+// 不经 HTTP 回程还原，摊平后的平名无法还原会破坏客户端工具匹配，因此实际走 WSv2
+// 分支的 compact 请求也保持 namespace 原样。
 func shouldFlattenOpenAIResponsesNamespaces(
 	account *Account,
 	transport OpenAIUpstreamTransport,
-	passthroughEnabled bool,
 	compactPath bool,
 ) bool {
 	if account == nil || !account.IsOpenAIOAuthLike() {
 		return false
 	}
-	if !compactPath && !account.IsOpenAIResponsesFlattenNamespacesEnabled() {
+	if !compactPath {
 		return false
 	}
-	if transport == OpenAIUpstreamTransportResponsesWebsocketV2 && !passthroughEnabled {
+	if transport == OpenAIUpstreamTransportResponsesWebsocketV2 {
 		return false
 	}
 	return true
@@ -57,11 +55,11 @@ func shouldFlattenOpenAIResponsesNamespaces(
 // shouldStripOpenAIResponsesInputNamespaces removes residual input item
 // namespaces for OpenAI OAuth and API Key HTTP forwarding. Native WSv2 keeps
 // namespaces because that protocol supports them and does not restore payloads.
-func shouldStripOpenAIResponsesInputNamespaces(account *Account, transport OpenAIUpstreamTransport, passthroughEnabled bool) bool {
+func shouldStripOpenAIResponsesInputNamespaces(account *Account, transport OpenAIUpstreamTransport) bool {
 	if account == nil || (!account.IsOpenAIOAuthLike() && !keyUsesOpenAIProtocolFeatures(account)) {
 		return false
 	}
-	if transport == OpenAIUpstreamTransportResponsesWebsocketV2 && !passthroughEnabled {
+	if transport == OpenAIUpstreamTransportResponsesWebsocketV2 {
 		return false
 	}
 	return true
@@ -85,7 +83,6 @@ func shouldStripOpenAIResponsesInputNamespaces(account *Account, transport OpenA
 func shouldKeepOpenAIResponsesToolCallNamespaces(
 	account *Account,
 	transport OpenAIUpstreamTransport,
-	passthroughEnabled bool,
 	compactPath bool,
 	body []byte,
 ) bool {
@@ -101,7 +98,7 @@ func shouldKeepOpenAIResponsesToolCallNamespaces(
 	if !account.IsOpenAIOAuthLike() {
 		return false
 	}
-	return !shouldFlattenOpenAIResponsesNamespaces(account, transport, passthroughEnabled, compactPath)
+	return !shouldFlattenOpenAIResponsesNamespaces(account, transport, compactPath)
 }
 
 func hasOpenAIResponsesNamespaceToolDeclaration(body []byte) bool {

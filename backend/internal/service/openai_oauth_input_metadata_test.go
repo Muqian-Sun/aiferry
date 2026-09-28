@@ -26,8 +26,6 @@ func TestOAuthInputInternalMetadata(t *testing.T) {
 			out, err := json.Marshal(req)
 			return out, result.Modified, err
 		}, true},
-		{"OAuth passthrough", func(b []byte) ([]byte, bool, error) { return normalizeOpenAIPassthroughOAuthBody(b, false) }, true},
-		{"OAuth compact", func(b []byte) ([]byte, bool, error) { return normalizeOpenAIPassthroughOAuthBody(b, true) }, true},
 		{"OAuth websocket", func(b []byte) ([]byte, bool, error) {
 			return normalizeOpenAIResponsesWebSocketCompatibilityBody(b, &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, false)
 		}, true},

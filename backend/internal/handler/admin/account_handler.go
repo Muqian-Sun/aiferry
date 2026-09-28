@@ -114,18 +114,16 @@ type CreateAccountRequest struct {
 	Name  string  `json:"name" binding:"required"`
 	Notes *string `json:"notes"`
 	// Platform 成品号必填（决定授权流程）；第三方 key 可不填，按地址推导（resolveCreateAccountPlatform）。
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials        map[string]any `json:"credentials" binding:"required"`
-	Extra              map[string]any `json:"extra"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	LoadFactor         *int           `json:"load_factor"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled       *bool          `json:"upstream_billing_probe_enabled"`
+	Platform       string         `json:"platform"`
+	Type           string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials    map[string]any `json:"credentials" binding:"required"`
+	Extra          map[string]any `json:"extra"`
+	ProxyID        *int64         `json:"proxy_id"`
+	Concurrency    int            `json:"concurrency"`
+	Priority       int            `json:"priority"`
+	RateMultiplier *float64       `json:"rate_multiplier"`
+	ExpiresAt      *int64         `json:"expires_at"`
+	ProbeEnabled   *bool          `json:"upstream_billing_probe_enabled"`
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
@@ -133,21 +131,19 @@ type CreateAccountRequest struct {
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	Type               string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Concurrency        *int           `json:"concurrency"`
-	Priority           *int           `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	LoadFactor         *int           `json:"load_factor"`
-	Status             string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled       *bool          `json:"upstream_billing_probe_enabled"`
-	RateSyncEnabled    *bool          `json:"upstream_billing_rate_sync_enabled"`
+	Name            string         `json:"name"`
+	Notes           *string        `json:"notes"`
+	Type            string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials     map[string]any `json:"credentials"`
+	Extra           map[string]any `json:"extra"`
+	ProxyID         *int64         `json:"proxy_id"`
+	Concurrency     *int           `json:"concurrency"`
+	Priority        *int           `json:"priority"`
+	RateMultiplier  *float64       `json:"rate_multiplier"`
+	Status          string         `json:"status" binding:"omitempty,oneof=active inactive error"`
+	ExpiresAt       *int64         `json:"expires_at"`
+	ProbeEnabled    *bool          `json:"upstream_billing_probe_enabled"`
+	RateSyncEnabled *bool          `json:"upstream_billing_rate_sync_enabled"`
 	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
 	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
@@ -161,7 +157,6 @@ type BulkUpdateAccountsRequest struct {
 	Concurrency    *int                      `json:"concurrency"`
 	Priority       *int                      `json:"priority"`
 	RateMultiplier *float64                  `json:"rate_multiplier"`
-	LoadFactor     *int                      `json:"load_factor"`
 	Status         string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
 	Schedulable    *bool                     `json:"schedulable"`
 	Credentials    map[string]any            `json:"credentials"`
@@ -184,9 +179,8 @@ type AccountWithConcurrency struct {
 	simpleMode         bool `json:"-"`
 	CurrentConcurrency int  `json:"current_concurrency"`
 	// 以下字段仅对 Anthropic OAuth/SetupToken 账号有效，且仅在启用相应功能时返回
-	CurrentWindowCost *float64 `json:"current_window_cost,omitempty"` // 当前窗口费用
-	ActiveSessions    *int     `json:"active_sessions,omitempty"`     // 当前活跃会话数
-	CurrentRPM        *int     `json:"current_rpm,omitempty"`         // 当前分钟 RPM 计数
+	ActiveSessions *int `json:"active_sessions,omitempty"` // 当前活跃会话数
+	CurrentRPM     *int `json:"current_rpm,omitempty"`     // 当前分钟 RPM 计数
 }
 
 // AccountListItemWithConcurrency is the compact account-list envelope used
@@ -194,10 +188,9 @@ type AccountWithConcurrency struct {
 // so groups/account_groups never appear in the list payload.
 type AccountListItemWithConcurrency struct {
 	*dto.AccountListItem
-	CurrentConcurrency int      `json:"current_concurrency"`
-	CurrentWindowCost  *float64 `json:"current_window_cost,omitempty"`
-	ActiveSessions     *int     `json:"active_sessions,omitempty"`
-	CurrentRPM         *int     `json:"current_rpm,omitempty"`
+	CurrentConcurrency int  `json:"current_concurrency"`
+	ActiveSessions     *int `json:"active_sessions,omitempty"`
+	CurrentRPM         *int `json:"current_rpm,omitempty"`
 }
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
@@ -240,16 +233,8 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 	}
 
 	if account.IsAnthropicOAuthOrSetupToken() {
-		if h.accountUsageService != nil && account.GetWindowCostLimit() > 0 {
-			startTime := account.GetCurrentWindowStartTime()
-			if stats, err := h.accountUsageService.GetAccountWindowStats(ctx, account.ID, startTime); err == nil && stats != nil {
-				cost := stats.StandardCost
-				item.CurrentWindowCost = &cost
-			}
-		}
-
 		if h.sessionLimitCache != nil && account.GetMaxSessions() > 0 {
-			idleTimeout := time.Duration(account.GetSessionIdleTimeoutMinutes()) * time.Minute
+			idleTimeout := time.Duration(service.SessionIdleTimeoutMinutes) * time.Minute
 			idleTimeouts := map[int64]time.Duration{account.ID: idleTimeout}
 			if sessions, err := h.sessionLimitCache.GetActiveSessionCountBatch(ctx, []int64{account.ID}, idleTimeouts); err == nil {
 				if count, ok := sessions[account.ID]; ok {
@@ -311,7 +296,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	concurrencyCounts := make(map[int64]int)
-	var windowCosts map[int64]float64
 	var activeSessions map[int64]int
 	var rpmCounts map[int64]int
 
@@ -322,20 +306,16 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	// 识别需要查询窗口费用、会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
-	windowCostAccountIDs := make([]int64, 0)
+	// 识别需要查询会话数和 RPM 的账号（Anthropic OAuth/SetupToken 且启用了相应功能）
 	sessionLimitAccountIDs := make([]int64, 0)
 	rpmAccountIDs := make([]int64, 0)
 	sessionIdleTimeouts := make(map[int64]time.Duration) // 各账号的会话空闲超时配置
 	for i := range accounts {
 		acc := &accounts[i]
 		if acc.IsAnthropicOAuthOrSetupToken() {
-			if acc.GetWindowCostLimit() > 0 {
-				windowCostAccountIDs = append(windowCostAccountIDs, acc.ID)
-			}
 			if acc.GetMaxSessions() > 0 {
 				sessionLimitAccountIDs = append(sessionLimitAccountIDs, acc.ID)
-				sessionIdleTimeouts[acc.ID] = time.Duration(acc.GetSessionIdleTimeoutMinutes()) * time.Minute
+				sessionIdleTimeouts[acc.ID] = time.Duration(service.SessionIdleTimeoutMinutes) * time.Minute
 			}
 			if acc.GetBaseRPM() > 0 {
 				rpmAccountIDs = append(rpmAccountIDs, acc.ID)
@@ -359,34 +339,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	// 始终获取窗口费用（PostgreSQL 聚合查询）
-	if len(windowCostAccountIDs) > 0 {
-		windowCosts = make(map[int64]float64)
-		var mu sync.Mutex
-		g, gctx := errgroup.WithContext(c.Request.Context())
-		g.SetLimit(10) // 限制并发数
-
-		for i := range accounts {
-			acc := &accounts[i]
-			if !acc.IsAnthropicOAuthOrSetupToken() || acc.GetWindowCostLimit() <= 0 {
-				continue
-			}
-			accCopy := acc // 闭包捕获
-			g.Go(func() error {
-				// 使用统一的窗口开始时间计算逻辑（考虑窗口过期情况）
-				startTime := accCopy.GetCurrentWindowStartTime()
-				stats, err := h.accountUsageService.GetAccountWindowStats(gctx, accCopy.ID, startTime)
-				if err == nil && stats != nil {
-					mu.Lock()
-					windowCosts[accCopy.ID] = stats.StandardCost // 使用标准费用
-					mu.Unlock()
-				}
-				return nil // 不返回错误，允许部分失败
-			})
-		}
-		_ = g.Wait()
-	}
-
 	// Build response with concurrency info
 	result := make([]AccountWithConcurrency, len(accounts))
 	for i := range accounts {
@@ -399,13 +351,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 			Account:            accountResponse,
 			simpleMode:         h.isSimpleMode(),
 			CurrentConcurrency: concurrencyCounts[acc.ID],
-		}
-
-		// 添加窗口费用（仅当启用时）
-		if windowCosts != nil {
-			if cost, ok := windowCosts[acc.ID]; ok {
-				item.CurrentWindowCost = &cost
-			}
 		}
 
 		// 添加活跃会话数（仅当启用时）
@@ -434,7 +379,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 			compact[i] = AccountListItemWithConcurrency{
 				AccountListItem:    dto.AccountListItemFromAccount(item.Account),
 				CurrentConcurrency: item.CurrentConcurrency,
-				CurrentWindowCost:  item.CurrentWindowCost,
 				ActiveSessions:     item.ActiveSessions,
 				CurrentRPM:         item.CurrentRPM,
 			}
@@ -558,10 +502,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 
 	// 确定是否跳过混合渠道检查
 
@@ -571,21 +511,19 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:               req.Name,
-			Notes:              req.Notes,
-			Platform:           req.Platform,
-			Type:               req.Type,
-			Credentials:        req.Credentials,
-			Extra:              req.Extra,
-			ProxyID:            req.ProxyID,
-			Concurrency:        req.Concurrency,
-			Priority:           req.Priority,
-			RateMultiplier:     req.RateMultiplier,
-			LoadFactor:         req.LoadFactor,
-			ExpiresAt:          req.ExpiresAt,
-			AutoPauseOnExpired: req.AutoPauseOnExpired,
-			ProbeEnabled:       req.ProbeEnabled,
-			ProtocolEndpoints:  req.ProtocolEndpoints,
+			Name:              req.Name,
+			Notes:             req.Notes,
+			Platform:          req.Platform,
+			Type:              req.Type,
+			Credentials:       req.Credentials,
+			Extra:             req.Extra,
+			ProxyID:           req.ProxyID,
+			Concurrency:       req.Concurrency,
+			Priority:          req.Priority,
+			RateMultiplier:    req.RateMultiplier,
+			ExpiresAt:         req.ExpiresAt,
+			ProbeEnabled:      req.ProbeEnabled,
+			ProtocolEndpoints: req.ProtocolEndpoints,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -680,30 +618,24 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 
 	// 确定是否跳过混合渠道检查
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
-		Name:               req.Name,
-		Notes:              req.Notes,
-		Type:               req.Type,
-		Credentials:        req.Credentials,
-		Extra:              req.Extra,
-		ProxyID:            req.ProxyID,
-		Concurrency:        req.Concurrency, // 指针类型，nil 表示未提供
-		Priority:           req.Priority,    // 指针类型，nil 表示未提供
-		RateMultiplier:     req.RateMultiplier,
-		LoadFactor:         req.LoadFactor,
-		Status:             req.Status,
-		ExpiresAt:          req.ExpiresAt,
-		AutoPauseOnExpired: req.AutoPauseOnExpired,
-		ProbeEnabled:       req.ProbeEnabled,
-		RateSyncEnabled:    req.RateSyncEnabled,
-		ProtocolEndpoints:  req.ProtocolEndpoints,
+		Name:              req.Name,
+		Notes:             req.Notes,
+		Type:              req.Type,
+		Credentials:       req.Credentials,
+		Extra:             req.Extra,
+		ProxyID:           req.ProxyID,
+		Concurrency:       req.Concurrency, // 指针类型，nil 表示未提供
+		Priority:          req.Priority,    // 指针类型，nil 表示未提供
+		RateMultiplier:    req.RateMultiplier,
+		Status:            req.Status,
+		ExpiresAt:         req.ExpiresAt,
+		ProbeEnabled:      req.ProbeEnabled,
+		RateSyncEnabled:   req.RateSyncEnabled,
+		ProtocolEndpoints: req.ProtocolEndpoints,
 	})
 	if err != nil {
 
@@ -990,7 +922,7 @@ type ApplyOAuthCredentialsRequest struct {
 // 与通用 PUT /:id (Update) 接口的关键区别：
 //   - 仅接收 type / credentials / extra 三个字段（不接受 concurrency / rpm / quota_* 等可能误传的字段）
 //   - Extra 走 UpdateAccountExtra(JSONB key 级合并)，**绝不**全量覆盖；
-//     避免 base_rpm / window_cost_limit / max_sessions / quota_* / privacy_mode
+//     避免 base_rpm / max_sessions / quota_* / privacy_mode
 //     等持久化配置在重新授权后丢失
 //   - 内置 ClearError + InvalidateToken，避免前端额外两次调用，
 //     并修复旧路径未失效 token 缓存导致重新授权后立即 401 的隐性 bug
@@ -1022,11 +954,6 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		response.ErrorFrom(c, infraerrors.BadRequest("NOT_OAUTH", "cannot apply oauth credentials to non-OAuth account"))
 		return
 	}
-	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-
 	// Drop SSO/password residue; re-auth must leave only OAuth tokens on disk.
 	req.Credentials = service.SanitizeStoredCredentials(existing.Platform, req.Credentials)
 
@@ -1039,7 +966,7 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		return
 	}
 
-	// 增量合并 Extra（JSONB key 级 merge，绝不覆盖 base_rpm / window_cost_limit /
+	// 增量合并 Extra（JSONB key 级 merge，绝不覆盖 base_rpm /
 	// max_sessions / quota_* / privacy_mode 等持久化键）。
 	// best-effort：失败仅记日志；下方 ClearAccountError 会从 DB 重新读取最新 account，
 	// 因此响应里的 extra 始终以 DB 为准——这里不需要手动维护内存快照。
@@ -1493,29 +1420,19 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 
 			// base_rpm 输入校验：负值归零，超过 10000 截断
 			sanitizeExtraBaseRPM(item.Extra)
-			if err := service.ValidateUpstreamRequestIDHeaderExtra(item.Extra); err != nil {
-				failed++
-				results = append(results, gin.H{
-					"name":    item.Name,
-					"success": false,
-					"error":   err.Error(),
-				})
-				continue
-			}
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-				Name:               item.Name,
-				Notes:              item.Notes,
-				Platform:           item.Platform,
-				Type:               item.Type,
-				Credentials:        item.Credentials,
-				Extra:              item.Extra,
-				ProxyID:            item.ProxyID,
-				Concurrency:        item.Concurrency,
-				Priority:           item.Priority,
-				RateMultiplier:     item.RateMultiplier,
-				ExpiresAt:          item.ExpiresAt,
-				AutoPauseOnExpired: item.AutoPauseOnExpired,
+				Name:           item.Name,
+				Notes:          item.Notes,
+				Platform:       item.Platform,
+				Type:           item.Type,
+				Credentials:    item.Credentials,
+				Extra:          item.Extra,
+				ProxyID:        item.ProxyID,
+				Concurrency:    item.Concurrency,
+				Priority:       item.Priority,
+				RateMultiplier: item.RateMultiplier,
+				ExpiresAt:      item.ExpiresAt,
 			})
 			if err != nil {
 				failed++
@@ -1690,19 +1607,12 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
-	if err := service.ValidateUpstreamRequestIDHeaderExtra(req.Extra); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-
-	// 确定是否跳过混合渠道检查
 
 	hasUpdates := req.Name != "" ||
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
 		req.Priority != nil ||
 		req.RateMultiplier != nil ||
-		req.LoadFactor != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
 		len(req.Credentials) > 0 ||
@@ -1722,7 +1632,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Concurrency:    req.Concurrency,
 		Priority:       req.Priority,
 		RateMultiplier: req.RateMultiplier,
-		LoadFactor:     req.LoadFactor,
 		Status:         req.Status,
 		Schedulable:    req.Schedulable,
 		Credentials:    req.Credentials,
@@ -2172,11 +2081,6 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 				response.Success(c, models)
 				return
 			}
-		}
-		// OpenAI 自动透传会绕过常规模型改写，测试/模型列表也应回落到默认模型集。
-		if account.IsOpenAIPassthroughEnabled() {
-			response.Success(c, openai.DefaultModels)
-			return
 		}
 
 		mapping := account.GetModelMapping()

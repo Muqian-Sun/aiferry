@@ -22,20 +22,18 @@ import (
 const codexImportClockSkewSeconds int64 = 120
 
 type CodexSessionImportRequest struct {
-	Content            string         `json:"content"`
-	Contents           []string       `json:"contents"`
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	ProxyID            *int64         `json:"proxy_id"`
-	Concurrency        *int           `json:"concurrency"`
-	Priority           *int           `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	LoadFactor         *int           `json:"load_factor"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
-	CredentialExtras   map[string]any `json:"credential_extras"`
-	Extra              map[string]any `json:"extra"`
-	UpdateExisting     *bool          `json:"update_existing"`
+	Content          string         `json:"content"`
+	Contents         []string       `json:"contents"`
+	Name             string         `json:"name"`
+	Notes            *string        `json:"notes"`
+	ProxyID          *int64         `json:"proxy_id"`
+	Concurrency      *int           `json:"concurrency"`
+	Priority         *int           `json:"priority"`
+	RateMultiplier   *float64       `json:"rate_multiplier"`
+	ExpiresAt        *int64         `json:"expires_at"`
+	CredentialExtras map[string]any `json:"credential_extras"`
+	Extra            map[string]any `json:"extra"`
+	UpdateExisting   *bool          `json:"update_existing"`
 }
 
 type CodexSessionImportResult struct {
@@ -130,11 +128,6 @@ func (h *AccountHandler) ImportCodexSession(c *gin.Context) {
 		response.BadRequest(c, "rate_multiplier must be >= 0")
 		return
 	}
-	if req.LoadFactor != nil && *req.LoadFactor > 10000 {
-		response.BadRequest(c, "load_factor must be <= 10000")
-		return
-	}
-
 	entries, err := parseCodexSessionImportEntries(req)
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -193,7 +186,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			continue
 		}
 		accountName := buildCodexCreateAccountName(req.Name, item, entry.Index, len(entries))
-		effectiveExpiresAt, credentialExpiresAt, autoPauseOnExpired, expiryWarnings, expiryErr := resolveCodexImportExpiry(req, item)
+		effectiveExpiresAt, credentialExpiresAt, expiryWarnings, expiryErr := resolveCodexImportExpiry(req, item)
 		if expiryErr != nil {
 			result.Failed++
 			result.Items = append(result.Items, CodexSessionImportItem{
@@ -260,19 +253,16 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 					Message: "已有账号包含 refresh_token，本次 accessToken-only 导入已保留自动续期凭据",
 				})
 				effectiveExpiresAt = nil
-				autoPauseOnExpired = nil
 			}
 			mergedCredentials := mergeCodexImportCredentials(existing.Credentials, credentials, item)
 			mergedExtra := mergeCodexImportMap(existing.Extra, extra)
 			updateInput := &service.UpdateAccountInput{
-				Credentials:        mergedCredentials,
-				Extra:              mergedExtra,
-				Concurrency:        req.Concurrency,
-				Priority:           req.Priority,
-				RateMultiplier:     req.RateMultiplier,
-				LoadFactor:         req.LoadFactor,
-				ExpiresAt:          effectiveExpiresAt,
-				AutoPauseOnExpired: autoPauseOnExpired,
+				Credentials:    mergedCredentials,
+				Extra:          mergedExtra,
+				Concurrency:    req.Concurrency,
+				Priority:       req.Priority,
+				RateMultiplier: req.RateMultiplier,
+				ExpiresAt:      effectiveExpiresAt,
 			}
 			if req.ProxyID != nil {
 				updateInput.ProxyID = req.ProxyID
@@ -312,19 +302,17 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		}
 
 		account, createErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:               accountName,
-			Notes:              req.Notes,
-			Platform:           service.PlatformOpenAI,
-			Type:               service.AccountTypeOAuth,
-			Credentials:        credentials,
-			Extra:              extra,
-			ProxyID:            req.ProxyID,
-			Concurrency:        concurrency,
-			Priority:           priority,
-			RateMultiplier:     req.RateMultiplier,
-			LoadFactor:         req.LoadFactor,
-			ExpiresAt:          effectiveExpiresAt,
-			AutoPauseOnExpired: autoPauseOnExpired,
+			Name:           accountName,
+			Notes:          req.Notes,
+			Platform:       service.PlatformOpenAI,
+			Type:           service.AccountTypeOAuth,
+			Credentials:    credentials,
+			Extra:          extra,
+			ProxyID:        req.ProxyID,
+			Concurrency:    concurrency,
+			Priority:       priority,
+			RateMultiplier: req.RateMultiplier,
+			ExpiresAt:      effectiveExpiresAt,
 		})
 		if createErr != nil {
 			result.Failed++
@@ -751,15 +739,16 @@ func buildCodexCreateAccountName(base string, item *codexImportAccount, index, t
 	return base
 }
 
-func resolveCodexImportExpiry(req CodexSessionImportRequest, item *codexImportAccount) (*int64, *time.Time, *bool, []string, error) {
+// resolveCodexImportExpiry 推导导入账号的过期时间（到期即停调，过期自动暂停写死开）。
+func resolveCodexImportExpiry(req CodexSessionImportRequest, item *codexImportAccount) (*int64, *time.Time, []string, error) {
 	if item == nil {
-		return nil, nil, nil, nil, errors.New("导入项为空")
+		return nil, nil, nil, errors.New("导入项为空")
 	}
 	// Agent Identity has no OAuth access-token lifetime. Its runtime/task
 	// lifecycle is handled by the upstream task recovery path, so it must not
 	// be rejected or auto-paused by the OAuth import expiry policy.
 	if item.IsAgentIdentity {
-		return nil, nil, nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	var requestExpiresAt *time.Time
@@ -782,18 +771,14 @@ func resolveCodexImportExpiry(req CodexSessionImportRequest, item *codexImportAc
 			credentialExpiresAt = earlierCodexTime(credentialExpiresAt, requestExpiresAt)
 		}
 		if accountExpiresAt == nil {
-			return nil, nil, nil, nil, errors.New("未包含 refresh_token，且无法解析 accessToken 过期时间；请在第一步设置过期时间后再导入")
+			return nil, nil, nil, errors.New("未包含 refresh_token，且无法解析 accessToken 过期时间；请在第一步设置过期时间后再导入")
 		}
 		if accountExpiresAt.Unix() <= time.Now().UTC().Unix()-codexImportClockSkewSeconds {
-			return nil, nil, nil, nil, fmt.Errorf("过期时间已过期: %s", accountExpiresAt.Format(time.RFC3339))
+			return nil, nil, nil, fmt.Errorf("过期时间已过期: %s", accountExpiresAt.Format(time.RFC3339))
 		}
 		warnings = append(warnings, "未包含 refresh_token，已按 accessToken/账号过期时间设置自动停止调度")
-		if req.AutoPauseOnExpired != nil && !*req.AutoPauseOnExpired {
-			warnings = append(warnings, "未包含 refresh_token，已强制开启过期自动暂停")
-		}
-		autoPause := true
 		expiresAtUnix := accountExpiresAt.Unix()
-		return &expiresAtUnix, credentialExpiresAt, &autoPause, warnings, nil
+		return &expiresAtUnix, credentialExpiresAt, warnings, nil
 	}
 
 	if requestExpiresAt != nil {
@@ -808,7 +793,7 @@ func resolveCodexImportExpiry(req CodexSessionImportRequest, item *codexImportAc
 		v := accountExpiresAt.Unix()
 		expiresAtUnix = &v
 	}
-	return expiresAtUnix, credentialExpiresAt, req.AutoPauseOnExpired, warnings, nil
+	return expiresAtUnix, credentialExpiresAt, warnings, nil
 }
 
 func earlierCodexTime(current, candidate *time.Time) *time.Time {

@@ -31,115 +31,6 @@
         </p>
       </div>
 
-      <!-- OpenAI passthrough：OpenAI 成品号；第三方 key 要求每个都配了 responses / chat_completions 地址，不看平台标签 -->
-      <div
-        v-if="allOpenAIResponsesSettingsCapable"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex-1 pr-4">
-            <label
-              id="bulk-edit-openai-passthrough-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-passthrough-enabled"
-            >
-              {{ t('admin.accounts.openai.oauthPassthrough') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
-            </p>
-            <p
-              v-if="targetSelectedTypes.includes('apikey')"
-              data-testid="bulk-edit-openai-key-protocol-hint"
-              class="mt-1 text-xs text-af-warning"
-            >
-              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAIPassthrough"
-            id="bulk-edit-openai-passthrough-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-passthrough-body"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-passthrough-body"
-          :class="!enableOpenAIPassthrough && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-openai-passthrough-label"
-        >
-          <button
-            id="bulk-edit-openai-passthrough-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-            @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
-      <div
-        v-if="allOpenAIOAuthOnly"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex-1 pr-4">
-            <label
-              id="bulk-edit-openai-flatten-namespaces-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-flatten-namespaces-enabled"
-            >
-              {{ t('admin.accounts.openai.flattenNamespaces') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAIFlattenNamespaces"
-            id="bulk-edit-openai-flatten-namespaces-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-flatten-namespaces-body"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-flatten-namespaces-body"
-          :class="!enableOpenAIFlattenNamespaces && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-openai-flatten-namespaces-label"
-        >
-          <button
-            id="bulk-edit-openai-flatten-namespaces-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
       <!-- 模型改名（映射只改名，muqian 2026-09-25 去掉白名单） -->
       <div class="border-t border-af-hairline pt-4">
         <div class="mb-3 flex items-center justify-between">
@@ -165,119 +56,11 @@
           role="group"
           aria-labelledby="bulk-edit-model-restriction-label"
         >
-          <div
-            v-if="isOpenAIModelRestrictionDisabled"
-            class="rounded-lg bg-af-warning-tint p-3"
-          >
-            <p class="text-xs text-af-warning">
-              {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
-            </p>
-          </div>
-
           <ModelRenameEditor
-            v-else
             v-model="modelMappings"
             :show-title="false"
             :presets="renamePresets"
           />
-        </div>
-      </div>
-
-      <!-- Custom error codes -->
-      <div class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label
-              id="bulk-edit-custom-error-codes-label"
-              class="input-label mb-0"
-              for="bulk-edit-custom-error-codes-enabled"
-            >
-              {{ t('admin.accounts.customErrorCodes') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.customErrorCodesHint') }}
-            </p>
-          </div>
-          <input
-            v-model="enableCustomErrorCodes"
-            id="bulk-edit-custom-error-codes-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-custom-error-codes-body"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-
-        <div v-if="enableCustomErrorCodes" id="bulk-edit-custom-error-codes-body" class="space-y-3">
-          <div class="rounded-lg bg-af-warning-tint p-3">
-            <p class="text-xs text-af-warning">
-              <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.customErrorCodesWarning') }}
-            </p>
-          </div>
-
-          <!-- Error Code Buttons -->
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="code in commonErrorCodes"
-              :key="code.value"
-              type="button"
-              :class="[
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                selectedErrorCodes.includes(code.value)
-                  ? 'bg-af-danger-tint text-af-danger ring-1 ring-af-danger'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-              @click="toggleErrorCode(code.value)"
-            >
-              {{ code.value }} {{ code.label }}
-            </button>
-          </div>
-
-          <!-- Manual input -->
-          <div class="flex items-center gap-2">
-            <input
-              v-model="customErrorCodeInput"
-              id="bulk-edit-custom-error-code-input"
-              type="number"
-              min="100"
-              max="599"
-              class="input flex-1"
-              :placeholder="t('admin.accounts.enterErrorCode')"
-              aria-labelledby="bulk-edit-custom-error-codes-label"
-              @keyup.enter="addCustomErrorCode"
-            />
-            <button type="button" class="btn btn-secondary px-3" @click="addCustomErrorCode">
-              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Selected codes summary -->
-          <div class="flex flex-wrap gap-1.5">
-            <span
-              v-for="code in selectedErrorCodes.sort((a, b) => a - b)"
-              :key="code"
-              class="inline-flex items-center gap-1 rounded-full bg-af-danger-tint px-2.5 py-0.5 text-sm font-medium text-af-danger"
-            >
-              {{ code }}
-              <button
-                type="button"
-                class="hover:text-af-danger"
-                @click="removeErrorCode(code)"
-              >
-                <Icon name="x" size="xs" class="h-3.5 w-3.5" :stroke-width="2" />
-              </button>
-            </span>
-            <span v-if="selectedErrorCodes.length === 0" class="text-xs text-af-ink-3">
-              {{ t('admin.accounts.noneSelectedUsesDefault') }}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -414,7 +197,7 @@
       </div>
 
       <!-- Concurrency & Priority -->
-      <div class="grid grid-cols-2 gap-4 border-t border-af-hairline pt-4 lg:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 border-t border-af-hairline pt-4 lg:grid-cols-3">
         <div>
           <div class="mb-3 flex items-center justify-between">
             <label
@@ -443,36 +226,6 @@
             aria-labelledby="bulk-edit-concurrency-label"
             @input="concurrency = Math.max(1, concurrency || 1)"
           />
-        </div>
-        <div>
-          <div class="mb-3 flex items-center justify-between">
-            <label
-              id="bulk-edit-load-factor-label"
-              class="input-label mb-0"
-              for="bulk-edit-load-factor-enabled"
-            >
-              {{ t('admin.accounts.loadFactor') }}
-            </label>
-            <input
-              v-model="enableLoadFactor"
-              id="bulk-edit-load-factor-enabled"
-              type="checkbox"
-              aria-controls="bulk-edit-load-factor"
-              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-          </div>
-          <input
-            v-model.number="loadFactor"
-            id="bulk-edit-load-factor"
-            type="number"
-            min="1"
-            :disabled="!enableLoadFactor"
-            class="input"
-            :class="!enableLoadFactor && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-load-factor-label"
-            @input="loadFactor = (loadFactor &amp;&amp; loadFactor >= 1) ? loadFactor : null"
-          />
-          <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
         </div>
         <div>
           <div class="mb-3 flex items-center justify-between">
@@ -569,150 +322,6 @@
         </div>
       </div>
 
-      <!-- OpenAI OAuth WS mode -->
-      <div v-if="allOpenAIOAuth" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-openai-ws-mode-label"
-            class="input-label mb-0"
-            for="bulk-edit-openai-ws-mode-enabled"
-          >
-            {{ t('admin.accounts.openai.wsMode') }}
-          </label>
-          <input
-            v-model="enableOpenAIWSMode"
-            id="bulk-edit-openai-ws-mode-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-ws-mode"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-ws-mode"
-          :class="!enableOpenAIWSMode && 'pointer-events-none opacity-50'"
-        >
-          <p class="mb-3 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.wsModeDesc') }}
-          </p>
-          <p v-if="openAIWSModeHintKey" class="mb-3 text-xs text-af-ink-3">
-            {{ t(openAIWSModeHintKey) }}
-          </p>
-          <Select
-            v-model="openaiOAuthResponsesWebSocketV2Mode"
-            data-testid="bulk-edit-openai-ws-mode-select"
-            :options="openAIWSModeOptions"
-            aria-labelledby="bulk-edit-openai-ws-mode-label"
-          />
-        </div>
-      </div>
-
-      <!-- OpenAI OAuth Codex CLI only -->
-      <div v-if="allOpenAIOAuth" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-openai-codex-cli-only-label"
-            class="input-label mb-0"
-            for="bulk-edit-openai-codex-cli-only-enabled"
-          >
-            {{ t('admin.accounts.openai.codexCLIOnly') }}
-          </label>
-          <input
-            v-model="enableCodexCLIOnly"
-            id="bulk-edit-openai-codex-cli-only-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-codex-cli-only"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-codex-cli-only"
-          :class="!enableCodexCLIOnly && 'pointer-events-none opacity-50'"
-        >
-          <p class="mb-3 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
-          </p>
-          <button
-            id="bulk-edit-openai-codex-cli-only-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-            @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- OpenAI OAuth: Codex app-server -->
-      <div v-if="allOpenAIOAuth" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-openai-codex-app-server-label"
-            class="input-label mb-0"
-            for="bulk-edit-openai-codex-app-server-enabled"
-          >
-            {{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}
-          </label>
-          <input
-            v-model="enableCodexCLIOnlyAppServer"
-            id="bulk-edit-openai-codex-app-server-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-codex-app-server"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-codex-app-server"
-          :class="!enableCodexCLIOnlyAppServer && 'pointer-events-none opacity-50'"
-        >
-          <p class="mb-3 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
-          </p>
-          <button
-            id="bulk-edit-openai-codex-app-server-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-            @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
-      <div v-if="allOpenAIOAuth" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-          <input
-            id="bulk-edit-openai-codex-fingerprint-mode-enabled"
-            v-model="enableCodexFingerprintMode"
-            type="checkbox"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div :class="!enableCodexFingerprintMode && 'pointer-events-none opacity-50'">
-          <p class="mb-2 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
-          </p>
-          <Select v-model="codexFingerprintMode" data-testid="bulk-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
-        </div>
-      </div>
-
       <!-- Upstream billing auto probe (any API-key platform) -->
       <div v-if="allBillingProbeCapable" class="border-t border-af-hairline pt-4">
         <div class="mb-3 flex items-center justify-between">
@@ -749,196 +358,6 @@
             :options="upstreamBillingAutoProbeOptions"
             aria-labelledby="bulk-edit-upstream-billing-auto-probe-label"
           />
-        </div>
-      </div>
-
-      <!-- OpenAI API Key endpoint capabilities -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between gap-4">
-          <div class="flex-1">
-            <label
-              id="bulk-edit-openai-endpoint-capabilities-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-endpoint-capabilities-enabled"
-            >
-              {{ t('admin.accounts.openai.endpointCapabilities') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAIEndpointCapabilities"
-            id="bulk-edit-openai-endpoint-capabilities-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-endpoint-capabilities-body"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-endpoint-capabilities-body"
-          :class="!enableOpenAIEndpointCapabilities && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-openai-endpoint-capabilities-label"
-        >
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
-              v-for="option in openAIEndpointCapabilityOptions"
-              :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-af-hairline px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                :disabled="!enableOpenAIEndpointCapabilities"
-                class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                :data-testid="`bulk-edit-openai-endpoint-capability-${option.value}`"
-                :checked="openAIEndpointCapabilities.includes(option.value)"
-                @change="toggleOpenAIEndpointCapability(option.value, $event)"
-              />
-              <span class="text-af-ink-2">{{ option.label }}</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- 第三方 key 的 WS mode：每个 key 都配了 responses / chat_completions 地址，不看平台标签 -->
-      <div v-if="allKeysOpenAIResponsesSettingsCapable" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-openai-apikey-ws-mode-label"
-            class="input-label mb-0"
-            for="bulk-edit-openai-apikey-ws-mode-enabled"
-          >
-            {{ t('admin.accounts.openai.wsMode') }}
-          </label>
-          <input
-            v-model="enableOpenAIAPIKeyWSMode"
-            id="bulk-edit-openai-apikey-ws-mode-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-apikey-ws-mode"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-apikey-ws-mode"
-          :class="!enableOpenAIAPIKeyWSMode && 'pointer-events-none opacity-50'"
-        >
-          <p class="mb-3 text-xs text-af-ink-3">
-            {{ t('admin.accounts.openai.wsModeDesc') }}
-          </p>
-          <p v-if="openAIAPIKeyWSModeHintKey" class="mb-3 text-xs text-af-ink-3">
-            {{ t(openAIAPIKeyWSModeHintKey) }}
-          </p>
-          <Select
-            v-model="openaiAPIKeyResponsesWebSocketV2Mode"
-            data-testid="bulk-edit-openai-apikey-ws-mode-select"
-            :options="openAIWSModeOptions"
-            aria-labelledby="bulk-edit-openai-apikey-ws-mode-label"
-          />
-        </div>
-      </div>
-
-      <!-- OpenAI Compact mode（展示条件同自动透传） -->
-      <div v-if="allOpenAIResponsesSettingsCapable" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex-1 pr-4">
-            <label
-              id="bulk-edit-openai-compact-mode-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-compact-mode-enabled"
-            >
-              {{ t('admin.accounts.openai.compactMode') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.compactModeDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAICompactMode"
-            id="bulk-edit-openai-compact-mode-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-compact-mode"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-compact-mode"
-          :class="!enableOpenAICompactMode && 'pointer-events-none opacity-50'"
-        >
-          <Select
-            v-model="openAICompactMode"
-            data-testid="bulk-edit-openai-compact-mode-select"
-            :options="openAICompactModeOptions"
-            aria-labelledby="bulk-edit-openai-compact-mode-label"
-          />
-        </div>
-      </div>
-
-      <!-- OpenAI Compact model mapping（展示条件同自动透传） -->
-      <div v-if="allOpenAIResponsesSettingsCapable" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex-1 pr-4">
-            <label
-              id="bulk-edit-openai-compact-model-mapping-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-compact-model-mapping-enabled"
-            >
-              {{ t('admin.accounts.openai.compactModelMapping') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.openai.compactModelMappingDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAICompactModelMapping"
-            id="bulk-edit-openai-compact-model-mapping-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-compact-model-mapping"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-compact-model-mapping"
-          :class="!enableOpenAICompactModelMapping && 'pointer-events-none opacity-50'"
-        >
-          <div v-if="openAICompactModelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in openAICompactModelMappings"
-              :key="index"
-              class="flex items-center gap-2"
-            >
-              <input
-                v-model="mapping.from"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.fromModel')"
-                data-testid="bulk-edit-openai-compact-model-mapping-input"
-              />
-              <span class="text-af-ink-3">→</span>
-              <input
-                v-model="mapping.to"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.toModel')"
-                data-testid="bulk-edit-openai-compact-model-mapping-input"
-              />
-              <button
-                type="button"
-                class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                @click="removeOpenAICompactModelMapping(index)"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </div>
-          <button
-            type="button"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-            data-testid="bulk-edit-openai-compact-model-mapping-add"
-            @click="addOpenAICompactModelMapping"
-          >
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
         </div>
       </div>
 
@@ -1000,70 +419,6 @@
               />
               <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
             </div>
-
-            <div>
-              <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click="bulkRpmStrategy = 'tiered'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    bulkRpmStrategy === 'tiered'
-                      ? 'bg-af-brand-tint text-af-brand'
-                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                  ]"
-                >
-                  {{ t('admin.accounts.quotaControl.rpmLimit.strategyTiered') }}
-                </button>
-                <button
-                  type="button"
-                  @click="bulkRpmStrategy = 'sticky_exempt'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    bulkRpmStrategy === 'sticky_exempt'
-                      ? 'bg-af-brand-tint text-af-brand'
-                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                  ]"
-                >
-                  {{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt') }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="bulkRpmStrategy === 'tiered'">
-              <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
-              <input
-                v-model.number="bulkRpmStickyBuffer"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
-            </div>
-
-            </div>
-          </div>
-
-        <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
-        <div class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
-          <p class="mt-1 text-xs text-af-ink-3 mb-2">
-            {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
-          </p>
-          <div class="flex space-x-2">
-            <button type="button" v-for="opt in umqModeOptions" :key="opt.value"
-              @click="userMsgQueueMode = userMsgQueueMode === opt.value ? null : opt.value"
-              :class="[
-                'px-3 py-1.5 text-sm rounded-md border transition-colors',
-                userMsgQueueMode === opt.value
-                  ? 'bg-af-brand text-af-on-brand border-af-brand'
-                  : 'bg-af-sheet text-af-ink-2 border-af-hairline-strong hover:bg-af-sunken'
-              ]">
-              {{ opt.label }}
-            </button>
           </div>
         </div>
       </div>
@@ -1117,12 +472,8 @@ import { adminAPI } from '@/api/admin'
 import type {
   Proxy as ProxyConfig,
   AccountPlatform,
-  AccountType,
-  OpenAICompactMode,
-  OpenAIEndpointCapability,
-  ProtocolEndpoints
+  AccountType
 } from '@/types'
-import { hasOpenAIEndpoint } from '@/components/account/protocolEndpoints'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -1137,33 +488,20 @@ import {
   buildHeaderOverridesObject,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
-  HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import {
-  OPENAI_WS_MODE_CTX_POOL,
-  OPENAI_WS_MODE_OFF,
-  OPENAI_WS_MODE_PASSTHROUGH,
-  OPENAI_WS_MODE_HTTP_BRIDGE,
-  isOpenAIWSModeEnabled,
-  resolveOpenAIWSModeHintKey
-} from '@/utils/openaiWsMode'
-import type { OpenAIWSMode } from '@/utils/openaiWsMode'
 interface Props {
   show: boolean
   accountIds: number[]
   selectedPlatforms: AccountPlatform[]
   selectedTypes: AccountType[]
-  /** 所选第三方 key 各自的协议地址（每个 key 一项）；key 的协议设置按它判定，不看平台标签。 */
-  selectedKeyEndpoints: ProtocolEndpoints[]
   target?: {
     mode: 'selected' | 'filtered'
     filters?: Record<string, unknown>
     previewCount?: number
     selectedPlatforms?: AccountPlatform[]
     selectedTypes?: AccountType[]
-    selectedKeyEndpoints?: ProtocolEndpoints[]
   }
   proxies: ProxyConfig[]
 }
@@ -1182,58 +520,7 @@ const targetMode = computed(() => props.target?.mode ?? 'selected')
 const targetPreviewCount = computed(() => props.target?.previewCount ?? props.accountIds.length)
 const targetSelectedPlatforms = computed(() => props.target?.selectedPlatforms ?? props.selectedPlatforms)
 const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.selectedTypes)
-const targetSelectedKeyEndpoints = computed(() => props.target?.selectedKeyEndpoints ?? props.selectedKeyEndpoints)
 const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
-
-// 所选第三方 key 都配了 responses / chat_completions 地址
-const allKeysHaveOpenAIEndpoint = computed(() => targetSelectedKeyEndpoints.value.every(hasOpenAIEndpoint))
-
-// OpenAI Responses 协议设置（自动透传、Compact）：成品号仍只认 OpenAI 的 OAuth / Setup Token；
-// 第三方 key 看协议地址，不看平台标签。只有平台 / 类型两个集合时无法逐个配对成品号与 key，
-// 选中里有成品号就要求平台只有 openai（偏保守）。
-const allOpenAIResponsesSettingsCapable = computed(() => {
-  const types = targetSelectedTypes.value
-  if (types.length === 0 || !types.every(t => t === 'oauth' || t === 'setup-token' || t === 'apikey')) {
-    return false
-  }
-  const hasSubscriptions = types.some(t => t !== 'apikey')
-  if (hasSubscriptions && !(targetSelectedPlatforms.value.length === 1 && targetSelectedPlatforms.value[0] === 'openai')) {
-    return false
-  }
-  return allKeysHaveOpenAIEndpoint.value
-})
-
-// 第三方 key 专属的 WS mode：全部是 key，且每个都配了 OpenAI 系协议地址
-const allKeysOpenAIResponsesSettingsCapable = computed(() => {
-  return (
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'apikey') &&
-    allKeysHaveOpenAIEndpoint.value
-  )
-})
-
-const allOpenAIOAuth = computed(() => {
-  return (
-    targetSelectedPlatforms.value.length === 1 &&
-    targetSelectedPlatforms.value[0] === 'openai' &&
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'oauth' || t === 'setup-token')
-  )
-})
-
-// 严格 OAuth（不含 setup-token）：namespace 摊平兼容开关只对 OAuth 账号生效
-const allOpenAIOAuthOnly = computed(() => {
-  return (
-    targetSelectedPlatforms.value.length === 1 &&
-    targetSelectedPlatforms.value[0] === 'openai' &&
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'oauth')
-  )
-})
-
-// 端点能力是第三方 key 专属设置：全部是 key，且每个都配了 OpenAI 系协议地址，不看平台标签
-// （后端批量校验同规则）。
-const allOpenAIAPIKey = computed(() => allKeysOpenAIResponsesSettingsCapable.value)
 
 // 上游倍率自动探测已放宽到全部 API-key 平台：只要求所选类型全为 apikey，
 // 平台不限（sub2api 上游即可应答 /v1/sub2api/billing）。
@@ -1291,85 +578,31 @@ interface ModelMapping {
 
 // State - field enable flags
 const enableModelRestriction = ref(false)
-const enableCustomErrorCodes = ref(false)
 const enableInterceptWarmup = ref(false)
 const enableHeaderOverride = ref(false)
 const enableProxy = ref(false)
 const enableConcurrency = ref(false)
-const enableLoadFactor = ref(false)
 const enablePriority = ref(false)
 const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
-const enableOpenAIPassthrough = ref(false)
-const enableOpenAIFlattenNamespaces = ref(false)
-const enableOpenAIEndpointCapabilities = ref(false)
-const enableOpenAIWSMode = ref(false)
-const enableOpenAIAPIKeyWSMode = ref(false)
 const enableUpstreamBillingAutoProbe = ref(false)
-const enableCodexCLIOnly = ref(false)
-const enableCodexCLIOnlyAppServer = ref(false)
-const enableOpenAICompactMode = ref(false)
-const enableOpenAICompactModelMapping = ref(false)
 const enableRpmLimit = ref(false)
 
 // State - field values
 const submitting = ref(false)
 const modelMappings = ref<ModelMapping[]>([])
-const selectedErrorCodes = ref<number[]>([])
-const customErrorCodeInput = ref<number | null>(null)
 const interceptWarmupRequests = ref(false)
+// 请求头覆写：覆写表里有条目就生效（渠道级开关已删）。开 = 用下方条目整表替换，关 = 清空所选渠道的覆写表
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const proxyId = ref<number | null>(null)
 const concurrency = ref(1)
-const loadFactor = ref<number | null>(null)
 const priority = ref(1)
 const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
-const openaiPassthroughEnabled = ref(false)
-// Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
-const openaiFlattenNamespacesEnabled = ref(false)
-const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>([
-  'chat_completions',
-  'embeddings'
-])
-const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
-const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
-const codexCLIOnlyEnabled = ref(false)
-const codexCLIOnlyAppServerEnabled = ref(false)
-type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
-const enableCodexFingerprintMode = ref(false)
-const codexFingerprintMode = ref<CodexFingerprintMode>('off')
-const codexFingerprintModeOptions = computed(() => [
-  { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
-  { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
-  { value: 'session' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintSession') },
-  { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
-])
-const openAICompactMode = ref<OpenAICompactMode>('auto')
-const openAICompactModelMappings = ref<ModelMapping[]>([])
 const rpmLimitEnabled = ref(false)
 const bulkBaseRpm = ref<number | null>(null)
-const bulkRpmStrategy = ref<'tiered' | 'sticky_exempt'>('tiered')
-const bulkRpmStickyBuffer = ref<number | null>(null)
-const userMsgQueueMode = ref<string | null>(null)
-const umqModeOptions = computed(() => [
-  { value: '', label: t('admin.accounts.quotaControl.rpmLimit.umqModeOff') },
-  { value: 'throttle', label: t('admin.accounts.quotaControl.rpmLimit.umqModeThrottle') },
-  { value: 'serialize', label: t('admin.accounts.quotaControl.rpmLimit.umqModeSerialize') },
-])
-
-// Common HTTP error codes
-const commonErrorCodes = [
-  { value: 401, label: 'Unauthorized' },
-  { value: 403, label: 'Forbidden' },
-  { value: 429, label: 'Rate Limit' },
-  { value: 500, label: 'Server Error' },
-  { value: 502, label: 'Bad Gateway' },
-  { value: 503, label: 'Unavailable' },
-  { value: 529, label: 'Overloaded' }
-]
 
 const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
@@ -1379,138 +612,15 @@ const upstreamBillingAutoProbeOptions = computed(() => [
   { value: 'enabled', label: t('common.enabled') },
   { value: 'disabled', label: t('common.disabled') }
 ])
-const isOpenAIModelRestrictionDisabled = computed(
-  () =>
-    allOpenAIResponsesSettingsCapable.value &&
-    enableOpenAIPassthrough.value &&
-    openaiPassthroughEnabled.value
-)
-
-const openAIWSModeOptions = computed(() => [
-  { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
-  { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
-  { value: OPENAI_WS_MODE_PASSTHROUGH, label: t('admin.accounts.openai.wsModePassthrough') },
-  { value: OPENAI_WS_MODE_HTTP_BRIDGE, label: t('admin.accounts.openai.wsModeHttpBridge') }
-])
-const openAICompactModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.compactModeAuto') },
-  { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
-  { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
-])
-const openAIEndpointCapabilityOptions = computed<
-  Array<{ value: OpenAIEndpointCapability; label: string }>
->(() => [
-  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
-  { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
-])
-
-const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
-  const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
-  const selected = allowed.filter((value) => values.includes(value))
-  return selected.length > 0 ? selected : allowed
-}
-
-const toggleOpenAIEndpointCapability = (
-  capability: OpenAIEndpointCapability,
-  event?: Event
-) => {
-  if (openAIEndpointCapabilities.value.includes(capability)) {
-    if (openAIEndpointCapabilities.value.length <= 1) {
-      const input = event?.target as HTMLInputElement | null
-      if (input) input.checked = true
-      return
-    }
-    openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
-      (value) => value !== capability
-    )
-    return
-  }
-  openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
-    ...openAIEndpointCapabilities.value,
-    capability
-  ])
-}
-const openAIWSModeHintKey = computed(() =>
-  resolveOpenAIWSModeHintKey(openaiOAuthResponsesWebSocketV2Mode.value)
-)
-const openAIAPIKeyWSModeHintKey = computed(() =>
-  resolveOpenAIWSModeHintKey(openaiAPIKeyResponsesWebSocketV2Mode.value)
-)
-
-// Model mapping helpers
-const addOpenAICompactModelMapping = () => {
-  openAICompactModelMappings.value.push({ from: '', to: '' })
-}
-
-const removeOpenAICompactModelMapping = (index: number) => {
-  openAICompactModelMappings.value.splice(index, 1)
-}
-
-// Error code helpers
-const toggleErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index === -1) {
-    // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
-    }
-    selectedErrorCodes.value.push(code)
-  } else {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
-
-const addCustomErrorCode = () => {
-  const code = customErrorCodeInput.value
-  if (code === null || code < 100 || code > 599) {
-    appStore.showError(t('admin.accounts.invalidErrorCode'))
-    return
-  }
-  if (selectedErrorCodes.value.includes(code)) {
-    appStore.showInfo(t('admin.accounts.errorCodeExists'))
-    return
-  }
-  // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
-  }
-  selectedErrorCodes.value.push(code)
-  customErrorCodeInput.value = null
-}
-
-const removeErrorCode = (code: number) => {
-  const index = selectedErrorCodes.value.indexOf(code)
-  if (index !== -1) {
-    selectedErrorCodes.value.splice(index, 1)
-  }
-}
 
 const buildModelMappingObject = (): Record<string, string> | null => {
   return buildModelMappingPayload('mapping', [], modelMappings.value)
-}
-
-const buildOpenAICompactModelMapping = (): Record<string, string> | null => {
-  return buildModelMappingPayload('mapping', [], openAICompactModelMappings.value)
 }
 
 const buildUpdatePayload = (): Record<string, unknown> | null => {
   const updates: Record<string, unknown> = {}
   const credentials: Record<string, unknown> = {}
   let credentialsChanged = false
-  const applyOpenAIEndpointCapabilities =
-    enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value
   const ensureExtra = (): Record<string, unknown> => {
     if (!updates.extra) {
       updates.extra = {}
@@ -1527,12 +637,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     updates.concurrency = concurrency.value
   }
 
-  if (enableLoadFactor.value) {
-    // 空值/NaN/0 时发送 0（后端约定 <= 0 表示清除）
-    const lf = loadFactor.value
-    updates.load_factor = (lf != null && !Number.isNaN(lf) && lf > 0) ? lf : 0
-  }
-
   if (enablePriority.value) {
     updates.priority = priority.value
   }
@@ -1545,39 +649,10 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     updates.status = status.value
   }
 
-  // 同时校验可见性：勾选后目标变了、区块已隐藏时不提交（Compact 与 key 的 WS mode 同理）
-  if (enableOpenAIPassthrough.value && allOpenAIResponsesSettingsCapable.value) {
-    const extra = ensureExtra()
-    extra.openai_passthrough = openaiPassthroughEnabled.value
-    if (!openaiPassthroughEnabled.value) {
-      extra.openai_oauth_passthrough = false
-    }
-  }
-
-  // 同时校验可见性：勾选后又改了目标筛选条件时，不应把该键写到非 OAuth 账号上
-  if (enableOpenAIFlattenNamespaces.value && allOpenAIOAuthOnly.value) {
-    const extra = ensureExtra()
-    extra.openai_responses_flatten_namespaces = openaiFlattenNamespacesEnabled.value
-  }
-
-  if (applyOpenAIEndpointCapabilities) {
-    credentials.openai_capabilities =
-      openAIEndpointCapabilities.value.length === 2
-        ? null
-        : [...openAIEndpointCapabilities.value]
-    credentialsChanged = true
-  }
-
-  if (enableModelRestriction.value && !isOpenAIModelRestrictionDisabled.value) {
+  if (enableModelRestriction.value) {
     // 映射只改名：空配置显式发空对象，覆盖各账号已有的映射；批量路径按 JSONB 顶层键合并，标记一并写入
     credentials.model_mapping = buildModelMappingObject() ?? {}
     credentials.model_mapping_rename_only = true
-    credentialsChanged = true
-  }
-
-  if (enableCustomErrorCodes.value) {
-    credentials.custom_error_codes_enabled = true
-    credentials.custom_error_codes = [...selectedErrorCodes.value]
     credentialsChanged = true
   }
 
@@ -1587,106 +662,24 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   }
 
   if (enableHeaderOverride.value) {
-    // 后端使用 JSONB || merge 语义：关闭时显式写入 false + 空对象以清除旧配置
-    credentials[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY] = headerOverrideEnabled.value
+    // 后端使用 JSONB || merge 语义：「关」显式写入空对象，清空各渠道已有的覆写表
     credentials[HEADER_OVERRIDES_CREDENTIAL_KEY] = headerOverrideEnabled.value
       ? buildHeaderOverridesObject(headerOverrideRows.value)
       : {}
     credentialsChanged = true
   }
 
-  if (enableOpenAIWSMode.value) {
-    const extra = ensureExtra()
-    extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
-    extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(
-      openaiOAuthResponsesWebSocketV2Mode.value
-    )
-  }
-
-  if (enableOpenAIAPIKeyWSMode.value && allKeysOpenAIResponsesSettingsCapable.value) {
-    const extra = ensureExtra()
-    extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
-    extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(
-      openaiAPIKeyResponsesWebSocketV2Mode.value
-    )
-  }
-
   if (enableUpstreamBillingAutoProbe.value) {
     updates.upstream_billing_probe_enabled = upstreamBillingAutoProbeMode.value === 'enabled'
   }
 
-  if (enableCodexCLIOnly.value) {
-    const extra = ensureExtra()
-    extra.codex_cli_only = codexCLIOnlyEnabled.value
-  }
-
-  // 子开关从属于 codex_cli_only：仅当同一次批量编辑也把父开关设为开启时才写入，
-  // 与 Create/Edit 语义对齐，避免在父开关关闭的账号上写入无意义的孤立字段。
-  if (
-    enableCodexCLIOnlyAppServer.value &&
-    enableCodexCLIOnly.value &&
-    codexCLIOnlyEnabled.value
-  ) {
-    const extra = ensureExtra()
-    extra.codex_cli_only_allow_app_server = codexCLIOnlyAppServerEnabled.value
-  }
-
-  if (enableCodexFingerprintMode.value) {
-    const extra = ensureExtra()
-    // off 必须显式落键，不能靠删本地键表达。批量更新走 JSONB 顶层合并
-    // （extra = COALESCE(extra,'{}') || payload），删掉 payload 里的键只表示
-    // "本次不更新该键"，清不掉账号上已有的 device/session/full；而且只删不写会让
-    // 整个 payload 退化成 {extra:{}}，被后端 len(req.Extra) > 0 判为空更新直接 400
-    // "No updates provided"（#6327）。
-    //
-    // Create/Edit 那两个表单可以删键，是因为它们提交完整 extra 对象、后端整体
-    // SetExtra 覆盖；批量接口只合并增量键，两种持久化语义不能共用同一套写法。
-    //
-    // 显式 off 与不设置在读取侧完全等价：codexFingerprintModeFromExtra 对空值/
-    // 非法值走 default 回落 off，对 "off" 命中同一分支，所以 #5610 定下的
-    // "不显式 opt-in 就保持旧客户端身份" 不受影响；ShouldEnsureCodexFingerprintSeed-
-    // ForExtraUpdates 同样只在 device/session/full 时要种子，off 不会触发。
-    //
-    // 与本函数里其它"关闭/清除"字段的写法一致：codex_cli_only 直接落 false，
-    // load_factor 落 0，proxy_id 落 0 —— 批量路径一律用显式哨兵值，不用省略。
-    extra.codex_fingerprint_mode = codexFingerprintMode.value
-  }
-
-  if (enableOpenAICompactMode.value && allOpenAIResponsesSettingsCapable.value) {
-    const extra = ensureExtra()
-    extra.openai_compact_mode = openAICompactMode.value
-  }
-
-  if (enableOpenAICompactModelMapping.value && allOpenAIResponsesSettingsCapable.value) {
-    credentials.compact_model_mapping = buildOpenAICompactModelMapping() ?? {}
-    credentialsChanged = true
-  }
-
-  // RPM limit settings (写入 extra 字段)
+  // RPM limit settings (写入 extra 字段；RPM 策略与粘性缓冲写死在后端)
   if (enableRpmLimit.value) {
     const extra = ensureExtra()
-    if (rpmLimitEnabled.value && bulkBaseRpm.value != null && bulkBaseRpm.value > 0) {
-      extra.base_rpm = bulkBaseRpm.value
-      extra.rpm_strategy = bulkRpmStrategy.value
-      if (bulkRpmStickyBuffer.value != null && bulkRpmStickyBuffer.value > 0) {
-        extra.rpm_sticky_buffer = bulkRpmStickyBuffer.value
-      }
-    } else {
-      // 关闭 RPM 限制 - 设置 base_rpm 为 0，并用空值覆盖关联字段
-      // 后端使用 JSONB || merge 语义，不会删除已有 key，
-      // 所以必须显式发送空值来重置（后端读取时会 fallback 到默认值）
-      extra.base_rpm = 0
-      extra.rpm_strategy = ''
-      extra.rpm_sticky_buffer = 0
-    }
-    updates.extra = extra
-  }
-
-  // UMQ mode（独立于 RPM 保存）
-  if (userMsgQueueMode.value !== null) {
-    const umqExtra = ensureExtra()
-    umqExtra.user_msg_queue_mode = userMsgQueueMode.value  // '' = 清除账号级覆盖
-    umqExtra.user_msg_queue_enabled = false  // 清理旧字段（JSONB merge）
+    // 关闭 RPM 限制时显式写 0（后端 JSONB || merge 不会删除已有 key）
+    extra.base_rpm = rpmLimitEnabled.value && bulkBaseRpm.value != null && bulkBaseRpm.value > 0
+      ? bulkBaseRpm.value
+      : 0
   }
 
   if (credentialsChanged) {
@@ -1707,29 +700,16 @@ const handleSubmit = async () => {
   }
 
   const hasAnyFieldEnabled =
-    enableOpenAIPassthrough.value ||
-    enableOpenAIFlattenNamespaces.value ||
-    (enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value) ||
     enableModelRestriction.value ||
-    enableCustomErrorCodes.value ||
     enableInterceptWarmup.value ||
     enableHeaderOverride.value ||
     enableProxy.value ||
     enableConcurrency.value ||
-    enableLoadFactor.value ||
     enablePriority.value ||
     enableRateMultiplier.value ||
     enableStatus.value ||
-    enableOpenAIWSMode.value ||
-    enableOpenAIAPIKeyWSMode.value ||
     enableUpstreamBillingAutoProbe.value ||
-    enableCodexCLIOnly.value ||
-    enableCodexCLIOnlyAppServer.value ||
-    enableCodexFingerprintMode.value ||
-    enableOpenAICompactMode.value ||
-    enableOpenAICompactModelMapping.value ||
-    enableRpmLimit.value ||
-    userMsgQueueMode.value !== null
+    enableRpmLimit.value
 
   if (!hasAnyFieldEnabled) {
     appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
@@ -1805,57 +785,29 @@ watch(
     if (!newShow) {
       // Reset all enable flags
       enableModelRestriction.value = false
-      enableCustomErrorCodes.value = false
       enableInterceptWarmup.value = false
       enableHeaderOverride.value = false
       enableProxy.value = false
       enableConcurrency.value = false
-      enableLoadFactor.value = false
       enablePriority.value = false
       enableRateMultiplier.value = false
       enableStatus.value = false
-      enableOpenAIPassthrough.value = false
-      enableOpenAIFlattenNamespaces.value = false
-      enableOpenAIEndpointCapabilities.value = false
-      enableOpenAIWSMode.value = false
-      enableOpenAIAPIKeyWSMode.value = false
       enableUpstreamBillingAutoProbe.value = false
-      enableCodexCLIOnly.value = false
-      enableCodexCLIOnlyAppServer.value = false
-      enableCodexFingerprintMode.value = false
-      codexFingerprintMode.value = 'off'
-      enableOpenAICompactMode.value = false
-      enableOpenAICompactModelMapping.value = false
       enableRpmLimit.value = false
 
       // Reset all values
-      openaiPassthroughEnabled.value = false
-      openaiFlattenNamespacesEnabled.value = false
-      openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       modelMappings.value = []
-      selectedErrorCodes.value = []
-      customErrorCodeInput.value = null
       interceptWarmupRequests.value = false
       headerOverrideEnabled.value = false
       headerOverrideRows.value = []
       proxyId.value = null
       concurrency.value = 1
-      loadFactor.value = null
       priority.value = 1
       rateMultiplier.value = 1
       status.value = 'active'
-      openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-      openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       upstreamBillingAutoProbeMode.value = 'enabled'
-      codexCLIOnlyEnabled.value = false
-      codexCLIOnlyAppServerEnabled.value = false
-      openAICompactMode.value = 'auto'
-      openAICompactModelMappings.value = []
       rpmLimitEnabled.value = false
       bulkBaseRpm.value = null
-      bulkRpmStrategy.value = 'tiered'
-      bulkRpmStickyBuffer.value = null
-      userMsgQueueMode.value = null
     }
   }
 )

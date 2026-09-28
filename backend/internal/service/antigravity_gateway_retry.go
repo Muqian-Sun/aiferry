@@ -1203,10 +1203,6 @@ func (s *AntigravityGatewayService) handleUpstreamError(
 	requestedModel string,
 	scopeID int64, sessionHash string, isStickySession bool,
 ) *handleModelRateLimitResult {
-	// 遵守自定义错误码策略：未命中则跳过所有限流处理
-	if !account.ShouldHandleErrorCode(statusCode) {
-		return nil
-	}
 	// 模型级限流处理（优先）
 	result := s.handleModelRateLimit(&handleModelRateLimitParams{
 		ctx:             ctx,

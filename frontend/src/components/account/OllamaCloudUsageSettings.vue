@@ -103,23 +103,6 @@
           {{ t('admin.accounts.ollamaCloud.refreshNow') }}
         </button>
       </div>
-
-      <div v-if="state.configured" class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4">
-        <div>
-          <label class="text-sm font-medium text-af-ink">
-            {{ t('admin.accounts.ollamaCloud.autoRefresh') }}
-          </label>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.ollamaCloud.autoRefreshHint') }}
-          </p>
-        </div>
-        <Toggle
-          :model-value="state.auto_refresh_enabled"
-          :disabled="saving"
-          data-testid="ollama-cloud-auto-refresh"
-          @update:model-value="setAutoRefresh"
-        />
-      </div>
     </template>
 
     <ConfirmDialog
@@ -143,7 +126,6 @@ import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import type { Account, OllamaCloudUsageState, OllamaCloudUsageWindow } from '@/types'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const props = defineProps<{ account: Account }>()
@@ -225,17 +207,6 @@ const deleteSession = async () => {
     appStore.showSuccess(t('admin.accounts.ollamaCloud.sessionDeleted'))
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionDeleteFailed')))
-  } finally {
-    saving.value = false
-  }
-}
-
-const setAutoRefresh = async (enabled: boolean) => {
-  saving.value = true
-  try {
-    applyState(await adminAPI.accounts.setOllamaCloudUsageAutoRefresh(props.account.id, enabled))
-  } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.autoRefreshFailed')))
   } finally {
     saving.value = false
   }

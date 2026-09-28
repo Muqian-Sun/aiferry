@@ -12,10 +12,6 @@ type ollamaCloudUsageSessionRequest struct {
 	Session string `json:"session" binding:"required"`
 }
 
-type ollamaCloudUsageAutoRefreshRequest struct {
-	Enabled *bool `json:"enabled" binding:"required"`
-}
-
 func (h *AccountHandler) GetOllamaCloudUsage(c *gin.Context) {
 	if !h.requireOllamaCloudUsage(c) {
 		return
@@ -62,27 +58,6 @@ func (h *AccountHandler) DeleteOllamaCloudUsageSession(c *gin.Context) {
 		return
 	}
 	state, err := h.ollamaCloudUsage.DeleteSession(c.Request.Context(), accountID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, state)
-}
-
-func (h *AccountHandler) SetOllamaCloudUsageAutoRefresh(c *gin.Context) {
-	if !h.requireOllamaCloudUsage(c) {
-		return
-	}
-	accountID, ok := ollamaCloudUsageAccountID(c)
-	if !ok {
-		return
-	}
-	var req ollamaCloudUsageAutoRefreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	state, err := h.ollamaCloudUsage.SetAutoRefresh(c.Request.Context(), accountID, *req.Enabled)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

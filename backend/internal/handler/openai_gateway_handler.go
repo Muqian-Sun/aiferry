@@ -156,7 +156,7 @@ func openAIForwardSucceededForScheduling(result *service.OpenAIForwardResult) bo
 	return result.SucceededForScheduling()
 }
 
-func openAIAccountScheduleModel(c *gin.Context, account *service.Account, forwardModel string, requireCompact bool, result *service.OpenAIForwardResult) string {
+func openAIAccountScheduleModel(c *gin.Context, account *service.Account, forwardModel string, result *service.OpenAIForwardResult) string {
 	if result != nil {
 		if actual := strings.TrimSpace(result.UpstreamModel); actual != "" {
 			return actual
@@ -169,7 +169,7 @@ func openAIAccountScheduleModel(c *gin.Context, account *service.Account, forwar
 			}
 		}
 	}
-	return service.ResolveOpenAIAccountUpstreamModelForRequest(account, forwardModel, requireCompact)
+	return service.ResolveOpenAIAccountUpstreamModelForRequest(account, forwardModel)
 }
 
 func usageRecordContext(parent context.Context, base context.Context) context.Context {
@@ -1219,7 +1219,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			return false
 		}
 		if failoverErr.ShouldReportAccountScheduleFailure() {
-			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, false, nil), false, failoverErr)
+			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, nil), false, failoverErr)
 		}
 		releaseAccountSlot()
 		if !failoverErr.ShouldRetryNextAccount() {
@@ -1697,7 +1697,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				}
 				if waitForWSSameAccountRetry(account, failoverErr) {
 					if failoverErr.ShouldReportAccountScheduleFailure() {
-						h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, false, nil), false, err)
+						h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, nil), false, err)
 					}
 					if !ensureUserSlotHeld() {
 						return
@@ -1754,7 +1754,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			}
 
 			if shouldReportOpenAIWSProxyAccountFailure(err) {
-				h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, false, nil), false, err)
+				h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, wsForwardModel, nil), false, err)
 			}
 			closeStatus, closeReason := summarizeWSCloseErrorForLog(err)
 			proxyFailedFields := []zap.Field{

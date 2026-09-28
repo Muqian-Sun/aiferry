@@ -1,21 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import {
   ANTIGRAVITY_PROJECT_ID_CREDENTIAL_KEY,
-  HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  applyPlanType,
   buildHeaderOverridesObject,
-  buildPlanTypeOptions,
   cnQuotaCellVisible,
-  resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   GROK_BASE_URL_PRESETS,
   parseHeaderOverridesJson,
-  planTypeDisplayLabel,
-  readPlanType,
   serializeHeaderOverrideRows,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows
@@ -100,13 +94,6 @@ describe('applyAntigravityProjectID', () => {
 })
 
 describe('openCodeGo account mode', () => {
-  it('resolves missing OpenCode account_mode as GO and zen as Zen', () => {
-    expect(resolveOpenCodeAccountMode(undefined)).toBe('go')
-    expect(resolveOpenCodeAccountMode('coding')).toBe('go')
-    expect(resolveOpenCodeAccountMode('zen')).toBe('zen')
-    expect(resolveOpenCodeAccountMode('go')).toBe('go')
-  })
-
   it('hides the quota cell for Zen and shows it for GO', () => {
     expect(cnQuotaCellVisible('opencode_go', 'zen')).toBe(false)
     expect(cnQuotaCellVisible('opencode_go', 'go')).toBe(true)
@@ -279,39 +266,36 @@ describe('buildHeaderOverridesObject / splitHeaderOverridesObject', () => {
   })
 })
 
+// 有条目就生效，没有开关（2026-09-28 P5）
 describe('applyHeaderOverride', () => {
-  it('create + enabled: writes enabled flag and overrides object', () => {
+  it('create + rows: writes the overrides object and no enabled flag', () => {
     const creds: Record<string, unknown> = { api_key: 'sk' }
-    applyHeaderOverride(creds, true, [{ name: 'User-Agent', value: 'ua' }], 'create')
-    expect(creds[HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]).toBe(true)
+    applyHeaderOverride(creds, [{ name: 'User-Agent', value: 'ua' }], 'create')
+    expect('header_override_enabled' in creds).toBe(false)
     expect(creds[HEADER_OVERRIDES_CREDENTIAL_KEY]).toEqual({ 'user-agent': 'ua' })
   })
 
-  it('create + disabled: does not add fields', () => {
+  it('create + no rows: does not add fields', () => {
     const creds: Record<string, unknown> = { api_key: 'sk' }
-    applyHeaderOverride(creds, false, [{ name: 'user-agent', value: 'ua' }], 'create')
-    expect(HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY in creds).toBe(false)
+    applyHeaderOverride(creds, [], 'create')
     expect(HEADER_OVERRIDES_CREDENTIAL_KEY in creds).toBe(false)
   })
 
-  it('edit + disabled: deletes existing fields', () => {
+  it('edit + no rows: deletes the existing overrides', () => {
     const creds: Record<string, unknown> = {
       api_key: 'sk',
-      [HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]: true,
       [HEADER_OVERRIDES_CREDENTIAL_KEY]: { 'user-agent': 'ua' }
     }
-    applyHeaderOverride(creds, false, [], 'edit')
-    expect(HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY in creds).toBe(false)
+    applyHeaderOverride(creds, [], 'edit')
     expect(HEADER_OVERRIDES_CREDENTIAL_KEY in creds).toBe(false)
     expect(creds.api_key).toBe('sk')
   })
 
-  it('edit + enabled: replaces overrides object wholesale', () => {
+  it('edit + rows: replaces overrides object wholesale', () => {
     const creds: Record<string, unknown> = {
-      [HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY]: true,
       [HEADER_OVERRIDES_CREDENTIAL_KEY]: { 'x-old': 'old' }
     }
-    applyHeaderOverride(creds, true, [{ name: 'x-new', value: 'new' }], 'edit')
+    applyHeaderOverride(creds, [{ name: 'x-new', value: 'new' }], 'edit')
     expect(creds[HEADER_OVERRIDES_CREDENTIAL_KEY]).toEqual({ 'x-new': 'new' })
   })
 })
@@ -368,133 +352,5 @@ describe('validateHeaderOverrideRows session isolation headers', () => {
 
   it('rejects oversized names', () => {
     expect(validateHeaderOverrideRows([{ name: 'x'.repeat(201), value: 'v' }])).toBe('invalidName')
-  })
-})
-
-describe('plan_type helpers', () => {
-  describe('planTypeDisplayLabel', () => {
-    it('maps canonical + alias values to friendly labels', () => {
-      expect(planTypeDisplayLabel('plus')).toBe('Plus')
-      expect(planTypeDisplayLabel('pro')).toBe('Pro 20x')
-      expect(planTypeDisplayLabel('chatgptpro')).toBe('Pro 20x')
-      expect(planTypeDisplayLabel('prolite')).toBe('Pro 5x')
-      expect(planTypeDisplayLabel('free')).toBe('Free')
-      expect(planTypeDisplayLabel('team')).toBe('Business Standard')
-      expect(planTypeDisplayLabel('self_serve_business_prolite')).toBe('Business Premium')
-    })
-    it('normalizes case, separators and surrounding blanks', () => {
-      expect(planTypeDisplayLabel('CHATGPTPRO')).toBe('Pro 20x')
-      expect(planTypeDisplayLabel('PROLITE')).toBe('Pro 5x')
-      expect(planTypeDisplayLabel('  Pro Lite  ')).toBe('Pro 5x')
-      expect(planTypeDisplayLabel('self-serve-business-pro-lite')).toBe('Business Premium')
-    })
-    it('returns unknown values verbatim', () => {
-      expect(planTypeDisplayLabel('self_serve_business')).toBe('self_serve_business')
-    })
-  })
-
-  describe('readPlanType', () => {
-    it('reads a string plan_type', () => {
-      expect(readPlanType({ plan_type: 'plus' })).toBe('plus')
-    })
-    it('treats non-string / missing values as empty', () => {
-      expect(readPlanType({ plan_type: 42 })).toBe('')
-      expect(readPlanType({ plan_type: true })).toBe('')
-      expect(readPlanType({})).toBe('')
-      expect(readPlanType(undefined)).toBe('')
-      expect(readPlanType(null)).toBe('')
-    })
-  })
-
-  describe('buildPlanTypeOptions', () => {
-    const clear = 'Clear'
-    it('returns clear + presets when current is empty', () => {
-      expect(buildPlanTypeOptions('', clear)).toEqual([
-        { value: '', label: clear },
-        { value: 'plus', label: 'Plus' },
-        { value: 'pro', label: 'Pro 20x' },
-        { value: 'prolite', label: 'Pro 5x' },
-        { value: 'self_serve_business_prolite', label: 'Business Premium' },
-        { value: 'free', label: 'Free' }
-      ])
-    })
-    it('keeps canonical chatgptpro under a single friendly "Pro 20x" option (no duplicate)', () => {
-      const opts = buildPlanTypeOptions('chatgptpro', clear)
-      const pros = opts.filter(o => o.label === 'Pro 20x')
-      expect(pros).toHaveLength(1)
-      expect(pros[0].value).toBe('chatgptpro')
-      expect(opts.map(o => o.value)).toEqual([
-        '',
-        'plus',
-        'chatgptpro',
-        'prolite',
-        'self_serve_business_prolite',
-        'free'
-      ])
-    })
-    it('appends an unknown-but-labeled value (team) as its own option', () => {
-      const opts = buildPlanTypeOptions('team', clear)
-      expect(opts.find(o => o.value === 'team')).toEqual({ value: 'team', label: 'Business Standard' })
-      // presets untouched
-      expect(opts.map(o => o.value)).toEqual([
-        '',
-        'plus',
-        'pro',
-        'prolite',
-        'self_serve_business_prolite',
-        'free',
-        'team'
-      ])
-    })
-    it('appends a fully custom value with a raw label', () => {
-      const opts = buildPlanTypeOptions('weird_x', clear)
-      expect(opts.at(-1)).toEqual({ value: 'weird_x', label: 'weird_x' })
-    })
-    it('does not duplicate an exact preset value', () => {
-      const opts = buildPlanTypeOptions('pro', clear)
-      expect(opts.filter(o => o.value === 'pro')).toHaveLength(1)
-      expect(opts.map(o => o.value)).toEqual([
-        '',
-        'plus',
-        'pro',
-        'prolite',
-        'self_serve_business_prolite',
-        'free'
-      ])
-    })
-    it('does not duplicate a preset value that is the current one', () => {
-      for (const preset of ['prolite', 'self_serve_business_prolite']) {
-        const opts = buildPlanTypeOptions(preset, clear)
-        expect(opts.filter(o => o.value === preset)).toHaveLength(1)
-      }
-    })
-    it('keeps a separator-free variant of a preset as its own value', () => {
-      const opts = buildPlanTypeOptions('selfservebusinessprolite', clear)
-      expect(opts.find(o => o.value === 'selfservebusinessprolite')).toEqual({
-        value: 'selfservebusinessprolite',
-        label: 'Business Premium'
-      })
-    })
-  })
-
-  describe('applyPlanType', () => {
-    it('sets plan_type and preserves all other credential keys', () => {
-      const creds = {
-        chatgpt_account_id: 'acc',
-        email: 'a@b.c',
-        subscription_expires_at: '2026-01-01',
-        model_mapping: { x: 'y' }
-      }
-      const out = applyPlanType({ ...creds }, 'plus')
-      expect(out).toEqual({ ...creds, plan_type: 'plus' })
-    })
-    it('trims the value', () => {
-      expect(applyPlanType({}, '  pro  ')).toEqual({ plan_type: 'pro' })
-    })
-    it('deletes the key when cleared (empty), keeping other keys', () => {
-      const out = applyPlanType({ plan_type: 'pro', email: 'a@b.c' }, '')
-      expect(out).toEqual({ email: 'a@b.c' })
-      expect('plan_type' in out).toBe(false)
-    })
   })
 })

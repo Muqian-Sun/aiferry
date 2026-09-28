@@ -18,7 +18,7 @@ import (
 
 // 选号阶段（candidateAdmits、RPM、Compact 分级……）在快照的 meta 投影上判断，选中后才补全账号。
 // 投影前后这些判断必须一致，否则快照命中时配置静默失效：RPM 不限、「只改名」映射变成白名单、
-// 能力集不限、Compact 手动开关无效。
+// Compact 探测结果丢失。
 func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 	openai := service.Account{
 		ID:          41,
@@ -29,14 +29,10 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 		Credentials: map[string]any{
 			"model_mapping":             map[string]any{"my-alias": "gpt-5.4"},
 			"model_mapping_rename_only": true,
-			"openai_capabilities":       []any{"responses"},
 			"auth_mode":                 service.OpenAIAuthModeAgentIdentity,
 		},
 		Extra: map[string]any{
 			"base_rpm":                 12,
-			"rpm_strategy":             "sticky_exempt",
-			"rpm_sticky_buffer":        4,
-			"openai_compact_mode":      service.OpenAICompactModeForceOff,
 			"openai_compact_supported": true,
 		},
 	}
@@ -44,7 +40,6 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 		compactSupported, compactKnown := a.OpenAICompactSupportKnown()
 		return map[string]any{
 			"base_rpm":          a.GetBaseRPM(),
-			"rpm_strategy":      a.GetRPMStrategy(),
 			"rpm_sticky_buffer": a.GetRPMStickyBuffer(),
 			"rpm_at_limit":      a.CheckRPMSchedulability(12),
 			"unmapped_model":    a.IsModelSupported("gpt-5.4-mini"),
@@ -59,7 +54,6 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 	// 先确认完整账号上这些配置真的起作用，差分比较才有意义
 	require.Equal(t, 12, full["base_rpm"])
 	require.Equal(t, true, full["unmapped_model"], "只改名的映射不兼任白名单")
-	require.Equal(t, false, full["chat"], "能力集里没有 chat")
 	require.Equal(t, false, full["live"], "agent identity 不承接 live")
 	require.Equal(t, true, full["compact_known"])
 	require.Equal(t, full, view(&meta))
@@ -104,13 +98,11 @@ func TestSchedulerMetadataAccountKeepsAdmissionInputs(t *testing.T) {
 func TestSchedulerMetadataWhitelistCoversAdmissionPath(t *testing.T) {
 	// 有意不进投影的键：键 → 理由
 	exempt := map[string]string{
-		"credentials.access_token":     "Grok 档位的最新信号（JWT 里的 tier）；另有 subscription_tier 与 grok_billing_snapshot，整段 token 不进每次选号都读的 meta",
-		"extra.enable_tls_fingerprint": "listSchedulableAccounts 里只用于调试日志",
+		"credentials.access_token": "Grok 档位的最新信号（JWT 里的 tier）；另有 subscription_tier 与 grok_billing_snapshot，整段 token 不进每次选号都读的 meta",
 	}
 	// 下标不是字面量的函数：函数名 → 理由
 	dynamicOK := map[string]string{
-		"GetCredential":                         "通用取值函数，带字面量键的调用处已逐个统计；AccountService.GetCredential 与它同名",
-		"ResolveOpenAIResponsesWebSocketV2Mode": "键以字面量传给内部闭包，WS 相关键都在白名单",
+		"GetCredential": "通用取值函数，带字面量键的调用处已逐个统计；AccountService.GetCredential 与它同名",
 	}
 
 	scan := newAdmissionScan(t, filepath.Join("..", "service"))
@@ -184,7 +176,6 @@ func keptKeys(t *testing.T, fn string, filter func(map[string]any) map[string]an
 	}
 	require.True(t, found, fn)
 	// service 常量形式的键（UpstreamBillingProbeExtraKey 等）按值补进候选
-	candidates[service.GrokMediaEligibleExtraKey] = true
 	candidates[service.UpstreamBillingProbeExtraKey] = map[string]any{"status": "ok"} // 探测结果要有 status 才进投影
 	kept := filter(candidates)
 	out := make([]string, 0, len(kept))

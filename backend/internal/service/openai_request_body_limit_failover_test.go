@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,12 +19,8 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 	gin.SetMode(gin.TestMode)
 	requestBody := []byte(`{"model":"gpt-5.2","stream":false,"input":"hello"}`)
 
-	for _, passthrough := range []bool{false, true} {
-		name := "native_responses"
-		if passthrough {
-			name = "api_key_passthrough"
-		}
-		t.Run(name, func(t *testing.T) {
+	{
+		t.Run("native_responses", func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
@@ -46,7 +41,7 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 			}
 			account := &Account{
 				ID:          161,
-				Name:        name,
+				Name:        "native_responses",
 				Platform:    PlatformOpenAI,
 				Type:        AccountTypeAPIKey,
 				Concurrency: 1,
@@ -54,12 +49,6 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 					"api_key":   "sk-test",
 					"base_url":  "https://api.example.test",
 					"pool_mode": true,
-					"pool_mode_retry_status_codes": []any{
-						float64(http.StatusRequestEntityTooLarge),
-					},
-				},
-				Extra: map[string]any{
-					"openai_passthrough": passthrough,
 				},
 				Status:            StatusActive,
 				Schedulable:       true,
@@ -81,12 +70,8 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 			require.False(t, c.Writer.Written(), "account failover must happen before downstream output is committed")
 			require.Empty(t, rec.Body.String())
 			require.True(t, body.closed)
-			if passthrough {
-				require.Equal(t, requestBody, upstream.lastBody)
-			} else {
-				require.Equal(t, "gpt-5.2", gjson.GetBytes(upstream.lastBody, "model").String())
-				require.Equal(t, "hello", gjson.GetBytes(upstream.lastBody, "input").String())
-			}
+			require.Equal(t, "gpt-5.2", gjson.GetBytes(upstream.lastBody, "model").String())
+			require.Equal(t, "hello", gjson.GetBytes(upstream.lastBody, "input").String())
 		})
 	}
 }
@@ -95,8 +80,8 @@ func TestOpenAIRequestBodyLimitFailover_ContextWindow413DoesNotSwitchAccounts(t 
 	gin.SetMode(gin.TestMode)
 	requestBody := []byte(`{"model":"gpt-5.2","stream":false,"input":"hello"}`)
 
-	for _, passthrough := range []bool{false, true} {
-		t.Run(fmt.Sprintf("passthrough_%t", passthrough), func(t *testing.T) {
+	{
+		t.Run("native_responses", func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
@@ -114,10 +99,7 @@ func TestOpenAIRequestBodyLimitFailover_ContextWindow413DoesNotSwitchAccounts(t 
 			account := &Account{
 				ID: 162, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 				Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.example.test"},
-				Extra: map[string]any{
-					"openai_passthrough": passthrough,
-				},
-				Status: StatusActive, Schedulable: true,
+				Status:      StatusActive, Schedulable: true,
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test"},
 			}
 

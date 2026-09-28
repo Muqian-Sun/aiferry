@@ -258,9 +258,7 @@ export default {
       opencodeGo: {
         accountMode: {
           zen: 'Zen',
-          zenDesc: 'Pay-as-you-go gateway. Consumes account credits, billed per token.',
           go: 'GO',
-          goDesc: 'Subscription gateway, rate-limited by 5-hour / weekly / monthly usage windows.',
         },
       },
       types: {
@@ -272,12 +270,6 @@ export default {
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',
       antigravityProjectIdHint:
         'Antigravity standard-tier accounts that do not receive an automatic project_id need a user-owned GCP project.',
-      accountSchedulingThresholdOverride: 'Account Auto-Pause Threshold Override',
-      accountSchedulingThresholdOverrideHint:
-        'Override the platform auto-pause threshold for this account only. Disable to use platform settings.',
-      accountSchedulingThresholdOverrideValue: 'Account threshold percent',
-      accountSchedulingThresholdOverrideDisabledHint:
-        'Use 1-100. The account becomes temporarily unschedulable after reaching this usage percent; 100 disables it for this account.',
       status: {
         active: 'Active',
         inactive: 'Inactive',
@@ -340,8 +332,6 @@ export default {
         deleteSession: 'Delete session',
         deleteConfirm: 'Delete the stored Ollama browser session and its usage snapshot?',
         refreshNow: 'Refresh usage',
-        autoRefresh: 'Automatic usage refresh',
-        autoRefreshHint: 'Runs only when the account switch and the global switch are both enabled.',
         plan: 'Plan',
         fiveHour: '5 hour',
         fiveHourShort: '5h',
@@ -360,7 +350,6 @@ export default {
         sessionSaveFailed: 'Failed to save Ollama browser session',
         sessionDeleted: 'Ollama browser session deleted',
         sessionDeleteFailed: 'Failed to delete Ollama browser session',
-        autoRefreshFailed: 'Failed to update automatic usage refresh',
         refreshSuccess: 'Ollama Cloud usage refreshed',
         refreshFailed: 'Failed to refresh Ollama Cloud usage',
         errors: {
@@ -431,11 +420,6 @@ export default {
       // Capacity (detail drawer, Usage tab)
       capacity: {
         concurrency: 'Concurrency',
-        windowCost: {
-          label: '5-hour window cost',
-          blocked: 'Limit reached; the channel is paused until this 5-hour window ends',
-          normal: 'Accumulated at list price; the channel pauses until the window ends once the limit is reached'
-        },
         sessions: {
           label: 'Active sessions',
           full: 'Active sessions full, new sessions must wait (idle timeout: {idle} min)',
@@ -449,34 +433,17 @@ export default {
           tieredNormal: 'Tiered: normal',
           tieredWarning: 'Tiered: approaching the limit',
           tieredStickyOnly: 'Tiered: limit reached, sticky sessions only (buffer {buffer})',
-          tieredBlocked: 'Tiered: over the {buffer} buffer, scheduling paused',
-          stickyExemptNormal: 'Sticky exempt: normal',
-          stickyExemptWarning: 'Sticky exempt: approaching the limit',
-          stickyExemptOver: 'Sticky exempt: limit reached, sticky sessions only'
+          tieredBlocked: 'Tiered: over the {buffer} buffer, scheduling paused'
         },
       },
       tempUnschedulable: {
-        title: 'Temp Unschedulable',
         statusTitle: 'Temp Unschedulable Status',
-        hint: 'Disable accounts temporarily when error code and keyword both match.',
-        notice: 'Rules are evaluated in order and require both error code and keyword match.',
-        addRule: 'Add Rule',
         ruleOrder: 'Rule Order',
         multipleErrorTrigger: '{count} matching errors in {minutes} minutes reached the trigger threshold ({threshold}).',
         multipleErrorTriggerNoWindow: '{count} matching errors reached the trigger threshold ({threshold}).',
         multipleErrorCountInWindow: '{count} matching errors occurred within {minutes} minutes.',
         multipleErrorCount: '{count} matching errors contributed to this block.',
-        ruleIndex: 'Rule #{index}',
         errorCode: 'Error Code',
-        errorCodePlaceholder: 'e.g. 429',
-        durationMinutes: 'Duration (minutes)',
-        durationPlaceholder: 'e.g. 30',
-        keywords: 'Keywords',
-        keywordsPlaceholder: 'e.g. overloaded, too many requests',
-        keywordsHint: 'Separate keywords with commas; any keyword match will trigger.',
-        description: 'Description',
-        descriptionPlaceholder: 'Optional note for this rule',
-        rulesInvalid: 'Add at least one rule with error code, keywords, and duration.',
         viewDetails: 'View temp unschedulable details',
         accountName: 'Channel',
         triggeredAt: 'Triggered At',
@@ -493,14 +460,6 @@ export default {
         remainingMinutes: 'About {minutes} minutes',
         remainingHours: 'About {hours} hours',
         remainingHoursMinutes: 'About {hours} hours {minutes} minutes',
-        presets: {
-          overloadLabel: '529 Overloaded',
-          overloadDesc: 'Overloaded - pause 60 minutes',
-          rateLimitLabel: '429 Rate Limit',
-          rateLimitDesc: 'Rate limited - pause 10 minutes',
-          unavailableLabel: '503 Unavailable',
-          unavailableDesc: 'Unavailable - pause 30 minutes'
-        }
       },
       clearRateLimit: 'Clear Rate Limit',
       resetQuota: 'Reset Quota',
@@ -515,31 +474,8 @@ export default {
       quotaWeeklyLimitHint: 'Automatically resets every 7 days from first usage.',
       quotaTotalLimit: 'Total Limit',
       quotaTotalLimitHint: 'Cumulative spending limit. Does not auto-reset — use "Reset Quota" to clear.',
-      quotaResetMode: 'Reset Mode',
-      quotaResetModeRolling: 'Rolling Window',
-      quotaResetModeFixed: 'Fixed Time',
-      quotaResetHour: 'Reset Hour',
-      quotaWeeklyResetDay: 'Reset Day',
-      quotaResetTimezone: 'Reset Timezone',
-      quotaDailyLimitHintFixed: 'Resets daily at {hour}:00 ({timezone}).',
-      quotaWeeklyLimitHintFixed: 'Resets every {day} at {hour}:00 ({timezone}).',
-      dayOfWeek: {
-        monday: 'Monday',
-        tuesday: 'Tuesday',
-        wednesday: 'Wednesday',
-        thursday: 'Thursday',
-        friday: 'Friday',
-        saturday: 'Saturday',
-        sunday: 'Sunday',
-      },
       quotaLimitAmount: 'Total Limit',
       quotaLimitAmountHint: 'Cumulative spending limit. Does not auto-reset.',
-      quotaNotify: {
-        alert: 'Alert',
-        enabled: 'Enable Alert',
-        threshold: 'Alert Amount',
-        thresholdPlaceholder: 'Enter percentage',
-      },
       testConnection: 'Test Connection',
       reAuthorize: 'Re-Authorize',
       refreshToken: 'Refresh Token',
@@ -635,12 +571,9 @@ export default {
       vertexSaJsonSelectBtn: 'Select JSON',
       vertexSaJsonUploadHint: 'After uploading or dropping a JSON file, the project_id will be auto-extracted. Key content is only used for account creation.',
       vertexSaJsonEditHint: 'Service Account JSON is not shown on the edit page; to change the JSON, delete the account and recreate it.',
-      vertexProjectIdPlaceholder: 'Auto-extracted from JSON',
       vertexLocationHint: 'Available locations vary by Vertex model. Select the default endpoint location for this account.',
       vertexLocationRequired: 'Please enter a Vertex location',
       vertexSaJsonMissingFields: 'Service Account JSON is missing project_id, client_email, or private_key',
-      vertexSaJsonMissingProjectId: 'Service Account JSON is missing project_id',
-      vertexSaJsonMissingClientEmail: 'Service Account JSON is missing client_email',
       vertexSaJsonInvalid: 'Service Account JSON format is invalid',
       vertexSaJsonRequired: 'Please upload a Service Account JSON',
       addMethod: 'Add Method',
@@ -669,43 +602,14 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
-      upstreamRequestIdHeader: 'Upstream ID',
-      upstreamRequestIdHeaderPlaceholder: 'Leave empty to record nothing',
-      upstreamRequestIdHeaderHelp: {
-        intro: 'Name of the response header in which the direct upstream declares its request ID. The value is recorded in the "Upstream ID" column of the usage log; leave empty to record nothing.',
-        examplesTitle: 'Common values',
-        sub2apiNote: 'Matches the request ID column of its usage log',
-        official: '{platform} official API'
-      },
       // OpenAI specific hints
       openai: {
         apiKeyHint: 'Your OpenAI API Key',
-        oauthPassthrough: 'Auto passthrough (auth only)',
-        oauthPassthroughDesc:
-          'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
-        keyProtocolSettingsHint:
-          'For third-party keys, auto passthrough, WS mode and Compact settings only take effect when the protocol endpoints point to official OpenAI or a generic relay; the backend ignores them for other vendors\' official addresses.',
-        flattenNamespaces: 'Flatten Codex namespace tools (compatibility)',
-        flattenNamespacesDesc:
-          'Disabled by default: Codex namespace tool declarations are forwarded as-is on /responses, which is what the ChatGPT Codex backend expects. Enable only when this OAuth account is routed to a relay that rejects namespace tools — flattening renames them to namespace__tool, which breaks models that address collaboration tools as functions.<namespace>.<tool>. Compaction requests always flatten regardless of this switch.',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           'Disabled by default. Enable to allow responses_websockets_v2 capability (still gated by global and account-type switches).',
-        wsMode: 'WS mode',
-        wsModeDesc:
-          'Applies only to the current OpenAI account type. Select Off to disable WS. Other modes use the selected connection method only when gateway.openai_ws.mode_router_v2_enabled=true; otherwise, they use the context pool.',
-        wsModeOff: 'Off (off)',
-        wsModeCtxPool: 'Context Pool (ctx_pool)',
-        wsModePassthrough: 'Passthrough (passthrough)',
-        wsModeHttpBridge: 'HTTP Bridge (http_bridge)',
         wsModeShared: 'Shared (shared)',
         wsModeDedicated: 'Dedicated (dedicated)',
-        wsModeCtxPoolHint:
-          'The gateway gets and reuses upstream WS connections from a pool, with the pool limit determined by gateway configuration.',
-        wsModePassthroughHint:
-          'The gateway opens a separate upstream WS connection for each client session, without using a connection pool.',
-        wsModeHttpBridgeHint:
-          'The gateway converts client WS requests to upstream HTTP requests, then converts SSE streaming responses back into WS messages.',
         oauthResponsesWebsocketsV2: 'OAuth WebSocket Mode',
         oauthResponsesWebsocketsV2Desc:
           'Only applies to OpenAI OAuth. This account can use OpenAI WebSocket Mode only when enabled.',
@@ -714,63 +618,13 @@ export default {
           'Only applies to OpenAI API Key. This account can use OpenAI WebSocket Mode only when enabled.',
         responsesWebsocketsV2PassthroughHint:
           'Automatic passthrough is currently enabled: it only affects HTTP passthrough and does not disable WS mode.',
-        imagesUrlToB64Json: 'Image result URL to base64',
-        imagesUrlToB64JsonDesc:
-          'Only applies to non-streaming Images responses of OpenAI API Key accounts. When an upstream image item has a url but no b64_json, the gateway downloads the url and fills b64_json with its base64 content (url is kept) for clients built on the official API; the response is returned unchanged if the download fails.',
-        endpointCapabilities: 'Endpoint capabilities',
-        endpointCapabilitiesDesc:
-          'Used by account routing. The text endpoint accepts Responses and Chat Completions requests, forwarded over whichever protocol endpoints are configured; Embeddings independently controls /v1/embeddings.',
-        capabilityText: 'Responses / Chat Completions',
-        capabilityEmbeddings: 'Embeddings',
-        planType: 'Plan tier (manual override)',
-        planTypeDesc:
-          "Manually correct this account's ChatGPT plan tier (Plus / Pro / Free). Note: a token refresh near expiry or a 429 rate-limit response will auto-overwrite this with the real tier.",
-        planTypeClear: 'Clear (auto-detect)',
-        codexCLIOnly: 'Codex official clients only',
-        codexCLIOnlyDesc:
-          'Only applies to OpenAI OAuth. When enabled, only Codex official client families are allowed; when disabled, the gateway bypasses this restriction and keeps existing behavior.',
-        codexCLIOnlyAppServer: 'Allow Codex app-server clients',
-        codexCLIOnlyAppServerDesc:
-          "Effective only when the switch above is on. When enabled, this account also allows third-party clients that embed the Codex engine over the app-server protocol (e.g. Claude Code's codex plugin); they still pass the global engine-fingerprint gate. OR-combined with the global app-server toggle.",
-        codexFingerprintMode: 'Codex fingerprint convergence',
-        codexFingerprintModeDesc: 'When multiple users share the same OAuth account, converge device/session identifiers to account-level stable values to reduce upstream-visible device and session count. Off by default (client identifiers pass through as-is); opt in explicitly when needed. Some accounts reported quota shrinkage after enabling convergence, so choose based on your own measurements.',
-        codexFingerprintOff: 'Off (passthrough, default)',
-        codexFingerprintDevice: 'Device only',
-        codexFingerprintSession: 'Device + Session',
-        codexFingerprintFull: 'Full convergence',
-        codexImageTool: 'Codex image bridge policy',
-        codexImageToolDesc:
-          'Controls the hosted image_generation bridge and client-declared image tools on Codex /responses text requests. Hosted auto-injection applies only to non-Responses Lite requests. Account policy takes precedence over channel and global settings; standalone image-generation endpoints are unaffected.',
-        codexImageToolInherit: 'Follow channel',
-        codexImageToolInheritDesc: 'No account override; hosted injection for non-Lite requests follows the channel or global policy, while client-provided hosted tools and local image_gen declarations pass through.',
-        codexImageToolEnabled: 'Enable hosted bridge',
-        codexImageToolEnabledDesc: 'Inject the hosted image_generation tool only for non-Responses Lite requests; client-provided image tools still pass through.',
-        codexImageToolDisabled: 'No hosted injection',
-        codexImageToolDisabledDesc: 'Do not inject the hosted tool; client-provided hosted tools and local image_gen declarations still pass through.',
-        codexImageToolBlock: 'Strip client image tools',
-        codexImageToolBlockDesc: 'Do not auto-inject through the bridge, and remove client-provided hosted image_generation tools, local image_gen declarations, and matching tool_choice. Image-only model routing remains unaffected.',
-        codexImageToolBadgeInherit: 'Channel policy',
-        codexImageToolBadgeEnabled: 'Hosted bridge on',
-        codexImageToolBadgeDisabled: 'No hosted injection',
-        codexImageToolBadgeBlock: 'Client image tools stripped',
-        compactMode: 'Compact mode',
-        compactModeDesc:
-          'Controls how this account participates in /responses/compact routing. Auto follows probe results, Force On always allows, Force Off always excludes.',
-        compactModeAuto: 'Auto',
-        compactModeForceOn: 'Force On',
-        compactModeForceOff: 'Force Off',
-        compactModelMapping: 'Compact-only model mapping',
-        compactModelMappingDesc:
-          'Only applies to /responses/compact. Use this when the upstream compact endpoint requires a special compact model.',
         compactSupported: 'Compact supported',
         compactUnsupported: 'Compact unsupported',
-        compactAuto: 'Compact Auto',
         compactUnknown: 'Compact Auto',
         compactLastChecked: 'Last compact probe',
         testMode: 'Test mode',
         testModeDefault: 'Default request',
         testModeCompact: 'Compact probe',
-        modelRestrictionDisabledByPassthrough: 'Automatic passthrough is enabled: model whitelist/mapping will not take effect.',
       },
       grok: {
         baseUrlHint: 'Grok OAuth accounts forward to the official xAI API base URL.',
@@ -825,22 +679,14 @@ export default {
         noResponseBody: 'No response body from server'
       },
       anthropic: {
-        apiKeyPassthrough: 'Auto passthrough (auth only)',
-        apiKeyPassthroughDesc:
-          'Only applies to third-party keys with an Anthropic protocol endpoint. When enabled, messages/count_tokens are forwarded in passthrough mode with auth replacement only, while billing/concurrency/audit and safety filtering are preserved. Disable to roll back immediately.',
         apiKeyAuthScheme: 'Upstream auth scheme',
         apiKeyAuthSchemeDesc: 'Choose the API key auth header used when forwarding to an Anthropic-compatible upstream. Ollama Cloud uses Authorization: Bearer.',
         apiKeyAuthSchemeXApiKey: 'x-api-key',
         apiKeyAuthSchemeBearer: 'Authorization: Bearer',
-        webSearchEmulation: 'Web Search Emulation',
-        webSearchEmulationDesc:
-          'Enable web search emulation for this API Key account. When a pure web_search request is detected, the gateway calls a third-party search API and constructs the response locally.',
         bedrockCCCompat: 'Bedrock CC compatibility',
         bedrockCCCompatDesc:
           'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
       },
-      fromModel: 'Request model',
-      toModel: 'Target model',
       requestModel: 'Request model',
       actualModel: 'Actual model',
       addMapping: 'Add Mapping',
@@ -871,25 +717,6 @@ export default {
       poolModeHint: 'Enable when upstream is an account pool; errors won\'t mark local account status',
       poolModeInfo:
         'When enabled, upstream 429/403/401 errors will auto-retry without marking the account as rate-limited or errored. Suitable for upstream pointing to another sub2api instance.',
-      poolModeRetryCount: 'Same-Account Retries',
-      poolModeRetryCountHint:
-        'Only applies in pool mode. Use 0 to disable in-place retry. Default {default}, maximum {max}.',
-      poolModeRetryStatusCodes: 'Retry Status Codes',
-      poolModeRetryStatusCodesHint:
-        'Comma-separated HTTP status codes (100-599) that trigger same-account retry in pool mode. Leave blank to use defaults ({default}).',
-      customErrorCodes: 'Custom Error Codes',
-      customErrorCodesHint: 'Only stop scheduling for selected error codes',
-      customErrorCodesWarning:
-        'Only selected error codes will stop scheduling. Other errors will return 500.',
-      customErrorCodes429Warning:
-        '429 already has built-in rate limit handling. Adding it to custom error codes will disable the account instead of temporary rate limiting. Are you sure?',
-      customErrorCodes529Warning:
-        '529 already has built-in overload handling. Adding it to custom error codes will disable the account instead of temporary overload marking. Are you sure?',
-      selectedErrorCodes: 'Selected',
-      noneSelectedUsesDefault: 'None selected (uses default policy)',
-      enterErrorCode: 'Enter error code (100-599)',
-      invalidErrorCode: 'Please enter a valid HTTP error code (100-599)',
-      errorCodeExists: 'This error code is already selected',
       interceptWarmupRequests: 'Intercept Warmup Requests',
       interceptWarmupRequestsDesc:
         'When enabled, warmup requests like title generation will return mock responses without consuming upstream tokens',
@@ -907,7 +734,7 @@ export default {
         importJsonInvalid: 'Invalid JSON: expected a flat object of header name → string value',
         copyJson: 'Copy as JSON',
         emptyValueHint: 'Rows with an empty value are placeholders and do not override anything.',
-        bulkDisableHint: 'Saving will disable header override and clear existing configuration on the selected accounts.',
+        bulkDisableHint: 'Saving will clear the existing header overrides on the selected accounts (overrides apply whenever entries exist, so clearing stops them).',
         bulkReplaceHint: 'Saving will replace the existing header override configuration on all selected accounts with the rows below.',
         bulkEmptyRows: 'Add at least one header row before saving, or turn the toggle off to clear existing configuration.',
         invalidName: 'Invalid header name (only letters, digits and !#$%&\'*+-.^_`|~ are allowed)',
@@ -923,23 +750,8 @@ export default {
         }
       },
       grokClientToolCache: {
-        title: 'Client Tool Cache (May Change Automatic Tool Selection)',
-        hint: 'For detected Grok Free OAuth accounts, this is enabled by default for client function tools such as Codex and Trae. Turn it off to opt out if the automatic tool-selection behavior is not acceptable.'
       },
       grokMediaEligibility: {
-        title: 'Media Generation Eligibility',
-        hint: 'Controls whether this Grok OAuth account may be selected for image and video generation.',
-        auto: 'Automatic detection',
-        enabled: 'Force enable',
-        disabled: 'Force disable',
-        current: 'Current decision:',
-        eligible: 'Eligible',
-        ineligible: 'Not eligible',
-        loading: 'Loading eligibility…',
-        loadFailed: 'Unable to load media eligibility',
-        autoHint: 'Automatic detection only clears the manual override; it does not trigger a media request.',
-        forceEnableWarning: 'Force enable bypasses automatic eligibility checks. Use only for accounts confirmed to support image/video generation.',
-        partialSave: 'Other account settings may have been saved, but media eligibility was not updated. Please retry.',
         reasons: {
           eligible: 'Paid entitlement confirmed',
           billing_inconclusive: 'Billing information inconclusive',
@@ -950,45 +762,20 @@ export default {
           override_disabled: 'Manually forced disabled'
         }
       },
-      autoPauseOnExpired: 'Auto Pause On Expired',
-      autoPauseOnExpiredDesc: 'When enabled, the account will auto pause scheduling after it expires',
-	  autoPause5hThreshold: '5h Usage Threshold (%)',
-	  autoPause7dThreshold: '7d Usage Threshold (%)',
-	  autoPauseThresholdHint: 'Leave empty or set 0 to use the global default threshold (configured in Ops settings); set a value to override the global default. Reaching the threshold only skips the account during scheduling and does not modify schedulable.',
-	  autoPause5hDisabled: 'Disable 5h auto-pause',
-	  autoPause7dDisabled: 'Disable 7d auto-pause',
-	  autoPauseDisabledHint: 'When enabled, this account is never auto-paused (even if a global default threshold is configured).',
 	  autoResetCredit: {
 	    title: 'Automatically use reset credits',
-	    hint: 'Uses the earliest-expiring available credit only when actual usage reaches a threshold. Off by default; the account remains paused if no credit is available or reset fails.',
-	    threshold5h: '5h auto-reset threshold (%)',
-	    threshold7d: '7d auto-reset threshold (%)',
-	    thresholdHint: 'Each window is evaluated independently. Enter 0.1–100; both default to 100.',
-	    thresholdInvalid: 'Automatic reset-credit thresholds must be between 0.1% and 100%.'
+	    hint: 'Uses the earliest-expiring available credit only when actual 5h or 7d usage reaches 100%. Off by default; the account remains paused if no credit is available or reset fails.',
 	  },
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: 'Quota Control',
-        hint: 'Configure cost window, session limits, client affinity and other scheduling controls.',
-        windowCost: {
-          label: '5h Window Cost Limit',
-          hint: 'Limit account cost usage within the 5-hour window',
-          limit: 'Cost Threshold',
-          limitPlaceholder: '50',
-          limitHint: 'Account will not participate in new scheduling after reaching threshold',
-          stickyReserve: 'Sticky Reserve',
-          stickyReservePlaceholder: '10',
-          stickyReserveHint: 'Additional reserve for sticky sessions'
-        },
+        hint: 'Configure session count, requests per minute and other scheduling limits.',
         sessionLimit: {
           label: 'Session Count Limit',
           hint: 'Limit the number of active concurrent sessions',
           maxSessions: 'Max Sessions',
           maxSessionsPlaceholder: '3',
-          maxSessionsHint: 'Maximum number of active concurrent sessions',
-          idleTimeout: 'Idle Timeout',
-          idleTimeoutPlaceholder: '5',
-          idleTimeoutHint: 'Sessions will be released after idle timeout'
+          maxSessionsHint: 'Maximum number of active concurrent sessions; a session is released after 5 idle minutes'
         },
         rpmLimit: {
           label: 'RPM Limit',
@@ -996,36 +783,6 @@ export default {
           baseRpm: 'Base RPM',
           baseRpmPlaceholder: '15',
           baseRpmHint: 'Max requests per minute, 0 or empty means no limit',
-          strategy: 'RPM Strategy',
-          strategyTiered: 'Tiered Model',
-          strategyStickyExempt: 'Sticky Exempt',
-          strategyTieredHint: 'Green → Yellow → Sticky only → Blocked, progressive throttling',
-          strategyStickyExemptHint: 'Only sticky sessions allowed when over limit',
-          strategyHint: 'Tiered: gradually restrict when exceeded; Sticky Exempt: existing sessions unrestricted',
-          stickyBuffer: 'Sticky Buffer',
-          stickyBufferPlaceholder: 'Default: 20% of base RPM',
-          stickyBufferHint: 'Extra requests allowed for sticky sessions after exceeding base RPM. Leave empty to use default (20% of base RPM, min 1)',
-          userMsgQueue: 'User Message Rate Control',
-          userMsgQueueHint: 'Rate-limit user messages to avoid triggering upstream RPM limits',
-          umqModeOff: 'Off',
-          umqModeThrottle: 'Throttle',
-          umqModeSerialize: 'Serialize',
-        },
-        tlsFingerprint: {
-          label: 'TLS Fingerprint Simulation',
-          hint: 'Simulate Node.js/Claude Code client TLS fingerprint',
-          defaultProfile: 'Built-in Default',
-          randomProfile: 'Random'
-        },
-        sessionIdMasking: {
-          label: 'Session ID Masking',
-          hint: 'When enabled, fixes the session ID in metadata.user_id for 15 minutes, making upstream think requests come from the same session'
-        },
-        cacheTTLOverride: {
-          label: 'Cache TTL Override',
-          hint: 'Force all cache creation tokens to be billed as the selected TTL tier (5m or 1h)',
-          target: 'Target TTL',
-          targetHint: 'Select the TTL tier for billing'
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',
@@ -1050,8 +807,6 @@ export default {
       proxy: 'Proxy',
       noProxy: 'No Proxy',
       concurrency: 'Concurrency',
-      loadFactor: 'Load Factor',
-      loadFactorHint: 'Higher load factor increases scheduling frequency',
       priority: 'Priority',
       priorityHint: 'Lower value accounts are used first',
       billingRateMultiplier: 'Billing Rate Multiplier',
@@ -1081,7 +836,6 @@ export default {
       pleaseEnterApiKey: 'Please enter API Key',
       bedrockAccessKeyId: 'AWS Access Key ID',
       bedrockSecretAccessKey: 'AWS Secret Access Key',
-      bedrockSessionToken: 'AWS Session Token',
       bedrockRegion: 'AWS Region',
       bedrockRegionHint: 'e.g. us-east-1, us-west-2, eu-west-1',
       bedrockForceGlobal: 'Force Global cross-region inference',
@@ -1089,7 +843,6 @@ export default {
       bedrockAccessKeyIdRequired: 'Please enter AWS Access Key ID',
       bedrockSecretAccessKeyRequired: 'Please enter AWS Secret Access Key',
       bedrockRegionRequired: 'Please select AWS Region',
-      bedrockSessionTokenHint: 'Optional, for temporary credentials',
       bedrockSecretKeyLeaveEmpty: 'Leave empty to keep current key',
       bedrockAuthMode: 'Authentication Mode',
       bedrockAuthModeSigv4: 'SigV4 Signing',
@@ -1378,20 +1131,11 @@ export default {
           'All model requests are forwarded directly to the Gemini API without model restrictions or mappings.',
         apiKeyHint: 'Your Gemini API Key (starts with AIza)',
         tier: {
-          label: 'Account Tier',
-          hint: 'Tip: The system will try to auto-detect the tier first; if auto-detection is unavailable or fails, your selected tier is used as a fallback (simulated quota).',
           googleOne: {
-            free: 'Google One Free',
-            pro: 'Google One Pro',
-            ultra: 'Google One Ultra'
           },
           gcp: {
-            standard: 'GCP Standard',
-            enterprise: 'GCP Enterprise'
           },
           aiStudio: {
-            free: 'Google AI Free',
-            paid: 'Google AI Pay-as-you-go'
           }
         },
         accountType: {

@@ -952,6 +952,12 @@ func newGrokCredentialFailoverGatewayHandler(t *testing.T, mode string) (*Gatewa
 	return h, fx.repo, fx.upstream, router, cleanup
 }
 
+// grokCredentialFailoverMediaEligibleExtra 让夹具账号有生图资格：计费探测已成功但信息不全（billing_inconclusive）。
+// 渠道级手动覆盖 grok_media_eligible 2026-09-28 P5 删了，资格只能来自探测结果。
+func grokCredentialFailoverMediaEligibleExtra() map[string]any {
+	return map[string]any{"grok_billing_snapshot": map[string]any{"status_code": 200, "partial": true}}
+}
+
 func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredentialFailoverFixture {
 	t.Helper()
 	accounts := []service.Account{
@@ -962,7 +968,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 				"access_token": "expired", "refresh_token": "revoked-refresh",
 				"expires_at": time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
 			},
-			Extra: map[string]any{service.GrokMediaEligibleExtraKey: true},
+			Extra: grokCredentialFailoverMediaEligibleExtra(),
 		},
 		{
 			ID: 802, Name: "healthy", Platform: service.PlatformGrok, Type: service.AccountTypeOAuth,
@@ -971,7 +977,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 				"access_token": "healthy-access", "refresh_token": "healthy-refresh",
 				"expires_at": time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			},
-			Extra: map[string]any{service.GrokMediaEligibleExtraKey: true},
+			Extra: grokCredentialFailoverMediaEligibleExtra(),
 		},
 	}
 	if mode == "postmap_cancel" || mode == "first_402" || mode == "first_429" || mode == "all_429" || mode == "mixed_429_500" || mode == "mixed_500_429" || mode == "oauth_429_apikey_500" {
@@ -985,7 +991,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 				"access_token": "untried-healthy-access", "refresh_token": "untried-healthy-refresh",
 				"expires_at": time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			},
-			Extra: map[string]any{service.GrokMediaEligibleExtraKey: true},
+			Extra: grokCredentialFailoverMediaEligibleExtra(),
 		})
 	}
 	if mode == "oauth_429_apikey_500" {

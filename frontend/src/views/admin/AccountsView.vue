@@ -28,9 +28,6 @@
         <MenuItem icon="edit" data-testid="accounts-edit-filtered" @click="openBulkEditFiltered">
           {{ t('admin.accounts.bulkActions.editFiltered') }}
         </MenuItem>
-        <MenuItem divider />
-        <MenuItem icon="shield" @click="showErrorPassthrough = true">{{ t('admin.errorPassthrough.title') }}</MenuItem>
-        <MenuItem icon="lock" @click="showTLSFingerprintProfiles = true">{{ t('admin.tlsFingerprintProfiles.title') }}</MenuItem>
       </PopoverMenu>
       <button type="button" class="btn btn-primary btn-md" data-testid="accounts-create" @click="openCreate">
         <Icon name="plus" size="md" />
@@ -252,11 +249,10 @@
           <template #cell-created_at="{ value }">
             <span class="text-sm text-af-ink-3" :title="formatDateTime(value)">{{ formatDateOnly(value) }}</span>
           </template>
-          <template #cell-expires_at="{ row, value }">
+          <template #cell-expires_at="{ value }">
             <div class="flex flex-col items-start gap-0.5">
               <span :class="['text-sm', isExpired(value) ? 'text-af-warning' : 'text-af-ink-3']">{{ formatExpiresAt(value) }}</span>
               <span v-if="isExpired(value)" class="text-xs text-af-warning">{{ t('admin.accounts.expired') }}</span>
-              <span v-else-if="row.auto_pause_on_expired && value" class="text-xs text-af-ink-3">{{ t('admin.accounts.autoPauseOnExpired') }}</span>
             </div>
           </template>
           <template #cell-actions="{ row }">
@@ -364,7 +360,6 @@
       :account-ids="selIds"
       :selected-platforms="selPlatforms"
       :selected-types="selTypes"
-      :selected-key-endpoints="selKeyEndpoints"
       :target="bulkEditTarget ?? undefined"
       :proxies="proxies"
       @close="showBulkEdit = false"
@@ -379,8 +374,6 @@
         <span>{{ t('admin.accounts.dataExportIncludeProxies') }}</span>
       </label>
     </ConfirmDialog>
-    <ErrorPassthroughRulesModal :show="showErrorPassthrough" @close="showErrorPassthrough = false" />
-    <TLSFingerprintProfilesModal :show="showTLSFingerprintProfiles" @close="showTLSFingerprintProfiles = false" />
     <TotpStepUpDialog :controller="accountExportStepUp" />
   </AppLayout>
 </template>
@@ -422,15 +415,13 @@ import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
-import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
 import { fetchAllAccountIds } from '@/utils/accountSelection'
 import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatMultiplier } from '@/utils/formatters'
-import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats, UpstreamBillingProbeSnapshot } from '@/types'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import { ColumnSettingsMenu, ListToolbar, MenuItem, MiniSwitch, PopoverMenu } from '@/components/admin/list'
@@ -471,7 +462,6 @@ type AccountBulkEditTarget =
       accountIds: number[]
       selectedPlatforms: AccountPlatform[]
       selectedTypes: AccountType[]
-      selectedKeyEndpoints: ProtocolEndpoints[]
     }
   | {
       mode: 'filtered'
@@ -487,7 +477,6 @@ type AccountBulkEditTarget =
       previewCount: number
       selectedPlatforms: AccountPlatform[]
       selectedTypes: AccountType[]
-      selectedKeyEndpoints: ProtocolEndpoints[]
     }
 const selPlatforms = computed<AccountPlatform[]>(() => {
   const platforms = new Set(
@@ -505,12 +494,6 @@ const selTypes = computed<AccountType[]>(() => {
   )
   return [...types]
 })
-// 所选第三方 key 各自的协议地址：批量编辑按它判定 key 的协议设置，不看平台标签
-const keyEndpointsOf = (rows: AccountListItem[]): ProtocolEndpoints[] =>
-  rows.filter(account => account.type === 'apikey').map(account => account.protocol_endpoints ?? {})
-const selKeyEndpoints = computed<ProtocolEndpoints[]>(() =>
-  keyEndpointsOf(accounts.value.filter(a => isSelected(a.id)))
-)
 const showImportData = ref(false)
 const showExportDataDialog = ref(false)
 const includeProxyOnExport = ref(true)
@@ -521,8 +504,6 @@ const showDeleteDialog = ref(false)
 const showCreateShadowDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
-const showErrorPassthrough = ref(false)
-const showTLSFingerprintProfiles = ref(false)
 const tempUnschedAcc = ref<Account | null>(null)
 const deletingAcc = ref<Account | null>(null)
 const creatingShadowAcc = ref<Account | null>(null)
@@ -972,9 +953,7 @@ const isAnyModalOpen = computed(() => {
     showTempUnsched.value ||
     showDeleteDialog.value ||
     showReAuth.value ||
-    showTest.value ||
-    showErrorPassthrough.value ||
-    showTLSFingerprintProfiles.value
+    showTest.value
   )
 })
 
@@ -991,7 +970,6 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
   return (
     current.updated_at !== next.updated_at ||
     current.current_concurrency !== next.current_concurrency ||
-    current.current_window_cost !== next.current_window_cost ||
     current.active_sessions !== next.active_sessions ||
     current.schedulable !== next.schedulable ||
     current.status !== next.status ||
@@ -1488,7 +1466,7 @@ const handleSelectAllResults = async () => {
 const collectSelectionMetadata = (rows: Account[]) => {
   const selectedPlatforms = Array.from(new Set(rows.map(account => account.platform)))
   const selectedTypes = Array.from(new Set(rows.map(account => account.type)))
-  return { selectedPlatforms, selectedTypes, selectedKeyEndpoints: keyEndpointsOf(rows) }
+  return { selectedPlatforms, selectedTypes }
 }
 
 const openBulkEditSelected = () => {
@@ -1496,8 +1474,7 @@ const openBulkEditSelected = () => {
     mode: 'selected',
     accountIds: [...selIds.value],
     selectedPlatforms: [...selPlatforms.value],
-    selectedTypes: [...selTypes.value],
-    selectedKeyEndpoints: [...selKeyEndpoints.value]
+    selectedTypes: [...selTypes.value]
   }
   showBulkEdit.value = true
 }
@@ -1505,14 +1482,13 @@ const openBulkEditSelected = () => {
 const openBulkEditFiltered = async () => {
   const filters = buildBulkEditFilterSnapshot()
   const preview = await adminAPI.accounts.list(1, 100, filters)
-  const { selectedPlatforms, selectedTypes, selectedKeyEndpoints } = collectSelectionMetadata(preview.items)
+  const { selectedPlatforms, selectedTypes } = collectSelectionMetadata(preview.items)
   bulkEditTarget.value = {
     mode: 'filtered',
     filters,
     previewCount: preview.total,
     selectedPlatforms,
-    selectedTypes,
-    selectedKeyEndpoints
+    selectedTypes
   }
   showBulkEdit.value = true
 }
@@ -1572,7 +1548,6 @@ const accountMatchesCurrentFilters = (account: Account) => {
 const mergeRuntimeFields = (oldAccount: Account, updatedAccount: Account): Account => ({
   ...updatedAccount,
   current_concurrency: updatedAccount.current_concurrency ?? oldAccount.current_concurrency,
-  current_window_cost: updatedAccount.current_window_cost ?? oldAccount.current_window_cost,
   active_sessions: updatedAccount.active_sessions ?? oldAccount.active_sessions
 })
 

@@ -43,8 +43,9 @@ func TestListSchedulableAccountLoadsMatchesListSchedulable(t *testing.T) {
 	expired := create("projection-expired")
 	_, err = client.Account.UpdateOneID(expired.ID).SetExpiresAt(past).SetAutoPauseOnExpired(true).Save(ctx)
 	require.NoError(t, err)
-	expiredAllowed := create("projection-expired-allowed")
-	_, err = client.Account.UpdateOneID(expiredAllowed.ID).SetExpiresAt(past).SetAutoPauseOnExpired(false).Save(ctx)
+	// 过期自动暂停写死开（2026-09-28 P5）：库里旧行留着的 auto_pause_on_expired=false 也照样按过期排除
+	expiredLegacyOptOut := create("projection-expired-legacy-opt-out")
+	_, err = client.Account.UpdateOneID(expiredLegacyOptOut.ID).SetExpiresAt(past).SetAutoPauseOnExpired(false).Save(ctx)
 	require.NoError(t, err)
 	overloaded := create("projection-overloaded")
 	_, err = client.Account.UpdateOneID(overloaded.ID).SetOverloadUntil(future).Save(ctx)
@@ -95,13 +96,14 @@ func TestListSchedulableAccountLoadsMatchesListSchedulable(t *testing.T) {
 	}
 	require.Equal(t, []int64{concurrencyFallback.ID, zeroFallback.ID, positiveLoad.ID}, targetOrder)
 	require.Equal(t, wantByID, byID)
-	require.Equal(t, 9, byID[positiveLoad.ID])
+	// 负载一律按并发数算（2026-09-28 P5 删了负载因子）：库里旧行留着的 load_factor=9 不再生效
+	require.Equal(t, 2, byID[positiveLoad.ID])
 	require.Equal(t, 4, byID[concurrencyFallback.ID])
 	require.Equal(t, 1, byID[zeroFallback.ID])
-	for _, included := range []*service.Account{expiredAllowed, overloadCleared, rateLimitCleared, tempCleared} {
+	for _, included := range []*service.Account{overloadCleared, rateLimitCleared, tempCleared} {
 		require.Contains(t, byID, included.ID)
 	}
-	for _, excluded := range []*service.Account{disabled, unschedulable, expired, overloaded, rateLimited, tempBlocked} {
+	for _, excluded := range []*service.Account{disabled, unschedulable, expired, expiredLegacyOptOut, overloaded, rateLimited, tempBlocked} {
 		require.NotContains(t, byID, excluded.ID)
 	}
 }

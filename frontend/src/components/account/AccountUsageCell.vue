@@ -751,13 +751,10 @@ interface QuotaBar {
   note: string
 }
 
+// 日 / 周限额固定按滚动窗口重置（2026-09-28 P5 写死）：起点 + 周期
 const quotaResetsAt = (startKey: 'quota_daily_start' | 'quota_weekly_start'): string | null => {
   const extra = props.account.extra as Record<string, unknown> | undefined
   const isDaily = startKey === 'quota_daily_start'
-  const mode = (extra?.[isDaily ? 'quota_daily_reset_mode' : 'quota_weekly_reset_mode'] as string) || 'rolling'
-  // 固定时间重置：后端算好了下次重置时间
-  if (mode === 'fixed') return (extra?.[isDaily ? 'quota_daily_reset_at' : 'quota_weekly_reset_at'] as string) || null
-  // 滚动窗口：起点 + 周期
   const startStr = extra?.[startKey] as string | undefined
   if (!startStr) return null
   const periodMs = isDaily ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
