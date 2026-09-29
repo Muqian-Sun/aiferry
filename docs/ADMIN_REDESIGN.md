@@ -120,15 +120,18 @@
 - **新建渠道**（`CreateAccountModal`）：第一块是 `AccessSourcePicker`（`components/account/accessSources.ts`）：先选「第三方 key / 成品号」。
   - **第三方 key 不选平台、也不选来源**（muqian 追问「渠道里面怎么还有来源」后改掉：第一版给 key 做了一排厂商来源，等于换名的平台选择）。
     只填协议 + 地址 + Key；常用官方地址做一个下拉菜单快捷填入（`KeyAddressPresetMenu` / `keyAddress.ts`：后端官方地址表 +
-    国产国际站 + Grok 区域）。厂商按地址识别：官方域名表由后端随 `protocol-defaults` 下发（`vendor_hosts`，与
+    国产国际站）。厂商按地址识别：官方域名表由后端随 `protocol-defaults` 下发（`vendor_hosts`，与
     `OfficialVendorOfURL` 同一张表），认不出就提示「按中转处理」。识别出的厂商才有它的专属选项，都在地址下面：
     Kimi / 智谱 / MiniMax 的「按量 / Coding 套餐」（地址能分出来就跟地址走，MiniMax 两种套餐同地址要管理员选）、
-    智谱团队版、Gemini 档位；OpenCode 的 Zen / Go 由地址定。**提交时不带平台**，后端 `resolveCreateAccountPlatform` 按地址推导。
+    智谱团队版；OpenCode 的 Zen / Go 由地址定。**提交时不带平台**，后端 `resolveCreateAccountPlatform` 按地址推导。
+    **2026-09-29 更新（muqian 定）**：删掉海外四家（Anthropic、OpenAI、Gemini、Grok）的官方 Key。官方地址表与域名表只剩国产厂商
+    与 OpenCode，快捷填入里没有这四家与 Grok 区域；管理员手填这四家的官方域名也不拦，一律按中转处理（`Vendor()` 为空），
+    厂商特化只对成品号。原来 key 专属的「Gemini 档位」、Grok 地址预设、按厂商给的 API Key 提示都删了。
     表单里的 `form.platform` 对 key 只是占位。原「Antigravity 第三方 key」就是普通中转 key。
   - 成品号要选是哪家的账号（授权流程各家不同）：Claude / ChatGPT / Gemini / Antigravity / Grok / AWS Bedrock / Vertex·Claude / Vertex·Gemini。
   - **默认只露必填项**（muqian「还是太繁琐，要填的东西太多了」，12:5x 定：只留必填其余收起、默认勾模型、名称仍必填）：
     接入方式 → 名称 → 地址（key）/ 哪家的账号与授权方式（成品号）→ API Key → 承接的模型（一行摘要，点「修改」展开）→ 创建；
-    备注、到期、并发 / 优先级 / 倍率、配额、代理、池模式、错误码、请求头覆写、协议开关、模型改名、智谱团队版、Gemini 档位、
+    备注、到期、并发 / 优先级 / 倍率、配额、代理、池模式、错误码、请求头覆写、协议开关、模型改名、智谱团队版、
     倍率探测等全部在默认收起的「更多设置」里，不点开就按原来的默认值建。套餐只在地址分不出来时问（MiniMax、智谱 Anthropic 地址），
     分得出就写在识别提示里（「按地址识别为 Kimi · Coding 套餐」）。
   - **承接的模型默认勾选**：识别出的厂商（成品号即它的平台）在目录里已上架的对话模型；生图 / 视频 / 向量走扩展端点、另有承接条件，
@@ -136,7 +139,8 @@
   - 所有建号路径（含 OAuth 批量、Grok SSO）走 `createAccountRecord`：映射打 `model_mapping_rename_only`，建好后
     `PUT /admin/accounts/:id/catalog-entries` 写入勾选的模型；绑定失败不回滚建号，提示去编辑页再勾。
 - **一个 key 只承接一个协议**：地址编辑器改成「协议下拉 + 地址」一行（`ProtocolEndpointsEditor`）；官方地址表多协议时只取
-  一个（`preferredProtocolFor`：Anthropic→anthropic、OpenAI / Grok→responses、Gemini→gemini、其余→chat_completions）。
+  一个（换套餐保留当前协议；原来按平台挑默认协议的 `preferredProtocolFor` 在 2026-09-29 表里只剩国产厂商与 OpenCode 后删了，
+  编辑页还没配协议时取 chat_completions）。
   换套餐时地址还是上一个套餐的官方地址就换成新套餐同协议的官方地址。修掉了「用默认预填新建 OpenAI / 国产 key 被后端拒」。
 - **编辑渠道**（`EditAccountModal`）：「已上架模型」从只读改成可勾选（`CatalogEntryPicker`，按渠道读 / 写绑定，勾选变了才写）；
   五块白名单 / 映射合成一块 `ModelRenameEditor`。旧映射整份按改名行展示，**同名行（旧白名单）保留**：对承接没影响，
