@@ -23,12 +23,12 @@ vi.mock('vue-i18n', () => ({
 
 describe('EmailOAuthButtons', () => {
   beforeEach(() => {
-    routeState.query = { redirect: '/billing?plan=pro', aff: 'AFF123' }
+    routeState.query = { redirect: '/billing?plan=pro' }
     window.localStorage.clear()
     window.sessionStorage.clear()
   })
 
-  it('emits the GitHub OAuth request with redirect and affiliate parameters', async () => {
+  it('emits the GitHub OAuth request with the redirect', async () => {
     const wrapper = mount(EmailOAuthButtons, {
       props: {
         githubEnabled: true,
@@ -47,10 +47,9 @@ describe('EmailOAuthButtons', () => {
     expect(wrapper.emitted('start')).toEqual([[
       {
         provider: 'github',
-        params: { redirect: '/billing?plan=pro', aff_code: 'AFF123' }
+        params: { redirect: '/billing?plan=pro' }
       }
     ]])
-    expect(window.sessionStorage.getItem('oauth_aff_code')).toBe('AFF123')
     expect(window.sessionStorage.getItem('email_oauth_pending_provider')).toBe('github')
   })
 
@@ -73,7 +72,7 @@ describe('EmailOAuthButtons', () => {
 
     expect(wrapper.emitted('start')?.[0]?.[0]).toEqual({
       provider: 'google',
-      params: { redirect: '/billing?plan=pro', aff_code: 'AFF123' }
+      params: { redirect: '/billing?plan=pro' }
     })
     expect(window.location.href).toBe(originalHref)
   })

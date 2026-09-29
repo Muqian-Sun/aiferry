@@ -74,26 +74,6 @@ describe('oauth adoption auth api', () => {
     })
   })
 
-  it('posts affiliate code when creating pending wechat oauth account', async () => {
-    const { createPendingWeChatOAuthAccount } = await import('@/api/auth')
-
-    await createPendingWeChatOAuthAccount(
-      'invite-code',
-      {
-        adoptDisplayName: false,
-        adoptAvatar: true
-      },
-      'WXAFF'
-    )
-
-    expect(post).toHaveBeenCalledWith('/auth/oauth/wechat/complete-registration', {
-      invitation_code: 'invite-code',
-      aff_code: 'WXAFF',
-      adopt_display_name: false,
-      adopt_avatar: true
-    })
-  })
-
   it('classifies oauth completion results as login or bind', async () => {
     const { getOAuthCompletionKind } = await import('@/api/auth')
 

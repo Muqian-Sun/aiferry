@@ -136,22 +136,6 @@
           <FormError :message="invitationCodeError" />
         </div>
 
-        <!-- 邀请人代码（返利，选填） -->
-        <div v-else-if="affiliateEnabled" data-testid="affiliate-invitation-field">
-          <label for="affiliate_code" class="auth-label">
-            {{ t('auth.invitationCodeLabel') }}
-            <span class="ml-1 font-normal text-af-ink-4">{{ t('common.optional') }}</span>
-          </label>
-          <input
-            id="affiliate_code"
-            v-model="formData.aff_code"
-            type="text"
-            :disabled="registrationActionDisabled"
-            class="input auth-input"
-            :placeholder="t('auth.invitationCodePlaceholder')"
-          />
-        </div>
-
         <!-- Turnstile Widget -->
         <div v-if="captchaEnabled" data-testid="registration-turnstile">
           <TurnstileWidget
@@ -234,7 +218,6 @@
 
         <EmailOAuthButtons
           :disabled="registrationActionDisabled"
-          :aff-code="formData.aff_code"
           :github-enabled="githubOAuthEnabled"
           :google-enabled="googleOAuthEnabled"
           :show-divider="false"
@@ -244,7 +227,6 @@
         <WechatOAuthSection
           v-if="wechatOAuthEnabled"
           :disabled="registrationActionDisabled"
-          :aff-code="formData.aff_code"
           :show-divider="false"
           @start="handleOAuthStart"
         />
@@ -268,7 +250,7 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
@@ -293,11 +275,6 @@ import {
   isRegistrationEmailSuffixAllowed,
   normalizeRegistrationEmailSuffixWhitelist
 } from '@/utils/registrationEmailPolicy'
-import {
-  clearAffiliateReferralCode,
-  loadAffiliateReferralCode,
-  resolveAffiliateReferralCode
-} from '@/utils/oauthAffiliate'
 import { APP_SITE } from '@/app/site'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 
@@ -311,7 +288,6 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 // ==================== Router & Stores ====================
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 
 // ==================== State ====================
@@ -327,7 +303,6 @@ const confirmPassword = ref('')
 const registrationEnabled = ref<boolean>(true)
 const emailVerifyEnabled = ref<boolean>(false)
 const invitationCodeEnabled = ref<boolean>(false)
-const affiliateEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
 const tencentCaptchaEnabled = ref<boolean>(false)
@@ -385,8 +360,7 @@ let invitationValidateTimeout: ReturnType<typeof setTimeout> | null = null
 const formData = reactive({
   email: '',
   password: '',
-  invitation_code: '',
-  aff_code: ''
+  invitation_code: ''
 })
 
 const errors = reactive({
@@ -436,25 +410,14 @@ watch(confirmPassword, () => {
   errorMessage.value = ''
 })
 
-function syncAffiliateReferralCode(): string {
-  const code = resolveAffiliateReferralCode(route.query.aff, route.query.aff_code)
-  if (code) {
-    formData.aff_code = code
-  }
-  return code
-}
-
 // ==================== Lifecycle ====================
 
 onMounted(async () => {
-  syncAffiliateReferralCode()
-
   try {
     const settings = await getPublicSettings()
     registrationEnabled.value = settings.registration_enabled
     emailVerifyEnabled.value = settings.email_verify_enabled
     invitationCodeEnabled.value = settings.invitation_code_enabled
-    affiliateEnabled.value = settings.affiliate_enabled
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
     tencentCaptchaEnabled.value = settings.tencent_captcha_enabled === true
@@ -473,7 +436,6 @@ onMounted(async () => {
     )
     emailDomainQuotaEnabled.value = settings.registration_email_domain_quota_enabled === true
     applyLoginAgreementSettings(settings)
-    syncAffiliateReferralCode()
   } catch (error) {
     console.error('Failed to load public settings:', error)
     loginAgreementEnabled.value = false
@@ -482,13 +444,6 @@ onMounted(async () => {
     settingsLoaded.value = true
   }
 })
-
-watch(
-  () => [route.query.aff, route.query.aff_code],
-  () => {
-    syncAffiliateReferralCode()
-  }
-)
 
 onUnmounted(() => {
   if (invitationValidateTimeout) {
@@ -832,11 +787,6 @@ async function handleRegister(): Promise<void> {
   isLoading.value = true
 
   try {
-    const affCode = formData.aff_code.trim() || loadAffiliateReferralCode()
-    if (affCode) {
-      formData.aff_code = affCode
-    }
-
     // If email verification is enabled, redirect to verification page
     if (emailVerifyEnabled.value) {
       // Store registration data in sessionStorage
@@ -849,8 +799,7 @@ async function handleRegister(): Promise<void> {
             turnstileEnabled.value || aliyunCaptchaEnabled.value ? turnstileToken.value : undefined,
           tencent_captcha_ticket: tencentCaptchaEnabled.value ? turnstileToken.value : undefined,
           tencent_captcha_randstr: tencentCaptchaEnabled.value ? tencentCaptchaRandstr.value : undefined,
-          invitation_code: formData.invitation_code || undefined,
-          ...(affCode ? { aff_code: affCode } : {})
+          invitation_code: formData.invitation_code || undefined
         })
       )
 
@@ -867,10 +816,8 @@ async function handleRegister(): Promise<void> {
         turnstileEnabled.value || aliyunCaptchaEnabled.value ? turnstileToken.value : undefined,
       tencent_captcha_ticket: tencentCaptchaEnabled.value ? turnstileToken.value : undefined,
       tencent_captcha_randstr: tencentCaptchaEnabled.value ? tencentCaptchaRandstr.value : undefined,
-      invitation_code: formData.invitation_code || undefined,
-      ...(affCode ? { aff_code: affCode } : {})
+      invitation_code: formData.invitation_code || undefined
     })
-    clearAffiliateReferralCode()
 
     // Redirect to dashboard
     await router.push(DEFAULT_AUTHED_PATH)

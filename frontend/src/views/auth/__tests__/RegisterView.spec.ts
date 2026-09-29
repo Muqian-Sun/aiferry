@@ -13,7 +13,6 @@ const publicSettings = {
   registration_enabled: true,
   email_verify_enabled: false,
   invitation_code_enabled: false,
-  affiliate_enabled: true,
   turnstile_enabled: true,
   turnstile_site_key: 'site-key',
   site_name: 'Sub2API',
@@ -158,22 +157,7 @@ describe('RegisterView', () => {
     expect(registerMock).not.toHaveBeenCalled()
   })
 
-  it('keeps the optional affiliate invitation field before Turnstile', async () => {
-    const wrapper = mountRegister()
-    await flushPromises()
-
-    const invitationField = wrapper.get('[data-testid="affiliate-invitation-field"]')
-    const turnstile = wrapper.get('[data-testid="registration-turnstile"]')
-
-    expect(invitationField.get('input').attributes('id')).toBe('affiliate_code')
-    expect(invitationField.text()).toContain('common.optional')
-    expect(
-      invitationField.element.compareDocumentPosition(turnstile.element) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-  })
-
-  it('uses the mandatory invitation field without duplicating the affiliate field', async () => {
+  it('shows the mandatory invitation field when invitation codes are required', async () => {
     getPublicSettingsMock.mockResolvedValueOnce({
       ...publicSettings,
       invitation_code_enabled: true
@@ -182,7 +166,6 @@ describe('RegisterView', () => {
     const wrapper = mountRegister()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="affiliate-invitation-field"]').exists()).toBe(false)
     expect(wrapper.get('#invitation_code').exists()).toBe(true)
   })
 

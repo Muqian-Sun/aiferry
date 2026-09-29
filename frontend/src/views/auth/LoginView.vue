@@ -221,7 +221,6 @@ import type {
 } from '@/types'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { APP_SITE, IS_ADMIN_SITE } from '@/app/site'
-import { clearAllAffiliateReferralCodes } from '@/utils/oauthAffiliate'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 
 // 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
@@ -569,8 +568,6 @@ async function handleLogin(): Promise<void> {
       return
     }
 
-    clearAllAffiliateReferralCodes()
-
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
@@ -610,7 +607,6 @@ async function handlePasskeyLogin(): Promise<void> {
     }
 
     await authStore.loginWithPasskey(proof)
-    clearAllAffiliateReferralCodes()
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
   } catch (error: unknown) {
@@ -677,8 +673,6 @@ async function handle2FAVerify(code: string): Promise<void> {
 
     // Close modal and show success
     show2FAModal.value = false
-    clearAllAffiliateReferralCodes()
-
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
