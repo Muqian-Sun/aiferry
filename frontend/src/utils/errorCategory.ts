@@ -12,7 +12,7 @@ export function mapErrorCategory(phase?: string | null, errType?: string | null)
     case 'account_auth':
     case 'upstream':
     case 'network':
-      return 'upstream'
+      return 'server'
     case 'internal':
       return 'internal'
     case 'request':

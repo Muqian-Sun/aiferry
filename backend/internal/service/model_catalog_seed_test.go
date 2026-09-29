@@ -545,3 +545,19 @@ func TestModelCatalogEntry_Validate_ListedImageVideoRequiresPerRequestPrice(t *t
 	token.Normalize()
 	require.NoError(t, token.Validate())
 }
+
+// 兜底价表的每个模型都要标上厂商（2026-09-29 E2E：grok / glm / claude-fable 等播出来厂商为空，
+// 用户站模型页归不到厂商）。表里新增模型族时漏了 fallbackSeedVendors 这里会红。
+func TestFallbackSeedEntriesAllHaveVendor(t *testing.T) {
+	billing := NewBillingService(&config.Config{}, nil)
+	fallback := billing.SnapshotFallbackPricing()
+	require.NotEmpty(t, fallback)
+	for name, pricing := range fallback {
+		entry := seedEntryFromFallback(name, pricing)
+		require.NotEmpty(t, entry.Vendor, "fallback seed %q has no vendor", name)
+	}
+	require.Equal(t, "xai", seedEntryFromFallback("grok-4.5", fallback["grok-4.5"]).Vendor)
+	require.Equal(t, "zhipu", seedEntryFromFallback("glm-5.3", fallback["glm-5.3"]).Vendor)
+	grok := seedEntryFromFallback("grok-4.6", fallback["grok-4.6"])
+	require.Equal(t, PlatformGrok, CatalogVendorPlatform(&grok), "grok 条目归到 Grok 平台")
+}

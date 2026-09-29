@@ -37,6 +37,19 @@ export function formatMoneyExact(amount: number | null | undefined): string {
   return `${sign}$${text}`
 }
 
+/**
+ * 余额：正数同汇总金额（formatMoney）；为负是透支的欠款（允许一次请求透支，补上之前不能再用，
+ * muqian 2026-09-29），写精确值，不能写成 `-<$0.01` 看不出欠多少。
+ */
+export function formatBalance(amount: number | null | undefined): string {
+  return Number(amount) < 0 ? formatMoneyExact(amount) : formatMoney(amount)
+}
+
+/** 余额为负（欠款）时的文字色。 */
+export function balanceTextClass(amount: number | null | undefined): string {
+  return Number(amount) < 0 ? 'text-af-danger' : ''
+}
+
 /** 利润 = 收入 − 成本（两者任一缺失按 0）。 */
 export function profitOf(revenue: number | null | undefined, cost: number | null | undefined): number {
   return (Number(revenue) || 0) - (Number(cost) || 0)

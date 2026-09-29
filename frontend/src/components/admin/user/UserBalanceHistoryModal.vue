@@ -22,7 +22,7 @@
         </div>
         <div class="flex-shrink-0 text-right">
           <p class="text-xs text-af-ink-3">{{ t('admin.users.currentBalance') }}</p>
-          <p class="text-xl font-semibold tabular-nums text-af-ink">{{ formatMoney(user.balance) }}</p>
+          <p class="text-xl font-semibold tabular-nums text-af-ink" :class="balanceTextClass(user.balance)">{{ formatBalance(user.balance) }}</p>
         </div>
       </div>
       <UserBalanceHistoryPanel
@@ -38,7 +38,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { formatDateTime } from '@/utils/format'
-import { formatMoney } from '@/utils/money'
+import { balanceTextClass, formatBalance } from '@/utils/money'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import UserBalanceHistoryPanel from './UserBalanceHistoryPanel.vue'

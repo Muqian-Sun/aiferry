@@ -29,6 +29,7 @@ export default {
     },
     topbar: {
       balance: '余额',
+      debt: '欠费',
       available: '可用',
       frozen: '冻结',
       total: '总额',

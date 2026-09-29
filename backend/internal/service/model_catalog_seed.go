@@ -245,9 +245,37 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 // liteLLMModeImageGeneration 是价格文件里生图模型的 mode 值。
 const liteLLMModeImageGeneration = "image_generation"
 
+// fallbackSeedVendors 兜底价表（BillingService.fallbackPrices，我们自己维护的已知模型）按模型族标厂商。
+// 价格文件里的条目厂商来自 litellm_provider；兜底价条目没有这一项，播种出来厂商为空，用户站模型页就归不到
+// 任何厂商（2026-09-29 E2E：grok-4.5 / 4.6、glm、claude-fable、gemini-3.x 等 42 条）。这里只给自己的表贴
+// 标签，不是运行时按模型名猜厂商（CatalogVendorPlatform 仍只看条目厂商）。值与价格文件同口径（provider 串）。
+var fallbackSeedVendors = []struct{ prefix, vendor string }{
+	{"claude-", "anthropic"},
+	{"gpt-", "openai"},
+	{"codex-", "openai"},
+	{"gemini-", "gemini"},
+	{"grok-", "xai"},
+	{"glm-", "zhipu"},
+	{"deepseek-", "deepseek"},
+	{"kimi-", "moonshot"},
+	{"minimax-", "minimax"},
+	{"doubao-", "volcengine"},
+}
+
+func fallbackSeedVendor(name string) string {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	for _, v := range fallbackSeedVendors {
+		if strings.HasPrefix(lower, v.prefix) {
+			return v.vendor
+		}
+	}
+	return ""
+}
+
 func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry {
 	entry := ModelCatalogEntry{
 		ModelID:     name,
+		Vendor:      fallbackSeedVendor(name),
 		BillingMode: BillingModeToken,
 		Status:      ModelCatalogStatusUnlisted,
 		ManagedBy:   ModelCatalogManagedBySeed,

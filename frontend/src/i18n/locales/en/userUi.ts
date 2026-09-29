@@ -29,6 +29,7 @@ export default {
     },
     topbar: {
       balance: 'Balance',
+      debt: 'Owed',
       available: 'Available',
       frozen: 'Frozen',
       total: 'Total',
