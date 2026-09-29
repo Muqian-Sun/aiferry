@@ -22,7 +22,7 @@
         </div>
         <div class="flex-shrink-0 text-right">
           <p class="text-xs text-af-ink-3">{{ t('admin.users.currentBalance') }}</p>
-          <p class="text-xl font-semibold tabular-nums text-af-ink" :class="balanceTextClass(user.balance)">{{ formatBalance(user.balance) }}</p>
+          <p class="text-xl font-semibold tabular-nums" :class="balanceTextClass(user.balance)">{{ formatBalance(user.balance) }}</p>
         </div>
       </div>
       <UserBalanceHistoryPanel

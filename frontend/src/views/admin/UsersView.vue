@@ -223,7 +223,7 @@
           <template #cell-balance="{ value, row }">
             <button
               type="button"
-              class="font-medium tabular-nums text-af-ink underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
+              class="font-medium tabular-nums underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
               :class="balanceTextClass(value)"
               :title="t('admin.users.balanceHistoryTip')"
               @click.stop="openDrawer(row, 'balance')"

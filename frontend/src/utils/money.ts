@@ -45,9 +45,9 @@ export function formatBalance(amount: number | null | undefined): string {
   return Number(amount) < 0 ? formatMoneyExact(amount) : formatMoney(amount)
 }
 
-/** 余额为负（欠款）时的文字色。 */
+/** 余额的文字色：欠款标红，其余墨色。两个颜色都由这里给，调用处别再写死 text-af-ink（两个颜色类同时在，谁生效看 CSS 顺序）。 */
 export function balanceTextClass(amount: number | null | undefined): string {
-  return Number(amount) < 0 ? 'text-af-danger' : ''
+  return Number(amount) < 0 ? 'text-af-danger' : 'text-af-ink'
 }
 
 /** 利润 = 收入 − 成本（两者任一缺失按 0）。 */
