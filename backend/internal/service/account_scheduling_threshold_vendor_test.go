@@ -74,14 +74,33 @@ func TestEvaluateAccountSchedulingThreshold_KeysFollowVendorNotLabel(t *testing.
 		require.False(t, decision.ShouldPause)
 	})
 
-	t.Run("deepseek label on official anthropic address evaluates fable window", func(t *testing.T) {
-		key := thresholdTestKey(PlatformDeepseek, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}, map[string]any{
-			"passive_usage_7d_oi_utilization": 0.95,
-			"passive_usage_7d_oi_reset":       float64(reset.Unix()),
-		})
-		require.Equal(t, PlatformAnthropic, key.Vendor())
+	fableWindow := map[string]any{
+		"passive_usage_7d_oi_utilization": 0.95,
+		"passive_usage_7d_oi_reset":       float64(reset.Unix()),
+	}
+
+	// 海外四家不再有官方 key（2026-09-29）：指向 api.anthropic.com 的 key 按中转，不参与阈值停调。
+	t.Run("key on api.anthropic.com is a relay and does not pause on fable window", func(t *testing.T) {
+		key := thresholdTestKey(PlatformDeepseek, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}, fableWindow)
+		require.Empty(t, key.Vendor())
 
 		decision := evaluateAnthropicFableSchedulingThreshold(key, map[string]int{PlatformAnthropic: 80}, now)
+		require.False(t, decision.ShouldPause)
+	})
+
+	t.Run("key on api.openai.com is a relay and does not pause on codex snapshot", func(t *testing.T) {
+		key := thresholdTestKey(PlatformKimi, map[string]string{APIProtocolResponses: "https://api.openai.com"}, codexSnapshot)
+		require.Empty(t, key.Vendor())
+
+		decision := EvaluateAccountSchedulingThreshold(key, thresholds, now)
+		require.False(t, decision.ShouldPause)
+		require.Empty(t, decision.Platform)
+	})
+
+	t.Run("anthropic subscription evaluates fable window", func(t *testing.T) {
+		subscription := &Account{ID: 9201, Platform: PlatformAnthropic, Type: AccountTypeSetupToken, Status: StatusActive, Schedulable: true, Extra: fableWindow}
+
+		decision := evaluateAnthropicFableSchedulingThreshold(subscription, map[string]int{PlatformAnthropic: 80}, now)
 		require.True(t, decision.ShouldPause)
 	})
 }

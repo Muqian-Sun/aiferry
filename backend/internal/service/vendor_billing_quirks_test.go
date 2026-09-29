@@ -58,8 +58,14 @@ func TestOpenAIRecordUsage_Resets403CounterWithEscalatingPolicyScope(t *testing.
 	require.Empty(t, relay.Vendor())
 	require.Equal(t, []int64{1}, record(t, relay))
 
-	official := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-	official.ID = 2
-	require.Equal(t, PlatformAnthropic, official.Vendor())
-	require.Empty(t, record(t, official))
+	// 指向 api.anthropic.com 的 key 按中转（2026-09-29 海外四家不再有官方 key），同样清零。
+	keyOnOfficialHost := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
+	keyOnOfficialHost.ID = 2
+	require.Empty(t, keyOnOfficialHost.Vendor())
+	require.Equal(t, []int64{2}, record(t, keyOnOfficialHost))
+
+	// Anthropic 成品号首次 403 即停用、不计数，也就不清零。
+	subscription := vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil)
+	subscription.ID = 3
+	require.Empty(t, record(t, subscription))
 }

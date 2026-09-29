@@ -362,7 +362,9 @@ func TestOpenAI429FastPath_OpenCodeGoUsageLimitUsesMessageResetDuration(t *testi
 	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	svc := &OpenAIGatewayService{rateLimitService: rateLimitService}
 	rateLimitService.SetAccountRuntimeBlocker(svc)
-	account := &Account{ID: 44, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
+	// OpenCode Go 的额度文案按 OpenCode 官方地址识别（海外四家不再有官方 key，api.openai.com 上的 key 按中转）。
+	account := &Account{ID: 44, Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL}}
+	require.Equal(t, PlatformOpenCodeGo, account.Vendor())
 	body := []byte(`{"type":"error","error":{"type":"GoUsageLimitError","message":"5-hour usage limit reached. Resets in 4hr 59min. To continue using this model now, enable usage from your available balance: https://opencode.ai/workspace/wrk_test/go"},"metadata":{"workspace":"wrk_test","limitName":"5 hour"}}`)
 
 	before := time.Now()

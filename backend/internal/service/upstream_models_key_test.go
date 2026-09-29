@@ -152,22 +152,21 @@ func TestKeyModelSyncWithoutAnyEndpointFailsWithClearError(t *testing.T) {
 	require.Nil(t, upstream.lastReq)
 }
 
-// Grok 的目录形态是厂商特化：贴 grok 标签但地址是中转的 key 按标准 OpenAI 目录解析。
+// Grok 的目录形态是厂商特化、只对 Grok 成品号：第三方 key 一律按标准 OpenAI 目录解析，贴 grok 标签的中转与
+// 指向 api.x.ai 的 key 都一样（2026-09-29 海外四家不再有官方 key）。
 func TestKeyModelSyncGrokCatalogShapeFollowsVendorNotLabel(t *testing.T) {
 	const body = `{"data":[{"id":"standard-id","model":"grok-4.5"}]}`
 
-	relaySvc, _ := keyModelSyncService(body)
-	relayModels, err := relaySvc.FetchUpstreamSupportedModels(context.Background(),
-		keyModelSyncAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"}))
-	require.NoError(t, err)
-	require.Equal(t, []string{"standard-id"}, relayModels)
+	for _, endpoint := range []string{"https://relay.example/v1", "https://api.x.ai/v1"} {
+		svc, _ := keyModelSyncService(body)
+		account := keyModelSyncAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: endpoint})
+		require.Empty(t, account.Vendor(), endpoint)
+		models, err := svc.FetchUpstreamSupportedModels(context.Background(), account)
+		require.NoError(t, err)
+		require.Equal(t, []string{"standard-id"}, models, endpoint)
+	}
 
-	officialSvc, _ := keyModelSyncService(body)
-	officialAccount := keyModelSyncAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"})
-	require.Equal(t, PlatformGrok, officialAccount.Vendor())
-	officialModels, err := officialSvc.FetchUpstreamSupportedModels(context.Background(), officialAccount)
-	require.NoError(t, err)
-	require.Equal(t, []string{"grok-4.5"}, officialModels)
+	require.True(t, usesGrokModelCatalogShape(&Account{Platform: PlatformGrok, Type: AccountTypeOAuth}))
 }
 
 // 跨标签 key 的 /models 端点 404 且没有 model_mapping 可替代时必须报错，

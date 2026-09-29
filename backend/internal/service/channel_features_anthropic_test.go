@@ -217,8 +217,9 @@ func TestAnthropicSubscription_StoredWindowCostLimitIgnored(t *testing.T) {
 	require.Zero(t, usage.calls, "不再为窗口费用聚合用量")
 }
 
-// A2-18 web_search 模拟：全站生效（配了带 Key 的服务商）时，第三方 key 且不是 Anthropic 官方地址就模拟，
-// 不看渠道上存的开关；官方地址的 key、成品号、Bedrock 不模拟。
+// A2-18 web_search 模拟：全站生效（配了带 Key 的服务商）时，第三方 key 一律模拟，不看渠道上存的开关、
+// 不看标签；指向 api.anthropic.com 的 key 也按中转模拟（2026-09-29 海外四家不再有官方 key）。
+// 成品号、Bedrock 不模拟。
 func TestWebSearchEmulation_AppliesToNonOfficialKeysRegardlessOfStoredSwitch(t *testing.T) {
 	SetWebSearchManager(websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}))
 	defer SetWebSearchManager(nil)
@@ -234,7 +235,12 @@ func TestWebSearchEmulation_AppliesToNonOfficialKeysRegardlessOfStoredSwitch(t *
 		{"relay key without stored switch", channelFeatureAnthropicKey("https://anthropic-relay.example.com", nil), true},
 		{"relay key with stored off", channelFeatureAnthropicKey("https://anthropic-relay.example.com", map[string]any{"web_search_emulation": false}), true},
 		{"vendor key on its anthropic endpoint", channelFeatureAnthropicKey("https://api.moonshot.cn/anthropic", map[string]any{"web_search_emulation": false}), true},
-		{"official anthropic key with stored on", channelFeatureAnthropicKey("https://api.anthropic.com", map[string]any{"web_search_emulation": true}), false},
+		{"key on api.anthropic.com is a relay too", channelFeatureAnthropicKey("https://api.anthropic.com", map[string]any{"web_search_emulation": false}), true},
+		{"openai-labelled relay key", func() *Account {
+			a := channelFeatureAnthropicKey("https://anthropic-relay.example.com", nil)
+			a.Platform = PlatformOpenAI
+			return a
+		}(), true},
 		{"subscription with stored on", channelFeatureAnthropicOAuth(map[string]any{"web_search_emulation": true}), false},
 		{"bedrock with stored on", &Account{ID: 9403, Platform: PlatformAnthropic, Type: AccountTypeBedrock, Extra: map[string]any{"web_search_emulation": true}}, false},
 	}
@@ -250,9 +256,9 @@ func TestWebSearchEmulation_AppliesToNonOfficialKeysRegardlessOfStoredSwitch(t *
 	require.False(t, noKey.shouldEmulateWebSearch(context.Background(), channelFeatureAnthropicKey("https://anthropic-relay.example.com", nil), webSearchToolBody))
 }
 
-// 同上，走 Forward：中转 key 的纯 web_search 请求被截下来做搜索（这里让渠道代理连不上，
-// 搜索返回「代理不可用」→ 换渠道错误），上游没收到请求；官方地址的 key 照常发给上游。
-func TestWebSearchEmulation_ForwardInterceptsRelayKeyOnly(t *testing.T) {
+// 同上，走 Forward：第三方 key 的纯 web_search 请求被截下来做搜索（这里让渠道代理连不上，
+// 搜索返回「代理不可用」→ 换渠道错误），上游没收到请求；指向 api.anthropic.com 的 key 也一样。
+func TestWebSearchEmulation_ForwardInterceptsKeys(t *testing.T) {
 	SetWebSearchManager(websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}))
 	defer SetWebSearchManager(nil)
 	setGlobalWebSearchConfig(&WebSearchEmulationConfig{Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}}})
@@ -266,33 +272,30 @@ func TestWebSearchEmulation_ForwardInterceptsRelayKeyOnly(t *testing.T) {
 	require.NoError(t, closed.Close())
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"latest news"}]}`)
 
-	t.Run("relay key with stored off is intercepted", func(t *testing.T) {
-		c, svc, upstream := newChannelFeatureForwardFixture(channelFeatureMessageResponse, "")
-		svc.settingService = newSettingServiceForWebSearchTest(true)
-		proxyID := int64(1)
-		account := channelFeatureAnthropicKey("https://anthropic-relay.example.com", map[string]any{"web_search_emulation": false})
-		account.ProxyID = &proxyID
-		account.Proxy = &Proxy{ID: proxyID, Protocol: "http", Host: "127.0.0.1", Port: deadPort}
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		stored   map[string]any
+	}{
+		{"relay key with stored off is intercepted", "https://anthropic-relay.example.com", map[string]any{"web_search_emulation": false}},
+		{"key on api.anthropic.com is intercepted like any relay", "https://api.anthropic.com", map[string]any{"web_search_emulation": false}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, svc, upstream := newChannelFeatureForwardFixture(channelFeatureMessageResponse, "")
+			svc.settingService = newSettingServiceForWebSearchTest(true)
+			proxyID := int64(1)
+			account := channelFeatureAnthropicKey(tc.endpoint, tc.stored)
+			account.ProxyID = &proxyID
+			account.Proxy = &Proxy{ID: proxyID, Protocol: "http", Host: "127.0.0.1", Port: deadPort}
 
-		_, err := svc.Forward(context.Background(), c, account, &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"})
+			_, err := svc.Forward(context.Background(), c, account, &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"})
 
-		var failover *UpstreamFailoverError
-		require.True(t, errors.As(err, &failover), "搜索走渠道代理失败 → 换渠道，got %v", err)
-		require.Contains(t, string(failover.ResponseBody), "proxy unavailable")
-		require.Nil(t, upstream.lastReq, "请求被模拟截下，没发给上游")
-	})
-
-	t.Run("official anthropic key goes upstream", func(t *testing.T) {
-		c, svc, upstream := newChannelFeatureForwardFixture(channelFeatureMessageResponse, "")
-		svc.settingService = newSettingServiceForWebSearchTest(true)
-		account := channelFeatureAnthropicKey("https://api.anthropic.com", map[string]any{"web_search_emulation": true})
-
-		_, err := svc.Forward(context.Background(), c, account, &ParsedRequest{Body: NewRequestBodyRef(body), Model: "claude-sonnet-4-5"})
-
-		require.NoError(t, err)
-		require.NotNil(t, upstream.lastReq)
-		require.Equal(t, "https://api.anthropic.com/v1/messages?beta=true", upstream.lastReq.URL.String())
-	})
+			var failover *UpstreamFailoverError
+			require.True(t, errors.As(err, &failover), "搜索走渠道代理失败 → 换渠道，got %v", err)
+			require.Contains(t, string(failover.ResponseBody), "proxy unavailable")
+			require.Nil(t, upstream.lastReq, "请求被模拟截下，没发给上游")
+		})
+	}
 }
 
 // A2-3 / A2-4 Vertex Project ID 只从 Service Account JSON 取：库里另存的 project_id 副本不看。

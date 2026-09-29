@@ -248,8 +248,10 @@ func TestPassthroughLifecycle_LaterTurnPreOutputRateLimitRequestsReconnect(t *te
 	require.ErrorAs(t, err, &websocketCloseErr)
 	require.Equal(t, coderws.StatusTryAgainLater, websocketCloseErr.Code)
 	require.Equal(t, "upstream rate limit exceeded; please reconnect", websocketCloseErr.Reason)
+	// 夹具是第三方 key（指向 api.openai.com 也按中转，2026-09-29）：usage_limit_reached 的 resets_at 是
+	// OpenAI 成品号的语义，这里只落通用的秒级 429 兜底（成品号的 resets_at 见 openai_ws_ratelimit_signal_test.go）。
 	require.Len(t, repo.rateLimitCalls, 1)
-	require.WithinDuration(t, time.Unix(resetAt, 0), repo.rateLimitCalls[0], 2*time.Second)
+	require.True(t, repo.rateLimitCalls[0].Before(time.Unix(resetAt, 0).Add(-time.Hour)), "relay keys must not adopt resets_at")
 
 	select {
 	case err := <-serverErr:

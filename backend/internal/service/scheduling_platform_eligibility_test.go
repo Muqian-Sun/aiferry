@@ -193,7 +193,7 @@ func TestAccountSupportsOpenAIEndpointCapability_KeysIgnoreLabel(t *testing.T) {
 	relayChatOnly := schedulingTestKey(1, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	relayResponses := schedulingTestKey(2, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL, APIProtocolChatCompletions: schedulingTestRelayURL})
 	grokLabelledRelay := schedulingTestKey(3, PlatformGrok, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
-	officialXAIOpenAILabel := schedulingTestKey(4, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"})
+	keyOnXAI := schedulingTestKey(4, PlatformGrok, map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"})
 	grokLabelledRelayOverride := schedulingTestKey(5, PlatformGrok, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	grokLabelledRelayOverride.Extra = map[string]any{"grok_media_eligible": true}
 	embeddingsOnly := schedulingTestKey(6, PlatformKimi, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
@@ -210,9 +210,11 @@ func TestAccountSupportsOpenAIEndpointCapability_KeysIgnoreLabel(t *testing.T) {
 	require.True(t, relayChatOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 	require.False(t, relayChatOnly.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityLive))
 
-	// Grok 媒体生成是 xAI 厂商能力：只看地址（渠道级手动覆盖 2026-09-28 P5 删了，残留键不生效）。
+	// Grok 媒体生成是 xAI 厂商能力、只对 Grok 成品号：第三方 key 一律不具备，指向 api.x.ai 的 key 也一样
+	// （2026-09-29 海外四家不再有官方 key；渠道级手动覆盖 2026-09-28 P5 删了，残留键不生效）。
 	require.False(t, grokLabelledRelay.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
-	require.True(t, officialXAIOpenAILabel.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
+	require.False(t, keyOnXAI.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
+	require.True(t, keyOnXAI.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
 	require.False(t, grokLabelledRelayOverride.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
 
 	// 渠道级「端点能力」2026-09-28 P5 删了：残留的 openai_capabilities 不再限制。
@@ -223,13 +225,13 @@ func TestAccountSupportsOpenAIEndpointCapability_KeysIgnoreLabel(t *testing.T) {
 func TestOpenAICompactSupportTier_KeysByProtocolAndVendor(t *testing.T) {
 	relayResponses := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
 	relayChatOnly := schedulingTestKey(2, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
-	officialXAI := schedulingTestKey(3, PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.x.ai/v1"})
+	keyOnXAI := schedulingTestKey(3, PlatformGrok, map[string]string{APIProtocolResponses: "https://api.x.ai/v1"})
 	grokLabelledRelay := schedulingTestKey(4, PlatformGrok, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
 	kimiOfficial := schedulingTestKey(5, PlatformOpenAI, map[string]string{APIProtocolResponses: DefaultKimiPayGBaseURL})
 
 	require.Equal(t, 1, openAICompactSupportTier(&relayResponses))
 	require.Equal(t, 0, openAICompactSupportTier(&relayChatOnly))
-	require.Equal(t, 2, openAICompactSupportTier(&officialXAI))
+	require.Equal(t, 1, openAICompactSupportTier(&keyOnXAI), "指向 api.x.ai 的 key 按中转：未知、保留候选")
 	require.Equal(t, 1, openAICompactSupportTier(&grokLabelledRelay))
 	require.Equal(t, 0, openAICompactSupportTier(&kimiOfficial))
 

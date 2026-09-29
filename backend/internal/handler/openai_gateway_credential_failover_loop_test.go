@@ -688,19 +688,6 @@ func TestResponsesGrok429FailoverHandlesMixedStatuses(t *testing.T) {
 		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 		require.Equal(t, []int64{801, 802, 803}, upstream.accountHits())
 	})
-
-	t.Run("OAuth 429 then API-key failure cannot bypass the bound", func(t *testing.T) {
-		_, _, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "oauth_429_apikey_500")
-		defer cleanup()
-		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
-		req.Header.Set("Content-Type", "application/json")
-
-		router.ServeHTTP(recorder, req)
-
-		require.Equal(t, http.StatusBadGateway, recorder.Code, recorder.Body.String())
-		require.Equal(t, []int64{801, 802}, upstream.accountHits())
-	})
 }
 
 func TestGrokMedia429FailoverIsBounded(t *testing.T) {
@@ -986,10 +973,10 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 			Extra: grokCredentialFailoverMediaEligibleExtra(),
 		},
 	}
-	if mode == "postmap_cancel" || mode == "first_402" || mode == "first_429" || mode == "all_429" || mode == "mixed_429_500" || mode == "mixed_500_429" || mode == "oauth_429_apikey_500" {
+	if mode == "postmap_cancel" || mode == "first_402" || mode == "first_429" || mode == "all_429" || mode == "mixed_429_500" || mode == "mixed_500_429" {
 		accounts[0].Credentials["expires_at"] = time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
 	}
-	if mode == "all_429" || mode == "mixed_429_500" || mode == "mixed_500_429" || mode == "oauth_429_apikey_500" {
+	if mode == "all_429" || mode == "mixed_429_500" || mode == "mixed_500_429" {
 		accounts = append(accounts, service.Account{
 			ID: 803, Name: "untried-healthy", Platform: service.PlatformGrok, Type: service.AccountTypeOAuth,
 			Status: service.StatusActive, Schedulable: true, Concurrency: 1, Priority: 3,
@@ -999,11 +986,6 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 			},
 			Extra: grokCredentialFailoverMediaEligibleExtra(),
 		})
-	}
-	if mode == "oauth_429_apikey_500" {
-		accounts[1].Type = service.AccountTypeAPIKey
-		accounts[1].Credentials = map[string]any{"api_key": "third-party-key"}
-		accounts[1].ProtocolEndpoints = service.PlatformProtocolDefaults(service.PlatformGrok, "")
 	}
 	if mode == "all_revoked" {
 		accounts[1].Credentials["expires_at"] = time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
@@ -1042,9 +1024,6 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	case "mixed_500_429":
 		upstream.failureStatus = map[int64]int{801: http.StatusInternalServerError}
 		upstream.rateLimitIDs = map[int64]bool{802: true}
-	case "oauth_429_apikey_500":
-		upstream.rateLimitIDs = map[int64]bool{801: true}
-		upstream.failureStatus = map[int64]int{802: http.StatusInternalServerError}
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3

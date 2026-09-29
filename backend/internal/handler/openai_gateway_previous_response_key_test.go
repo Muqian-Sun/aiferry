@@ -43,8 +43,8 @@ func (u *previousResponseKeyUpstream) DoWithTLS(req *http.Request, proxyURL stri
 	return u.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
-// HTTP 请求携带 previous_response_id 时，第三方 key 只有以 responses 协议转发到官方 OpenAI
-// 或通用中转才承接续链；按协议 / 厂商排除，不看平台标签。
+// HTTP 请求携带 previous_response_id 时，第三方 key 只有以 responses 协议转发到通用中转（含指向
+// api.openai.com 的 key）才承接续链；按协议 / 厂商排除，不看平台标签。
 func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *testing.T) {
 	cases := map[string]map[string]string{
 		// openai 标签，但只有 chat_completions 地址：续链状态会在转换里丢失。

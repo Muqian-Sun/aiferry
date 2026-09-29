@@ -200,15 +200,17 @@ func TestOpenAIGatewayKeyProtocol_AnthropicOnlyKey(t *testing.T) {
 	}
 }
 
-func TestOpenAIGatewayKeyProtocol_OfficialOpenAIPrefersResponses(t *testing.T) {
-	// 标签是 deepseek，地址是官方 OpenAI：按地址识别为 OpenAI，入站 Chat Completions 先转 Responses。
-	account := keyProtocolTestAccount(PlatformDeepseek, map[string]string{
+func TestOpenAIGatewayKeyProtocol_KeyOnOpenAIHostIsARelay(t *testing.T) {
+	// 地址是 api.openai.com 的 key 按中转（2026-09-29 海外四家不再有官方 key）：入站 Chat Completions
+	// 同协议直连，不再先转 Responses。
+	account := keyProtocolTestAccount(PlatformOpenAI, map[string]string{
 		APIProtocolChatCompletions: "https://api.openai.com",
 		APIProtocolResponses:       "https://api.openai.com",
 	})
+	require.Empty(t, account.Vendor())
 	upstream := captureKeyProtocolRequest(t, account, keyProtocolChatIngress)
-	require.Equal(t, "https://api.openai.com/v1/responses", upstream.lastReq.URL.String())
-	require.True(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
+	require.Equal(t, "https://api.openai.com/v1/chat/completions", upstream.lastReq.URL.String())
+	require.True(t, gjson.GetBytes(upstream.lastBody, "messages").Exists())
 }
 
 func TestOpenAIGatewayKeyProtocol_MissingProtocolEndpointFailsWithoutUpstreamRequest(t *testing.T) {
@@ -266,17 +268,17 @@ func TestOpenAIGatewayKeyProtocol_StatelessVendorResponses(t *testing.T) {
 	require.False(t, gjson.GetBytes(upstream.lastBody, "previous_response_id").Exists())
 }
 
-// TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel：xAI 的请求改写与 Grok 请求构造
-// 只对地址识别为 xAI 的 key 启用。
-func TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel(t *testing.T) {
+// TestOpenAIGatewayKeyProtocol_GrokQuirksNeverApplyToKeys：xAI 的请求改写与 Grok 请求构造只对 Grok
+// 成品号；第三方 key 一律按中转，贴 grok 标签的中转与指向 api.x.ai 的 key 都一样（2026-09-29）。
+func TestOpenAIGatewayKeyProtocol_GrokQuirksNeverApplyToKeys(t *testing.T) {
 	relay := func() *Account {
 		return keyProtocolTestAccount(PlatformGrok, map[string]string{
 			APIProtocolChatCompletions: "http://relay.example/v1",
 			APIProtocolResponses:       "http://relay.example/v1",
 		})
 	}
-	official := func() *Account {
-		return keyProtocolTestAccount(PlatformOpenAI, map[string]string{
+	keyOnXAI := func() *Account {
+		return keyProtocolTestAccount(PlatformGrok, map[string]string{
 			APIProtocolChatCompletions: xaiOfficialTestBaseURL,
 			APIProtocolResponses:       xaiOfficialTestBaseURL,
 		})
@@ -300,11 +302,13 @@ func TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel(t *testing.T) {
 		require.Equal(t, "http://relay.example/api/v1/chat/completions", upstream.lastReq.URL.String())
 	})
 
-	t.Run("openai label on api.x.ai gets xAI chat body patches", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, official(), chatIngress)
+	t.Run("key on api.x.ai gets no xAI chat body patches", func(t *testing.T) {
+		account := keyOnXAI()
+		require.Empty(t, account.Vendor())
+		upstream := captureKeyProtocolRequest(t, account, chatIngress)
 		require.Equal(t, xaiOfficialTestBaseURL+"/chat/completions", upstream.lastReq.URL.String())
-		require.False(t, gjson.GetBytes(upstream.lastBody, "prompt_cache_key").Exists())
-		require.NotEmpty(t, upstream.lastReq.Header.Get(grokConversationIDHeader))
+		require.Equal(t, "cache-1", gjson.GetBytes(upstream.lastBody, "prompt_cache_key").String())
+		require.Empty(t, upstream.lastReq.Header.Get(grokConversationIDHeader))
 	})
 
 	for _, ingress := range []keyProtocolIngress{keyProtocolResponsesIngress, keyProtocolMessagesIngress} {
@@ -313,10 +317,10 @@ func TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel(t *testing.T) {
 			require.Equal(t, "http://relay.example/v1/responses", upstream.lastReq.URL.String())
 			require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 		})
-		t.Run(ingress.name+" on an openai-labelled xAI key uses the Grok Responses request", func(t *testing.T) {
-			upstream := captureKeyProtocolRequest(t, official(), ingress)
+		t.Run(ingress.name+" on a key on api.x.ai uses the standard Responses request", func(t *testing.T) {
+			upstream := captureKeyProtocolRequest(t, keyOnXAI(), ingress)
 			require.Equal(t, xaiOfficialTestBaseURL+"/responses", upstream.lastReq.URL.String())
-			require.Equal(t, HTTPUpstreamProfileGrok, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
+			require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 		})
 	}
 }
@@ -324,13 +328,13 @@ func TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel(t *testing.T) {
 const xaiOfficialTestBaseURL = "https://api.x.ai/v1"
 
 // TestGrokVendorQuirkPredicatesFollowVendorNotLabel：xAI 专属的失败分类、流空闲重试、计费 ping 过滤、
-// WS HTTP bridge 强制与内容策略错误，都按地址识别的厂商决定。每条断言两侧：grok 标签挂中转不启用，
-// openai 标签发往 api.x.ai 启用。
+// WS HTTP bridge 强制与内容策略错误，都按厂商决定、只对 Grok 成品号。每条断言两侧：第三方 key
+// （贴 grok 标签、且发往 api.x.ai——海外四家不再有官方 key，2026-09-29）不启用，Grok 成品号启用。
 func TestGrokVendorQuirkPredicatesFollowVendorNotLabel(t *testing.T) {
-	relay := keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"})
-	official := keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: xaiOfficialTestBaseURL})
-	require.Equal(t, PlatformGrok, official.Vendor(), "fixture: api.x.ai must be recognised as xAI")
-	require.Equal(t, "", relay.Vendor(), "fixture: relay host must not be recognised as a vendor")
+	relay := keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: xaiOfficialTestBaseURL})
+	official := &Account{ID: 9301, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1}
+	require.Equal(t, PlatformGrok, official.Vendor(), "fixture: a Grok subscription is xAI")
+	require.Equal(t, "", relay.Vendor(), "fixture: a key on api.x.ai must not be recognised as a vendor")
 
 	t.Run("stream idle same-account retry", func(t *testing.T) {
 		require.False(t, grokStreamIdleFailoverError(relay, time.Second).RetryableOnSameAccount)

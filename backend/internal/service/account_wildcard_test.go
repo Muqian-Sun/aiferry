@@ -751,8 +751,10 @@ func TestAccountGetModelMapping_CacheInvalidatesWhenVendorChanges(t *testing.T) 
 		t.Fatalf("a relay key with an empty mapping allows everything, got %v", relayMapping)
 	}
 
-	// 地址换成官方 xAI：按厂商启用 xAI 模型目录默认映射。
-	account.ProtocolEndpoints = PlatformProtocolDefaults(PlatformGrok, "")
+	// 同一个对象的厂商变了（改成 Grok 成品号）：按厂商启用 xAI 模型目录默认映射，缓存必须重建。
+	// 第三方 key 的厂商只可能是国产厂商或空串（海外四家不再有官方 key），它们都没有默认映射。
+	account.Type = AccountTypeOAuth
+	account.ProtocolEndpoints = nil
 	if account.Vendor() != PlatformGrok {
 		t.Fatalf("fixture: expected grok vendor, got %q", account.Vendor())
 	}

@@ -66,11 +66,11 @@ func TestAccountTestService_KeyOpenAILabelAnthropicEndpointProbesMessages(t *tes
 
 // ?beta=true 与 anthropic-beta 是 Anthropic 官方端点的 beta 开关，按 Vendor 生效：
 // 标签是 kimi 也一样，地址是 api.anthropic.com 就带上。
-func TestAccountTestService_KeyOfficialAnthropicEndpointKeepsBetaOptIn(t *testing.T) {
+func TestAccountTestService_KeyOnOfficialAnthropicHostProbesLikeRelay(t *testing.T) {
 	account := keyDispatchAccount(403, PlatformKimi, map[string]string{
 		APIProtocolAnthropic: "https://api.anthropic.com",
 	})
-	require.Equal(t, PlatformAnthropic, account.Vendor())
+	require.Empty(t, account.Vendor(), "海外四家不再有官方 key：指向 api.anthropic.com 的 key 按中转")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNAnthropicTestResponse())
 	c, _ := newTestContext()
 
@@ -78,8 +78,8 @@ func TestAccountTestService_KeyOfficialAnthropicEndpointKeepsBetaOptIn(t *testin
 
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "https://api.anthropic.com/v1/messages?beta=true", upstream.requests[0].URL.String())
-	require.NotEmpty(t, upstream.requests[0].Header.Get("anthropic-beta"))
+	require.Equal(t, "https://api.anthropic.com/v1/messages", upstream.requests[0].URL.String(), "不带官方端点的 ?beta=true")
+	require.Empty(t, upstream.requests[0].Header.Get("anthropic-beta"))
 }
 
 // 地址带 /v1 的 anthropic 端点与真实转发一样拼成 {base}/messages，不再拼出
@@ -162,21 +162,20 @@ func TestAccountTestService_KeyGrokLabelRelayUsesProtocolProbe(t *testing.T) {
 	require.Equal(t, "http://chat.example/v1/chat/completions", upstream.requests[0].URL.String())
 }
 
-// 反过来：标签写的是 anthropic，但地址是 xAI 官方站，仍按 Grok 厂商特化测。
-func TestAccountTestService_KeyOfficialGrokAddressUsesGrokProbe(t *testing.T) {
-	account := keyDispatchAccount(409, PlatformAnthropic, map[string]string{
+// 地址是 xAI 官方站的 key 也按中转：走通用协议探针，不走 Grok 专用测连（2026-09-29 海外四家不再有官方 key）。
+func TestAccountTestService_KeyOnOfficialXAIHostUsesProtocolProbe(t *testing.T) {
+	account := keyDispatchAccount(409, PlatformGrok, map[string]string{
 		APIProtocolChatCompletions: "https://api.x.ai/v1",
-		APIProtocolResponses:       "https://api.x.ai/v1",
 	})
-	require.Equal(t, PlatformGrok, account.Vendor())
-	svc, upstream := adaptiveCNAccountTestService(account, newJSONResponse(http.StatusUnauthorized, `{"error":"nope"}`))
+	require.Empty(t, account.Vendor())
+	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
 	c, _ := newTestContext()
 
 	err := svc.TestAccountConnection(c, account.ID, "grok-4", "", AccountTestModeDefault)
 
-	require.Error(t, err)
+	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "https://api.x.ai/v1/responses", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.x.ai/v1/chat/completions", upstream.requests[0].URL.String())
 }
 
 // 一个协议地址都没配：报 MISSING_PROTOCOL_ENDPOINT，一次上游请求都不发。

@@ -41,21 +41,24 @@ func anthropicKeyWithEndpoint(label, endpoint string) *Account {
 	}
 }
 
-func TestAnthropicSpeedServiceTier_KeysNeedOfficialVendorOrUpstreamConfirmation(t *testing.T) {
+func TestAnthropicSpeedServiceTier_KeysNeedUpstreamConfirmation(t *testing.T) {
 	const model = "claude-opus-5"
 	relayAnthropicLabel := anthropicKeyWithEndpoint(PlatformAnthropic, "https://anthropic-relay.example.com")
 	relayOpenAILabel := anthropicKeyWithEndpoint(PlatformOpenAI, "https://anthropic-relay.example.com")
-	officialOpenAILabel := anthropicKeyWithEndpoint(PlatformOpenAI, "https://api.anthropic.com")
+	keyOnOfficialHost := anthropicKeyWithEndpoint(PlatformAnthropic, "https://api.anthropic.com")
+	subscription := &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 
 	// 中转：标签是 anthropic 也不凭请求侧 speed=fast 计 2x。
 	require.Nil(t, anthropicSpeedServiceTier(relayAnthropicLabel, "fast", model, ""))
 	require.Nil(t, anthropicSpeedServiceTier(relayOpenAILabel, "fast", model, "standard"))
+	// 指向 api.anthropic.com 的 key 也按中转（2026-09-29 海外四家不再有官方 key）。
+	require.Nil(t, anthropicSpeedServiceTier(keyOnOfficialHost, "fast", model, ""))
 	// 中转回了 usage.speed=fast，任何标签都按 fast 计。
 	tier := anthropicSpeedServiceTier(relayOpenAILabel, "fast", model, "fast")
 	require.NotNil(t, tier)
 	require.Equal(t, "fast", *tier)
-	// 官方 Anthropic 地址：标签是 openai 也按请求侧档位计，由响应只降不升。
-	tier = anthropicSpeedServiceTier(officialOpenAILabel, "fast", model, "")
+	// Anthropic 成品号：按请求侧档位计，由响应只降不升。
+	tier = anthropicSpeedServiceTier(subscription, "fast", model, "")
 	require.NotNil(t, tier)
 	require.Equal(t, "fast", *tier)
 	// 未请求 fast 时响应声明 fast 也不升档。

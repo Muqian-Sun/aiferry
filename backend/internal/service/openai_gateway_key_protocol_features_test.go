@@ -17,8 +17,8 @@ import (
 )
 
 // OpenAI Responses 协议特性（续链、推理回放清理、parallel_tool_calls、WSv2、透传、
-// Responses Lite、分组策略等）对第三方 key 的规则：厂商是官方 OpenAI 或通用中转时启用，
-// 其他已知厂商不启用，平台标签不参与。
+// Responses Lite、分组策略等）对第三方 key 的规则：通用中转（含指向海外四家官方域名的 key，
+// 2026-09-29 起它们都按中转）启用，国产厂商与 OpenCode 不启用，平台标签不参与。
 //
 // 夹具故意把标签与地址错开：kimi 标签挂通用中转（应启用），openai 标签挂智谱官方地址
 // （应不启用）。
@@ -64,7 +64,7 @@ func TestOpenAIProtocolFeaturesApply(t *testing.T) {
 		{name: "kimi label on a relay", account: featureRelayKey(featureRelayEndpoints()), features: true, keyScoped: true},
 		{name: "deepseek label on api.openai.com", account: keyProtocolTestAccount(PlatformDeepseek, map[string]string{APIProtocolResponses: "https://api.openai.com"}), features: true, keyScoped: true},
 		{name: "openai label on zhipu", account: featureZhipuKey(featureZhipuEndpoints())},
-		{name: "openai label on api.x.ai", account: keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: xaiOfficialTestBaseURL})},
+		{name: "grok label on api.x.ai is a relay", account: keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolResponses: xaiOfficialTestBaseURL}), features: true, keyScoped: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.features, openAIProtocolFeaturesApply(tc.account))
@@ -147,9 +147,14 @@ func TestOpenAIWSProtocolResolverKeyFollowsVendorAndResponsesEndpoint(t *testing
 	require.Equal(t, "platform_not_openai", decision.Reason)
 }
 
-func TestShouldPreserveNoneReasoningEffortForKeysFollowsOfficialOpenAIHost(t *testing.T) {
-	require.True(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(keyProtocolTestAccount(PlatformKimi, map[string]string{APIProtocolResponses: "https://api.openai.com"})))
+// reasoning effort "none" 只对 OpenAI 成品号保留：第三方 key 一律按兼容上游剥掉，指向 api.openai.com
+// 的 key 也一样（2026-09-29 海外四家不再有官方 key）。
+func TestShouldPreserveNoneReasoningEffortOnlyForOpenAISubscriptions(t *testing.T) {
+	require.False(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.openai.com"})))
 	require.False(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(keyProtocolTestAccount(PlatformOpenAI, featureRelayEndpoints())))
+	require.True(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
+	require.True(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(&Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}))
+	require.False(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(nil))
 }
 
 func TestOpenAIResponsesNamespaceHandlingFollowsVendorNotLabel(t *testing.T) {

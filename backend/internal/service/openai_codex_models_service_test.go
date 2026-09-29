@@ -2672,27 +2672,20 @@ func TestFetchCodexModelsManifestKeyIgnoresPlatformLabel(t *testing.T) {
 	require.Equal(t, "OPENAI_CODEX_MODELS_ACCOUNT_TYPE_UNSUPPORTED", infraerrors.Reason(err))
 }
 
-// isOfficialOpenAICodexAccount 对第三方 key 按协议地址判官方，不看标签。
-func TestIsOfficialOpenAICodexAccount_KeysByAddress(t *testing.T) {
-	official := map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}
-	relay := map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}
-	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: official}), "kimi-labelled key on api.openai.com is official")
-	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: relay}), "openai-labelled key on a relay is not")
-	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
-	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}))
-}
-
-// 第三方 key 的图片输入能力不看平台标签：官方 xAI 地址按 Grok 规则，其余按 OpenAI 兼容清单。
-// （组合分组的目标平台仍按标签选号，那是第四步的事；这里只固定能力判定本身。）
+// 第三方 key 的图片输入能力不看平台标签，一律按 OpenAI 兼容清单：指向 xAI 官方域名的 key 也按中转，
+// 不走 Grok 规则（2026-09-29 海外四家不再有官方 key）。Grok 规则只对 Grok 成品号。
 func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
 	kimiLabelled := &Account{ID: 30, Platform: PlatformKimi, Type: AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1"}}
 	require.True(t, accountCodexModelSupportsImageInput(kimiLabelled, "gpt-5.6-sol"), "GPT image-input fallback applies to any OpenAI-compatible key")
 	require.False(t, accountCodexModelSupportsImageInput(kimiLabelled, "company-coding-model"))
 
-	openaiLabelledOnXAI := &Account{ID: 31, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
-	require.True(t, accountCodexModelSupportsImageInput(openaiLabelledOnXAI, "grok-4.5"), "official xAI address follows the Grok rule regardless of label")
+	grokLabelledOnXAI := &Account{ID: 31, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"}}
+	require.False(t, accountCodexModelSupportsImageInput(grokLabelledOnXAI, "grok-4.5"), "a key on api.x.ai is a relay: grok-4.5 is not a GPT image model")
+
+	grokSubscription := &Account{ID: 34, Platform: PlatformGrok, Type: AccountTypeOAuth}
+	require.True(t, accountCodexModelSupportsImageInput(grokSubscription, "grok-4.5"), "the Grok rule still applies to Grok subscriptions")
 
 	grokLabelledRelay := &Account{ID: 32, Platform: PlatformGrok, Type: AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}}

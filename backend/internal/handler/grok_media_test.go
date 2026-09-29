@@ -127,16 +127,17 @@ func TestGrokMediaScheduleModelUsesNormalizedMappedUpstream(t *testing.T) {
 }
 
 func TestEnsureGrokMediaAccountEligibility(t *testing.T) {
-	t.Run("non oauth account does not probe", func(t *testing.T) {
+	t.Run("key on api.x.ai is not a Grok account and does not probe", func(t *testing.T) {
+		// xAI 媒体只对 Grok 成品号：第三方 key 一律按中转（2026-09-29 海外四家不再有官方 key）。
 		prober := &grokMediaEligibilityProberStub{}
 		h := &OpenAIGatewayHandler{grokMediaEligibilityProber: prober}
-		account := &service.Account{Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
+		account := &service.Account{Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1"}}
 
 		eligible, reason, err := h.ensureGrokMediaAccountEligibility(context.Background(), account)
 
 		require.NoError(t, err)
-		require.True(t, eligible)
-		require.Equal(t, "non_oauth", reason)
+		require.False(t, eligible)
+		require.Equal(t, "not_grok", reason)
 		require.Zero(t, prober.calls)
 	})
 

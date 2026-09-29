@@ -138,24 +138,14 @@ func (a *Account) ValidateProtocolEndpoints() error {
 // 预填而不是代码里兜底：管理员看到的是一个可改的具体地址，存库的也是这个地址。
 // 代码里的隐式默认会让「忘了配地址」表现成「请求打到官方端点然后 401」。
 //
+// 只有国产厂商与 OpenCode：它们没有成品号，只能以 key 接入，官方地址上有厂商特化（余额 /
+// 额度探测、Coding Plan 等）。Anthropic、OpenAI、Gemini、Grok 不在表里——这四家只认成品号，
+// 指向它们官方域名的 key 一律按中转处理（muqian 2026-09-29 定）。
+//
 // accountMode 用于区分同一平台的按量与 Coding 套餐端点，空串按按量处理。
 func PlatformProtocolDefaults(platform string, accountMode string) map[string]string {
 	coding := accountMode == AccountModeCoding
 	switch platform {
-	case PlatformAnthropic:
-		return map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}
-	case PlatformOpenAI:
-		return map[string]string{
-			APIProtocolResponses:       "https://api.openai.com",
-			APIProtocolChatCompletions: "https://api.openai.com",
-		}
-	case PlatformGemini:
-		return map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}
-	case PlatformGrok:
-		return map[string]string{
-			APIProtocolResponses:       "https://api.x.ai/v1",
-			APIProtocolChatCompletions: "https://api.x.ai/v1",
-		}
 	case PlatformKimi:
 		if coding {
 			return map[string]string{
@@ -211,10 +201,7 @@ func PlatformProtocolDefaults(platform string, accountMode string) map[string]st
 // PlatformsWithProtocolDefaults 返回有官方端点可预填的平台列表。
 // 与 PlatformProtocolDefaults 放在一起维护，避免平台列表被抄成两份。
 func PlatformsWithProtocolDefaults() []string {
-	return []string{
-		PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
-	}
+	return []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo}
 }
 
 // ResolveUpstreamBaseURL 决定最终使用的上游地址。

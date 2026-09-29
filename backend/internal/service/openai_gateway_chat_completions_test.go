@@ -224,7 +224,7 @@ func TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody(
 		Name:              "openai-compatible",
 		Platform:          PlatformOpenAI,
 		Type:              AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com", APIProtocolChatCompletions: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
 		Concurrency:       1,
 		Credentials: map[string]any{
 			"api_key": "sk-compatible",
@@ -256,7 +256,7 @@ func TestForwardAsChatCompletions_APIKeyAutoDerivesStableIsolatedPromptCacheKey(
 	account := &Account{
 		ID: 2, Name: "openai-compatible", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials:       map[string]any{"api_key": "sk-compatible"},
-		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com", APIProtocolChatCompletions: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
 	}
 	firstBody := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"be concise"},{"role":"user","content":"hello"}],"stream":false}`)
 	appendedBody := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"be concise"},{"role":"user","content":"hello"},{"role":"assistant","content":"hi"},{"role":"user","content":"continue"}],"stream":false}`)
@@ -303,7 +303,7 @@ func TestForwardAsChatCompletions_ResponsesShapeDoesNotAutoDerivePromptCacheKey(
 	account := &Account{
 		ID: 2, Name: "openai-compatible", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials:       map[string]any{"api_key": "sk-compatible"},
-		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com", APIProtocolChatCompletions: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
 	}
 	firstBody := []byte(`{"model":"gpt-5.4","input":[{"role":"user","content":[{"type":"input_text","text":"first unrelated input"}]}],"stream":false}`)
 	secondBody := []byte(`{"model":"gpt-5.4","input":[{"role":"user","content":[{"type":"input_text","text":"second unrelated input"}]}],"stream":false}`)

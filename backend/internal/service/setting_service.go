@@ -22,17 +22,6 @@ const (
 	GrokDefaultBaseURLModeCLI     = "cli"
 )
 
-// GrokDefaultBaseURLModes 返回全部 Grok 默认地址模式，与上面的常量放在一起维护。
-func GrokDefaultBaseURLModes() []string {
-	return []string{
-		GrokDefaultBaseURLModeCLI,
-		GrokDefaultBaseURLModeAPI,
-		GrokDefaultBaseURLModeUSEast1,
-		GrokDefaultBaseURLModeUSWest2,
-		GrokDefaultBaseURLModeEUWest1,
-	}
-}
-
 func normalizeGrokDefaultBaseURLMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case GrokDefaultBaseURLModeAPI:
@@ -65,8 +54,8 @@ func GrokBaseURLForMode(mode string) string {
 	}
 }
 
-// resolveGrokBaseURL Grok 成品号文本流量的上游地址：站点默认区域写在代码里（GrokDefaultBaseURLMode）；
-// 第三方 key 由 GetGrokBaseURLOr 按协议映射取，不看这个默认值。
+// resolveGrokBaseURL Grok 成品号文本流量的上游地址：站点默认区域写在代码里（GrokDefaultBaseURLMode）。
+// 第三方 key 不走 Grok 链路（指向 xAI 官方域名的 key 也按中转）。
 func resolveGrokBaseURL(account *Account) string {
 	return account.GetGrokBaseURLOr(GrokBaseURLForMode(GrokDefaultBaseURLMode))
 }

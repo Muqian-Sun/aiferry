@@ -45,7 +45,7 @@ func TestAccountKeyUpstreamProtocolFor(t *testing.T) {
 		APIProtocolChatCompletions: "https://relay.example.com/v1",
 		APIProtocolResponses:       "https://relay.example.com/v1",
 	}}
-	officialOpenAI := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{
+	keyOnOpenAIHost := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{
 		APIProtocolChatCompletions: "https://api.openai.com",
 		APIProtocolResponses:       "https://api.openai.com",
 	}}
@@ -56,8 +56,8 @@ func TestAccountKeyUpstreamProtocolFor(t *testing.T) {
 	t.Run("中转入站 messages 没有 anthropic 地址时转 Responses", func(t *testing.T) {
 		require.Equal(t, APIProtocolResponses, relay.KeyUpstreamProtocolFor(PlatformKimi, APIProtocolAnthropic))
 	})
-	t.Run("官方 OpenAI 入站 CC 转 Responses", func(t *testing.T) {
-		require.Equal(t, APIProtocolResponses, officialOpenAI.KeyUpstreamProtocolFor(PlatformOpenAI, APIProtocolChatCompletions))
+	t.Run("指向 api.openai.com 的 key 按中转：入站 CC 直连 CC，不先转 Responses", func(t *testing.T) {
+		require.Equal(t, APIProtocolChatCompletions, keyOnOpenAIHost.KeyUpstreamProtocolFor(PlatformOpenAI, APIProtocolChatCompletions))
 	})
 	t.Run("标签是 anthropic 但没有 anthropic 地址，anthropic 分组不能用", func(t *testing.T) {
 		require.Equal(t, "", relay.KeyUpstreamProtocolFor(PlatformAnthropic, APIProtocolAnthropic))

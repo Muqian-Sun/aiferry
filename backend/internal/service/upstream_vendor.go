@@ -26,8 +26,9 @@ func mustBuildOfficialVendorHosts() map[string]string {
 
 // buildOfficialVendorHosts 汇总「官方域名 → 厂商」对照表。
 //
-// 表由官方预填地址（PlatformProtocolDefaults 的全部模式、Grok 默认地址模式）生成，
-// 不另抄一份域名清单：预填地址改了，厂商识别跟着变，两边不会分叉。
+// 表由官方预填地址（PlatformProtocolDefaults 的全部模式）生成，不另抄一份域名清单：
+// 预填地址改了，厂商识别跟着变，两边不会分叉。表里只有国产厂商与 OpenCode——
+// Anthropic、OpenAI、Gemini、Grok 的官方域名不在表里，指向它们的 key 按中转处理。
 func buildOfficialVendorHosts() (map[string]string, error) {
 	hosts := make(map[string]string)
 	add := func(vendor, rawURL string) error {
@@ -48,11 +49,6 @@ func buildOfficialVendorHosts() (map[string]string, error) {
 					return nil, err
 				}
 			}
-		}
-	}
-	for _, mode := range GrokDefaultBaseURLModes() {
-		if err := add(PlatformGrok, GrokBaseURLForMode(mode)); err != nil {
-			return nil, err
 		}
 	}
 	for vendor, extras := range officialVendorExtraHosts {
@@ -100,6 +96,11 @@ func OfficialVendorOfURL(rawURL string) string {
 // 第三方 key 选的平台只是展示标签，厂商看协议地址：全部地址都是同一厂商的官方
 // 域名才算该厂商；任一地址不是官方域名、或分属不同厂商，返回空串，按通用中转
 // 只走标准协议。宁可漏认也不错认：错认会把厂商私有的请求改写与错误语义套到中转上。
+//
+// 官方域名表只有国产厂商与 OpenCode（officialVendorHosts），所以第三方 key 的厂商
+// 只可能是它们或空串：Anthropic、OpenAI、Gemini、Grok 的厂商特化只对成品号生效，
+// 指向这四家官方域名的 key 同样按中转处理（muqian 2026-09-29 定：「中转不分协议用同一套
+// 规则，成品号按各自厂商特色各用一套」）。
 func (a *Account) Vendor() string {
 	if a == nil {
 		return ""
@@ -119,9 +120,9 @@ func (a *Account) Vendor() string {
 }
 
 // AccountModelFamily 返回账号默认模型表所属的厂商族：成品号即平台；第三方 key 不看标签，
-// 按地址识别出官方厂商就是该厂商，指向中转的按主协议归族——Anthropic 地址归 anthropic，
-// Gemini 地址归 gemini，其余（Chat Completions / Responses）归 openai 兼容族。
-// 管理端「可用模型」列表、测试连接的默认模型都按它选表。
+// 按地址识别出官方厂商（国产厂商 / OpenCode）就是该厂商，其余一律按中转、按主协议归族——
+// Anthropic 地址归 anthropic，Gemini 地址归 gemini，其余（Chat Completions / Responses）
+// 归 openai 兼容族。管理端「可用模型」列表、测试连接的默认模型都按它选表。
 func AccountModelFamily(a *Account) string {
 	if a == nil {
 		return ""

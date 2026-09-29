@@ -516,10 +516,20 @@ func TestOpenAIResponsesToolSchemaPlatformGate_APIKeyAndOAuth(t *testing.T) {
 		})
 	}
 
+	// 指向 api.x.ai 的 key 按中转（2026-09-29 海外四家不再有官方 key），按 OpenAI 口径修正。
 	normalized, changed, err := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, &Account{
 		Platform:          PlatformGrok,
 		Type:              AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.x.ai/v1"},
+	}, false)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "object", gjson.GetBytes(normalized, "tools.0.parameters.type").String())
+
+	// Grok 成品号按 Grok 口径，不做这两项修正。
+	normalized, changed, err = normalizeOpenAIResponsesWebSocketCompatibilityBody(body, &Account{
+		Platform: PlatformGrok,
+		Type:     AccountTypeOAuth,
 	}, false)
 	require.NoError(t, err)
 	require.False(t, changed)
