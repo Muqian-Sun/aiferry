@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   createAccountMock,
   replaceAccountEntriesMock,
-  probeUpstreamBillingMock,
   syncUpstreamModelsMock,
   importCodexSessionMock,
   createOpenAICodexPATMock,
@@ -14,7 +13,6 @@ const {
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
   replaceAccountEntriesMock: vi.fn(),
-  probeUpstreamBillingMock: vi.fn(),
   syncUpstreamModelsMock: vi.fn(),
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
@@ -38,7 +36,6 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
       create: createAccountMock,
-      probeUpstreamBilling: probeUpstreamBillingMock,
       syncUpstreamModels: syncUpstreamModelsMock,
       checkMixedChannelRisk: vi.fn().mockResolvedValue({ has_risk: false }),
       importCodexSession: importCodexSessionMock,
@@ -241,22 +238,6 @@ async function switchProtocol(wrapper: ReturnType<typeof mountModal>, protocol: 
   await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue(protocol)
 }
 
-async function submitApiKeyAccount(
-  protocol: 'responses' | 'anthropic',
-  disableUpstreamBillingProbe = false
-) {
-  const wrapper = mountModal()
-  await selectKey(wrapper, protocol === 'responses' ? KEY.relayResponses : KEY.relayAnthropic)
-  await wrapper.get('form#create-account-form input[type="text"]').setValue(`${protocol} relay`)
-  await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-  if (disableUpstreamBillingProbe) {
-    await wrapper.get('[data-testid="upstream-billing-auto-probe"]').trigger('click')
-  }
-  await wrapper.get('form#create-account-form').trigger('submit.prevent')
-  await flushPromises()
-  return wrapper
-}
-
 async function openCodexImportStep() {
   const wrapper = mountModal()
   await selectSource(wrapper, 'chatgpt')
@@ -270,7 +251,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'openai', type: 'apikey' })
     replaceAccountEntriesMock.mockReset().mockResolvedValue([])
-    probeUpstreamBillingMock.mockReset().mockResolvedValue({})
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
     importCodexSessionMock.mockReset().mockResolvedValue({
       created: 1,
@@ -342,39 +322,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     // 映射只改名（2026-09-25 去掉白名单）：写映射时一并打标记
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping_rename_only).toBe(true)
     expect(syncUpstreamModelsMock).toHaveBeenCalledWith(42)
-  })
-
-
-  it('enables upstream billing probes by default for new OpenAI API key accounts', async () => {
-    await submitApiKeyAccount('responses')
-
-    expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
-  })
-
-  it('waits for the initial upstream billing probe before refreshing the account list', async () => {
-    let resolveProbe: (() => void) | undefined
-    probeUpstreamBillingMock.mockImplementationOnce(
-      () => new Promise<void>((resolve) => {
-        resolveProbe = resolve
-      })
-    )
-
-    const wrapper = await submitApiKeyAccount('responses')
-
-    expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)
-    expect(wrapper.emitted('created')).toBeUndefined()
-
-    resolveProbe?.()
-    await flushPromises()
-
-    expect(wrapper.emitted('created')).toHaveLength(1)
-  })
-
-  it('sends an explicit disabled state when the create toggle is turned off', async () => {
-    await submitApiKeyAccount('responses', true)
-
-    expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
-    expect(probeUpstreamBillingMock).not.toHaveBeenCalled()
   })
 
   it('submits OpenCode Zen default protocol rules with adaptive endpoints', async () => {
@@ -568,20 +515,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(importCodexSessionMock).toHaveBeenCalledTimes(1)
   })
 
-  it('enables the upstream billing probe by default for non-OpenAI account creation', async () => {
-    await submitApiKeyAccount('anthropic')
-
-    expect(createAccountMock).toHaveBeenCalledTimes(1)
-    // 上游倍率探测已放宽到全部 API-key 平台：非 OpenAI 平台与 OpenAI 一致，默认开启。
-    expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
-  })
-
-  it('sends an explicit disabled state when the non-OpenAI create toggle is turned off', async () => {
-    await submitApiKeyAccount('anthropic', true)
-
-    expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
-  })
-
   it('自定义中转 key 不带 Antigravity 成品号的混合调度 / 超量键', async () => {
     const wrapper = mountModal()
     await selectSource(wrapper, 'antigravity')
@@ -606,8 +539,8 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(extra).not.toHaveProperty('allow_overages')
   })
 
-  it('自定义中转 key 创建默认携带上游倍率探测开关、不带平台', async () => {
-    // 中转 key 与其余第三方 key 一样默认开启探测并传递开关；平台由后端按地址推导。
+  it('自定义中转 key 创建不带平台', async () => {
+    // 平台由后端按地址推导。
     const wrapper = mountModal()
     await selectKey(wrapper)
     await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
@@ -623,9 +556,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(payload?.type).toBe('apikey')
     expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://relay.example/antigravity' })
     expect(payload?.credentials).not.toHaveProperty('base_url')
-    expect(payload?.upstream_billing_probe_enabled).toBe(true)
-    // 创建成功后前端立即发起一次首探（与其他 apikey 平台一致）。
-    expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)
   })
 
   it('imports a Codex session without any billing extra', async () => {
@@ -653,7 +583,6 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
     replaceAccountEntriesMock.mockReset().mockResolvedValue([])
-    probeUpstreamBillingMock.mockReset().mockResolvedValue({})
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
   })
 

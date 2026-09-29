@@ -113,7 +113,6 @@ function mountView(stubActionMenu = true) {
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
         AccountUsageCell: true,
-        UpstreamBillingRateCell: true,
         HelpTooltip: true,
         Icon: true,
         Teleport: stubActionMenu

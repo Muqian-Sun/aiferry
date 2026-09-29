@@ -255,24 +255,6 @@
         />
       </div>
 
-      <div
-        v-if="account?.type === 'apikey'"
-        class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
-      >
-        <div>
-          <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-          </p>
-        </div>
-        <Toggle
-          :model-value="upstreamBillingAutoProbeEnabled"
-          data-testid="upstream-billing-auto-probe"
-          :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
-          @update:model-value="handleUpstreamBillingAutoProbeChange"
-        />
-      </div>
-
       <!-- Bedrock 区域与全局推理 -->
       <div v-if="account.type === 'bedrock'" class="space-y-4">
         <!-- Shared: Region -->
@@ -430,41 +412,11 @@
             type="number"
             min="0"
             step="0.001"
-            class="input disabled:cursor-not-allowed disabled:opacity-60"
+            class="input"
             data-testid="account-rate-multiplier"
-            :disabled="upstreamBillingRateSyncEnabled"
           />
-          <p class="input-hint">
-            {{
-              t(
-                upstreamBillingRateSyncEnabled
-                  ? 'admin.accounts.upstreamBilling.syncRateManagedHint'
-                  : 'admin.accounts.billingRateMultiplierHint'
-              )
-            }}
-          </p>
+          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
         </div>
-      </div>
-
-      <!-- 同步上游倍率：原来塞在四列网格的倍率格里，说明被挤成窄条（A8）；改成网格下独占一行，左说明右开关 -->
-      <div
-        v-if="account?.type === 'apikey'"
-        class="flex items-center justify-between gap-4"
-      >
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-af-ink">
-            {{ t('admin.accounts.upstreamBilling.syncRate') }}
-          </p>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
-          </p>
-        </div>
-        <Toggle
-          :model-value="upstreamBillingRateSyncEnabled"
-          data-testid="upstream-billing-rate-sync"
-          :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
-          @update:model-value="handleUpstreamBillingRateSyncChange"
-        />
       </div>
 
       <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
@@ -802,7 +754,6 @@ import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
@@ -1072,8 +1023,6 @@ const headerOverrideCapable = computed(
 
 const interceptWarmupRequests = ref(false)
 const autoResetCreditEnabled = ref(false)
-const upstreamBillingAutoProbeEnabled = ref(false)
-const upstreamBillingRateSyncEnabled = ref(false)
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
 const isSyncingAntigravityUpstream = ref(false)
@@ -1137,20 +1086,6 @@ const form = reactive({
   status: 'active' as 'active' | 'inactive' | 'error',
   expires_at: null as number | null
 })
-
-const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
-  upstreamBillingRateSyncEnabled.value = enabled
-  if (enabled) {
-    upstreamBillingAutoProbeEnabled.value = true
-  }
-}
-
-const handleUpstreamBillingAutoProbeChange = (enabled: boolean) => {
-  upstreamBillingAutoProbeEnabled.value = enabled
-  if (!enabled) {
-    upstreamBillingRateSyncEnabled.value = false
-  }
-}
 
 const statusOptions = computed(() => {
   const options = [
@@ -1231,9 +1166,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	const extra = newAccount.extra as Record<string, unknown> | undefined
 	allowOverages.value = extra?.allow_overages === true
 	autoResetCreditEnabled.value = extra?.auto_reset_credit_enabled === true
-	upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
-  upstreamBillingRateSyncEnabled.value =
-    upstreamBillingAutoProbeEnabled.value && extra?.upstream_billing_rate_sync_enabled === true
 
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   bedrockCCCompatEnabled.value = false
@@ -1444,13 +1376,6 @@ const handleSubmit = async () => {
     }
     if (form.expires_at === null) {
       updatePayload.expires_at = 0
-    }
-    if (props.account.type === 'apikey') {
-      updatePayload.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
-      updatePayload.upstream_billing_rate_sync_enabled = upstreamBillingRateSyncEnabled.value
-      if (upstreamBillingRateSyncEnabled.value) {
-        delete updatePayload.rate_multiplier
-      }
     }
 
     // For apikey type, handle credentials update
@@ -1716,12 +1641,6 @@ const handleSubmit = async () => {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
         (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
-      // 上游倍率自动探测对全部 API-key 平台开放（sub2api 上游即可应答），
-      // Bedrock 凭证无静态 Key 不参与。
-      if (props.account.type === 'apikey') {
-        delete newExtra.upstream_billing_probe_enabled
-        delete newExtra.upstream_billing_rate_sync_enabled
-      }
       // Total quota
       if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
         newExtra.quota_limit = editQuotaLimit.value
