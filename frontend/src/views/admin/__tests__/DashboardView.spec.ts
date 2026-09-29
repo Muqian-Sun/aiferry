@@ -5,18 +5,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { DashboardStats } from '@/types'
 import DashboardView from '../DashboardView.vue'
 
-const { getSnapshotV2, getUserUsageTrend, getUserSpendingRanking } = vi.hoisted(() => ({
-  getSnapshotV2: vi.fn(),
-  getUserUsageTrend: vi.fn(),
-  getUserSpendingRanking: vi.fn()
+const { getSnapshotV2 } = vi.hoisted(() => ({
+  getSnapshotV2: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     dashboard: {
-      getSnapshotV2,
-      getUserUsageTrend,
-      getUserSpendingRanking
+      getSnapshotV2
     }
   }
 }))
@@ -93,28 +89,12 @@ describe('admin DashboardView', () => {
     setActivePinia(createPinia())
 
     getSnapshotV2.mockReset()
-    getUserUsageTrend.mockReset()
-    getUserSpendingRanking.mockReset()
     routerPush.mockReset()
 
     getSnapshotV2.mockResolvedValue({
       stats: createDashboardStats(),
       trend: [],
       models: []
-    })
-    getUserUsageTrend.mockResolvedValue({
-      trend: [],
-      start_date: '',
-      end_date: '',
-      granularity: 'hour'
-    })
-    getUserSpendingRanking.mockResolvedValue({
-      ranking: [],
-      total_actual_cost: 0,
-      total_requests: 0,
-      total_tokens: 0,
-      start_date: '',
-      end_date: ''
     })
   })
 
@@ -127,25 +107,25 @@ describe('admin DashboardView', () => {
           Icon: true,
           DateRangePicker: true,
           Select: true,
-          ModelDistributionChart: true,
           Line: true
         }
       }
     })
 
-  it('uses last 24 hours as default dashboard range', async () => {
+  it('uses last 7 days by day as default dashboard range', async () => {
     mountView()
 
     await flushPromises()
 
     const now = new Date()
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const sixDaysAgo = new Date()
+    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6)
 
     expect(getSnapshotV2).toHaveBeenCalledTimes(1)
     expect(getSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
-      start_date: formatLocalDate(yesterday),
+      start_date: formatLocalDate(sixDaysAgo),
       end_date: formatLocalDate(now),
-      granularity: 'hour'
+      granularity: 'day'
     }))
   })
 })

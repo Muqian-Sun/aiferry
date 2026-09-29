@@ -19,10 +19,6 @@ type ModelStat = usagestats.ModelStat
 // UserUsageTrendPoint represents user usage trend data point
 type UserUsageTrendPoint = usagestats.UserUsageTrendPoint
 
-// UserSpendingRankingItem represents a user spending ranking row.
-type UserSpendingRankingItem = usagestats.UserSpendingRankingItem
-type UserSpendingRankingResponse = usagestats.UserSpendingRankingResponse
-
 // APIKeyUsageTrendPoint represents API key usage trend data point
 type APIKeyUsageTrendPoint = usagestats.APIKeyUsageTrendPoint
 
@@ -102,7 +98,8 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 			COUNT(*) as requests,
 			COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(u.total_cost), 0) as cost,
-			COALESCE(SUM(u.actual_cost), 0) as actual_cost
+			COALESCE(SUM(u.actual_cost), 0) as actual_cost,
+			COALESCE(SUM(u.total_cost * COALESCE(u.account_rate_multiplier, 1)), 0) as account_cost
 		FROM usage_logs u
 		LEFT JOIN users us ON u.user_id = us.id
 		WHERE u.user_id IN (SELECT user_id FROM top_users)
@@ -127,7 +124,7 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 	results = make([]UserUsageTrendPoint, 0)
 	for rows.Next() {
 		var row UserUsageTrendPoint
-		if err = rows.Scan(&row.Date, &row.UserID, &row.Email, &row.Username, &row.Requests, &row.Tokens, &row.Cost, &row.ActualCost); err != nil {
+		if err = rows.Scan(&row.Date, &row.UserID, &row.Email, &row.Username, &row.Requests, &row.Tokens, &row.Cost, &row.ActualCost, &row.AccountCost); err != nil {
 			return nil, err
 		}
 		results = append(results, row)
@@ -137,89 +134,6 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 	}
 
 	return results, nil
-}
-
-// GetUserSpendingRanking returns user spending ranking aggregated within the time range.
-func (r *usageLogRepository) GetUserSpendingRanking(ctx context.Context, startTime, endTime time.Time, limit int) (result *UserSpendingRankingResponse, err error) {
-	if limit <= 0 {
-		limit = 12
-	}
-
-	query := `
-		WITH user_spend AS (
-			SELECT
-				u.user_id,
-				COALESCE(us.email, '') as email,
-				COALESCE(us.username, '') as username,
-				COALESCE(SUM(u.actual_cost), 0) as actual_cost,
-				COUNT(*) as requests,
-				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
-			FROM usage_logs u
-			LEFT JOIN users us ON u.user_id = us.id
-			WHERE u.created_at >= $1 AND u.created_at < $2
-			GROUP BY u.user_id, us.email, us.username
-		),
-		ranked AS (
-			SELECT
-				user_id,
-				email,
-				username,
-				actual_cost,
-				requests,
-				tokens,
-				COALESCE(SUM(actual_cost) OVER (), 0) as total_actual_cost,
-				COALESCE(SUM(requests) OVER (), 0) as total_requests,
-				COALESCE(SUM(tokens) OVER (), 0) as total_tokens
-			FROM user_spend
-			ORDER BY actual_cost DESC, tokens DESC, user_id ASC
-			LIMIT $3
-		)
-		SELECT
-			user_id,
-			email,
-			username,
-			actual_cost,
-			requests,
-			tokens,
-			total_actual_cost,
-			total_requests,
-			total_tokens
-		FROM ranked
-		ORDER BY actual_cost DESC, tokens DESC, user_id ASC
-	`
-
-	rows, err := r.sql.QueryContext(ctx, query, startTime, endTime, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil && err == nil {
-			err = closeErr
-			result = nil
-		}
-	}()
-
-	ranking := make([]UserSpendingRankingItem, 0)
-	totalActualCost := 0.0
-	totalRequests := int64(0)
-	totalTokens := int64(0)
-	for rows.Next() {
-		var row UserSpendingRankingItem
-		if err = rows.Scan(&row.UserID, &row.Email, &row.Username, &row.ActualCost, &row.Requests, &row.Tokens, &totalActualCost, &totalRequests, &totalTokens); err != nil {
-			return nil, err
-		}
-		ranking = append(ranking, row)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return &UserSpendingRankingResponse{
-		Ranking:         ranking,
-		TotalActualCost: totalActualCost,
-		TotalRequests:   totalRequests,
-		TotalTokens:     totalTokens,
-	}, nil
 }
 
 // GetUserUsageTrendByUserID 获取指定用户的使用趋势

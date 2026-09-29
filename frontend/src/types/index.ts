@@ -1525,25 +1525,8 @@ export interface UserUsageTrendPoint {
   requests: number
   tokens: number
   cost: number // 标准计费
-  actual_cost: number // 实际扣除
-}
-
-export interface UserSpendingRankingItem {
-  user_id: number
-  email: string
-  username: string
-  actual_cost: number
-  requests: number
-  tokens: number
-}
-
-export interface UserSpendingRankingResponse {
-  ranking: UserSpendingRankingItem[]
-  total_actual_cost: number
-  total_requests: number
-  total_tokens: number
-  start_date: string
-  end_date: string
+  actual_cost: number // 实际扣除（平台收入）
+  account_cost: number // 渠道成本（标价 × 渠道倍率），与模型统计同口径
 }
 
 export interface ApiKeyUsageTrendPoint {

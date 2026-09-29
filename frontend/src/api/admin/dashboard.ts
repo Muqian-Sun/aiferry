@@ -10,7 +10,7 @@ import type {
   ModelStat,
   ApiKeyUsageTrendPoint,
   UserUsageTrendPoint,
-  UserSpendingRankingResponse,
+  ModelTrendPoint,
   UserBreakdownItem,
   UsageRequestType
 } from '@/types'
@@ -112,6 +112,8 @@ export interface DashboardSnapshotV2Params extends TrendParams {
   include_model_stats?: boolean
   include_users_trend?: boolean
   users_trend_limit?: number
+  /** 按时间桶 × 请求模型的 Token 趋势（概览「模型」一节） */
+  include_model_trend?: boolean
 }
 
 export interface DashboardSnapshotV2Stats extends DashboardStats {
@@ -127,6 +129,7 @@ export interface DashboardSnapshotV2Response {
   trend?: TrendDataPoint[]
   models?: ModelStat[]
   users_trend?: UserUsageTrendPoint[]
+  model_trend?: ModelTrendPoint[]
 }
 
 export interface UserBreakdownParams {
@@ -197,48 +200,6 @@ export async function getApiKeyUsageTrend(
   return data
 }
 
-export interface UserTrendParams extends TrendParams {
-  limit?: number
-}
-
-export interface UserTrendResponse {
-  trend: UserUsageTrendPoint[]
-  start_date: string
-  end_date: string
-  granularity: string
-}
-
-export interface UserSpendingRankingParams
-  extends Pick<TrendParams, 'start_date' | 'end_date'> {
-  limit?: number
-}
-
-/**
- * Get user usage trend data
- * @param params - Query parameters for filtering
- * @returns User usage trend data
- */
-export async function getUserUsageTrend(params?: UserTrendParams): Promise<UserTrendResponse> {
-  const { data } = await apiClient.get<UserTrendResponse>('/admin/dashboard/users-trend', {
-    params
-  })
-  return data
-}
-
-/**
- * Get user spending ranking data
- * @param params - Query parameters for filtering
- * @returns User spending ranking data
- */
-export async function getUserSpendingRanking(
-  params?: UserSpendingRankingParams
-): Promise<UserSpendingRankingResponse> {
-  const { data } = await apiClient.get<UserSpendingRankingResponse>('/admin/dashboard/users-ranking', {
-    params
-  })
-  return data
-}
-
 export interface PlatformUsage {
   platform: string
   today_actual_cost: number
@@ -302,8 +263,6 @@ export const dashboardAPI = {
   getModelStats,
   getSnapshotV2,
   getApiKeyUsageTrend,
-  getUserUsageTrend,
-  getUserSpendingRanking,
   getBatchUsersUsage,
   getBatchApiKeysUsage
 }

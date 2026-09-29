@@ -5,18 +5,10 @@ import ModelDistributionChart from '../ModelDistributionChart.vue'
 
 const messages: Record<string, string> = {
   'admin.dashboard.modelDistribution': 'Model Distribution',
-  'admin.dashboard.spendingRankingTitle': 'User Spending Ranking',
-  'admin.dashboard.viewModelDistribution': 'Model Distribution',
-  'admin.dashboard.viewSpendingRanking': 'User Spending Ranking',
-  'admin.dashboard.spendingRankingUser': 'User',
-  'admin.dashboard.spendingRankingRequests': 'Requests',
-  'admin.dashboard.spendingRankingTokens': 'Tokens',
-  'admin.dashboard.spendingRankingOther': 'Others',
   'admin.dashboard.model': 'Model',
   'admin.dashboard.requests': 'Requests',
   'admin.dashboard.tokens': 'Tokens',
   'admin.dashboard.noDataAvailable': 'No data available',
-  'common.deletedUser': 'Deleted user',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -77,42 +69,5 @@ describe('ModelDistributionChart', () => {
     expect(rows[1].text()).toContain('model-b')
     // 占比按 Token：1000 / 1500
     expect(rows[0].text()).toContain('67%')
-  })
-
-  it('uses the dashboard user label policy and renders an Others row', async () => {
-    const wrapper = mount(ModelDistributionChart, {
-      props: {
-        modelStats: [],
-        enableRankingView: true,
-        rankingItems: [
-          { user_id: 1, email: 'alpha@example.com', username: 'alpha', actual_cost: 12, requests: 10, tokens: 1000 },
-          { user_id: 2, email: 'beta@example.com', username: '   ', actual_cost: 8, requests: 6, tokens: 600 },
-          { user_id: 3, email: '   ', username: '', actual_cost: 0, requests: 0, tokens: 0 },
-        ],
-        rankingTotalActualCost: 30,
-        rankingTotalRequests: 20,
-        rankingTotalTokens: 2000,
-      },
-      global: {
-        stubs: {
-          LoadingSpinner: true,
-        },
-      },
-    })
-
-    const rankingButton = wrapper.findAll('button').find((button) => button.text() === 'User Spending Ranking')
-    expect(rankingButton).toBeTruthy()
-    await rankingButton!.trigger('click')
-
-    const rows = wrapper.findAll('tbody tr')
-    expect(rows).toHaveLength(4)
-    expect(rows[0].text()).toContain('alpha')
-    expect(rows[0].text()).not.toContain('alpha@example.com')
-    expect(rows[1].text()).toContain('beta@example.com')
-    expect(rows[2].text()).toContain('Deleted user')
-    expect(rows[3].text()).toContain('Others')
-    expect(rows[3].text()).toContain('4')
-    expect(rows[3].text()).toContain('400')
-    expect(rows[3].text()).toContain('$10.00')
   })
 })

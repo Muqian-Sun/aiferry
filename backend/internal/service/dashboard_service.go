@@ -369,12 +369,13 @@ func (s *DashboardService) GetUserUsageTrend(ctx context.Context, startTime, end
 	return trend, nil
 }
 
-func (s *DashboardService) GetUserSpendingRanking(ctx context.Context, startTime, endTime time.Time, limit int) (*usagestats.UserSpendingRankingResponse, error) {
-	ranking, err := s.usageRepo.GetUserSpendingRanking(ctx, startTime, endTime, limit)
+// GetModelUsageTrend 按时间桶 × 请求模型汇总请求数与 Token（管理站概览的模型 Token 趋势，与模型统计同一模型口径）。
+func (s *DashboardService) GetModelUsageTrend(ctx context.Context, startTime, endTime time.Time, granularity string, filters usagestats.UsageLogFilters) ([]usagestats.ModelTrendPoint, error) {
+	trend, err := s.usageRepo.GetModelUsageTrendWithUsageFilters(ctx, startTime, endTime, granularity, filters)
 	if err != nil {
-		return nil, fmt.Errorf("get user spending ranking: %w", err)
+		return nil, fmt.Errorf("get model usage trend: %w", err)
 	}
-	return ranking, nil
+	return trend, nil
 }
 
 func (s *DashboardService) GetUserBreakdownStats(ctx context.Context, startTime, endTime time.Time, dim usagestats.UserBreakdownDimension, limit int) ([]usagestats.UserBreakdownItem, error) {
