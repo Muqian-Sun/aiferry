@@ -189,6 +189,7 @@ export default {
           validation_error: 'Endpoint exists (empty request failed validation)',
           not_found: 'Upstream has no such endpoint',
           not_api: 'Response is not an API response (looks like a web page)',
+          unexpected_body: 'Response does not look like this protocol',
           auth_rejected: 'Key rejected, cannot tell',
           rate_limited: 'Rate limited, cannot tell',
           upstream_error: 'Upstream error, cannot tell',

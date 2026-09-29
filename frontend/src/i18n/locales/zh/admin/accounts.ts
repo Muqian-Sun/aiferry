@@ -189,6 +189,7 @@ export default {
           validation_error: '端点存在（空请求被参数校验拦下）',
           not_found: '上游没有这个端点',
           not_api: '返回的不是 API 响应（像是网页）',
+          unexpected_body: '返回内容不像这个协议的响应',
           auth_rejected: 'Key 被拒绝，无法判断',
           rate_limited: '被限流，无法判断',
           upstream_error: '上游出错，无法判断',

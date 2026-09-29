@@ -142,7 +142,7 @@ func TestProbeUpstreamProtocols_ConfirmsUncertainOnesWithRealRequest(t *testing.
 			return probeResponse(http.StatusOK, "application/json", `{"data":[{"id":"gpt-5.4"},{"id":"claude-sonnet-4-6"},{"id":"gemini-2.5-flash"}]}`)
 		case strings.HasSuffix(call.url, "/v1/messages"):
 			if real {
-				return probeResponse(http.StatusOK, "application/json", `{"type":"message"}`)
+				return probeResponse(http.StatusOK, "application/json", `{"type":"message","content":[]}`)
 			}
 			return probeResponse(http.StatusServiceUnavailable, "application/json", `{"error":"busy"}`)
 		case strings.HasSuffix(call.url, "/v1/chat/completions"):
@@ -177,6 +177,40 @@ func TestProbeUpstreamProtocols_ConfirmsUncertainOnesWithRealRequest(t *testing.
 
 	require.Len(t, upstream.callsTo("/v1/models"), 1, "模型列表只拉一次")
 	require.Contains(t, upstream.callsTo("/v1/messages")[1].body, `"max_tokens":1`, "真实请求只要 1 个 token")
+}
+
+// 有的上游对任意路径回 200 JSON（健康检查兜底）：只看状态码会把不存在的端点当成支持。
+func TestProbeUpstreamProtocols_CatchAllOKIsNotSupport(t *testing.T) {
+	upstream := &routedProbeUpstream{handle: func(call probeCall) *http.Response {
+		switch {
+		case call.method == http.MethodGet && strings.HasSuffix(call.url, "/v1/models"):
+			return probeResponse(http.StatusOK, "application/json", `{"data":[{"id":"gpt-5.4"}]}`)
+		case strings.Contains(call.body, `"model"`) || strings.Contains(call.url, ":generateContent"):
+			return probeResponse(http.StatusNotFound, "application/json", `{"error":"unknown route"}`)
+		}
+		return probeResponse(http.StatusOK, "application/json", `{"status":"ok"}`)
+	}}
+
+	results, err := newProtocolProbeService(upstream).ProbeUpstreamProtocols(context.Background(), protocolProbeKey(), "https://relay.example.com")
+	require.NoError(t, err)
+	for _, r := range results {
+		require.Equal(t, ProtocolProbeUnsupported, r.Status, "%s：兜底 200 不算支持，真实请求 404 才是结论", r.Protocol)
+		require.Equal(t, "gpt-5.4", r.Model, r.Protocol)
+	}
+
+	// 真实请求也拿到兜底 200：不确定，原因写明内容不像这个协议
+	upstream.handle = func(call probeCall) *http.Response {
+		if call.method == http.MethodGet && strings.HasSuffix(call.url, "/v1/models") {
+			return probeResponse(http.StatusOK, "application/json", `{"data":[{"id":"gpt-5.4"}]}`)
+		}
+		return probeResponse(http.StatusOK, "application/json", `{"status":"ok"}`)
+	}
+	results, err = newProtocolProbeService(upstream).ProbeUpstreamProtocols(context.Background(), protocolProbeKey(), "https://relay.example.com")
+	require.NoError(t, err)
+	for _, r := range results {
+		require.Equal(t, ProtocolProbeUnknown, r.Status, r.Protocol)
+		require.Equal(t, ProtocolProbeReasonUnexpectedBody, r.Reason, r.Protocol)
+	}
 }
 
 func TestProbeUpstreamProtocols_KeepsUncertainWhenRealRequestCannotDecide(t *testing.T) {

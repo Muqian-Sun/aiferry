@@ -17,7 +17,8 @@ import (
 // 列出支持 / 不支持 / 不确定，管理员在结果旁边的选择框里挑一个（一个 key 只承接一个协议）。
 //
 // 先发不带模型的空请求看状态码（不花钱）：端点存在的上游会做参数校验回 400 / 422，不存在的回 404 / 405
-// 或落到网页；拿不准的（401 / 403 / 429 / 5xx / 网络错误）再用上游模型列表里挑的模型发一次最小的真实请求确认。
+// 或落到网页；拿不准的（401 / 403 / 429 / 5xx / 网络错误 / 2xx 但内容不像这个协议）再用上游模型列表里挑的模型
+// 发一次最小的真实请求确认。
 
 // ProtocolProbeStatus 一个协议的探测结论。
 type ProtocolProbeStatus string
@@ -36,6 +37,7 @@ const (
 	ProtocolProbeReasonValidationError ProtocolProbeReason = "validation_error" // 400 / 422：端点在、只是请求不完整
 	ProtocolProbeReasonNotFound        ProtocolProbeReason = "not_found"        // 404 / 405 / 501
 	ProtocolProbeReasonNotAPI          ProtocolProbeReason = "not_api"          // 回的不是 JSON（多半是网页）
+	ProtocolProbeReasonUnexpectedBody  ProtocolProbeReason = "unexpected_body"  // 2xx JSON 但不像这个协议的响应（兜底的健康检查之类）
 	ProtocolProbeReasonAuthRejected    ProtocolProbeReason = "auth_rejected"    // 401 / 403
 	ProtocolProbeReasonRateLimited     ProtocolProbeReason = "rate_limited"     // 429
 	ProtocolProbeReasonUpstreamError   ProtocolProbeReason = "upstream_error"   // 5xx 与其他状态码
@@ -100,7 +102,7 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 		}
 		model := pickProtocolProbeModel(r.Protocol, models)
 		if model == "" {
-			// 401 / 403 这类空请求就拿到的原因比「没有模型」更有用，保留
+			// 401 / 403、内容不像这个协议这类空请求就拿到的原因比「没有模型」更有用，保留
 			if r.Reason == ProtocolProbeReasonUpstreamError || r.Reason == ProtocolProbeReasonNetworkError {
 				r.Reason = ProtocolProbeReasonNoModel
 			}
@@ -148,7 +150,34 @@ func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Acc
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, protocolProbeBodyReadSize))
 	status, reason := classifyProtocolProbeResponse(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	if status == ProtocolProbeSupported && reason == ProtocolProbeReasonAccepted && !protocolProbeBodyMatches(protocol, model != "", body) {
+		status, reason = ProtocolProbeUnknown, ProtocolProbeReasonUnexpectedBody
+	}
 	return status, reason, resp.StatusCode
+}
+
+// protocolProbeBodyMatches 2xx 的响应要像这个协议才算支持：有的上游对任意路径回 200 JSON（健康检查兜底），
+// 只看状态码会把不存在的端点当成支持。Gemini 空请求是模型列表，要有 models；其余看各协议响应的标志字段。
+func protocolProbeBodyMatches(protocol string, realRequest bool, body []byte) bool {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(body, &obj) != nil {
+		return false
+	}
+	has := func(key string) bool { _, ok := obj[key]; return ok }
+	switch protocol {
+	case APIProtocolAnthropic:
+		return has("content")
+	case APIProtocolChatCompletions:
+		return has("choices")
+	case APIProtocolResponses:
+		return has("output")
+	case APIProtocolGemini:
+		if realRequest {
+			return has("candidates")
+		}
+		return has("models")
+	}
+	return false
 }
 
 func classifyProtocolProbeResponse(statusCode int, contentType string, body []byte) (ProtocolProbeStatus, ProtocolProbeReason) {
