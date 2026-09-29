@@ -188,7 +188,7 @@ func TestOpenAIGatewayService_OpenAIOAuthInputTokensFallbackUsesMinimumWhenEstim
 		UpstreamModel: "gpt-5",
 	}
 
-	writeOpenAIOAuthInputTokensFallback(c, &Account{ID: 303}, prepared, http.StatusUnauthorized)
+	writeInputTokensLocalFallback(c, &Account{ID: 303}, prepared, http.StatusUnauthorized, "oauth_unsupported")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.JSONEq(t, `{"input_tokens":1}`, rec.Body.String())
@@ -247,7 +247,7 @@ func TestEstimateOpenAIInputTokens_RequestSamples(t *testing.T) {
 	}
 }
 
-func TestEstimateGrokCountTokens_AnthropicRequests(t *testing.T) {
+func TestEstimateAnthropicCountTokens_AnthropicRequests(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
@@ -274,20 +274,20 @@ func TestEstimateGrokCountTokens_AnthropicRequests(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := EstimateGrokCountTokens([]byte(tt.body))
+			got, err := EstimateAnthropicCountTokens([]byte(tt.body))
 			require.NoError(t, err)
 			require.Positive(t, got)
 		})
 	}
 }
 
-func TestEstimateGrokCountTokens_RejectsInvalidRequests(t *testing.T) {
+func TestEstimateAnthropicCountTokens_RejectsInvalidRequests(t *testing.T) {
 	for _, body := range []string{
 		`{`,
 		`{"messages":[{"role":"user","content":"hello"}]}`,
 		`{"model":"grok-4","messages":[{"role":"user","content":{"unexpected":true}}]}`,
 	} {
-		_, err := EstimateGrokCountTokens([]byte(body))
+		_, err := EstimateAnthropicCountTokens([]byte(body))
 		require.Error(t, err, "body=%s", body)
 	}
 }

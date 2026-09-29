@@ -221,7 +221,9 @@ func anthropicProtocolCNAccount(id int64, platform string, anthropicEndpoint str
 	}
 }
 
-func TestAccountTestService_AnthropicProtocolProbesNativeEndpointWithoutBetaQuery(t *testing.T) {
+// 国产厂商的 anthropic 地址与中转一样按真实转发同址探测：{base}/v1/messages?beta=true（buildUpstreamRequest
+// 对所有 key 都这么拼，测连与之一致，能过才代表真实请求的地址能通；2026-09-29 定）。
+func TestAccountTestService_AnthropicProtocolProbesNativeEndpointLikeForwarding(t *testing.T) {
 	account := anthropicProtocolCNAccount(311, PlatformZhipu, "https://open.bigmodel.cn/api/anthropic")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNAnthropicTestResponse())
 	c, recorder := newTestContext()
@@ -231,9 +233,7 @@ func TestAccountTestService_AnthropicProtocolProbesNativeEndpointWithoutBetaQuer
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
 	req := upstream.requests[0]
-	// Native Anthropic path without the ?beta=true suffix the generic Claude tester appends.
-	require.Equal(t, "https://open.bigmodel.cn/api/anthropic/v1/messages", req.URL.String())
-	require.Empty(t, req.URL.RawQuery)
+	require.Equal(t, "https://open.bigmodel.cn/api/anthropic/v1/messages?beta=true", req.URL.String())
 	require.Equal(t, "sk-anthropic-test", req.Header.Get("x-api-key"))
 	require.Equal(t, "2023-06-01", req.Header.Get("anthropic-version"))
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)

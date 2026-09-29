@@ -190,6 +190,11 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 
 	// 处理错误响应
 	if resp.StatusCode >= 400 {
+		// 中转上游不支持 count_tokens：本地估算，不回错误、不当账号错误处置（2026-09-29 定）
+		if account.IsThirdPartyKey() && relayCountTokensUnsupported(resp.StatusCode) {
+			return s.writeCountTokensLocalEstimate(c, account, body, resp.StatusCode)
+		}
+
 		// 标记账号状态（429/529等）
 		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 
@@ -412,4 +417,16 @@ func (s *GatewayService) countTokensError(c *gin.Context, status int, errType, m
 			"message": message,
 		},
 	})
+}
+
+// writeCountTokensLocalEstimate 中转上游不支持 count_tokens 时本地估算并按 Anthropic 形状回给客户端。
+func (s *GatewayService) writeCountTokensLocalEstimate(c *gin.Context, account *Account, body []byte, upstreamStatus int) error {
+	estimated, err := estimateAnthropicCountTokensLocally(body)
+	if err != nil {
+		s.countTokensError(c, http.StatusBadRequest, "invalid_request_error", CountTokensConversionErrorMessage(err))
+		return fmt.Errorf("count_tokens: local estimate after upstream %d: %w", upstreamStatus, err)
+	}
+	logger.LegacyPrintf("service.gateway", "count_tokens: relay upstream %d, local estimate %d (account=%d)", upstreamStatus, estimated, account.ID)
+	c.JSON(http.StatusOK, gin.H{"input_tokens": estimated})
+	return nil
 }

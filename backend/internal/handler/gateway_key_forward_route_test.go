@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 // 第三方 key 在 Anthropic / Gemini / Antigravity 网关上按账号类别与协议分流，不看展示标签。
@@ -281,7 +282,8 @@ func TestGeminiV1BetaModels_AnthropicVendorEntryIsSchedulingsCall(t *testing.T) 
 	require.Empty(t, hs.antigravityUpsteam.recorded())
 }
 
-func TestGatewayHandlerCountTokens_KeyWithoutAnthropicProtocolGets404(t *testing.T) {
+// key 没有 Anthropic 地址 = 上游不支持 count_tokens：本地估算回 200，不转发（2026-09-29 定：上游不支持就本地算）。
+func TestGatewayHandlerCountTokens_KeyWithoutAnthropicProtocolEstimatesLocally(t *testing.T) {
 	key := keyRouteAccount(1105, service.PlatformAntigravity,
 		map[string]string{
 			service.APIProtocolGemini: "https://gemini-relay.example.com",
@@ -301,8 +303,8 @@ func TestGatewayHandlerCountTokens_KeyWithoutAnthropicProtocolGets404(t *testing
 		hs.handler.CountTokens(c)
 	}()
 
-	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
-	require.Contains(t, rec.Body.String(), "count_tokens endpoint is not supported for this platform")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Positive(t, gjson.Get(rec.Body.String(), "input_tokens").Int())
 }
 
 func TestUsesAntigravityV1Internal(t *testing.T) {
