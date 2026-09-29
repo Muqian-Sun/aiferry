@@ -367,7 +367,8 @@ func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *A
 		return usage, err
 	}
 
-	if account.Platform == PlatformGemini {
+	// Gemini / Grok 的专用用量只对成品号：第三方 key 的平台只是标签，一律按中转走通用逻辑（2026-09-29 定）
+	if account.Platform == PlatformGemini && !account.IsThirdPartyKey() {
 		usage, err := s.getGeminiUsage(ctx, account)
 		if err == nil {
 			s.tryClearRecoverableAccountError(ctx, account)
@@ -384,7 +385,7 @@ func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *A
 		return usage, err
 	}
 
-	if account.Platform == PlatformGrok {
+	if account.Platform == PlatformGrok && !account.IsThirdPartyKey() {
 		usage, err := s.getGrokUsage(ctx, account, forceProbe)
 		if err == nil && usage != nil && usage.Error == "" {
 			s.tryClearRecoverableAccountError(ctx, account)
