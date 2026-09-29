@@ -152,22 +152,31 @@ func toUserPricingIntervals(src []service.PricingInterval) []userPricingInterval
 			MinTokens:            iv.MinTokens,
 			MaxTokens:            iv.MaxTokens,
 			TierLabel:            iv.TierLabel,
-			InputPrice:           iv.InputPrice,
-			OutputPrice:          iv.OutputPrice,
-			CacheWritePrice:      iv.CacheWritePrice,
-			CacheWrite1hPrice:    iv.CacheWrite1hPrice,
-			CacheReadPrice:       iv.CacheReadPrice,
+			InputPrice:           salePrice(iv.InputPrice),
+			OutputPrice:          salePrice(iv.OutputPrice),
+			CacheWritePrice:      salePrice(iv.CacheWritePrice),
+			CacheWrite1hPrice:    salePrice(iv.CacheWrite1hPrice),
+			CacheReadPrice:       salePrice(iv.CacheReadPrice),
 			InputMultiplier:      iv.InputMultiplier,
 			OutputMultiplier:     iv.OutputMultiplier,
 			CacheWriteMultiplier: iv.CacheWriteMultiplier,
 			CacheReadMultiplier:  iv.CacheReadMultiplier,
-			PerRequestPrice:      iv.PerRequestPrice,
+			PerRequestPrice:      salePrice(iv.PerRequestPrice),
 		})
 	}
 	return intervals
 }
 
-// toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
+// salePrice 目录官方价 → 用户看到的售价（× 全站售价系数）；倍数类字段不经过这里。nil 透传。
+func salePrice(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	v := *p * service.SalePriceRatio
+	return &v
+}
+
+// toUserPricing 将 service 层定价转换为用户 DTO（绝对价按全站售价折算）；入参为 nil 时返回 nil。
 func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	if p == nil {
 		return nil
@@ -183,16 +192,16 @@ func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	}
 	return &userSupportedModelPricing{
 		BillingMode:                  billingMode,
-		InputPrice:                   p.InputPrice,
-		OutputPrice:                  p.OutputPrice,
-		CacheWritePrice:              p.CacheWritePrice,
-		CacheWrite1hPrice:            p.CacheWrite1hPrice,
-		CacheReadPrice:               p.CacheReadPrice,
+		InputPrice:                   salePrice(p.InputPrice),
+		OutputPrice:                  salePrice(p.OutputPrice),
+		CacheWritePrice:              salePrice(p.CacheWritePrice),
+		CacheWrite1hPrice:            salePrice(p.CacheWrite1hPrice),
+		CacheReadPrice:               salePrice(p.CacheReadPrice),
 		MaxReasoningEffortMultiplier: p.MaxReasoningEffortMultiplier,
-		ImageInputPrice:              p.ImageInputPrice,
-		ImageOutputPrice:             p.ImageOutputPrice,
-		PerRequestPrice:              p.PerRequestPrice,
-		SearchPricePerCall:           p.SearchPricePerCall,
+		ImageInputPrice:              salePrice(p.ImageInputPrice),
+		ImageOutputPrice:             salePrice(p.ImageOutputPrice),
+		PerRequestPrice:              salePrice(p.PerRequestPrice),
+		SearchPricePerCall:           salePrice(p.SearchPricePerCall),
 		Intervals:                    intervals,
 	}
 }

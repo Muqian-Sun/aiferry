@@ -83,7 +83,12 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.JSONEq(t, `"openai"`, string(gpt["vendor"]))
 	require.JSONEq(t, `"token"`, string(gpt["billing_mode"]))
 	require.JSONEq(t, `["gpt-5.6-sol"]`, string(gpt["aliases"]))
-	require.Contains(t, string(gpt["pricing"]), `"input_price":0.000001`)
+	var pricing struct {
+		InputPrice *float64 `json:"input_price"`
+	}
+	require.NoError(t, json.Unmarshal(gpt["pricing"], &pricing))
+	require.NotNil(t, pricing.InputPrice)
+	require.InDelta(t, 1e-6/15, *pricing.InputPrice, 1e-18, "广场展示售价 = 目录官方价 × 全站售价系数（1/15）")
 	require.JSONEq(t, `{"timezone":"Asia/Shanghai","weekdays_only":true,"periods":[{"start_time":"09:00","end_time":"18:00","multiplier":1.5}]}`, string(gpt["time_pricing"]))
 
 	var sonnet map[string]json.RawMessage

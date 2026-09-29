@@ -39,9 +39,10 @@ func TestGatewayHandlerKeyBillingInfoUsesUserMultiplier(t *testing.T) {
 	require.Equal(t, "sub2api.key_billing", got.Object)
 	require.Equal(t, keyBillingInfoSchemaVersion, got.SchemaVersion)
 	require.Equal(t, "token", got.BillingScope)
-	require.Equal(t, 0.8, got.GroupRateMultiplier)
-	require.Equal(t, 0.8, got.ResolvedRateMultiplier)
-	require.Equal(t, 0.8, got.EffectiveRateMultiplier)
+	// 报给下游的是相对官方价的生效倍率 = 用户倍率 × 全站售价系数（1/15）
+	require.InDelta(t, 0.8/15, got.GroupRateMultiplier, 1e-12)
+	require.InDelta(t, 0.8/15, got.ResolvedRateMultiplier, 1e-12)
+	require.InDelta(t, 0.8/15, got.EffectiveRateMultiplier, 1e-12)
 	require.Nil(t, got.UserRateMultiplier)
 	require.False(t, got.PeakRateEnabled)
 	require.Nil(t, got.AppliedPeakMultiplier)
@@ -51,7 +52,7 @@ func TestGatewayHandlerKeyBillingInfoUsesUserMultiplier(t *testing.T) {
 	(&GatewayHandler{}).KeyBillingInfo(c)
 	require.Equal(t, http.StatusOK, w.Code, "ungrouped keys still report their multiplier")
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
-	require.Equal(t, 1.5, got.EffectiveRateMultiplier)
+	require.InDelta(t, 1.5/15, got.EffectiveRateMultiplier, 1e-12)
 }
 
 // 线上形状沿用 schema 1：原版 sub2api 的探针要求四个倍率字段齐全且 resolved 与 group 一致。

@@ -10,19 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// 生效倍率 = 用户倍率 × 全站售价系数（官方价的 1/15，muqian 2026-09-29）。
 func TestUserRateMultiplier(t *testing.T) {
-	require.Equal(t, 1.5, UserRateMultiplier(&User{RateMultiplier: 1.5}))
+	require.InDelta(t, 1.0/15, SalePriceRatio, 1e-15, "全站售价 = 官方价的十五分之一")
+	require.InDelta(t, 1.5/15, UserRateMultiplier(&User{RateMultiplier: 1.5}), 1e-15)
 	require.Equal(t, 0.0, UserRateMultiplier(&User{RateMultiplier: 0}))
 	require.Equal(t, 0.0, UserRateMultiplier(&User{RateMultiplier: -1}), "negative leaks clamp to free")
 	require.Equal(t, 1.0, UserRateMultiplierFromContext(context.Background()), "no authenticated user → 1")
-	require.Equal(t, 0.5, UserRateMultiplierFromContext(WithUserRateMultiplier(context.Background(), &User{RateMultiplier: 0.5})))
+	require.InDelta(t, 0.5/15, UserRateMultiplierFromContext(WithUserRateMultiplier(context.Background(), &User{RateMultiplier: 0.5})), 1e-15)
 }
 
-// 用户价 = 目录价 × users.rate_multiplier：分组上的倍率 / 峰值 / config 默认倍率都不参与。
+// 用户价 = 目录价（官方价）× 全站售价系数 × users.rate_multiplier：分组上的倍率 / 峰值 / config 默认倍率都不参与。
 func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 	inputPrice, outputPrice := 1e-6, 2e-6
 	tokens := ClaudeUsage{InputTokens: 100, OutputTokens: 50}
-	expected := (100*inputPrice + 50*outputPrice) * 2 // 4e-4
+	expected := (100*inputPrice + 50*outputPrice) * 2 / 15 // 4e-4 × 1/15
 
 	t.Run("anthropic gateway", func(t *testing.T) {
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
@@ -40,7 +42,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.InDelta(t, expected, usageRepo.lastLog.ActualCost, 1e-12)
-		require.InDelta(t, 2, usageRepo.lastLog.RateMultiplier, 1e-12)
+		require.InDelta(t, 2.0/15, usageRepo.lastLog.RateMultiplier, 1e-12, "用量里记生效倍率")
 		require.InDelta(t, expected, userRepo.lastAmount, 1e-12)
 	})
 
@@ -60,7 +62,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.InDelta(t, expected, usageRepo.lastLog.ActualCost, 1e-12)
-		require.InDelta(t, 2, usageRepo.lastLog.RateMultiplier, 1e-12)
+		require.InDelta(t, 2.0/15, usageRepo.lastLog.RateMultiplier, 1e-12, "用量里记生效倍率")
 		require.InDelta(t, expected, userRepo.lastAmount, 1e-12)
 	})
 

@@ -6,12 +6,13 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 )
 
-// UserRateMultiplier 本次请求生效的计费倍率：用户价 = 目录价 × 它。负数按 0（免费）。
+// UserRateMultiplier 本次请求生效的计费倍率：用户价 = 目录价（官方价）× 它 = 官方价 × 全站售价系数 × 用户倍率。
+// 负数按 0（免费）。
 func UserRateMultiplier(user *User) float64 {
 	if user.RateMultiplier < 0 {
 		return 0
 	}
-	return user.RateMultiplier
+	return user.RateMultiplier * SalePriceRatio
 }
 
 // WithUserRateMultiplier 把认证后用户的计费倍率放进 request.Context（认证中间件调用）。

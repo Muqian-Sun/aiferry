@@ -114,7 +114,7 @@ func TestGatewayRoutesKeyBillingInfoEndToEnd(t *testing.T) {
 		var body map[string]any
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 		require.Equal(t, "sub2api.key_billing", body["object"])
-		require.Equal(t, 0.75, body["effective_rate_multiplier"])
+		require.InDelta(t, 0.75/15, body["effective_rate_multiplier"], 1e-12, "相对官方价的生效倍率 = 用户倍率 × 全站售价系数")
 	})
 
 	t.Run("simple mode", func(t *testing.T) {
