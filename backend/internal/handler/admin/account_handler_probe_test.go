@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -107,4 +109,95 @@ func TestProbeUpstreamModels_RequiresKeyAndEndpoint(t *testing.T) {
 
 	rec = postProbe(t, router, map[string]any{"api_key": "sk-relay", "protocol_endpoints": map[string]string{}})
 	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+}
+
+// 「探测协议」：对表单里的一个地址逐个试四个上游协议（2026-09-29）。
+
+// protocolProbeUpstream 四个协议并发探测：按路径回响应，记录加锁。
+type protocolProbeUpstream struct {
+	mu       sync.Mutex
+	requests []*http.Request
+	respond  func(req *http.Request) *http.Response
+}
+
+func (u *protocolProbeUpstream) Do(req *http.Request, proxyURL string, accountID int64, concurrency int) (*http.Response, error) {
+	return u.DoWithTLS(req, proxyURL, accountID, concurrency, nil)
+}
+
+func (u *protocolProbeUpstream) DoWithTLS(req *http.Request, _ string, _ int64, _ int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	u.mu.Lock()
+	u.requests = append(u.requests, req)
+	u.mu.Unlock()
+	return u.respond(req), nil
+}
+
+func postProtocolProbe(t *testing.T, adminSvc service.AdminService, upstream service.HTTPUpstream, body map[string]any) *httptest.ResponseRecorder {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	accountTestSvc := service.NewAccountTestService(nil, nil, nil, nil, nil, upstream,
+		&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil)
+	router.POST("/api/v1/admin/accounts/protocols/probe", handler.ProbeUpstreamProtocols)
+	raw, err := json.Marshal(body)
+	require.NoError(t, err)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/protocols/probe", bytes.NewReader(raw)))
+	return rec
+}
+
+// 编辑已有渠道时传 account_id，用存着的 key；地址以表单为准。
+func TestProbeUpstreamProtocols_ReturnsPerProtocolResultsWithSavedKey(t *testing.T) {
+	adminSvc := &availableModelsAdminService{stubAdminService: newStubAdminService(), account: service.Account{
+		ID: 77, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Status: service.StatusActive,
+		Credentials:       map[string]any{"api_key": "sk-saved"},
+		ProtocolEndpoints: map[string]string{"chat_completions": "https://old.example.com/v1"},
+	}}
+	upstream := &protocolProbeUpstream{respond: func(req *http.Request) *http.Response {
+		if strings.HasSuffix(req.URL.Path, "/v1/chat/completions") {
+			return modelsListResponse(http.StatusBadRequest, `{"error":{"message":"model is required"}}`)
+		}
+		return modelsListResponse(http.StatusNotFound, `{"error":"not found"}`)
+	}}
+
+	rec := postProtocolProbe(t, adminSvc, upstream, map[string]any{"account_id": 77, "base_url": "https://new.example.com/v1"})
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var got struct {
+		Data struct {
+			Protocols []service.ProbedUpstreamProtocol `json:"protocols"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Len(t, got.Data.Protocols, 4)
+	byProtocol := map[string]service.ProbedUpstreamProtocol{}
+	for _, p := range got.Data.Protocols {
+		byProtocol[p.Protocol] = p
+	}
+	require.Equal(t, service.ProtocolProbeSupported, byProtocol["chat_completions"].Status)
+	require.Equal(t, "https://new.example.com/v1", byProtocol["chat_completions"].BaseURL)
+	require.Equal(t, service.ProtocolProbeUnsupported, byProtocol["anthropic"].Status)
+	require.Equal(t, "https://new.example.com", byProtocol["gemini"].BaseURL)
+
+	require.Len(t, upstream.requests, 4)
+	for _, req := range upstream.requests {
+		require.Equal(t, "new.example.com", req.URL.Host, "地址以表单为准")
+		require.Contains(t, req.Header.Get("Authorization")+req.Header.Get("x-goog-api-key"), "sk-saved", "用存着的 key")
+	}
+}
+
+func TestProbeUpstreamProtocols_RequiresAddressAndKey(t *testing.T) {
+	upstream := &protocolProbeUpstream{respond: func(req *http.Request) *http.Response {
+		t.Errorf("不该发请求：%s", req.URL)
+		return modelsListResponse(http.StatusTeapot, `{}`)
+	}}
+
+	rec := postProtocolProbe(t, newStubAdminService(), upstream, map[string]any{"api_key": "sk-relay"})
+	require.Equal(t, http.StatusBadRequest, rec.Code, "缺地址：%s", rec.Body.String())
+
+	rec = postProtocolProbe(t, newStubAdminService(), upstream, map[string]any{"base_url": "https://relay.example.com"})
+	require.Equal(t, http.StatusBadRequest, rec.Code, "缺 key：%s", rec.Body.String())
+
+	rec = postProtocolProbe(t, newStubAdminService(), upstream, map[string]any{"api_key": "sk-relay", "base_url": "not a url"})
+	require.Equal(t, http.StatusBadRequest, rec.Code, "地址不合法：%s", rec.Body.String())
 }
