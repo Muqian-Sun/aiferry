@@ -47,13 +47,13 @@ func TestPricingOverride_ExplicitZeroThresholdDisablesCatalogLadder(t *testing.T
 	require.InDelta(t, 5e-6, patched.InputCostPerToken, 1e-12, "补丁不得影响基础价")
 	require.InDelta(t, 3e-5, patched.OutputCostPerToken, 1e-12)
 	require.Equal(t, 272000, data["gpt-5.4"].LongContextInputTokenThreshold, "未覆盖的模型保持目录阶梯")
+	require.Empty(t, seedEntryFromLiteLLM("gpt-5.5", patched).Intervals, "阶梯被压掉的模型播种不出分段")
 
 	svc.pricingData = data
 	billing := NewBillingService(&config.Config{}, svc)
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000, CacheReadTokens: 10000}
 	cost, err := billing.CalculateCost("gpt-5.5", tokens, 1)
 	require.NoError(t, err)
-	require.False(t, cost.LongContextBillingApplied)
 	require.InDelta(t, 300000*5e-6, cost.InputCost, 1e-10)
 	require.InDelta(t, 1000*3e-5, cost.OutputCost, 1e-10)
 	require.InDelta(t, 10000*5e-7, cost.CacheReadCost, 1e-10)
@@ -171,8 +171,8 @@ func TestPricingOverride_MissingOrInvalidFileIsIgnored(t *testing.T) {
 	})
 }
 
-// 对真实出厂目录快照关闭 gpt-5.5 阶梯：计费视角阈值归零、基础价不变，
-// 其他模型（gpt-5.4）的目录阶梯不受影响。
+// 对真实出厂目录快照关闭 gpt-5.5 阶梯：播种出的条目没有分段、基础价不变，
+// 其他模型（gpt-5.4）的阶梯照常播种成分段。
 func TestPricingOverride_DisablesGPT55LadderOnDefaultCatalog(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
@@ -189,11 +189,11 @@ func TestPricingOverride_DisablesGPT55LadderOnDefaultCatalog(t *testing.T) {
 	for _, model := range []string{"gpt-5.5", "gpt-5.5-2026-04-23"} {
 		pricing, err := billing.GetModelPricing(model)
 		require.NoError(t, err)
-		require.Zero(t, pricing.LongContextInputThreshold, model)
 		require.InDelta(t, 5e-6, pricing.InputPricePerToken, 1e-12, model)
+		require.Empty(t, seedEntryFromLiteLLM(model, data[model]).Intervals, model)
 	}
 
-	pricing, err := billing.GetModelPricing("gpt-5.4")
-	require.NoError(t, err)
-	require.Equal(t, 272000, pricing.LongContextInputThreshold, "其他模型的目录阶梯不受影响")
+	gpt54 := seedEntryFromLiteLLM("gpt-5.4", data["gpt-5.4"])
+	require.Len(t, gpt54.Intervals, 1, "其他模型的阶梯照常播种成分段")
+	require.Equal(t, 272000, gpt54.Intervals[0].MinTokens)
 }

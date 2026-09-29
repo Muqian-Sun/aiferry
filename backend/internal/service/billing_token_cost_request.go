@@ -20,7 +20,7 @@ type TokenCostRequest struct {
 }
 
 // CalculateTokenCostForRequest 按通用网关的路径选择计算 token 费用：
-//  1. 有解析器（分组价卡 → 模型目录 → 价格文件，区间与长上下文阶梯均在其中）
+//  1. 有解析器（模型目录 → 价格文件；按 token 分段只在模型目录里）
 //     或带推理等级 → 统一计费；
 //  2. 否则直接按价格文件计费。
 //

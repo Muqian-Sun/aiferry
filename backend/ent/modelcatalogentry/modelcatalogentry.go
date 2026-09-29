@@ -64,14 +64,6 @@ const (
 	FieldPerRequestPrice = "per_request_price"
 	// FieldSearchPricePerCall holds the string denoting the search_price_per_call field in the database.
 	FieldSearchPricePerCall = "search_price_per_call"
-	// FieldLongContextInputThreshold holds the string denoting the long_context_input_threshold field in the database.
-	FieldLongContextInputThreshold = "long_context_input_threshold"
-	// FieldLongContextThresholdInclusive holds the string denoting the long_context_threshold_inclusive field in the database.
-	FieldLongContextThresholdInclusive = "long_context_threshold_inclusive"
-	// FieldLongContextInputMultiplier holds the string denoting the long_context_input_multiplier field in the database.
-	FieldLongContextInputMultiplier = "long_context_input_multiplier"
-	// FieldLongContextOutputMultiplier holds the string denoting the long_context_output_multiplier field in the database.
-	FieldLongContextOutputMultiplier = "long_context_output_multiplier"
 	// FieldFastMultiplier holds the string denoting the fast_multiplier field in the database.
 	FieldFastMultiplier = "fast_multiplier"
 	// FieldFlexMultiplier holds the string denoting the flex_multiplier field in the database.
@@ -144,10 +136,6 @@ var Columns = []string{
 	FieldCacheReadPricePriority,
 	FieldPerRequestPrice,
 	FieldSearchPricePerCall,
-	FieldLongContextInputThreshold,
-	FieldLongContextThresholdInclusive,
-	FieldLongContextInputMultiplier,
-	FieldLongContextOutputMultiplier,
 	FieldFastMultiplier,
 	FieldFlexMultiplier,
 	FieldMaxReasoningEffortMultiplier,
@@ -202,8 +190,6 @@ var (
 	DefaultManagedBy string
 	// ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
 	ManagedByValidator func(string) error
-	// DefaultLongContextThresholdInclusive holds the default value on creation for the "long_context_threshold_inclusive" field.
-	DefaultLongContextThresholdInclusive bool
 )
 
 // OrderOption defines the ordering options for the ModelCatalogEntry queries.
@@ -332,26 +318,6 @@ func ByPerRequestPrice(opts ...sql.OrderTermOption) OrderOption {
 // BySearchPricePerCall orders the results by the search_price_per_call field.
 func BySearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSearchPricePerCall, opts...).ToFunc()
-}
-
-// ByLongContextInputThreshold orders the results by the long_context_input_threshold field.
-func ByLongContextInputThreshold(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLongContextInputThreshold, opts...).ToFunc()
-}
-
-// ByLongContextThresholdInclusive orders the results by the long_context_threshold_inclusive field.
-func ByLongContextThresholdInclusive(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLongContextThresholdInclusive, opts...).ToFunc()
-}
-
-// ByLongContextInputMultiplier orders the results by the long_context_input_multiplier field.
-func ByLongContextInputMultiplier(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLongContextInputMultiplier, opts...).ToFunc()
-}
-
-// ByLongContextOutputMultiplier orders the results by the long_context_output_multiplier field.
-func ByLongContextOutputMultiplier(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldLongContextOutputMultiplier, opts...).ToFunc()
 }
 
 // ByFastMultiplier orders the results by the fast_multiplier field.

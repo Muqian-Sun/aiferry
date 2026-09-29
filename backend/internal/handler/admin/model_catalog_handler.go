@@ -53,11 +53,6 @@ type ModelCatalogEntryRequest struct {
 	PerRequestPrice    *float64 `json:"per_request_price"`
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
-	LongContextInputThreshold     *int     `json:"long_context_input_threshold"`
-	LongContextThresholdInclusive bool     `json:"long_context_threshold_inclusive"`
-	LongContextInputMultiplier    *float64 `json:"long_context_input_multiplier"`
-	LongContextOutputMultiplier   *float64 `json:"long_context_output_multiplier"`
-
 	FastMultiplier               *float64 `json:"fast_multiplier"`
 	FlexMultiplier               *float64 `json:"flex_multiplier"`
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
@@ -95,11 +90,6 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 
 		PerRequestPrice:    r.PerRequestPrice,
 		SearchPricePerCall: r.SearchPricePerCall,
-
-		LongContextInputThreshold:     r.LongContextInputThreshold,
-		LongContextThresholdInclusive: r.LongContextThresholdInclusive,
-		LongContextInputMultiplier:    r.LongContextInputMultiplier,
-		LongContextOutputMultiplier:   r.LongContextOutputMultiplier,
 
 		FastMultiplier:               r.FastMultiplier,
 		FlexMultiplier:               r.FlexMultiplier,

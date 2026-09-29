@@ -571,101 +571,6 @@ func (_u *ModelCatalogEntryUpdate) ClearSearchPricePerCall() *ModelCatalogEntryU
 	return _u
 }
 
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdate) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetLongContextInputThreshold()
-	_u.mutation.SetLongContextInputThreshold(v)
-	return _u
-}
-
-// SetNillableLongContextInputThreshold sets the "long_context_input_threshold" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableLongContextInputThreshold(v *int) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetLongContextInputThreshold(*v)
-	}
-	return _u
-}
-
-// AddLongContextInputThreshold adds value to the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdate) AddLongContextInputThreshold(v int) *ModelCatalogEntryUpdate {
-	_u.mutation.AddLongContextInputThreshold(v)
-	return _u
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdate) ClearLongContextInputThreshold() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearLongContextInputThreshold()
-	return _u
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (_u *ModelCatalogEntryUpdate) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryUpdate {
-	_u.mutation.SetLongContextThresholdInclusive(v)
-	return _u
-}
-
-// SetNillableLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableLongContextThresholdInclusive(v *bool) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetLongContextThresholdInclusive(*v)
-	}
-	return _u
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetLongContextInputMultiplier()
-	_u.mutation.SetLongContextInputMultiplier(v)
-	return _u
-}
-
-// SetNillableLongContextInputMultiplier sets the "long_context_input_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableLongContextInputMultiplier(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetLongContextInputMultiplier(*v)
-	}
-	return _u
-}
-
-// AddLongContextInputMultiplier adds value to the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) AddLongContextInputMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddLongContextInputMultiplier(v)
-	return _u
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) ClearLongContextInputMultiplier() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearLongContextInputMultiplier()
-	return _u
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetLongContextOutputMultiplier()
-	_u.mutation.SetLongContextOutputMultiplier(v)
-	return _u
-}
-
-// SetNillableLongContextOutputMultiplier sets the "long_context_output_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableLongContextOutputMultiplier(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetLongContextOutputMultiplier(*v)
-	}
-	return _u
-}
-
-// AddLongContextOutputMultiplier adds value to the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) AddLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddLongContextOutputMultiplier(v)
-	return _u
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) ClearLongContextOutputMultiplier() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearLongContextOutputMultiplier()
-	return _u
-}
-
 // SetFastMultiplier sets the "fast_multiplier" field.
 func (_u *ModelCatalogEntryUpdate) SetFastMultiplier(v float64) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetFastMultiplier()
@@ -1102,36 +1007,6 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.LongContextInputThreshold(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextInputThreshold(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
-	}
-	if _u.mutation.LongContextInputThresholdCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt)
-	}
-	if value, ok := _u.mutation.LongContextThresholdInclusive(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextThresholdInclusive, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.LongContextInputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextInputMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.LongContextInputMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.LongContextOutputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextOutputMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.LongContextOutputMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.FastMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
@@ -1828,101 +1703,6 @@ func (_u *ModelCatalogEntryUpdateOne) ClearSearchPricePerCall() *ModelCatalogEnt
 	return _u
 }
 
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdateOne) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetLongContextInputThreshold()
-	_u.mutation.SetLongContextInputThreshold(v)
-	return _u
-}
-
-// SetNillableLongContextInputThreshold sets the "long_context_input_threshold" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableLongContextInputThreshold(v *int) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetLongContextInputThreshold(*v)
-	}
-	return _u
-}
-
-// AddLongContextInputThreshold adds value to the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdateOne) AddLongContextInputThreshold(v int) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddLongContextInputThreshold(v)
-	return _u
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearLongContextInputThreshold() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearLongContextInputThreshold()
-	return _u
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (_u *ModelCatalogEntryUpdateOne) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryUpdateOne {
-	_u.mutation.SetLongContextThresholdInclusive(v)
-	return _u
-}
-
-// SetNillableLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableLongContextThresholdInclusive(v *bool) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetLongContextThresholdInclusive(*v)
-	}
-	return _u
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetLongContextInputMultiplier()
-	_u.mutation.SetLongContextInputMultiplier(v)
-	return _u
-}
-
-// SetNillableLongContextInputMultiplier sets the "long_context_input_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableLongContextInputMultiplier(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetLongContextInputMultiplier(*v)
-	}
-	return _u
-}
-
-// AddLongContextInputMultiplier adds value to the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) AddLongContextInputMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddLongContextInputMultiplier(v)
-	return _u
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearLongContextInputMultiplier() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearLongContextInputMultiplier()
-	return _u
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetLongContextOutputMultiplier()
-	_u.mutation.SetLongContextOutputMultiplier(v)
-	return _u
-}
-
-// SetNillableLongContextOutputMultiplier sets the "long_context_output_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableLongContextOutputMultiplier(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetLongContextOutputMultiplier(*v)
-	}
-	return _u
-}
-
-// AddLongContextOutputMultiplier adds value to the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) AddLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddLongContextOutputMultiplier(v)
-	return _u
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearLongContextOutputMultiplier() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearLongContextOutputMultiplier()
-	return _u
-}
-
 // SetFastMultiplier sets the "fast_multiplier" field.
 func (_u *ModelCatalogEntryUpdateOne) SetFastMultiplier(v float64) *ModelCatalogEntryUpdateOne {
 	_u.mutation.ResetFastMultiplier()
@@ -2389,36 +2169,6 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.LongContextInputThreshold(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextInputThreshold(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
-	}
-	if _u.mutation.LongContextInputThresholdCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt)
-	}
-	if value, ok := _u.mutation.LongContextThresholdInclusive(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextThresholdInclusive, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.LongContextInputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextInputMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.LongContextInputMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.LongContextOutputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedLongContextOutputMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.LongContextOutputMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.FastMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
