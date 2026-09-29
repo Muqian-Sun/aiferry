@@ -13,7 +13,7 @@ vi.mock('@/stores', () => ({
 }))
 
 describe('TotpLoginModal', () => {
-  it('does not render inline red text for verification errors', async () => {
+  it('shows verification errors inline', async () => {
     const wrapper = mount(TotpLoginModal, {
       props: {
         tempToken: 'temp-token',
@@ -24,7 +24,6 @@ describe('TotpLoginModal', () => {
     ;(wrapper.vm as unknown as { setError: (message: string) => void }).setError('Invalid code')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).not.toContain('Invalid code')
-    expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('Invalid code')
   })
 })

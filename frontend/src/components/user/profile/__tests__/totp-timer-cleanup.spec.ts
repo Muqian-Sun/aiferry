@@ -112,7 +112,7 @@ describe('TOTP 弹窗定时器清理', () => {
     expect(clearIntervalSpy).toHaveBeenCalledWith(timerId)
   })
 
-  it('TotpSetupModal 失败时不渲染内联错误', async () => {
+  it('TotpSetupModal 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
     mocks.initiateSetup.mockRejectedValue({
       response: { data: { message: 'setup failed' } }
@@ -125,11 +125,10 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('button[type="button"].btn-primary').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('setup failed')
-    expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('setup failed')
   })
 
-  it('TotpDisableDialog 失败时不渲染内联错误', async () => {
+  it('TotpDisableDialog 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
     mocks.disable.mockRejectedValue({
       response: { data: { message: 'disable failed' } }
@@ -142,7 +141,6 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('disable failed')
-    expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('disable failed')
   })
 })

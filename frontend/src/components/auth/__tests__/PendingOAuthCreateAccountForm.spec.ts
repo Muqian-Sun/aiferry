@@ -232,7 +232,7 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
   })
 
-  it('does not render inline error text for send-code failures', async () => {
+  it('shows send-code failures inline', async () => {
     sendPendingOAuthVerifyCode.mockRejectedValue(new Error('send failed'))
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
@@ -247,7 +247,7 @@ describe('PendingOAuthCreateAccountForm', () => {
     await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('send failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('send failed')
   })
 
   it('consumes the captcha proof when sending a verify code fails', async () => {

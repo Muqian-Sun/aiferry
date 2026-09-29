@@ -42,7 +42,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 describe('ProfilePasswordForm', () => {
-  it('does not render inline errors for validation failures', async () => {
+  it('shows validation failures inline', async () => {
     const wrapper = mount(ProfilePasswordForm)
 
     await wrapper.get('#old_password').setValue('old-password')
@@ -51,14 +51,14 @@ describe('ProfilePasswordForm', () => {
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(changePasswordMock).not.toHaveBeenCalled()
-    expect(wrapper.find('.input-error-text').exists()).toBe(false)
+    expect(wrapper.get('.input-error-text').text()).toContain('New passwords do not match')
   })
 
   it.each([
     [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'current password is incorrect'],
     [{ response: { data: { detail: 'backend failure' } } }, 'backend failure'],
     [{}, 'Failed to change password'],
-  ])('rejects API failure %j without inline errors', async (error, _expectedMessage) => {
+  ])('shows API failure %j inline', async (error, expectedMessage) => {
     changePasswordMock.mockRejectedValue(error)
 
     const wrapper = mount(ProfilePasswordForm)
@@ -69,6 +69,6 @@ describe('ProfilePasswordForm', () => {
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
-    expect(wrapper.find('.input-error-text').exists()).toBe(false)
+    expect(wrapper.get('.input-error-text').text()).toContain(expectedMessage)
   })
 })

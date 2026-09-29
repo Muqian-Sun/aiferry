@@ -761,7 +761,7 @@ describe('WechatCallbackView', () => {
     )
   })
 
-  it('does not render inline error text for create-account failures', async () => {
+  it('shows create-account failures inline', async () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       error: 'email_required',
       redirect: '/welcome',
@@ -785,7 +785,7 @@ describe('WechatCallbackView', () => {
     await wrapper.get('[data-testid="wechat-create-account-submit"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('create failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('create failed')
   })
 
   it('sends a verify code for pending oauth account creation', async () => {
