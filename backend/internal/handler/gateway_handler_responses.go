@@ -270,21 +270,16 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.responsesErrorResponse(c, cls.Status, cls.ErrType, message)
 				return
 			}
-			action := fs.HandleSelectionExhausted(requestCtx)
-			switch action {
-			case FailoverContinue:
-				continue
-			case FailoverCanceled:
+			if fs.HandleSelectionExhausted(requestCtx) == FailoverCanceled {
 				failoverClientGone(c)
 				return
-			default:
-				if fs.LastFailoverErr != nil {
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
-				} else {
-					h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
-				}
-				return
 			}
+			if fs.LastFailoverErr != nil {
+				h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
+			} else {
+				h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
+			}
+			return
 		}
 		account := selection.Account
 		if previousResponseID != "" && requestPlatform == service.PlatformOpenAI && !service.AccountKeepsHTTPPreviousResponseID(account) {

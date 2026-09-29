@@ -185,21 +185,16 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				h.chatCompletionsErrorResponse(c, cls.Status, cls.ErrType, message)
 				return
 			}
-			action := fs.HandleSelectionExhausted(c.Request.Context())
-			switch action {
-			case FailoverContinue:
-				continue
-			case FailoverCanceled:
+			if fs.HandleSelectionExhausted(c.Request.Context()) == FailoverCanceled {
 				failoverClientGone(c)
 				return
-			default:
-				if fs.LastFailoverErr != nil {
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
-				} else {
-					h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
-				}
-				return
 			}
+			if fs.LastFailoverErr != nil {
+				h.handleCCFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
+			} else {
+				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
+			}
+			return
 		}
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)

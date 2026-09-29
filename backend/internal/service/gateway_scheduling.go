@@ -477,20 +477,6 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, platform s
 	return accounts, nil
 }
 
-// IsSinglePool 本次请求的池是否只有一个可调度资源（目录路由按条目绑定数，不看平台；无路由 = false）。
-// Handler 层在首次请求时据此提前设置 SingleAccountRetry context，避免单资源池收到 503 时
-// 错误地设置模型限流标记导致后续请求连续快速失败。
-func (s *GatewayService) IsSinglePool(ctx context.Context) bool {
-	if _, ok := CatalogRouteFromContext(ctx); !ok {
-		return false
-	}
-	accounts, err := s.listSchedulableAccounts(ctx, "", false)
-	if err != nil {
-		return false
-	}
-	return len(accounts) == 1
-}
-
 // isAccountSchedulableForSelection 选号准入：只读资源的调度状态（整体），额度评估不在这里。
 const admitReasonCompactUnsupported = "compact_unsupported"
 
