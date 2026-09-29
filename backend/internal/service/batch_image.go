@@ -10,10 +10,9 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
-const (
-	BatchImageProviderGeminiAPI = "gemini_api"
-	BatchImageProviderVertex    = "vertex"
-)
+// BatchImageProviderVertex 是批量生图唯一的提供方：Vertex（Gemini 成品号的 Service Account）。
+// 原来的 gemini_api 提供方只认官方 Gemini API Key，2026-09-29 海外四家不再有官方 key，一并删了。
+const BatchImageProviderVertex = "vertex"
 
 const (
 	BatchImageJobStatusCreated       = "created"
@@ -351,7 +350,7 @@ func NewBatchImageID() (string, error) {
 
 func IsSupportedBatchImageProvider(provider string) bool {
 	switch provider {
-	case BatchImageProviderGeminiAPI, BatchImageProviderVertex:
+	case BatchImageProviderVertex:
 		return true
 	default:
 		return false

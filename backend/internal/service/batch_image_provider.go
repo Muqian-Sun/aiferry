@@ -10,6 +10,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
 )
 
 type BatchImageProvider interface {
@@ -39,16 +40,27 @@ func NewBatchImageProviderRegistry(providers ...BatchImageProvider) *BatchImageP
 
 func NewDefaultBatchImageProviderRegistry() *BatchImageProviderRegistry {
 	return NewBatchImageProviderRegistry(
-		NewGeminiAPIBatchImageProvider(nil),
 		NewVertexBatchImageProvider(VertexBatchImageProviderOptions{}, nil, nil, nil),
 	)
 }
 
 func NewBatchImageProviderRegistryFromConfig(cfg *config.Config) *BatchImageProviderRegistry {
 	return NewBatchImageProviderRegistry(
-		NewGeminiAPIBatchImageProvider(nil),
 		NewVertexBatchImageProviderFromConfig(cfg, nil, nil, nil),
 	)
+}
+
+// batchImageDefaultHTTPClient 返回带连接/握手/响应头超时的共享客户端。
+// 不设整体 Timeout：大文件上传与结果流式下载耗时不可预估，
+// 但拨号、TLS、等待响应头必须有界，否则挂死的连接会无限占用提交路径。
+func batchImageDefaultHTTPClient() *http.Client {
+	client, err := httpclient.GetClient(httpclient.Options{
+		ResponseHeaderTimeout: 60 * time.Second,
+	})
+	if err != nil {
+		return http.DefaultClient
+	}
+	return client
 }
 
 func (r *BatchImageProviderRegistry) Get(provider string) (BatchImageProvider, bool) {
@@ -136,15 +148,13 @@ const (
 )
 
 var (
-	ErrBatchImageProviderUnsupportedAccount      = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_UNSUPPORTED_ACCOUNT", "batch image provider does not support this account")
-	ErrBatchImageProviderMissingAPIKey           = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_API_KEY", "batch image provider account is missing api key")
-	ErrBatchImageProviderMissingServiceAccount   = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_SERVICE_ACCOUNT", "batch image provider account is missing service account credentials")
-	ErrBatchImageProviderMissingJobName          = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_JOB_NAME", "batch image provider job name is missing")
-	ErrBatchImageProviderMissingResultRef        = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_RESULT_REF", "batch image provider result reference is missing")
-	ErrBatchImageProviderInlineResultUnsupported = infraerrors.New(http.StatusBadRequest, "GEMINI_INLINE_BATCH_RESULT_UNSUPPORTED", "Gemini inline batch result is not supported")
-	ErrBatchImageProviderInvalidInput            = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_INVALID_INPUT", "invalid batch image provider input")
-	ErrBatchImageProviderUnsafeCleanupPath       = infraerrors.New(http.StatusBadRequest, "VERTEX_UNSAFE_CLEANUP_PATH", "unsafe batch image cleanup path")
-	ErrUnsupportedCleanupTarget                  = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_UNSUPPORTED_CLEANUP_TARGET", "unsupported batch image cleanup target")
+	ErrBatchImageProviderUnsupportedAccount    = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_UNSUPPORTED_ACCOUNT", "batch image provider does not support this account")
+	ErrBatchImageProviderMissingServiceAccount = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_SERVICE_ACCOUNT", "batch image provider account is missing service account credentials")
+	ErrBatchImageProviderMissingJobName        = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_JOB_NAME", "batch image provider job name is missing")
+	ErrBatchImageProviderMissingResultRef      = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_MISSING_RESULT_REF", "batch image provider result reference is missing")
+	ErrBatchImageProviderInvalidInput          = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_INVALID_INPUT", "invalid batch image provider input")
+	ErrBatchImageProviderUnsafeCleanupPath     = infraerrors.New(http.StatusBadRequest, "VERTEX_UNSAFE_CLEANUP_PATH", "unsafe batch image cleanup path")
+	ErrUnsupportedCleanupTarget                = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_PROVIDER_UNSUPPORTED_CLEANUP_TARGET", "unsupported batch image cleanup target")
 )
 
 func batchImageProviderJobName(job *BatchImageJob) string {
@@ -166,13 +176,6 @@ func batchImageProviderOutputRef(job *BatchImageJob) string {
 		return ""
 	}
 	return strings.TrimSpace(*job.ProviderOutputRef)
-}
-
-func batchImageProviderAPIKey(account *Account) string {
-	if account == nil {
-		return ""
-	}
-	return strings.TrimSpace(account.GetCredential("api_key"))
 }
 
 func batchImageProviderInputError(format string, args ...any) error {

@@ -612,7 +612,7 @@ func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchIma
 		if !ok || provider == nil {
 			continue
 		}
-		accounts, err := s.listCandidateAccounts(ctx, batchImageProviderPlatform(providerName))
+		accounts, err := s.listCandidateAccounts(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -921,7 +921,7 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 		if !ok || provider == nil {
 			continue
 		}
-		accounts, err := s.listCandidateAccounts(ctx, batchImageProviderPlatform(providerName))
+		accounts, err := s.listCandidateAccounts(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -948,13 +948,13 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 	return nil, nil, ErrBatchImageNoAccountAvailable
 }
 
-// listCandidateAccounts 装载批量图片的候选账号：成品号按平台精确匹配，第三方 key 不论平台
-// 标签全部装载，由 provider.SupportsAccount 按账号类别与厂商筛选（与调度候选查询同一口径）。
-func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context, platform string) ([]Account, error) {
+// listCandidateAccounts 装载批量图片的候选账号：提供方只有 Vertex，按 gemini 平台装载（与调度候选
+// 查询同一口径，第三方 key 也会装进来），由 provider.SupportsAccount 按账号类别筛选。
+func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context) ([]Account, error) {
 	if s.AccountRepo == nil {
 		return nil, ErrBatchImageNoAccountAvailable
 	}
-	return s.AccountRepo.ListSchedulingCandidates(ctx, []string{platform})
+	return s.AccountRepo.ListSchedulingCandidates(ctx, []string{PlatformGemini})
 }
 
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
@@ -1165,20 +1165,11 @@ func HashBatchImageSubmitRequest(req BatchImageSubmitRequest) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func batchImageProviderPlatform(provider string) string {
-	switch provider {
-	case BatchImageProviderGeminiAPI, BatchImageProviderVertex:
-		return PlatformGemini
-	default:
-		return PlatformGemini
-	}
-}
-
 func batchImageProviderSelectionOrder(requestedProvider string) []string {
 	if strings.TrimSpace(requestedProvider) != "" {
 		return []string{strings.TrimSpace(requestedProvider)}
 	}
-	return []string{BatchImageProviderGeminiAPI, BatchImageProviderVertex}
+	return []string{BatchImageProviderVertex}
 }
 
 func batchImageModelsFromAccountMapping(account *Account) []string {
@@ -1237,8 +1228,6 @@ func batchImageProviderSubmitPublicError(err error) error {
 	switch reason {
 	case "VERTEX_MANAGED_GCS_BUCKET_MISSING":
 		return ErrBatchImageVertexGCSBucketMissing
-	case "BATCH_IMAGE_PROVIDER_MISSING_API_KEY":
-		return ErrBatchImageProviderMissingAPIKey
 	case "BATCH_IMAGE_PROVIDER_MISSING_SERVICE_ACCOUNT":
 		return ErrBatchImageProviderMissingServiceAccount
 	case "BATCH_IMAGE_PROVIDER_UNSUPPORTED_ACCOUNT":
