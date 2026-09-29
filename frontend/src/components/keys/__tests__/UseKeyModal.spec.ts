@@ -60,7 +60,9 @@ async function clickClientTab(wrapper: ReturnType<typeof mountModal>, tabKey: st
   await nextTick()
 }
 
-const codeBlocks = (wrapper: ReturnType<typeof mountModal>) => wrapper.findAll('pre code').map((code) => code.text())
+// 只取各客户端的配置文件；底部「查询可用模型」的 curl 示例不是配置
+const codeBlocks = (wrapper: ReturnType<typeof mountModal>) =>
+  wrapper.findAll('pre code').filter((code) => !code.element.closest('[data-testid="use-key-models-api"]')).map((code) => code.text())
 
 describe('UseKeyModal', () => {
   afterEach(() => {

@@ -278,4 +278,7 @@ watch(
 )
 
 onMounted(load)
+
+// 「探测模型」一键导入新条目后，父组件调它重新拉目录，新条目才出现在列表里
+defineExpose({ reload: load })
 </script>

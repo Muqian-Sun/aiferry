@@ -18,6 +18,14 @@ export interface ModelCatalogAlias {
   updated_at: string
 }
 
+/** 「探测模型」拿到的一个上游模型，以及它在目录里对上的条目 */
+export interface ProbedUpstreamModel {
+  id: string
+  entry_id?: number
+  entry_model_id?: string
+  listed?: boolean
+}
+
 export interface ModelCatalogEntry {
   id: number
   model_id: string
@@ -168,6 +176,16 @@ const modelCatalogAPI = {
   createEntry: async (body: ModelCatalogEntryRequest): Promise<ModelCatalogEntry> => {
     const { data } = await apiClient.post<ModelCatalogEntry>('/admin/model-catalog/entries', body)
     return data
+  },
+  /** 上游模型名对到目录条目（规范化名 / 别名 / 去厂商前缀），没对上的 entry_id 为空 */
+  matchUpstreamModels: async (modelIds: string[]): Promise<ProbedUpstreamModel[]> => {
+    const { data } = await apiClient.post<{ models: ProbedUpstreamModel[] }>('/admin/model-catalog/entries/match', { model_ids: modelIds })
+    return data.models
+  },
+  /** 目录里没有的上游模型建成未上架条目（内置价格表查得到就带价），已有的原样返回 */
+  importUpstreamModels: async (modelIds: string[]): Promise<ModelCatalogEntry[]> => {
+    const { data } = await apiClient.post<{ entries: ModelCatalogEntry[] }>('/admin/model-catalog/entries/import', { model_ids: modelIds })
+    return data.entries
   },
   updateEntry: async (id: number, body: ModelCatalogEntryRequest): Promise<ModelCatalogEntry> => {
     const { data } = await apiClient.put<ModelCatalogEntry>(`/admin/model-catalog/entries/${id}`, body)

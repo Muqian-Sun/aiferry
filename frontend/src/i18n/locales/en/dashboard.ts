@@ -118,6 +118,10 @@ export default {
     lastUsedIP: 'Last Used IP',
     useKey: 'Use Key',
     useKeyModal: {
+      modelsApi: {
+        title: 'List available models',
+        hint: 'Use this key to list the models you can call. Returns the OpenAI format by default; send an anthropic-version header for the Anthropic format; Gemini clients use /v1beta/models.'
+      },
       title: 'Use API Key',
       description:
         'Add the following environment variables to your terminal profile or run directly in terminal to configure API access.',

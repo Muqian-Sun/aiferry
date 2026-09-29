@@ -576,8 +576,19 @@
         <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
 
+      <!-- 探测模型（muqian 2026-09-29）：第三方 key 填好地址与 key 后向上游要模型名单，对得上的按上游支持的重新勾选 -->
+      <UpstreamModelProbe
+        v-if="form.type === 'apikey'"
+        :protocol-endpoints="protocolEndpoints"
+        :api-key="apiKeyValue"
+        :proxy-id="form.proxy_id"
+        @matched="applyProbedEntries"
+        @imported="applyImportedEntries"
+      />
+
       <!-- 承接的模型：默认勾上识别出的厂商已上架的对话模型（muqian 2026-09-25），收成一行，点「修改」展开 -->
       <CatalogEntryPicker
+        ref="catalogPickerRef"
         v-model="selectedCatalogEntryIds"
         collapsible
         :suggested-platform="catalogSuggestedPlatform"
@@ -1441,6 +1452,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
+import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import {
   DEFAULT_ACCESS_SOURCE_ID,
@@ -1688,6 +1700,17 @@ function applyKeyAddressPreset(preset: KeyAddressPreset) {
 // 承接的模型：成品号的厂商、或 key 按地址识别出的厂商排在最前；中转没有
 const catalogEntries = ref<ModelCatalogEntry[]>([])
 const catalogSelectionTouched = ref(false)
+const catalogPickerRef = ref<InstanceType<typeof CatalogEntryPicker> | null>(null)
+// 探测到上游模型后按上游支持的重新勾选（算管理员动过，默认勾选不再覆盖）
+function applyProbedEntries(entryIds: number[]) {
+  catalogSelectionTouched.value = true
+  selectedCatalogEntryIds.value = [...entryIds]
+}
+// 一键导入的新条目要先重新拉目录，勾选列表里才看得到
+async function applyImportedEntries(entryIds: number[]) {
+  await catalogPickerRef.value?.reload()
+  applyProbedEntries(entryIds)
+}
 const catalogSuggestedPlatform = computed(() =>
   isKeyMode.value ? (keyVendor.value ?? undefined) : accessSource.value.platform
 )

@@ -118,6 +118,10 @@ export default {
     lastUsedIP: '最近使用 IP',
     useKey: '使用密钥',
     useKeyModal: {
+      modelsApi: {
+        title: '查询可用模型',
+        hint: '用这把密钥查询能调用的模型：默认返回 OpenAI 格式；请求带 anthropic-version 头返回 Anthropic 格式；Gemini 客户端用 /v1beta/models。'
+      },
       title: '使用 API 密钥',
       description: '将以下环境变量添加到您的终端配置文件或直接在终端中运行。',
       copy: '复制',
