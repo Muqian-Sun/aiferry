@@ -109,7 +109,15 @@ func gatewayModelErrorWriter(c *gin.Context) GatewayErrorWriter {
 		return GoogleErrorWriter
 	case strings.Contains(path, "/messages"):
 		return AnthropicErrorWriter
+	case isModelsListingPath(path) && strings.TrimSpace(c.GetHeader("anthropic-version")) != "":
+		// /v1/models/:model 与模型列表同一个判据：带 anthropic-version 头的是 Anthropic 客户端，回 Anthropic 形状
+		return AnthropicErrorWriter
 	default:
 		return OpenAIErrorWriter
 	}
+}
+
+// isModelsListingPath 报告路径是否是模型列表 / 单个模型查询（/v1/models、/models 及其下的 /:model）。
+func isModelsListingPath(path string) bool {
+	return strings.HasSuffix(path, "/models") || strings.Contains(path, "/models/")
 }
