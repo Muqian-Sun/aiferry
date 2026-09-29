@@ -4,8 +4,9 @@
     ① 今日：请求 / Token / 收入 / 成本 / 利润；累计：收入 / 成本 / 利润 / 用户 / 渠道；右上角实时 RPM · TPM
        （缓存命中率、平均响应挪到用量页；平均响应原先排在今日行、算的却是全部历史）
     ② 需要处理：只放渠道异常 / 限流 / 过载，点进渠道页带状态筛选；都是 0 时整段不出现
-    ③ 用量趋势单线 + 页签（Token / 请求 / 收入 / 利润）；模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。
-    除「需要处理」的状态点外全部单色，另外利润为负时标红。累计行渠道的附注「N 可调度」和渠道页摘要是同一个数（normal_accounts），叫法保持一致。区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
+    ③ 用量趋势单线 + 页签（Token / 请求 / 收入 / 利润）；模型用量（按模型分色的堆叠柱 + 模型表）；用户用量（每人一条热力条 + 用户表）。
+       2026-09-29 muqian：重点看每天的 Token 量与走势、各模型走势、每天哪个模型用得最多、哪个用户用得最多与各用户走势，
+       默认近 7 天按天；模型柱状图按他的要求用分类色区分模型，其余仍单色，利润为负时标红。累计行渠道的附注「N 可调度」和渠道页摘要是同一个数（normal_accounts），叫法保持一致。区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -96,27 +97,22 @@
         <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
       </SheetSection>
 
-      <section class="grid grid-cols-1 gap-x-10 gap-y-8 border-t border-af-hairline pt-6 lg:grid-cols-2">
-        <ModelDistributionChart
+      <SheetSection :title="t('admin.dashboard.modelSection')" :description="t('admin.dashboard.modelSectionHint')" data-testid="dashboard-models">
+        <ModelTokenTrendChart :points="modelTrend" :days="bucketKeys" :series="modelSeries" :loading="chartsLoading" />
+        <DashboardModelTable
+          class="mt-6"
           :model-stats="modelStats"
-          :enable-ranking-view="true"
-          :ranking-items="rankingItems"
-          :ranking-total-actual-cost="rankingTotalActualCost"
-          :ranking-total-requests="rankingTotalRequests"
-          :ranking-total-tokens="rankingTotalTokens"
-          :loading="chartsLoading"
-          :ranking-loading="rankingLoading"
-          :ranking-error="rankingError"
+          :series="modelSeries"
+          :load-user-breakdown="getUserBreakdown"
           :start-date="startDate"
           :end-date="endDate"
-          :load-user-breakdown="getUserBreakdown"
-          @ranking-click="goToUserUsage"
+          :loading="chartsLoading"
         />
-        <div data-testid="dashboard-top-users">
-          <h3 class="mb-4 text-base font-semibold text-af-ink">{{ t('admin.dashboard.userUsageTrend') }}</h3>
-          <UsageModelTrendRows :points="userTrendRows" :days="bucketKeys" :limit="12" :loading="userTrendLoading" />
-        </div>
-      </section>
+      </SheetSection>
+
+      <SheetSection :title="t('admin.dashboard.userSection')" :description="t('admin.dashboard.userSectionHint')" data-testid="dashboard-users">
+        <DashboardUserTable :points="userTrend" :days="bucketKeys" :total-tokens="rangeTotalTokens" :loading="chartsLoading" @select="goToUserUsage" />
+      </SheetSection>
     </div>
   </AppLayout>
 </template>
@@ -128,16 +124,18 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { getUserBreakdown } from '@/api/admin/dashboard'
-import type { DashboardStats, TrendDataPoint, ModelStat, UserUsageTrendPoint, UserSpendingRankingItem } from '@/types'
+import type { DashboardStats, TrendDataPoint, ModelStat, ModelTrendPoint, UserUsageTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select from '@/components/common/Select.vue'
-import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
-import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
+import ModelTokenTrendChart from '@/components/admin/dashboard/ModelTokenTrendChart.vue'
+import DashboardModelTable from '@/components/admin/dashboard/DashboardModelTable.vue'
+import DashboardUserTable from '@/components/admin/dashboard/DashboardUserTable.vue'
+import { splitModelSeries } from '@/components/admin/dashboard/modelSeries'
 import { fillTrendBuckets, formatLocalDate, trendBucketKeys, type TrendGranularity } from '@/utils/trendBuckets'
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 
@@ -147,30 +145,25 @@ const router = useRouter()
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(false)
 const chartsLoading = ref(false)
-const userTrendLoading = ref(false)
-const rankingLoading = ref(false)
-const rankingError = ref(false)
 
 const trendData = ref<TrendDataPoint[]>([])
 const modelStats = ref<ModelStat[]>([])
+const modelTrend = ref<ModelTrendPoint[]>([])
 const userTrend = ref<UserUsageTrendPoint[]>([])
-const rankingItems = ref<UserSpendingRankingItem[]>([])
-const rankingTotalActualCost = ref(0)
-const rankingTotalRequests = ref(0)
-const rankingTotalTokens = ref(0)
 let chartLoadSeq = 0
-let usersTrendLoadSeq = 0
-let rankingLoadSeq = 0
-const rankingLimit = 12
+/** 用户表最多取多少人（后端按区间 Token 取前 N，上限 50）；默认显示前 10，其余点「显示全部」 */
+const USERS_TREND_LIMIT = 50
 
-const getLast24HoursRangeDates = (): { start: string; end: string } => {
+/** 默认近 7 天（与日期选择器「近 7 天」预设同一算法：今天往前 6 天），按天看趋势 */
+const getLast7DaysRangeDates = (): { start: string; end: string } => {
   const end = new Date()
-  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
+  const start = new Date()
+  start.setDate(start.getDate() - 6)
   return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
-const granularity = ref<TrendGranularity>('hour')
-const defaultRange = getLast24HoursRangeDates()
+const granularity = ref<TrendGranularity>('day')
+const defaultRange = getLast7DaysRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
 
@@ -256,24 +249,15 @@ const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() =
 const bucketKeys = computed(() => trendBucketKeys(startDate.value, endDate.value, granularity.value))
 const trendFilled = computed(() => fillTrendBuckets(trendData.value, bucketKeys.value))
 
-const userDisplayName = (point: UserUsageTrendPoint): string =>
-  point.username?.trim() || point.email?.trim() || t('common.deletedUser')
+/** 模型配色：前 8 个模型各一色，其余并进「其他」；柱状图与模型表共用 */
+const modelSeries = computed(() => splitModelSeries(modelStats.value))
+/** 区间内全站 Token（用户表占比的分母，不是前 N 名之和） */
+const rangeTotalTokens = computed(() => trendData.value.reduce((sum, point) => sum + toFiniteNumber(point.total_tokens), 0))
 
-/** Top 12 用户：按用户 id 分组（同名不合并），显示名字；值用 Token */
-const userTrendRows = computed(() =>
-  userTrend.value.map((point) => ({
-    date: point.date,
-    model: String(point.user_id),
-    label: userDisplayName(point),
-    requests: point.requests,
-    total_tokens: point.tokens
-  }))
-)
-
-const goToUserUsage = (item: UserSpendingRankingItem) => {
+const goToUserUsage = (userId: number) => {
   void router.push({
     path: '/usage',
-    query: { user_id: String(item.user_id), start_date: startDate.value, end_date: endDate.value }
+    query: { user_id: String(userId), start_date: startDate.value, end_date: endDate.value }
   })
 }
 
@@ -297,12 +281,16 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
       include_stats: includeStats,
       include_trend: true,
       include_model_stats: true,
-      include_users_trend: false
+      include_model_trend: true,
+      include_users_trend: true,
+      users_trend_limit: USERS_TREND_LIMIT
     })
     if (currentSeq !== chartLoadSeq) return
     if (includeStats && response.stats) stats.value = response.stats
     trendData.value = response.trend || []
     modelStats.value = response.models || []
+    modelTrend.value = response.model_trend || []
+    userTrend.value = response.users_trend || []
   } catch (error) {
     if (currentSeq !== chartLoadSeq) return
     appStore.showError(t('admin.dashboard.failedToLoad'))
@@ -315,62 +303,9 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
   }
 }
 
-const loadUsersTrend = async () => {
-  const currentSeq = ++usersTrendLoadSeq
-  userTrendLoading.value = true
-  try {
-    const response = await adminAPI.dashboard.getUserUsageTrend({
-      start_date: startDate.value,
-      end_date: endDate.value,
-      granularity: granularity.value,
-      limit: 12
-    })
-    if (currentSeq !== usersTrendLoadSeq) return
-    userTrend.value = response.trend || []
-  } catch (error) {
-    if (currentSeq !== usersTrendLoadSeq) return
-    console.error('Error loading users trend:', error)
-    userTrend.value = []
-  } finally {
-    if (currentSeq === usersTrendLoadSeq) userTrendLoading.value = false
-  }
-}
+const loadDashboardStats = () => loadDashboardSnapshot(true)
 
-const loadUserSpendingRanking = async () => {
-  const currentSeq = ++rankingLoadSeq
-  rankingLoading.value = true
-  rankingError.value = false
-  try {
-    const response = await adminAPI.dashboard.getUserSpendingRanking({
-      start_date: startDate.value,
-      end_date: endDate.value,
-      limit: rankingLimit
-    })
-    if (currentSeq !== rankingLoadSeq) return
-    rankingItems.value = response.ranking || []
-    rankingTotalActualCost.value = response.total_actual_cost || 0
-    rankingTotalRequests.value = response.total_requests || 0
-    rankingTotalTokens.value = response.total_tokens || 0
-  } catch (error) {
-    if (currentSeq !== rankingLoadSeq) return
-    console.error('Error loading user spending ranking:', error)
-    rankingItems.value = []
-    rankingTotalActualCost.value = 0
-    rankingTotalRequests.value = 0
-    rankingTotalTokens.value = 0
-    rankingError.value = true
-  } finally {
-    if (currentSeq === rankingLoadSeq) rankingLoading.value = false
-  }
-}
-
-const loadDashboardStats = async () => {
-  await Promise.all([loadDashboardSnapshot(true), loadUsersTrend(), loadUserSpendingRanking()])
-}
-
-const loadChartData = async () => {
-  await Promise.all([loadDashboardSnapshot(false), loadUsersTrend(), loadUserSpendingRanking()])
-}
+const loadChartData = () => loadDashboardSnapshot(false)
 
 onMounted(() => {
   loadDashboardStats()
