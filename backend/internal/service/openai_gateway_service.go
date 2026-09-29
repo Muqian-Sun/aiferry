@@ -380,7 +380,6 @@ type OpenAICompatibilityFallbackMetricsSnapshot struct {
 	MetadataLegacyFallbackThinkingEnabledTotal     int64 `json:"metadata_legacy_fallback_thinking_enabled_total"`
 	MetadataLegacyFallbackPrefetchedStickyAccount  int64 `json:"metadata_legacy_fallback_prefetched_sticky_account_total"`
 	MetadataLegacyFallbackPrefetchedStickyGroup    int64 `json:"metadata_legacy_fallback_prefetched_sticky_group_total"`
-	MetadataLegacyFallbackSingleAccountRetryTotal  int64 `json:"metadata_legacy_fallback_single_account_retry_total"`
 	MetadataLegacyFallbackAccountSwitchCountTotal  int64 `json:"metadata_legacy_fallback_account_switch_count_total"`
 	MetadataLegacyFallbackTotal                    int64 `json:"metadata_legacy_fallback_total"`
 }
@@ -940,16 +939,15 @@ func (s *OpenAIGatewayService) SnapshotOpenAIWSRetryMetrics() OpenAIWSRetryMetri
 }
 
 func SnapshotOpenAICompatibilityFallbackMetrics() OpenAICompatibilityFallbackMetricsSnapshot {
-	isMaxTokensOneHaiku, thinkingEnabled, prefetchedStickyAccount, prefetchedStickyGroup, singleAccountRetry, accountSwitchCount := RequestMetadataFallbackStats()
+	isMaxTokensOneHaiku, thinkingEnabled, prefetchedStickyAccount, prefetchedStickyGroup, accountSwitchCount := RequestMetadataFallbackStats()
 
-	metadataFallbackTotal := isMaxTokensOneHaiku + thinkingEnabled + prefetchedStickyAccount + prefetchedStickyGroup + singleAccountRetry + accountSwitchCount
+	metadataFallbackTotal := isMaxTokensOneHaiku + thinkingEnabled + prefetchedStickyAccount + prefetchedStickyGroup + accountSwitchCount
 
 	return OpenAICompatibilityFallbackMetricsSnapshot{
 		MetadataLegacyFallbackIsMaxTokensOneHaikuTotal: isMaxTokensOneHaiku,
 		MetadataLegacyFallbackThinkingEnabledTotal:     thinkingEnabled,
 		MetadataLegacyFallbackPrefetchedStickyAccount:  prefetchedStickyAccount,
 		MetadataLegacyFallbackPrefetchedStickyGroup:    prefetchedStickyGroup,
-		MetadataLegacyFallbackSingleAccountRetryTotal:  singleAccountRetry,
 		MetadataLegacyFallbackAccountSwitchCountTotal:  accountSwitchCount,
 		MetadataLegacyFallbackTotal:                    metadataFallbackTotal,
 	}
