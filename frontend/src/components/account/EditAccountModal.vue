@@ -357,11 +357,23 @@
       >
         {{ t('admin.accounts.catalogEntries.loadBoundFailed') }}
       </p>
-      <CatalogEntryPicker
-        v-else-if="catalogEntryIdsLoaded"
-        v-model="selectedCatalogEntryIds"
-        :suggested-platform="account.platform"
-      />
+      <template v-else-if="catalogEntryIdsLoaded">
+        <!-- 探测模型（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准 -->
+        <UpstreamModelProbe
+          v-if="account.type === 'apikey'"
+          :protocol-endpoints="editProtocolEndpoints"
+          :api-key="editApiKey"
+          :account-id="account.id"
+          :proxy-id="form.proxy_id"
+          @matched="applyProbedEntries"
+          @imported="applyImportedEntries"
+        />
+        <CatalogEntryPicker
+          ref="catalogPickerRef"
+          v-model="selectedCatalogEntryIds"
+          :suggested-platform="account.platform"
+        />
+      </template>
 
       <!-- 模型改名（可选）：只改名、不限定能接哪些模型，保存时带 model_mapping_rename_only（spark 影子账号除外） -->
       <ModelRenameEditor
@@ -785,6 +797,7 @@ import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
+import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
@@ -996,6 +1009,15 @@ const modelMappings = ref<ModelMapping[]>([])
 
 // 承接的模型：按渠道读绑定（GET /admin/accounts/:id/catalog-entries），保存时勾选变了才整份写回。
 const selectedCatalogEntryIds = ref<number[]>([])
+const catalogPickerRef = ref<InstanceType<typeof CatalogEntryPicker> | null>(null)
+// 探测到上游模型后按上游支持的重新勾选；一键导入的新条目先重新拉目录再勾
+function applyProbedEntries(entryIds: number[]) {
+  selectedCatalogEntryIds.value = [...entryIds]
+}
+async function applyImportedEntries(entryIds: number[]) {
+  await catalogPickerRef.value?.reload()
+  applyProbedEntries(entryIds)
+}
 const initialCatalogEntryIds = ref<number[]>([])
 const catalogEntryIdsLoaded = ref(false)
 const catalogEntryIdsLoadFailed = ref(false)

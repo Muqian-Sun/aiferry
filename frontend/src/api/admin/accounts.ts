@@ -606,6 +606,24 @@ export async function syncUpstreamModelsPreview(params: SyncUpstreamPreviewParam
   return data
 }
 
+export interface ProbeUpstreamModelsParams {
+  /** 表单里的协议地址（编辑时可能刚改过） */
+  protocol_endpoints: Record<string, string>
+  /** 新建时填的 key；编辑已有渠道不改 key 时留空，传 account_id 用存着的 key */
+  api_key?: string
+  account_id?: number
+  /** 表单里选的代理：探测与真实请求走同一条路 */
+  proxy_id?: number | null
+}
+
+/**
+ * 「探测模型」：用表单里的地址与 key 向上游要模型名单（不写库）。上游没有模型列表端点时报 400。
+ */
+export async function probeUpstreamModels(params: ProbeUpstreamModelsParams): Promise<{ models: string[] }> {
+  const { data } = await apiClient.post<{ models: string[] }>('/admin/accounts/models/probe', params)
+  return data
+}
+
 export interface ProtocolDefaultsResponse {
   /** 全部可配置协议，顺序固定。 */
   protocols: UpstreamProtocol[]
@@ -959,6 +977,7 @@ export const accountsAPI = {
   getAvailableModels,
   syncUpstreamModels,
   syncUpstreamModelsPreview,
+  probeUpstreamModels,
   getProtocolDefaults,
   generateAuthUrl,
   exchangeCode,

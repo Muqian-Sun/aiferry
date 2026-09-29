@@ -823,13 +823,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 }
 
-// Models lists visible models, or retrieves the exact list entry for a model path parameter.
-// GET /v1/models and /v1/models/:model (also exposed through root aliases)
-// Returns models based on account configurations (model_mapping whitelist)
-// Falls back to default models if no whitelist is configured
+// Models 列出用户可见的模型（目录已上架、订阅 key 只含套餐模型），或按路径参数取其中一个。
+// GET /v1/models 与 /v1/models/:model（根路径别名同一个处理器）；用户拿自己的 key 查（2026-09-29）。
 func (h *GatewayHandler) Models(c *gin.Context) {
-	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
-
 	// 形状只看客户端：Anthropic SDK 带 anthropic-version 头 → Claude 形状，其余 OpenAI 形状
 	//（Grok 形状并入 OpenAI）；强制平台路由（/antigravity）仍按自己的平台。列表内容来自目录。
 	platform := modelsListShape(c)
@@ -837,7 +833,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		platform = forcedPlatform
 	}
 
-	writeModelsList(c, platform, h.listedModelIDs(c, apiKey))
+	writeModelsList(c, platform, h.listedEntries(c))
 }
 
 // modelsListShape 决定 /v1/models 的响应形状：带 anthropic-version 头的是 Anthropic 客户端。
@@ -862,17 +858,6 @@ func (h *GatewayHandler) listedEntries(c *gin.Context) []service.ModelCatalogEnt
 		}
 	}
 	return kept
-}
-
-// listedModelIDs 返回用户可见的模型标识（listedEntries 的模型标识），再按分组白名单（若开启）过滤——
-// 白名单是分组策略，随 PR-7b 一起删。
-func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) []string {
-	entries := h.listedEntries(c)
-	ids := make([]string, 0, len(entries))
-	for i := range entries {
-		ids = append(ids, entries[i].ModelID)
-	}
-	return ids
 }
 
 // CodexModels 返回 Codex 自定义 provider 期望的清单：目录里上架的 OpenAI 厂商条目（订阅 key 按套餐过滤），
@@ -904,42 +889,87 @@ func (h *GatewayHandler) CodexModels(c *gin.Context) {
 	c.Data(http.StatusOK, "application/json", body)
 }
 
-func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
-	if platform == service.PlatformOpenAI {
-		writeOpenAIModelsList(c, modelIDs)
-		return
+// catalogModelsFallbackCreated 目录条目没有创建时间（测试桩等）时用的固定时间：2024-01-01T00:00:00Z。
+const catalogModelsFallbackCreated int64 = 1704067200
+
+func catalogEntryCreated(entry *service.ModelCatalogEntry) time.Time {
+	if entry.CreatedAt.IsZero() {
+		return time.Unix(catalogModelsFallbackCreated, 0).UTC()
 	}
-	models := make([]claude.Model, 0, len(modelIDs))
-	for _, modelID := range modelIDs {
-		models = append(models, claude.Model{
-			ID:          modelID,
-			Type:        "model",
-			DisplayName: modelID,
-			CreatedAt:   "2024-01-01T00:00:00Z",
-		})
-	}
-	writeModelsListResponse(c, models)
+	return entry.CreatedAt.UTC()
 }
 
-func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
+func catalogEntryDisplayName(entry *service.ModelCatalogEntry) string {
+	if name := strings.TrimSpace(entry.DisplayName); name != "" {
+		return name
+	}
+	return entry.ModelID
+}
+
+func writeModelsList(c *gin.Context, platform string, entries []service.ModelCatalogEntry) {
+	if platform == service.PlatformOpenAI {
+		writeOpenAIModelsList(c, entries)
+		return
+	}
+	writeAnthropicModelsList(c, entries)
+}
+
+// writeAnthropicModelsList 按 Anthropic 官方 Models API 的形状回：列表 {data, has_more, first_id, last_id}，
+// 单个模型直接是模型对象，找不到回 Anthropic 形状的 404。
+func writeAnthropicModelsList(c *gin.Context, entries []service.ModelCatalogEntry) {
+	models := make([]claude.Model, 0, len(entries))
+	for i := range entries {
+		models = append(models, claude.Model{
+			ID:          entries[i].ModelID,
+			Type:        "model",
+			DisplayName: catalogEntryDisplayName(&entries[i]),
+			CreatedAt:   catalogEntryCreated(&entries[i]).Format(time.RFC3339),
+		})
+	}
+	if modelID := c.Param("model"); modelID != "" {
+		for _, model := range models {
+			if model.ID == modelID {
+				c.JSON(http.StatusOK, model)
+				return
+			}
+		}
+		c.JSON(http.StatusNotFound, gin.H{"type": "error", "error": gin.H{
+			"type": "not_found_error", "message": fmt.Sprintf("model: %s", modelID),
+		}})
+		return
+	}
+	var firstID, lastID any
+	if len(models) > 0 {
+		firstID, lastID = models[0].ID, models[len(models)-1].ID
+	}
+	c.JSON(http.StatusOK, gin.H{"data": models, "has_more": false, "first_id": firstID, "last_id": lastID})
+}
+
+// writeOpenAIModelsList 按 OpenAI 形状回；owned_by 用目录里的厂商（Claude 模型不再写成 openai），内置表里有的保留内置元数据。
+func writeOpenAIModelsList(c *gin.Context, entries []service.ModelCatalogEntry) {
 	defaultsByID := make(map[string]openai.Model, len(openai.DefaultModels))
 	for _, model := range openai.DefaultModels {
 		defaultsByID[model.ID] = model
 	}
 
-	models := make([]openai.Model, 0, len(modelIDs))
-	for _, modelID := range modelIDs {
-		if model, ok := defaultsByID[modelID]; ok {
+	models := make([]openai.Model, 0, len(entries))
+	for i := range entries {
+		entry := &entries[i]
+		if model, ok := defaultsByID[entry.ModelID]; ok {
 			models = append(models, model)
 			continue
 		}
+		owner := service.CatalogVendorPlatform(entry)
+		if owner == "" {
+			owner = "system"
+		}
 		models = append(models, openai.Model{
-			ID:          modelID,
+			ID:          entry.ModelID,
 			Object:      "model",
-			Created:     1704067200,
-			OwnedBy:     "openai",
+			Created:     catalogEntryCreated(entry).Unix(),
+			OwnedBy:     owner,
 			Type:        "model",
-			DisplayName: modelID,
+			DisplayName: catalogEntryDisplayName(entry),
 		})
 	}
 	writeModelsListResponse(c, models)

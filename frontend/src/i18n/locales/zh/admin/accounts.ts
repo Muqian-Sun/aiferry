@@ -158,6 +158,20 @@ export default {
         relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
       },
       // 渠道承接的目录模型（渠道表单里直接勾选）
+      probe: {
+        hint: '用填好的地址和 Key 向上游查它支持哪些模型，目录里对得上的会自动勾上',
+        run: '探测模型',
+        running: '探测中…',
+        summary: '上游有 {total} 个模型，{matched} 个在目录里对上了，已按此重新勾选',
+        unmatched: '{count} 个目录里没有：',
+        andMore: ' 等 {count} 个',
+        import: '把这 {count} 个加进目录并勾上',
+        importing: '正在加入目录…',
+        imported: '已加进目录 {count} 个（未上架；上架前到模型页定价）',
+        empty: '上游返回了空的模型列表',
+        failed: '探测失败',
+        importFailed: '加进目录失败'
+      },
       catalogEntries: {
         title: '承接的模型',
         hint: '勾选这个渠道能承接的模型；用户请求这些模型时会调度到它。未上架的模型要在「模型」页上架后才对用户开放。',

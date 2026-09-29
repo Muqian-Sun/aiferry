@@ -130,6 +130,26 @@ func TestCatalogAdmission_UnlistedModelIsRejectedPerProtocol(t *testing.T) {
 		require.Contains(t, w.Body.String(), `"status":"NOT_FOUND"`)
 		require.Zero(t, seen.calls)
 	})
+
+	// GET /v1/models/:model 与模型列表同一个判据：带 anthropic-version 头回 Anthropic 形状，否则 OpenAI 形状（2026-09-29）
+	t.Run("models path follows anthropic-version header", func(t *testing.T) {
+		gin.SetMode(gin.TestMode)
+		router := gin.New()
+		router.Use(CatalogAdmission(newCatalogStub()))
+		router.GET("/v1/models/:model", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+		req := httptest.NewRequest(http.MethodGet, "/v1/models/claude-unknown", nil)
+		req.Header.Set("anthropic-version", "2023-06-01")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusNotFound, w.Code)
+		require.Contains(t, w.Body.String(), `"type":"not_found_error"`)
+
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v1/models/claude-unknown", nil))
+		require.Equal(t, http.StatusNotFound, w.Code)
+		require.Contains(t, w.Body.String(), `"type":"invalid_request_error"`)
+	})
 }
 
 func TestCatalogAdmission_PathParamAndQueryExtraction(t *testing.T) {

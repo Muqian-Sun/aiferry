@@ -1,8 +1,6 @@
-// Package gemini provides minimal fallback model metadata for Gemini native endpoints.
-// It is used when upstream model listing is unavailable (e.g. OAuth token missing AI Studio scopes).
+// Package gemini 是 Gemini 原生端点的模型对象形状。网关的 /v1beta/models 按模型目录生成（2026-09-29），
+// 不再转发上游、也没有内置兜底列表。
 package gemini
-
-import "strings"
 
 type Model struct {
 	Name                       string   `json:"name"`
@@ -15,43 +13,8 @@ type ModelsListResponse struct {
 	Models []Model `json:"models"`
 }
 
-func DefaultModels() []Model {
-	methods := []string{"generateContent", "streamGenerateContent"}
-	return []Model{
-		{Name: "models/gemini-2.0-flash", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-2.5-flash", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-2.5-flash-image", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-2.5-pro", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3.5-flash", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3-flash-preview", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3-pro-preview", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3.1-pro-preview", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3.1-pro-preview-customtools", SupportedGenerationMethods: methods},
-		{Name: "models/gemini-3.1-flash-image", SupportedGenerationMethods: methods},
-	}
-}
-
-func HasFallbackModel(model string) bool {
-	trimmed := strings.TrimSpace(model)
-	if trimmed == "" {
-		return false
-	}
-	if !strings.HasPrefix(trimmed, "models/") {
-		trimmed = "models/" + trimmed
-	}
-	for _, model := range DefaultModels() {
-		if model.Name == trimmed {
-			return true
-		}
-	}
-	return false
-}
-
-func FallbackModelsList() ModelsListResponse {
-	return ModelsListResponse{Models: DefaultModels()}
-}
-
-func FallbackModel(model string) Model {
+// NewModel 按模型名生成 Gemini 模型对象：name 带 models/ 前缀，调用方式是网关支持的两种。
+func NewModel(model string) Model {
 	methods := []string{"generateContent", "streamGenerateContent"}
 	if model == "" {
 		return Model{Name: "models/unknown", SupportedGenerationMethods: methods}

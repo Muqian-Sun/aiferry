@@ -158,6 +158,20 @@ export default {
         relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
       },
       // Catalog models this channel serves (picked right in the channel form)
+      probe: {
+        hint: 'Ask the upstream which models it supports using the address and key above; models found in the catalog are selected automatically',
+        run: 'Probe models',
+        running: 'Probing…',
+        summary: 'The upstream has {total} models; {matched} matched the catalog and are now selected',
+        unmatched: '{count} not in the catalog: ',
+        andMore: ' and {count} more',
+        import: 'Add these {count} to the catalog and select them',
+        importing: 'Adding to the catalog…',
+        imported: 'Added {count} to the catalog (unlisted; set prices on the Models page before listing)',
+        empty: 'The upstream returned an empty model list',
+        failed: 'Probe failed',
+        importFailed: 'Failed to add to the catalog'
+      },
       catalogEntries: {
         title: 'Models served',
         hint: 'Tick the models this channel can serve; requests for them are scheduled to it. Unlisted models reach users only after they are listed on the Models page.',

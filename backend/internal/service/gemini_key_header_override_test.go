@@ -71,10 +71,6 @@ func TestGeminiCompatForwarding_KeyHeaderOverridesApplyOnEveryAPIKeyPath(t *test
 			_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, []byte(`{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hello"}]}`))
 			return err
 		}},
-		{"ai_studio_get", func(svc *GeminiMessagesCompatService, _ *gin.Context, account *Account) error {
-			_, err := svc.ForwardAIStudioGET(context.Background(), account, "/v1beta/models")
-			return err
-		}},
 	}
 	for _, path := range paths {
 		t.Run(path.name, func(t *testing.T) {

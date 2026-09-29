@@ -224,6 +224,29 @@
           {{ platformNote }}
         </p>
       </div>
+
+      <!-- 查询可用模型（muqian 2026-09-29：用户拿自己的密钥查 /models）：各客户端通用 -->
+      <section class="space-y-2" data-testid="use-key-models-api">
+        <h4 class="text-sm font-medium text-af-ink">{{ t('keys.useKeyModal.modelsApi.title') }}</h4>
+        <p class="text-xs text-af-ink-3">{{ t('keys.useKeyModal.modelsApi.hint') }}</p>
+        <div class="overflow-hidden rounded-md border border-af-hairline bg-af-sunken">
+          <div class="flex items-center justify-between border-b border-af-hairline px-4 py-2">
+            <span class="min-w-0 truncate font-mono text-xs text-af-ink-4">GET /v1/models</span>
+            <button
+              type="button"
+              class="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
+              :class="copiedIndex === MODELS_API_COPY_INDEX
+                ? 'bg-af-success-tint text-af-success'
+                : 'bg-af-sheet text-af-ink-3 hover:bg-af-hairline hover:text-af-ink'"
+              @click="copyContent(modelsApiSnippet, MODELS_API_COPY_INDEX)"
+            >
+              <Icon :name="copiedIndex === MODELS_API_COPY_INDEX ? 'check' : 'copy'" size="xs" />
+              {{ copiedIndex === MODELS_API_COPY_INDEX ? t('keys.useKeyModal.copied') : t('keys.useKeyModal.copy') }}
+            </button>
+          </div>
+          <pre class="overflow-x-auto p-4 font-mono text-sm text-af-ink"><code v-text="modelsApiSnippet"></code></pre>
+        </div>
+      </section>
     </div>
 
     <template #footer>
@@ -291,6 +314,13 @@ const { t } = useI18n()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
 const copiedIndex = ref<number | null>(null)
+/** 「查询可用模型」代码块的复制状态槽，与配置文件的下标错开 */
+const MODELS_API_COPY_INDEX = -1
+// 站点根地址（去掉末尾的 /v1），查模型用 {根}/v1/models
+const modelsApiSnippet = computed(() => {
+  const root = (props.baseUrl || window.location.origin).replace(/\/v1\/?$/, '').replace(/\/+$/, '')
+  return `curl ${root}/v1/models \\\n  -H "Authorization: Bearer ${props.apiKey}"`
+})
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
 type CodexAuthMode = 'legacy' | 'api-key'
