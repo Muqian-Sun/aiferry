@@ -254,6 +254,8 @@ export default {
         perSecond: '每秒'
       },
       priceNote: '价格为本站目录标价。你的实付 = 标价 × 账户倍率，逐条记录在用量页。',
+      segmentRange: '输入 Token',
+      segmentNote: '分段计价的模型按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求都按那一段的价格计费。',
       copyId: '复制模型 ID',
       copied: '已复制',
       empty: '暂无可用模型',
