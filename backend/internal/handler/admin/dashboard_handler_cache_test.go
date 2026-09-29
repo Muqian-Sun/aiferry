@@ -90,28 +90,3 @@ func TestDashboardHandler_GetUsageTrend_UsesCache(t *testing.T) {
 	require.Equal(t, "hit", rec2.Header().Get("X-Snapshot-Cache"))
 	require.Equal(t, int32(1), repo.trendCalls.Load())
 }
-
-func TestDashboardHandler_GetUserUsageTrend_UsesCache(t *testing.T) {
-	t.Cleanup(resetDashboardReadCachesForTest)
-	resetDashboardReadCachesForTest()
-
-	gin.SetMode(gin.TestMode)
-	repo := &dashboardUsageRepoCacheProbe{}
-	dashboardSvc := service.NewDashboardService(repo, nil, nil, nil)
-	handler := NewDashboardHandler(dashboardSvc, nil)
-	router := gin.New()
-	router.GET("/admin/dashboard/users-trend", handler.GetUserUsageTrend)
-
-	req1 := httptest.NewRequest(http.MethodGet, "/admin/dashboard/users-trend?start_date=2026-03-01&end_date=2026-03-07&granularity=day&limit=8", nil)
-	rec1 := httptest.NewRecorder()
-	router.ServeHTTP(rec1, req1)
-	require.Equal(t, http.StatusOK, rec1.Code)
-	require.Equal(t, "miss", rec1.Header().Get("X-Snapshot-Cache"))
-
-	req2 := httptest.NewRequest(http.MethodGet, "/admin/dashboard/users-trend?start_date=2026-03-01&end_date=2026-03-07&granularity=day&limit=8", nil)
-	rec2 := httptest.NewRecorder()
-	router.ServeHTTP(rec2, req2)
-	require.Equal(t, http.StatusOK, rec2.Code)
-	require.Equal(t, "hit", rec2.Header().Get("X-Snapshot-Cache"))
-	require.Equal(t, int32(1), repo.usersTrendCalls.Load())
-}

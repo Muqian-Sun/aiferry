@@ -1654,6 +1654,35 @@ func (s *UsageLogRepoSuite) TestGetUserUsageTrend() {
 	s.Require().GreaterOrEqual(len(trend), 2)
 }
 
+// 用户趋势带渠道成本：total_cost × 渠道倍率，倍率为空的历史数据按 1 计（与模型统计同口径）。
+func (s *UsageLogRepoSuite) TestGetUserUsageTrend_AccountCost() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "usertrend-cost@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-usertrend-cost", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-usertrend-cost"})
+
+	base := time.Date(2025, 2, 10, 12, 0, 0, 0, time.UTC)
+	half := 0.5
+	_, err := s.repo.Create(s.ctx, &service.UsageLog{
+		UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, RequestID: uuid.New().String(),
+		Model: "claude-3", InputTokens: 10, OutputTokens: 20, TotalCost: 2.0, ActualCost: 3.0,
+		AccountRateMultiplier: &half, CreatedAt: base,
+	})
+	s.Require().NoError(err)
+	s.createUsageLog(user, apiKey, account, 10, 20, 1.0, base.Add(time.Hour)) // 倍率为空 → 按 1 计
+
+	trend, err := s.repo.GetUserUsageTrend(s.ctx, base.Add(-time.Hour), base.Add(3*time.Hour), "day", 10)
+	s.Require().NoError(err)
+	var mine []UserUsageTrendPoint
+	for _, p := range trend {
+		if p.UserID == user.ID {
+			mine = append(mine, p)
+		}
+	}
+	s.Require().Len(mine, 1)
+	s.Require().InDelta(4.0, mine[0].ActualCost, 1e-9)
+	s.Require().InDelta(2.0*0.5+1.0*1, mine[0].AccountCost, 1e-9)
+}
+
 // --- GetAPIKeyUsageTrend ---
 
 func (s *UsageLogRepoSuite) TestGetAPIKeyUsageTrend() {

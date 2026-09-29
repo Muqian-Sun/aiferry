@@ -33,6 +33,7 @@ type dashboardSnapshotV2Response struct {
 	Trend      []usagestats.TrendDataPoint      `json:"trend,omitempty"`
 	Models     []usagestats.ModelStat           `json:"models,omitempty"`
 	UsersTrend []usagestats.UserUsageTrendPoint `json:"users_trend,omitempty"`
+	ModelTrend []usagestats.ModelTrendPoint     `json:"model_trend,omitempty"`
 }
 
 type dashboardSnapshotV2Filters struct {
@@ -65,6 +66,7 @@ type dashboardSnapshotV2CacheKey struct {
 	IncludeModels         bool   `json:"include_models"`
 	IncludeUsersTrend     bool   `json:"include_users_trend"`
 	UsersTrendLimit       int    `json:"users_trend_limit"`
+	IncludeModelTrend     bool   `json:"include_model_trend"`
 }
 
 func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
@@ -78,6 +80,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 	includeTrend := parseBoolQueryWithDefault(c.Query("include_trend"), true)
 	includeModels := parseBoolQueryWithDefault(c.Query("include_model_stats"), true)
 	includeUsersTrend := parseBoolQueryWithDefault(c.Query("include_users_trend"), false)
+	includeModelTrend := parseBoolQueryWithDefault(c.Query("include_model_trend"), false)
 	usersTrendLimit := 12
 	if raw := strings.TrimSpace(c.Query("users_trend_limit")); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 50 {
@@ -109,6 +112,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		IncludeModels:         includeModels,
 		IncludeUsersTrend:     includeUsersTrend,
 		UsersTrendLimit:       usersTrendLimit,
+		IncludeModelTrend:     includeModelTrend,
 	})
 	cacheKey := string(keyRaw)
 
@@ -124,6 +128,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 			includeModels,
 			includeUsersTrend,
 			usersTrendLimit,
+			includeModelTrend,
 		)
 	})
 	if err != nil {
@@ -149,6 +154,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 	filters *dashboardSnapshotV2Filters,
 	includeStats, includeTrend, includeModels, includeUsersTrend bool,
 	usersTrendLimit int,
+	includeModelTrend bool,
 ) (*dashboardSnapshotV2Response, error) {
 	resp := &dashboardSnapshotV2Response{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
@@ -217,6 +223,24 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			return nil, errors.New("failed to get user usage trend")
 		}
 		resp.UsersTrend = usersTrend
+	}
+
+	if includeModelTrend {
+		modelTrend, err := h.dashboardService.GetModelUsageTrend(ctx, startTime, endTime, granularity, usagestats.UsageLogFilters{
+			UserID:                filters.UserID,
+			APIKeyID:              filters.APIKeyID,
+			AccountID:             filters.AccountID,
+			Model:                 filters.Model,
+			RequestType:           filters.RequestType,
+			Stream:                filters.Stream,
+			NativeCompactionV2:    filters.NativeCompactionV2,
+			BillingType:           filters.BillingType,
+			UpstreamModelMismatch: filters.UpstreamModelMismatch,
+		})
+		if err != nil {
+			return nil, errors.New("failed to get model usage trend")
+		}
+		resp.ModelTrend = modelTrend
 	}
 
 	return resp, nil
