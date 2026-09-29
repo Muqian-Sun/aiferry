@@ -53,6 +53,7 @@
               @paste="handlePaste"
             />
           </div>
+          <FormError class="justify-center" :message="error" />
           <!-- Loading indicator -->
           <div v-if="verifying" class="mt-3 flex items-center justify-center gap-2 text-sm text-af-ink-3">
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-af-brand"></div>
@@ -77,6 +78,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import FormError from '@/components/common/FormError.vue'
 
 defineProps<{
   tempToken: string
@@ -91,6 +93,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const verifying = ref(false)
+const error = ref('')
 const code = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const hiddenOtpInputRef = ref<HTMLInputElement | null>(null)
@@ -99,6 +102,7 @@ const hiddenOtpInputRef = ref<HTMLInputElement | null>(null)
 watch(
   () => code.value.join(''),
   (newCode) => {
+    if (newCode) error.value = ''
     if (newCode.length === 6 && !verifying.value) {
       emit('verify', newCode)
     }
@@ -108,9 +112,7 @@ watch(
 defineExpose({
   setVerifying: (value: boolean) => { verifying.value = value },
   setError: (message: string) => {
-    if (message) {
-      console.error(message)
-    }
+    error.value = message
     code.value = ['', '', '', '', '', '']
     // Clear input DOM values
     inputRefs.value.forEach(input => {

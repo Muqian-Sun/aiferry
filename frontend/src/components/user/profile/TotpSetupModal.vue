@@ -61,6 +61,8 @@
               </div>
             </div>
 
+            <FormError :message="errorMessage" />
+
             <div class="flex justify-end gap-3 pt-4">
               <button type="button" class="btn btn-secondary" @click="$emit('close')">
                 {{ t('common.cancel') }}
@@ -108,6 +110,8 @@
             </div>
           </template>
 
+          <FormError :message="errorMessage" />
+
           <div class="flex justify-end gap-3 pt-4">
             <button type="button" class="btn btn-secondary" @click="$emit('close')">
               {{ t('common.cancel') }}
@@ -145,6 +149,7 @@
                   @paste="handlePaste"
                 />
               </div>
+              <FormError class="justify-center" :message="errorMessage" />
             </div>
 
             <div class="flex justify-end gap-3">
@@ -170,6 +175,7 @@
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { totpAPI } from '@/api'
+import FormError from '@/components/common/FormError.vue'
 import type { TotpSetupResponse } from '@/types'
 import QRCode from 'qrcode'
 
@@ -195,6 +201,21 @@ const verifying = ref(false)
 const code = ref<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<(HTMLInputElement | null)[]>([])
 const qrCodeDataUrl = ref('')
+const errorMessage = ref('')
+
+// 重新输入、切换步骤时清掉报错；验证失败后清空验证码不算重新输入
+watch(verifyForm, () => {
+  errorMessage.value = ''
+}, { deep: true })
+watch(step, () => {
+  errorMessage.value = ''
+})
+watch(
+  () => code.value.join(''),
+  (value) => {
+    if (value) errorMessage.value = ''
+  }
+)
 
 const stepDescription = computed(() => {
   switch (step.value) {
@@ -301,7 +322,8 @@ const copySecret = async () => {
     try {
       await navigator.clipboard.writeText(setupData.value.secret)
     } catch (error) {
-      console.error(t('common.copyFailed'), error)
+      errorMessage.value = t('common.copyFailed')
+      console.error(errorMessage.value, error)
     }
   }
 }
@@ -320,6 +342,7 @@ const loadVerificationMethod = async () => {
 }
 
 const handleSendCode = async () => {
+  errorMessage.value = ''
   sendingCode.value = true
   try {
     await totpAPI.sendVerifyCode()
@@ -339,7 +362,8 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('profile.totp.sendCodeFailed'), err)
+    errorMessage.value = err.response?.data?.message || t('profile.totp.sendCodeFailed')
+    console.error(errorMessage.value, err)
   } finally {
     sendingCode.value = false
   }
@@ -356,7 +380,8 @@ const handleVerifyAndSetup = async () => {
     setupData.value = await totpAPI.initiateSetup(request)
     step.value = 1
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('profile.totp.setupFailed'), err)
+    errorMessage.value = err.response?.data?.message || t('profile.totp.setupFailed')
+    console.error(errorMessage.value, err)
   } finally {
     setupLoading.value = false
   }
@@ -375,7 +400,8 @@ const handleVerify = async () => {
     })
     emit('success')
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('profile.totp.verifyFailed'), err)
+    errorMessage.value = err.response?.data?.message || t('profile.totp.verifyFailed')
+    console.error(errorMessage.value, err)
     code.value = ['', '', '', '', '', '']
     nextTick(() => {
       inputRefs.value[0]?.focus()

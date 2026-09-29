@@ -67,6 +67,7 @@
     <p v-else-if="emailVerifyEnabled" class="text-xs text-af-ink-3">
       {{ t('auth.verificationCodeHint') }}
     </p>
+    <FormError :message="sendCodeError" />
     <input
       v-if="invitationCodeEnabled"
       v-model="invitationCode"
@@ -76,6 +77,7 @@
       :placeholder="t('auth.invitationCodePlaceholder')"
       :disabled="isSubmitting"
     />
+    <FormError :message="errorMessage" />
     <button
       :data-testid="`${testIdPrefix}-create-account-submit`"
       type="button"
@@ -98,6 +100,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import FormError from '@/components/common/FormError.vue'
 import { useI18n } from 'vue-i18n'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
@@ -179,6 +182,11 @@ watch(sendCodeError, value => {
   if (value) {
     console.error(value)
   }
+})
+
+// 改邮箱时清掉发码的报错
+watch(email, () => {
+  sendCodeError.value = ''
 })
 
 watch(

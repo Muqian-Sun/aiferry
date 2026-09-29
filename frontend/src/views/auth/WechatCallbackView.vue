@@ -12,6 +12,7 @@
               : t('auth.oauthFlow.callbackHint')
           }}
         </p>
+        <FormError class="justify-center" :message="errorMessage" />
       </div>
 
       <transition name="fade">
@@ -91,6 +92,7 @@
                 @keyup.enter="handleSubmitInvitation"
               />
             </div>
+            <FormError :message="invitationError" />
             <button
               class="btn btn-primary w-full"
               :disabled="isSubmitting || !invitationCode.trim()"
@@ -259,6 +261,7 @@
                 :disabled="isSubmitting"
                 @keyup.enter="handleBindLogin"
               />
+              <FormError :message="accountActionError" />
               <button
                 data-testid="wechat-bind-login-submit"
                 class="btn btn-primary w-full"
@@ -299,6 +302,7 @@
                 :disabled="isSubmitting"
                 @keyup.enter="handleSubmitTotpChallenge"
               />
+              <FormError :message="totpError" />
               <button
                 data-testid="wechat-bind-login-totp-submit"
                 class="btn btn-primary w-full"
@@ -320,6 +324,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
+import FormError from '@/components/common/FormError.vue'
 import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/components/auth/PendingOAuthCreateAccountForm.vue'
@@ -415,6 +420,17 @@ watch(errorMessage, value => {
   if (value) {
     console.error(value)
   }
+})
+
+// 重新输入时清掉就近的报错
+watch(invitationCode, () => {
+  invitationError.value = ''
+})
+watch([bindLoginEmail, bindLoginPassword], () => {
+  accountActionError.value = ''
+})
+watch(totpCode, () => {
+  totpError.value = ''
 })
 
 type PendingWeChatCompletion = PendingOAuthExchangeResponse & {

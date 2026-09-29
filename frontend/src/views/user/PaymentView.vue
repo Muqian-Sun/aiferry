@@ -88,6 +88,7 @@
                   {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
                 </p>
               </template>
+              <FormError class="mt-4" :message="paymentErrorText" />
               <button class="btn btn-primary btn-md mt-6 w-full" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
                 <span v-if="submitting" class="flex items-center justify-center gap-2">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -171,6 +172,7 @@
                   {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
                 </p>
               </template>
+              <FormError class="mt-4" :message="paymentErrorText" />
               <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
                 <button class="btn btn-primary btn-md w-full sm:w-auto" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
                   <span v-if="submitting" class="flex items-center justify-center gap-2">
@@ -249,6 +251,7 @@ import {
 } from '@/components/payment/paymentFlow'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import FormError from '@/components/common/FormError.vue'
 import { DEFAULT_PAYMENT_CURRENCY, USD_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix as validitySuffixOf } from '@/components/payment/validity'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
@@ -281,6 +284,14 @@ const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+// 下单失败的报错就近显示在下单按钮上方；改金额 / 支付方式 / 套餐时清掉
+const paymentErrorText = computed(() =>
+  errorMessage.value ? buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value) : ''
+)
+watch([amount, selectedMethod, selectedPlan], () => {
+  errorMessage.value = ''
+  errorHintMessage.value = ''
+})
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')

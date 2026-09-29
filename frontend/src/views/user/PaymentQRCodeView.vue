@@ -24,6 +24,7 @@
         class="btn btn-primary btn-md w-full">
         {{ t('payment.qr.openPayWindow') }}
       </a>
+      <FormError :message="cancelError" />
       <!-- Cancel button -->
       <button v-if="!expired && orderId" class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
         {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
@@ -37,6 +38,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
+import FormError from '@/components/common/FormError.vue'
 import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -57,6 +59,7 @@ const orderId = ref(0)
 const remainingSeconds = ref(0)
 const expired = ref(false)
 const cancelling = ref(false)
+const cancelError = ref('')
 const paymentType = ref('')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -170,13 +173,15 @@ function startCountdown(seconds: number) {
 
 async function handleCancel() {
   if (!orderId.value || cancelling.value) return
+  cancelError.value = ''
   cancelling.value = true
   try {
     await paymentAPI.cancelOrder(orderId.value)
     cleanup()
     router.push('/billing/recharge')
   } catch (err: unknown) {
-    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
+    cancelError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
+    console.error(cancelError.value, err)
   } finally {
     cancelling.value = false
   }

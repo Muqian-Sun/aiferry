@@ -26,6 +26,7 @@
             :class="{ 'input-error': errors.email }"
             :placeholder="t('auth.emailPlaceholder')"
           />
+          <FormError :message="errors.email" />
         </div>
 
         <div>
@@ -60,6 +61,7 @@
               <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
           </div>
+          <FormError :message="errors.password" />
         </div>
 
         <!-- Turnstile Widget -->
@@ -79,7 +81,10 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -198,6 +203,7 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { useAuthStore } from '@/stores'
 import {
@@ -302,10 +308,6 @@ const errors = reactive({
   turnstile: ''
 })
 
-const validationMessage = computed(
-  () => errors.email || errors.password || errors.turnstile || ''
-)
-
 const agreementGateActive = computed(
   () => loginAgreementEnabled.value && !agreementAccepted.value
 )
@@ -326,11 +328,21 @@ const showOAuthLogin = computed(
       googleOAuthEnabled.value)
 )
 
-watch(validationMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    console.error(value)
+// 重新输入时清掉对应字段和表单级的报错
+watch(
+  () => formData.email,
+  () => {
+    errors.email = ''
+    errorMessage.value = ''
   }
-})
+)
+watch(
+  () => formData.password,
+  () => {
+    errors.password = ''
+    errorMessage.value = ''
+  }
+)
 
 // ==================== Lifecycle ====================
 
@@ -424,12 +436,14 @@ function acceptLoginAgreement(): void {
   }
   agreementAccepted.value = true
   showAgreementModal.value = false
+  errorMessage.value = ''
 }
 
 function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
+  errorMessage.value = t('legal.loginAgreementPrompt.loginRejectedWarning')
 }
 
 // ==================== Turnstile Handlers ====================
@@ -481,6 +495,7 @@ function validateForm(): boolean {
   let isValid = true
 
   if (agreementGateActive.value) {
+    errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -571,7 +586,9 @@ async function handleLogin(): Promise<void> {
 }
 
 async function handlePasskeyLogin(): Promise<void> {
+  errorMessage.value = ''
   if (agreementGateActive.value) {
+    errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -612,6 +629,7 @@ async function handlePasskeyLogin(): Promise<void> {
 
 async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
   if (authActionDisabled.value) return
+  errorMessage.value = ''
 
   if (!actionCaptchaEnabled.value) {
     window.location.href = buildOAuthLoginStartURL(request)

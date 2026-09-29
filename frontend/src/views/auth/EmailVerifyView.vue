@@ -49,6 +49,7 @@
             placeholder="000000"
           />
           <p class="input-hint text-center">{{ t('auth.verificationCodeHint') }}</p>
+          <FormError class="justify-center" :message="errors.code" />
         </div>
 
         <!-- Code Status -->
@@ -84,6 +85,7 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
 
         <div v-if="pendingOAuthCreateCaptchaEnabled" class="space-y-2">
@@ -104,6 +106,8 @@
             @error="onCreateAccountTurnstileError"
           />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -184,6 +188,7 @@ import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
+import FormError from '@/components/common/FormError.vue'
 import { useAuthStore } from '@/stores'
 import {
   persistOAuthTokenContext,
@@ -308,9 +313,6 @@ const errors = ref({
   turnstile: ''
 })
 
-const validationMessage = computed(
-  () => errors.value.code || errors.value.turnstile || ''
-)
 const pendingOAuthCreateTurnstileRequired = computed(
   () => isPendingOAuthFlow() && turnstileEnabled.value
 )
@@ -318,10 +320,10 @@ const pendingOAuthCreateCaptchaEnabled = computed(
   () => isPendingOAuthFlow() && captchaEnabled.value
 )
 
-watch(validationMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    console.error(value)
-  }
+// 重新输入验证码时清掉验证码和表单级的报错
+watch(verifyCode, () => {
+  errors.value.code = ''
+  errorMessage.value = ''
 })
 
 // ==================== Lifecycle ====================

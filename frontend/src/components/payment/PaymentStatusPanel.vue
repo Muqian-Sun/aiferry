@@ -187,6 +187,7 @@
         <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
         <p class="mt-1 text-xs text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
+      <FormError :message="cancelError" />
       <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
         {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
       </button>
@@ -207,6 +208,7 @@
         <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
         <p class="mt-1 text-xs text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
+      <FormError :message="cancelError" />
       <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
         {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
       </button>
@@ -228,6 +230,7 @@ import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
 import paymentIcon from '@/assets/icons/payment.svg'
+import FormError from '@/components/common/FormError.vue'
 import {
   createAlipayDeepLinkLauncher,
   type AlipayDeepLinkLauncher,
@@ -260,6 +263,7 @@ const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
 const remainingSeconds = ref(0)
 const cancelling = ref(false)
+const cancelError = ref('')
 const paidOrder = ref<PaymentOrder | null>(null)
 const deepLinkState = ref<AlipayDeepLinkState>('idle')
 const deepLinkFallbackVisible = ref(false)
@@ -449,13 +453,15 @@ function startCountdown(seconds: number) {
 
 async function handleCancel() {
   if (!props.orderId || cancelling.value) return
+  cancelError.value = ''
   cancelling.value = true
   try {
     await paymentAPI.cancelOrder(props.orderId)
     cleanup()
     setOutcome('cancelled')
   } catch (err: unknown) {
-    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
+    cancelError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
+    console.error(cancelError.value, err)
   } finally {
     cancelling.value = false
   }

@@ -63,6 +63,8 @@
             />
           </div>
 
+          <FormError :message="errorMessage" />
+
           <!-- Actions -->
           <div class="flex justify-end gap-3 pt-4">
             <button type="button" class="btn btn-secondary" @click="$emit('close')">
@@ -83,9 +85,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { totpAPI } from '@/api'
+import FormError from '@/components/common/FormError.vue'
 
 const emit = defineEmits<{
   close: []
@@ -100,10 +103,16 @@ const loading = ref(false)
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
 const cooldownTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const errorMessage = ref('')
 const form = ref({
   emailCode: '',
   password: ''
 })
+
+// 重新输入时清掉报错
+watch(form, () => {
+  errorMessage.value = ''
+}, { deep: true })
 
 const canSubmit = computed(() => {
   if (verificationMethod.value === 'email') {
@@ -126,6 +135,7 @@ const loadVerificationMethod = async () => {
 }
 
 const handleSendCode = async () => {
+  errorMessage.value = ''
   sendingCode.value = true
   try {
     await totpAPI.sendVerifyCode()
@@ -145,7 +155,8 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('profile.totp.sendCodeFailed'), err)
+    errorMessage.value = err.response?.data?.message || t('profile.totp.sendCodeFailed')
+    console.error(errorMessage.value, err)
   } finally {
     sendingCode.value = false
   }
@@ -154,6 +165,7 @@ const handleSendCode = async () => {
 const handleDisable = async () => {
   if (!canSubmit.value) return
 
+  errorMessage.value = ''
   loading.value = true
 
   try {
@@ -164,7 +176,8 @@ const handleDisable = async () => {
     await totpAPI.disable(request)
     emit('success')
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('profile.totp.disableFailed'), err)
+    errorMessage.value = err.response?.data?.message || t('profile.totp.disableFailed')
+    console.error(errorMessage.value, err)
   } finally {
     loading.value = false
   }
