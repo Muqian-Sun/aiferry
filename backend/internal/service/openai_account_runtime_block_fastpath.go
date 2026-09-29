@@ -209,15 +209,22 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	return shouldDisable
 }
 
-func shouldCooldownOpenAITransientUpstreamError(statusCode int, responseBody []byte) bool {
+// isTransientUpstreamServerStatus 计入「渠道 × 模型」连续失败的上游 5xx / 52x。
+// OpenAI 协议与 Messages 协议的 key 共用这张表（529 不在内：过载只按成品号冷却处理）。
+func isTransientUpstreamServerStatus(statusCode int) bool {
 	switch statusCode {
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout, 520, 521, 522, 523, 524:
 		return true
-	case http.StatusBadRequest:
-		return isOpenAITransientProcessingError(statusCode, "", responseBody)
 	default:
 		return false
 	}
+}
+
+func shouldCooldownOpenAITransientUpstreamError(statusCode int, responseBody []byte) bool {
+	if isTransientUpstreamServerStatus(statusCode) {
+		return true
+	}
+	return statusCode == http.StatusBadRequest && isOpenAITransientProcessingError(statusCode, "", responseBody)
 }
 
 func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {

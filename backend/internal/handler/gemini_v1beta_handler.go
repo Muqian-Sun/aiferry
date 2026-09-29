@@ -398,13 +398,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 
 	fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
 
-	// 单资源池提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
-	// 避免单资源池收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
-	if h.gatewayService.IsSinglePool(c.Request.Context()) {
-		ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
-		c.Request = c.Request.WithContext(ctx)
-	}
-
 	for {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), sessionKey, modelName, fs.FailedAccountIDs) // Gemini 不使用会话限制
 		if err != nil {
@@ -420,19 +413,12 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				googleError(c, cls.Status, message)
 				return
 			}
-			action := fs.HandleSelectionExhausted(c.Request.Context())
-			switch action {
-			case FailoverContinue:
-				ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
-				c.Request = c.Request.WithContext(ctx)
-				continue
-			case FailoverCanceled:
+			if fs.HandleSelectionExhausted(c.Request.Context()) == FailoverCanceled {
 				failoverClientGone(c)
 				return
-			default: // FailoverExhausted
-				h.handleGeminiFailoverExhausted(c, fs.LastFailoverErr)
-				return
 			}
+			h.handleGeminiFailoverExhausted(c, fs.LastFailoverErr)
+			return
 		}
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
@@ -558,6 +544,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			)
 		} else {
 			result, err = h.geminiCompatService.ForwardNative(requestCtx, c, account, modelName, action, stream, body)
+			h.gatewayService.ObserveRelayKeyResult(account, modelName, err)
 		}
 		if accountReleaseFunc != nil {
 			accountReleaseFunc()

@@ -185,21 +185,16 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				h.chatCompletionsErrorResponse(c, cls.Status, cls.ErrType, message)
 				return
 			}
-			action := fs.HandleSelectionExhausted(c.Request.Context())
-			switch action {
-			case FailoverContinue:
-				continue
-			case FailoverCanceled:
+			if fs.HandleSelectionExhausted(c.Request.Context()) == FailoverCanceled {
 				failoverClientGone(c)
 				return
-			default:
-				if fs.LastFailoverErr != nil {
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
-				} else {
-					h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
-				}
-				return
 			}
+			if fs.LastFailoverErr != nil {
+				h.handleCCFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
+			} else {
+				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
+			}
+			return
 		}
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
@@ -285,6 +280,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				return
 			}
 			result, err = h.geminiCompatService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		case compatForwardAntigravity:
 			if h.antigravityGatewayService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
@@ -297,6 +293,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			result, err = h.antigravityGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
 		default:
 			result, err = h.gatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		}
 
 		if accountReleaseFunc != nil {

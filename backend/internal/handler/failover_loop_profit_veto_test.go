@@ -10,10 +10,9 @@ import (
 
 // profitVetoLoopResult 记录一次模拟选号循环的终止方式与步数。
 type profitVetoLoopResult struct {
-	outcome        string // "forwarded" | "exhausted" | "budget_exceeded"
-	forwardedID    int64
-	iterations     int
-	backoffRetries int
+	outcome     string // "forwarded" | "exhausted" | "canceled" | "budget_exceeded"
+	forwardedID int64
+	iterations  int
 }
 
 // runProfitVetoLoop 模拟 handler 的「选号 → 利润终检 → 重选」循环，只保留与
@@ -36,15 +35,13 @@ func runProfitVetoLoop(t *testing.T, fs *FailoverState, pool []int64, vetoed map
 			}
 		}
 		if picked == 0 {
-			// 选号耗尽，交给退避决策。
-			switch fs.HandleSelectionExhausted(context.Background()) {
-			case FailoverContinue:
-				res.backoffRetries++
-				continue
-			default:
+			// 选号耗尽：与 handler 一致，只区分客户端断开与耗尽。
+			if fs.HandleSelectionExhausted(context.Background()) == FailoverCanceled {
+				res.outcome = "canceled"
+			} else {
 				res.outcome = "exhausted"
-				return res
 			}
+			return res
 		}
 		if vetoed[picked] {
 			if fs.RecordProfitVeto(picked) == FailoverExhausted {
@@ -61,42 +58,22 @@ func runProfitVetoLoop(t *testing.T, fs *FailoverState, pool []int64, vetoed map
 	return res
 }
 
-// TestProfitVetoAfter503DoesNotLivelock 钉死 #4925 引入的活锁回归：
-// 一次真实 503 之后，若调度器持续返回会被利润门否决的账号，
-// 「选号 → 否决 → 排除 → 选号耗尽 → 清空排除 → 睡 2s → 选号」会无限循环，
-// 因为利润否决不推进 SwitchCount，退避条件永远成立。
+// TestProfitVetoAfter503DoesNotLivelock 钉死 #4925 的活锁不再出现：一次真实 503 之后，
+// 调度器持续返回会被利润门否决的账号时，循环必须有限步、且不等待地终止
+// （选号耗尽不再清空排除列表回头重试，2026-09-29 定）。
 func TestProfitVetoAfter503DoesNotLivelock(t *testing.T) {
 	fs := NewFailoverState(10, false)
-	// 已经历一次真实 503（Antigravity 单账号分组 MODEL_CAPACITY_EXHAUSTED 是设计内路径）。
 	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 	fs.SwitchCount = 1
 	fs.FailedAccountIDs[1] = struct{}{}
 
 	start := time.Now()
-	res := runProfitVetoLoop(t, fs, []int64{1}, map[int64]bool{1: true}, 50)
+	res := runProfitVetoLoop(t, fs, []int64{2, 1}, map[int64]bool{2: true}, 50)
 	elapsed := time.Since(start)
 
-	require.Equal(t, "exhausted", res.outcome, "整池被利润门否决时必须有限步终止")
-	require.LessOrEqual(t, res.backoffRetries, 1, "被否决的账号不得被退避分支复活并反复重选")
-	require.Less(t, elapsed, 10*time.Second, "不得每 2s 空转一轮")
-}
-
-// TestProfitVetoKeepsBackoffUsefulForHealthyAccount 钉死修复没有削弱既有的
-// 503 退避语义：排除列表里仍有非利润否决的账号时，退避照常清空并重试，
-// 只是被利润门否决的账号不再复活。
-func TestProfitVetoKeepsBackoffUsefulForHealthyAccount(t *testing.T) {
-	fs := NewFailoverState(10, false)
-	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
-	fs.SwitchCount = 1
-	// 账号 1 因真实 503 被排除；账号 2 会被利润门否决。
-	fs.FailedAccountIDs[1] = struct{}{}
-
-	res := runProfitVetoLoop(t, fs, []int64{2, 1}, map[int64]bool{2: true}, 50)
-
-	require.Equal(t, "forwarded", res.outcome)
-	require.Equal(t, int64(1), res.forwardedID, "退避清空后应重新可选账号 1")
-	require.Equal(t, 1, res.backoffRetries, "应发生且只发生一次退避重试")
-	require.Contains(t, fs.FailedAccountIDs, int64(2), "利润否决的账号在退避清空后必须被放回排除集")
+	require.Equal(t, "exhausted", res.outcome, "整池被利润门否决 / 已失败时必须有限步终止")
+	require.Equal(t, 2, res.iterations, "否决账号 2 后选号即耗尽，不得回头重选已 503 的账号 1")
+	require.Less(t, elapsed, time.Second, "不得退避等待")
 }
 
 // TestProfitVetoAttemptsCapped 钉死没有 503 参与时，大分组整池越线也会在
@@ -124,16 +101,4 @@ func TestRecordProfitVetoExcludesAccount(t *testing.T) {
 	require.Equal(t, FailoverContinue, fs.RecordProfitVeto(42))
 	require.Contains(t, fs.FailedAccountIDs, int64(42))
 	require.Equal(t, 1, fs.ProfitVetoCount())
-}
-
-// TestHandleSelectionExhaustedUnaffectedWithoutProfitVeto 钉死未启用利润控制的
-// 请求（无任何利润否决）走的仍是原有退避语义：清空排除列表并重试。
-func TestHandleSelectionExhaustedUnaffectedWithoutProfitVeto(t *testing.T) {
-	fs := NewFailoverState(3, false)
-	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
-	fs.SwitchCount = 1
-	fs.FailedAccountIDs[100] = struct{}{}
-
-	require.Equal(t, FailoverContinue, fs.HandleSelectionExhausted(context.Background()))
-	require.Empty(t, fs.FailedAccountIDs, "无利润否决时排除列表应被完全清空")
 }

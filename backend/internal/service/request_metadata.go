@@ -16,7 +16,6 @@ type RequestMetadata struct {
 	ThinkingEnabled            *bool
 	PrefetchedStickyAccountID  *int64
 	PrefetchedStickyScopeID    *int64
-	SingleAccountRetry         *bool
 	AccountSwitchCount         *int
 }
 
@@ -25,16 +24,14 @@ var (
 	requestMetadataFallbackThinkingEnabledTotal     atomic.Int64
 	requestMetadataFallbackPrefetchedStickyAccount  atomic.Int64
 	requestMetadataFallbackPrefetchedStickyGroup    atomic.Int64
-	requestMetadataFallbackSingleAccountRetryTotal  atomic.Int64
 	requestMetadataFallbackAccountSwitchCountTotal  atomic.Int64
 )
 
-func RequestMetadataFallbackStats() (isMaxTokensOneHaiku, thinkingEnabled, prefetchedStickyAccount, prefetchedStickyGroup, singleAccountRetry, accountSwitchCount int64) {
+func RequestMetadataFallbackStats() (isMaxTokensOneHaiku, thinkingEnabled, prefetchedStickyAccount, prefetchedStickyGroup, accountSwitchCount int64) {
 	return requestMetadataFallbackIsMaxTokensOneHaikuTotal.Load(),
 		requestMetadataFallbackThinkingEnabledTotal.Load(),
 		requestMetadataFallbackPrefetchedStickyAccount.Load(),
 		requestMetadataFallbackPrefetchedStickyGroup.Load(),
-		requestMetadataFallbackSingleAccountRetryTotal.Load(),
 		requestMetadataFallbackAccountSwitchCountTotal.Load()
 }
 
@@ -96,15 +93,6 @@ func WithPrefetchedStickySession(ctx context.Context, accountID, scopeID int64, 
 	}, func(base context.Context) context.Context {
 		bridged := context.WithValue(base, ctxkey.PrefetchedStickyAccountID, accountID)
 		return context.WithValue(bridged, ctxkey.PrefetchedStickyScopeID, scopeID)
-	})
-}
-
-func WithSingleAccountRetry(ctx context.Context, value bool, bridgeOldKeys bool) context.Context {
-	return updateRequestMetadata(ctx, bridgeOldKeys, func(md *RequestMetadata) {
-		v := value
-		md.SingleAccountRetry = &v
-	}, func(base context.Context) context.Context {
-		return context.WithValue(base, ctxkey.SingleAccountRetry, value)
 	})
 }
 
@@ -181,20 +169,6 @@ func PrefetchedStickyAccountIDFromContext(ctx context.Context) (int64, bool) {
 		return int64(t), true
 	}
 	return 0, false
-}
-
-func SingleAccountRetryFromContext(ctx context.Context) (bool, bool) {
-	if md := metadataFromContext(ctx); md != nil && md.SingleAccountRetry != nil {
-		return *md.SingleAccountRetry, true
-	}
-	if ctx == nil {
-		return false, false
-	}
-	if value, ok := ctx.Value(ctxkey.SingleAccountRetry).(bool); ok {
-		requestMetadataFallbackSingleAccountRetryTotal.Add(1)
-		return value, true
-	}
-	return false, false
 }
 
 func AccountSwitchCountFromContext(ctx context.Context) (int, bool) {

@@ -97,6 +97,62 @@ func TestSameAccountRetryAllowedHonorsErrorMaxBeforeDeadline(t *testing.T) {
 	require.False(t, sameAccountRetryAllowed(err, 0, 0), "an explicit zero retry budget remains disabled")
 }
 
+// 上游 503 / 529 一律直接换下一个渠道（2026-09-29 定）：即便错误标了可同号重试、
+// 带着 OAuth 截止时间或错误级上限，也不在原渠道重试。
+func TestSameAccountRetryAllowedNeverFor503Or529(t *testing.T) {
+	for _, status := range []int{http.StatusServiceUnavailable, 529} {
+		plain := &service.UpstreamFailoverError{StatusCode: status, RetryableOnSameAccount: true, RequestScopedTransient: true}
+		require.False(t, sameAccountRetryAllowed(plain, 0, maxSameAccountRetries), "status=%d", status)
+
+		withDeadline := &service.UpstreamFailoverError{StatusCode: status, RetryableOnSameAccount: true, SameAccountRetryDeadline: time.Now().Add(time.Minute)}
+		require.False(t, sameAccountRetryAllowed(withDeadline, 0, maxSameAccountRetries), "status=%d", status)
+
+		withMax := &service.UpstreamFailoverError{StatusCode: status, RetryableOnSameAccount: true, SameAccountRetryMax: 2}
+		require.False(t, sameAccountRetryAllowed(withMax, 0, maxSameAccountRetries), "status=%d", status)
+	}
+	// 对照：其它状态码的可重试错误照旧同号重试（证明上面的 false 来自状态码，不是别的条件）。
+	for _, status := range []int{http.StatusBadGateway, http.StatusTooManyRequests} {
+		err := &service.UpstreamFailoverError{StatusCode: status, RetryableOnSameAccount: true, RequestScopedTransient: true}
+		require.True(t, sameAccountRetryAllowed(err, 0, maxSameAccountRetries), "status=%d", status)
+	}
+}
+
+// HandleFailoverError 走完整决策：503 / 529 即使标了可同号重试，也直接加入排除列表并换号，不等待。
+func TestHandleFailoverError_503And529SwitchImmediately(t *testing.T) {
+	for _, status := range []int{http.StatusServiceUnavailable, 529} {
+		mock := &mockTempUnscheduler{}
+		fs := NewFailoverState(3, false)
+		err := &service.UpstreamFailoverError{StatusCode: status, RetryableOnSameAccount: true, RequestScopedTransient: true}
+
+		start := time.Now()
+		action := fs.HandleFailoverError(context.Background(), mock, &service.Account{ID: 100, Platform: service.PlatformOpenAI}, maxSameAccountRetries, err)
+		elapsed := time.Since(start)
+
+		require.Equal(t, FailoverContinue, action, "status=%d", status)
+		require.Zero(t, fs.SameAccountRetryCount[100], "status=%d 不应同号重试", status)
+		require.Contains(t, fs.FailedAccountIDs, int64(100), "status=%d 应排除坏渠道", status)
+		require.Equal(t, 1, fs.SwitchCount, "status=%d", status)
+		require.Less(t, elapsed, 200*time.Millisecond, "status=%d 不应等待", status)
+	}
+}
+
+// Antigravity 换号前的线性等待：本次失败是 503 / 529 时跳过（其它状态码保持原行为，见 BasicSwitch 用例）。
+func TestHandleFailoverError_AntigravitySkipsSwitchDelayOn503And529(t *testing.T) {
+	for _, status := range []int{http.StatusServiceUnavailable, 529} {
+		mock := &mockTempUnscheduler{}
+		fs := NewFailoverState(5, false)
+		fs.SwitchCount = 2 // 下一次换号按原行为要等 (3-1)=2s
+
+		start := time.Now()
+		action := fs.HandleFailoverError(context.Background(), mock, &service.Account{ID: 200, Platform: service.PlatformAntigravity}, maxSameAccountRetries, newTestFailoverErr(status, false, false))
+		elapsed := time.Since(start)
+
+		require.Equal(t, FailoverContinue, action, "status=%d", status)
+		require.Equal(t, 3, fs.SwitchCount, "status=%d", status)
+		require.Less(t, elapsed, 200*time.Millisecond, "status=%d Antigravity 换号不应等待", status)
+	}
+}
+
 func TestSameAccountRetryDeadlineAllows(t *testing.T) {
 	require.True(t, sameAccountRetryDeadlineAllows(&service.UpstreamFailoverError{}))
 	require.True(t, sameAccountRetryDeadlineAllows(&service.UpstreamFailoverError{
@@ -945,7 +1001,8 @@ func TestHandleSelectionExhausted(t *testing.T) {
 		require.Equal(t, FailoverExhausted, action)
 	})
 
-	t.Run("503且未耗尽_等待后返回Continue并清除失败列表", func(t *testing.T) {
+	// 上游 503 一律换号（2026-09-29 定）：候选用完就结束，不等 2s、不清空排除列表回头重试坏渠道。
+	t.Run("503且未耗尽_立即返回Exhausted且保留失败列表", func(t *testing.T) {
 		fs := NewFailoverState(3, false)
 		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 		fs.FailedAccountIDs[100] = struct{}{}
@@ -955,10 +1012,10 @@ func TestHandleSelectionExhausted(t *testing.T) {
 		action := fs.HandleSelectionExhausted(context.Background())
 		elapsed := time.Since(start)
 
-		require.Equal(t, FailoverContinue, action)
-		require.Empty(t, fs.FailedAccountIDs, "应清除失败账号列表")
-		require.GreaterOrEqual(t, elapsed, 1500*time.Millisecond, "应等待约 2s")
-		require.Less(t, elapsed, 5*time.Second)
+		require.Equal(t, FailoverExhausted, action)
+		require.Contains(t, fs.FailedAccountIDs, int64(100), "不得清空排除列表让坏渠道被重选")
+		require.Len(t, fs.FailedAccountIDs, 1)
+		require.Less(t, elapsed, 100*time.Millisecond, "不得退避等待")
 	})
 
 	t.Run("503但SwitchCount已超过MaxSwitches_返回Exhausted", func(t *testing.T) {
@@ -1012,13 +1069,15 @@ func TestHandleSelectionExhausted(t *testing.T) {
 		require.Equal(t, FailoverCanceled, action)
 	})
 
-	t.Run("503且SwitchCount等于MaxSwitches_仍可重试", func(t *testing.T) {
+	t.Run("503且SwitchCount等于MaxSwitches_返回Exhausted", func(t *testing.T) {
 		fs := NewFailoverState(2, false)
 		fs.LastFailoverErr = newTestFailoverErr(503, false, false)
-		fs.SwitchCount = 2 // == MaxSwitches，条件是 <=，仍可重试
+		fs.SwitchCount = 2
 
+		start := time.Now()
 		action := fs.HandleSelectionExhausted(context.Background())
-		require.Equal(t, FailoverContinue, action)
+		require.Equal(t, FailoverExhausted, action)
+		require.Less(t, time.Since(start), 100*time.Millisecond, "不得退避等待")
 	})
 }
 

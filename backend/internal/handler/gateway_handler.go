@@ -288,13 +288,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 判断是否真的绑定了粘性会话：有 sessionKey 且已经绑定到某个账号
 	hasBoundSession := sessionKey != "" && sessionBoundAccountID > 0
 
-	// 单资源池提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
-	// 避免单资源池收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
-	if h.gatewayService.IsSinglePool(c.Request.Context()) {
-		ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
-		c.Request = c.Request.WithContext(ctx)
-	}
-
 	// 会话槽失败释放：failover 链上每个选中的 Anthropic OAuth 账号都注册过同一会话
 	// （checkAndRegisterSession）。若请求最终失败（转发失败/客户端中断/换号耗尽），
 	// 须立即释放本次会话注册——上游从未真正服务该会话，继续占槽会让 max_sessions
@@ -347,23 +340,16 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.handleStreamingAwareError(c, cls.Status, cls.ErrType, message, streamStarted)
 				return
 			}
-			action := fs.HandleSelectionExhausted(c.Request.Context())
-			switch action {
-			case FailoverContinue:
-				ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
-				c.Request = c.Request.WithContext(ctx)
-				continue
-			case FailoverCanceled:
+			if fs.HandleSelectionExhausted(c.Request.Context()) == FailoverCanceled {
 				failoverClientGone(c)
 				return
-			default: // FailoverExhausted
-				if fs.LastFailoverErr != nil {
-					h.handleFailoverExhausted(c, fs.LastFailoverErr, platform, streamStarted)
-				} else {
-					h.handleFailoverExhaustedSimple(c, 502, streamStarted)
-				}
-				return
 			}
+			if fs.LastFailoverErr != nil {
+				h.handleFailoverExhausted(c, fs.LastFailoverErr, platform, streamStarted)
+			} else {
+				h.handleFailoverExhaustedSimple(c, 502, streamStarted)
+			}
+			return
 		}
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
@@ -575,6 +561,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		switch forwardTarget {
 		case compatForwardGemini:
 			result, err = h.geminiCompatService.Forward(requestCtx, c, account, attemptBody)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		case compatForwardAntigravity:
 			result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
 		case compatForwardOpenAI:
@@ -582,6 +569,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			oaResult, err = h.openAIGatewayService.ForwardAsAnthropic(requestCtx, c, account, attemptBody, promptCacheKey)
 		default:
 			result, err = h.gatewayService.Forward(requestCtx, c, account, attemptParsedReq)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		}
 
 		// 兜底释放串行锁（正常情况已通过回调提前释放）
