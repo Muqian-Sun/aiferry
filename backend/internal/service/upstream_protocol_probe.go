@@ -38,6 +38,7 @@ const (
 	ProtocolProbeReasonNotFound        ProtocolProbeReason = "not_found"        // 404 / 405 / 501
 	ProtocolProbeReasonNotAPI          ProtocolProbeReason = "not_api"          // 回的不是 JSON（多半是网页）
 	ProtocolProbeReasonUnexpectedBody  ProtocolProbeReason = "unexpected_body"  // 2xx JSON 但不像这个协议的响应（兜底的健康检查之类）
+	ProtocolProbeReasonSameAsMissing   ProtocolProbeReason = "same_as_missing"  // 400 / 422 与不存在的路径回得一样，说明不了端点存在
 	ProtocolProbeReasonAuthRejected    ProtocolProbeReason = "auth_rejected"    // 401 / 403
 	ProtocolProbeReasonRateLimited     ProtocolProbeReason = "rate_limited"     // 429
 	ProtocolProbeReasonUpstreamError   ProtocolProbeReason = "upstream_error"   // 5xx 与其他状态码
@@ -59,7 +60,22 @@ type ProbedUpstreamProtocol struct {
 const (
 	protocolProbeTimeout      = 20 * time.Second
 	protocolProbeBodyReadSize = 64 << 10
+	// protocolProbeMissingPath 对照组：一个肯定不存在的路径。有的上游对任何请求都先回 400
+	// （例如按 key 分组校验在路由之前），这时协议端点的 400 说明不了端点存在。
+	protocolProbeMissingPath = "/v1/aiferry-protocol-probe-missing"
 )
+
+// protocolProbeControl 对照组的状态码（按请求方法），0 表示对照请求没拿到响应、不参与比较。
+type protocolProbeControl struct {
+	post, get int
+}
+
+func (c protocolProbeControl) statusFor(method string) int {
+	if method == http.MethodGet {
+		return c.get
+	}
+	return c.post
+}
 
 // ProbeUpstreamProtocols 探测 baseURL 支持哪些上游协议。account 只提供 key、代理与 TLS 指纹，地址以 baseURL 为准。
 func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account *Account, baseURL string) ([]ProbedUpstreamProtocol, error) {
@@ -75,6 +91,8 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 		return nil, newUpstreamModelSyncConfigError("Invalid upstream address: "+err.Error(), err)
 	}
 
+	control := s.protocolProbeControl(ctx, account, apiKey, base)
+
 	protocols := UpstreamProtocols()
 	results := make([]ProbedUpstreamProtocol, len(protocols))
 	var wg sync.WaitGroup
@@ -83,7 +101,7 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 		wg.Add(1)
 		go func(r *ProbedUpstreamProtocol) {
 			defer wg.Done()
-			r.Status, r.Reason, r.HTTPStatus = s.sendProtocolProbe(ctx, account, apiKey, r.Protocol, r.BaseURL, "")
+			r.Status, r.Reason, r.HTTPStatus = s.sendProtocolProbe(ctx, account, apiKey, r.Protocol, r.BaseURL, "", control)
 		}(&results[i])
 	}
 	wg.Wait()
@@ -109,7 +127,7 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 			continue
 		}
 		r.Model = model
-		r.Status, r.Reason, r.HTTPStatus = s.sendProtocolProbe(ctx, account, apiKey, r.Protocol, r.BaseURL, model)
+		r.Status, r.Reason, r.HTTPStatus = s.sendProtocolProbe(ctx, account, apiKey, r.Protocol, r.BaseURL, model, control)
 	}
 	return results, nil
 }
@@ -135,8 +153,45 @@ func protocolProbeBaseURL(protocol string, base string) string {
 	return base
 }
 
+// protocolProbeControl 向一个不存在的路径各发一次 POST / GET 空请求，记下状态码作对照（并发、不花钱）。
+func (s *AccountTestService) protocolProbeControl(ctx context.Context, account *Account, apiKey, base string) protocolProbeControl {
+	target := joinUpstreamEndpointURL(base, protocolProbeMissingPath)
+	send := func(method string) int {
+		ctx, cancel := context.WithTimeout(ctx, protocolProbeTimeout)
+		defer cancel()
+		var body io.Reader
+		if method == http.MethodPost {
+			body = strings.NewReader("{}")
+		}
+		req, err := http.NewRequestWithContext(ctx, method, target, body)
+		if err != nil {
+			return 0
+		}
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("x-api-key", apiKey)
+		resp, err := s.doKeyProbeRequest(req, account)
+		if err != nil {
+			return 0
+		}
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, protocolProbeBodyReadSize))
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	var control protocolProbeControl
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); control.post = send(http.MethodPost) }()
+	go func() { defer wg.Done(); control.get = send(http.MethodGet) }()
+	wg.Wait()
+	return control
+}
+
 // sendProtocolProbe 发一次探测请求并分类。model 为空发空请求，否则发最小的真实请求。
-func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Account, apiKey, protocol, base, model string) (ProtocolProbeStatus, ProtocolProbeReason, int) {
+// 400 / 422 与对照组（不存在的路径）状态码相同时说明不了端点存在，归为不确定：空请求阶段会再用真实请求确认。
+func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Account, apiKey, protocol, base, model string, control protocolProbeControl) (ProtocolProbeStatus, ProtocolProbeReason, int) {
 	ctx, cancel := context.WithTimeout(ctx, protocolProbeTimeout)
 	defer cancel()
 	req, err := buildProtocolProbeRequest(ctx, apiKey, protocol, base, model)
@@ -152,6 +207,9 @@ func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Acc
 	status, reason := classifyProtocolProbeResponse(resp.StatusCode, resp.Header.Get("Content-Type"), body)
 	if status == ProtocolProbeSupported && reason == ProtocolProbeReasonAccepted && !protocolProbeBodyMatches(protocol, model != "", body) {
 		status, reason = ProtocolProbeUnknown, ProtocolProbeReasonUnexpectedBody
+	}
+	if reason == ProtocolProbeReasonValidationError && resp.StatusCode == control.statusFor(req.Method) {
+		status, reason = ProtocolProbeUnknown, ProtocolProbeReasonSameAsMissing
 	}
 	return status, reason, resp.StatusCode
 }

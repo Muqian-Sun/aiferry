@@ -89,6 +89,8 @@ func probeResultsByProtocol(t *testing.T, results []ProbedUpstreamProtocol) map[
 func TestProbeUpstreamProtocols_ClassifiesEmptyRequests(t *testing.T) {
 	upstream := &routedProbeUpstream{handle: func(call probeCall) *http.Response {
 		switch {
+		case strings.HasSuffix(call.url, protocolProbeMissingPath):
+			return probeResponse(http.StatusNotFound, "application/json", `{"error":"not found"}`)
 		case strings.HasSuffix(call.url, "/v1/messages"):
 			return probeResponse(http.StatusBadRequest, "application/json", `{"error":{"message":"model is required"}}`)
 		case strings.HasSuffix(call.url, "/v1/chat/completions"):
@@ -116,8 +118,8 @@ func TestProbeUpstreamProtocols_ClassifiesEmptyRequests(t *testing.T) {
 		Status: ProtocolProbeSupported, Reason: ProtocolProbeReasonAccepted, HTTPStatus: 200}, got[APIProtocolGemini],
 		"Gemini 地址去掉末尾版本段，否则拼成 /v1/v1beta")
 
-	// 全是空请求：不拉模型列表、不带模型
-	require.Len(t, upstream.calls, 4)
+	// 全是空请求：4 个协议 + 2 次对照（POST / GET 不存在的路径），不拉模型列表、不带模型
+	require.Len(t, upstream.calls, 6)
 	require.Empty(t, upstream.callsTo("/v1/models"))
 	for _, c := range upstream.calls {
 		require.NotContains(t, c.body, `"model"`)
@@ -138,6 +140,8 @@ func TestProbeUpstreamProtocols_ConfirmsUncertainOnesWithRealRequest(t *testing.
 	upstream := &routedProbeUpstream{handle: func(call probeCall) *http.Response {
 		real := strings.Contains(call.body, `"model"`) || strings.Contains(call.url, ":generateContent")
 		switch {
+		case strings.HasSuffix(call.url, protocolProbeMissingPath):
+			return probeResponse(http.StatusNotFound, "application/json", `{"error":"not found"}`)
 		case call.method == http.MethodGet && strings.HasSuffix(call.url, "/v1/models"):
 			return probeResponse(http.StatusOK, "application/json", `{"data":[{"id":"gpt-5.4"},{"id":"claude-sonnet-4-6"},{"id":"gemini-2.5-flash"}]}`)
 		case strings.HasSuffix(call.url, "/v1/messages"):
@@ -210,6 +214,33 @@ func TestProbeUpstreamProtocols_CatchAllOKIsNotSupport(t *testing.T) {
 	for _, r := range results {
 		require.Equal(t, ProtocolProbeUnknown, r.Status, r.Protocol)
 		require.Equal(t, ProtocolProbeReasonUnexpectedBody, r.Reason, r.Protocol)
+	}
+}
+
+// 有的上游对任何请求都先回 400（2026-09-29 真实上游 fenno：key 分组校验在路由之前，连不存在的路径也是 400）。
+// 这时 400 说明不了端点存在：与对照组一样的归为不确定，用真实请求确认；真实请求还一样就保持不确定，不报支持。
+func TestProbeUpstreamProtocols_BadRequestForEverythingIsNotSupport(t *testing.T) {
+	upstream := &routedProbeUpstream{handle: func(call probeCall) *http.Response {
+		real := strings.Contains(call.body, `"model"`) || strings.Contains(call.url, ":generateContent")
+		switch {
+		case call.method == http.MethodGet && strings.HasSuffix(call.url, "/v1/models"):
+			return probeResponse(http.StatusOK, "application/json", `{"data":[{"id":"gpt-5.5"}]}`)
+		case real && strings.HasSuffix(call.url, "/v1/chat/completions"):
+			return probeResponse(http.StatusOK, "application/json", `{"choices":[]}`)
+		}
+		return probeResponse(http.StatusBadRequest, "application/json", `{"error":{"message":"API key group platform is not gemini"}}`)
+	}}
+
+	results, err := newProtocolProbeService(upstream).ProbeUpstreamProtocols(context.Background(), protocolProbeKey(), "https://relay.example.com")
+	require.NoError(t, err)
+	got := probeResultsByProtocol(t, results)
+
+	require.Equal(t, ProbedUpstreamProtocol{Protocol: APIProtocolChatCompletions, BaseURL: "https://relay.example.com",
+		Status: ProtocolProbeSupported, Reason: ProtocolProbeReasonAccepted, HTTPStatus: 200, Model: "gpt-5.5"}, got[APIProtocolChatCompletions],
+		"空请求的 400 与对照组一样，靠真实请求确认支持")
+	for _, p := range []string{APIProtocolAnthropic, APIProtocolResponses, APIProtocolGemini} {
+		require.Equal(t, ProtocolProbeUnknown, got[p].Status, "%s：真实请求也和不存在的路径一样回 400，不能报支持", p)
+		require.Equal(t, ProtocolProbeReasonSameAsMissing, got[p].Reason, p)
 	}
 }
 

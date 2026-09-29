@@ -179,7 +179,7 @@ func TestProbeUpstreamProtocols_ReturnsPerProtocolResultsWithSavedKey(t *testing
 	require.Equal(t, service.ProtocolProbeUnsupported, byProtocol["anthropic"].Status)
 	require.Equal(t, "https://new.example.com", byProtocol["gemini"].BaseURL)
 
-	require.Len(t, upstream.requests, 4)
+	require.Len(t, upstream.requests, 6, "4 个协议 + 2 次对照（不存在的路径）")
 	for _, req := range upstream.requests {
 		require.Equal(t, "new.example.com", req.URL.Host, "地址以表单为准")
 		require.Contains(t, req.Header.Get("Authorization")+req.Header.Get("x-goog-api-key"), "sk-saved", "用存着的 key")

@@ -190,6 +190,7 @@ export default {
           not_found: 'Upstream has no such endpoint',
           not_api: 'Response is not an API response (looks like a web page)',
           unexpected_body: 'Response does not look like this protocol',
+          same_as_missing: 'Same response as a nonexistent path, cannot tell',
           auth_rejected: 'Key rejected, cannot tell',
           rate_limited: 'Rate limited, cannot tell',
           upstream_error: 'Upstream error, cannot tell',
