@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -275,4 +276,55 @@ func TestFailoverE2E_Messages_AntigravityModelCapacity503HitOnce(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Equal(t, []int64{51, 52}, upstream.calls(), "坏渠道只能打 1 次")
 	require.Less(t, elapsed, time.Second, "不得在原渠道等待")
+}
+
+// Gemini 协议的 key：第一个恒 503，第二个正常。旧逻辑在原渠道重试 5 次、退避 1+2+4+8s；
+// 现在 /v1/messages（Claude 兼容）与 /v1beta（原生）都只打坏渠道 1 次就落到第二个。
+func TestFailoverE2E_GeminiKey503HitOnce(t *testing.T) {
+	const entryID = 9
+	gemini := map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}
+	gemini503 := `{"error":{"code":503,"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}`
+	newAccounts := func() []*service.Account {
+		bad := failoverE2EKey(61, 1, gemini, "gemini-2.5-flash")
+		good := failoverE2EKey(62, 2, gemini, "gemini-2.5-flash")
+		bad.CatalogEntryIDs = []int64{entryID}
+		good.CatalogEntryIDs = []int64{entryID}
+		return []*service.Account{bad, good}
+	}
+	withGeminiRoute := func(c *gin.Context) {
+		entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "gemini-2.5-flash", Vendor: "gemini", Status: service.ModelCatalogStatusListed}
+		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(),
+			service.CatalogRoute{EntryID: entryID, CanonicalModel: "gemini-2.5-flash", RequestedModel: "gemini-2.5-flash", Entry: entry}))
+	}
+
+	t.Run("/v1/messages", func(t *testing.T) {
+		upstream := &failoverStatusUpstream{fail: map[int64]bool{61: true}, failStatus: http.StatusServiceUnavailable, failBody: gemini503, okBody: geminiGenerateContentOK}
+		h := newFailoverE2EHandler(t, newAccounts(), upstream, 3)
+		body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
+		c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, service.APIProtocolAnthropic, "")
+		withGeminiRoute(c)
+
+		start := time.Now()
+		h.Messages(c)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Equal(t, []int64{61, 62}, upstream.calls(), "坏渠道只能打 1 次")
+		require.Less(t, time.Since(start), time.Second, "不得在原渠道退避")
+	})
+
+	t.Run("/v1beta", func(t *testing.T) {
+		upstream := &failoverStatusUpstream{fail: map[int64]bool{61: true}, failStatus: http.StatusServiceUnavailable, failBody: gemini503, okBody: geminiGenerateContentOK}
+		h := newFailoverE2EHandler(t, newAccounts(), upstream, 3)
+		body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+		c, rec := newKeyRouteContext(t, http.MethodPost, "/v1beta/models/gemini-2.5-flash:generateContent", body, service.APIProtocolGemini, "")
+		c.Params = gin.Params{{Key: "modelAction", Value: "/gemini-2.5-flash:generateContent"}}
+		withGeminiRoute(c)
+
+		start := time.Now()
+		h.GeminiV1BetaModels(c)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Equal(t, []int64{61, 62}, upstream.calls(), "坏渠道只能打 1 次")
+		require.Less(t, time.Since(start), time.Second, "不得在原渠道退避")
+	})
 }

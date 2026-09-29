@@ -1331,9 +1331,11 @@ func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 	return s.rateLimitService.CheckErrorPolicy(account, resp.StatusCode) != ErrorPolicyNone, rebuilt
 }
 
+// shouldRetryGeminiUpstreamError 判断是否在原渠道重试（Forward / ForwardNative / 兼容 Chat Completions 三个循环共用）。
+// 上游 503 / 529 不在原渠道重试，直接交 handler 换下一个渠道（2026-09-29 muqian 定）。
 func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
 	switch statusCode {
-	case 429, 500, 502, 503, 504, 529:
+	case 429, 500, 502, 504:
 		return true
 	case 403:
 		// GeminiCli OAuth occasionally returns 403 transiently (activation/quota propagation); allow retry.
