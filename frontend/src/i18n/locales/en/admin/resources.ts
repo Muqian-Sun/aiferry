@@ -455,8 +455,6 @@ export default {
         sections: { money: 'Charges', request: 'Request', tokens: 'Tokens', timing: 'Timing' },
         userRate: 'User rate',
         accountRate: 'Channel cost rate',
-        longContext: 'Long-context billing',
-        longContextApplied: 'Billed at long-context prices',
         cacheCreation5m: 'Cache write (5 minutes)',
         cacheCreation1h: 'Cache write (1 hour)',
         cacheTtlOverridden: 'Cache TTL rewritten',

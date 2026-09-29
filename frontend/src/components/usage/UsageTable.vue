@@ -208,11 +208,6 @@
           <div v-else class="text-sm">
             <div class="flex items-center gap-1.5">
               <span class="font-medium tabular-nums text-af-ink">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
-              <span
-                v-if="row.long_context_billing_applied"
-                data-testid="long-context-billing-marker"
-                class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-af-sunken text-af-ink-2"
-              >x2</span>
               <!-- Cost Detail Tooltip -->
               <div
                 class="group relative"
