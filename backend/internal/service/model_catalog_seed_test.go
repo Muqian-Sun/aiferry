@@ -547,7 +547,7 @@ func TestModelCatalogEntry_Validate_ListedImageVideoRequiresPerRequestPrice(t *t
 }
 
 // 兜底价表的每个模型都要标上厂商（2026-09-29 E2E：grok / glm / claude-fable 等播出来厂商为空，
-// 用户站模型页归不到厂商）。表里新增模型族时漏了 fallbackSeedVendors 这里会红。
+// 用户站模型页归不到厂商）。表里新增模型族时漏了 modelFamilyVendors 这里会红。
 func TestFallbackSeedEntriesAllHaveVendor(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, nil)
 	fallback := billing.SnapshotFallbackPricing()

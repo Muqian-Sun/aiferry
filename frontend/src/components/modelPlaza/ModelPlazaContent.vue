@@ -97,7 +97,7 @@
           data-testid="catalog-cell"
         >
           <div class="flex items-start gap-3">
-            <VendorIcon :vendor="entry.vendor" :size="20" colored class="mt-0.5" />
+            <VendorIcon :vendor="entry.vendor" :model="entry.id" :size="20" colored class="mt-0.5" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="truncate font-mono font-medium text-af-ink">{{ entry.id }}</span>

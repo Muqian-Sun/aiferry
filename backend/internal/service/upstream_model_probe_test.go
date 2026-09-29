@@ -55,3 +55,22 @@ func TestImportUpstreamModels(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, entries, 2, "只新建了一条")
 }
+
+// 价格文件查不到的上游模型按模型族补厂商（2026-09-29 E2E：导入的 deepseek-v4.1-flash、glm-5.3-flash 厂商为空，
+// 用户站模型页没有图标、也归不到厂商）；带组织前缀的按最后一段认；认不出的留空。
+func TestImportUpstreamModelsFillsVendorByModelFamily(t *testing.T) {
+	svc, _ := newTestModelCatalogService()
+
+	got, err := svc.ImportUpstreamModels(context.Background(), []string{
+		"deepseek-v4.1-flash",
+		"glm-5.3-flash",
+		"deepseek-ai/DeepSeek-V9",
+		"brand-new-model",
+	})
+	require.NoError(t, err)
+	require.Len(t, got, 4)
+	require.Equal(t, "deepseek", got[0].Vendor)
+	require.Equal(t, "zhipu", got[1].Vendor)
+	require.Equal(t, "deepseek", got[2].Vendor)
+	require.Empty(t, got[3].Vendor)
+}
