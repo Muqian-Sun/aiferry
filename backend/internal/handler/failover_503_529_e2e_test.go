@@ -96,7 +96,7 @@ func (r *overloadRecordingAccountRepo) overloadedIDs() map[int64]time.Time {
 }
 
 // newFailoverE2EHandler 装一个 GatewayHandler：调度走快照（池 = accounts），Anthropic / OpenAI / Gemini
-// 三个转发服务共用同一个假上游，换号上限 maxSwitches；Anthropic 转发的错误副作用走真实 RateLimitService。
+// 三个转发服务共用同一个假上游，换号上限 maxSwitches；三者的错误副作用走同一个真实 RateLimitService。
 func newFailoverE2EHandler(t *testing.T, accounts []*service.Account, upstream service.HTTPUpstream, maxSwitches int) *GatewayHandler {
 	h, _ := newFailoverE2EHandlerWithRepo(t, accounts, upstream, maxSwitches)
 	return h
@@ -106,12 +106,13 @@ func newFailoverE2EHandlerWithRepo(t *testing.T, accounts []*service.Account, up
 	t.Helper()
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	repo := &overloadRecordingAccountRepo{}
+	rateLimitSvc := service.NewRateLimitService(repo, nil, cfg, nil, nil)
 	schedulerSnapshot := service.NewSchedulerSnapshotService(&fakeSchedulerCache{accounts: accounts}, nil, nil, nil)
 	gwSvc := service.NewGatewayService(
 		nil, nil, nil, nil, nil, nil, cfg,
 		schedulerSnapshot,
 		nil, nil,
-		service.NewRateLimitService(repo, nil, cfg, nil, nil),
+		rateLimitSvc,
 		nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil,
@@ -120,14 +121,14 @@ func newFailoverE2EHandlerWithRepo(t *testing.T, accounts []*service.Account, up
 	t.Cleanup(billingCacheSvc.Stop)
 	openAISvc := service.NewOpenAIGatewayService(
 		nil, &handlerUsageLogRepoStub{}, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), nil, &service.BillingCacheService{}, upstream,
+		service.NewBillingService(cfg, nil), rateLimitSvc, &service.BillingCacheService{}, upstream,
 		&service.DeferredService{}, nil, nil, nil, nil, nil,
 		nil,
 	)
 	return &GatewayHandler{
 		gatewayService:       gwSvc,
 		openAIGatewayService: openAISvc,
-		geminiCompatService:  service.NewGeminiMessagesCompatService(nil, nil, nil, nil, nil, upstream, nil, cfg),
+		geminiCompatService:  service.NewGeminiMessagesCompatService(nil, nil, nil, nil, rateLimitSvc, upstream, nil, cfg),
 		billingCacheService:  billingCacheSvc,
 		apiKeyService:        service.NewAPIKeyService(nil, nil, nil, cfg),
 		concurrencyHelper:    NewConcurrencyHelper(service.NewConcurrencyService(&fakeConcurrencyCache{}), SSEPingFormatClaude, 0),
@@ -153,7 +154,7 @@ func TestFailoverE2E_Messages_AnthropicKeyBadChannelHitOnce(t *testing.T) {
 	anthropic := map[string]string{service.APIProtocolAnthropic: "https://anthropic-relay.example.com"}
 	for _, status := range []int{http.StatusServiceUnavailable, 529} {
 		upstream := &failoverStatusUpstream{fail: map[int64]bool{11: true}, failStatus: status, failBody: anthropicOverloaded, okBody: anthropicMessagesOK}
-		h := newFailoverE2EHandler(t, []*service.Account{
+		h, repo := newFailoverE2EHandlerWithRepo(t, []*service.Account{
 			failoverE2EKey(11, 1, anthropic, "claude-sonnet-4-5"),
 			failoverE2EKey(12, 2, anthropic, "claude-sonnet-4-5"),
 		}, upstream, 3)
@@ -167,6 +168,7 @@ func TestFailoverE2E_Messages_AnthropicKeyBadChannelHitOnce(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, "status=%d body=%s", status, rec.Body.String())
 		require.Equal(t, []int64{11, 12}, upstream.calls(), "status=%d 坏渠道只能打 1 次", status)
 		require.Less(t, elapsed, time.Second, "status=%d 不得等待", status)
+		require.Empty(t, repo.overloadedIDs(), "status=%d 中转 key 不做过载冷却", status)
 	}
 }
 
@@ -327,4 +329,89 @@ func TestFailoverE2E_GeminiKey503HitOnce(t *testing.T) {
 		require.Equal(t, []int64{61, 62}, upstream.calls(), "坏渠道只能打 1 次")
 		require.Less(t, time.Since(start), time.Second, "不得在原渠道退避")
 	})
+}
+
+// Claude 成品号（OAuth / setup-token）回 529：暂停该渠道恰 1 分钟，本次请求立即换到下一个渠道、不在原渠道重试。
+func TestFailoverE2E_Messages_ClaudeSubscription529CoolsOneMinuteAndSwitches(t *testing.T) {
+	anthropic := map[string]string{service.APIProtocolAnthropic: "https://anthropic-relay.example.com"}
+	for _, accountType := range []string{service.AccountTypeOAuth, service.AccountTypeSetupToken} {
+		t.Run(accountType, func(t *testing.T) {
+			subscription := &service.Account{
+				ID:          71,
+				Name:        "claude-subscription",
+				Platform:    service.PlatformAnthropic,
+				Type:        accountType,
+				Credentials: map[string]any{"access_token": "sk-ant-oat-test"},
+				Concurrency: 1,
+				Priority:    1,
+				Status:      service.StatusActive,
+				Schedulable: true,
+			}
+			relay := failoverE2EKey(72, 2, anthropic, "claude-sonnet-4-5")
+			upstream := &failoverStatusUpstream{fail: map[int64]bool{71: true}, failStatus: 529, failBody: anthropicOverloaded, okBody: anthropicMessagesOK}
+			h, repo := newFailoverE2EHandlerWithRepo(t, []*service.Account{subscription, relay}, upstream, 3)
+
+			body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
+			c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, service.APIProtocolAnthropic, "")
+			before := time.Now()
+			h.Messages(c)
+			after := time.Now()
+
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			require.Equal(t, []int64{71, 72}, upstream.calls(), "成品号只打 1 次就换号")
+			overloaded := repo.overloadedIDs()
+			require.Len(t, overloaded, 1, "只有成品号被暂停")
+			until, ok := overloaded[71]
+			require.True(t, ok)
+			require.False(t, until.Before(before.Add(time.Minute)), "冷却不得短于 1 分钟")
+			require.False(t, until.After(after.Add(time.Minute)), "冷却不得长于 1 分钟")
+			require.Less(t, after.Sub(before), time.Second, "不得等待")
+		})
+	}
+}
+
+// Gemini 协议的 key 回 529：错误策略直接换号、不在原渠道重试，也不做过载冷却。
+func TestFailoverE2E_GeminiKey529NoCooldown(t *testing.T) {
+	const entryID = 9
+	gemini := map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}
+	bad := failoverE2EKey(81, 1, gemini, "gemini-2.5-flash")
+	good := failoverE2EKey(82, 2, gemini, "gemini-2.5-flash")
+	bad.CatalogEntryIDs = []int64{entryID}
+	good.CatalogEntryIDs = []int64{entryID}
+	upstream := &failoverStatusUpstream{fail: map[int64]bool{81: true}, failStatus: 529, failBody: `{"error":{"code":529,"message":"overloaded"}}`, okBody: geminiGenerateContentOK}
+	h, repo := newFailoverE2EHandlerWithRepo(t, []*service.Account{bad, good}, upstream, 3)
+
+	body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, service.APIProtocolAnthropic, "")
+	entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "gemini-2.5-flash", Vendor: "gemini", Status: service.ModelCatalogStatusListed}
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(),
+		service.CatalogRoute{EntryID: entryID, CanonicalModel: "gemini-2.5-flash", RequestedModel: "gemini-2.5-flash", Entry: entry}))
+
+	h.Messages(c)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []int64{81, 82}, upstream.calls(), "坏渠道只能打 1 次")
+	require.Empty(t, repo.overloadedIDs(), "Gemini key 不做过载冷却")
+}
+
+// OpenAI 协议的 key 回 529（非「server is overloaded」这类请求级容量文案，会走账号错误处理）：
+// 不做过载冷却，本次只打 1 次就换号。
+func TestFailoverE2E_ChatCompletions_OpenAIKey529NoCooldown(t *testing.T) {
+	const entryID = 199
+	responses := map[string]string{service.APIProtocolResponses: "https://relay.example.com"}
+	bad := failoverE2EKey(91, 1, responses, "gpt-5.6")
+	good := failoverE2EKey(92, 2, responses, "gpt-5.6")
+	bad.CatalogEntryIDs = []int64{entryID}
+	good.CatalogEntryIDs = []int64{entryID}
+	upstream := &failoverStatusUpstream{fail: map[int64]bool{91: true}, failStatus: 529, failBody: anthropicOverloaded, okBody: openAIResponsesSSEOK, okContentType: "text/event-stream"}
+	h, repo := newFailoverE2EHandlerWithRepo(t, []*service.Account{bad, good}, upstream, 3)
+
+	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"user","content":"hello"}]}`)
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, service.APIProtocolChatCompletions, "")
+	openAIRouteEntry(c, entryID, "gpt-5.6")
+	h.ChatCompletions(c)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []int64{91, 92}, upstream.calls(), "坏渠道只能打 1 次")
+	require.Empty(t, repo.overloadedIDs(), "OpenAI key 不做过载冷却")
 }

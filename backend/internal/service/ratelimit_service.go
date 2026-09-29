@@ -229,7 +229,7 @@ type ErrorPolicyResult int
 const (
 	ErrorPolicyNone    ErrorPolicyResult = iota // 未命中任何策略，继续默认逻辑
 	ErrorPolicySkipped                          // 池模式：跳过默认的账号状态处理
-	ErrorPolicyMatched                          // 529 过载：走全站过载冷却
+	ErrorPolicyMatched                          // 529 过载：不在原渠道重试，直接换号（冷却与否见 HandleUpstreamError）
 )
 
 // CheckErrorPolicy 检查池模式与 529 过载这两条优先于默认错误处理的策略
@@ -238,7 +238,7 @@ func (s *RateLimitService) CheckErrorPolicy(account *Account, statusCode int) Er
 	if account.IsPoolMode() {
 		return ErrorPolicySkipped
 	}
-	// The global overload cooldown is the default for ordinary accounts.
+	// 529 一律不在原渠道重试、直接换号；只有 Claude 成品号会被暂停调度（HandleUpstreamError → handle529）。
 	if statusCode == 529 {
 		return ErrorPolicyMatched
 	}
@@ -258,8 +258,13 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		return false
 	}
 
+	// 529 过载：只对 Claude 成品号（OAuth / setup-token）暂停调度 OverloadCooldownMinutes；
+	// 其余渠道（官方 API Key、中转、Bedrock、OpenAI、Gemini、Antigravity、Grok 等）不冷却，
+	// 本次请求照常换号（2026-09-29 muqian 定）。
 	if statusCode == 529 {
-		s.handle529(ctx, account)
+		if account.IsAnthropicOAuthOrSetupToken() {
+			s.handle529(ctx, account)
+		}
 		return false
 	}
 
@@ -1518,13 +1523,8 @@ func persistOpenAI429PlanType(ctx context.Context, repo AccountRepository, accou
 	slog.Info("openai_429_plan_type_synced", "account_id", account.ID, "previous_plan_type", current, "plan_type", planType)
 }
 
-// handle529 处理529过载错误：是否暂停调度、暂停多久由代码决定（gateway_features.go）
+// handle529 处理 Claude 成品号的 529 过载：暂停调度 OverloadCooldownMinutes（gateway_features.go）
 func (s *RateLimitService) handle529(ctx context.Context, account *Account) {
-	if !OverloadCooldownEnabled {
-		slog.Info("account_529_ignored", "account_id", account.ID, "reason", "overload_cooldown_disabled")
-		return
-	}
-
 	until := time.Now().Add(OverloadCooldownMinutes * time.Minute)
 	s.notifyAccountSchedulingBlocked(account, until, "529")
 	if err := s.accountRepo.SetOverloaded(ctx, account.ID, until); err != nil {

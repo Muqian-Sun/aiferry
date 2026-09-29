@@ -10,10 +10,10 @@ package service
 
 // 重试与冷却
 const (
-	// OverloadCooldownEnabled 上游回 529（过载）时暂停该渠道的调度。
-	OverloadCooldownEnabled = true
-	// OverloadCooldownMinutes 529 后暂停多久（分钟）。
-	OverloadCooldownMinutes = 10
+	// OverloadCooldownMinutes 上游回 529（过载）后暂停该渠道调度多久（分钟）。只对 Claude 成品号
+	// （Account.IsAnthropicOAuthOrSetupToken）生效，其余渠道 529 不冷却、本次直接换号；
+	// 两者都不在原渠道重试。2026-09-29 muqian 定。
+	OverloadCooldownMinutes = 1
 	// RateLimit429FallbackEnabled 上游回 429 但算不出重置时间时，按默认时长回避。
 	RateLimit429FallbackEnabled = true
 	// RateLimit429FallbackSeconds 429 默认回避时长（秒）。
