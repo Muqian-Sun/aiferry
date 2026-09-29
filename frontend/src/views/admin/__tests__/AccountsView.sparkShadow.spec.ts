@@ -15,8 +15,6 @@ const {
   getAllProxies,
   duplicateAccount,
   createSparkShadow,
-  showSuccess,
-  showError
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
@@ -24,8 +22,6 @@ const {
   getAllProxies: vi.fn(),
   duplicateAccount: vi.fn(),
   createSparkShadow: vi.fn(),
-  showSuccess: vi.fn(),
-  showError: vi.fn()
 }))
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
@@ -56,7 +52,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showSuccess, showInfo: vi.fn() })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -110,7 +106,7 @@ const mountView = () =>
 describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow, showSuccess, showError]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow]) {
       fn.mockReset()
     }
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
@@ -134,7 +130,6 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
 
     expect(duplicateAccount).toHaveBeenCalledTimes(1)
     expect(duplicateAccount).toHaveBeenCalledWith(42)
-    expect(showSuccess).toHaveBeenCalledWith('admin.accounts.duplicateSuccess')
     expect(listAccounts.mock.calls.length).toBeGreaterThan(1)
     wrapper.unmount()
   })
@@ -156,19 +151,6 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     wrapper.unmount()
   })
 
-  it('复制失败时显示后端错误', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    duplicateAccount.mockRejectedValueOnce(new Error('duplicate failed'))
-    const wrapper = mountView()
-    await flushPromises()
-
-    wrapper.findComponent(AccountActionMenu).vm.$emit('duplicate', { id: 42, name: 'parent-acc' })
-    await flushPromises()
-
-    expect(showError).toHaveBeenCalledWith('duplicate failed')
-    consoleError.mockRestore()
-    wrapper.unmount()
-  })
 
   it('AccountActionMenu 的 create-spark-shadow 事件触发 createSparkShadow API + 成功提示', async () => {
     const wrapper = mountView()
@@ -188,7 +170,6 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
 
     expect(createSparkShadow).toHaveBeenCalledTimes(1)
     expect(createSparkShadow).toHaveBeenCalledWith(42, { name: 'parent-acc (Spark)' })
-    expect(showSuccess).toHaveBeenCalledWith('admin.accounts.createSparkShadowSuccess')
     wrapper.unmount()
   })
 
@@ -263,7 +244,7 @@ const mountViewWithRow = () =>
 describe('admin AccountsView — 账号行展示', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow, showSuccess, showError]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow]) {
       fn.mockReset()
     }
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })

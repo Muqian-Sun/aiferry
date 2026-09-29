@@ -23,10 +23,7 @@ vi.mock('@/api/admin/ops', () => ({
 vi.mock('@/api/admin', () => ({ adminAPI: {} }))
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

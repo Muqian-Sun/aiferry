@@ -7,31 +7,23 @@ const {
   replaceAccountEntriesMock,
   probeUpstreamBillingMock,
   syncUpstreamModelsMock,
-  showWarningMock,
   importCodexSessionMock,
   createOpenAICodexPATMock,
   authIsSimpleMode,
   getProtocolDefaultsMock,
-  showErrorMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
   replaceAccountEntriesMock: vi.fn(),
   probeUpstreamBillingMock: vi.fn(),
   syncUpstreamModelsMock: vi.fn(),
-  showWarningMock: vi.fn(),
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
   authIsSimpleMode: { value: true },
   getProtocolDefaultsMock: vi.fn(),
-  showErrorMock: vi.fn(),
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: showErrorMock,
-    showSuccess: vi.fn(),
-    showWarning: showWarningMock,
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -150,7 +142,6 @@ type KeyAddress = { protocol: string; url: string; mode?: string }
 beforeEach(() => {
   resetProtocolDefaultsCacheForTest()
   getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
-  showErrorMock.mockReset()
 })
 
 const BaseDialogStub = defineComponent({
@@ -280,7 +271,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     replaceAccountEntriesMock.mockReset().mockResolvedValue([])
     probeUpstreamBillingMock.mockReset().mockResolvedValue({})
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
-    showWarningMock.mockReset()
     importCodexSessionMock.mockReset().mockResolvedValue({
       created: 1,
       updated: 0,
@@ -353,25 +343,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(syncUpstreamModelsMock).toHaveBeenCalledWith(42)
   })
 
-  it('warns when post-create capability metadata remains incomplete', async () => {
-    syncUpstreamModelsMock.mockResolvedValue({
-      models: ['x-preview-f-free'],
-      warnings: [{ code: 'upstream_model_metadata_incomplete', message: 'metadata incomplete' }],
-    })
-    const wrapper = mountModal()
-    await selectKey(wrapper, KEY.openai)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenCode account')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="model-rename-add"]').trigger('click')
-    await wrapper.get('[data-testid="model-rename-from-0"]').setValue('public-glm')
-    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('x-preview-f-free')
-    await wrapper.get('form#create-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(showWarningMock).toHaveBeenCalledWith(
-      'admin.accounts.syncUpstreamModelsMetadataIncomplete'
-    )
-  })
 
   it('enables upstream billing probes by default for new OpenAI API key accounts', async () => {
     await submitApiKeyAccount('openai')
@@ -502,7 +473,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.empty')
   })
 
   it('has no API protocol selector: a Chinese provider key keeps whichever endpoint it configures', async () => {

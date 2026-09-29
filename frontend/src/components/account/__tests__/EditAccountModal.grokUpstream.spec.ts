@@ -9,11 +9,7 @@ const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode } = vi.ho
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-    showInfo: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({

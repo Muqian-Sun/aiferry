@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import BulkEditKeysModal from '../BulkEditKeysModal.vue'
 
-const { bulkUpdate, showSuccess, showError } = vi.hoisted(() => ({
-  bulkUpdate: vi.fn(), showSuccess: vi.fn(), showError: vi.fn()
+const { bulkUpdate } = vi.hoisted(() => ({
+  bulkUpdate: vi.fn()
 }))
 vi.mock('@/api', () => ({ keysAPI: { bulkUpdate } }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showSuccess, showError }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({}) }))
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => `${key} ${JSON.stringify(params ?? {})}` })
 }))
@@ -113,7 +113,6 @@ describe('BulkEditKeysModal', () => {
     expect(wrapper.text()).toContain('Second: Group access denied')
     expect(wrapper.emitted('updated')).toEqual([[[1]]])
     expect(wrapper.emitted('close')).toBeUndefined()
-    expect(showSuccess).not.toHaveBeenCalled()
     await wrapper.setProps({ selectedKeys: [{ id: 2, name: 'Second' }, { id: 3, name: 'New selection' }] })
     await wrapper.get('form').trigger('submit')
     await flushPromises()

@@ -6,8 +6,6 @@ const {
   routeState,
   locationState,
   routerReplaceMock,
-  showErrorMock,
-  showSuccessMock,
   setTokenMock,
   copyToClipboardMock,
   exchangePendingOAuthCompletionMock,
@@ -24,8 +22,6 @@ const {
     } as { href: string; hash: string },
   },
   routerReplaceMock: vi.fn(),
-  showErrorMock: vi.fn(),
-  showSuccessMock: vi.fn(),
   setTokenMock: vi.fn(),
   copyToClipboardMock: vi.fn(),
   exchangePendingOAuthCompletionMock: vi.fn(),
@@ -49,10 +45,7 @@ vi.mock('@/stores', () => ({
   useAuthStore: () => ({
     setToken: (...args: any[]) => setTokenMock(...args),
   }),
-  useAppStore: () => ({
-    showError: (...args: any[]) => showErrorMock(...args),
-    showSuccess: (...args: any[]) => showSuccessMock(...args),
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/api/client', () => ({
@@ -89,8 +82,6 @@ describe('OAuthCallbackView', () => {
       value: locationState.current,
     })
     routerReplaceMock.mockReset()
-    showErrorMock.mockReset()
-    showSuccessMock.mockReset()
     setTokenMock.mockReset()
     copyToClipboardMock.mockReset()
     exchangePendingOAuthCompletionMock.mockReset()
@@ -113,14 +104,13 @@ describe('OAuthCallbackView', () => {
     expect(wrapper.find('input[value="oauth-state"]').exists()).toBe(true)
   })
 
-  it('sends callback errors to toast instead of rendering inline red text', () => {
+  it('does not render inline red text for callback errors', () => {
     routeState.query = {
       error: 'oauth failed',
     }
 
     const wrapper = mount(OAuthCallbackView)
 
-    expect(showErrorMock).toHaveBeenCalledWith('oauth failed')
     expect(wrapper.text()).not.toContain('oauth failed')
     expect(wrapper.find('.bg-red-50').exists()).toBe(false)
   })

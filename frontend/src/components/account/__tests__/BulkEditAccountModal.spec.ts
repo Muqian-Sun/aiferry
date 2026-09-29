@@ -3,18 +3,12 @@ import { flushPromises, mount } from '@vue/test-utils'
 import BulkEditAccountModal from '../BulkEditAccountModal.vue'
 import { adminAPI } from '@/api/admin'
 
-const { showError, showSuccess, translate } = vi.hoisted(() => ({
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
+const { translate } = vi.hoisted(() => ({
   translate: vi.fn((key: string) => key)
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-    showInfo: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -80,8 +74,6 @@ describe('BulkEditAccountModal', () => {
   beforeEach(() => {
     vi.mocked(adminAPI.accounts.bulkUpdate).mockReset()
     vi.mocked(adminAPI.accounts.checkMixedChannelRisk).mockReset()
-    showError.mockReset()
-    showSuccess.mockReset()
     translate.mockClear()
 
     vi.mocked(adminAPI.accounts.bulkUpdate).mockResolvedValue({
@@ -105,21 +97,6 @@ describe('BulkEditAccountModal', () => {
     )
   })
 
-  it('后端拒绝修改同步账号倍率时展示专用错误', async () => {
-    vi.mocked(adminAPI.accounts.bulkUpdate).mockRejectedValueOnce({
-      status: 409,
-      reason: 'UPSTREAM_BILLING_RATE_SYNC_BULK_CONFLICT',
-      metadata: { count: '2' },
-      message: 'conflict'
-    })
-    const wrapper = mountModal()
-
-    await wrapper.get('#bulk-edit-rate-multiplier-enabled').setValue(true)
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(showError).toHaveBeenCalledWith('admin.accounts.bulkEdit.rateSyncConflict')
-  })
 
   // 去掉白名单后只有改名：Antigravity 自带模型表，同名预设（把表外模型加进来）也保留
   it('antigravity 改名预设包含图片映射并过滤 OpenAI 预设', async () => {
@@ -282,7 +259,6 @@ describe('BulkEditAccountModal third-party key settings do not follow the platfo
   beforeEach(() => {
     vi.mocked(adminAPI.accounts.bulkUpdate).mockReset().mockResolvedValue({ success: 2, failed: 0, results: [] } as any)
     vi.mocked(adminAPI.accounts.checkMixedChannelRisk).mockReset().mockResolvedValue({ has_risk: false } as any)
-    showError.mockReset()
   })
 
   it('offers header overrides for keys of any label but not for non-Grok subscriptions', () => {

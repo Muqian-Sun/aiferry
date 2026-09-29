@@ -20,9 +20,6 @@ const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/stripe?moc
 const createOrder = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
 const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const showError = vi.hoisted(() => vi.fn())
-const showInfo = vi.hoisted(() => vi.fn())
-const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string) => key))
@@ -86,9 +83,6 @@ vi.mock('@/stores', async () => {
   }
   return {
     useAppStore: () => ({
-      showError,
-      showInfo,
-      showWarning,
       get cachedPublicSettings() {
         return state.cachedPublicSettings
       },
@@ -226,9 +220,6 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
-  showError.mockReset()
-  showInfo.mockReset()
-  showWarning.mockReset()
   getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture(options))
   bridgeInvoke.mockReset()
   window.localStorage.clear()
@@ -267,9 +258,6 @@ async function mountSubscriptionPlanList(planCount: number) {
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
-  showError.mockReset()
-  showInfo.mockReset()
-  showWarning.mockReset()
   const basePlan = checkoutInfoWithPlansFixture().data.plans[0]
   const plans = Array.from({ length: planCount }, (_, index) => ({
     ...basePlan,
@@ -514,9 +502,6 @@ describe('PaymentView payment recovery', () => {
     createOrder.mockReset()
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
-    showError.mockReset()
-    showInfo.mockReset()
-    showWarning.mockReset()
     bridgeInvoke.mockReset()
     window.localStorage.clear()
     ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
@@ -599,9 +584,6 @@ describe('PaymentView WeChat JSAPI flow', () => {
     createOrder.mockReset()
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
-    showError.mockReset()
-    showInfo.mockReset()
-    showWarning.mockReset()
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
     bridgeInvoke.mockReset()
     window.localStorage.clear()
@@ -658,7 +640,6 @@ describe('PaymentView WeChat JSAPI flow', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(showInfo).toHaveBeenCalledWith('payment.qr.cancelled')
     expect(routerPush).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
   })
@@ -683,9 +664,6 @@ describe('PaymentView WeChat JSAPI flow', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith(
-      'payment.errors.wechatJsapiUnavailable payment.errors.wechatOpenInWeChatHint',
-    )
     expect(routerPush).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
     expect(wrapper.html()).not.toContain('payment-status-panel-stub')
@@ -823,8 +801,6 @@ describe('PaymentView WeChat JSAPI flow', () => {
       is_mobile: false,
       payment_source: 'hosted_redirect',
     }))
-    expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
-    expect(showError).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain('weixin://wxpay/bizpayurl?pr=fallback-native')
   })
 })

@@ -7,8 +7,6 @@ import UsersView from '../UsersView.vue'
 const {
   listUsers,
   deleteUser,
-  showError,
-  showSuccess,
   getAllGroups,
   getBatchUsersUsage,
   listEnabledDefinitions,
@@ -16,8 +14,6 @@ const {
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   deleteUser: vi.fn(),
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
@@ -45,10 +41,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -168,8 +161,6 @@ describe('admin UsersView', () => {
 
     listUsers.mockReset()
     deleteUser.mockReset()
-    showError.mockReset()
-    showSuccess.mockReset()
     getAllGroups.mockReset()
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
@@ -237,13 +228,8 @@ describe('admin UsersView', () => {
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe(remaining)
     expect(wrapper.find('[data-test="delete-dialog"]').exists()).toBe(false)
     if (deleted) {
-      expect(showSuccess).toHaveBeenCalledWith(`admin.users.bulkDelete.success:${deleted}`)
       expect(listUsers.mock.lastCall?.[0]).toBe(1)
-    } else {
-      expect(showSuccess).not.toHaveBeenCalled()
     }
-    if (failedIds.length) expect(showError).toHaveBeenCalledWith(`admin.users.bulkDelete.failed:${failedIds.length}`)
-    else expect(showError).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

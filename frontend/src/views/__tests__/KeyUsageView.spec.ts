@@ -4,10 +4,7 @@ import { nextTick } from 'vue'
 
 import KeyUsageView from '../KeyUsageView.vue'
 
-const { showInfo, showSuccess, showError, fetchPublicSettings } = vi.hoisted(() => ({
-  showInfo: vi.fn(),
-  showSuccess: vi.fn(),
-  showError: vi.fn(),
+const { fetchPublicSettings } = vi.hoisted(() => ({
   fetchPublicSettings: vi.fn(),
 }))
 
@@ -98,17 +95,11 @@ vi.mock('@/stores', () => ({
     docUrl: '',
     publicSettingsLoaded: true,
     fetchPublicSettings,
-    showInfo,
-    showSuccess,
-    showError,
   }),
 }))
 
 describe('KeyUsageView daily detail', () => {
   beforeEach(() => {
-    showInfo.mockReset()
-    showSuccess.mockReset()
-    showError.mockReset()
     fetchPublicSettings.mockReset()
     localStorage.clear()
 

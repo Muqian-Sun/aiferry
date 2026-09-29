@@ -17,10 +17,7 @@ vi.mock('vue-i18n', async () => {
 })
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/auth', () => ({

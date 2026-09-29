@@ -2,10 +2,8 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
 
-const { changePasswordMock, showSuccessMock, showErrorMock } = vi.hoisted(() => ({
+const { changePasswordMock } = vi.hoisted(() => ({
   changePasswordMock: vi.fn(),
-  showSuccessMock: vi.fn(),
-  showErrorMock: vi.fn()
 }))
 
 vi.mock('@/api', () => ({
@@ -15,10 +13,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess: showSuccessMock,
-    showError: showErrorMock
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -47,7 +42,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 describe('ProfilePasswordForm', () => {
-  it('shows validation failures as toast messages instead of inline errors', async () => {
+  it('does not render inline errors for validation failures', async () => {
     const wrapper = mount(ProfilePasswordForm)
 
     await wrapper.get('#old_password').setValue('old-password')
@@ -56,7 +51,6 @@ describe('ProfilePasswordForm', () => {
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(changePasswordMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('New passwords do not match')
     expect(wrapper.find('.input-error-text').exists()).toBe(false)
   })
 
@@ -64,7 +58,7 @@ describe('ProfilePasswordForm', () => {
     [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'current password is incorrect'],
     [{ response: { data: { detail: 'backend failure' } } }, 'backend failure'],
     [{}, 'Failed to change password'],
-  ])('shows API failure %j as a toast', async (error, expectedMessage) => {
+  ])('rejects API failure %j without inline errors', async (error, _expectedMessage) => {
     changePasswordMock.mockRejectedValue(error)
 
     const wrapper = mount(ProfilePasswordForm)
@@ -75,7 +69,6 @@ describe('ProfilePasswordForm', () => {
     await wrapper.get('form').trigger('submit.prevent')
 
     expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
-    expect(showErrorMock).toHaveBeenLastCalledWith(expectedMessage)
     expect(wrapper.find('.input-error-text').exists()).toBe(false)
   })
 })

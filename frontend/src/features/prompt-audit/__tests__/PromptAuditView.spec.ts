@@ -8,11 +8,10 @@ import PromptAuditView from '../PromptAuditView.vue'
 const mocks = vi.hoisted(() => ({
   getConfig: vi.fn(), updateConfig: vi.fn(), probeEndpoint: vi.fn(), getRuntime: vi.fn(), listEvents: vi.fn(),
   getEvent: vi.fn(), deleteEvent: vi.fn(), batchDeleteEvents: vi.fn(), previewDelete: vi.fn(), deleteEventsByFilter: vi.fn(),
-  showSuccess: vi.fn(), showError: vi.fn(),
 }))
 
 vi.mock('../api', () => ({ default: mocks }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showSuccess: mocks.showSuccess, showError: mocks.showError }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({}) }))
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return { ...actual, useI18n: () => ({ locale: { value: 'en' }, t: (key: string, params?: Record<string, unknown>) => key.replace(/\{(\w+)\}/g, (_, token) => String(params?.[token] ?? `{${token}}`)) }) }

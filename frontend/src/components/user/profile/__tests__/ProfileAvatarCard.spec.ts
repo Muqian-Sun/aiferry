@@ -5,13 +5,9 @@ import type { User } from '@/types'
 
 const {
   updateProfileMock,
-  showSuccessMock,
-  showErrorMock,
   authStoreState
 } = vi.hoisted(() => ({
   updateProfileMock: vi.fn(),
-  showSuccessMock: vi.fn(),
-  showErrorMock: vi.fn(),
   authStoreState: {
     user: null as User | null
   }
@@ -28,10 +24,7 @@ vi.mock('@/stores/auth', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess: showSuccessMock,
-    showError: showErrorMock
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/utils/apiError', () => ({
@@ -147,8 +140,6 @@ function installAvatarCompressionMocks(blobSize = 8 * 1024) {
 describe('ProfileAvatarCard', () => {
   beforeEach(() => {
     updateProfileMock.mockReset()
-    showSuccessMock.mockReset()
-    showErrorMock.mockReset()
     authStoreState.user = null
   })
 
@@ -205,7 +196,6 @@ describe('ProfileAvatarCard', () => {
     expect(updateProfileMock).toHaveBeenCalledWith({
       avatar_url: 'data:image/webp;base64,Y29tcHJlc3NlZC1hdmF0YXI='
     })
-    expect(showErrorMock).not.toHaveBeenCalled()
   })
 
   it('shows a preview after selecting an avatar', async () => {
@@ -256,6 +246,5 @@ describe('ProfileAvatarCard', () => {
 
     expect(updateProfileMock).toHaveBeenCalledWith({ avatar_url: '' })
     expect(authStoreState.user?.avatar_url).toBeNull()
-    expect(showSuccessMock).toHaveBeenCalledWith('Avatar removed')
   })
 })

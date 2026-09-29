@@ -2,14 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import RedeemView from '../RedeemView.vue'
 
-const { redeem, getHistory, refreshUser, fetchActiveSubscriptions, showError, showWarning, showSuccess } = vi.hoisted(() => ({
+const { redeem, getHistory, refreshUser, fetchActiveSubscriptions } = vi.hoisted(() => ({
   redeem: vi.fn(),
   getHistory: vi.fn(),
   refreshUser: vi.fn(),
   fetchActiveSubscriptions: vi.fn(),
-  showError: vi.fn(),
-  showWarning: vi.fn(),
-  showSuccess: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -23,7 +20,7 @@ vi.mock('@/stores/subscriptions', () => ({
   useSubscriptionStore: () => ({ fetchActiveSubscriptions }),
 }))
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showWarning, showSuccess }),
+  useAppStore: () => ({}),
 }))
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -66,9 +63,6 @@ describe('RedeemView refresh after redemption', () => {
       const wrapper = await submitCode()
 
       expect(redeem).toHaveBeenCalledWith('REDEEM-CODE')
-      expect(showError).not.toHaveBeenCalled()
-      expect(showWarning).toHaveBeenCalledWith('redeem.userRefreshFailed')
-      expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
       expect(wrapper.text()).toContain('redeem.redeemSuccess')
       if (type === 'subscription') {
         expect(wrapper.get('[data-testid="redeem-plan-name"]').text()).toContain('E2E Pro')
@@ -91,9 +85,6 @@ describe('RedeemView refresh after redemption', () => {
     const wrapper = await submitCode()
 
     expect(refreshUser).toHaveBeenCalledOnce()
-    expect(showWarning).not.toHaveBeenCalled()
-    expect(showError).not.toHaveBeenCalled()
-    expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
     expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe('')
     wrapper.unmount()
   })
@@ -103,9 +94,6 @@ describe('RedeemView refresh after redemption', () => {
     fetchActiveSubscriptions.mockRejectedValue(new Error('Network Error'))
     const wrapper = await submitCode()
 
-    expect(showWarning).toHaveBeenCalledWith('redeem.subscriptionRefreshFailed')
-    expect(showError).not.toHaveBeenCalled()
-    expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
     expect(getHistory).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
@@ -114,15 +102,12 @@ describe('RedeemView refresh after redemption', () => {
     redeem.mockRejectedValue({ response: { data: { detail: 'Invalid code' } } })
     const wrapper = await submitCode()
 
-    expect(showError).toHaveBeenCalledWith('redeem.redeemFailed')
     expect(wrapper.text()).toContain('Invalid code')
     expect(wrapper.text()).not.toContain('redeem.redeemSuccess')
     expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe(' REDEEM-CODE ')
     expect(refreshUser).not.toHaveBeenCalled()
     expect(fetchActiveSubscriptions).not.toHaveBeenCalled()
     expect(getHistory).toHaveBeenCalledOnce()
-    expect(showSuccess).not.toHaveBeenCalled()
-    expect(showWarning).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })

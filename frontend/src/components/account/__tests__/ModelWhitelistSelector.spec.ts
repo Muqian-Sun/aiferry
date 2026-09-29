@@ -3,18 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 const {
   copyToClipboard,
-  showError,
-  showSuccess,
-  showInfo,
-  showWarning,
   syncUpstreamModels,
   syncUpstreamModelsPreview
 } = vi.hoisted(() => ({
   copyToClipboard: vi.fn().mockResolvedValue(true),
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
-  showInfo: vi.fn(),
-  showWarning: vi.fn(),
   syncUpstreamModels: vi.fn(),
   syncUpstreamModelsPreview: vi.fn()
 }))
@@ -30,12 +22,7 @@ vi.mock('vue-i18n', async () => {
 })
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-    showInfo,
-    showWarning
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
@@ -83,10 +70,6 @@ function findModelRow(wrapper: ReturnType<typeof mountSelector>, modelId: string
 describe('ModelWhitelistSelector', () => {
   beforeEach(() => {
     copyToClipboard.mockClear()
-    showError.mockReset()
-    showSuccess.mockReset()
-    showInfo.mockReset()
-    showWarning.mockReset()
     syncUpstreamModels.mockReset()
     syncUpstreamModelsPreview.mockReset()
   })
@@ -149,8 +132,6 @@ describe('ModelWhitelistSelector', () => {
     await flushPromises()
 
     expect(wrapper.emitted('update:modelValue')).toEqual([[['x-preview-f-free']]])
-    expect(showWarning).toHaveBeenCalledWith('admin.accounts.syncUpstreamModelsMetadataIncomplete')
-    expect(showSuccess).not.toHaveBeenCalled()
   })
 
   it('shows success and a partial warning when some capabilities were saved', async () => {
@@ -184,8 +165,6 @@ describe('ModelWhitelistSelector', () => {
     await flushPromises()
 
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-6-astra', 'gpt-image-2']]])
-    expect(showSuccess).toHaveBeenCalledWith('admin.accounts.syncUpstreamModelsSuccess')
-    expect(showWarning).toHaveBeenCalledWith('admin.accounts.syncUpstreamModelsMetadataPartial')
   })
 
   it('reports a successful preview so account creation can persist metadata', async () => {

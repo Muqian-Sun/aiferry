@@ -2,16 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 
-const showError = vi.fn()
-const showSuccess = vi.fn()
-const showWarning = vi.fn()
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-    showWarning
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -55,19 +48,10 @@ const setInputFiles = (element: Element, files: File[]) => {
 
 describe('ImportDataModal', () => {
   beforeEach(async () => {
-    showError.mockReset()
-    showSuccess.mockReset()
-    showWarning.mockReset()
     const { adminAPI } = await import('@/api/admin')
     vi.mocked(adminAPI.accounts.importData).mockReset()
   })
 
-  it('未选择文件时提示错误', async () => {
-    const wrapper = mountModal()
-
-    await wrapper.find('form').trigger('submit')
-    expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportSelectFile')
-  })
 
   it('无效 JSON 时按文件名提示解析失败', async () => {
     const { adminAPI } = await import('@/api/admin')
@@ -80,7 +64,6 @@ describe('ImportDataModal', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportParseFailedFile')
     expect(adminAPI.accounts.importData).not.toHaveBeenCalled()
   })
 
@@ -95,7 +78,6 @@ describe('ImportDataModal', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportInvalidFile')
     expect(adminAPI.accounts.importData).not.toHaveBeenCalled()
   })
 
@@ -121,7 +103,6 @@ describe('ImportDataModal', () => {
 
     setInputFiles(input.element, [new File(['hello'], 'notes.txt', { type: 'text/plain' })])
     await input.trigger('change')
-    expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportSelectFile')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -172,7 +153,6 @@ describe('ImportDataModal', () => {
       }),
       skip_default_group_bind: true
     })
-    expect(showSuccess).toHaveBeenCalledWith('admin.accounts.dataImportSuccess')
   })
 
   it('部分成功时关闭弹窗仍通知父组件刷新', async () => {
@@ -202,7 +182,6 @@ describe('ImportDataModal', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportCompletedWithErrors')
     expect(wrapper.emitted('imported')).toBeUndefined()
 
     // 第二个 btn-secondary 是 footer 的取消按钮(第一个是选择文件)

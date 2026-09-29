@@ -4,10 +4,7 @@ const ipGeoMocks = vi.hoisted(() => ({
   fetchBatch: vi.fn(),
 }))
 
-const appStoreMocks = vi.hoisted(() => ({
-  showSuccess: vi.fn(),
-  showError: vi.fn(),
-}))
+const appStoreMocks = vi.hoisted(() => ({}))
 
 vi.mock('@/utils/ipGeoLookup', () => ipGeoMocks)
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStoreMocks }))

@@ -25,13 +25,9 @@ vi.mock('@/api/admin', () => ({
   }
 }))
 
-const { showError, showSuccess } = vi.hoisted(() => ({
-  showError: vi.fn(),
-  showSuccess: vi.fn()
-}))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showSuccess })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api', () => ({}))
@@ -127,8 +123,6 @@ beforeEach(() => {
   listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 500, pages: 0 })
   priceLookup.mockReset().mockResolvedValue(null)
   routerPush.mockReset()
-  showError.mockReset()
-  showSuccess.mockReset()
   vi.useRealTimers()
 })
 
@@ -194,24 +188,9 @@ describe('ModelCatalogView', () => {
     await flushPromises()
     expect(seed).toHaveBeenCalledTimes(1)
     expect(listEntries).toHaveBeenCalledTimes(2)
-    expect(showSuccess).toHaveBeenCalledTimes(1)
-    expect(showError).not.toHaveBeenCalled()
   })
 
   // 单条写库失败不拖垮整批，但不能静默：失败数和原因要作为错误提示摆出来。
-  it('surfaces seed row failures instead of reporting plain success', async () => {
-    seed.mockResolvedValue({
-      inserted: 9, refreshed: 0, skipped_admin: 0, skipped_invalid: 0,
-      failed: 1, errors: ['bad-model: value too long']
-    })
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-seed"]').trigger('click')
-    await flushPromises()
-    expect(showSuccess).not.toHaveBeenCalled()
-    expect(showError).toHaveBeenCalledTimes(1)
-    expect(String(showError.mock.calls[0][0])).toContain('bad-model: value too long')
-  })
 })
 
 // 模型表单（独立页 /model-catalog/new、/model-catalog/:id/edit 的表单本体）
@@ -282,7 +261,6 @@ describe('CatalogEntryEditor', () => {
     await flushPromises()
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
-    expect(showError).toHaveBeenCalledWith('account 7 has no upstream address usable on the anthropic gateway')
     expect(wrapper.find('#model-catalog-form').exists()).toBe(true)
     expect(wrapper.emitted('saved')).toBeUndefined()
   })
@@ -452,14 +430,5 @@ describe('CatalogEntryEditor', () => {
   })
 
   // 接口错误提示要走 extractApiErrorMessage：拦截器给的 { message, error } 与裸 Error 都能取到文案。
-  it('shows the API error message when saving fails', async () => {
-    createEntry.mockRejectedValue({ message: 'model catalog entry already exists', error: 'MODEL_CATALOG_ENTRY_EXISTS' })
-    const wrapper = mountEditor(null)
-    await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(showError).toHaveBeenCalledWith('model catalog entry already exists')
-  })
 
 })

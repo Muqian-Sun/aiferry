@@ -11,14 +11,9 @@ vi.mock('@/i18n', () => ({
 }))
 
 // Mock app store
-const mockShowSuccess = vi.fn()
-const mockShowError = vi.fn()
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess: mockShowSuccess,
-    showError: mockShowError,
-  }),
+  useAppStore: () => ({}),
 }))
 
 import { useClipboard } from '@/composables/useClipboard'
@@ -69,21 +64,7 @@ describe('useClipboard', () => {
     expect(copied.value).toBe(false)
   })
 
-  it('复制成功时调用 showSuccess', async () => {
-    const { copyToClipboard } = useClipboard()
 
-    await copyToClipboard('hello', '已复制')
-
-    expect(mockShowSuccess).toHaveBeenCalledWith('已复制')
-  })
-
-  it('无自定义消息时使用 i18n 默认消息', async () => {
-    const { copyToClipboard } = useClipboard()
-
-    await copyToClipboard('hello')
-
-    expect(mockShowSuccess).toHaveBeenCalledWith('common.copiedToClipboard')
-  })
 
   it('空文本返回 false 且不复制', async () => {
     const { copyToClipboard, copied } = useClipboard()
@@ -126,7 +107,7 @@ describe('useClipboard', () => {
     expect(document.execCommand).toHaveBeenCalledWith('copy')
   })
 
-  it('所有复制方式均失败时调用 showError', async () => {
+  it('所有复制方式均失败时返回 false', async () => {
     const writeTextMock = navigator.clipboard.writeText as any
     writeTextMock.mockRejectedValue(new Error('fail'))
 
@@ -138,6 +119,5 @@ describe('useClipboard', () => {
 
     expect(result).toBe(false)
     expect(copied.value).toBe(false)
-    expect(mockShowError).toHaveBeenCalled()
   })
 })

@@ -12,7 +12,7 @@ const { getMySubscriptions, startRenewal, flags } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/api/subscriptions', () => ({ default: { getMySubscriptions } }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: vi.fn(), cachedPublicSettings: null }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({ cachedPublicSettings: null }) }))
 vi.mock('@/views/user/billing/useBillingFlags', async () => {
   const { computed } = await import('vue')
   return { useBillingFlags: () => computed(() => flags) }

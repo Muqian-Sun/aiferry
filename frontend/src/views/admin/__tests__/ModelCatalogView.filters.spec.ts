@@ -20,8 +20,7 @@ vi.mock('@/api/admin', () => ({
   }
 }))
 
-const { showError, showSuccess, showInfo } = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn(), showInfo: vi.fn() }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError, showSuccess, showInfo }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({}) }))
 vi.mock('@/api', () => ({}))
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -132,9 +131,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     getBindings.mockReset().mockResolvedValue([])
     updateBindings.mockReset().mockResolvedValue([])
     listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
-    showError.mockReset()
-    showSuccess.mockReset()
-    showInfo.mockReset()
   })
 
   it('summarises total / listed / listed-without-resources and lists only listed entries by default', async () => {
@@ -219,7 +215,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     expect(updateEntry).toHaveBeenCalledTimes(3)
     expect(updateEntry).toHaveBeenCalledWith(3, expect.objectContaining({ model_id: 'gpt-image-2', status: 'listed', per_request_price: 0.04 }))
     expect(updateEntry).toHaveBeenCalledWith(4, expect.objectContaining({ model_id: 'nameless', status: 'listed' }))
-    expect(showSuccess).toHaveBeenCalledWith('admin.modelCatalog.bulk.listedDone:{"count":3}')
     expect(listEntries).toHaveBeenCalledTimes(2)
     expect(wrapper.find('[data-testid="bulk-bar"]').exists()).toBe(false)
   })
@@ -236,10 +231,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledTimes(1)
-    const message = showError.mock.calls[0][0] as string
-    expect(message).toContain('"done":2,"failed":1')
-    expect(message).toContain('nameless: listed model requires a price')
     expect(wrapper.text()).toContain('common.selectedItems:{"count":1}')
   })
 
@@ -251,6 +242,5 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
     await flushPromises()
     expect(updateEntry).not.toHaveBeenCalled()
-    expect(showInfo).toHaveBeenCalledWith('admin.modelCatalog.bulk.nothingToDo')
   })
 })

@@ -13,8 +13,6 @@ const {
   getPublicSettings,
   getDashboardApiKeysUsage,
   getMyApiKeyDailyUsage,
-  showError,
-  showSuccess,
   copyToClipboard,
   isCurrentStep,
   nextStep,
@@ -24,8 +22,6 @@ const {
   getPublicSettings: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
   getMyApiKeyDailyUsage: vi.fn(),
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
   copyToClipboard: vi.fn(),
   isCurrentStep: vi.fn(),
   nextStep: vi.fn(),
@@ -73,10 +69,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/stores/onboarding', () => ({
@@ -258,8 +251,6 @@ describe('user KeysView column settings', () => {
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getMyApiKeyDailyUsage.mockReset().mockResolvedValue({ items: [], days: 30, start_date: '', end_date: '' })
-    showError.mockReset()
-    showSuccess.mockReset()
     copyToClipboard.mockReset()
     isCurrentStep.mockReset()
     nextStep.mockReset()
@@ -624,7 +615,6 @@ describe('user KeysView column settings', () => {
       await flushPromises()
       expect(keysAPI.create).toHaveBeenCalledOnce()
       expect(vi.mocked(keysAPI.create).mock.calls[0][0]).toBe('My key')
-      expect(showError).not.toHaveBeenCalled()
     })
   })
 })

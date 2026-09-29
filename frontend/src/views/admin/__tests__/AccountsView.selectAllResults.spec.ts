@@ -9,14 +9,12 @@ const {
   batchRefresh,
   getBatchTodayStats,
   getAllProxies,
-  showError
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   batchRefresh: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
-  showError: vi.fn()
 }))
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
@@ -47,11 +45,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess: vi.fn(),
-    showInfo: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -148,7 +142,6 @@ describe('admin AccountsView select all filtered results', () => {
     batchRefresh.mockReset()
     getBatchTodayStats.mockReset()
     getAllProxies.mockReset()
-    showError.mockReset()
 
     listWithEtag.mockResolvedValue({
       notModified: true,
@@ -183,7 +176,6 @@ describe('admin AccountsView select all filtered results', () => {
     expect(wrapper.findAll<HTMLInputElement>('[data-test="data-table"] input').map(input => input.element.checked))
       .toEqual([1, 2, 3].map(id => expectedIds.includes(id)))
     if (result.failed > 0) {
-      expect(showError).toHaveBeenCalledWith('admin.accounts.bulkActions.partialSuccess')
       await wrapper.get('[data-test="refresh-token"]').trigger('click')
       await flushPromises()
       expect(batchRefresh).toHaveBeenLastCalledWith(expectedIds)
@@ -257,6 +249,5 @@ describe('admin AccountsView select all filtered results', () => {
 
     expect(wrapper.get('[data-test="selected-count"]').text()).toBe('20')
     expect(wrapper.get('[data-test="all-results-selected"]').text()).toBe('false')
-    expect(showError).toHaveBeenCalledWith('admin.accounts.bulkActions.selectAllFailed')
   })
 })

@@ -42,7 +42,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError: vi.fn(), showWarning: vi.fn(), showSuccess: vi.fn(), showInfo: vi.fn() })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({

@@ -33,11 +33,7 @@ vi.mock('@/stores', () => ({
     login: (...args: unknown[]) => loginMock(...args),
     loginWithPasskey: (...args: unknown[]) => loginWithPasskeyMock(...args)
   }),
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-    showWarning: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/auth', async () => {

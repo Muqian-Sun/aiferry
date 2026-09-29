@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildPaymentErrorToastMessage,
+  buildPaymentErrorMessage,
   describePaymentScenarioError,
   normalizePaymentMethodForDisplay,
 } from '../paymentUx'
@@ -69,13 +69,13 @@ describe('describePaymentScenarioError', () => {
   })
 })
 
-describe('buildPaymentErrorToastMessage', () => {
+describe('buildPaymentErrorMessage', () => {
   it('returns the main message when no hint is present', () => {
-    expect(buildPaymentErrorToastMessage('Payment failed')).toBe('Payment failed')
+    expect(buildPaymentErrorMessage('Payment failed')).toBe('Payment failed')
   })
 
-  it('appends the hint to the toast body when present', () => {
-    expect(buildPaymentErrorToastMessage('Payment failed', 'Open WeChat to continue.')).toBe(
+  it('appends the hint to the message when present', () => {
+    expect(buildPaymentErrorMessage('Payment failed', 'Open WeChat to continue.')).toBe(
       'Payment failed Open WeChat to continue.'
     )
   })

@@ -3,11 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import UserEditModal from '../UserEditModal.vue'
 
-const { update, updateUserAttributeValues, showSuccess, showError } = vi.hoisted(() => ({
+const { update, updateUserAttributeValues } = vi.hoisted(() => ({
   update: vi.fn(),
   updateUserAttributeValues: vi.fn(),
-  showSuccess: vi.fn(),
-  showError: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -18,7 +16,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showSuccess, showError })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/composables/useClipboard', () => ({
@@ -57,8 +55,6 @@ describe('UserEditModal concurrency', () => {
   beforeEach(() => {
     update.mockReset()
     updateUserAttributeValues.mockReset()
-    showSuccess.mockReset()
-    showError.mockReset()
     update.mockResolvedValue({})
   })
 
@@ -72,7 +68,6 @@ describe('UserEditModal concurrency', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalledWith(7, expect.objectContaining({ concurrency: 0 }))
     expect(wrapper.emitted('success')).toBeTruthy()
   })
@@ -84,7 +79,6 @@ describe('UserEditModal concurrency', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('admin.users.concurrencyNonNegative')
     expect(update).not.toHaveBeenCalled()
   })
 })
@@ -93,8 +87,6 @@ describe('UserEditModal rate multiplier', () => {
   beforeEach(() => {
     update.mockReset().mockResolvedValue({})
     updateUserAttributeValues.mockReset()
-    showSuccess.mockReset()
-    showError.mockReset()
   })
 
   // 用户价 = 目录价 × rate_multiplier：编辑框预填用户当前值，保存时随表单一起提交。
