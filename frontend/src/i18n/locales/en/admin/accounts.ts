@@ -251,7 +251,7 @@ export default {
         antigravity: 'Antigravity',
         grok: 'Grok',
         kimi: 'Kimi',
-        zhipu: 'Zhipu GLM',
+        zhipu: 'Zhipu AI',
         deepseek: 'DeepSeek',
         minimax: 'MiniMax',
         opencode_go: 'OpenCode',

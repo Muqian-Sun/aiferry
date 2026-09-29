@@ -344,7 +344,7 @@ function platformLabel(value: string) {
       gemini: 'Gemini',
       antigravity: 'Antigravity',
       kimi: 'Kimi',
-      zhipu: 'Zhipu GLM',
+      zhipu: 'Zhipu AI',
       deepseek: 'DeepSeek',
       minimax: 'MiniMax',
       composite: 'Composite',

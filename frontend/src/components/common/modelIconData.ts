@@ -181,7 +181,7 @@ export function modelIconKey(model: string): string | null {
       modelLower.includes('learnlm') || modelLower.includes('imagen-') ||
       modelLower.includes('veo-')) return 'gemini'
 
-  // Zhipu GLM
+  // Zhipu AI (GLM)
   if (modelLower.includes('glm') || modelLower.includes('chatglm') ||
       modelLower.includes('cogview') || modelLower.includes('cogvideo')) return 'zhipu'
 
