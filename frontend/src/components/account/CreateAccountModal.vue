@@ -1376,31 +1376,6 @@
           </a>
         </div>
       </div>
-
-      <!-- API Key Links Section -->
-      <div class="border-t border-af-hairline pt-6">
-        <h3 class="mb-3 text-sm font-semibold text-af-ink">
-          {{ t('admin.accounts.gemini.helpDialog.apiKeySection') }}
-        </h3>
-        <div class="flex flex-wrap gap-3">
-          <a
-            :href="geminiHelpLinks.apiKey"
-            target="_blank"
-            rel="noreferrer"
-            class="text-sm text-af-ink-2 hover:underline"
-          >
-            {{ t('admin.accounts.gemini.accountType.apiKeyLink') }}
-          </a>
-          <a
-            :href="geminiHelpLinks.aiStudioPricing"
-            target="_blank"
-            rel="noreferrer"
-            class="text-sm text-af-ink-2 hover:underline"
-          >
-            {{ t('admin.accounts.gemini.accountType.quotaLink') }}
-          </a>
-        </div>
-      </div>
     </div>
 
     <template #footer>
@@ -1823,8 +1798,6 @@ const geminiQuotaDocs = {
 }
 
 const geminiHelpLinks = {
-  apiKey: 'https://aistudio.google.com/app/apikey',
-  aiStudioPricing: 'https://ai.google.dev/pricing',
   gcpProject: 'https://console.cloud.google.com/welcome/new',
   geminiWebActivation: 'https://gemini.google.com/gems/create?hl=en-US&pli=1',
   countryCheck: 'https://policies.google.com/terms',

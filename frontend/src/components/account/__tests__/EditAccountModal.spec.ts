@@ -71,7 +71,6 @@ import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 const PROTOCOL_DEFAULTS = {
   protocols: ['anthropic', 'chat_completions', 'responses', 'gemini'],
   defaults: {
-    openai: { default: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' } },
     kimi: {
       default: {
         anthropic: 'https://api.moonshot.cn/anthropic',
@@ -84,6 +83,12 @@ const PROTOCOL_DEFAULTS = {
         responses: 'https://api.kimi.com/coding/v1'
       }
     }
+  },
+  vendor_hosts: {
+    'api.moonshot.cn': 'kimi',
+    'api.kimi.com': 'kimi',
+    'api.minimaxi.com': 'minimax',
+    'api.minimax.io': 'minimax'
   }
 }
 
@@ -144,7 +149,7 @@ function buildAccount() {
         'gpt-5.2': 'gpt-5.2'
       }
     },
-    protocol_endpoints: { responses: 'https://api.openai.com' },
+    protocol_endpoints: { responses: 'https://relay.example.com/v1' },
     extra: {},
     proxy_id: null,
     concurrency: 1,
@@ -253,14 +258,13 @@ function buildGrokOAuthAccount() {
   } as any
 }
 
-function buildGrokAPIKeyAccount() {
+function buildRelayKeyWithoutCredentials() {
   return {
     ...buildAccount(),
     id: 6,
-    name: 'Grok API Key',
-    platform: 'grok',
+    name: 'Relay key',
     credentials: {},
-    protocol_endpoints: { responses: 'https://api.x.ai/v1' },
+    protocol_endpoints: { responses: 'https://relay.example.com/grok/v1' },
     credentials_status: { has_api_key: true },
     concurrency: 2
   } as any
@@ -527,6 +531,7 @@ describe('EditAccountModal', () => {
     updateAccountMock.mockReset().mockResolvedValue(account)
 
     const wrapper = mountModal(account)
+    await flushPromises()
     const preset = wrapper
       .findAll('[data-testid="cn-base-url-preset"]')
       .find(button => button.text().startsWith('MiniMax Intl Anthropic (api.minimax.io/anthropic)'))
@@ -595,8 +600,8 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
-  it('saves a Grok API-key account with its stored endpoints and no base_url fallback', async () => {
-    const account = buildGrokAPIKeyAccount()
+  it('saves a relay key with its stored endpoints and no base_url fallback', async () => {
+    const account = buildRelayKeyWithoutCredentials()
     updateAccountMock.mockReset()
     updateAccountMock.mockResolvedValue(account)
 
@@ -604,13 +609,13 @@ describe('EditAccountModal', () => {
 
     expect(
       (wrapper.get('[data-testid="protocol-endpoint-input-responses"]').element as HTMLInputElement).value
-    ).toBe('https://api.x.ai/v1')
+    ).toBe('https://relay.example.com/grok/v1')
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      responses: 'https://api.x.ai/v1'
+      responses: 'https://relay.example.com/grok/v1'
     })
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('base_url')
   })
@@ -779,7 +784,7 @@ describe('EditAccountModal', () => {
     // 新前端 + 新后端：响应已脱敏，credentials 里没有 api_key，credentials_status.has_api_key=true
     const account = buildAccount()
     account.credentials = {
-      base_url: 'https://api.openai.com',
+      base_url: 'https://relay.example.com/v1',
       model_mapping: { 'gpt-5.2': 'gpt-5.2' }
     }
     account.credentials_status = { has_api_key: true }
@@ -815,7 +820,7 @@ describe('EditAccountModal', () => {
   it('blocks apikey save when neither credentials_status nor legacy api_key indicates existence', async () => {
     const account = buildAccount()
     account.credentials = {
-      base_url: 'https://api.openai.com'
+      base_url: 'https://relay.example.com/v1'
     }
     // 既没有 credentials_status 也没有旧的 api_key
     updateAccountMock.mockReset()
@@ -988,7 +993,7 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   }
 
   it('offers header overrides for a Gemini-labelled key and submits them', async () => {
-    const wrapper = mountModal(buildKey('gemini', { gemini: 'https://generativelanguage.googleapis.com' }))
+    const wrapper = mountModal(buildKey('gemini', { gemini: 'https://relay.example.com/gemini' }))
 
     const section = wrapper.get('[data-testid="edit-header-override"]')
     const addRow = section.findAll('button').find((button) => button.text().includes('admin.accounts.headerOverride.addRow'))

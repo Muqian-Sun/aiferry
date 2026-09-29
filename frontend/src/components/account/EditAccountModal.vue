@@ -238,7 +238,7 @@
           :defaults-load-failed="protocolDefaultsLoadFailed"
         />
         <CnBaseUrlPresets
-          v-if="isCNApiKeyAccount && account.platform !== 'opencode_go'"
+          v-if="cnPresetPlatform"
           class="mt-2"
           :platform="cnPresetPlatform"
           :mode="editAccountMode"
@@ -883,20 +883,13 @@ interface ModelMapping {
 const submitting = ref(false)
 const editApiKey = ref('')
 
-// 国产厂商 / OpenCode 的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。
-const isCNApiKeyAccount = computed(
-  () =>
-    props.account?.type === 'apikey' &&
-    (isCNProviderPlatform(props.account.platform) || props.account.platform === 'opencode_go')
-)
+// 国产厂商的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。按地址识别出的厂商判断，
+// 与「填入官方地址」同一口径、不看平台标签；中转与 OpenCode 没有这组预设（null）。
 // CnBaseUrlPresets 的 platform prop 是平台字面量联合类型，模板里不能写
 // `as` 断言（其中的 `|` 会被 eslint 误判为 Vue2 filter 语法），经此 computed 传递。
-const cnPresetPlatform = computed<CnProviderPlatform>(() => {
-  const platform = props.account?.platform
-  if (isCNProviderPlatform(platform ?? '')) {
-    return platform as CnProviderPlatform
-  }
-  return 'kimi'
+const cnPresetPlatform = computed<CnProviderPlatform | null>(() => {
+  const vendor = keyVendor.value
+  return vendor && isCNProviderPlatform(vendor) ? (vendor as CnProviderPlatform) : null
 })
 // 地址分不出套餐时管理员选的计费方式（见下方 keyAccountMode）
 const editAccountMode = ref<CnAccountMode>('payg')
@@ -944,17 +937,14 @@ const keyAccountMode = computed<string | undefined>(() => {
   return keyHasCodingPlan.value ? (keyPlanFromAddress.value ?? editAccountMode.value) : undefined
 })
 
-const protocolDefaultsMode = computed(() => {
-  const platform = props.account?.platform ?? ''
-  if (platform === 'opencode_go') return modeOfAddress(keyPresets.value, platform, editProtocolEndpoints.value) ?? 'zen'
-  if (isCNProviderPlatform(platform)) return keyPlanFromAddress.value ?? editAccountMode.value
-  return undefined
+// 按地址识别出的厂商与套餐取官方地址，与新建同一规则：平台标签只在新建时按地址推导一次，
+// 编辑改了地址标签不跟着变，不能拿它判断。认不出厂商（中转）就不给「填入官方地址」。
+const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return {}
+  const mode = vendor === 'opencode_go' || keyHasCodingPlan.value ? keyAccountMode.value : undefined
+  return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })
-// 按平台标签取官方地址：后端官方地址表只有国产厂商与 OpenCode，中转 key 按协议归族的
-// anthropic / openai / gemini 标签取到空表，不给「填入官方地址」（muqian 2026-09-29 删海外四家官方 Key）
-const officialProtocolEndpoints = computed(() =>
-  protocolDefaultsFor(protocolDefaults.value, props.account?.platform ?? '', protocolDefaultsMode.value)
-)
 watch(officialProtocolEndpoints, (next, previous) => {
   if (syncingForm.value) return
   editProtocolEndpoints.value = endpointsAfterDefaultsChange(

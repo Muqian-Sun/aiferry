@@ -57,7 +57,7 @@ describe('ProtocolEndpointsEditor', () => {
   })
 
   it('switches protocol and keeps an address the admin typed in', async () => {
-    const wrapper = mountEditor({ anthropic: 'https://relay.example' }, ALL, { anthropic: 'https://api.anthropic.com' })
+    const wrapper = mountEditor({ anthropic: 'https://relay.example' }, ALL, { anthropic: 'https://api.moonshot.cn/anthropic' })
 
     await wrapper.find('[data-testid="protocol-endpoint-protocol"]').setValue('responses')
 
@@ -81,14 +81,14 @@ describe('ProtocolEndpointsEditor', () => {
   })
 
   it('offers the official address only when it differs from the current value', () => {
-    const official = { anthropic: 'https://api.anthropic.com' }
+    const official = { anthropic: 'https://api.moonshot.cn/anthropic' }
 
     expect(
       mountEditor({ anthropic: 'https://relay.example' }, ALL, official)
         .find('[data-testid="protocol-endpoints-restore-official"]').exists()
     ).toBe(true)
     expect(
-      mountEditor({ anthropic: 'https://api.anthropic.com' }, ALL, official)
+      mountEditor({ anthropic: 'https://api.moonshot.cn/anthropic' }, ALL, official)
         .find('[data-testid="protocol-endpoints-restore-official"]').exists()
     ).toBe(false)
     expect(
@@ -98,12 +98,12 @@ describe('ProtocolEndpointsEditor', () => {
   })
 
   it('restores only the current protocol\'s official address', async () => {
-    const official = { chat_completions: 'https://api.openai.com/v1', responses: 'https://api.openai.com/v1' }
+    const official = { chat_completions: 'https://api.moonshot.cn/v1', responses: 'https://api.moonshot.cn/v1' }
     const wrapper = mountEditor({ responses: 'https://relay.example' }, ALL, official)
 
     await wrapper.find('[data-testid="protocol-endpoints-restore-official"]').trigger('click')
 
-    expect(lastEmitted(wrapper)).toEqual({ responses: 'https://api.openai.com/v1' })
+    expect(lastEmitted(wrapper)).toEqual({ responses: 'https://api.moonshot.cn/v1' })
   })
 
   it('tells the admin to fill addresses manually when official addresses failed to load', () => {

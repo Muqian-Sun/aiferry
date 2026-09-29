@@ -1234,8 +1234,7 @@ export default {
       gemini: {
         helpButton: '使用帮助',
         helpDialog: {
-          title: 'Gemini 使用指南',
-          apiKeySection: 'API Key 相关链接'
+          title: 'Gemini 使用指南'
         },
         modelPassthrough: 'Gemini 直接转发模型',
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
@@ -1246,10 +1245,6 @@ export default {
           },
           aiStudio: {
           }
-        },
-        accountType: {
-          apiKeyLink: '获取 API Key',
-          quotaLink: '配额说明'
         },
         oauthType: {
           builtInTitle: '内置授权（Gemini CLI / Code Assist）',
@@ -1334,7 +1329,7 @@ export default {
               limits: 'RPD ~1000；RPM ~60（预览期）'
             },
             aiStudio: {
-              channel: 'AI Studio API Key / OAuth',
+              channel: 'AI Studio OAuth',
               free: '未绑卡（免费层）',
               paid: '已绑卡（按量付费）',
               limitsFree: 'RPD 50；RPM 2（Pro）/ 15（Flash）',

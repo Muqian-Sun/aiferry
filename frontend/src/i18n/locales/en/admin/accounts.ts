@@ -1127,8 +1127,7 @@ export default {
       gemini: {
         helpButton: 'Help',
         helpDialog: {
-          title: 'Gemini Usage Guide',
-          apiKeySection: 'API Key Links'
+          title: 'Gemini Usage Guide'
         },
         modelPassthrough: 'Gemini Model Passthrough',
         modelPassthroughDesc:
@@ -1140,10 +1139,6 @@ export default {
           },
           aiStudio: {
           }
-        },
-        accountType: {
-          apiKeyLink: 'Get API Key',
-          quotaLink: 'Quota guide'
         },
         oauthType: {
           builtInTitle: 'Built-in OAuth (Gemini CLI / Code Assist)',
@@ -1228,7 +1223,7 @@ export default {
               limits: 'RPD ~1000; RPM ~60 (preview)'
             },
             aiStudio: {
-              channel: 'AI Studio API Key / OAuth',
+              channel: 'AI Studio OAuth',
               free: 'No billing (free tier)',
               paid: 'Billing enabled (pay-as-you-go)',
               limitsFree: 'RPD 50; RPM 2 (Pro) / 15 (Flash)',
