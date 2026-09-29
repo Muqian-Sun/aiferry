@@ -111,11 +111,10 @@ const balance = computed(() => authStore.user?.balance.toFixed(2) || '0.00')
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { AuthLayout } from '@/components/layout'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 const form = ref({
   username: '',
@@ -128,10 +127,9 @@ async function handleSubmit() {
   loading.value = true
   try {
     await authStore.login(form.value)
-    appStore.showSuccess('Login successful!')
     await router.push('/dashboard')
   } catch (error) {
-    appStore.showError('Invalid username or password')
+    console.error('Invalid username or password', error)
   } finally {
     loading.value = false
   }
@@ -387,10 +385,9 @@ const users = ref<User[]>([])
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { AppLayout } from '@/components/layout'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
 
@@ -402,10 +399,9 @@ const passwordForm = ref({
 async function handleChangePassword() {
   try {
     // await changePasswordAPI(passwordForm.value);
-    appStore.showSuccess('Password updated successfully!')
     passwordForm.value = { old_password: '', new_password: '' }
   } catch (error) {
-    appStore.showError('Failed to update password')
+    console.error('Failed to update password', error)
   }
 }
 </script>
@@ -417,8 +413,7 @@ async function handleChangePassword() {
 
 1. **Page Titles**: Set route meta to automatically display page titles in the header
 2. **Loading States**: Use `appStore.setLoading(true/false)` for global loading indicators
-3. **Toast Notifications**: Use `appStore.showSuccess()`, `appStore.showError()`, etc.
-4. **Authentication**: All authenticated pages should use `AppLayout`
-5. **Auth Pages**: Login and Register pages should use `AuthLayout`
-6. **Sidebar State**: The sidebar state persists across navigation
-7. **Mobile First**: All examples are responsive by default using Tailwind's mobile-first approach
+3. **Authentication**: All authenticated pages should use `AppLayout`
+4. **Auth Pages**: Login and Register pages should use `AuthLayout`
+5. **Sidebar State**: The sidebar state persists across navigation
+6. **Mobile First**: All examples are responsive by default using Tailwind's mobile-first approach

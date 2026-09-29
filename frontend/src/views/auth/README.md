@@ -44,8 +44,7 @@ import { LoginView } from '@/views/auth'
 **Behavior:**
 
 - Calls `authStore.login()` with credentials
-- Shows success toast on successful login
-- Shows error toast and inline error message on failure
+- Shows inline error message on failure
 - Redirects to `/dashboard` or intended route from query parameter
 - Redirects authenticated users away from login page
 
@@ -103,8 +102,7 @@ import { RegisterView } from '@/views/auth'
 **Behavior:**
 
 - Calls `authStore.register()` with user data
-- Shows success toast on successful registration
-- Shows error toast and inline error message on failure
+- Shows inline error message on failure
 - Redirects to `/dashboard` after successful registration
 - Redirects authenticated users away from register page
 
@@ -143,7 +141,7 @@ Both views follow a consistent structure:
 Both views use:
 
 - `useAuthStore()` - For authentication actions (login, register)
-- `useAppStore()` - For toast notifications and UI feedback
+- `useAppStore()` - For public settings and site branding
 - `useRouter()` - For navigation and redirects
 
 ### Validation Strategy
@@ -176,7 +174,6 @@ Both views use:
 - Red border on invalid fields
 - Error messages below inputs
 - Global error banner for API errors
-- Success toasts on completion
 - Loading spinner on submit button
 
 ## Dependencies
@@ -188,7 +185,7 @@ Both views use:
 ### Stores
 
 - `authStore` - Authentication state management from `@/stores/auth`
-- `appStore` - Application state and toasts from `@/stores/app`
+- `appStore` - Application state from `@/stores/app`
 
 ### Libraries
 
@@ -212,12 +209,10 @@ await handleLogin()
 // On success:
 // - authStore.login() called
 // - Token and user stored
-// - Success toast shown
 // - Redirected to /dashboard
 
 // On error:
 // - Error message displayed
-// - Error toast shown
 // - Form remains editable
 ```
 
@@ -236,12 +231,10 @@ await handleRegister()
 // On success:
 // - authStore.register() called
 // - Token and user stored
-// - Success toast shown
 // - Redirected to /dashboard
 
 // On error:
 // - Error message displayed
-// - Error toast shown
 // - Form remains editable
 ```
 
@@ -271,7 +264,6 @@ errors.confirmPassword = 'Passwords do not match'
 
 // Displayed as:
 errorMessage.value = 'Username already exists'
-appStore.showError('Username already exists')
 ```
 
 ## Accessibility

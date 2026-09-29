@@ -4,7 +4,7 @@
  *
  * 扫描集只有壳（AppLayout / AppHeader / SidebarFrame / AdminSidebar / TablePageLayout）与已重做的管理页。
  * 全站旧调色类由 scripts/codemod-af-tokens.mjs --check 盯住（pnpm check:admin-tokens，已接进 build），不在这里配白名单。
- * 另外盯住 style.css：壳用到的原语（card / sidebar / page / table / toast / tour）不能再带旧调色。
+ * 另外盯住 style.css：壳用到的原语（card / sidebar / page / table / tour）不能再带旧调色。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -30,7 +30,7 @@ const SCAN_FILES = [
 ]
 
 /** style.css 里壳依赖的原语块名；每块的 @apply 都不能带旧调色 */
-const STYLE_BLOCKS = ['card', 'card-hover', 'card-header', 'card-body', 'card-footer', 'stat-card', 'sidebar', 'sidebar-header', 'sidebar-nav', 'sidebar-link', 'sidebar-link-active', 'sidebar-section-title', 'page-header', 'page-title', 'page-description', 'table-container', 'table th', 'table td', 'toast', 'empty-state-icon', 'empty-state-title', 'empty-state-description', 'tour-step-description', 'tour-info-box', 'tour-success-box', 'tour-warning-box', 'tour-error-box']
+const STYLE_BLOCKS = ['card', 'card-hover', 'card-header', 'card-body', 'card-footer', 'stat-card', 'sidebar', 'sidebar-header', 'sidebar-nav', 'sidebar-link', 'sidebar-link-active', 'sidebar-section-title', 'page-header', 'page-title', 'page-description', 'table-container', 'table th', 'table td', 'empty-state-icon', 'empty-state-title', 'empty-state-description', 'tour-step-description', 'tour-info-box', 'tour-success-box', 'tour-warning-box', 'tour-error-box']
 
 function styleBlock(css: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

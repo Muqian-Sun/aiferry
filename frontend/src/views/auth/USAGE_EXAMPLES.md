@@ -26,11 +26,9 @@ This document provides practical examples of how to use the authentication views
 // - On success:
 //   - Token stored in localStorage
 //   - User data stored in state
-//   - Success toast: "Login successful! Welcome back."
 //   - Redirect to /dashboard (or intended route)
 // - On error:
 //   - Error message displayed inline
-//   - Error toast shown
 //   - User can retry
 ```
 
@@ -61,11 +59,9 @@ This document provides practical examples of how to use the authentication views
 // - On success:
 //   - Token stored in localStorage
 //   - User data stored in state
-//   - Success toast: "Account created successfully! Welcome to AiFerry."
 //   - Redirect to /dashboard
 // - On error:
 //   - Error message displayed inline
-//   - Error toast shown
 //   - User can retry
 ```
 
@@ -143,11 +139,9 @@ router.push({
 
 ```typescript
 import { useAuthStore } from '@/stores'
-import { useAppStore } from '@/stores'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
-const appStore = useAppStore()
 const router = useRouter()
 
 // Login
@@ -158,10 +152,9 @@ async function login() {
       password: 'MySecurePass123'
     })
 
-    appStore.showSuccess('Login successful!')
     router.push('/dashboard')
   } catch (error) {
-    appStore.showError('Login failed. Please check your credentials.')
+    console.error('Login failed. Please check your credentials.', error)
   }
 }
 
@@ -174,10 +167,9 @@ async function register() {
       password: 'SecurePass123'
     })
 
-    appStore.showSuccess('Account created successfully!')
     router.push('/dashboard')
   } catch (error) {
-    appStore.showError('Registration failed. Please try again.')
+    console.error('Registration failed. Please try again.', error)
   }
 }
 ```
@@ -246,7 +238,7 @@ async function register() {
 {
   message: 'Network Error'
 }
-// Displayed: "Network Error" + Error toast
+// Displayed: "Network Error"
 
 // Example 4: Unknown error
 {
@@ -334,10 +326,6 @@ test('user can register successfully', async ({ page }) => {
 
   // Wait for redirect to dashboard
   await page.waitForURL('/dashboard')
-
-  // Verify success toast appears
-  await expect(page.locator('.toast-success')).toBeVisible()
-  await expect(page.locator('.toast-success')).toContainText('Account created successfully')
 })
 
 test('shows validation errors for invalid inputs', async ({ page }) => {
@@ -397,8 +385,6 @@ async function handleLogin(): Promise<void> {
       password: formData.password
     })
 
-    appStore.showSuccess('Login successful!')
-
     // Custom redirect logic
     const isAdmin = authStore.isAdmin
     const redirectTo = isAdmin ? '/admin/dashboard' : '/dashboard'
@@ -444,7 +430,6 @@ async function handleRegister(): Promise<void> {
       password: formData.password
     })
 
-    appStore.showSuccess('Account created successfully!')
     await router.push('/dashboard')
   } catch (error: unknown) {
     const err = error as { response?: { status?: number; data?: { detail?: string } } }
@@ -461,7 +446,7 @@ async function handleRegister(): Promise<void> {
       errorMessage.value = err.response?.data?.detail || 'Registration failed. Please try again.'
     }
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   }
 }
 ```

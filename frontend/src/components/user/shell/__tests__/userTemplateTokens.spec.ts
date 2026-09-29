@@ -34,7 +34,6 @@ const SCAN_FILES = [
   'components/common/DataTable.vue',
   'components/common/Pagination.vue',
   'components/common/DateRangePicker.vue',
-  'components/common/Toast.vue',
   'components/common/LocaleSwitcher.vue',
   'components/common/SearchInput.vue',
   'components/common/AnnouncementBell.vue',

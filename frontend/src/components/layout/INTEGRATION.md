@@ -353,12 +353,6 @@ const appStore = useAppStore()
 // Toggle sidebar
 appStore.toggleSidebar()
 
-// Show notifications
-appStore.showSuccess('Operation completed!')
-appStore.showError('Something went wrong')
-appStore.showInfo('Did you know...')
-appStore.showWarning('Be careful!')
-
 // Loading state
 appStore.setLoading(true)
 // ... perform operation

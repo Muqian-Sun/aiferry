@@ -74,103 +74,6 @@ describe('useAppStore', () => {
     localStorage.clear()
   })
 
-  // --- Toast 消息管理 ---
-
-  describe('Toast 消息管理', () => {
-    it('showSuccess 创建 success 类型 toast', () => {
-      const store = useAppStore()
-      const id = store.showSuccess('操作成功')
-
-      expect(id).toMatch(/^toast-/)
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('success')
-      expect(store.toasts[0].message).toBe('操作成功')
-    })
-
-    it('showError 创建 error 类型 toast', () => {
-      const store = useAppStore()
-      store.showError('出错了')
-
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('error')
-      expect(store.toasts[0].message).toBe('出错了')
-    })
-
-    it('showWarning 创建 warning 类型 toast', () => {
-      const store = useAppStore()
-      store.showWarning('警告信息')
-
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('warning')
-    })
-
-    it('showInfo 创建 info 类型 toast', () => {
-      const store = useAppStore()
-      store.showInfo('提示信息')
-
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('info')
-    })
-
-    it('toast 在指定 duration 后自动消失', () => {
-      const store = useAppStore()
-      store.showSuccess('临时消息', 3000)
-
-      expect(store.toasts).toHaveLength(1)
-
-      vi.advanceTimersByTime(3000)
-
-      expect(store.toasts).toHaveLength(0)
-    })
-
-    it('hideToast 移除指定 toast', () => {
-      const store = useAppStore()
-      const id = store.showSuccess('消息1')
-      store.showError('消息2')
-
-      expect(store.toasts).toHaveLength(2)
-
-      store.hideToast(id)
-
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('error')
-    })
-
-    it('clearAllToasts 清除所有 toast', () => {
-      const store = useAppStore()
-      store.showSuccess('消息1')
-      store.showError('消息2')
-      store.showWarning('消息3')
-
-      expect(store.toasts).toHaveLength(3)
-
-      store.clearAllToasts()
-
-      expect(store.toasts).toHaveLength(0)
-    })
-
-    it('hasActiveToasts 正确反映 toast 状态', () => {
-      const store = useAppStore()
-      expect(store.hasActiveToasts).toBe(false)
-
-      store.showSuccess('消息')
-      expect(store.hasActiveToasts).toBe(true)
-
-      store.clearAllToasts()
-      expect(store.hasActiveToasts).toBe(false)
-    })
-
-    it('多个 toast 的 ID 唯一', () => {
-      const store = useAppStore()
-      const id1 = store.showSuccess('消息1')
-      const id2 = store.showSuccess('消息2')
-      const id3 = store.showSuccess('消息3')
-
-      expect(id1).not.toBe(id2)
-      expect(id2).not.toBe(id3)
-    })
-  })
-
   // --- 侧边栏 ---
 
   describe('侧边栏管理', () => {
@@ -276,7 +179,7 @@ describe('useAppStore', () => {
       expect(store.loading).toBe(false)
     })
 
-    it('withLoadingAndError 错误时显示 toast 并返回 null', async () => {
+    it('withLoadingAndError 错误时返回 null', async () => {
       const store = useAppStore()
 
       const result = await store.withLoadingAndError(async () => {
@@ -285,8 +188,6 @@ describe('useAppStore', () => {
 
       expect(result).toBeNull()
       expect(store.loading).toBe(false)
-      expect(store.toasts).toHaveLength(1)
-      expect(store.toasts[0].type).toBe('error')
     })
   })
 
@@ -298,13 +199,11 @@ describe('useAppStore', () => {
 
       store.setSidebarCollapsed(true)
       store.setLoading(true)
-      store.showSuccess('消息')
 
       store.reset()
 
       expect(store.sidebarCollapsed).toBe(false)
       expect(store.loading).toBe(false)
-      expect(store.toasts).toHaveLength(0)
     })
   })
 
