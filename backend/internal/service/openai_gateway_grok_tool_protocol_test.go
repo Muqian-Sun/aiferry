@@ -214,8 +214,8 @@ func TestForwardGrokResponsesClientToolNameConflictReturns400(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	upstream := &httpUpstreamRecorder{}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
-	account := grokProtocolAPIKeyAccount(7101)
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
+	account := grokProtocolOAuthAccount(7101)
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 
@@ -240,8 +240,8 @@ func TestForwardGrokResponsesMalformedToolSearchOutputReturns400BeforeUpstream(t
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	upstream := &httpUpstreamRecorder{}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
-	account := grokProtocolAPIKeyAccount(7103)
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
+	account := grokProtocolOAuthAccount(7103)
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 
@@ -314,7 +314,7 @@ func TestForwardGrokResponsesOAuthRestoresClientToolsNonStreaming(t *testing.T) 
 	require.Equal(t, "send_message", gjson.GetBytes(response, "output.2.name").String())
 }
 
-func TestForwardGrokResponsesAPIKeyRestoresClientToolsFromSSEForNonStreamingRequest(t *testing.T) {
+func TestForwardGrokResponsesOAuthRestoresClientToolsFromSSEForNonStreamingRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := grokClientToolProtocolRequest(false)
@@ -327,12 +327,15 @@ func TestForwardGrokResponsesAPIKeyRestoresClientToolsFromSSEForNonStreamingRequ
 		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type":   []string{"text/event-stream"},
-			"Xai-Request-Id": []string{"protocol-api-key-sse-nonstream"},
+			"Xai-Request-Id": []string{"protocol-oauth-sse-nonstream"},
 		},
 		Body: io.NopCloser(strings.NewReader(grokProtocolUpstreamSSE())),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
-	account := grokProtocolAPIKeyAccount(7104)
+	account := grokProtocolOAuthAccount(7104)
+	repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
+		accountsByID: map[int64]*Account{account.ID: account},
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(repo, nil), accountRepo: repo}
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 
@@ -352,7 +355,7 @@ func TestForwardGrokResponsesAPIKeyRestoresClientToolsFromSSEForNonStreamingRequ
 	require.Equal(t, "send_message", gjson.GetBytes(response, "output.2.name").String())
 }
 
-func TestForwardGrokResponsesAPIKeyRestoresClientToolsStreaming(t *testing.T) {
+func TestForwardGrokResponsesOAuthRestoresClientToolsStreaming(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := grokClientToolProtocolRequest(true)
@@ -365,12 +368,15 @@ func TestForwardGrokResponsesAPIKeyRestoresClientToolsStreaming(t *testing.T) {
 		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type":   []string{"text/event-stream"},
-			"Xai-Request-Id": []string{"protocol-api-key"},
+			"Xai-Request-Id": []string{"protocol-oauth-stream"},
 		},
 		Body: io.NopCloser(strings.NewReader(grokProtocolUpstreamSSE())),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
-	account := grokProtocolAPIKeyAccount(7103)
+	account := grokProtocolOAuthAccount(7105)
+	repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
+		accountsByID: map[int64]*Account{account.ID: account},
+	}}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(repo, nil), accountRepo: repo}
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", true, time.Now())
 
@@ -378,8 +384,8 @@ func TestForwardGrokResponsesAPIKeyRestoresClientToolsStreaming(t *testing.T) {
 	require.NotNil(t, result)
 	require.True(t, result.Stream)
 	require.Equal(t, "resp_protocol_stream", result.ResponseID)
-	require.Equal(t, "https://api.x.ai/v1/responses", upstream.lastReq.URL.String())
-	require.Equal(t, "Bearer xai-protocol-key", upstream.lastReq.Header.Get("Authorization"))
+	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer oauth-protocol-token", upstream.lastReq.Header.Get("Authorization"))
 	assertGrokProtocolRequestLowered(t, upstream.lastBody)
 
 	frames := parseGrokProtocolSSEFrames(t, recorder.Body.String())
@@ -505,15 +511,6 @@ func grokProtocolOAuthAccount(id int64) *Account {
 			"expires_at": time.Now().Add(2 * grokTokenRefreshSkew).UTC().Format(time.RFC3339),
 			"base_url":   xai.DefaultCLIBaseURL, "subscription_tier": "supergrok",
 		},
-	}
-}
-
-func grokProtocolAPIKeyAccount(id int64) *Account {
-	return &Account{
-		ID: id, Name: "grok-api-key-protocol", Platform: PlatformGrok, Type: AccountTypeAPIKey,
-		Status: StatusActive, Schedulable: true, Concurrency: 1,
-		Credentials:       map[string]any{"api_key": "xai-protocol-key", "base_url": "https://api.x.ai/v1"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 }
 

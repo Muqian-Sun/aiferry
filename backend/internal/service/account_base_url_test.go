@@ -238,8 +238,8 @@ func TestGetGrokBaseURLOAuthIgnoresStoredAddress(t *testing.T) {
 			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			// 第三方 key 不回落官方端点：没配协议映射就是空，由调用方按缺地址报错。
-			name: "API key without protocol endpoints has no fallback",
+			// 第三方 key 不走 Grok 链路（指向 xAI 官方域名的 key 也按中转，2026-09-29）：没有 Grok 地址。
+			name: "API key without protocol endpoints has no Grok base URL",
 			account: Account{
 				Type:        AccountTypeAPIKey,
 				Platform:    PlatformGrok,
@@ -248,13 +248,13 @@ func TestGetGrokBaseURLOAuthIgnoresStoredAddress(t *testing.T) {
 			expected: "",
 		},
 		{
-			name: "API key uses its protocol endpoint",
+			name: "API key on api.x.ai has no Grok base URL",
 			account: Account{
 				Type:              AccountTypeAPIKey,
 				Platform:          PlatformGrok,
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok-relay.example.com/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: xai.DefaultBaseURL},
 			},
-			expected: "https://grok-relay.example.com/v1",
+			expected: "",
 		},
 	}
 
@@ -349,13 +349,14 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 			expected: xai.DefaultBaseURL,
 		},
 		{
-			name: "API key retains its configured media API",
+			// 第三方 key 不走 Grok 媒体链路（指向 xAI 官方域名的 key 也按中转，2026-09-29）。
+			name: "API key on api.x.ai has no Grok media base URL",
 			account: Account{
 				Type:              AccountTypeAPIKey,
 				Platform:          PlatformGrok,
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.com/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: xai.DefaultBaseURL},
 			},
-			expected: "https://grok.example.com/v1",
+			expected: "",
 		},
 		{
 			name: "non-Grok account has no Grok media base URL",

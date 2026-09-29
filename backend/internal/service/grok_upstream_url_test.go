@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -10,105 +11,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGrokAPIKeyURLPolicyFollowsGlobalSecurityConfig(t *testing.T) {
-	account := &Account{
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"base_url": "http://grok.example.test/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://grok.example.test/v1", APIProtocolResponses: "http://grok.example.test/v1"},
+// Grok 链路（Responses / Chat / 媒体 / 语音地址）只对 Grok 成品号：第三方 key 一律按中转、走通用链路，
+// 指向 api.x.ai 的 key 也一样（2026-09-29 海外四家不再有官方 key），构造 Grok 地址直接报错。
+func TestGrokURLBuildersRejectThirdPartyKeys(t *testing.T) {
+	cfg := &config.Config{}
+	for name, account := range map[string]*Account{
+		"key on api.x.ai":     {Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: xai.DefaultBaseURL}},
+		"grok-labelled relay": {Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := buildGrokResponsesURL(account, cfg)
+			require.EqualError(t, err, "grok account is required")
+			_, err = buildGrokChatCompletionsURL(account, cfg)
+			require.EqualError(t, err, "grok account is required")
+			_, err = buildGrokMediaURL(account, cfg, GrokMediaEndpointImagesGenerations, "")
+			require.EqualError(t, err, "grok account is required")
+			_, err = buildGrokVoiceURL(account, cfg, "tts")
+			require.EqualError(t, err, "grok account is required")
+		})
 	}
-
-	t.Run("insecure HTTP enabled with allowlist disabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = false
-		cfg.Security.URLAllowlist.AllowInsecureHTTP = true
-
-		responsesURL, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "http://grok.example.test/v1/responses", responsesURL)
-
-		chatURL, err := buildGrokChatCompletionsURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "http://grok.example.test/v1/chat/completions", chatURL)
-
-		mediaURL, err := buildGrokMediaURL(account, cfg, GrokMediaEndpointImagesGenerations, "")
-		require.NoError(t, err)
-		require.Equal(t, "http://grok.example.test/v1/images/generations", mediaURL)
-
-		contentURL, err := buildGrokMediaURL(account, cfg, GrokMediaEndpointVideoContent, "request 123")
-		require.NoError(t, err)
-		require.Equal(t, "http://grok.example.test/v1/videos/request%20123/content", contentURL)
-	})
-
-	t.Run("insecure HTTP disabled", func(t *testing.T) {
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = false
-		cfg.Security.URLAllowlist.AllowInsecureHTTP = false
-
-		_, err := buildGrokResponsesURL(account, cfg)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-	})
-
-	t.Run("enabled allowlist remains HTTPS only", func(t *testing.T) {
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = true
-		cfg.Security.URLAllowlist.AllowInsecureHTTP = true
-		cfg.Security.URLAllowlist.UpstreamHosts = []string{"grok.example.test"}
-
-		_, err := buildGrokResponsesURL(account, cfg)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-	})
 }
 
-func TestGrokAPIKeyURLPolicyAppliesAllowlistAndPrivateHostControls(t *testing.T) {
-	account := &Account{
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"base_url": "https://grok.example.test/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
-	}
-	cfg := &config.Config{}
-	cfg.Security.URLAllowlist.Enabled = true
-	cfg.Security.URLAllowlist.UpstreamHosts = []string{"grok.example.test"}
+// xAI 搜索（/v1/web_search）同样只对 Grok 成品号：贴 grok 标签、地址是 api.x.ai 的 key 直接拒绝，不发上游。
+func TestDoGrokNativeResponsesJSONRejectsThirdPartyKeys(t *testing.T) {
+	upstream := &httpUpstreamRecorder{}
+	svc := &GatewayService{httpUpstream: upstream}
+	key := &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "xai"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: xai.DefaultBaseURL}}
 
-	target, err := buildGrokResponsesURL(account, cfg)
-	require.NoError(t, err)
-	require.Equal(t, "https://grok.example.test/v1/responses", target)
-
-	cfg.Security.URLAllowlist.UpstreamHosts = []string{"other.example.test"}
-	_, err = buildGrokResponsesURL(account, cfg)
-	require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-
-	account.ProtocolEndpoints[APIProtocolResponses] = "https://127.0.0.1/v1"
-	cfg.Security.URLAllowlist.UpstreamHosts = []string{"127.0.0.1"}
-	_, err = buildGrokResponsesURL(account, cfg)
-	require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-
-	cfg.Security.URLAllowlist.AllowPrivateHosts = true
-	target, err = buildGrokResponsesURL(account, cfg)
-	require.NoError(t, err)
-	require.Equal(t, "https://127.0.0.1/v1/responses", target)
-}
-
-func TestGrokAPIKeyURLPolicyRedactsMalformedConfiguredURL(t *testing.T) {
-	account := &Account{
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"base_url": "https://%zz:secret@grok.example.test/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://%zz:secret@grok.example.test/v1", APIProtocolResponses: "https://%zz:secret@grok.example.test/v1"},
-	}
-	cfg := &config.Config{}
-	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
-
-	_, err := buildGrokResponsesURL(account, cfg)
-	require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-	require.NotContains(t, err.Error(), "secret")
+	_, err := svc.DoGrokNativeResponsesJSON(context.Background(), key, []byte(`{"input":"q"}`))
+	require.EqualError(t, err, "grok account required")
+	require.Empty(t, upstream.requests)
 }
 
 func TestGrokOAuthURLPolicy(t *testing.T) {

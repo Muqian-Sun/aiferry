@@ -349,7 +349,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 
 	// 第三方 key：平台标签只是展示，测哪个地址、用哪种线格式由协议地址与 Vendor 决定。
 	if account.IsThirdPartyKey() {
-		return s.testThirdPartyKeyConnection(c, account, modelID, prompt, mode, testOpts)
+		return s.testThirdPartyKeyConnection(c, account, modelID, prompt, mode)
 	}
 
 	// 成品号：厂商绑定，平台即厂商（Vendor() == Platform）。
@@ -374,14 +374,11 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 
 // testThirdPartyKeyConnection 第三方 key 的连接测试入口。
 //
-// 厂商特化先分流：Grok 的图片/视频/搜索/语音端点与 OpenCode 的按模型分流只有官方
-// 地址才有，按 Vendor() 判定——贴着这两个标签的中转按通用协议测。其余一律按 key
-// 配置的协议地址探测，与真实转发同址同形。
-func (s *AccountTestService) testThirdPartyKeyConnection(c *gin.Context, account *Account, modelID, prompt, mode string, opts AccountTestOptions) error {
-	switch account.Vendor() {
-	case PlatformGrok:
-		return s.testGrokAccountConnection(c, account, modelID, prompt, mode, opts)
-	case PlatformOpenCodeGo:
+// 厂商特化先分流：OpenCode 的按模型分流只有官方地址才有，按 Vendor() 判定——贴着这个
+// 标签的中转按通用协议测。其余一律按 key 配置的协议地址探测，与真实转发同址同形
+// （指向 Anthropic / OpenAI / Gemini / xAI 官方域名的 key 也按中转测）。
+func (s *AccountTestService) testThirdPartyKeyConnection(c *gin.Context, account *Account, modelID, prompt, mode string) error {
+	if account.Vendor() == PlatformOpenCodeGo {
 		return s.testOpenCodeGoAccountConnection(c, account, modelID, prompt)
 	}
 	return s.testKeyProtocolEndpointConnection(c, account, modelID, prompt, mode)
@@ -1039,12 +1036,6 @@ func (s *AccountTestService) grokTestAccessToken(ctx context.Context, account *A
 			return "", fmt.Errorf("failed to get grok access token: %s", err.Error())
 		}
 		return token, nil
-	case AccountTypeAPIKey:
-		authToken := strings.TrimSpace(account.GetCredential("api_key"))
-		if authToken == "" {
-			return "", fmt.Errorf("grok api key is missing")
-		}
-		return authToken, nil
 	default:
 		return "", fmt.Errorf("unsupported grok account type: %s", account.Type)
 	}

@@ -148,10 +148,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
 
-	// xAI 的 Responses 端点有专属请求改写、缓存身份与重放重试：成品号按平台，
-	// 第三方 key 按地址识别出的厂商，且只在实际走 Responses 协议时启用。
-	if (!account.IsThirdPartyKey() && account.Platform == PlatformGrok) ||
-		(keyProtocol == APIProtocolResponses && account.Vendor() == PlatformGrok) {
+	// xAI 的 Responses 端点有专属请求改写、缓存身份与重放重试：只对 Grok 成品号。
+	// 第三方 key 一律按中转走下面的通用链路（指向 xAI 官方域名的 key 也一样）。
+	if !account.IsThirdPartyKey() && account.Platform == PlatformGrok {
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
 	}
 

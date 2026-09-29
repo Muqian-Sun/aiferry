@@ -9,9 +9,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -39,17 +41,25 @@ func (s *grokMediaContentUpstreamStub) DoWithTLS(req *http.Request, proxyURL str
 	return s.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
+// grokMediaContentTestAccount xAI 媒体只对 Grok 成品号（第三方 key 一律按中转，2026-09-29），夹具是 Grok OAuth
+// 成品号：媒体走 api.x.ai，令牌由 grokMediaContentTestService 的 token provider 取出。
 func grokMediaContentTestAccount() *Account {
 	return &Account{
-		ID:       9,
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
+		ID:          9,
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
 		Credentials: map[string]any{
-			"api_key":  "upstream-key",
-			"base_url": "https://relay.example/v1",
+			"access_token":  "upstream-key",
+			"refresh_token": "upstream-refresh",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 	}
+}
+
+func grokMediaContentTestService(upstream HTTPUpstream) *OpenAIGatewayService {
+	return &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 }
 
 func grokMediaContentTestContext(method, target string, headers map[string]string) (*gin.Context, *httptest.ResponseRecorder) {
@@ -87,7 +97,7 @@ func TestForwardGrokMediaContentUsesUpstreamCredentialAndStreamsRange(t *testing
 			Body: io.NopCloser(strings.NewReader("video-payload")),
 		}},
 	}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", map[string]string{
 		"Range": "bytes=0-12",
 	})
@@ -102,9 +112,9 @@ func TestForwardGrokMediaContentUsesUpstreamCredentialAndStreamsRange(t *testing
 	require.Equal(t, http.StatusPartialContent, recorder.Code)
 	require.Equal(t, "video-payload", recorder.Body.String())
 	require.Len(t, upstream.requests, 2)
-	require.Equal(t, "https://relay.example/v1/videos/task-1", upstream.requests[0].URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/task-1", upstream.requests[0].URL.String())
 	require.Equal(t, "Bearer upstream-key", upstream.requests[0].Header.Get("Authorization"))
-	require.Equal(t, "https://relay.example/v1/videos/task-1/content", upstream.requests[1].URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/task-1/content", upstream.requests[1].URL.String())
 	require.Equal(t, "Bearer upstream-key", upstream.requests[1].Header.Get("Authorization"))
 	require.Equal(t, "bytes=0-12", upstream.requests[1].Header.Get("Range"))
 	require.Equal(t, "*/*", upstream.requests[1].Header.Get("Accept"))
@@ -125,7 +135,7 @@ func TestForwardGrokMediaContentStreamsFullResponseWithSafeDefaults(t *testing.T
 			ContentLength: -1,
 		}},
 	}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", nil)
 
 	_, err := svc.ForwardGrokMedia(
@@ -158,7 +168,7 @@ func TestForwardGrokMediaContentPreservesRangeNotSatisfiable(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader("bad-range!!")),
 		}},
 	}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", map[string]string{
 		"Range": "bytes=500-600",
 	})
@@ -195,7 +205,7 @@ func TestForwardGrokMediaContentFetchesValidatedSignedURLWithoutCredentials(t *t
 	}
 	account := grokMediaContentTestAccount()
 	account.Credentials[credKeyHeaderOverrides] = map[string]any{"user-agent": "private-agent"}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", map[string]string{
 		"Range": "bytes=0-12",
 	})
@@ -209,7 +219,7 @@ func TestForwardGrokMediaContentFetchesValidatedSignedURLWithoutCredentials(t *t
 	require.Equal(t, http.StatusPartialContent, recorder.Code)
 	require.Equal(t, "video-payload", recorder.Body.String())
 	require.Len(t, upstream.requests, 2)
-	require.Equal(t, "https://relay.example/v1/videos/task-1", upstream.requests[0].URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/task-1", upstream.requests[0].URL.String())
 	require.Equal(t, "Bearer upstream-key", upstream.requests[0].Header.Get("Authorization"))
 	require.Equal(t, "private-agent", upstream.requests[0].Header.Get("User-Agent"))
 	require.True(t, HTTPUpstreamRedirectsDisabled(upstream.requests[0].Context()))
@@ -236,7 +246,7 @@ func TestForwardGrokMediaContentFollowsAuthenticatedSub2APIRelay(t *testing.T) {
 					},
 				},
 			}
-			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+			svc := grokMediaContentTestService(upstream)
 			c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", nil)
 
 			_, err := svc.ForwardGrokMedia(
@@ -248,7 +258,7 @@ func TestForwardGrokMediaContentFollowsAuthenticatedSub2APIRelay(t *testing.T) {
 			require.Equal(t, http.StatusOK, recorder.Code)
 			require.Equal(t, "video-payload", recorder.Body.String())
 			require.Len(t, upstream.requests, 2)
-			require.Equal(t, "https://relay.example/v1/videos/task-1/content", upstream.requests[1].URL.String())
+			require.Equal(t, xai.DefaultBaseURL+"/videos/task-1/content", upstream.requests[1].URL.String())
 			require.Equal(t, "Bearer upstream-key", upstream.requests[1].Header.Get("Authorization"))
 		})
 	}
@@ -260,7 +270,7 @@ func TestForwardGrokMediaContentRejectsUntrustedSignedURL(t *testing.T) {
 			grokMediaContentStatusResponse(`{"status":"done","video":{"url":"http://169.` + `254.169.254/latest/meta-data"}}`),
 		},
 	}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, _ := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1/content", nil)
 
 	_, err := svc.ForwardGrokMedia(
@@ -304,7 +314,7 @@ func TestForwardGrokVideoStatusRewritesOnlyProtectedContentURL(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(statusBody)),
 		},
 	}
-	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	svc := grokMediaContentTestService(upstream)
 	c, recorder := grokMediaContentTestContext(http.MethodGet, "https://api.example/v1/videos/task-1", map[string]string{
 		"X-Forwarded-Host":  "malicious.invalid",
 		"X-Forwarded-Proto": "https",

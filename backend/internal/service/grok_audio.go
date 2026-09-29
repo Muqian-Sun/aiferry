@@ -35,8 +35,9 @@ func (s *OpenAIGatewayService) ForwardGrokVoice(ctx context.Context, c *gin.Cont
 	if s == nil || account == nil {
 		return nil, fmt.Errorf("grok voice service/account is required")
 	}
-	if !account.IsThirdPartyKey() && account.Platform != PlatformGrok {
-		return nil, fmt.Errorf("account platform %s is not supported for grok voice", account.Platform)
+	// xAI 语音是厂商私有 API，只有 Grok 成品号承接；第三方 key 一律按中转（指向 xAI 官方域名的也一样）。
+	if account.Vendor() != PlatformGrok {
+		return nil, fmt.Errorf("account %d (platform %s, type %s) is not supported for grok voice", account.ID, account.Platform, account.Type)
 	}
 	endpoint = strings.Trim(strings.TrimSpace(endpoint), "/")
 	parts := strings.Split(endpoint, "/")
@@ -127,8 +128,8 @@ func (s *OpenAIGatewayService) ProxyGrokRealtime(ctx context.Context, c *gin.Con
 	if s == nil || client == nil || account == nil {
 		return false, fmt.Errorf("realtime service, client, and account are required")
 	}
-	if !account.IsThirdPartyKey() && account.Platform != PlatformGrok {
-		return false, fmt.Errorf("account platform %s is not supported for grok realtime", account.Platform)
+	if account.Vendor() != PlatformGrok {
+		return false, fmt.Errorf("account %d (platform %s, type %s) is not supported for grok realtime", account.ID, account.Platform, account.Type)
 	}
 	upstream, err := s.OpenGrokRealtime(ctx, account, token, model)
 	if err != nil {
@@ -158,7 +159,7 @@ func (u *GrokRealtimeUpstream) Close() error {
 }
 
 func (s *OpenAIGatewayService) OpenGrokRealtime(ctx context.Context, account *Account, token, model string) (*GrokRealtimeUpstream, error) {
-	if s == nil || account == nil || (!account.IsThirdPartyKey() && account.Platform != PlatformGrok) {
+	if s == nil || account.Vendor() != PlatformGrok {
 		return nil, fmt.Errorf("grok realtime account is required")
 	}
 	base, err := buildGrokVoiceURL(account, s.cfg, "realtime")
@@ -263,8 +264,8 @@ func (s *OpenAIGatewayService) ProbeGrokRealtime(ctx context.Context, account *A
 	if s == nil || account == nil {
 		return fmt.Errorf("realtime service and account are required")
 	}
-	if !account.IsThirdPartyKey() && account.Platform != PlatformGrok {
-		return fmt.Errorf("account platform %s is not supported for grok realtime", account.Platform)
+	if account.Vendor() != PlatformGrok {
+		return fmt.Errorf("account %d (platform %s, type %s) is not supported for grok realtime", account.ID, account.Platform, account.Type)
 	}
 	base, err := buildGrokVoiceURL(account, s.cfg, "realtime")
 	if err != nil {

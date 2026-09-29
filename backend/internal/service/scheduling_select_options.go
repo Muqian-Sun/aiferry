@@ -22,8 +22,9 @@ type SelectOptions struct {
 	// OnlyAccountID 只认这一个账号（grok 视频状态轮询只能落回任务归属账号）；它不能承接就是无候选，不逃逸到别的账号。
 	OnlyAccountID int64
 	// Platform 端点要求的厂商平台（无模型端点用：live / realtime → openai，web_search / tts → grok…）。
-	// 池按它装载，且候选账号的 Platform 必须等于它——网关平台桶会放进任何有兼容地址的第三方 key，
-	// 而这些端点调的是厂商原生 API（xAI 搜索 / 语音、OpenAI live），别家的 key 承接不了。
+	// 池按它装载，且候选必须是该平台的成品号——网关平台桶会放进任何有兼容地址的第三方 key，
+	// 而这些端点调的是厂商原生 API（xAI 搜索 / 语音、OpenAI live）。第三方 key 一律按中转，
+	// 贴着该平台标签的 key 也承接不了（2026-09-29 定，海外四家不再有官方 key）。
 	// 不是 ForcePlatform——不跳过任何门。空 = 由路由 / 分组决定。
 	Platform string
 }
@@ -48,7 +49,7 @@ func (o SelectOptions) admits(cfg *config.Config, resolver OpenAIWSProtocolResol
 	if o.OnlyAccountID > 0 && account.ID != o.OnlyAccountID {
 		return false, "not_owner"
 	}
-	if o.Platform != "" && account.Platform != o.Platform {
+	if o.Platform != "" && (account.Platform != o.Platform || account.IsThirdPartyKey()) {
 		return false, "platform_mismatch"
 	}
 	if !account.SupportsOpenAIEndpointCapability(o.Capability) {

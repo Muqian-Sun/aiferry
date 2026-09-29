@@ -67,32 +67,31 @@ func (c *snapshotHydrationCache) SetOutboxWatermark(ctx context.Context, id int6
 }
 
 func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedulerSnapshot(t *testing.T) {
+	// 平台池（SelectOptions.Platform）只放成品号（2026-09-29）：用 Anthropic 成品号验证快照命中后回填凭据。
 	cache := &snapshotHydrationCache{
 		snapshot: []*Account{
 			{
-				ID:                9,
-				Platform:          PlatformAnthropic,
-				Type:              AccountTypeAPIKey,
-				Status:            StatusActive,
-				Schedulable:       true,
-				Concurrency:       1,
-				Priority:          1,
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
+				ID:          9,
+				Platform:    PlatformAnthropic,
+				Type:        AccountTypeSetupToken,
+				Status:      StatusActive,
+				Schedulable: true,
+				Concurrency: 1,
+				Priority:    1,
 			},
 		},
 		accounts: map[int64]*Account{
 			9: {
 				ID:          9,
 				Platform:    PlatformAnthropic,
-				Type:        AccountTypeAPIKey,
+				Type:        AccountTypeSetupToken,
 				Status:      StatusActive,
 				Schedulable: true,
 				Concurrency: 1,
 				Priority:    1,
 				Credentials: map[string]any{
-					"api_key": "anthropic-live-key",
+					"access_token": "anthropic-live-token",
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 	}
@@ -111,8 +110,8 @@ func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedu
 	if result == nil || result.Account == nil {
 		t.Fatalf("expected selected account")
 	}
-	if got := result.Account.GetCredential("api_key"); got != "anthropic-live-key" {
-		t.Fatalf("expected hydrated api key, got %q", got)
+	if got := result.Account.GetCredential("access_token"); got != "anthropic-live-token" {
+		t.Fatalf("expected hydrated access token, got %q", got)
 	}
 }
 

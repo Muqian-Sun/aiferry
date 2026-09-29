@@ -211,19 +211,20 @@ func (p grokMediaSlotProber) ProbeMediaEligibility(ctx context.Context, id int64
 	return p(ctx, id)
 }
 
-func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGatewayHandler, *grokMediaSlotsCache, *grokMediaSlotBindings, *grokMediaSlotUpstream) {
+// newGrokMediaSlotHandler xAI 媒体是 Grok 成品号专属的厂商端点（第三方 key 一律按中转，2026-09-29），
+// 夹具只建 Grok OAuth 成品号。
+func newGrokMediaSlotHandler(t *testing.T, ownerMissing bool) (*OpenAIGatewayHandler, *grokMediaSlotsCache, *grokMediaSlotBindings, *grokMediaSlotUpstream) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	accounts := make([]service.Account, 3)
 	for i := range accounts {
-		accounts[i] = service.Account{ID: int64(i + 1), Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey,
+		accounts[i] = service.Account{ID: int64(i + 1), Platform: service.PlatformGrok, Type: service.AccountTypeOAuth,
 			Status: service.StatusActive, Schedulable: true, Concurrency: 50, Priority: i,
-			Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
-		if oauth {
-			accounts[i].Type = service.AccountTypeOAuth
-			accounts[i].Credentials["refresh_token"] = "test-refresh"
-			accounts[i].Credentials["expires_at"] = time.Now().Add(7 * 24 * time.Hour).UTC().Format(time.RFC3339)
-		}
+			Credentials: map[string]any{
+				"access_token":  "test-token",
+				"refresh_token": "test-refresh",
+				"expires_at":    time.Now().Add(7 * 24 * time.Hour).UTC().Format(time.RFC3339),
+			}}
 	}
 	slots := &grokMediaSlotsCache{accounts: map[string]int64{}, users: map[string]int64{}}
 	concurrency := service.NewConcurrencyService(slots)
@@ -238,10 +239,8 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 	cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
 	repo := grokMediaSlotRepo{openAIImagesFailoverAccountRepo: openAIImagesFailoverAccountRepo{accounts: accounts}, ownerMissing: ownerMissing}
 	provider := service.NewGrokTokenProvider(repo, nil)
-	if oauth {
-		_, err := provider.GetAccessToken(context.Background(), &accounts[1])
-		require.NoError(t, err)
-	}
+	_, err := provider.GetAccessToken(context.Background(), &accounts[1])
+	require.NoError(t, err)
 	scheduler := service.NewGatewayService(
 		repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
@@ -281,7 +280,7 @@ func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *
 func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
 	for _, scenario := range []string{"normal", "owner missing", "full", "queue full", "cancel while waiting", "wait then acquired", "upstream error", "cancel", "panic"} {
 		t.Run(scenario, func(t *testing.T) {
-			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, scenario == "owner missing")
+			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, scenario == "owner missing")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			if scenario == "full" || scenario == "queue full" || scenario == "cancel while waiting" {
@@ -351,7 +350,7 @@ func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
 func TestGrokMediaEligibilityReleasesBeforeSwitch(t *testing.T) {
 	for _, scenario := range []string{"switch", "exhausted", "cancel during probe"} {
 		t.Run(scenario, func(t *testing.T) {
-			h, slots, _, upstream := newGrokMediaSlotHandler(t, true, false)
+			h, slots, _, upstream := newGrokMediaSlotHandler(t, false)
 			h.maxAccountSwitches = 1
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -390,7 +389,7 @@ func TestGrokMediaEligibilityReleasesBeforeSwitch(t *testing.T) {
 func TestGrokMediaVideoLookupOwnerIsolation(t *testing.T) {
 	for _, other := range []string{"user", "api key", "task"} {
 		t.Run(other, func(t *testing.T) {
-			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, false)
+			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false)
 			c, w := grokMediaSlotContext(context.Background(), false)
 			key, ok := middleware2.GetAPIKeyFromContext(c)
 			require.True(t, ok)
@@ -413,7 +412,7 @@ func TestGrokMediaVideoLookupOwnerIsolation(t *testing.T) {
 }
 
 func TestGrokMediaVideoCompletionStillClaimsBillingOnce(t *testing.T) {
-	h, _, bindings, _ := newGrokMediaSlotHandler(t, false, false)
+	h, _, bindings, _ := newGrokMediaSlotHandler(t, false)
 	c, _ := grokMediaSlotContext(context.Background(), false)
 	key, ok := middleware2.GetAPIKeyFromContext(c)
 	require.True(t, ok)

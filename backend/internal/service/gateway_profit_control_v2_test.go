@@ -56,6 +56,15 @@ func gatewayProfitTestAccount(id int64, platform string, rate float64) Account {
 	}
 }
 
+// gatewayProfitTestSubscription 平台池（SelectOptions.Platform）用例的成品号夹具：平台池是厂商原生端点
+// （联网搜索 / 语音 / live…），只放成品号，第三方 key 一律按中转、不进平台池（2026-09-29）。
+func gatewayProfitTestSubscription(id int64, platform string, rate float64) Account {
+	account := gatewayProfitTestAccount(id, platform, rate)
+	account.Type = AccountTypeOAuth
+	account.ProtocolEndpoints = nil
+	return account
+}
+
 // 门是全站一档：最低毛利率 > 0，任何平台的 token 请求都装门（D2a）；非 token 请求（模型列表 / 媒体）不装；
 // 最低毛利率 0 不装；同一请求 ctx 里已有门时复用（failover 阈值稳定）。
 func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
@@ -96,8 +105,8 @@ func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
 
 // 无并发服务（L2 走优先级 + LRU 回退）时利润门同样生效：贵的被挡，只剩贵的就无可用账号。
 func TestGatewayProfitControlPlatformPoolSelectionWithoutConcurrency(t *testing.T) {
-	cheap := gatewayProfitTestAccount(1, PlatformGrok, 0.2)
-	expensive := gatewayProfitTestAccount(2, PlatformGrok, 0.8)
+	cheap := gatewayProfitTestSubscription(1, PlatformGrok, 0.2)
+	expensive := gatewayProfitTestSubscription(2, PlatformGrok, 0.8)
 	repo := &mockAccountRepoForPlatform{
 		accounts:     []Account{expensive, cheap},
 		accountsByID: map[int64]*Account{cheap.ID: &cheap, expensive.ID: &expensive},
@@ -122,8 +131,8 @@ func TestGatewayProfitControlPlatformPoolSelectionWithoutConcurrency(t *testing.
 // 选号端到端：阈值 = 用户倍率 × (1 − 最低毛利率)。用户倍率 0.5、最低毛利率 0.3 → 阈值 0.35：
 // 倍率正好 0.35 的渠道能派，0.4 的被筛掉（不看毛利率时 0.4 < 0.5 本可以派）；最低毛利率 0 不装门，0.4 的照派。
 func TestGatewayProfitControlMinMarginFormulaInSelection(t *testing.T) {
-	atThreshold := gatewayProfitTestAccount(11, PlatformAnthropic, 0.35)
-	overThreshold := gatewayProfitTestAccount(12, PlatformAnthropic, 0.4)
+	atThreshold := gatewayProfitTestSubscription(11, PlatformAnthropic, 0.35)
+	overThreshold := gatewayProfitTestSubscription(12, PlatformAnthropic, 0.4)
 	newSvc := func(t *testing.T, minMargin float64) *GatewayService {
 		repo := &mockAccountRepoForPlatform{
 			accounts:     []Account{overThreshold, atThreshold},
@@ -158,8 +167,8 @@ func TestGatewayProfitControlMinMarginFormulaInSelection(t *testing.T) {
 }
 
 func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
-	cheap := gatewayProfitTestAccount(1, PlatformGrok, 0.2)
-	expensive := gatewayProfitTestAccount(2, PlatformGrok, 0.8)
+	cheap := gatewayProfitTestSubscription(1, PlatformGrok, 0.2)
+	expensive := gatewayProfitTestSubscription(2, PlatformGrok, 0.8)
 	repo := &mockAccountRepoForPlatform{
 		accounts:     []Account{expensive, cheap},
 		accountsByID: map[int64]*Account{cheap.ID: &cheap, expensive.ID: &expensive},
@@ -190,8 +199,8 @@ func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
 }
 
 func TestGatewayProfitControlStickyVetoKeepsBindingUntilRateRecovers(t *testing.T) {
-	expensive := gatewayProfitTestAccount(1, PlatformAnthropic, 0.8)
-	cheap := gatewayProfitTestAccount(2, PlatformAnthropic, 0.2)
+	expensive := gatewayProfitTestSubscription(1, PlatformAnthropic, 0.8)
+	cheap := gatewayProfitTestSubscription(2, PlatformAnthropic, 0.2)
 	repo := &mockAccountRepoForPlatform{
 		accounts:     []Account{expensive, cheap},
 		accountsByID: map[int64]*Account{expensive.ID: &expensive, cheap.ID: &cheap},
