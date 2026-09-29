@@ -576,6 +576,15 @@
         <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
 
+      <!-- 探测协议（muqian 2026-09-29）：填好地址与 key 后逐个试四种协议，选中的协议与地址填回上面 -->
+      <UpstreamProtocolProbe
+        v-if="form.type === 'apikey'"
+        :protocol-endpoints="protocolEndpoints"
+        :api-key="apiKeyValue"
+        :proxy-id="form.proxy_id"
+        @select="(protocol, url) => (protocolEndpoints = { [protocol]: url })"
+      />
+
       <!-- 探测模型（muqian 2026-09-29）：第三方 key 填好地址与 key 后向上游要模型名单，对得上的按上游支持的重新勾选 -->
       <UpstreamModelProbe
         v-if="form.type === 'apikey'"
@@ -1427,6 +1436,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
 import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
+import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import {
   DEFAULT_ACCESS_SOURCE_ID,

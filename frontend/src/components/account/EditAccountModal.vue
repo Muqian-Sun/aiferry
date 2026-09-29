@@ -244,6 +244,15 @@
           :mode="editAccountMode"
           @select="onCnPresetSelect"
         />
+        <!-- 探测协议（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准；选中的协议与地址填回上面 -->
+        <UpstreamProtocolProbe
+          class="mt-3"
+          :protocol-endpoints="editProtocolEndpoints"
+          :api-key="editApiKey"
+          :account-id="account.id"
+          :proxy-id="form.proxy_id"
+          @select="(protocol, url) => (editProtocolEndpoints = { [protocol]: url })"
+        />
       </div>
 
       <div
@@ -798,6 +807,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
 import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
+import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'

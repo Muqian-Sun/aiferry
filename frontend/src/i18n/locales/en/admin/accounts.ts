@@ -172,6 +172,30 @@ export default {
         failed: 'Probe failed',
         importFailed: 'Failed to add to the catalog'
       },
+      protocolProbe: {
+        hint: 'Try all four protocols against this address and key to see what the upstream supports; pick one below to fill the protocol and address above',
+        run: 'Detect protocols',
+        running: 'Detecting…',
+        failed: 'Detection failed',
+        costNote: 'Uncertain protocols were confirmed with a 1-token real request using one upstream model, which may cost a tiny amount',
+        viaModel: 'confirmed with a 1-token request to {model}',
+        status: {
+          supported: 'Supported',
+          unsupported: 'No',
+          unknown: 'Unsure'
+        },
+        reason: {
+          accepted: 'Upstream responded normally',
+          validation_error: 'Endpoint exists (empty request failed validation)',
+          not_found: 'Upstream has no such endpoint',
+          not_api: 'Response is not an API response (looks like a web page)',
+          auth_rejected: 'Key rejected, cannot tell',
+          rate_limited: 'Rate limited, cannot tell',
+          upstream_error: 'Upstream error, cannot tell',
+          network_error: 'Could not reach upstream',
+          no_model: 'No model name available to confirm with a real request'
+        }
+      },
       catalogEntries: {
         title: 'Models served',
         hint: 'Tick the models this channel can serve; requests for them are scheduled to it. Unlisted models reach users only after they are listed on the Models page.',

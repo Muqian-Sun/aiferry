@@ -172,6 +172,30 @@ export default {
         failed: '探测失败',
         importFailed: '加进目录失败'
       },
+      protocolProbe: {
+        hint: '用填好的地址和 Key 逐个试四种协议，看上游支持哪些；在结果前面选一个，协议和地址会填进上面',
+        run: '探测协议',
+        running: '探测中…',
+        failed: '探测失败',
+        costNote: '拿不准的协议用上游的一个模型发了 1 token 的真实请求确认，会产生极少费用',
+        viaModel: '用 {model} 发 1 token 确认',
+        status: {
+          supported: '支持',
+          unsupported: '不支持',
+          unknown: '不确定'
+        },
+        reason: {
+          accepted: '上游正常响应',
+          validation_error: '端点存在（空请求被参数校验拦下）',
+          not_found: '上游没有这个端点',
+          not_api: '返回的不是 API 响应（像是网页）',
+          auth_rejected: 'Key 被拒绝，无法判断',
+          rate_limited: '被限流，无法判断',
+          upstream_error: '上游出错，无法判断',
+          network_error: '连不上上游',
+          no_model: '拿不到模型名，无法用真实请求确认'
+        }
+      },
       catalogEntries: {
         title: '承接的模型',
         hint: '勾选这个渠道能承接的模型；用户请求这些模型时会调度到它。未上架的模型要在「模型」页上架后才对用户开放。',

@@ -624,6 +624,48 @@ export async function probeUpstreamModels(params: ProbeUpstreamModelsParams): Pr
   return data
 }
 
+export interface ProbeUpstreamProtocolsParams {
+  /** 表单里填的地址：四个协议都拿它试 */
+  base_url: string
+  /** 新建时填的 key；编辑已有渠道不改 key 时留空，传 account_id 用存着的 key */
+  api_key?: string
+  account_id?: number
+  /** 表单里选的代理：探测与真实请求走同一条路 */
+  proxy_id?: number | null
+}
+
+export type ProtocolProbeStatus = 'supported' | 'unsupported' | 'unknown'
+
+export interface ProbedUpstreamProtocol {
+  protocol: UpstreamProtocol
+  /** 选中后填进表单的地址（Gemini 已去掉末尾版本段） */
+  base_url: string
+  status: ProtocolProbeStatus
+  reason:
+    | 'accepted'
+    | 'validation_error'
+    | 'not_found'
+    | 'not_api'
+    | 'auth_rejected'
+    | 'rate_limited'
+    | 'upstream_error'
+    | 'network_error'
+    | 'no_model'
+  http_status?: number
+  /** 发真实请求确认时用的模型；只发空请求时没有 */
+  model?: string
+}
+
+/**
+ * 「探测协议」：对一个地址逐个试四个上游协议（不写库）。先发空请求，拿不准的再用 1 token 真实请求确认。
+ */
+export async function probeUpstreamProtocols(
+  params: ProbeUpstreamProtocolsParams
+): Promise<{ protocols: ProbedUpstreamProtocol[] }> {
+  const { data } = await apiClient.post<{ protocols: ProbedUpstreamProtocol[] }>('/admin/accounts/protocols/probe', params)
+  return data
+}
+
 export interface ProtocolDefaultsResponse {
   /** 全部可配置协议，顺序固定。 */
   protocols: UpstreamProtocol[]
@@ -978,6 +1020,7 @@ export const accountsAPI = {
   syncUpstreamModels,
   syncUpstreamModelsPreview,
   probeUpstreamModels,
+  probeUpstreamProtocols,
   getProtocolDefaults,
   generateAuthUrl,
   exchangeCode,
