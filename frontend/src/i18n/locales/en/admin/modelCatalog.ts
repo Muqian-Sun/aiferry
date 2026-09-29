@@ -31,6 +31,7 @@ export default {
         video: 'per second'
       },
       tiers: '{count} tiers',
+      segments: '{count} segments',
       unpriced: 'No price'
     },
     bulk: {
@@ -122,16 +123,23 @@ export default {
           video: '{price} / second'
         },
         searchPerCall: 'Built-in search',
-        longContext: 'Long context {op} {threshold}',
         listPrice: 'List price',
         fast: 'Fast tier multiplier',
         flex: 'Flex tier multiplier',
         maxReasoning: 'Max reasoning multiplier'
       },
+      segments: 'Token segments',
+      segmentsHint: 'A request is billed entirely at the segment its input tokens (input + cache write + cache read) fall into; the first segment is the list price above. In $ / 1M tokens',
+      segmentColumns: {
+        range: 'Input tokens',
+        input: 'Input',
+        output: 'Output',
+        cacheWrite: 'Cache write 5m',
+        cacheWrite1h: 'Cache write 1h',
+        cacheRead: 'Cache read'
+      },
       tiers: 'Tiers',
       mediaTiersHint: 'A matching tier uses its own price; otherwise the list price above applies.',
-      tokenTier: '{min} – {max} tokens',
-      tokenTierOpen: '{min}+ tokens',
       timePricing: 'Time-of-day pricing',
       timezone: 'Time zone {timezone}',
       weekdaysOnly: 'Weekdays only',
@@ -173,7 +181,7 @@ export default {
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, Fast tier prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
+    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (time pricing, Fast tier prices, tier multipliers, per-request tiers) are written back unchanged; token segments and image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
     noResources: 'No channels',
     fields: {
@@ -197,6 +205,25 @@ export default {
       imageCacheReadPrice: 'Image cache read price',
       audioInputPrice: 'Audio input price',
       audioOutputPrice: 'Audio output price'
+    },
+    segments: {
+      title: 'Token segments',
+      hint: 'A request is billed entirely at the segment its input tokens (input + cache write + cache read) fall into. The prices above are the first segment; any price left empty in a segment falls back to the first segment.',
+      empty: 'No segments: every request is billed at the prices above.',
+      add: 'Add segment',
+      remove: 'Remove',
+      first: 'Segment 1 · {range}: the prices above',
+      firstUntitled: 'Segment 1: the prices above',
+      segment: 'Segment {index} · {range}',
+      segmentUntitled: 'Segment {index}',
+      above: 'Above (tokens)',
+      abovePlaceholder: 'e.g. 272000',
+      errors: {
+        required: 'Enter the token count this segment starts above.',
+        integer: 'The token count must be a positive integer.',
+        notAscending: 'The token count must be larger than in the previous segment.',
+        noPrice: 'Enter at least one price for this segment.'
+      }
     },
     tiers: {
       title: 'Tier prices',

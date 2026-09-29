@@ -33,6 +33,7 @@ export default {
         video: '每秒'
       },
       tiers: '{count} 档',
+      segments: '分 {count} 段',
       unpriced: '未配价'
     },
     bulk: {
@@ -122,16 +123,23 @@ export default {
           video: '{price} / 秒'
         },
         searchPerCall: '内置搜索',
-        longContext: '长上下文 {op} {threshold}',
         listPrice: '标价',
         fast: 'Fast 档倍率',
         flex: 'Flex 档倍率',
         maxReasoning: '最高推理倍率'
       },
+      segments: '按 Token 分段',
+      segmentsHint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费；第一段就是上面的标价。单位：美元 / 百万 Token',
+      segmentColumns: {
+        range: '输入 Token',
+        input: '输入',
+        output: '输出',
+        cacheWrite: '缓存写 5 分钟',
+        cacheWrite1h: '缓存写 1 小时',
+        cacheRead: '缓存读'
+      },
       tiers: '分档',
       mediaTiersHint: '命中档位按档位价计，没命中按上面的标价。',
-      tokenTier: '{min} – {max} Token',
-      tokenTierOpen: '{min} Token 以上',
       timePricing: '分时定价',
       timezone: '时区 {timezone}',
       weekdaysOnly: '仅工作日',
@@ -173,7 +181,7 @@ export default {
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
-    fullReplaceHint: '保存是整条覆盖。本页没列出的项（按 Token 的区间分档、分时定价、Fast 档价、长上下文与倍率）按原值写回；图片 / 视频分档在上方编辑。',
+    fullReplaceHint: '保存是整条覆盖。本页没列出的项（分时定价、Fast 档价、各档倍率、按次模式的分档）按原值写回；按 Token 分段与图片 / 视频分档在上方编辑。',
     listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
     noResources: '无渠道',
     fields: {
@@ -197,6 +205,25 @@ export default {
       imageCacheReadPrice: '图片缓存读取价',
       audioInputPrice: '音频输入价',
       audioOutputPrice: '音频输出价'
+    },
+    segments: {
+      title: '按 Token 分段',
+      hint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费。上面的价格就是第一段；各段没填的价按第一段算。',
+      empty: '未分段：所有请求都按上面的价格计费。',
+      add: '加一段',
+      remove: '移除',
+      first: '第 1 段 · {range}：按上面的价格',
+      firstUntitled: '第 1 段：按上面的价格',
+      segment: '第 {index} 段 · {range}',
+      segmentUntitled: '第 {index} 段',
+      above: '超过多少 Token',
+      abovePlaceholder: '如 272000',
+      errors: {
+        required: '填这一段从超过多少 Token 开始。',
+        integer: 'Token 数要填正整数。',
+        notAscending: 'Token 数要比上一段大。',
+        noPrice: '这一段至少填一个价。'
+      }
     },
     tiers: {
       title: '分档单价',

@@ -68,10 +68,6 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     cache_read_price_priority: null,
     per_request_price: null,
     search_price_per_call: null,
-    long_context_input_threshold: null,
-    long_context_threshold_inclusive: false,
-    long_context_input_multiplier: null,
-    long_context_output_multiplier: null,
     fast_multiplier: null,
     flex_multiplier: null,
     max_reasoning_effort_multiplier: null,
@@ -265,16 +261,17 @@ describe('CatalogEntryEditor', () => {
     expect(wrapper.emitted('saved')).toBeUndefined()
   })
 
-  // 编辑只改表单里露出的字段；分档 / 分时 / 其余价格字段必须按原值写回，不能在保存时丢掉。
+  // 编辑只改表单里露出的字段；Token 分段 / 分时 / 其余价格字段必须按原值写回，不能在保存时丢掉。
   it('keeps intervals, time pricing and hidden prices when editing', async () => {
     const existing = entry({
       cache_read_price: 1.5,
       cache_write_1h_price: 2.5,
       image_output_price: 4,
       input_price_priority: 30,
-      long_context_input_threshold: 200000,
       fast_multiplier: 2,
-      intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
+      intervals: [
+        { min_tokens: 200000, max_tokens: null, tier_label: '', input_price: 0.000006, output_price: 0.0000225, cache_write_price: null, cache_write_1h_price: null, cache_read_price: null, input_multiplier: null, output_multiplier: null, cache_write_multiplier: null, cache_read_multiplier: null, per_request_price: null, sort_order: 0 }
+      ],
       time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [{ start_time: '09:00', end_time: '12:00', multiplier: 2 }] }
     })
     const wrapper = mountEditor(existing)
@@ -294,7 +291,6 @@ describe('CatalogEntryEditor', () => {
       cache_write_1h_price: 2.5,
       image_output_price: 4,
       input_price_priority: 30,
-      long_context_input_threshold: 200000,
       fast_multiplier: 2,
       intervals: existing.intervals,
       time_pricing: existing.time_pricing
@@ -418,7 +414,7 @@ describe('CatalogEntryEditor', () => {
 
     expect(updateEntry).toHaveBeenCalledTimes(1)
     expect(updateEntry.mock.calls[0][1].search_price_per_call).toBe(0.02)
-    // token 条目的区间分档按原值写回
+    // token 条目没配分段：intervals 为空
     expect(updateEntry.mock.calls[0][1].intervals).toEqual([])
   })
 

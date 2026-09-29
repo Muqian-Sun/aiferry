@@ -123,7 +123,7 @@ const entry = (id: number, model_id: string, status: string, accountIDs: number[
   input_price: 1, output_price: 2, cache_write_price: null, cache_write_1h_price: null, cache_read_price: null,
   image_input_price: null, image_output_price: null, image_cache_read_price: null, input_price_priority: null,
   output_price_priority: null, cache_write_price_priority: null, cache_read_price_priority: null,
-  per_request_price: null, search_price_per_call: null, long_context_threshold_inclusive: false, notes: '',
+  per_request_price: null, search_price_per_call: null, notes: '',
   intervals: [], time_pricing: null, aliases: [],
   bindings: accountIDs.map((account_id) => ({ entry_id: id, account_id, priority: null })),
   created_at: '', updated_at: ''
