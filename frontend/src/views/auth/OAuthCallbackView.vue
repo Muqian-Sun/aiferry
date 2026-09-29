@@ -65,9 +65,7 @@
               @keyup.enter="handleSubmitRegistration"
             />
           </div>
-          <p v-if="registrationError" class="text-sm text-af-danger">
-            {{ registrationError }}
-          </p>
+          <FormError :message="registrationError" />
           <button
             class="btn btn-primary w-full"
             type="button"
@@ -86,6 +84,7 @@
         <p class="mt-2 text-sm text-af-ink-2">
           {{ t('auth.oauth.invalidCallbackHint') }}
         </p>
+        <FormError class="justify-center" :message="displayError" />
         <button class="btn btn-primary mt-6" type="button" @click="router.replace('/login')">
           {{ t('auth.backToLogin') }}
         </button>
@@ -98,6 +97,7 @@
         <p class="mt-2 text-sm text-af-ink-2">
           {{ t('auth.oauth.callbackHint') }}
         </p>
+        <FormError :message="displayError" />
 
         <div class="mt-6 space-y-4">
           <div>
@@ -150,7 +150,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@/composables/useClipboard'
-import { useAppStore, useAuthStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import { apiClient } from '@/api/client'
 import { buildApiUrl } from '@/api/url'
 import {
@@ -165,6 +165,7 @@ import {
 } from '@/utils/oauthAffiliate'
 
 import { APP_SITE } from '@/app/site'
+import FormError from '@/components/common/FormError.vue'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 
 // 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
@@ -173,7 +174,6 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
-const appStore = useAppStore()
 const authStore = useAuthStore()
 const isProcessing = ref(false)
 const isSubmitting = ref(false)
@@ -184,6 +184,8 @@ const password = ref('')
 const confirmPassword = ref('')
 const invitationCode = ref('')
 const registrationError = ref('')
+// 回调阶段的失败（第三方返回的错误、换取登录态失败）：就近显示在回调卡片里
+const callbackError = ref('')
 const pendingProvider = ref<'github' | 'google'>('github')
 const redirectTo = ref(DEFAULT_AUTHED_PATH)
 const invalidCallback = ref(false)
@@ -203,6 +205,7 @@ const state = computed(() => (route.query.state as string) || '')
 const error = computed(
   () => (route.query.error as string) || (route.query.error_description as string) || ''
 )
+const displayError = computed(() => callbackError.value || error.value)
 
 const fullUrl = computed(() => {
   if (typeof window === 'undefined') return ''
@@ -283,7 +286,6 @@ async function finalizeTokenResponse(tokenResponse: OAuthTokenResponse, redirect
     window.sessionStorage.removeItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
   }
   clearAllAffiliateReferralCodes()
-  appStore.showSuccess(t('auth.loginSuccess'))
   await router.replace(sanitizeRedirectPath(redirect))
 }
 
@@ -315,11 +317,13 @@ async function resumePendingEmailOAuth() {
       return
     }
 
-    appStore.showError(completion.error || t('auth.loginFailed'))
+    callbackError.value = completion.error || t('auth.loginFailed')
+    console.error(callbackError.value)
   } catch (e: unknown) {
     const err = e as { message?: string; response?: { data?: { message?: string } } }
     const message = err.response?.data?.message || err.message || t('auth.loginFailed')
-    appStore.showError(message)
+    callbackError.value = message
+    console.error(message, e)
     invalidCallback.value = true
   } finally {
     if (!needsRegistrationCompletion.value) {
@@ -376,7 +380,8 @@ onMounted(async () => {
     params.get('error_description') || params.get('error_message') || ''
 
   if (fragmentError) {
-    appStore.showError(fragmentErrorDescription || fragmentError)
+    callbackError.value = fragmentErrorDescription || fragmentError
+    console.error(callbackError.value)
     return
   }
   if (!tokenResponse) {
@@ -396,7 +401,8 @@ onMounted(async () => {
     await finalizeTokenResponse(tokenResponse, params.get('redirect') || DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     const message = (error as { message?: string })?.message || t('auth.loginFailed')
-    appStore.showError(message)
+    callbackError.value = message
+    console.error(message, error)
     isProcessing.value = false
   }
 })
@@ -405,7 +411,7 @@ watch(
   error,
   (message) => {
     if (message) {
-      appStore.showError(message)
+      console.error(message)
     }
   },
   { immediate: true }

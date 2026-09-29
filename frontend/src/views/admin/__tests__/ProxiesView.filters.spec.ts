@@ -14,7 +14,7 @@ vi.mock('@/api/admin', () => ({
 vi.mock('@/components/admin/list/ListToolbar.vue', () => ({
   default: { name: 'ListToolbar', template: '<div><slot /><slot name="end" /></div>' }
 }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: vi.fn() }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({}) }))
 vi.mock('vue-i18n', async () => ({
   ...await vi.importActual<typeof import('vue-i18n')>('vue-i18n'),
   useI18n: () => ({ t: (key: string) => key })

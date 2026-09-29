@@ -135,7 +135,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api'
-import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import type { ApiKey, UpdateApiKeyRequest } from '@/types'
@@ -155,7 +154,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const submitting = ref(false)
 const pendingKeys = ref<SelectedKey[]>([])
 const failures = ref<Array<{ id: number; name: string; message: string }>>([])
@@ -256,15 +254,14 @@ const submit = async () => {
     pendingKeys.value = pendingKeys.value.filter((key) => failedIds.has(key.id))
     if (result.succeededIds.length) emit('updated', result.succeededIds)
     if (result.failures.length) {
-      appStore.showError(t('keys.bulkEdit.partialFailure', {
+      console.error(t('keys.bulkEdit.partialFailure', {
         success: result.succeededIds.length, failed: result.failures.length
       }))
     } else {
-      appStore.showSuccess(t('keys.bulkEdit.success', { count: result.succeededIds.length }))
       emit('close')
     }
   } catch (error) {
-    appStore.showError(errorMessage(error))
+    console.error(errorMessage(error), error)
   } finally {
     submitting.value = false
   }

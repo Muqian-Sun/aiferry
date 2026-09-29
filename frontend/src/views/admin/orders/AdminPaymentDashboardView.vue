@@ -82,7 +82,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { CurrencyAmounts, DashboardStats, TopUserPaymentStats } from '@/types/payment'
@@ -94,7 +93,6 @@ import DailyRevenueChart from '@/components/admin/payment/DailyRevenueChart.vue'
 import ShareBar from '@/components/charts/ShareBar.vue'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const DAYS_OPTIONS = [7, 30, 90] as const
 const days = ref<number>(30)
@@ -126,7 +124,7 @@ async function loadDashboard() {
     const res = await adminPaymentAPI.getDashboard(days.value)
     stats.value = res.data
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   } finally {
     loading.value = false
   }

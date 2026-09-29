@@ -4,8 +4,6 @@ import TotpSetupModal from '@/components/user/profile/TotpSetupModal.vue'
 import TotpDisableDialog from '@/components/user/profile/TotpDisableDialog.vue'
 
 const mocks = vi.hoisted(() => ({
-  showSuccess: vi.fn(),
-  showError: vi.fn(),
   getVerificationMethod: vi.fn(),
   sendVerifyCode: vi.fn(),
   initiateSetup: vi.fn(),
@@ -20,10 +18,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess: mocks.showSuccess,
-    showError: mocks.showError
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api', () => ({
@@ -48,8 +43,6 @@ describe('TOTP 弹窗定时器清理', () => {
 
   beforeEach(() => {
     intervalSeed = 1000
-    mocks.showSuccess.mockReset()
-    mocks.showError.mockReset()
     mocks.getVerificationMethod.mockReset()
     mocks.sendVerifyCode.mockReset()
     mocks.initiateSetup.mockReset()
@@ -119,7 +112,7 @@ describe('TOTP 弹窗定时器清理', () => {
     expect(clearIntervalSpy).toHaveBeenCalledWith(timerId)
   })
 
-  it('TotpSetupModal 失败时改用 toast 并不渲染内联错误', async () => {
+  it('TotpSetupModal 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
     mocks.initiateSetup.mockRejectedValue({
       response: { data: { message: 'setup failed' } }
@@ -132,12 +125,10 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('button[type="button"].btn-primary').trigger('click')
     await flushPromises()
 
-    expect(mocks.showError).toHaveBeenCalledWith('setup failed')
-    expect(wrapper.text()).not.toContain('setup failed')
-    expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('setup failed')
   })
 
-  it('TotpDisableDialog 失败时改用 toast 并不渲染内联错误', async () => {
+  it('TotpDisableDialog 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
     mocks.disable.mockRejectedValue({
       response: { data: { message: 'disable failed' } }
@@ -150,8 +141,6 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(mocks.showError).toHaveBeenCalledWith('disable failed')
-    expect(wrapper.text()).not.toContain('disable failed')
-    expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('disable failed')
   })
 })

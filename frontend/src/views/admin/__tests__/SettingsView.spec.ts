@@ -12,8 +12,6 @@ const {
   getGroups,
   listProxies,
   fetchPublicSettings,
-  showError,
-  showSuccess,
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
@@ -22,8 +20,6 @@ const {
   getGroups: vi.fn(),
   listProxies: vi.fn(),
   fetchPublicSettings: vi.fn(),
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
 }));
 
 const localeRef = vi.hoisted(() => ({ value: "zh-CN" }));
@@ -47,10 +43,6 @@ vi.mock("@/api/admin", () => ({
 
 vi.mock("@/stores", () => ({
   useAppStore: () => ({
-    showError,
-    showSuccess,
-    showWarning: vi.fn(),
-    showInfo: vi.fn(),
     fetchPublicSettings,
   }),
 }));
@@ -199,8 +191,6 @@ describe("admin SettingsView", () => {
     getGroups.mockReset();
     listProxies.mockReset();
     fetchPublicSettings.mockReset();
-    showError.mockReset();
-    showSuccess.mockReset();
     localeRef.value = "zh-CN";
 
     getSettings.mockResolvedValue({ ...baseSettingsResponse });

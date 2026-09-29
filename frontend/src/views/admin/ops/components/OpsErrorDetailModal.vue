@@ -25,7 +25,7 @@
               :title="t('common.copy')"
               :aria-label="t('common.copy')"
               data-testid="error-detail-copy-request-id"
-              @click="copyToClipboard(requestId, t('admin.usage.requestIdCopied'))"
+              @click="copyToClipboard(requestId)"
             >
               <Icon name="copy" size="sm" />
             </button>
@@ -236,7 +236,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { useAppStore } from '@/stores'
 import { useClipboard } from '@/composables/useClipboard'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
@@ -258,7 +257,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
@@ -401,7 +399,7 @@ async function fetchDetail(id: number) {
     detail.value = d
   } catch (err: any) {
     detail.value = null
-    appStore.showError(err?.message || t('admin.ops.failedToLoadErrorDetail'))
+    console.error(err?.message || t('admin.ops.failedToLoadErrorDetail'), err)
   } finally {
     loading.value = false
   }

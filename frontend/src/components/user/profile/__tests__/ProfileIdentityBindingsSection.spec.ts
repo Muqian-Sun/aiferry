@@ -272,7 +272,6 @@ describe('ProfileIdentityBindingsSection', () => {
       })
     )
 
-    const appStore = useAppStore()
     const authStore = useAuthStore()
     authStore.user = createUser({
       email: 'legacy-user@wechat-connect.invalid',
@@ -281,7 +280,6 @@ describe('ProfileIdentityBindingsSection', () => {
         email: { bound: false },
       },
     })
-    const showSuccessSpy = vi.spyOn(appStore, 'showSuccess')
 
     const wrapper = mount(ProfileIdentityBindingsSection, {
       global: {
@@ -297,7 +295,6 @@ describe('ProfileIdentityBindingsSection', () => {
     await wrapper.get('[data-testid="profile-binding-email-send-code"]').trigger('click')
 
     expect(userApiMocks.sendEmailBindingCode).toHaveBeenCalledWith('bound@example.com')
-    expect(showSuccessSpy).toHaveBeenCalledWith('Code sent to bound@example.com')
 
     await wrapper.get('[data-testid="profile-binding-email-code-input"]').setValue('123456')
     await wrapper.get('[data-testid="profile-binding-email-password-input"]').setValue('new-password')
@@ -414,7 +411,6 @@ describe('ProfileIdentityBindingsSection', () => {
       })
     )
 
-    const appStore = useAppStore()
     const authStore = useAuthStore()
     authStore.user = createUser({
       email: 'current@example.com',
@@ -423,7 +419,6 @@ describe('ProfileIdentityBindingsSection', () => {
         email: { bound: true },
       },
     })
-    const showSuccessSpy = vi.spyOn(appStore, 'showSuccess')
 
     const wrapper = mount(ProfileIdentityBindingsSection, {
       global: {
@@ -461,7 +456,6 @@ describe('ProfileIdentityBindingsSection', () => {
       password: 'current-password',
     })
     expect(authStore.user?.email).toBe('new@example.com')
-    expect(showSuccessSpy).toHaveBeenCalledWith('Primary email updated')
   })
 
   it('collapses the email binding form in compact mode until the user expands it', async () => {

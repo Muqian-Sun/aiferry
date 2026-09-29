@@ -1066,7 +1066,6 @@ import type {
   UpdateContentModerationConfig,
 } from '@/api/admin/riskControl'
 import type { Proxy, SelectOption } from '@/types'
-import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime as formatDateTimeValue } from '@/utils/format'
 
@@ -1107,7 +1106,6 @@ const riskThresholdDefaults: Record<string, number> = {
 const riskThresholdCategories = Object.keys(riskThresholdDefaults)
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const defaultBlockMessage = () => t('admin.riskControl.defaultBlockMessage')
 
 const loading = ref(true)
@@ -1629,7 +1627,7 @@ async function loadAll() {
     }
     await loadLogs()
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')), err)
   } finally {
     loading.value = false
   }
@@ -1646,7 +1644,7 @@ async function loadStatus(silent = true) {
     }
   } catch (err: unknown) {
     if (!silent) {
-      appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.statusFailed')))
+      console.error(extractApiErrorMessage(err, t('admin.riskControl.statusFailed')), err)
     }
   } finally {
     statusLoading.value = false
@@ -1658,7 +1656,7 @@ async function saveConfig() {
   try {
     const modelFilterPayload = buildModelFilterPayload()
     if (modelFilterPayload.type !== 'all' && modelFilterPayload.models.length === 0) {
-      appStore.showError(t('admin.riskControl.modelFilterModelsRequired'))
+      console.error(t('admin.riskControl.modelFilterModelsRequired'))
       return
     }
     const payload: UpdateContentModerationConfig = {
@@ -1692,7 +1690,7 @@ async function saveConfig() {
     }
     const keys = parseApiKeys(configForm.api_keys_text)
     if (!payload.clear_api_key && configForm.api_keys_mode === 'replace' && keys.length === 0) {
-      appStore.showError(t('admin.riskControl.apiKeysReplaceNoInput'))
+      console.error(t('admin.riskControl.apiKeysReplaceNoInput'))
       return
     }
     if (keys.length > 0) {
@@ -1715,10 +1713,9 @@ async function saveConfig() {
       sessionBlockOriginal.value = JSON.stringify(sessionBlock.value)
     }
     settingsOpen.value = false
-    appStore.showSuccess(t('admin.riskControl.saved'))
     await Promise.all([loadStatus(true), loadLogs()])
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.saveFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.saveFailed')), err)
   } finally {
     saving.value = false
   }
@@ -1743,7 +1740,7 @@ async function loadLogs() {
     pagination.page_size = result.page_size
     pagination.pages = result.pages
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.logsFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.logsFailed')), err)
   } finally {
     logsLoading.value = false
   }
@@ -1774,9 +1771,8 @@ async function unbanUser(row: ContentModerationLog) {
       if (item.user_id !== row.user_id) return item
       return { ...item, user_status: result.status }
     })
-    appStore.showSuccess(t('admin.riskControl.unbanSuccess'))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.unbanFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.unbanFailed')), err)
   } finally {
     unbanningUserID.value = null
   }
@@ -1786,12 +1782,11 @@ async function deleteFlaggedHash() {
   if (!isFlaggedHashInputValid.value || hashActionLoading.value) return
   hashActionLoading.value = true
   try {
-    const result = await adminAPI.riskControl.deleteFlaggedHash(flaggedHashInput.value)
+    await adminAPI.riskControl.deleteFlaggedHash(flaggedHashInput.value)
     flaggedHashInput.value = ''
     await loadStatus(true)
-    appStore.showSuccess(result.deleted ? t('admin.riskControl.flaggedHashDeleted') : t('admin.riskControl.flaggedHashNotFound'))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashDeleteFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashDeleteFailed')), err)
   } finally {
     hashActionLoading.value = false
   }
@@ -1803,11 +1798,10 @@ async function clearFlaggedHashes() {
   if (!confirmed) return
   hashActionLoading.value = true
   try {
-    const result = await adminAPI.riskControl.clearFlaggedHashes()
+    await adminAPI.riskControl.clearFlaggedHashes()
     await loadStatus(true)
-    appStore.showSuccess(t('admin.riskControl.flaggedHashesCleared', { count: result.deleted }))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')), err)
   } finally {
     hashActionLoading.value = false
   }
@@ -1830,7 +1824,7 @@ async function loadSessionBlock() {
     sessionBlockOriginal.value = JSON.stringify(value)
   } catch (err: unknown) {
     sessionBlock.value = null
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')), err)
   }
 }
 
@@ -1877,7 +1871,7 @@ function setModelFilterType(type: ContentModerationModelFilterType) {
 async function testApiKeys(useInputKeys: boolean) {
   const keys = useInputKeys ? parseApiKeys(configForm.api_keys_text) : []
   if (useInputKeys && keys.length === 0) {
-    appStore.showError(t('admin.riskControl.apiKeyTestNoInput'))
+    console.error(t('admin.riskControl.apiKeyTestNoInput'))
     return
   }
   apiKeyTesting.value = true
@@ -1900,9 +1894,8 @@ async function testApiKeys(useInputKeys: boolean) {
       testedApiKeyStatuses.value = []
       await loadStatus(true)
     }
-    appStore.showSuccess(t('admin.riskControl.apiKeyTestDone', { count: result.items.length }))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.apiKeyTestFailed')))
+    console.error(extractApiErrorMessage(err, t('admin.riskControl.apiKeyTestFailed')), err)
   } finally {
     apiKeyTesting.value = false
   }
@@ -1968,17 +1961,17 @@ async function addModerationTestFiles(files: FileList | File[] | null) {
   const items = Array.from(files).filter((file) => file.type.startsWith('image/'))
   for (const file of items) {
     if (moderationTestImages.value.length >= maxModerationTestImages) {
-      appStore.showError(t('admin.riskControl.auditTestImageLimit', { count: maxModerationTestImages }))
+      console.error(t('admin.riskControl.auditTestImageLimit', { count: maxModerationTestImages }))
       return
     }
     if (file.size > maxModerationTestImageSize) {
-      appStore.showError(t('admin.riskControl.auditTestImageTooLarge'))
+      console.error(t('admin.riskControl.auditTestImageTooLarge'))
       continue
     }
     try {
       moderationTestImages.value.push(await fileToDataURL(file))
-    } catch {
-      appStore.showError(t('admin.riskControl.auditTestImageReadFailed'))
+    } catch (error) {
+      console.error(t('admin.riskControl.auditTestImageReadFailed'), error)
     }
   }
 }

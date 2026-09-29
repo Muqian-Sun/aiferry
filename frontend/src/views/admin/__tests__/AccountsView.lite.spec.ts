@@ -13,8 +13,6 @@ const {
   getAllProxies,
   listCatalogEntries,
   refreshCredentials,
-  showError,
-  showWarning
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
@@ -23,8 +21,6 @@ const {
   getAllProxies: vi.fn(),
   listCatalogEntries: vi.fn(),
   refreshCredentials: vi.fn(),
-  showError: vi.fn(),
-  showWarning: vi.fn()
 }))
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
@@ -55,7 +51,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showWarning, showSuccess: vi.fn(), showInfo: vi.fn() })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -156,8 +152,6 @@ describe('admin AccountsView lite account list', () => {
     getAllProxies.mockReset().mockResolvedValue([])
     listCatalogEntries.mockReset().mockResolvedValue([])
     refreshCredentials.mockReset()
-    showError.mockReset()
-    showWarning.mockReset()
   })
 
   afterEach(() => {
@@ -253,7 +247,6 @@ describe('admin AccountsView lite account list', () => {
 
     expect(refreshCredentials).toHaveBeenCalledWith(42)
     expect(wrapper.get('[data-account-name]').attributes('data-account-name')).toBe('refreshed account')
-    expect(showWarning).toHaveBeenCalledWith('Token refreshed, but project_id is temporarily unavailable')
     wrapper.unmount()
   })
 
@@ -266,7 +259,6 @@ describe('admin AccountsView lite account list', () => {
     wrapper.findComponent(AccountActionMenu).vm.$emit('test', listRow)
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('detail failed')
     expect(wrapper.get('[data-test="test-account"]').text()).toBe('')
     consoleError.mockRestore()
     wrapper.unmount()

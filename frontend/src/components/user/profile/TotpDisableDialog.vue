@@ -63,6 +63,8 @@
             />
           </div>
 
+          <FormError :message="errorMessage" />
+
           <!-- Actions -->
           <div class="flex justify-end gap-3 pt-4">
             <button type="button" class="btn btn-secondary" @click="$emit('close')">
@@ -83,10 +85,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { totpAPI } from '@/api'
+import FormError from '@/components/common/FormError.vue'
 
 const emit = defineEmits<{
   close: []
@@ -94,7 +96,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const methodLoading = ref(true)
 const verificationMethod = ref<'email' | 'password'>('password')
@@ -102,10 +103,16 @@ const loading = ref(false)
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
 const cooldownTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const errorMessage = ref('')
 const form = ref({
   emailCode: '',
   password: ''
 })
+
+// 重新输入时清掉报错
+watch(form, () => {
+  errorMessage.value = ''
+}, { deep: true })
 
 const canSubmit = computed(() => {
   if (verificationMethod.value === 'email') {
@@ -120,7 +127,7 @@ const loadVerificationMethod = async () => {
     const method = await totpAPI.getVerificationMethod()
     verificationMethod.value = method.method
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('common.error'))
+    console.error(err.response?.data?.message || t('common.error'), err)
     emit('close')
   } finally {
     methodLoading.value = false
@@ -128,10 +135,10 @@ const loadVerificationMethod = async () => {
 }
 
 const handleSendCode = async () => {
+  errorMessage.value = ''
   sendingCode.value = true
   try {
     await totpAPI.sendVerifyCode()
-    appStore.showSuccess(t('profile.totp.codeSent'))
     // Start cooldown
     codeCooldown.value = 60
     if (cooldownTimer.value) {
@@ -148,7 +155,8 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('profile.totp.sendCodeFailed'))
+    errorMessage.value = err.response?.data?.message || t('profile.totp.sendCodeFailed')
+    console.error(errorMessage.value, err)
   } finally {
     sendingCode.value = false
   }
@@ -157,6 +165,7 @@ const handleSendCode = async () => {
 const handleDisable = async () => {
   if (!canSubmit.value) return
 
+  errorMessage.value = ''
   loading.value = true
 
   try {
@@ -165,10 +174,10 @@ const handleDisable = async () => {
       : { password: form.value.password }
 
     await totpAPI.disable(request)
-    appStore.showSuccess(t('profile.totp.disableSuccess'))
     emit('success')
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('profile.totp.disableFailed'))
+    errorMessage.value = err.response?.data?.message || t('profile.totp.disableFailed')
+    console.error(errorMessage.value, err)
   } finally {
     loading.value = false
   }

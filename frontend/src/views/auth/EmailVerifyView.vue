@@ -49,6 +49,7 @@
             placeholder="000000"
           />
           <p class="input-hint text-center">{{ t('auth.verificationCodeHint') }}</p>
+          <FormError class="justify-center" :message="errors.code" />
         </div>
 
         <!-- Code Status -->
@@ -84,6 +85,7 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
 
         <div v-if="pendingOAuthCreateCaptchaEnabled" class="space-y-2">
@@ -104,6 +106,8 @@
             @error="onCreateAccountTurnstileError"
           />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -184,7 +188,8 @@ import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import FormError from '@/components/common/FormError.vue'
+import { useAuthStore } from '@/stores'
 import {
   persistOAuthTokenContext,
   getPublicSettings,
@@ -218,7 +223,6 @@ const { t, locale } = useI18n()
 
 const router = useRouter()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -309,9 +313,6 @@ const errors = ref({
   turnstile: ''
 })
 
-const validationToastMessage = computed(
-  () => errors.value.code || errors.value.turnstile || ''
-)
 const pendingOAuthCreateTurnstileRequired = computed(
   () => isPendingOAuthFlow() && turnstileEnabled.value
 )
@@ -319,10 +320,10 @@ const pendingOAuthCreateCaptchaEnabled = computed(
   () => isPendingOAuthFlow() && captchaEnabled.value
 )
 
-watch(validationToastMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    appStore.showError(value)
-  }
+// 重新输入验证码时清掉验证码和表单级的报错
+watch(verifyCode, () => {
+  errors.value.code = ''
+  errorMessage.value = ''
 })
 
 // ==================== Lifecycle ====================
@@ -534,7 +535,7 @@ async function sendCode(): Promise<void> {
   try {
     if (!shouldBypassRegistrationEmailPolicy() && !isRegistrationEmailSuffixAllowed(email.value, registrationEmailSuffixWhitelist.value)) {
       errorMessage.value = buildEmailSuffixNotAllowedMessage()
-      appStore.showError(errorMessage.value)
+      console.error(errorMessage.value)
       return
     }
 
@@ -583,7 +584,7 @@ async function sendCode(): Promise<void> {
   } catch (error: unknown) {
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.sendCodeFailed'))
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaProofUsed) {
       clearStoredCaptchaProof()
@@ -661,7 +662,7 @@ async function handleVerify(): Promise<void> {
 
   if (!shouldBypassRegistrationEmailPolicy() && !isRegistrationEmailSuffixAllowed(email.value, registrationEmailSuffixWhitelist.value)) {
     errorMessage.value = buildEmailSuffixNotAllowedMessage()
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value)
     return
   }
 
@@ -737,15 +738,12 @@ async function handleVerify(): Promise<void> {
     sessionStorage.removeItem('register_data')
     clearAllAffiliateReferralCodes()
 
-    // Show success toast
-    appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
-
     // Redirect to dashboard
     await router.push(pendingRedirect.value || DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.verifyFailed'))
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     initialTurnstileToken.value = ''
     initialTencentCaptchaRandstr.value = ''

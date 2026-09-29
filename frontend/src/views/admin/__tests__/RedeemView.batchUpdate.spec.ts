@@ -3,14 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import RedeemView from '../RedeemView.vue'
 
-const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, showError, showInfo } =
+const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups } =
   vi.hoisted(() => ({
     listRedeemCodes: vi.fn(),
     batchUpdateRedeemCodes: vi.fn(),
     getAllGroups: vi.fn(),
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-    showInfo: vi.fn()
   }))
 
 vi.mock('@/api/admin', () => ({
@@ -30,11 +27,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess,
-    showError,
-    showInfo
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/composables/useClipboard', () => ({
@@ -120,9 +113,6 @@ describe('admin RedeemView batch update', () => {
     listRedeemCodes.mockReset()
     batchUpdateRedeemCodes.mockReset()
     getAllGroups.mockReset()
-    showSuccess.mockReset()
-    showError.mockReset()
-    showInfo.mockReset()
 
     listRedeemCodes.mockResolvedValue({
       items: [
@@ -194,6 +184,5 @@ describe('admin RedeemView batch update', () => {
       status: 'disabled',
       notes: 'maintenance'
     })
-    expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchUpdateSuccess')
   })
 })

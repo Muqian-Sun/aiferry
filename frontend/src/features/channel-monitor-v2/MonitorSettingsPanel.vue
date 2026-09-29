@@ -225,7 +225,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import {
@@ -236,7 +235,6 @@ import {
 } from '@/api/channelMonitorV2'
 
 const { t, te } = useI18n()
-const appStore = useAppStore()
 const loading = ref(true)
 const saving = ref(false)
 const draft = ref<MonitorConfig | null>(null)
@@ -375,7 +373,7 @@ async function load() {
     original.value = JSON.stringify(normalized)
     applyVisibility(settings)
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.settings.loadFailed')))
+    console.error(extractApiErrorMessage(error, t('channelMonitorV2.settings.loadFailed')), error)
   } finally {
     loading.value = false
   }
@@ -400,9 +398,8 @@ async function save() {
       })
       applyVisibility(updated)
     }
-    appStore.showSuccess(t('channelMonitorV2.settings.saveSuccess'))
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.settings.saveFailed')))
+    console.error(extractApiErrorMessage(error, t('channelMonitorV2.settings.saveFailed')), error)
     await load()
   } finally {
     saving.value = false

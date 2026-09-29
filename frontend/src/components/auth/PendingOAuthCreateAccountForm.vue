@@ -67,6 +67,7 @@
     <p v-else-if="emailVerifyEnabled" class="text-xs text-af-ink-3">
       {{ t('auth.verificationCodeHint') }}
     </p>
+    <FormError :message="sendCodeError" />
     <input
       v-if="invitationCodeEnabled"
       v-model="invitationCode"
@@ -76,6 +77,7 @@
       :placeholder="t('auth.invitationCodePlaceholder')"
       :disabled="isSubmitting"
     />
+    <FormError :message="errorMessage" />
     <button
       :data-testid="`${testIdPrefix}-create-account-submit`"
       type="button"
@@ -98,10 +100,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import FormError from '@/components/common/FormError.vue'
 import { useI18n } from 'vue-i18n'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
-import { useAppStore } from '@/stores'
 
 export type PendingOAuthCreateAccountPayload = {
   email: string
@@ -126,7 +128,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const email = ref('')
 const password = ref('')
@@ -179,15 +180,20 @@ watch(
 
 watch(sendCodeError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
+})
+
+// 改邮箱时清掉发码的报错
+watch(email, () => {
+  sendCodeError.value = ''
 })
 
 watch(
   () => props.errorMessage,
   value => {
     if (value) {
-      appStore.showError(value)
+      console.error(value)
       if (captchaEnabled.value) {
         resetTurnstile()
       }

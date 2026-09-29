@@ -90,7 +90,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
-import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
@@ -98,7 +97,6 @@ import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
-const appStore = useAppStore()
 
 // 余额 / 并发 / RPM 留空 = 按「新用户默认值」，和自助注册一致（之前并发写死 1、RPM 写死 0）
 const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: 1 })
@@ -121,19 +119,19 @@ const submit = async () => {
     payload.rpm_limit = optionalNumber(rpm_limit)
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.create(payload))
-    appStore.showSuccess(t('admin.users.userCreated'))
     emit('success'); emit('close')
   } catch (e: any) {
     if (isStepUpCancelled(e)) {
       // 用户主动取消二次验证：静默返回，表单保持打开。
     } else if (isStepUpBlocked(e)) {
-      appStore.showError(
+      console.error(
         stepUpBlockReason(e) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
           ? t('stepUp.adminApiKeyForbidden')
-          : t('stepUp.notEnabled')
+          : t('stepUp.notEnabled'),
+        e
       )
     } else {
-      appStore.showError(e?.message || t('admin.users.failedToCreate'))
+      console.error(e?.message || t('admin.users.failedToCreate'), e)
     }
   } finally { loading.value = false }
 }

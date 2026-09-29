@@ -15,10 +15,6 @@ const {
   getDashboardSnapshotV2,
   listMyErrorRequests,
   list,
-  showError,
-  showWarning,
-  showSuccess,
-  showInfo,
 } = vi.hoisted(() => ({
   query: vi.fn(),
   getStats: vi.fn(),
@@ -27,10 +23,6 @@ const {
   getDashboardSnapshotV2: vi.fn(),
   listMyErrorRequests: vi.fn(),
   list: vi.fn(),
-  showError: vi.fn(),
-  showWarning: vi.fn(),
-  showSuccess: vi.fn(),
-  showInfo: vi.fn(),
 }))
 
 const messages: Record<string, string> = {
@@ -148,7 +140,6 @@ vi.mock('@/stores/announcements', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError, showWarning, showSuccess, showInfo,
     get cachedPublicSettings() {
       return appStoreState.cachedPublicSettings
     },
@@ -234,10 +225,6 @@ describe('user UsageView', () => {
     list.mockReset()
     routerReplace.mockReset().mockResolvedValue(undefined)
     routeState.query = {}
-    showError.mockReset()
-    showWarning.mockReset()
-    showSuccess.mockReset()
-    showInfo.mockReset()
 
     authStoreState.user = { balance: 99.95 }
     authStoreState.isSimpleMode = false
@@ -462,7 +449,6 @@ describe('user UsageView', () => {
       native_compaction_v2: true,
     }))
     expect(clickSpy).toHaveBeenCalled()
-    expect(showSuccess).toHaveBeenCalled()
     expect(csvContent.startsWith('\uFEFF')).toBe(true)
     expect(csvContent.slice(1)).toBe([
       'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,IP Address,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
@@ -535,8 +521,6 @@ describe('user UsageView', () => {
       const exportCalls = query.mock.calls.filter((call) => call.length === 1)
       expect.soft(exportCalls).toEqual([[initialParams], [{ ...initialParams, page: 2 }]])
       expect.soft(filename).toBe('usage_2026-03-01_to_2026-03-08.csv')
-      expect(showSuccess).toHaveBeenCalledWith('Export success')
-      expect(showError).not.toHaveBeenCalled()
     } finally {
       window.URL.createObjectURL = originalCreateObjectURL
       window.URL.revokeObjectURL = originalRevokeObjectURL

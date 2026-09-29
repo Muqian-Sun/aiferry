@@ -102,7 +102,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import type { AdminPaymentConfig } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -119,7 +118,6 @@ import type { RowAction } from '@/components/admin/list'
 import PlanEditDialog from './PlanEditDialog.vue'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const paymentConfig = ref<AdminPaymentConfig | null>(null)
 
@@ -177,7 +175,7 @@ async function loadPlans() {
         : (p.features || []),
     }))
   }
-  catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
   finally { plansLoading.value = false }
 }
 
@@ -201,15 +199,15 @@ async function toggleForSale(plan: SubscriptionPlan) {
     await adminPaymentAPI.updatePlan(plan.id, { for_sale: !plan.for_sale })
     plan.for_sale = !plan.for_sale
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   }
 }
 
 function confirmDeletePlan(plan: SubscriptionPlan) { deletingPlanId.value = plan.id; showDeletePlanDialog.value = true }
 async function handleDeletePlan() {
   if (!deletingPlanId.value) return
-  try { await adminPaymentAPI.deletePlan(deletingPlanId.value); appStore.showSuccess(t('common.deleted')); showDeletePlanDialog.value = false; loadPlans() }
-  catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  try { await adminPaymentAPI.deletePlan(deletingPlanId.value); showDeletePlanDialog.value = false; loadPlans() }
+  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
 }
 
 // ==================== Lifecycle ====================

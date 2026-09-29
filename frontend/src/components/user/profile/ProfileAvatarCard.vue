@@ -63,7 +63,6 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userAPI } from '@/api'
-import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -74,7 +73,6 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 const targetAvatarUploadBytes = 20 * 1024
 const avatarScaleSteps = [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
@@ -100,7 +98,7 @@ function normalizeUploadedAvatar(value: string): string | null {
   }
 
   if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(normalized)) {
-    appStore.showError(t('profile.avatar.uploadRequired'))
+    console.error(t('profile.avatar.uploadRequired'))
     return null
   }
 
@@ -201,7 +199,7 @@ async function handleAvatarFileChange(event: Event) {
     }
     avatarDraft.value = normalized
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('common.error')))
+    console.error(extractApiErrorMessage(error, t('common.error')), error)
   }
 }
 
@@ -216,9 +214,8 @@ async function handleAvatarSave() {
     const updated = await userAPI.updateProfile({ avatar_url: normalized })
     authStore.user = updated
     avatarDraft.value = updated.avatar_url?.trim() || ''
-    appStore.showSuccess(t('profile.avatar.saveSuccess'))
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('common.error')))
+    console.error(extractApiErrorMessage(error, t('common.error')), error)
   } finally {
     avatarSaving.value = false
   }
@@ -229,7 +226,7 @@ async function handleAvatarDelete() {
     return
   }
   if (!avatarDraft.value.trim() && !props.user?.avatar_url?.trim()) {
-    appStore.showError(t('profile.avatar.emptyDeleteHint'))
+    console.error(t('profile.avatar.emptyDeleteHint'))
     return
   }
 
@@ -238,9 +235,8 @@ async function handleAvatarDelete() {
     const updated = await userAPI.updateProfile({ avatar_url: '' })
     authStore.user = updated
     avatarDraft.value = ''
-    appStore.showSuccess(t('profile.avatar.deleteSuccess'))
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('common.error')))
+    console.error(extractApiErrorMessage(error, t('common.error')), error)
   } finally {
     avatarSaving.value = false
   }

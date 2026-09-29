@@ -13,8 +13,6 @@ const {
   listLogs,
   getGroups,
   getProxies,
-  showError,
-  showSuccess,
 } = vi.hoisted(() => ({
   getConfig: vi.fn(),
   updateConfig: vi.fn(),
@@ -22,8 +20,6 @@ const {
   listLogs: vi.fn(),
   getGroups: vi.fn(),
   getProxies: vi.fn(),
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -53,10 +49,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess,
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/utils/apiError', () => ({
@@ -202,8 +195,6 @@ describe('admin RiskControlView', () => {
     getStatus.mockReset()
     listLogs.mockReset()
     getGroups.mockReset()
-    showError.mockReset()
-    showSuccess.mockReset()
 
     getConfig.mockResolvedValue(baseConfig())
     getStatus.mockResolvedValue(runtimeStatus())
@@ -253,7 +244,6 @@ describe('admin RiskControlView', () => {
         models: ['gpt-5.5', 'gpt-5.4'],
       },
     }))
-    expect(showError).not.toHaveBeenCalled()
   })
 
   it('submits edited risk control thresholds when saving moderation config', async () => {
@@ -287,7 +277,6 @@ describe('admin RiskControlView', () => {
         harassment: 0.99,
       }),
     }))
-    expect(showError).not.toHaveBeenCalled()
   })
 
   it('describes worker runtime as async audit and pre-block record processing', async () => {

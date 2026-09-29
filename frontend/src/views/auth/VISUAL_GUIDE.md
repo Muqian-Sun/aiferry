@@ -447,12 +447,6 @@ transition: colors 150ms
 animation: spin 1s linear infinite;
 ```
 
-### Toast Animations
-
-- Enter: Slide in from right + fade in
-- Exit: Slide out to right + fade out
-- Duration: 300ms
-
 ## Accessibility Features
 
 ### Visual Indicators
@@ -460,7 +454,6 @@ animation: spin 1s linear infinite;
 - Clear focus states (2px ring)
 - Error states (red border + red text)
 - Loading states (spinner + text)
-- Success states (green toast)
 
 ### Color Contrast
 

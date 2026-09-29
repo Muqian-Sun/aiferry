@@ -1,5 +1,4 @@
 import { ref } from 'vue'
-import { useAppStore } from '@/stores/app'
 import { i18n } from '@/i18n'
 
 const { t } = i18n.global
@@ -32,13 +31,9 @@ function fallbackCopy(text: string): boolean {
 }
 
 export function useClipboard() {
-  const appStore = useAppStore()
   const copied = ref(false)
 
-  const copyToClipboard = async (
-    text: string,
-    successMessage?: string
-  ): Promise<boolean> => {
+  const copyToClipboard = async (text: string): Promise<boolean> => {
     if (!text) return false
 
     let success = false
@@ -56,12 +51,11 @@ export function useClipboard() {
 
     if (success) {
       copied.value = true
-      appStore.showSuccess(successMessage || t('common.copiedToClipboard'))
       setTimeout(() => {
         copied.value = false
       }, 2000)
     } else {
-      appStore.showError(t('common.copyFailed'))
+      console.error(t('common.copyFailed'))
     }
 
     return success

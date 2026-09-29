@@ -88,6 +88,7 @@
                   {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
                 </p>
               </template>
+              <FormError class="mt-4" :message="paymentErrorText" />
               <button class="btn btn-primary btn-md mt-6 w-full" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
                 <span v-if="submitting" class="flex items-center justify-center gap-2">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -171,6 +172,7 @@
                   {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
                 </p>
               </template>
+              <FormError class="mt-4" :message="paymentErrorText" />
               <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
                 <button class="btn btn-primary btn-md w-full sm:w-auto" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
                   <span v-if="submitting" class="flex items-center justify-center gap-2">
@@ -227,7 +229,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
-import { useAppStore } from '@/stores'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { loadCheckoutInfo } from './billing/checkoutPreload'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
@@ -250,10 +251,11 @@ import {
 } from '@/components/payment/paymentFlow'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import FormError from '@/components/common/FormError.vue'
 import { DEFAULT_PAYMENT_CURRENCY, USD_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix as validitySuffixOf } from '@/components/payment/validity'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
-import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
+import { buildPaymentErrorMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 
 /** 由路由决定：/billing/recharge 传 recharge，SubscriptionsView 嵌入时传 subscription。 */
@@ -271,7 +273,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
-const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
@@ -283,6 +284,14 @@ const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+// 下单失败的报错就近显示在下单按钮上方；改金额 / 支付方式 / 套餐时清掉
+const paymentErrorText = computed(() =>
+  errorMessage.value ? buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value) : ''
+)
+watch([amount, selectedMethod, selectedPlan], () => {
+  errorMessage.value = ''
+  errorHintMessage.value = ''
+})
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')
@@ -799,7 +808,6 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         const jsapiResult = await invokeWechatJsapiPayment(decision.jsapi as Record<string, unknown>)
         const errMsg = String(jsapiResult.err_msg || '').toLowerCase()
         if (errMsg.includes('cancel')) {
-          appStore.showInfo(t('payment.qr.cancelled'))
           resetPayment()
         } else if (errMsg && !errMsg.includes('ok')) {
           resetPayment()
@@ -873,7 +881,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         return
       }
     }
-    appStore.showError(buildPaymentErrorToastMessage(errorMessage.value, errorHintMessage.value))
+    console.error(buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value), err)
   } finally {
     submitting.value = false
   }
@@ -967,7 +975,6 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
     paymentState.value = decision.paymentState
     paymentPhase.value = 'paying'
     persistRecoverySnapshot(decision.recovery)
-    appStore.showWarning(t('payment.errors.mobilePaymentFallbackToQr'))
     return true
   } catch {
     return false
@@ -987,7 +994,7 @@ function applyScenarioError(err: unknown, paymentMethod: string): boolean {
   }
   errorMessage.value = t(descriptor.messageKey)
   errorHintMessage.value = descriptor.hintKey ? t(descriptor.hintKey) : ''
-  appStore.showError(buildPaymentErrorToastMessage(errorMessage.value, errorHintMessage.value))
+  console.error(buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value))
   return true
 }
 
@@ -1064,7 +1071,7 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
-  } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  } catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking); skipped while subscriptions are hidden
   if (SITE_FEATURES.subscription) {

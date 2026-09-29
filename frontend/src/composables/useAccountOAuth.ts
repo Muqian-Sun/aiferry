@@ -1,5 +1,4 @@
 import { ref } from 'vue'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 
 export type AddMethod = 'oauth' | 'setup-token'
@@ -33,8 +32,6 @@ export interface TokenInfo {
 }
 
 export function useAccountOAuth() {
-  const appStore = useAppStore()
-
   // State
   const authUrl = ref('')
   const authCode = ref('')
@@ -76,7 +73,7 @@ export function useAccountOAuth() {
       return true
     } catch (err: any) {
       error.value = err.response?.data?.detail || 'Failed to generate auth URL'
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return false
     } finally {
       loading.value = false
@@ -112,7 +109,7 @@ export function useAccountOAuth() {
       return tokenInfo as TokenInfo
     } catch (err: any) {
       error.value = err.response?.data?.detail || 'Failed to exchange auth code'
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return null
     } finally {
       loading.value = false

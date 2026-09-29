@@ -5,8 +5,6 @@ import EmailVerifyView from '@/views/auth/EmailVerifyView.vue'
 
 const {
   pushMock,
-  showSuccessMock,
-  showErrorMock,
   registerMock,
   setTokenMock,
   setPendingAuthSessionMock,
@@ -21,8 +19,6 @@ const {
   verifyActionMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
-  showSuccessMock: vi.fn(),
-  showErrorMock: vi.fn(),
   registerMock: vi.fn(),
   setTokenMock: vi.fn(),
   setPendingAuthSessionMock: vi.fn(),
@@ -81,10 +77,7 @@ vi.mock('@/stores', () => ({
     setPendingAuthSession: (...args: any[]) => setPendingAuthSessionMock(...args),
     clearPendingAuthSession: (...args: any[]) => clearPendingAuthSessionMock(...args),
   }),
-  useAppStore: () => ({
-    showSuccess: (...args: any[]) => showSuccessMock(...args),
-    showError: (...args: any[]) => showErrorMock(...args),
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/api/auth', async () => {
@@ -107,8 +100,6 @@ vi.mock('@/api/client', () => ({
 describe('EmailVerifyView', () => {
   beforeEach(() => {
     pushMock.mockReset()
-    showSuccessMock.mockReset()
-    showErrorMock.mockReset()
     registerMock.mockReset()
     setTokenMock.mockReset()
     setPendingAuthSessionMock.mockReset()
@@ -307,7 +298,6 @@ describe('EmailVerifyView', () => {
       email: 'fresh@example.com',
       pending_auth_token: 'pending-token-2',
     })
-    expect(showErrorMock).not.toHaveBeenCalled()
   })
 
   it('sends a verification code for a non-whitelist email domain', async () => {
@@ -342,46 +332,8 @@ describe('EmailVerifyView', () => {
     expect(sendVerifyCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'first@custom.example' })
     )
-    expect(showErrorMock).not.toHaveBeenCalled()
   })
 
-  it('shows the localized domain quota message when sending a verification code is rejected', async () => {
-    getPublicSettingsMock.mockResolvedValue({
-      turnstile_enabled: false,
-      turnstile_site_key: '',
-      site_name: 'Sub2API',
-      registration_email_suffix_whitelist: ['allowed.com'],
-      registration_email_domain_quota_enabled: true,
-    })
-    sendVerifyCodeMock.mockRejectedValueOnce({
-      reason: 'EMAIL_DOMAIN_REGISTRATION_LIMIT',
-      message: 'raw backend message',
-    })
-    sessionStorage.setItem(
-      'register_data',
-      JSON.stringify({
-        email: 'second@custom.example',
-        password: 'secret-123',
-      })
-    )
-
-    mount(EmailVerifyView, {
-      global: {
-        stubs: {
-          AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
-          Icon: true,
-          TurnstileWidget: true,
-          transition: false,
-        },
-      },
-    })
-
-    await flushPromises()
-
-    expect(showErrorMock).toHaveBeenLastCalledWith(
-      '该邮箱域名无法注册新账户。请使用主流邮箱注册；如需使用企业邮箱，请联系客服添加域名白名单。'
-    )
-  })
 
   it('shows the localized domain quota message when verified registration is rejected', async () => {
     getPublicSettingsMock.mockResolvedValue({
@@ -420,9 +372,6 @@ describe('EmailVerifyView', () => {
     await flushPromises()
 
     expect(registerMock).toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenLastCalledWith(
-      '该邮箱域名无法注册新账户。请使用主流邮箱注册；如需使用企业邮箱，请联系客服添加域名白名单。'
-    )
   })
 
   // 域名限量注册开关默认关闭：恢复 PR5423 之前的客户端白名单预检，非白名单域名不发送验证码。
@@ -455,7 +404,6 @@ describe('EmailVerifyView', () => {
     await flushPromises()
 
     expect(sendVerifyCodeMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('auth.emailSuffixNotAllowedWithAllowed')
   })
 
   it('uses the pending oauth verify-code endpoint when auth store only carries the pending provider', async () => {
@@ -497,7 +445,6 @@ describe('EmailVerifyView', () => {
       pending_oauth_token: undefined,
     })
     expect(sendVerifyCodeMock).not.toHaveBeenCalled()
-    expect(showErrorMock).not.toHaveBeenCalled()
   })
 
   it('returns to the oauth callback flow when pending send-code detects an existing account email', async () => {
@@ -546,7 +493,6 @@ describe('EmailVerifyView', () => {
       redirect: '/profile/security',
     })
     expect(pushMock).toHaveBeenCalledWith('/auth/wechat/callback')
-    expect(showErrorMock).not.toHaveBeenCalled()
   })
 
   it('submits pending auth account creation when session storage has no pending metadata but auth store does', async () => {
@@ -797,7 +743,6 @@ describe('EmailVerifyView', () => {
     expect(setTokenMock).not.toHaveBeenCalled()
     expect(persistOAuthTokenContextMock).not.toHaveBeenCalled()
     expect(clearPendingAuthSessionMock).not.toHaveBeenCalled()
-    expect(showSuccessMock).not.toHaveBeenCalled()
   })
 
   it('keeps the normal email registration flow unchanged', async () => {

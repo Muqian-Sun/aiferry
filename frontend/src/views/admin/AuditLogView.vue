@@ -246,7 +246,7 @@
                 :title="t('common.copy')"
                 :aria-label="t('common.copy')"
                 data-testid="audit-detail-copy-request-id"
-                @click="copyToClipboard(detail.request_id, t('admin.usage.requestIdCopied'))"
+                @click="copyToClipboard(detail.request_id)"
               >
                 <Icon name="copy" size="xs" />
               </button>
@@ -397,11 +397,9 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
 import type { FilterOption, RowAction } from '@/components/admin/list'
-import { useAppStore } from '@/stores'
 import { useClipboard } from '@/composables/useClipboard'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
@@ -596,7 +594,7 @@ async function fetchLogs() {
     logs.value = res.items
     total.value = res.total
   } catch (err: any) {
-    appStore.showError(err?.message || t('admin.audit.loadFailed'))
+    console.error(err?.message || t('admin.audit.loadFailed'), err)
   } finally {
     loading.value = false
   }
@@ -657,7 +655,7 @@ async function openDetail(id: number) {
   try {
     detail.value = await adminAPI.audit.get(id)
   } catch (err: any) {
-    appStore.showError(err?.message || t('admin.audit.loadFailed'))
+    console.error(err?.message || t('admin.audit.loadFailed'), err)
     detailVisible.value = false
   } finally {
     detailLoading.value = false
@@ -687,11 +685,11 @@ async function openClearDialog() {
   try {
     const status = await totpAPI.getStatus()
     if (!status.enabled) {
-      appStore.showError(t('stepUp.notEnabled'))
+      console.error(t('stepUp.notEnabled'))
       return
     }
   } catch (err: any) {
-    appStore.showError(err?.message || t('admin.audit.loadFailed'))
+    console.error(err?.message || t('admin.audit.loadFailed'), err)
     return
   } finally {
     checkingTotpStatus.value = false
@@ -714,12 +712,11 @@ async function submitClear() {
   if (clearTotpCode.value.length !== 6) return
   clearing.value = true
   try {
-    const res = await adminAPI.audit.clear(clearTotpCode.value)
+    await adminAPI.audit.clear(clearTotpCode.value)
     clearTotpVisible.value = false
-    appStore.showSuccess(t('admin.audit.clearConfirm.success', { count: res.deleted }))
     search()
   } catch (err: any) {
-    appStore.showError(err?.message || t('admin.audit.clearConfirm.failed'))
+    console.error(err?.message || t('admin.audit.clearConfirm.failed'), err)
     clearTotpCode.value = ''
   } finally {
     clearing.value = false

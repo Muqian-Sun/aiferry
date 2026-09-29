@@ -432,7 +432,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
 import { adminAPI } from '@/api/admin'
 import type { ErrorPassthroughRule } from '@/api/admin/errorPassthrough'
@@ -452,7 +451,6 @@ const emit = defineEmits<{
 void emit // suppress unused warning - emit is used via $emit in template
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const rules = ref<ErrorPassthroughRule[]>([])
 const loading = ref(false)
@@ -500,7 +498,6 @@ const loadRules = async () => {
   try {
     rules.value = await adminAPI.errorPassthrough.list()
   } catch (error) {
-    appStore.showError(t('admin.errorPassthrough.failedToLoad'))
     console.error('Error loading rules:', error)
   } finally {
     loading.value = false
@@ -571,7 +568,7 @@ const parseKeywords = (): string[] => {
 
 const handleSubmit = async () => {
   if (!form.name.trim()) {
-    appStore.showError(t('admin.errorPassthrough.nameRequired'))
+    console.error(t('admin.errorPassthrough.nameRequired'))
     return
   }
 
@@ -579,7 +576,7 @@ const handleSubmit = async () => {
   const keywords = parseKeywords()
 
   if (errorCodes.length === 0 && keywords.length === 0) {
-    appStore.showError(t('admin.errorPassthrough.conditionsRequired'))
+    console.error(t('admin.errorPassthrough.conditionsRequired'))
     return
   }
 
@@ -603,16 +600,13 @@ const handleSubmit = async () => {
 
     if (showEditModal.value && editingRule.value) {
       await adminAPI.errorPassthrough.update(editingRule.value.id, data)
-      appStore.showSuccess(t('admin.errorPassthrough.ruleUpdated'))
     } else {
       await adminAPI.errorPassthrough.create(data)
-      appStore.showSuccess(t('admin.errorPassthrough.ruleCreated'))
     }
 
     closeFormModal()
     loadRules()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToSave'))
     console.error('Error saving rule:', error)
   } finally {
     submitting.value = false
@@ -624,7 +618,6 @@ const toggleEnabled = async (rule: ErrorPassthroughRule) => {
     await adminAPI.errorPassthrough.toggleEnabled(rule.id, !rule.enabled)
     rule.enabled = !rule.enabled
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToToggle'))
     console.error('Error toggling rule:', error)
   }
 }
@@ -634,12 +627,10 @@ const confirmDelete = async () => {
 
   try {
     await adminAPI.errorPassthrough.delete(deletingRule.value.id)
-    appStore.showSuccess(t('admin.errorPassthrough.ruleDeleted'))
     showDeleteDialog.value = false
     deletingRule.value = null
     loadRules()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToDelete'))
     console.error('Error deleting rule:', error)
   }
 }

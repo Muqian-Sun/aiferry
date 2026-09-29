@@ -16,8 +16,6 @@ const {
   setTokenMock,
   setPendingAuthSessionMock,
   clearPendingAuthSessionMock,
-  showSuccessMock,
-  showErrorMock,
   fetchPublicSettingsMock,
   routeState,
   locationState,
@@ -36,8 +34,6 @@ const {
   setTokenMock: vi.fn(),
   setPendingAuthSessionMock: vi.fn(),
   clearPendingAuthSessionMock: vi.fn(),
-  showSuccessMock: vi.fn(),
-  showErrorMock: vi.fn(),
   fetchPublicSettingsMock: vi.fn(),
   routeState: {
     query: {} as Record<string, unknown>,
@@ -123,8 +119,6 @@ vi.mock('@/stores', () => ({
   }),
   useAppStore: () => ({
     ...appStoreState,
-    showSuccess: showSuccessMock,
-    showError: showErrorMock,
     fetchPublicSettings: fetchPublicSettingsMock,
   }),
 }))
@@ -163,8 +157,6 @@ describe('WechatCallbackView', () => {
     setTokenMock.mockReset()
     setPendingAuthSessionMock.mockReset()
     clearPendingAuthSessionMock.mockReset()
-    showSuccessMock.mockReset()
-    showErrorMock.mockReset()
     prepareOAuthBindAccessTokenCookieMock.mockReset()
     getAuthTokenMock.mockReset()
     fetchPublicSettingsMock.mockReset()
@@ -307,7 +299,6 @@ describe('WechatCallbackView', () => {
     expect(setTokenMock).toHaveBeenCalledWith('legacy-access-token')
     expect(localStorage.getItem('refresh_token')).toBe('legacy-refresh-token')
     expect(localStorage.getItem('token_expires_at')).not.toBeNull()
-    expect(showSuccessMock).toHaveBeenCalledWith('Login success')
     expect(replaceMock).toHaveBeenCalledWith('/legacy-dashboard')
   })
 
@@ -470,7 +461,6 @@ describe('WechatCallbackView', () => {
     })
     expect(setTokenMock).not.toHaveBeenCalled()
     expect(clearPendingAuthSessionMock).toHaveBeenCalledTimes(1)
-    expect(showSuccessMock).toHaveBeenCalledWith('profile.authBindings.bindSuccess')
     expect(replaceMock).toHaveBeenCalledWith('/profile/connections')
   })
 
@@ -647,7 +637,6 @@ describe('WechatCallbackView', () => {
     await wrapper.get('[data-testid="existing-account-submit"]').trigger('click').catch(() => undefined)
     await flushPromises()
 
-    expect(showErrorMock).toHaveBeenCalledWith('bind token failed')
     expect(locationState.current.href).toBe('http://localhost/auth/wechat/callback')
   })
 
@@ -772,7 +761,7 @@ describe('WechatCallbackView', () => {
     )
   })
 
-  it('shows create-account failures through toast without inline error text', async () => {
+  it('shows create-account failures inline', async () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       error: 'email_required',
       redirect: '/welcome',
@@ -796,8 +785,7 @@ describe('WechatCallbackView', () => {
     await wrapper.get('[data-testid="wechat-create-account-submit"]').trigger('click')
     await flushPromises()
 
-    expect(showErrorMock).toHaveBeenCalledWith('create failed')
-    expect(wrapper.text()).not.toContain('create failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('create failed')
   })
 
   it('sends a verify code for pending oauth account creation', async () => {
@@ -967,7 +955,6 @@ describe('WechatCallbackView', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushPromises()
 
-    expect(showSuccessMock).not.toHaveBeenCalled()
     expect(replaceMock).not.toHaveBeenCalled()
     expect((wrapper.get('[data-testid="wechat-bind-login-email"]').element as HTMLInputElement).value).toBe(
       'existing@example.com'

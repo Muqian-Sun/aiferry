@@ -143,7 +143,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -172,7 +171,6 @@ interface AuditLog {
 }
 
 const { t, te } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 const ordersLoading = ref(false)
@@ -211,7 +209,7 @@ async function loadOrders() {
     orders.value = res.data.items || []
     orderPagination.total = res.data.total || 0
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   } finally { ordersLoading.value = false }
 }
 
@@ -287,13 +285,13 @@ async function showOrderDetail(order: PaymentOrder) {
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
-  catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  try { await adminPaymentAPI.cancelOrder(order.id); loadOrders() }
+  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); loadOrders() }
-  catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  try { await adminPaymentAPI.retryRecharge(order.id); loadOrders() }
+  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
 }
 
 function openRefundDialog(order: PaymentOrder) {
@@ -319,13 +317,11 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
   try {
     const res = await adminPaymentAPI.refundOrder(selectedOrder.value.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
     if (res.data.success) {
-      appStore.showSuccess(t('payment.admin.refundSuccess'))
       closeRefundDialog()
       loadOrders()
       return
     }
     if (isRefundPendingWarning(res.data.warning)) {
-      appStore.showSuccess(t('payment.admin.refundPending'))
       closeRefundDialog()
       loadOrders()
       return
@@ -338,8 +334,8 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
       refundWarning.value = res.data.warning || ''
       return
     }
-    appStore.showError(res.data.warning || t('common.error'))
-  } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+    console.error(res.data.warning || t('common.error'))
+  } catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
   finally { refundSubmitting.value = false }
 }
 
@@ -347,16 +343,12 @@ async function handleQueryRefund(order: PaymentOrder) {
   refundQueryingIds.value = new Set(refundQueryingIds.value).add(order.id)
   try {
     const res = await adminPaymentAPI.queryRefund(order.id)
-    if (res.data.success) {
-      appStore.showSuccess(t('payment.admin.refundSuccess'))
-    } else if (isRefundPendingWarning(res.data.warning)) {
-      appStore.showSuccess(t('payment.admin.refundPending'))
-    } else {
-      appStore.showError(res.data.warning || t('common.error'))
+    if (!res.data.success && !isRefundPendingWarning(res.data.warning)) {
+      console.error(res.data.warning || t('common.error'))
     }
     loadOrders()
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   } finally {
     const next = new Set(refundQueryingIds.value)
     next.delete(order.id)

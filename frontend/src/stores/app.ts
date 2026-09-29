@@ -1,11 +1,11 @@
 /**
  * Application State Store
- * Manages global UI state including sidebar, loading indicators, and toast notifications
+ * Manages global UI state including sidebar and loading indicators
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Toast, ToastType, PublicSettings } from '@/types'
+import type { PublicSettings } from '@/types'
 import { i18n } from '@/i18n'
 import { getPublicSettings as fetchPublicSettingsAPI } from '@/api/auth'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
@@ -17,7 +17,6 @@ export const useAppStore = defineStore('app', () => {
   const mobileOpen = ref<boolean>(false)
   const sidebarScrollTop = ref<number>(0)
   const loading = ref<boolean>(false)
-  const toasts = ref<Toast[]>([])
 
   // Public settings cache state
   const publicSettingsLoaded = ref<boolean>(false)
@@ -31,12 +30,8 @@ export const useAppStore = defineStore('app', () => {
   const cachedPublicSettings = ref<PublicSettings | null>(null)
   let publicSettingsRequest: Promise<PublicSettings | null> | null = null
 
-  // Auto-incrementing ID for toasts
-  let toastIdCounter = 0
-
   // ==================== Computed ====================
 
-  const hasActiveToasts = computed(() => toasts.value.length > 0)
   const backendModeEnabled = computed(() => cachedPublicSettings.value?.backend_mode_enabled ?? false)
 
   const loadingCount = ref<number>(0)
@@ -87,89 +82,6 @@ export const useAppStore = defineStore('app', () => {
   }
 
   /**
-   * Show a toast notification
-   * @param type - Type of toast (success, error, info, warning)
-   * @param message - Toast message content
-   * @param duration - Auto-dismiss duration in ms (undefined = no auto-dismiss)
-   * @returns Toast ID for manual dismissal
-   */
-  function showToast(type: ToastType, message: string, duration?: number): string {
-    const id = `toast-${++toastIdCounter}`
-    const toast: Toast = {
-      id,
-      type,
-      message,
-      duration,
-      startTime: duration !== undefined ? Date.now() : undefined
-    }
-
-    toasts.value.push(toast)
-
-    // Auto-dismiss if duration is specified
-    if (duration !== undefined) {
-      setTimeout(() => {
-        hideToast(id)
-      }, duration)
-    }
-
-    return id
-  }
-
-  /**
-   * Show a success toast
-   * @param message - Success message
-   * @param duration - Auto-dismiss duration in ms (default: 3000)
-   */
-  function showSuccess(message: string, duration: number = 3000): string {
-    return showToast('success', message, duration)
-  }
-
-  /**
-   * Show an error toast
-   * @param message - Error message
-   * @param duration - Auto-dismiss duration in ms (default: 5000)
-   */
-  function showError(message: string, duration: number = 5000): string {
-    return showToast('error', message, duration)
-  }
-
-  /**
-   * Show an info toast
-   * @param message - Info message
-   * @param duration - Auto-dismiss duration in ms (default: 3000)
-   */
-  function showInfo(message: string, duration: number = 3000): string {
-    return showToast('info', message, duration)
-  }
-
-  /**
-   * Show a warning toast
-   * @param message - Warning message
-   * @param duration - Auto-dismiss duration in ms (default: 4000)
-   */
-  function showWarning(message: string, duration: number = 4000): string {
-    return showToast('warning', message, duration)
-  }
-
-  /**
-   * Hide a specific toast by ID
-   * @param id - Toast ID to hide
-   */
-  function hideToast(id: string): void {
-    const index = toasts.value.findIndex((t) => t.id === id)
-    if (index !== -1) {
-      toasts.value.splice(index, 1)
-    }
-  }
-
-  /**
-   * Clear all toasts
-   */
-  function clearAllToasts(): void {
-    toasts.value = []
-  }
-
-  /**
    * Execute an async operation with loading state
    * Automatically manages loading indicator
    * @param operation - Async operation to execute
@@ -186,7 +98,7 @@ export const useAppStore = defineStore('app', () => {
 
   /**
    * Execute an async operation with loading and error handling
-   * Shows error toast on failure
+   * Logs the error to the console on failure
    * @param operation - Async operation to execute
    * @param errorMessage - Custom error message (optional)
    * @returns Promise resolving to operation result or null on error
@@ -203,7 +115,7 @@ export const useAppStore = defineStore('app', () => {
         errorMessage ||
         (error as { message?: string }).message ||
         i18n.global.t('common.unknownError')
-      showError(message)
+      console.error(message, error)
       return null
     } finally {
       setLoading(false)
@@ -218,7 +130,6 @@ export const useAppStore = defineStore('app', () => {
     sidebarCollapsed.value = false
     loading.value = false
     loadingCount.value = 0
-    toasts.value = []
   }
 
   // ==================== Public Settings Management ====================
@@ -367,7 +278,6 @@ export const useAppStore = defineStore('app', () => {
     mobileOpen,
     sidebarScrollTop,
     loading,
-    toasts,
 
     // Public settings state
     publicSettingsLoaded,
@@ -380,7 +290,6 @@ export const useAppStore = defineStore('app', () => {
     cachedPublicSettings,
 
     // Computed
-    hasActiveToasts,
     backendModeEnabled,
 
     // Actions
@@ -389,13 +298,6 @@ export const useAppStore = defineStore('app', () => {
     toggleMobileSidebar,
     setMobileOpen,
     setLoading,
-    showToast,
-    showSuccess,
-    showError,
-    showInfo,
-    showWarning,
-    hideToast,
-    clearAllToasts,
     withLoading,
     withLoadingAndError,
     reset,

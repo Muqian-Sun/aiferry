@@ -1,12 +1,10 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { GrokTokenInfo } from '@/api/admin/grok'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 
 export function useGrokOAuth() {
-  const appStore = useAppStore()
   const { t } = useI18n()
 
   const authUrl = ref('')
@@ -41,7 +39,7 @@ export function useGrokOAuth() {
       return true
     } catch (err: any) {
       error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.grok.failedToGenerateUrl'))
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return false
     } finally {
       loading.value = false
@@ -79,7 +77,7 @@ export function useGrokOAuth() {
         'admin.accounts.oauth.grok.errors',
         t('admin.accounts.oauth.grok.failedToExchangeCode')
       )
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return null
     } finally {
       loading.value = false
@@ -166,7 +164,7 @@ export function useGrokOAuth() {
         'admin.accounts.oauth.grok.errors',
         t('admin.accounts.oauth.grok.failedToValidateSSO', 'Failed to validate SSO token')
       )
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return null
     } finally {
       loading.value = false
@@ -192,7 +190,7 @@ export function useGrokOAuth() {
         'admin.accounts.oauth.grok.errors',
         t('admin.accounts.oauth.grok.failedToAuthorizePassword', 'Password authorization failed')
       )
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return null
     } finally {
       loading.value = false

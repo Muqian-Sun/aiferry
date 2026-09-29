@@ -12,6 +12,7 @@
               : t('auth.oauthFlow.callbackHint')
           }}
         </p>
+        <FormError class="justify-center" :message="errorMessage" />
       </div>
 
       <transition name="fade">
@@ -91,6 +92,7 @@
                 @keyup.enter="handleSubmitInvitation"
               />
             </div>
+            <FormError :message="invitationError" />
             <button
               class="btn btn-primary w-full"
               :disabled="isSubmitting || !invitationCode.trim()"
@@ -259,6 +261,7 @@
                 :disabled="isSubmitting"
                 @keyup.enter="handleBindLogin"
               />
+              <FormError :message="accountActionError" />
               <button
                 data-testid="wechat-bind-login-submit"
                 class="btn btn-primary w-full"
@@ -299,6 +302,7 @@
                 :disabled="isSubmitting"
                 @keyup.enter="handleSubmitTotpChallenge"
               />
+              <FormError :message="totpError" />
               <button
                 data-testid="wechat-bind-login-totp-submit"
                 class="btn btn-primary w-full"
@@ -320,6 +324,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
+import FormError from '@/components/common/FormError.vue'
 import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/components/auth/PendingOAuthCreateAccountForm.vue'
@@ -384,7 +389,6 @@ const totpTempToken = ref('')
 const totpCode = ref('')
 const totpError = ref('')
 const totpUserEmailMasked = ref('')
-const bindSuccessMessage = t('profile.authBindings.bindSuccess')
 
 const providerName = t('auth.wechatProviderName')
 const showBackToChooser = computed(
@@ -396,26 +400,37 @@ const hasCurrentAuthToken = computed(() => Boolean(getAuthToken()))
 
 watch(invitationError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(accountActionError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(totpError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(errorMessage, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
+})
+
+// 重新输入时清掉就近的报错
+watch(invitationCode, () => {
+  invitationError.value = ''
+})
+watch([bindLoginEmail, bindLoginPassword], () => {
+  accountActionError.value = ''
+})
+watch(totpCode, () => {
+  totpError.value = ''
 })
 
 type PendingWeChatCompletion = PendingOAuthExchangeResponse & {
@@ -813,7 +828,6 @@ async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redi
     const bindRedirect = sanitizeRedirectPath(completion.redirect || '/profile/security')
     clearPendingAuthSession()
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(bindSuccessMessage)
     await router.replace(bindRedirect)
     return
   }
@@ -825,7 +839,6 @@ async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redi
   persistOAuthTokenContext(completion)
   await authStore.setToken(completion.access_token)
   clearAllAffiliateReferralCodes()
-  appStore.showSuccess(t('auth.loginSuccess'))
   await router.replace(redirect)
 }
 
@@ -978,7 +991,6 @@ async function handleSubmitTotpChallenge() {
     persistOAuthTokenContext(completion)
     await authStore.setToken(completion.access_token)
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(t('auth.loginSuccess'))
     await router.replace(redirectTo.value)
   } catch (e: unknown) {
     totpError.value = getRequestErrorMessage(e, t('auth.loginFailed'))
@@ -1039,7 +1051,6 @@ onMounted(async () => {
       persistOAuthTokenContext(legacyLogin)
       await authStore.setToken(legacyLogin.access_token)
       clearAllAffiliateReferralCodes()
-      appStore.showSuccess(t('auth.loginSuccess'))
       await router.replace(redirect)
       return
     }

@@ -22,9 +22,7 @@
           v-else
           class="mt-6 rounded-lg border border-af-hairline bg-af-sunken p-4"
         >
-          <p class="text-sm text-af-ink-2">
-            {{ errorMessage }}
-          </p>
+          <FormError :message="errorMessage" />
           <button
             class="btn btn-primary mt-4"
             type="button"
@@ -42,18 +40,17 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useAppStore } from '@/stores'
+import FormError from '@/components/common/FormError.vue'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const appStore = useAppStore()
 
 const errorMessage = ref('')
 
 watch(errorMessage, (message) => {
   if (message) {
-    appStore.showError(message)
+    console.error(message)
   }
 })
 

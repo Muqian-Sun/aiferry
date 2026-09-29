@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import WechatPaymentCallbackView from '@/views/auth/WechatPaymentCallbackView.vue'
 
-const { replaceMock, routeState, locationState, showErrorMock } = vi.hoisted(() => ({
+const { replaceMock, routeState, locationState } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
   routeState: {
     query: {} as Record<string, unknown>,
@@ -16,7 +16,6 @@ const { replaceMock, routeState, locationState, showErrorMock } = vi.hoisted(() 
       origin: 'http://localhost',
     } as Location & { origin: string },
   },
-  showErrorMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -40,15 +39,12 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError: (...args: any[]) => showErrorMock(...args),
-  }),
+  useAppStore: () => ({}),
 }))
 
 describe('WechatPaymentCallbackView', () => {
   beforeEach(() => {
     replaceMock.mockReset()
-    showErrorMock.mockReset()
     routeState.query = {}
     locationState.current = {
       href: 'http://localhost/auth/wechat/payment/callback',
@@ -109,7 +105,6 @@ describe('WechatPaymentCallbackView', () => {
     await flushPromises()
 
     expect(replaceMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('微信支付回调缺少恢复令牌。')
     expect(wrapper.text()).toContain('微信支付回调缺少恢复令牌。')
     expect(wrapper.find('.bg-red-50').exists()).toBe(false)
   })

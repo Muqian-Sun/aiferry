@@ -6,10 +6,7 @@ import { opsAPI, type OpsRuntimeLogConfig, type OpsSystemLog, type OpsSystemLogS
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
-import { useAppStore } from '@/stores'
-import { extractApiErrorMessage } from '@/utils/apiError'
 
-const appStore = useAppStore()
 const { t } = useI18n()
 
 // 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
@@ -210,7 +207,6 @@ const fetchLogs = async () => {
     total.value = res.total || 0
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to fetch logs', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.systemLogs.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -255,10 +251,8 @@ const saveRuntimeConfig = async () => {
     runtimeConfig.caller = saved.caller
     runtimeConfig.stacktrace_level = saved.stacktrace_level
     runtimeConfig.retention_days = saved.retention_days
-    appStore.showSuccess(t('admin.ops.systemLogs.runtimeConfigActive'))
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to save runtime log config', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.systemLogs.runtimeConfigSaveFailed'))
   } finally {
     runtimeSaving.value = false
   }
@@ -279,11 +273,9 @@ const resetRuntimeConfig = async () => {
     runtimeConfig.caller = saved.caller
     runtimeConfig.stacktrace_level = saved.stacktrace_level
     runtimeConfig.retention_days = saved.retention_days
-    appStore.showSuccess(t('admin.ops.systemLogs.runtimeConfigReset'))
     await fetchHealth()
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to reset runtime log config', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.systemLogs.runtimeConfigResetFailed'))
   } finally {
     runtimeSaving.value = false
   }
@@ -308,17 +300,11 @@ const cleanupCurrentFilter = async () => {
       model: filters.model.trim() || undefined,
       q: filters.q.trim() || undefined
     }
-    const res = await opsAPI.cleanupSystemLogs(payload)
-    appStore.showSuccess(t('admin.ops.systemLogs.cleanupSuccess', { count: res.deleted || 0 }))
+    await opsAPI.cleanupSystemLogs(payload)
     page.value = 1
     await Promise.all([fetchLogs(), fetchHealth()])
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to cleanup logs', err)
-    appStore.showError(
-      extractApiErrorMessage(err, t('admin.ops.systemLogs.cleanupFailed'), {
-        OPS_SYSTEM_LOG_CLEANUP_FILTER_REQUIRED: t('admin.ops.systemLogs.cleanupFilterRequired')
-      })
-    )
   }
 }
 

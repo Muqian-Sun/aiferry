@@ -199,7 +199,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogBinding, ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
@@ -230,7 +229,6 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const PER_MILLION = 1_000_000
 const perMillionUnit = computed(() => t('admin.modelCatalog.editor.units.perMillion'))
@@ -435,8 +433,8 @@ function removeMediaTier(index: number) {
   mediaTiers.value.splice(index, 1)
 }
 
-function showApiError(error: unknown) {
-  appStore.showError(extractApiErrorMessage(error, t('common.unknownError')))
+function logApiError(error: unknown) {
+  console.error(extractApiErrorMessage(error, t('common.unknownError')), error)
 }
 
 async function loadFor(entry: ModelCatalogEntry | null) {
@@ -461,7 +459,7 @@ async function loadFor(entry: ModelCatalogEntry | null) {
   try {
     bindings.value = await adminAPI.modelCatalog.getBindings(entry.id)
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   }
 }
 
@@ -511,7 +509,7 @@ async function save() {
     await adminAPI.modelCatalog.updateBindings(entryId, bindingsPayload())
     emit('saved')
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   } finally {
     saving.value = false
   }

@@ -27,7 +27,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -35,7 +34,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import { formatMoneyExact } from '@/utils/money'
 
 const props = defineProps<{ show: boolean, user: AdminUser | null, operation: 'add' | 'subtract' }>()
-const emit = defineEmits(['close', 'success']); const { t } = useI18n(); const appStore = useAppStore()
+const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 
 const submitting = ref(false); const form = reactive({ amount: 0, notes: '' })
 watch(() => props.show, (v) => { if(v) { form.amount = 0; form.notes = '' } })
@@ -56,21 +55,20 @@ const calculateNewBalance = () => {
 const handleBalanceSubmit = async () => {
   if (!props.user) return
   if (!form.amount || form.amount <= 0) {
-    appStore.showError(t('admin.users.amountRequired'))
+    console.error(t('admin.users.amountRequired'))
     return
   }
   // 扣减余额时验证金额不超过实际余额
   if (props.operation === 'subtract' && form.amount > props.user.balance) {
-    appStore.showError(t('admin.users.insufficientBalance'))
+    console.error(t('admin.users.insufficientBalance'))
     return
   }
   submitting.value = true
   try {
     await adminAPI.users.updateBalance(props.user.id, form.amount, props.operation, form.notes)
-    appStore.showSuccess(t('common.success')); emit('success'); emit('close')
+    emit('success'); emit('close')
   } catch (e: any) {
     console.error('Failed to update balance:', e)
-    appStore.showError(e.response?.data?.detail || t('common.error'))
   } finally { submitting.value = false }
 }
 </script>

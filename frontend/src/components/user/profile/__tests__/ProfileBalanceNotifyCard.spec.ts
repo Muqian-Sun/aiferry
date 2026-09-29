@@ -13,7 +13,7 @@ vi.mock('@/api', () => ({
 }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: null }) }))
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showSuccess: vi.fn(), showError: vi.fn() })
+  useAppStore: () => ({})
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 

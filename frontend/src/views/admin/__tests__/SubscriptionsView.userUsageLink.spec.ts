@@ -4,10 +4,9 @@ import { defineComponent } from 'vue'
 
 import SubscriptionsView from '../SubscriptionsView.vue'
 
-const { listSubscriptions, assignSubscription, listUsers, searchUsageUsers, showError } = vi.hoisted(() => ({
+const { listSubscriptions, assignSubscription, listUsers, searchUsageUsers } = vi.hoisted(() => ({
   listSubscriptions: vi.fn(),
   assignSubscription: vi.fn(),
-  showError: vi.fn(),
   listUsers: vi.fn(),
   searchUsageUsers: vi.fn()
 }))
@@ -21,10 +20,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -162,7 +158,6 @@ describe('admin subscription users', () => {
       await flushPromises()
 
       expect(assignSubscription).not.toHaveBeenCalled()
-      expect(showError).toHaveBeenCalledWith('admin.subscriptions.pleaseSelectUser')
       expect(listUsers).toHaveBeenCalledTimes(1)
 
       listUsers.mockResolvedValue({ items: [{ id: 84, email: 'another@example.com' }] })

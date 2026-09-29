@@ -1189,26 +1189,26 @@ async function handleReferenceImageFiles(event: Event) {
   if (files.length === 0) return
   const limit = selectedModelReferenceLimit.value
   if (limit <= 0) {
-    appStore.showError(t('batchImage.create.modelNoReferenceImages'))
+    console.error(t('batchImage.create.modelNoReferenceImages'))
     return
   }
   const slots = Math.max(0, limit - referenceImageDrafts.value.length)
   if (slots <= 0) {
-    appStore.showError(t('batchImage.create.refLimitReached', { limit }))
+    console.error(t('batchImage.create.refLimitReached', { limit }))
     return
   }
   const accepted = files.slice(0, slots)
   if (accepted.length < files.length) {
-    appStore.showError(t('batchImage.create.refLimitExceededIgnored', { limit }))
+    console.error(t('batchImage.create.refLimitExceededIgnored', { limit }))
   }
   const next: ReferenceImageDraft[] = []
   for (const file of accepted) {
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      appStore.showError(t('batchImage.create.refFormatUnsupported'))
+      console.error(t('batchImage.create.refFormatUnsupported'))
       continue
     }
     if (file.size > 10 * 1024 * 1024) {
-      appStore.showError(t('batchImage.create.refFileTooLarge', { name: file.name }))
+      console.error(t('batchImage.create.refFileTooLarge', { name: file.name }))
       continue
     }
     const data = await readFileAsBase64(file)
@@ -1252,7 +1252,7 @@ async function loadApiKeys() {
       form.model = ''
     }
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadKeysFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('loadKeysFailed')), error)
   } finally {
     loadingKeys.value = false
   }
@@ -1489,7 +1489,7 @@ function openPromptPopover(target: HTMLElement, value: string) {
 
 function copyPromptPopover() {
   if (!promptPopover.text) return
-  void copyToClipboard(promptPopover.text, t('batchImage.promptPopover.copied'))
+  void copyToClipboard(promptPopover.text)
 }
 
 async function loadBatchJobs() {
@@ -1517,7 +1517,7 @@ async function loadBatchJobs() {
     pagination.has_more = results.some(result => result.hasMore)
     selectedJobIds.value = new Set([...selectedJobIds.value].filter(id => visibleBatchJobs.value.some(job => job.id === id)))
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadJobsFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('loadJobsFailed')), error)
   } finally {
     loadingJobs.value = false
   }
@@ -1594,7 +1594,7 @@ function keyForSelectedBatch(): ApiKey | null {
 
 function requireApiKey(): ApiKey | null {
   if (!selectedApiKey.value) {
-    appStore.showError(batchImageText('selectApiKey'))
+    console.error(batchImageText('selectApiKey'))
     return null
   }
   return selectedApiKey.value
@@ -1603,20 +1603,20 @@ function requireApiKey(): ApiKey | null {
 function validateForm(): boolean {
   if (!requireApiKey()) return false
   if (!form.model) {
-    appStore.showError(availableBatchImageModels.value.length === 0 ? batchImageText('noModelsForKey') : batchImageText('selectModel'))
+    console.error(availableBatchImageModels.value.length === 0 ? batchImageText('noModelsForKey') : batchImageText('selectModel'))
     return false
   }
   if (parsedItems.value.length === 0) {
-    appStore.showError(batchImageText('promptRequired'))
+    console.error(batchImageText('promptRequired'))
     return false
   }
   if (estimatedOutputCount.value > BATCH_IMAGE_MAX_OUTPUTS_PER_JOB) {
-    appStore.showError(batchImageText('tooManyOutputImages'))
+    console.error(batchImageText('tooManyOutputImages'))
     return false
   }
   const refLimit = selectedModelReferenceLimit.value
   if (promptRows.value.some(row => row.reference_images.length > refLimit)) {
-    appStore.showError(batchImageText('tooManyReferenceImages'))
+    console.error(batchImageText('tooManyReferenceImages'))
     return false
   }
   return true
@@ -1648,11 +1648,10 @@ async function submitJob() {
 	    upsertJob(job)
 	    showCreateModal.value = false
 	    resetCreateDraft()
-	    appStore.showSuccess(batchImageText('submitted'))
 	    void loadItems()
 	    startPolling()
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('submitFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('submitFailed')), error)
   } finally {
     submitting.value = false
   }
@@ -1669,7 +1668,7 @@ async function refreshSelected() {
     upsertJob(job)
     if (TERMINAL_STATUSES.has(job.status)) stopPolling()
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('refreshFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('refreshFailed')), error)
   } finally {
     refreshing.value = false
   }
@@ -1775,9 +1774,8 @@ async function cancelSelected() {
     const job = await cancelBatchImageJob(key.key, currentJob.value.id)
     currentJob.value = job
     upsertJob(job)
-    appStore.showSuccess(batchImageText('cancelled'))
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('cancelFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('cancelFailed')), error)
   } finally {
     cancelling.value = false
   }
@@ -1806,7 +1804,7 @@ async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
       .map(item => ({ custom_id: retryCustomID(item.custom_id), prompt: String(item.prompt_preview || '').trim() }))
       .filter(item => item.prompt)
     if (failedItems.length === 0) {
-      appStore.showError(batchImageText('retryMissingPrompts'))
+      console.error(batchImageText('retryMissingPrompts'))
       return
     }
     const retryJob = await submitBatchImageJob(
@@ -1830,11 +1828,10 @@ async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
     if (retryJob.parent_batch_id) {
       expandedParentIds.value = new Set([...expandedParentIds.value, retryJob.parent_batch_id])
     }
-    appStore.showSuccess(batchImageText('retrySubmitted'))
     void loadItems()
     startPolling()
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('retryFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('retryFailed')), error)
   } finally {
     retryingBatchId.value = ''
   }
@@ -1879,7 +1876,7 @@ async function downloadJob(job: (BatchImageJobRow | Pick<BatchImageJob, 'id'>)) 
     saveBlob(blob, batchZipFileName(job))
     markJobDownloaded(job.id)
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('downloadFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('downloadFailed')), error)
   } finally {
     downloading.value = false
     downloadingBatchId.value = ''
@@ -1899,9 +1896,8 @@ async function downloadSelectedJobs() {
       saveBlob(blob, batchZipFileName(row))
       markJobDownloaded(row.id)
     }
-    appStore.showSuccess(batchImageText('batchDownloadStarted'))
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('downloadFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('downloadFailed')), error)
   } finally {
     bulkDownloading.value = false
     downloading.value = false
@@ -1919,9 +1915,8 @@ async function deleteJob(job: BatchImageJobRow) {
   try {
     await deleteBatchImageJobRecord(key.key, job.id)
     removeJobFromList(job.id)
-    appStore.showSuccess(batchImageText('deleted'))
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('deleteFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('deleteFailed')), error)
   } finally {
     deletingBatchId.value = ''
   }
@@ -1940,9 +1935,8 @@ async function deleteSelectedJobs() {
       await deleteBatchImageJobRecord(key.key, row.id)
       removeJobFromList(row.id)
     }
-    appStore.showSuccess(batchImageText('deleted'))
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('deleteFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('deleteFailed')), error)
   } finally {
     bulkDeleting.value = false
     deletingBatchId.value = ''
@@ -2215,7 +2209,7 @@ async function loadItems() {
     items.value = detailItems
     void hydrateCachedItemPreviews(detailItems)
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadItemsFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('loadItemsFailed')), error)
   } finally {
     loadingItems.value = false
   }
@@ -2263,7 +2257,7 @@ async function loadItemPreview(item: BatchImageItem) {
     }
   } catch (error: any) {
     previewErrorIds.value = new Set([...previewErrorIds.value, previewKey])
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadPreviewFailed')))
+    console.error(batchImageErrorMessage(error, batchImageText('loadPreviewFailed')), error)
   } finally {
     const next = new Set(previewLoadingIds.value)
     next.delete(previewKey)
@@ -2303,7 +2297,7 @@ function clearItemPreviews() {
 }
 
 function copyInstruction() {
-  void copyToClipboard(agentInstruction.value, batchImageText('copiedInstruction'))
+  void copyToClipboard(agentInstruction.value)
 }
 
 function statusLabel(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status' | 'success_count' | 'fail_count'>) {

@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', () => ({

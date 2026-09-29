@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { GeminiOAuthCapabilities } from '@/api/admin/gemini'
 
@@ -18,7 +17,6 @@ export interface GeminiTokenInfo {
 }
 
 export function useGeminiOAuth() {
-  const appStore = useAppStore()
   const { t } = useI18n()
 
   const authUrl = ref('')
@@ -63,7 +61,7 @@ export function useGeminiOAuth() {
       return true
     } catch (err: any) {
       error.value = err.response?.data?.detail || t('admin.accounts.oauth.gemini.failedToGenerateUrl')
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return false
     } finally {
       loading.value = false
@@ -108,7 +106,7 @@ export function useGeminiOAuth() {
       } else {
         error.value = errorMessage || t('admin.accounts.oauth.gemini.failedToExchangeCode')
       }
-      appStore.showError(error.value)
+      console.error(error.value, err)
       return null
     } finally {
       loading.value = false

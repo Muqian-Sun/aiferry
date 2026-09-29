@@ -74,7 +74,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import { useAppStore } from '@/stores/app'
 import { isValidWildcardPattern, type ModelMappingEntry } from '@/composables/useModelWhitelist'
 
 const props = withDefaults(
@@ -95,7 +94,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 function updateRow(index: number, field: 'from' | 'to', event: Event) {
   const value = (event.target as HTMLInputElement).value
@@ -112,7 +110,6 @@ function addRow(from: string, to: string) {
 
 function addPreset(from: string, to: string) {
   if (props.modelValue.some((row) => row.from === from)) {
-    appStore.showInfo(t('admin.accounts.mappingExists', { model: from }))
     return
   }
   addRow(from, to)

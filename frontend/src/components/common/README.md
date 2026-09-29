@@ -167,38 +167,6 @@ Statistics card component for displaying metrics with optional change indicators
 
 ---
 
-### Toast.vue
-
-Toast notification component that automatically displays toasts from the app store.
-
-**Usage:**
-
-```vue
-<!-- Add once in App.vue or layout -->
-<Toast />
-```
-
-```typescript
-// Trigger toasts from anywhere using the app store
-import { useAppStore } from '@/stores/app'
-
-const appStore = useAppStore()
-
-appStore.addToast({
-  type: 'success',
-  title: 'Success!',
-  message: 'User created successfully',
-  duration: 3000
-})
-
-appStore.addToast({
-  type: 'error',
-  message: 'Failed to delete user'
-})
-```
-
----
-
 ### LoadingSpinner.vue
 
 Simple animated loading spinner.

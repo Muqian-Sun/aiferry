@@ -3,10 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import BulkEditUserModal from '../BulkEditUserModal.vue'
 
-const { batchUpdateLimits, showSuccess, showError } = vi.hoisted(() => ({
+const { batchUpdateLimits } = vi.hoisted(() => ({
   batchUpdateLimits: vi.fn(),
-  showSuccess: vi.fn(),
-  showError: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -18,10 +16,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showSuccess,
-    showError
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -50,8 +45,6 @@ const mountModal = () => mount(BulkEditUserModal, {
 describe('BulkEditUserModal', () => {
   beforeEach(() => {
     batchUpdateLimits.mockReset()
-    showSuccess.mockReset()
-    showError.mockReset()
     batchUpdateLimits.mockResolvedValue({ affected: 2 })
   })
 

@@ -72,7 +72,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import type { AnnouncementUserReadStatus } from '@/types'
@@ -85,7 +84,6 @@ import Pagination from '@/components/common/Pagination.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const props = defineProps<{
   show: boolean
@@ -186,7 +184,6 @@ async function load() {
       return
     }
     console.error('Failed to load read status:', error)
-    appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToLoadReadStatus'))
   } finally {
     if (currentController === requestController) {
       loading.value = false

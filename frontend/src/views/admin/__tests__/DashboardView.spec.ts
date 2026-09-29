@@ -18,9 +18,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))

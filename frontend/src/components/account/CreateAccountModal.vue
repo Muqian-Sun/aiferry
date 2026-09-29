@@ -1405,7 +1405,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 
 import {
   PLATFORMS_WITH_VENDOR_MODEL_TABLE,
@@ -1529,8 +1528,6 @@ const emit = defineEmits<{
   close: []
   created: []
 }>()
-
-const appStore = useAppStore()
 
 // OAuth composables
 const oauth = useAccountOAuth() // For Anthropic OAuth
@@ -1716,7 +1713,7 @@ async function ensureProtocolDefaults() {
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
   const issue = validateProtocolEndpoints(protocolEndpoints.value)
   if (issue) {
-    appStore.showError(describeProtocolEndpointsIssue(issue, t))
+    console.error(describeProtocolEndpointsIssue(issue, t))
     return null
   }
   return trimProtocolEndpoints(protocolEndpoints.value)
@@ -1738,7 +1735,7 @@ const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const validateHeaderOverrideForm = (): boolean => {
   const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
   if (headerError) {
-    appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+    console.error(t(`admin.accounts.headerOverride.${headerError}`))
     return false
   }
   return true
@@ -2004,7 +2001,7 @@ watch(
 
 const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | 'ai_studio') => {
   if (oauthType === 'ai_studio' && !geminiAIStudioOAuthEnabled.value) {
-    appStore.showError(t('admin.accounts.oauth.gemini.aiStudioNotConfigured'))
+    console.error(t('admin.accounts.oauth.gemini.aiStudioNotConfigured'))
     return
   }
   geminiOAuthType.value = oauthType
@@ -2027,9 +2024,9 @@ const bindSelectedCatalogEntries = async (accountIds: number[]) => {
     try {
       await adminAPI.modelCatalog.replaceAccountEntries(accountId, entryIds)
     } catch (error: any) {
-      appStore.showWarning(t('admin.accounts.catalogEntries.bindFailed', {
+      console.error(t('admin.accounts.catalogEntries.bindFailed', {
         message: error?.response?.data?.message || error?.message || ''
-      }))
+      }), error)
     }
   }
 }
@@ -2057,15 +2054,9 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
       )
     if (hasConcreteMappedTarget) {
       try {
-        const result = await adminAPI.accounts.syncUpstreamModels(account.id)
-        const warnings = result.warnings ?? []
-        if (warnings.some(warning => warning.code === 'upstream_model_metadata_incomplete')) {
-          appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataIncomplete'))
-        } else if (warnings.some(warning => warning.code === 'upstream_model_metadata_partial')) {
-          appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataPartial'))
-        }
-      } catch {
-        appStore.showWarning(t('admin.accounts.syncUpstreamModelsFailed'))
+        await adminAPI.accounts.syncUpstreamModels(account.id)
+      } catch (error) {
+        console.error(t('admin.accounts.syncUpstreamModelsFailed'), error)
       }
     }
     if (
@@ -2074,15 +2065,14 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
     ) {
       try {
         await adminAPI.accounts.probeUpstreamBilling(account.id)
-      } catch {
-        appStore.showWarning(t('admin.accounts.upstreamBilling.probeFailed'))
+      } catch (error) {
+        console.error(t('admin.accounts.upstreamBilling.probeFailed'), error)
       }
     }
-    appStore.showSuccess(t('admin.accounts.accountCreated'))
     emit('created')
     handleClose()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.message || error.response?.data?.detail || t('admin.accounts.failedToCreate'))
+    console.error(error.response?.data?.message || error.response?.data?.detail || t('admin.accounts.failedToCreate'), error)
   } finally {
     submitting.value = false
   }
@@ -2181,13 +2171,13 @@ const applyVertexServiceAccountJson = (value: string) => {
     const clientEmail = typeof parsed.client_email === 'string' ? parsed.client_email.trim() : ''
     const privateKey = typeof parsed.private_key === 'string' ? parsed.private_key.trim() : ''
     if (!projectId || !clientEmail || !privateKey) {
-      appStore.showError(t('admin.accounts.vertexSaJsonMissingFields'))
+      console.error(t('admin.accounts.vertexSaJsonMissingFields'))
       return false
     }
     vertexServiceAccountJson.value = JSON.stringify(parsed)
     return true
-  } catch {
-    appStore.showError(t('admin.accounts.vertexSaJsonInvalid'))
+  } catch (error) {
+    console.error(t('admin.accounts.vertexSaJsonInvalid'), error)
     return false
   }
 }
@@ -2216,7 +2206,7 @@ const handleSubmit = async () => {
   // For OAuth-based type, handle OAuth flow (goes to step 2)
   if (isOAuthFlow.value) {
     if (!isGrokSSOInputMethod.value && !form.name.trim()) {
-      appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
+      console.error(t('admin.accounts.pleaseEnterAccountName'))
       return
     }
     step.value = 2
@@ -2226,7 +2216,7 @@ const handleSubmit = async () => {
   // For Bedrock type, create directly
   if (form.platform === 'anthropic' && accountCategory.value === 'bedrock') {
     if (!form.name.trim()) {
-      appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
+      console.error(t('admin.accounts.pleaseEnterAccountName'))
       return
     }
 
@@ -2237,18 +2227,18 @@ const handleSubmit = async () => {
 
     if (bedrockAuthMode.value === 'sigv4') {
       if (!bedrockAccessKeyId.value.trim()) {
-        appStore.showError(t('admin.accounts.bedrockAccessKeyIdRequired'))
+        console.error(t('admin.accounts.bedrockAccessKeyIdRequired'))
         return
       }
       if (!bedrockSecretAccessKey.value.trim()) {
-        appStore.showError(t('admin.accounts.bedrockSecretAccessKeyRequired'))
+        console.error(t('admin.accounts.bedrockSecretAccessKeyRequired'))
         return
       }
       credentials.aws_access_key_id = bedrockAccessKeyId.value.trim()
       credentials.aws_secret_access_key = bedrockSecretAccessKey.value.trim()
     } else {
       if (!bedrockApiKeyValue.value.trim()) {
-        appStore.showError(t('admin.accounts.bedrockApiKeyRequired'))
+        console.error(t('admin.accounts.bedrockApiKeyRequired'))
         return
       }
       credentials.api_key = bedrockApiKeyValue.value.trim()
@@ -2272,14 +2262,14 @@ const handleSubmit = async () => {
 
   if ((form.platform === 'gemini' || form.platform === 'anthropic') && accountCategory.value === 'service_account') {
     if (!form.name.trim()) {
-      appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
+      console.error(t('admin.accounts.pleaseEnterAccountName'))
       return
     }
     if (!parseVertexServiceAccountJson()) {
       return
     }
     if (!vertexLocation.value.trim()) {
-      appStore.showError(t('admin.accounts.vertexLocationRequired'))
+      console.error(t('admin.accounts.vertexLocationRequired'))
       return
     }
     const credentials: Record<string, unknown> = {
@@ -2293,7 +2283,7 @@ const handleSubmit = async () => {
 
   // For apikey type, create directly
   if (!apiKeyValue.value.trim()) {
-    appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
+    console.error(t('admin.accounts.pleaseEnterApiKey'))
     return
   }
 
@@ -2514,20 +2504,14 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
     }
 
     if (successCount > 0 && failedCount === 0) {
-      appStore.showSuccess(
-        refreshTokens.length > 1
-          ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
-          : t('admin.accounts.accountCreated')
-      )
       emit('created')
       handleClose()
     } else if (successCount > 0) {
-      appStore.showWarning(t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount }))
       grokOAuth.error.value = errors.join('\n')
       emit('created')
     } else {
       grokOAuth.error.value = errors.join('\n')
-      appStore.showError(t('admin.accounts.oauth.batchFailed'))
+      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     grokOAuth.loading.value = false
@@ -2572,18 +2556,10 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     const successCount = result.created?.length || 0
     const failedCount = result.failed?.length || 0
     if (successCount > 0 && failedCount === 0) {
-      appStore.showSuccess(
-        ssoTokens.length > 1
-          ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
-          : t('admin.accounts.accountCreated')
-      )
       emit('created')
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
       // Same as OpenAI/Grok RT: keep input, show failures, refresh list.
-      appStore.showWarning(
-        t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount })
-      )
       grokOAuth.error.value = (result.failed || [])
         .map((item) => `#${item.index}: ${item.error || 'Unknown error'}`)
         .join('\n')
@@ -2592,11 +2568,11 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       grokOAuth.error.value = (result.failed || [])
         .map((item) => `#${item.index}: ${item.error || 'Unknown error'}`)
         .join('\n') || t('admin.accounts.oauth.grok.failedToConvertSSO')
-      appStore.showError(t('admin.accounts.oauth.batchFailed'))
+      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } catch (error: any) {
     grokOAuth.error.value = error.response?.data?.detail || error.message || t('admin.accounts.oauth.grok.failedToConvertSSO')
-    appStore.showError(grokOAuth.error.value)
+    console.error(grokOAuth.error.value, error)
   } finally {
     grokOAuth.loading.value = false
   }
@@ -2677,25 +2653,14 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
     }
 
     if (successCount > 0 && failedCount === 0) {
-      appStore.showSuccess(
-        lines.length > 1
-          ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
-          : t('admin.accounts.accountCreated')
-      )
       emit('created')
       handleClose()
     } else if (successCount > 0) {
-      appStore.showWarning(
-        t('admin.accounts.oauth.batchPartialSuccess', {
-          success: successCount,
-          failed: failedCount
-        })
-      )
       grokOAuth.error.value = errors.join('\n')
       emit('created')
     } else {
       grokOAuth.error.value = errors.join('\n')
-      appStore.showError(t('admin.accounts.oauth.batchFailed'))
+      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     grokOAuth.loading.value = false
@@ -2714,7 +2679,7 @@ const handleOpenAIExchange = async (authCode: string) => {
     const stateToUse = (oauthFlowRef.value?.oauthState || oauthClient.oauthState.value || '').trim()
     if (!stateToUse) {
       oauthClient.error.value = t('admin.accounts.oauth.authFailed')
-      appStore.showError(oauthClient.error.value)
+      console.error(oauthClient.error.value)
       return
     }
 
@@ -2754,14 +2719,13 @@ const handleOpenAIExchange = async (authCode: string) => {
         rate_multiplier: form.rate_multiplier,
         expires_at: form.expires_at
       })
-      appStore.showSuccess(t('admin.accounts.accountCreated'))
     }
 
     emit('created')
     handleClose()
   } catch (error: any) {
     oauthClient.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    appStore.showError(oauthClient.error.value)
+    console.error(oauthClient.error.value, error)
   } finally {
     oauthClient.loading.value = false
   }
@@ -2849,15 +2813,8 @@ const handleOpenAIImportCodexSession = async (content: string) => {
     })
 
     const successCount = result.created + result.updated
-    const params = {
-      created: result.created,
-      updated: result.updated,
-      skipped: result.skipped,
-      failed: result.failed
-    }
 
     if (successCount > 0 && result.failed === 0) {
-      appStore.showSuccess(t('admin.accounts.oauth.openai.codexSessionImportSuccess', params))
       emit('created')
       handleClose()
       return
@@ -2867,25 +2824,21 @@ const handleOpenAIImportCodexSession = async (content: string) => {
     const warningText = formatCodexImportMessages(result.warnings)
     oauthClient.error.value = [errorText, warningText].filter(Boolean).join('\n')
 
-    if (result.failed === 0) {
-      appStore.showWarning(t('admin.accounts.oauth.openai.codexSessionImportSuccess', params))
-      return
-    }
+    if (result.failed === 0) return
 
     if (successCount > 0) {
-      appStore.showWarning(t('admin.accounts.oauth.openai.codexSessionImportPartial', params))
       emit('created')
       return
     }
 
-    appStore.showError(t('admin.accounts.oauth.openai.codexSessionImportFailed'))
+    console.error(t('admin.accounts.oauth.openai.codexSessionImportFailed'))
   } catch (error: any) {
     oauthClient.error.value =
       error.response?.data?.detail ||
       error.response?.data?.message ||
       error.message ||
       t('admin.accounts.oauth.openai.codexSessionImportFailed')
-    appStore.showError(oauthClient.error.value)
+    console.error(oauthClient.error.value, error)
   } finally {
     oauthClient.loading.value = false
   }
@@ -2920,7 +2873,6 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined
     })
 
-    appStore.showSuccess(t('admin.accounts.accountCreated'))
     emit('created')
     handleClose()
   } catch (error: any) {
@@ -2929,7 +2881,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       error.response?.data?.message ||
       error.message ||
       t('admin.accounts.oauth.openai.codexPatImportFailed')
-    appStore.showError(oauthClient.error.value)
+    console.error(oauthClient.error.value, error)
   } finally {
     oauthClient.loading.value = false
   }
@@ -3017,22 +2969,14 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
 
     // Show results
     if (successCount > 0 && failedCount === 0) {
-      appStore.showSuccess(
-        refreshTokens.length > 1
-          ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
-          : t('admin.accounts.accountCreated')
-      )
       emit('created')
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
-      appStore.showWarning(
-        t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount })
-      )
       oauthClient.error.value = errors.join('\n')
       emit('created')
     } else {
       oauthClient.error.value = errors.join('\n')
-      appStore.showError(t('admin.accounts.oauth.batchFailed'))
+      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     oauthClient.loading.value = false
@@ -3112,22 +3056,14 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
 
     // Show results
     if (successCount > 0 && failedCount === 0) {
-      appStore.showSuccess(
-        refreshTokens.length > 1
-          ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
-          : t('admin.accounts.accountCreated')
-      )
       emit('created')
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
-      appStore.showWarning(
-        t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount })
-      )
       antigravityOAuth.error.value = errors.join('\n')
       emit('created')
     } else {
       antigravityOAuth.error.value = errors.join('\n')
-      appStore.showError(t('admin.accounts.oauth.batchFailed'))
+      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     antigravityOAuth.loading.value = false
@@ -3146,7 +3082,7 @@ const handleGeminiExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || geminiOAuth.state.value
     if (!stateToUse) {
       geminiOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      appStore.showError(geminiOAuth.error.value)
+      console.error(geminiOAuth.error.value)
       return
     }
 
@@ -3164,7 +3100,7 @@ const handleGeminiExchange = async (authCode: string) => {
     await createAccountAndFinish('gemini', 'oauth', credentials, extra)
   } catch (error: any) {
     geminiOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    appStore.showError(geminiOAuth.error.value)
+    console.error(geminiOAuth.error.value, error)
   } finally {
     geminiOAuth.loading.value = false
   }
@@ -3182,7 +3118,7 @@ const handleAntigravityExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || antigravityOAuth.state.value
     if (!stateToUse) {
       antigravityOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      appStore.showError(antigravityOAuth.error.value)
+      console.error(antigravityOAuth.error.value)
       return
     }
 
@@ -3206,7 +3142,7 @@ const handleAntigravityExchange = async (authCode: string) => {
 		await createAccountAndFinish('antigravity', 'oauth', credentials, extra)
   } catch (error: any) {
     antigravityOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    appStore.showError(antigravityOAuth.error.value)
+    console.error(antigravityOAuth.error.value, error)
   } finally {
     antigravityOAuth.loading.value = false
   }
@@ -3225,7 +3161,7 @@ const handleGrokExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || grokOAuth.state.value
     if (!stateToUse) {
       grokOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      appStore.showError(grokOAuth.error.value)
+      console.error(grokOAuth.error.value)
       return
     }
 
@@ -3243,7 +3179,7 @@ const handleGrokExchange = async (authCode: string) => {
     await createAccountAndFinish('grok', 'oauth', credentials, extra)
   } catch (error: any) {
     grokOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    appStore.showError(grokOAuth.error.value)
+    console.error(grokOAuth.error.value, error)
   } finally {
     grokOAuth.loading.value = false
   }
@@ -3291,7 +3227,7 @@ const handleAnthropicExchange = async (authCode: string) => {
     await createAccountAndFinish(form.platform, addMethod.value as AccountType, credentials, extra)
   } catch (error: any) {
     oauth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    appStore.showError(oauth.error.value)
+    console.error(oauth.error.value, error)
   } finally {
     oauth.loading.value = false
   }
@@ -3394,7 +3330,6 @@ const handleCookieAuth = async (sessionKey: string) => {
     }
 
     if (successCount > 0) {
-      appStore.showSuccess(t('admin.accounts.oauth.successCreated', { count: successCount }))
       if (failedCount === 0) {
         emit('created')
         handleClose()

@@ -16,12 +16,12 @@ vi.mock('@/api/admin/ops', () => ({
 }))
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({ showError: vi.fn() })
+  useAppStore: () => ({})
 }))
 
 // 请求 ID 复制按钮走 useClipboard（它直接用 @/stores/app）
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError: vi.fn(), showSuccess: vi.fn() })
+  useAppStore: () => ({})
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

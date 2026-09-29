@@ -1045,7 +1045,7 @@ const handleEvent = (event: {
 
 const copyOutput = () => {
   const text = outputLines.value.map((l) => l.text).join('\n')
-  copyToClipboard(text, t('admin.accounts.outputCopied'))
+  copyToClipboard(text)
 }
 </script>
 

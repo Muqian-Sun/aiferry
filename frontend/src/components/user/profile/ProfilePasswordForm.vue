@@ -53,6 +53,8 @@
           />
         </div>
 
+        <FormError :message="errorMessage" />
+
         <div class="flex justify-end pt-2">
           <button type="submit" :disabled="loading" class="btn btn-primary btn-sm">
             {{ loading ? t('profile.changingPassword') : t('profile.changePasswordButton') }}
@@ -64,32 +66,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
 
 /** 用户站两栏设置行里不画自带小标题 */
 defineProps<{ headless?: boolean }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const loading = ref(false)
+const errorMessage = ref('')
 const form = ref({
   old_password: '',
   new_password: '',
   confirm_password: ''
 })
 
+// 重新输入时清掉报错
+watch(form, () => {
+  errorMessage.value = ''
+}, { deep: true })
+
 const handleChangePassword = async () => {
+  errorMessage.value = ''
   if (form.value.new_password !== form.value.confirm_password) {
-    appStore.showError(t('profile.passwordsNotMatch'))
+    errorMessage.value = t('profile.passwordsNotMatch')
     return
   }
 
   if (form.value.new_password.length < 8) {
-    appStore.showError(t('profile.passwordTooShort'))
+    errorMessage.value = t('profile.passwordTooShort')
     return
   }
 
@@ -97,9 +105,9 @@ const handleChangePassword = async () => {
   try {
     await userAPI.changePassword(form.value.old_password, form.value.new_password)
     form.value = { old_password: '', new_password: '', confirm_password: '' }
-    appStore.showSuccess(t('profile.passwordChangeSuccess'))
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('profile.passwordChangeFailed')))
+    errorMessage.value = extractApiErrorMessage(error, t('profile.passwordChangeFailed'))
+    console.error(errorMessage.value, error)
   } finally {
     loading.value = false
   }

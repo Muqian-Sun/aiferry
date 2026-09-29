@@ -153,7 +153,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Account, TempUnschedulableStatus } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -170,7 +169,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const loading = ref(false)
 const resetting = ref(false)
@@ -240,7 +238,7 @@ const loadStatus = async () => {
   try {
     status.value = await adminAPI.accounts.getTempUnschedulableStatus(props.account.id)
   } catch (error: any) {
-    appStore.showError(error?.message || t('admin.accounts.tempUnschedulable.failedToLoad'))
+    console.error(error?.message || t('admin.accounts.tempUnschedulable.failedToLoad'), error)
     status.value = null
   } finally {
     loading.value = false
@@ -256,11 +254,10 @@ const handleReset = async () => {
   resetting.value = true
   try {
     const updated = await adminAPI.accounts.recoverState(props.account.id)
-    appStore.showSuccess(t('admin.accounts.recoverStateSuccess'))
     emit('reset', updated)
     handleClose()
   } catch (error: any) {
-    appStore.showError(error?.message || t('admin.accounts.recoverStateFailed'))
+    console.error(error?.message || t('admin.accounts.recoverStateFailed'), error)
   } finally {
     resetting.value = false
   }

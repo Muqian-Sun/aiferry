@@ -657,13 +657,13 @@ function serializeLimits(): string {
 function handleSave() {
   // Validate required fields
   if (!form.name.trim()) {
-    emitValidationError(t('admin.settings.payment.validationNameRequired'))
+    console.error(t('admin.settings.payment.validationNameRequired'))
     return
   }
   if (form.provider_key === 'easypay') {
     const validationError = validateEasyPayCustomMethods()
     if (validationError) {
-      emitValidationError(validationError)
+      console.error(validationError)
       return
     }
     syncEasyPayCustomMethods()
@@ -677,7 +677,7 @@ function handleSave() {
     const val = (config[f.key] || '').trim()
     if (!val) {
       const label = f.label || t(`admin.settings.payment.field_${f.key}`)
-      emitValidationError(t('admin.settings.payment.validationFieldRequired', { field: label }))
+      console.error(t('admin.settings.payment.validationFieldRequired', { field: label }))
       return
     }
   }
@@ -774,12 +774,6 @@ function validateEasyPayCustomMethods(): string | null {
     seen.add(method.type)
   }
   return null
-}
-
-function emitValidationError(msg: string) {
-  // Use a custom event or inject appStore — for now use window alert fallback
-  // The parent handles this via the save event validation
-  import('@/stores').then(m => m.useAppStore().showError(msg))
 }
 
 // --- Public API for parent to call ---

@@ -7,7 +7,6 @@ const {
   updateAccountMock,
   authIsSimpleMode,
   getProtocolDefaultsMock,
-  showErrorMock,
   listAccountEntryIdsMock,
   replaceAccountEntriesMock
 } = vi.hoisted(() => ({
@@ -16,15 +15,10 @@ const {
   replaceAccountEntriesMock: vi.fn(),
   authIsSimpleMode: { value: true },
   getProtocolDefaultsMock: vi.fn(),
-  showErrorMock: vi.fn()
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: showErrorMock,
-    showSuccess: vi.fn(),
-    showInfo: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -96,7 +90,6 @@ const PROTOCOL_DEFAULTS = {
 beforeEach(() => {
   resetProtocolDefaultsCacheForTest()
   getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
-  showErrorMock.mockReset()
   listAccountEntryIdsMock.mockReset().mockResolvedValue([])
   replaceAccountEntriesMock.mockReset().mockImplementation(async (_id: number, ids: number[]) => ids)
 })
@@ -465,7 +458,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const payload = updateAccountMock.mock.calls[0]?.[1]
     expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
-    expect(showErrorMock).not.toHaveBeenCalled()
     expect(payload?.credentials).toMatchObject({ api_key: 'sk-glm' })
     expect(payload?.credentials).not.toHaveProperty('account_mode')
   })

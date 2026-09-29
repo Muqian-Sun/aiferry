@@ -69,7 +69,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores'
 import { totpAPI } from '@/api'
 import type { StepUpController } from '@/composables/useStepUp'
 
@@ -78,7 +77,6 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const verifying = ref(false)
 const code = ref<string[]>(['', '', '', '', '', ''])
@@ -115,7 +113,7 @@ async function submit(otp: string) {
     props.controller.onVerified()
   } catch (err: any) {
     verifying.value = false
-    appStore.showError(err?.message || t('stepUp.verifyFailed'))
+    console.error(err?.message || t('stepUp.verifyFailed'), err)
     resetInputs()
     nextTick(() => inputRefs.value[0]?.focus())
   }

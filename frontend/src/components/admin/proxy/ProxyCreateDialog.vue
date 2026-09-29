@@ -238,7 +238,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Proxy, ProxyProtocol } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -258,7 +257,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const protocolSelectOptions = computed(() => [
   { value: 'http', label: t('admin.proxies.protocols.http') },
@@ -416,20 +414,10 @@ const handleBatchCreate = async () => {
 
   submitting.value = true
   try {
-    const result = await adminAPI.proxies.batchCreate(batchParseResult.proxies)
-    const created = result.created || 0
-    const skipped = result.skipped || 0
-
-    if (created > 0) {
-      appStore.showSuccess(t('admin.proxies.batchImportSuccess', { created, skipped }))
-    } else {
-      appStore.showInfo(t('admin.proxies.batchImportAllSkipped', { skipped }))
-    }
-
+    await adminAPI.proxies.batchCreate(batchParseResult.proxies)
     close()
     emit('created')
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.failedToImport'))
     console.error('Error batch creating proxies:', error)
   } finally {
     submitting.value = false
@@ -438,15 +426,15 @@ const handleBatchCreate = async () => {
 
 const handleCreateProxy = async () => {
   if (!createForm.name.trim()) {
-    appStore.showError(t('admin.proxies.nameRequired'))
+    console.error(t('admin.proxies.nameRequired'))
     return
   }
   if (!createForm.host.trim()) {
-    appStore.showError(t('admin.proxies.hostRequired'))
+    console.error(t('admin.proxies.hostRequired'))
     return
   }
   if (createForm.port < 1 || createForm.port > 65535) {
-    appStore.showError(t('admin.proxies.portInvalid'))
+    console.error(t('admin.proxies.portInvalid'))
     return
   }
   submitting.value = true
@@ -463,11 +451,9 @@ const handleCreateProxy = async () => {
       backup_proxy_id: createForm.fallback_mode === 'proxy' ? createForm.backup_proxy_id : null,
       expiry_warn_days: createForm.expiry_warn_days,
     })
-    appStore.showSuccess(t('admin.proxies.proxyCreated'))
     close()
     emit('created')
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.failedToCreate'))
     console.error('Error creating proxy:', error)
   } finally {
     submitting.value = false

@@ -26,6 +26,7 @@
             :class="{ 'input-error': errors.email }"
             :placeholder="t('auth.emailPlaceholder')"
           />
+          <FormError :message="errors.email" />
         </div>
 
         <div>
@@ -60,6 +61,7 @@
               <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
           </div>
+          <FormError :message="errors.password" />
         </div>
 
         <!-- Turnstile Widget -->
@@ -79,7 +81,10 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -198,8 +203,9 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import {
   buildOAuthLoginStartURL,
   getPublicSettings,
@@ -228,7 +234,6 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -303,10 +308,6 @@ const errors = reactive({
   turnstile: ''
 })
 
-const validationToastMessage = computed(
-  () => errors.email || errors.password || errors.turnstile || ''
-)
-
 const agreementGateActive = computed(
   () => loginAgreementEnabled.value && !agreementAccepted.value
 )
@@ -327,11 +328,21 @@ const showOAuthLogin = computed(
       googleOAuthEnabled.value)
 )
 
-watch(validationToastMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    appStore.showError(value)
+// 重新输入时清掉对应字段和表单级的报错
+watch(
+  () => formData.email,
+  () => {
+    errors.email = ''
+    errorMessage.value = ''
   }
-})
+)
+watch(
+  () => formData.password,
+  () => {
+    errors.password = ''
+    errorMessage.value = ''
+  }
+)
 
 // ==================== Lifecycle ====================
 
@@ -341,7 +352,6 @@ onMounted(async () => {
     sessionStorage.removeItem('auth_expired')
     const message = t('auth.reloginRequired')
     errorMessage.value = message
-    appStore.showWarning(message)
   }
 
   try {
@@ -426,13 +436,14 @@ function acceptLoginAgreement(): void {
   }
   agreementAccepted.value = true
   showAgreementModal.value = false
+  errorMessage.value = ''
 }
 
 function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
-  appStore.showWarning(t('legal.loginAgreementPrompt.loginRejectedWarning'))
+  errorMessage.value = t('legal.loginAgreementPrompt.loginRejectedWarning')
 }
 
 // ==================== Turnstile Handlers ====================
@@ -484,7 +495,7 @@ function validateForm(): boolean {
   let isValid = true
 
   if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.loginRequiredWarning'))
+    errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -558,18 +569,14 @@ async function handleLogin(): Promise<void> {
       return
     }
 
-    // Show success toast
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
   } catch (error: unknown) {
     errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.loginFailed'))
-
-    // Also show error toast
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaEnabled.value) {
       resetCaptchaProof()
@@ -579,8 +586,9 @@ async function handleLogin(): Promise<void> {
 }
 
 async function handlePasskeyLogin(): Promise<void> {
+  errorMessage.value = ''
   if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.loginRequiredWarning'))
+    errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -603,7 +611,6 @@ async function handlePasskeyLogin(): Promise<void> {
 
     await authStore.loginWithPasskey(proof)
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(t('auth.loginSuccess'))
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
   } catch (error: unknown) {
@@ -611,7 +618,7 @@ async function handlePasskeyLogin(): Promise<void> {
       ? t('auth.passkeyCancelled')
       : t('auth.passkeyFailed')
     errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', fallback)
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (actionCaptchaEnabled.value) {
       resetCaptchaProof()
@@ -622,6 +629,7 @@ async function handlePasskeyLogin(): Promise<void> {
 
 async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
   if (authActionDisabled.value) return
+  errorMessage.value = ''
 
   if (!actionCaptchaEnabled.value) {
     window.location.href = buildOAuthLoginStartURL(request)
@@ -650,7 +658,7 @@ async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
       'auth.errors',
       t('auth.turnstileFailed')
     )
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     resetCaptchaProof()
     isLoading.value = false
@@ -670,7 +678,6 @@ async function handle2FAVerify(code: string): Promise<void> {
     // Close modal and show success
     show2FAModal.value = false
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH

@@ -115,7 +115,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'; import { adminAPI } from '@/api/admin'; import { adminUsageAPI } from '@/api/admin/usage'
+import { adminAPI } from '@/api/admin'; import { adminUsageAPI } from '@/api/admin/usage'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useColumnSettings } from '@/composables/useColumnSettings'
 import { formatReasoningEffort } from '@/utils/format'
@@ -142,7 +142,6 @@ import { ColumnSettingsMenu, MenuItem, PopoverMenu } from '@/components/admin/li
 import type { AdminUsageLog, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const route = useRoute()
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
 let abortController: AbortController | null = null; let exportAbortController: AbortController | null = null
@@ -181,8 +180,8 @@ const handleUserClick = async (userId: number) => {
     const user = await adminAPI.users.getById(userId, true)
     balanceHistoryUser.value = user
     showBalanceHistoryModal.value = true
-  } catch {
-    appStore.showError(t('admin.usage.failedToLoadUser'))
+  } catch (error) {
+    console.error(t('admin.usage.failedToLoadUser'), error)
   }
 }
 
@@ -356,7 +355,7 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 }
 
 const handleIpGeoBatchFailed = () => {
-  appStore.showError(t('usage.ipGeo.batchFailed'))
+  console.error(t('usage.ipGeo.batchFailed'))
 }
 const cancelExport = () => exportAbortController?.abort()
 const openCleanupDialog = () => { cleanupDialogVisible.value = true }
@@ -414,9 +413,8 @@ const exportToExcel = async () => {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Usage')
       saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `usage_${filters.value.start_date}_to_${filters.value.end_date}.xlsx`)
-      appStore.showSuccess(t('usage.exportSuccess'))
     }
-  } catch (error) { console.error('Failed to export:', error); appStore.showError('Export Failed') }
+  } catch (error) { console.error('Failed to export:', error); }
   finally { if(exportAbortController === c) { exportAbortController = null; exporting.value = false; exportProgress.show = false } }
 }
 
@@ -523,7 +521,6 @@ const loadAdminErrors = async () => {
     errTotal.value = resp.total
   } catch (error) {
     console.error('Failed to load admin errors:', error)
-    appStore.showError(t('usage.errors.failedToLoad'))
   } finally {
     errLoading.value = false
   }

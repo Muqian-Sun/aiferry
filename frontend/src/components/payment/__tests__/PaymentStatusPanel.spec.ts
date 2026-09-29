@@ -4,7 +4,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 const pollOrderStatus = vi.hoisted(() => vi.fn())
 const cancelOrder = vi.hoisted(() => vi.fn())
 const verifyOrder = vi.hoisted(() => vi.fn())
-const showError = vi.hoisted(() => vi.fn())
 const toCanvas = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', async () => {
@@ -24,9 +23,7 @@ vi.mock('@/stores/payment', () => ({
 }))
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError,
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('@/api/payment', () => ({
@@ -65,7 +62,6 @@ describe('PaymentStatusPanel', () => {
     pollOrderStatus.mockReset()
     cancelOrder.mockReset()
     verifyOrder.mockReset()
-    showError.mockReset()
     toCanvas.mockReset().mockResolvedValue(undefined)
   })
 

@@ -60,11 +60,7 @@ vi.mock('@/stores', () => ({
     loginWithPasskey: vi.fn(),
     login2FA: vi.fn()
   }),
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-    showWarning: vi.fn()
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/auth', () => ({

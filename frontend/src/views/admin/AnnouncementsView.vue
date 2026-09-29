@@ -202,7 +202,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import {
@@ -236,7 +235,6 @@ import AnnouncementReadStatusDialog from '@/components/admin/announcements/Annou
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const announcements = ref<Announcement[]>([])
 const loading = ref(false)
@@ -330,7 +328,6 @@ async function loadAnnouncements() {
       return
     }
     console.error('Error loading announcements:', error)
-    appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToLoad'))
   } finally {
     if (currentController === requestController) {
       loading.value = false
@@ -484,13 +481,13 @@ async function handleSave() {
   // Frontend validation for targeting (to avoid ANNOUNCEMENT_INVALID_TARGET)
   const anyOf = form.targeting?.any_of ?? []
   if (anyOf.length > 50) {
-    appStore.showError(t('admin.announcements.failedToCreate'))
+    console.error(t('admin.announcements.failedToCreate'))
     return
   }
   for (const g of anyOf) {
     const allOf = g?.all_of ?? []
     if (allOf.length > 50) {
-      appStore.showError(t('admin.announcements.failedToCreate'))
+      console.error(t('admin.announcements.failedToCreate'))
       return
     }
   }
@@ -500,7 +497,6 @@ async function handleSave() {
     if (!editingAnnouncement.value) {
       const payload = buildCreatePayload()
       await adminAPI.announcements.create(payload)
-      appStore.showSuccess(t('common.success'))
       showEditDialog.value = false
       await loadAnnouncements()
       return
@@ -509,13 +505,11 @@ async function handleSave() {
     const original = editingAnnouncement.value
     const payload = buildUpdatePayload(original)
     await adminAPI.announcements.update(original.id, payload)
-    appStore.showSuccess(t('common.success'))
     showEditDialog.value = false
     editingAnnouncement.value = null
     await loadAnnouncements()
   } catch (error: any) {
     console.error('Failed to save announcement:', error)
-    appStore.showError(error.response?.data?.detail || (editingAnnouncement.value ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
   } finally {
     saving.value = false
   }
@@ -535,13 +529,11 @@ async function confirmDelete() {
 
   try {
     await adminAPI.announcements.delete(deletingAnnouncement.value.id)
-    appStore.showSuccess(t('common.success'))
     showDeleteDialog.value = false
     deletingAnnouncement.value = null
     await loadAnnouncements()
   } catch (error: any) {
     console.error('Failed to delete announcement:', error)
-    appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToDelete'))
   }
 }
 

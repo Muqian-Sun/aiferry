@@ -641,32 +641,6 @@
     @apply flex items-center justify-end gap-3;
   }
 
-  /* ============ Toast 通知 ============ */
-  .toast {
-    @apply fixed right-4 top-4 z-[100];
-    @apply min-w-[320px] max-w-md;
-    @apply bg-af-sheet;
-    @apply rounded-lg border border-af-hairline shadow-lg;
-    @apply border-l-4;
-    @apply p-4;
-  }
-
-  .toast-success {
-    @apply border-l-af-success;
-  }
-
-  .toast-error {
-    @apply border-l-af-danger;
-  }
-
-  .toast-warning {
-    @apply border-l-af-warning;
-  }
-
-  .toast-info {
-    @apply border-l-af-brand;
-  }
-
   /* ============ 侧边栏 ============ */
   /* 管理站侧栏：与顶栏同一张面，右侧 hairline 分隔；展开 240px、折叠 64px */
   .sidebar {

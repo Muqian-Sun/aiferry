@@ -29,7 +29,6 @@
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
@@ -39,7 +38,6 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 const username = ref(props.initialUsername)
 const loading = ref(false)
@@ -50,7 +48,7 @@ watch(() => props.initialUsername, (val) => {
 
 const handleUpdateProfile = async () => {
   if (!username.value.trim()) {
-    appStore.showError(t('profile.usernameRequired'))
+    console.error(t('profile.usernameRequired'))
     return
   }
 
@@ -60,9 +58,8 @@ const handleUpdateProfile = async () => {
       username: username.value
     })
     authStore.user = updatedUser
-    appStore.showSuccess(t('profile.updateSuccess'))
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('profile.updateFailed')))
+    console.error(extractApiErrorMessage(error, t('profile.updateFailed')), error)
   } finally {
     loading.value = false
   }

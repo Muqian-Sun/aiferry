@@ -32,7 +32,7 @@ const allEndpoints = computed(() => {
 })
 
 async function copy(url: string) {
-  const success = await copyToClipboard(url, t('keys.endpoints.copied'))
+  const success = await copyToClipboard(url)
   if (!success) return
 
   copiedEndpoint.value = url

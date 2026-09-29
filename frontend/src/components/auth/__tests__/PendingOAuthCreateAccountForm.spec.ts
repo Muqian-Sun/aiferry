@@ -7,7 +7,6 @@ import PendingOAuthCreateAccountForm from '../PendingOAuthCreateAccountForm.vue'
 const sendVerifyCode = vi.fn()
 const sendPendingOAuthVerifyCode = vi.fn()
 const getPublicSettings = vi.fn()
-const showError = vi.fn()
 const turnstileReset = vi.fn()
 const verifyAction = vi.fn()
 
@@ -32,9 +31,7 @@ vi.mock('@/api/auth', async () => {
 })
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError
-  })
+  useAppStore: () => ({})
 }))
 
 describe('PendingOAuthCreateAccountForm', () => {
@@ -42,7 +39,6 @@ describe('PendingOAuthCreateAccountForm', () => {
     sendVerifyCode.mockReset()
     sendPendingOAuthVerifyCode.mockReset()
     getPublicSettings.mockReset()
-    showError.mockReset()
     turnstileReset.mockReset()
     verifyAction.mockReset()
     getPublicSettings.mockResolvedValue({
@@ -236,7 +232,7 @@ describe('PendingOAuthCreateAccountForm', () => {
     })
   })
 
-  it('shows send-code failures via toast without rendering inline error text', async () => {
+  it('shows send-code failures inline', async () => {
     sendPendingOAuthVerifyCode.mockRejectedValue(new Error('send failed'))
 
     const wrapper = mount(PendingOAuthCreateAccountForm, {
@@ -251,8 +247,7 @@ describe('PendingOAuthCreateAccountForm', () => {
     await wrapper.get('[data-testid="wechat-create-account-send-code"]').trigger('click')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('send failed')
-    expect(wrapper.text()).not.toContain('send failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('send failed')
   })
 
   it('consumes the captcha proof when sending a verify code fails', async () => {

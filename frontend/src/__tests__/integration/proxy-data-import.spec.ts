@@ -4,14 +4,9 @@ import { adminAPI } from '@/api/admin'
 import type { AdminDataImportResult } from '@/types'
 import ImportDataModal from '@/components/admin/proxy/ImportDataModal.vue'
 
-const showError = vi.fn()
-const showSuccess = vi.fn()
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-    showSuccess
-  })
+  useAppStore: () => ({})
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -65,7 +60,6 @@ describe('Proxy ImportDataModal', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('admin.proxies.dataImportCompletedWithErrors')
     expect(wrapper.text()).toContain('invalid port')
     expect(wrapper.emitted('imported')).toBeUndefined()
     expect(wrapper.emitted('close')).toBeUndefined()
@@ -117,7 +111,6 @@ describe('Proxy ImportDataModal', () => {
     await flushPromises()
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(showSuccess).toHaveBeenCalledWith('admin.proxies.dataImportSuccess')
     expect(wrapper.emitted('imported')).toHaveLength(1)
 
     await wrapper.get('footer button[type="button"]').trigger('click')
@@ -125,48 +118,6 @@ describe('Proxy ImportDataModal', () => {
   })
 
   beforeEach(() => {
-    showError.mockReset()
-    showSuccess.mockReset()
     vi.mocked(adminAPI.proxies.importData).mockReset()
-  })
-
-  it('未选择文件时提示错误', async () => {
-    const wrapper = mount(ImportDataModal, {
-      props: { show: true },
-      global: {
-        stubs: {
-          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
-        }
-      }
-    })
-
-    await wrapper.find('form').trigger('submit')
-    expect(showError).toHaveBeenCalledWith('admin.proxies.dataImportSelectFile')
-  })
-
-  it('无效 JSON 时提示解析失败', async () => {
-    const wrapper = mount(ImportDataModal, {
-      props: { show: true },
-      global: {
-        stubs: {
-          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
-        }
-      }
-    })
-
-    const input = wrapper.find('input[type="file"]')
-    const file = new File(['invalid json'], 'data.json', { type: 'application/json' })
-    Object.defineProperty(file, 'text', {
-      value: () => Promise.resolve('invalid json')
-    })
-    Object.defineProperty(input.element, 'files', {
-      value: [file]
-    })
-
-    await input.trigger('change')
-    await wrapper.find('form').trigger('submit')
-    await Promise.resolve()
-
-    expect(showError).toHaveBeenCalledWith('admin.proxies.dataImportParseFailed')
   })
 })

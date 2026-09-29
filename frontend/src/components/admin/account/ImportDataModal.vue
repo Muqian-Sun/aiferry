@@ -100,7 +100,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { adminAPI } from '@/api/admin'
-import { useAppStore } from '@/stores/app'
 import type { AdminDataImportResult, AdminDataPayload } from '@/types'
 
 interface Props {
@@ -116,7 +115,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const importing = ref(false)
 const files = ref<File[]>([])
@@ -179,13 +177,8 @@ const setSelectedFiles = (sourceFiles: FileList | File[] | null | undefined) => 
   const incoming = Array.from(sourceFiles || [])
   const picked = incoming.filter(isJsonFile)
   if (!picked.length) {
-    appStore.showError(t('admin.accounts.dataImportSelectFile'))
+    console.error(t('admin.accounts.dataImportSelectFile'))
     return
-  }
-  if (picked.length < incoming.length) {
-    appStore.showWarning(
-      t('admin.accounts.dataImportIgnoredFiles', { count: incoming.length - picked.length })
-    )
   }
   files.value = picked
   result.value = null
@@ -268,7 +261,7 @@ const mergeDataPayloads = (payloads: AdminDataPayload[]): AdminDataPayload => {
 
 const handleImport = async () => {
   if (files.value.length === 0) {
-    appStore.showError(t('admin.accounts.dataImportSelectFile'))
+    console.error(t('admin.accounts.dataImportSelectFile'))
     return
   }
 
@@ -279,14 +272,15 @@ const handleImport = async () => {
       let parsed: unknown
       try {
         parsed = JSON.parse(await readFileAsText(sourceFile))
-      } catch {
-        appStore.showError(
-          t('admin.accounts.dataImportParseFailedFile', { name: sourceFile.name })
+      } catch (error) {
+        console.error(
+          t('admin.accounts.dataImportParseFailedFile', { name: sourceFile.name }),
+          error
         )
         return
       }
       if (!isValidDataPayload(parsed)) {
-        appStore.showError(t('admin.accounts.dataImportInvalidFile', { name: sourceFile.name }))
+        console.error(t('admin.accounts.dataImportInvalidFile', { name: sourceFile.name }))
         return
       }
       dataPayloads.push(parsed)
@@ -312,13 +306,12 @@ const handleImport = async () => {
       if (res.account_created > 0 || res.proxy_created > 0) {
         hasCreatedData.value = true
       }
-      appStore.showError(t('admin.accounts.dataImportCompletedWithErrors', msgParams))
+      console.error(t('admin.accounts.dataImportCompletedWithErrors', msgParams))
     } else {
-      appStore.showSuccess(t('admin.accounts.dataImportSuccess', msgParams))
       emit('imported')
     }
   } catch (error: any) {
-    appStore.showError(error?.message || t('admin.accounts.dataImportFailed'))
+    console.error(error?.message || t('admin.accounts.dataImportFailed'), error)
   } finally {
     importing.value = false
   }

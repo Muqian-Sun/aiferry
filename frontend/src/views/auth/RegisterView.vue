@@ -45,6 +45,7 @@
             :class="{ 'input-error': errors.email }"
             :placeholder="t('auth.emailPlaceholder')"
           />
+          <FormError :message="errors.email" />
         </div>
 
         <div>
@@ -70,6 +71,7 @@
               <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
           </div>
+          <FormError :message="errors.password" />
         </div>
 
         <div>
@@ -95,6 +97,7 @@
               <Icon :name="showConfirmPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
           </div>
+          <FormError :message="errors.confirmPassword" />
         </div>
 
         <!-- 邀请码（开启时必填）：右侧是校验状态 -->
@@ -130,6 +133,7 @@
           <transition name="fade">
             <p v-if="invitationValidation.valid" class="mt-1.5 text-13 text-af-success">{{ t('auth.invitationCodeValid') }}</p>
           </transition>
+          <FormError :message="invitationCodeError" />
         </div>
 
         <!-- 邀请人代码（返利，选填） -->
@@ -165,6 +169,7 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
 
         <LoginAgreementPrompt
@@ -178,6 +183,8 @@
           @reject="rejectLoginAgreement"
           @open="showAgreementModal = true"
         />
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -269,7 +276,8 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import FormError from '@/components/common/FormError.vue'
+import { useAuthStore } from '@/stores'
 import {
   buildOAuthLoginStartURL,
   getPublicSettings,
@@ -305,7 +313,6 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -390,14 +397,8 @@ const errors = reactive({
   invitation_code: ''
 })
 
-const validationToastMessage = computed(() =>
-  errors.email ||
-  errors.password ||
-  errors.confirmPassword ||
-  (invitationValidation.invalid ? invitationValidation.message : '') ||
-  errors.invitation_code ||
-  errors.turnstile ||
-  ''
+const invitationCodeError = computed(() =>
+  (invitationValidation.invalid ? invitationValidation.message : '') || errors.invitation_code
 )
 
 const showOAuthLogin = computed(
@@ -415,10 +416,24 @@ const registrationActionDisabled = computed(
   () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
 )
 
-watch(validationToastMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    appStore.showError(value)
+// 重新输入时清掉对应字段和表单级的报错
+watch(
+  () => formData.email,
+  () => {
+    errors.email = ''
+    errorMessage.value = ''
   }
+)
+watch(
+  () => formData.password,
+  () => {
+    errors.password = ''
+    errorMessage.value = ''
+  }
+)
+watch(confirmPassword, () => {
+  errors.confirmPassword = ''
+  errorMessage.value = ''
 })
 
 function syncAffiliateReferralCode(): string {
@@ -534,13 +549,14 @@ function acceptLoginAgreement(): void {
   }
   agreementAccepted.value = true
   showAgreementModal.value = false
+  errorMessage.value = ''
 }
 
 function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
-  appStore.showWarning(t('legal.loginAgreementPrompt.registerRejectedWarning'))
+  errorMessage.value = t('legal.loginAgreementPrompt.registerRejectedWarning')
 }
 
 // ==================== Invitation Code Validation ====================
@@ -675,7 +691,7 @@ async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
       'auth.errors',
       t('auth.turnstileFailed')
     )
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     resetCaptchaProof()
     isLoading.value = false
@@ -716,7 +732,7 @@ function validateForm(): boolean {
   let isValid = true
 
   if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.registerRequiredWarning'))
+    errorMessage.value = t('legal.loginAgreementPrompt.registerRequiredWarning')
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -856,17 +872,12 @@ async function handleRegister(): Promise<void> {
     })
     clearAffiliateReferralCode()
 
-    // Show success toast
-    appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
-
     // Redirect to dashboard
     await router.push(DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     // Handle registration error
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.registrationFailed'))
-
-    // Also show error toast
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaEnabled.value) {
       resetCaptchaProof()

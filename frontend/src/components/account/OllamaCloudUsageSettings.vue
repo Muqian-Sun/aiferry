@@ -122,7 +122,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import type { Account, OllamaCloudUsageState, OllamaCloudUsageWindow } from '@/types'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -131,7 +130,6 @@ import Icon from '@/components/icons/Icon.vue'
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ updated: [state: OllamaCloudUsageState] }>()
 const { t } = useI18n()
-const appStore = useAppStore()
 const state = ref<OllamaCloudUsageState | null>(props.account.ollama_cloud_usage ?? null)
 const session = ref('')
 const loading = ref(false)
@@ -178,7 +176,7 @@ const load = async () => {
   try {
     applyState(await adminAPI.accounts.getOllamaCloudUsage(props.account.id))
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.loadFailed')))
+    console.error(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.loadFailed')), error)
   } finally {
     loading.value = false
   }
@@ -190,9 +188,8 @@ const saveSession = async () => {
   try {
     applyState(await adminAPI.accounts.saveOllamaCloudUsageSession(props.account.id, session.value))
     session.value = ''
-    appStore.showSuccess(t('admin.accounts.ollamaCloud.sessionSaved'))
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionSaveFailed')))
+    console.error(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionSaveFailed')), error)
   } finally {
     saving.value = false
   }
@@ -204,9 +201,8 @@ const deleteSession = async () => {
   try {
     applyState(await adminAPI.accounts.deleteOllamaCloudUsageSession(props.account.id))
     session.value = ''
-    appStore.showSuccess(t('admin.accounts.ollamaCloud.sessionDeleted'))
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionDeleteFailed')))
+    console.error(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionDeleteFailed')), error)
   } finally {
     saving.value = false
   }
@@ -216,14 +212,13 @@ const refreshUsage = async () => {
   refreshing.value = true
   try {
     applyState(await adminAPI.accounts.refreshOllamaCloudUsage(props.account.id))
-    appStore.showSuccess(t('admin.accounts.ollamaCloud.refreshSuccess'))
   } catch (error) {
-    appStore.showError(extractI18nErrorMessage(
+    console.error(extractI18nErrorMessage(
       error,
       t,
       'admin.accounts.ollamaCloud.errors',
       t('admin.accounts.ollamaCloud.refreshFailed')
-    ))
+    ), error)
   } finally {
     refreshing.value = false
   }

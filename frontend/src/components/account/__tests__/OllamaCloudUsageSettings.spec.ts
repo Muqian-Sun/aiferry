@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({
   deleteOllamaCloudUsageSession: vi.fn(),
   refreshOllamaCloudUsage: vi.fn()
 }))
-const notifications = vi.hoisted(() => ({ showSuccess: vi.fn(), showError: vi.fn() }))
+const notifications = vi.hoisted(() => ({}))
 
 vi.mock('@/api/admin', () => ({ adminAPI: { accounts: api } }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => notifications }))
@@ -88,8 +88,6 @@ const account = (usage: OllamaCloudUsageState = state()): Account => ({
 describe('OllamaCloudUsageSettings', () => {
   beforeEach(() => {
     Object.values(api).forEach(mock => mock.mockReset())
-    notifications.showSuccess.mockReset()
-    notifications.showError.mockReset()
   })
 
   it('uses the existing account state without an immediate duplicate GET', async () => {
@@ -140,22 +138,5 @@ describe('OllamaCloudUsageSettings', () => {
 
     expect(api.refreshOllamaCloudUsage).toHaveBeenCalledWith(7)
     expect(wrapper.get('[data-testid="ollama-cloud-usage-details"]').text()).toContain('pro')
-    expect(notifications.showSuccess).toHaveBeenCalled()
-  })
-
-  it('shows the structured manual refresh limit from the edit settings', async () => {
-    api.refreshOllamaCloudUsage.mockRejectedValueOnce({
-      status: 429,
-      reason: 'OLLAMA_CLOUD_USAGE_REFRESH_RATE_LIMITED',
-      metadata: { retry_after_seconds: '18' }
-    })
-    const wrapper = mount(OllamaCloudUsageSettings, {
-      props: { account: account(detailedState()) }
-    })
-
-    await wrapper.get('[data-testid="ollama-cloud-refresh"]').trigger('click')
-    await flushPromises()
-
-    expect(notifications.showError).toHaveBeenCalledWith('retry in 18 seconds')
   })
 })

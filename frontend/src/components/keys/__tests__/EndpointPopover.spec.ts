@@ -79,7 +79,7 @@ describe('EndpointPopover', () => {
     await wrapper.find('[role="button"]').trigger('click')
     await flushPromises()
 
-    expect(copyToClipboard).toHaveBeenCalledWith('https://default.example.com/v1', '已复制')
+    expect(copyToClipboard).toHaveBeenCalledWith('https://default.example.com/v1')
     expect(wrapper.text()).toContain('已复制到剪贴板')
     expect(wrapper.find('button[aria-label="已复制到剪贴板"]').exists()).toBe(true)
   })

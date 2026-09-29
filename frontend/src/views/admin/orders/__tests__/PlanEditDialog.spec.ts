@@ -15,10 +15,8 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-const showError = vi.fn()
-const showSuccess = vi.fn()
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showSuccess }),
+  useAppStore: () => ({}),
 }))
 
 const createPlan = vi.fn()
@@ -67,7 +65,6 @@ async function fillRequired(wrapper: ReturnType<typeof mountDialog>) {
 
 describe('PlanEditDialog', () => {
   beforeEach(() => {
-    showError.mockReset()
     createPlan.mockReset().mockResolvedValue({})
     updatePlan.mockReset().mockResolvedValue({})
     listEntries.mockReset().mockResolvedValue([
@@ -112,7 +109,6 @@ describe('PlanEditDialog', () => {
     await fillRequired(wrapper)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(showError).toHaveBeenCalledWith('payment.admin.modelsRequired')
     expect(createPlan).not.toHaveBeenCalled()
   })
 
@@ -127,7 +123,6 @@ describe('PlanEditDialog', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).not.toHaveBeenCalled()
     expect(createPlan).toHaveBeenCalledTimes(1)
     const payload = createPlan.mock.calls[0][0] as Record<string, unknown>
     expect(payload.entry_ids).toEqual([199])

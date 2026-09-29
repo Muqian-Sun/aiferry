@@ -239,7 +239,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { UserAttributeDefinition, UserAttributeType, UserAttributeOption } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -249,7 +248,6 @@ import Select from '@/components/common/Select.vue'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 interface Props {
   show: boolean
@@ -289,7 +287,7 @@ const loadAttributes = async () => {
   try {
     attributes.value = await adminAPI.userAttributes.listDefinitions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.attributes.failedToLoad'))
+    console.error(error.response?.data?.detail || t('admin.users.attributes.failedToLoad'), error)
   } finally {
     loading.value = false
   }
@@ -336,15 +334,15 @@ const removeOption = (index: number) => {
 
 const handleSave = async () => {
   if (!form.key.trim()) {
-    appStore.showError(t('admin.users.attributes.keyRequired'))
+    console.error(t('admin.users.attributes.keyRequired'))
     return
   }
   if (!form.name.trim()) {
-    appStore.showError(t('admin.users.attributes.nameRequired'))
+    console.error(t('admin.users.attributes.nameRequired'))
     return
   }
   if ((form.type === 'select' || form.type === 'multi_select') && form.options.length === 0) {
-    appStore.showError(t('admin.users.attributes.optionsRequired'))
+    console.error(t('admin.users.attributes.optionsRequired'))
     return
   }
   saving.value = true
@@ -362,10 +360,8 @@ const handleSave = async () => {
 
     if (editingAttribute.value) {
       await adminAPI.userAttributes.updateDefinition(editingAttribute.value.id, data)
-      appStore.showSuccess(t('admin.users.attributes.updated'))
     } else {
       await adminAPI.userAttributes.createDefinition(data)
-      appStore.showSuccess(t('admin.users.attributes.created'))
     }
 
     closeEditModal()
@@ -374,7 +370,7 @@ const handleSave = async () => {
     const msg = editingAttribute.value
       ? t('admin.users.attributes.failedToUpdate')
       : t('admin.users.attributes.failedToCreate')
-    appStore.showError(error.response?.data?.detail || msg)
+    console.error(error.response?.data?.detail || msg, error)
   } finally {
     saving.value = false
   }
@@ -390,12 +386,11 @@ const handleDelete = async () => {
 
   try {
     await adminAPI.userAttributes.deleteDefinition(deletingAttribute.value.id)
-    appStore.showSuccess(t('admin.users.attributes.deleted'))
     showDeleteDialog.value = false
     deletingAttribute.value = null
     loadAttributes()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.attributes.failedToDelete'))
+    console.error(error.response?.data?.detail || t('admin.users.attributes.failedToDelete'), error)
   }
 }
 

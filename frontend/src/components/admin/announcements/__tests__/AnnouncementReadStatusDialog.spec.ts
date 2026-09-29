@@ -3,9 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import AnnouncementReadStatusDialog from '../AnnouncementReadStatusDialog.vue'
 
-const { getReadStatus, showError } = vi.hoisted(() => ({
+const { getReadStatus } = vi.hoisted(() => ({
   getReadStatus: vi.fn(),
-  showError: vi.fn(),
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -17,9 +16,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError,
-  }),
+  useAppStore: () => ({}),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -45,7 +42,6 @@ const BaseDialogStub = {
 describe('AnnouncementReadStatusDialog', () => {
   beforeEach(() => {
     getReadStatus.mockReset()
-    showError.mockReset()
     vi.useFakeTimers()
   })
 
