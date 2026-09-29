@@ -1,7 +1,7 @@
 <template>
   <!--
     模型详情抽屉（A5）：模型目录点行打开，看完即关。两个页签：
-    概况（标识、厂商、计费、上架、别名、全部标价与分档 / 分时）、渠道（承接的渠道此刻能否调度；「诊断」看各入口协议能否承接）。
+    概况（标识、厂商、计费、上架、别名、全部标价与 Token 分段 / 分档 / 分时）、渠道（承接的渠道此刻能否调度；「诊断」看各入口协议能否承接）。
     改配置点「编辑」，上下架 / 删除在「⋯」里；动作都 emit 给目录页，由目录页弹原有的对话框。
     抽屉里所有 $ 价共用一个小数位数（priceFormat），不会一行 $3.00、一行 $0.3。
   -->
@@ -105,11 +105,31 @@
           </dl>
         </SheetSection>
 
-        <SheetSection
-          v-if="tierRows.length"
-          :title="t('admin.modelCatalog.drawer.tiers')"
-          :description="isToken ? undefined : t('admin.modelCatalog.drawer.mediaTiersHint')"
-        >
+        <!-- 按 Token 分段：第一段就是上面的标价；列的是每段实际计的价（段里没单列的按第一段） -->
+        <SheetSection v-if="segments.length" :title="t('admin.modelCatalog.drawer.segments')" :description="t('admin.modelCatalog.drawer.segmentsHint')">
+          <div class="overflow-x-auto">
+            <table class="w-full text-13 tabular-nums" data-testid="model-catalog-drawer-segments">
+              <thead>
+                <tr class="text-af-ink-3">
+                  <th class="pb-2 pr-3 text-left font-normal">{{ t('admin.modelCatalog.drawer.segmentColumns.range') }}</th>
+                  <th v-for="column in segmentColumns" :key="column.key" class="whitespace-nowrap pb-2 pl-3 text-right font-normal">
+                    {{ t(`admin.modelCatalog.drawer.segmentColumns.${column.key}`) }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(segment, index) in segments" :key="index" class="border-t border-af-hairline" data-testid="model-catalog-drawer-segment">
+                  <td class="whitespace-nowrap py-2.5 pr-3 text-af-ink-2">{{ formatSegmentRange(segment) }}</td>
+                  <td v-for="column in segmentColumns" :key="column.key" class="whitespace-nowrap py-2.5 pl-3 text-right text-af-ink">
+                    {{ money(perMillion(segment.prices[column.key])) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </SheetSection>
+
+        <SheetSection v-if="tierRows.length" :title="t('admin.modelCatalog.drawer.tiers')" :description="t('admin.modelCatalog.drawer.mediaTiersHint')">
           <dl class="divide-y divide-af-hairline" data-testid="model-catalog-drawer-tiers">
             <DetailField v-for="row in tierRows" :key="row.key" :label="row.label">
               <span class="tabular-nums">{{ row.value }}</span>
@@ -207,9 +227,10 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { ModelCatalogDiagnosisAccount, ModelCatalogEntry, PricingInterval } from '@/api/admin/modelCatalog'
+import type { ModelCatalogDiagnosisAccount, ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import type { AccountPlatform, AccountType } from '@/types'
-import { formatCompactNumber, formatDateTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
+import { formatSegmentRange, tokenSegments, type TokenSegment, type TokenSegmentPrices } from '@/utils/tokenSegments'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -303,11 +324,40 @@ const TOKEN_PRICES: { key: string; labelKey: string; field: PriceField; always?:
   { key: 'cache_read_priority', labelKey: 'cacheReadPriority', field: 'cache_read_price_priority' }
 ]
 
-function sortedIntervals(entry: ModelCatalogEntry): PricingInterval[] {
-  return [...(entry.intervals ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-}
+/** 按 Token 分段（含第一段 = 基础价）；不是按 Token 计费或没分段时为空 */
+const segments = computed<TokenSegment[]>(() => {
+  const entry = props.entry
+  if (!entry || !isToken.value) return []
+  return tokenSegments(
+    {
+      input: entry.input_price,
+      output: entry.output_price,
+      cacheWrite: entry.cache_write_price,
+      cacheWrite1h: entry.cache_write_1h_price,
+      cacheRead: entry.cache_read_price
+    },
+    entry.intervals
+  )
+})
 
-/** 抽屉里出现的每个 $ 价（标价与分档）共用一个小数位数 */
+/** 分段表的价格列：输入 / 输出始终列，缓存价有一段配了才列 */
+const SEGMENT_COLUMNS: { key: keyof TokenSegmentPrices; always?: boolean }[] = [
+  { key: 'input', always: true },
+  { key: 'output', always: true },
+  { key: 'cacheWrite' },
+  { key: 'cacheWrite1h' },
+  { key: 'cacheRead' }
+]
+const segmentColumns = computed(() =>
+  SEGMENT_COLUMNS.filter((column) => column.always || segments.value.some((segment) => segment.prices[column.key] != null))
+)
+
+/** 按次 / 图片 / 视频的分档（按 tier_label，或按次模式按 Token 区间），按 sort_order；按 Token 计费的区间是上面的分段 */
+const tiers = computed(() =>
+  !props.entry || isToken.value ? [] : [...(props.entry.intervals ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+)
+
+/** 抽屉里出现的每个 $ 价（标价、分段与分档）共用一个小数位数 */
 const decimals = computed(() => {
   const entry = props.entry
   if (!entry) return 2
@@ -315,15 +365,10 @@ const decimals = computed(() => {
   if (isToken.value) {
     values.push(...TOKEN_PRICES.map((price) => perMillion(entry[price.field])), entry.search_price_per_call)
   }
-  for (const iv of sortedIntervals(entry)) {
-    values.push(
-      perMillion(iv.input_price),
-      perMillion(iv.output_price),
-      perMillion(iv.cache_write_price),
-      perMillion(iv.cache_read_price),
-      iv.per_request_price
-    )
+  for (const segment of segments.value) {
+    values.push(...SEGMENT_COLUMNS.map((column) => perMillion(segment.prices[column.key])))
   }
+  for (const tier of tiers.value) values.push(tier.per_request_price)
   return sharedPriceDecimals(values, DETAIL_PRICE_MAX_DECIMALS)
 })
 
@@ -334,11 +379,6 @@ function money(value: number | null | undefined): string {
 /** 「$0.04 / 次」「$0.039 / 张」「$0.05 / 秒」 */
 function perUnit(value: number, mode: string): string {
   return t(`admin.modelCatalog.drawer.price.per.${mode}`, { price: money(value) })
-}
-
-/** 200000 → 200K（去掉 formatCompactNumber 的「.0」） */
-function compact(value: number): string {
-  return formatCompactNumber(value).replace(/\.0(?=[KMB]?$)/, '')
 }
 
 const priceRows = computed<Row[]>(() => {
@@ -358,20 +398,6 @@ const priceRows = computed<Row[]>(() => {
     if (entry.search_price_per_call != null) {
       push('search', t('admin.modelCatalog.drawer.price.searchPerCall'), perUnit(entry.search_price_per_call, 'per_request'))
     }
-    if (entry.long_context_input_threshold != null) {
-      const parts = [
-        entry.long_context_input_multiplier != null ? `${t('admin.modelCatalog.drawer.price.input')} × ${entry.long_context_input_multiplier}` : '',
-        entry.long_context_output_multiplier != null ? `${t('admin.modelCatalog.drawer.price.output')} × ${entry.long_context_output_multiplier}` : ''
-      ].filter(Boolean)
-      push(
-        'long_context',
-        t('admin.modelCatalog.drawer.price.longContext', {
-          op: entry.long_context_threshold_inclusive ? '≥' : '>',
-          threshold: compact(entry.long_context_input_threshold)
-        }),
-        parts.join(' · ') || '—'
-      )
-    }
   } else {
     push(
       'per_request',
@@ -389,40 +415,16 @@ const priceRows = computed<Row[]>(() => {
   return rows
 })
 
-/** 分档：图片 / 视频按档位（每档一个按次价）；按 Token 的是区间分档（每段各自的单价或倍率） */
+/** 分档：每档一个按次价；档名是 tier_label，没有的（按次模式按 Token 区间分档）写区间 */
 const tierRows = computed<Row[]>(() => {
   const entry = props.entry
   if (!entry) return []
-  return sortedIntervals(entry).map((iv, index) => {
-    if (iv.tier_label) {
-      return {
-        key: `tier-${index}`,
-        label: iv.tier_label,
-        value: iv.per_request_price == null ? '—' : perUnit(iv.per_request_price, entry.billing_mode)
-      }
-    }
-    const label =
-      iv.max_tokens == null
-        ? t('admin.modelCatalog.drawer.tokenTierOpen', { min: compact(iv.min_tokens) })
-        : t('admin.modelCatalog.drawer.tokenTier', { min: compact(iv.min_tokens), max: compact(iv.max_tokens) })
-    return { key: `tier-${index}`, label, value: intervalPrices(iv) }
-  })
+  return tiers.value.map((iv, index) => ({
+    key: `tier-${index}`,
+    label: iv.tier_label || formatSegmentRange({ min: iv.min_tokens, max: iv.max_tokens }),
+    value: iv.per_request_price == null ? '—' : perUnit(iv.per_request_price, entry.billing_mode)
+  }))
 })
-
-function intervalPrices(iv: PricingInterval): string {
-  const parts: string[] = []
-  const add = (labelKey: string, price: number | null | undefined, multiplier: number | null | undefined) => {
-    const label = t(`admin.modelCatalog.drawer.price.${labelKey}`)
-    if (price != null) parts.push(`${label} ${money(perMillion(price))}`)
-    else if (multiplier != null) parts.push(`${label} × ${multiplier}`)
-  }
-  add('input', iv.input_price, iv.input_multiplier)
-  add('output', iv.output_price, iv.output_multiplier)
-  add('cacheWrite', iv.cache_write_price, iv.cache_write_multiplier)
-  add('cacheRead', iv.cache_read_price, iv.cache_read_multiplier)
-  if (iv.per_request_price != null) parts.push(perUnit(iv.per_request_price, 'per_request'))
-  return parts.join(' · ') || '—'
-}
 
 const timePricingHint = computed(() => {
   const tp = props.entry?.time_pricing

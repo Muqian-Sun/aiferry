@@ -1,6 +1,6 @@
 <template>
   <!--
-    目录表格里的标价格：按 Token 的第一行「$输入 / $输出」、第二行「输入 / 输出 · 每百万 Token」；
+    目录表格里的标价格：按 Token 的第一行「$输入 / $输出」（有分段时是第一段的价）、第二行「输入 / 输出 · 每百万 Token（· 分 N 段）」；
     按次 / 图片 / 视频第一行默认按次价、第二行「每次 / 每张 / 每秒 · N 档」。
     整列共用一个小数位数（decimals 由列表页按当前筛选结果算好传进来）。
     没配价写「未配价」，只有上架的才标红（上架必有价；未上架的没配价是常态）。
@@ -17,7 +17,10 @@
       <div class="text-af-ink">
         {{ formatListPrice(prices[0], decimals) }} <span class="text-af-ink-4">/</span> {{ formatListPrice(prices[1], decimals) }}
       </div>
-      <div class="text-xs text-af-ink-4">{{ t('admin.modelCatalog.columns.perMillion') }}</div>
+      <div class="text-xs text-af-ink-4">
+        {{ t('admin.modelCatalog.columns.perMillion') }}
+        <template v-if="segmentCount"> · {{ t('admin.modelCatalog.columns.segments', { count: segmentCount }) }}</template>
+      </div>
     </template>
     <template v-else>
       <div class="text-af-ink">{{ formatListPrice(prices[0], decimals) }}</div>
@@ -35,6 +38,7 @@ import { useI18n } from 'vue-i18n'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import { hasPrice } from './entryRequest'
 import { formatListPrice, listPriceValues } from './priceFormat'
+import { tokenIntervals } from '@/utils/tokenSegments'
 
 const props = defineProps<{
   entry: ModelCatalogEntry
@@ -46,6 +50,11 @@ const { t } = useI18n()
 const isToken = computed(() => !props.entry.billing_mode || props.entry.billing_mode === 'token')
 const priced = computed(() => hasPrice(props.entry))
 const tierCount = computed(() => (props.entry.intervals ?? []).filter((iv) => iv.tier_label).length)
+// 按 Token 分段的段数（含第一段 = 基础价）；没分段为 0
+const segmentCount = computed(() => {
+  const count = tokenIntervals(props.entry.intervals).length
+  return count === 0 ? 0 : count + 1
+})
 // 按 Token：[输入, 输出]（$ / 百万 Token）；其余计费：[默认按次价]
 const prices = computed(() => listPriceValues(props.entry))
 </script>
