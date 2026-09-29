@@ -344,6 +344,30 @@ func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, 
 	return r.stats, nil
 }
 
+// OpenAI 401 的 token_invalidated / token_revoked 是 OpenAI 成品号的凭据作废语义：成品号按「Token revoked」
+// 永久停用；第三方 key 一律按中转（指向 api.openai.com 的也一样），只走通用的 401 停用文案。
+func TestHandleUpstreamError_OpenAI401TokenRevokedOnlyForSubscriptions(t *testing.T) {
+	body := []byte(`{"error":{"code":"token_revoked","message":"token has been revoked"}}`)
+
+	for name, key := range map[string]*Account{
+		"relay":                 vendorTestKey(PlatformOpenAI, vendorTestRelayChat),
+		"key on api.openai.com": vendorTestKey(PlatformOpenAI, vendorTestOpenAI),
+	} {
+		repo := &rateLimitAccountRepoStub{}
+		require.Empty(t, key.Vendor(), name)
+		require.True(t, NewRateLimitService(repo, nil, &config.Config{}, nil, nil).HandleUpstreamError(context.Background(), key, http.StatusUnauthorized, http.Header{}, body), name)
+		require.Equal(t, 1, repo.setErrorCalls, name)
+		require.True(t, strings.HasPrefix(repo.lastErrorMsg, "Authentication failed (401)"), "%s: %s", name, repo.lastErrorMsg)
+	}
+
+	repo := &rateLimitAccountRepoStub{}
+	subscription := vendorTestSubscription(PlatformOpenAI, AccountTypeOAuth, map[string]any{"refresh_token": "rt"})
+	require.True(t, NewRateLimitService(repo, nil, &config.Config{}, nil, nil).HandleUpstreamError(context.Background(), subscription, http.StatusUnauthorized, http.Header{}, body))
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.True(t, strings.HasPrefix(repo.lastErrorMsg, "Token revoked (401)"), repo.lastErrorMsg)
+	require.Zero(t, repo.tempCalls, "revoked token must not be treated as a refreshable OAuth 401")
+}
+
 func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {
 	const structured403 = `{"error":{"type":"permission_error","message":"forbidden"}}`
 
