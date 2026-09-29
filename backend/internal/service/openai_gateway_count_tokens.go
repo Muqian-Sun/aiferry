@@ -148,19 +148,28 @@ func prepareNativeOpenAIInputTokensCountRequest(body []byte, account *Account) (
 	}, nil
 }
 
-// shouldEstimateOpenAIInputTokensLocally 报告 /v1/responses/input_tokens 是否本地估算、不发上游。
+// shouldEstimateOpenAIInputTokensLocally 报告 /v1/responses/input_tokens 是否直接本地估算、不发上游。
 //
-// input_tokens 是 OpenAI 官方 Responses 的子端点：只有 OpenAI 成品号发上游。第三方 key 一律按
-// 中转本地估算（指向 api.openai.com 的 key 也一样，2026-09-29 定）；Grok 与国产供应商没有这个端点。
+// 已知调不到这个端点的直接本地估算：Grok、国产供应商（成品号按平台，key 按地址识别出的厂商）与 OpenCode，
+// 以及没配 responses 地址的 key（input_tokens 是 responses 的子路径）。其余中转先发上游，上游不支持再本地估算
+// （isOpenAIResponsesInputTokensUnsupported / relayCountTokensUnsupported，2026-09-29 定）。
+// /v1/responses/input_tokens 与 Anthropic count_tokens 转 OpenAI 协议（ForwardCountTokensAsAnthropic）共用。
 func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
-	if account == nil || account.IsThirdPartyKey() {
+	if account == nil {
 		return true
+	}
+	if account.IsThirdPartyKey() {
+		vendor := account.Vendor()
+		return IsCNProvider(vendor) || vendor == PlatformOpenCodeGo || account.GetOpenAIResponsesBaseURL() == ""
 	}
 	return account.IsGrok() || account.IsCNProvider()
 }
 
 func isOpenAIResponsesInputTokensUnsupported(account *Account, statusCode int, body []byte) bool {
 	if statusCode == http.StatusNotFound {
+		return true
+	}
+	if account != nil && account.IsThirdPartyKey() && relayCountTokensUnsupported(statusCode) {
 		return true
 	}
 	return account != nil && account.Type == AccountTypeOAuth && isOpenAIOAuthInputTokensUnsupported(statusCode, body)
@@ -212,11 +221,22 @@ func CountTokensConversionErrorMessage(err error) string {
 	return "Failed to parse request body"
 }
 
-// EstimateGrokCountTokens estimates an Anthropic-compatible count_tokens request
-// locally. Grok does not expose a compatible token-counting endpoint, so this
-// path deliberately avoids account selection, credentials, and upstream calls.
-func EstimateGrokCountTokens(body []byte) (int, error) {
+// EstimateAnthropicCountTokens 本地估算一个 Anthropic count_tokens 请求，不发上游：Grok（没有兼容的计数端点）
+// 与「上游不支持计数」的中转 key 共用。
+func EstimateAnthropicCountTokens(body []byte) (int, error) {
 	return estimateAnthropicCountTokensLocally(body)
+}
+
+// relayCountTokensUnsupported 中转 key 的计 token 端点「上游不支持」：404 / 405 / 501（端点不存在、方法不允许、
+// 未实现）。三个计数入口对中转都是先发上游，遇到这几个状态就本地估算，不把错误回给客户端，也不当账号错误处置
+// （2026-09-29 muqian 定：「上游不支持就本地算」）。
+func relayCountTokensUnsupported(statusCode int) bool {
+	switch statusCode {
+	case http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusNotImplemented:
+		return true
+	default:
+		return false
+	}
 }
 
 // estimateAnthropicCountTokensLocally 走 Anthropic→Responses→tiktoken 链本地估算
@@ -264,20 +284,19 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 		return fmt.Errorf("count_tokens: missing account")
 	}
 
-	// 国产供应商与 OpenCode（全部协议，含 anthropic）：一律本地估算，不发上游请求。
-	// 依据（2026-08 核实）：三家的 Anthropic 兼容层均未提供
-	// /v1/messages/count_tokens——DeepSeek 官方 anthropic_api 文档无此端点
-	// （且注明 anthropic-version 头被忽略），聚合网关 OpenModel 明确标注
-	// count_tokens 为 "Anthropic only"，Kimi/智谱亦无任何文档承诺。转发上游
-	// 只会常态 404，且错误还会流入账号处置逻辑误伤整账号调度；Claude Code
-	// 高频调用此端点，本地 tiktoken 估算是与 Grok 一致的既有方案。
-	if vendor := account.Vendor(); IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
+	// 已知调不到计数端点的直接本地估算，不发上游请求（shouldEstimateOpenAIInputTokensLocally）：
+	// 国产供应商与 OpenCode（全部协议，含 anthropic）——依据（2026-08 核实）：三家的 Anthropic 兼容层均未提供
+	// /v1/messages/count_tokens——DeepSeek 官方 anthropic_api 文档无此端点（且注明 anthropic-version 头被忽略），
+	// 聚合网关 OpenModel 明确标注 count_tokens 为 "Anthropic only"，Kimi/智谱亦无任何文档承诺；转发上游只会常态 404，
+	// 且错误还会流入账号处置逻辑误伤整账号调度；Claude Code 高频调用此端点，本地 tiktoken 估算是与 Grok 一致的
+	// 既有方案。没配 responses 地址的 key 同理。其余中转先发上游，不支持再本地估算。
+	if shouldEstimateOpenAIInputTokensLocally(account) {
 		estimated, err := estimateAnthropicCountTokensLocally(body)
 		if err != nil {
 			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", CountTokensConversionErrorMessage(err))
-			return fmt.Errorf("count_tokens: estimate cn provider input tokens: %w", err)
+			return fmt.Errorf("count_tokens: local estimate input tokens: %w", err)
 		}
-		logger.L().Debug("openai count_tokens: cn provider local estimate",
+		logger.L().Debug("openai count_tokens: local estimate (no upstream endpoint)",
 			zap.Int64("account_id", account.ID),
 			zap.Int("estimated_input_tokens", estimated),
 		)
@@ -341,17 +360,16 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	if resp.StatusCode >= 400 {
 		upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
 		if account.Type == AccountTypeOAuth && isOpenAIOAuthInputTokensUnsupported(resp.StatusCode, respBody) {
-			writeOpenAIOAuthInputTokensFallback(c, account, prepared, resp.StatusCode)
+			writeInputTokensLocalFallback(c, account, prepared, resp.StatusCode, "oauth_unsupported")
+			return nil
+		}
+		if account.IsThirdPartyKey() && relayCountTokensUnsupported(resp.StatusCode) {
+			writeInputTokensLocalFallback(c, account, prepared, resp.StatusCode, "relay_unsupported")
 			return nil
 		}
 
 		if s.rateLimitService != nil {
 			s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
-		}
-
-		if isOpenAIInputTokensUnsupported(resp.StatusCode, respBody) {
-			writeAnthropicCountTokensError(c, http.StatusNotFound, "not_found_error", "Token counting is not supported by upstream")
-			return nil
 		}
 
 		upstreamDetail := ""
@@ -499,24 +517,28 @@ func isOpenAIInputTokensUnsupported(statusCode int, body []byte) bool {
 	return strings.Contains(msg, "input_tokens") && strings.Contains(msg, "not found")
 }
 
-func writeOpenAIOAuthInputTokensFallback(c *gin.Context, account *Account, prepared *openAIInputTokensCountPrepared, statusCode int) {
+// writeInputTokensLocalFallback 上游不支持计 token 时（OpenAI 成品号缺 scope / 中转没有这个端点）本地估算，
+// 按 Anthropic count_tokens 的形状回给客户端。
+func writeInputTokensLocalFallback(c *gin.Context, account *Account, prepared *openAIInputTokensCountPrepared, statusCode int, reason string) {
 	estimated := openAIInputTokensFallbackMinimum
 	if got, err := estimateOpenAIInputTokens(prepared.Request); err == nil {
 		if got > 0 {
 			estimated = got
 		}
-		logger.L().Info("openai count_tokens: oauth fallback to local tiktoken estimate",
+		logger.L().Info("openai count_tokens: fallback to local tiktoken estimate",
 			zap.Int64("account_id", account.ID),
 			zap.Int("upstream_status", statusCode),
 			zap.Int("estimated_input_tokens", estimated),
 			zap.String("upstream_model", prepared.UpstreamModel),
+			zap.String("reason", reason),
 		)
 	} else {
-		logger.L().Warn("openai count_tokens: oauth local tiktoken fallback failed, using minimum estimate",
+		logger.L().Warn("openai count_tokens: local tiktoken fallback failed, using minimum estimate",
 			zap.Int64("account_id", account.ID),
 			zap.Int("upstream_status", statusCode),
 			zap.Int("estimated_input_tokens", estimated),
 			zap.String("upstream_model", prepared.UpstreamModel),
+			zap.String("reason", reason),
 			zap.Error(err),
 		)
 	}

@@ -1598,8 +1598,13 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	setOpsSelectedAccount(c, account.ID, account.Platform)
 
 	if account.IsThirdPartyKey() && !keyServesAnthropicCountTokens(messagesGatewayPlatform(c), account) {
-		// 与 Antigravity 成品号一致返回 404，让客户端回退本地估算。
-		h.errorResponse(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
+		// key 没有 Anthropic 地址 = 上游不支持 count_tokens：本地估算（2026-09-29 定：上游不支持就本地算）。
+		estimated, err := service.EstimateAnthropicCountTokens(parsedReq.Body.Bytes())
+		if err != nil {
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", service.CountTokensConversionErrorMessage(err))
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"input_tokens": estimated})
 		return
 	}
 

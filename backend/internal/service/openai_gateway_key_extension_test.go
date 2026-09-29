@@ -115,14 +115,17 @@ func TestSupportsOpenAIImageCapabilityForKeysFollowsVendorNotLabel(t *testing.T)
 	require.False(t, (&Account{Platform: PlatformGrok, Type: AccountTypeOAuth}).SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
 }
 
-// input_tokens 是 OpenAI 成品号才发上游：第三方 key 一律本地估算，responses 地址是 api.openai.com 也一样
-// （2026-09-29 海外四家不再有官方 key）。
+// input_tokens 对中转先发上游、不支持再本地估算（2026-09-29 定），所以配了 responses 地址的中转不直接本地估算，
+// 指向 api.openai.com 的 key 也按中转；没有 responses 地址（没有这个子端点）、国产厂商官方 key 直接本地估算。
 func TestShouldEstimateOpenAIInputTokensLocallyForKeysIgnoresLabel(t *testing.T) {
-	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.openai.com"})),
-		"a key on api.openai.com is a relay and estimates locally")
-	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://relay.example/v1"})))
+	require.False(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.openai.com"})),
+		"a key on api.openai.com is a relay and tries upstream first")
+	require.False(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolResponses: "https://relay.example/v1"})),
+		"the label does not matter")
 	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "https://api.openai.com"})),
 		"without a responses address there is no input_tokens endpoint to call")
+	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.deepseek.com"})),
+		"official CN provider keys have no input_tokens endpoint")
 	require.True(t, shouldEstimateOpenAIInputTokensLocally(&Account{Platform: PlatformGrok, Type: AccountTypeOAuth}))
 	require.False(t, shouldEstimateOpenAIInputTokensLocally(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
 }
