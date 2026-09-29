@@ -2770,18 +2770,19 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 			} else {
 				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (Google One OAuth, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
 			}
-		} else if account.IsThirdPartyKey() && account.Vendor() != PlatformGemini {
-			// 中转 key：PST 午夜是 AI Studio 官方日配额的重置点，套到中转上会把 key
-			// 停到第二天。解析不出重置时间时走通用的秒级 429 兜底。
+		} else if account.IsThirdPartyKey() {
+			// 第三方 key 一律按中转（指向 generativelanguage.googleapis.com 的也一样）：PST 午夜是
+			// AI Studio 官方日配额的重置点，套到中转上会把 key 停到第二天。解析不出重置时间时
+			// 走通用的秒级 429 兜底。
 			if s.rateLimitService != nil {
 				s.rateLimitService.apply429FallbackRateLimit(ctx, account, "no_reset_time")
 			}
 			return
 		} else {
-			// API Key / AI Studio OAuth: PST 午夜
+			// AI Studio OAuth: PST 午夜
 			if ts := nextGeminiDailyResetUnix(); ts != nil {
 				ra = time.Unix(*ts, 0)
-				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (API Key/AI Studio, type=%s) rate limited, reset at PST midnight (%v)", account.ID, account.Type, ra)
+				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (AI Studio, type=%s) rate limited, reset at PST midnight (%v)", account.ID, account.Type, ra)
 			} else {
 				// 兜底：5 分钟
 				ra = time.Now().Add(5 * time.Minute)

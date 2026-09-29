@@ -59,9 +59,14 @@ func TestPrepareOpenAIWSHTTPBridgeBodyStripsNoneReasoningForCompatibleEndpoint(t
 	require.False(t, gjson.GetBytes(body, "reasoning.effort").Exists())
 	require.False(t, gjson.GetBytes(body, "reasoning").Exists())
 
-	officialBody, err := prepareOpenAIWSHTTPBridgeBody(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, payload)
+	// 指向 api.openai.com 的 key 也按兼容上游（2026-09-29 海外四家不再有官方 key）；只有 OpenAI 成品号保留 none。
+	keyOnOfficialHostBody, err := prepareOpenAIWSHTTPBridgeBody(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, payload)
 	require.NoError(t, err)
-	require.Equal(t, "none", gjson.GetBytes(officialBody, "reasoning.effort").String())
+	require.False(t, gjson.GetBytes(keyOnOfficialHostBody, "reasoning.effort").Exists())
+
+	subscriptionBody, err := prepareOpenAIWSHTTPBridgeBody(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, payload)
+	require.NoError(t, err)
+	require.Equal(t, "none", gjson.GetBytes(subscriptionBody, "reasoning.effort").String())
 }
 
 func TestProxyOpenAIWSHTTPBridgeTurn_KeepsOutboundAndObservedServiceTiersSeparate(t *testing.T) {

@@ -14,7 +14,8 @@ import (
 )
 
 // 第三方 key 的模型支持、默认映射与上游模型归一按 Vendor（协议地址）判定，平台标签只用于展示。
-// 每个用例先断言夹具的 Vendor，保证「中转 / 官方」前提真的成立。
+// 每个用例先断言夹具的 Vendor，保证「中转 / 官方」前提真的成立。海外四家（Anthropic、OpenAI、
+// Gemini、Grok）不再有官方 key：指向它们官方域名的 key 按中转，厂商特化只对成品号。
 
 const vendorTestRelayURL = "https://relay.example.com/v1"
 
@@ -83,10 +84,18 @@ func TestResolveModelMapping_XAIDefaultMappingFollowsVendor(t *testing.T) {
 			require.True(t, account.IsModelSupported("not-an-xai-model"))
 		})
 
-		t.Run(name+"/openai label on api.x.ai gets the xAI mapping", func(t *testing.T) {
-			account := vendorTestKey(PlatformOpenAI, xaiEndpoints)
+		t.Run(name+"/grok label on api.x.ai is a relay and gets no xAI mapping", func(t *testing.T) {
+			account := vendorTestKey(PlatformGrok, xaiEndpoints)
 			account.Credentials = credentials
-			require.Equal(t, PlatformGrok, account.Vendor())
+			require.Empty(t, account.Vendor())
+
+			require.Empty(t, account.GetModelMapping())
+			require.Equal(t, alias, account.GetMappedModel(alias))
+			require.True(t, account.IsModelSupported("not-an-xai-model"))
+		})
+
+		t.Run(name+"/grok subscription gets the xAI mapping", func(t *testing.T) {
+			account := &Account{ID: 9103, Platform: PlatformGrok, Type: AccountTypeOAuth, Credentials: credentials}
 
 			require.Equal(t, xai.DefaultModelMapping(), account.GetModelMapping())
 			require.Equal(t, target, account.GetMappedModel(alias))
@@ -157,11 +166,14 @@ func TestModelLookupCustomtoolsAliasFollowsVendor(t *testing.T) {
 	_, matched := relay.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
 	require.False(t, matched)
 
-	official := vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"})
-	official.Credentials = map[string]any{"model_mapping": mapping}
-	require.Equal(t, PlatformGemini, official.Vendor())
-	require.True(t, official.IsModelSupported("gemini-3.1-pro-preview-customtools"))
-	mapped, matched := official.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
+	keyOnOfficialHost := vendorTestKey(PlatformGemini, map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"})
+	keyOnOfficialHost.Credentials = map[string]any{"model_mapping": mapping}
+	require.Empty(t, keyOnOfficialHost.Vendor())
+	require.False(t, keyOnOfficialHost.IsModelSupported("gemini-3.1-pro-preview-customtools"))
+
+	subscription := &Account{ID: 9104, Platform: PlatformGemini, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": mapping}}
+	require.True(t, subscription.IsModelSupported("gemini-3.1-pro-preview-customtools"))
+	mapped, matched := subscription.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
 	require.True(t, matched)
 	require.Equal(t, "gemini-3.1-pro-preview", mapped)
 }
@@ -216,7 +228,7 @@ func TestGatewayModelSupport_AnthropicShortIDNormalizationIsSubscriptionOnly(t *
 
 	key := vendorTestKey(PlatformAnthropic, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"})
 	key.Credentials = map[string]any{"model_mapping": mapping}
-	require.Equal(t, PlatformAnthropic, key.Vendor())
+	require.Empty(t, key.Vendor())
 	require.False(t, svc.isModelSupportedByAccount(key, shortID))
 }
 
@@ -242,11 +254,14 @@ func TestModelRateLimitKeys_FollowVendor(t *testing.T) {
 		require.False(t, account.IsSchedulableForModel(model))
 	})
 
-	t.Run("fable scope is read for the official anthropic vendor only", func(t *testing.T) {
+	t.Run("fable scope is read for anthropic subscriptions only", func(t *testing.T) {
 		const model = "claude-fable-5[1m]"
-		official := limited(vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}), anthropicFableRateLimitKey)
-		require.Equal(t, PlatformAnthropic, official.Vendor())
-		require.False(t, official.IsSchedulableForModel(model))
+		subscription := limited(&Account{ID: 9105, Platform: PlatformAnthropic, Type: AccountTypeSetupToken, Status: StatusActive, Schedulable: true}, anthropicFableRateLimitKey)
+		require.False(t, subscription.IsSchedulableForModel(model))
+
+		keyOnOfficialHost := limited(vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}), anthropicFableRateLimitKey)
+		require.Empty(t, keyOnOfficialHost.Vendor())
+		require.True(t, keyOnOfficialHost.IsSchedulableForModel(model))
 
 		relay := limited(vendorTestKey(PlatformAnthropic, map[string]string{APIProtocolAnthropic: "https://relay.example.com"}), anthropicFableRateLimitKey)
 		require.True(t, relay.IsSchedulableForModel(model))

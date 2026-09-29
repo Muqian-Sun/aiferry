@@ -2512,7 +2512,6 @@ function batchImageErrorMessage(error: any, fallback: string) {
   }
   if (
     code === 'BATCH_IMAGE_PROVIDER_SUBMIT_FAILED' ||
-    code === 'BATCH_IMAGE_PROVIDER_MISSING_API_KEY' ||
     code === 'BATCH_IMAGE_PROVIDER_MISSING_SERVICE_ACCOUNT' ||
     code === 'BATCH_IMAGE_PROVIDER_UNSUPPORTED_ACCOUNT'
   ) {

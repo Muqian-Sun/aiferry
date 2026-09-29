@@ -872,12 +872,12 @@ func anthropicSpeedModel(parsed *ParsedRequest, result *ForwardResult) string {
 // 平台收紧，避免上游根本没跑 fast 时仍然按 2x 计费——宁可漏收也不能多收。
 //
 // 上游是否真跑了 fast mode 按厂商区分：
-//   - Anthropic 官方（成品号，或全部协议地址都是 Anthropic 官方域名的 key）：请求带
-//     speed=fast 就定为 fast；响应里的 usage.speed 由 UpstreamResponseServiceTier 带回，
-//     用量记录时经 ResolveBillingServiceTier 只降不升（usage.speed=standard 按标准价）。
-//   - 其他第三方 key（中转或其他厂商的 Anthropic 兼容地址）：不知道上游是否实现了
-//     fast mode，而响应不声明档位时 ResolveBillingServiceTier 会保留请求档位、照样
-//     计 2x。因此只有响应明确回了 usage.speed=fast（observedTier）才定为 fast。
+//   - Anthropic 成品号：请求带 speed=fast 就定为 fast；响应里的 usage.speed 由
+//     UpstreamResponseServiceTier 带回，用量记录时经 ResolveBillingServiceTier 只降不升
+//     （usage.speed=standard 按标准价）。
+//   - 第三方 key（一律按中转，含指向 api.anthropic.com 的 key 与国产厂商的 Anthropic 兼容地址）：
+//     不知道上游是否实现了 fast mode，而响应不声明档位时 ResolveBillingServiceTier 会保留请求
+//     档位、照样计 2x。因此只有响应明确回了 usage.speed=fast（observedTier）才定为 fast。
 func anthropicSpeedServiceTier(account *Account, speed, model, observedTier string) *string {
 	if account == nil || speed != "fast" {
 		return nil

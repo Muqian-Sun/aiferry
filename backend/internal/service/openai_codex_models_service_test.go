@@ -1388,7 +1388,9 @@ func TestCompleteAPIKeyCodexModelsManifestForClientUsesCurrentSnapshotForCachedN
 	require.Equal(t, int32(1), calls.Load(), "second response should use the cached upstream source body")
 }
 
-func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTImageInput(t *testing.T) {
+// 指向 api.openai.com 的 key 按中转（2026-09-29 海外四家不再有官方 key）：图片输入按 OpenAI 兼容清单补全，
+// 不再强制官方的 supports_image_detail_original。
+func TestCompleteAPIKeyCodexModelsManifestForClientKeyOnOfficialHostUsesCompatibleImageInput(t *testing.T) {
 	t.Parallel()
 
 	svc := &OpenAIGatewayService{}
@@ -1407,7 +1409,7 @@ func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTIma
 	}
 	for _, slug := range []string{"gpt-6-astra", "gpt-5.6-sol", "gpt-4o"} {
 		require.Equal(t, []any{"text", "image"}, bySlug[slug]["input_modalities"])
-		require.Equal(t, true, bySlug[slug]["supports_image_detail_original"])
+		require.Equal(t, false, bySlug[slug]["supports_image_detail_original"])
 	}
 	for _, slug := range []string{"gpt-3.5-turbo", "gpt-4"} {
 		require.Equal(t, []any{"text"}, bySlug[slug]["input_modalities"])
@@ -1416,15 +1418,17 @@ func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTIma
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 }
 
-func TestCompleteAPIKeyCodexModelsManifestForClientFiltersOfficialNonAgentModels(t *testing.T) {
+// 指向 api.openai.com 的 key 按中转：不按官方目录过滤非对话模型，上游列什么就给什么（2026-09-29）。
+func TestCompleteAPIKeyCodexModelsManifestForClientKeyOnOfficialHostKeepsAllModels(t *testing.T) {
 	t.Parallel()
 
 	svc := &OpenAIGatewayService{}
+	slugs := []string{"gpt-5.6-sol", "gpt-4o-realtime-preview", "gpt-4o-mini-tts", "text-embedding-3-large", "omni-moderation-latest", "o4-mini", "codex-mini-latest"}
 	manifest := &OpenAIModelsResponse{Body: []byte(`{"models":[{"slug":"gpt-5.6-sol"},{"slug":"gpt-4o-realtime-preview"},{"slug":"gpt-4o-mini-tts"},{"slug":"text-embedding-3-large"},{"slug":"omni-moderation-latest"},{"slug":"o4-mini"},{"slug":"codex-mini-latest"}]}`)}
 	account := newCodexModelsAPIKeyTestAccount("https://api.openai.com")
 
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(manifest, account))
-	require.Equal(t, []string{"gpt-5.6-sol", "o4-mini", "codex-mini-latest"}, codexManifestModelSlugs(t, manifest.Body))
+	require.Equal(t, slugs, codexManifestModelSlugs(t, manifest.Body))
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 }
 
@@ -2672,27 +2676,20 @@ func TestFetchCodexModelsManifestKeyIgnoresPlatformLabel(t *testing.T) {
 	require.Equal(t, "OPENAI_CODEX_MODELS_ACCOUNT_TYPE_UNSUPPORTED", infraerrors.Reason(err))
 }
 
-// isOfficialOpenAICodexAccount 对第三方 key 按协议地址判官方，不看标签。
-func TestIsOfficialOpenAICodexAccount_KeysByAddress(t *testing.T) {
-	official := map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}
-	relay := map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}
-	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: official}), "kimi-labelled key on api.openai.com is official")
-	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: relay}), "openai-labelled key on a relay is not")
-	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
-	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}))
-}
-
-// 第三方 key 的图片输入能力不看平台标签：官方 xAI 地址按 Grok 规则，其余按 OpenAI 兼容清单。
-// （组合分组的目标平台仍按标签选号，那是第四步的事；这里只固定能力判定本身。）
+// 第三方 key 的图片输入能力不看平台标签，一律按 OpenAI 兼容清单：指向 xAI 官方域名的 key 也按中转，
+// 不走 Grok 规则（2026-09-29 海外四家不再有官方 key）。Grok 规则只对 Grok 成品号。
 func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
 	kimiLabelled := &Account{ID: 30, Platform: PlatformKimi, Type: AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1"}}
 	require.True(t, accountCodexModelSupportsImageInput(kimiLabelled, "gpt-5.6-sol"), "GPT image-input fallback applies to any OpenAI-compatible key")
 	require.False(t, accountCodexModelSupportsImageInput(kimiLabelled, "company-coding-model"))
 
-	openaiLabelledOnXAI := &Account{ID: 31, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
-	require.True(t, accountCodexModelSupportsImageInput(openaiLabelledOnXAI, "grok-4.5"), "official xAI address follows the Grok rule regardless of label")
+	grokLabelledOnXAI := &Account{ID: 31, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"}}
+	require.False(t, accountCodexModelSupportsImageInput(grokLabelledOnXAI, "grok-4.5"), "a key on api.x.ai is a relay: grok-4.5 is not a GPT image model")
+
+	grokSubscription := &Account{ID: 34, Platform: PlatformGrok, Type: AccountTypeOAuth}
+	require.True(t, accountCodexModelSupportsImageInput(grokSubscription, "grok-4.5"), "the Grok rule still applies to Grok subscriptions")
 
 	grokLabelledRelay := &Account{ID: 32, Platform: PlatformGrok, Type: AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}}

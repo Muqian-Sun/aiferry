@@ -256,12 +256,11 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount(t *testing.T) {
 			wantReasoning: true,
 		},
 		{
-			name:          "official OpenAI API key preserves none",
+			// 海外四家不再有官方 key（2026-09-29）：指向 api.openai.com 的 key 按兼容上游剥掉 none。
+			name:          "API key on api.openai.com strips none like any relay",
 			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			body:          `{"reasoning":{"effort":"none"},"reasoning_effort":"none"}`,
-			wantNested:    true,
-			wantFlat:      true,
-			wantReasoning: true,
+			wantReasoning: false,
 		},
 		{
 			name:          "OpenAI OAuth preserves none",

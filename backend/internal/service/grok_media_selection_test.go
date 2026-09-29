@@ -15,8 +15,9 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 	for _, state := range []string{"available", "full", "unavailable", "missing", "invalid id"} {
 		t.Run(state, func(t *testing.T) {
 			ownerID := int64(1)
-			owner := Account{ID: ownerID, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Status: StatusActive, Schedulable: true, Concurrency: 50, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
+			// 视频任务的归属账号是 Grok 成品号（xAI 媒体只对成品号，第三方 key 一律按中转，2026-09-29）。
+			owner := Account{ID: ownerID, Platform: PlatformGrok, Type: AccountTypeOAuth,
+				Status: StatusActive, Schedulable: true, Concurrency: 50}
 			other := owner
 			other.ID = 2
 			if state == "unavailable" {

@@ -196,27 +196,6 @@ export function serializeHeaderOverrideRows(rows: HeaderOverrideRow[]): string {
   return JSON.stringify(record, null, 2)
 }
 
-// ========== Grok 地址预设（第三方 key 的协议地址快速填充） ==========
-
-export interface GrokBaseUrlPreset {
-  /** i18n 子键：admin.accounts.grokCustomBaseUrl.presets.<labelKey> */
-  labelKey?: 'cli' | 'official'
-  /** 字面标签（如区域标识 us-east-1），专有名词不参与 i18n */
-  label?: string
-  url: string
-}
-
-/**
- * Grok 快捷端点（仅供快速填充第三方 key 的协议地址，输入框仍可自由填写）。
- */
-export const GROK_BASE_URL_PRESETS: GrokBaseUrlPreset[] = [
-  { labelKey: 'cli', url: 'https://cli-chat-proxy.grok.com/v1' },
-  { labelKey: 'official', url: 'https://api.x.ai/v1' },
-  { label: 'us-east-1', url: 'https://us-east-1.api.x.ai/v1' },
-  { label: 'us-west-2', url: 'https://us-west-2.api.x.ai/v1' },
-  { label: 'eu-west-1', url: 'https://eu-west-1.api.x.ai/v1' }
-]
-
 // ========== 国产供应商（Kimi / Zhipu / DeepSeek）base_url 预设 ==========
 // 与后端 service/domain_constants.go 的默认 base url 保持一致。
 // 账号类型（payg 按量付费 / coding 编程套餐）决定额度监控方式；

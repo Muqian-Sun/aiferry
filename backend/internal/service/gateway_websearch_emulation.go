@@ -47,7 +47,11 @@ func getWebSearchManager() *websearch.Manager {
 // shouldEmulateWebSearch checks whether a request should be intercepted.
 //
 // Judgment chain: manager exists → only web_search tool → global enabled（配了带 Key 的服务商）
-// → 渠道适用（webSearchEmulationAppliesTo：第三方 key 且不是 Anthropic 官方地址）。
+// → 渠道是第三方 key。
+//
+// 渠道只看是不是第三方 key：key 一律模拟，指向 api.anthropic.com 的 key 也按中转处理（2026-09-29 定）；
+// 成品号不模拟，官方上游自己支持 web_search。模拟只在 Anthropic Messages 转发路径上判定（走到那里
+// 用的就是 Anthropic 协议）。依据：2026-09-28 muqian 定（原来是渠道开关，默认关）。
 func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, body []byte) bool {
 	if getWebSearchManager() == nil {
 		return false
@@ -58,7 +62,7 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
 	if !s.settingService.IsWebSearchEmulationEnabled(ctx) {
 		return false
 	}
-	return webSearchEmulationAppliesTo(account)
+	return account.IsThirdPartyKey()
 }
 
 // isOnlyWebSearchToolInBody checks if the body contains exactly one web_search tool.

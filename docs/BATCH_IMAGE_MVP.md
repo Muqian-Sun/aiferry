@@ -4,10 +4,14 @@ AiFerry Batch Image MVP provides asynchronous Gemini image batch generation thro
 
 Supported providers:
 
-- `gemini_api`
 - `vertex`
 
-API users do not see Gemini file names, Vertex job names, GCS paths, signed URLs, API keys, or service account material. Downloads are proxied through AiFerry in this MVP.
+The former `gemini_api` provider (Gemini Batch API with an official Gemini API key) was removed on 2026-09-29 together with
+official overseas API keys: third-party keys pointing at `generativelanguage.googleapis.com` are now treated as relays,
+so batch image only runs on Gemini `service_account` (Vertex) accounts. `provider: "gemini_api"` is rejected as an
+unsupported provider.
+
+API users do not see Vertex job names, GCS paths, signed URLs, or service account material. Downloads are proxied through AiFerry in this MVP.
 
 ## API Routes
 
@@ -26,7 +30,7 @@ Submit request:
 ```json
 {
   "model": "gemini-2.5-flash-image",
-  "provider": "gemini_api",
+  "provider": "vertex",
   "items": [
     {
       "custom_id": "cover_001",
@@ -74,7 +78,7 @@ Public batch response:
   "object": "image.batch",
   "status": "queued",
   "model": "gemini-2.5-flash-image",
-  "provider": "gemini_api",
+  "provider": "vertex",
   "item_count": 1,
   "success_count": 0,
   "fail_count": 0,
@@ -195,14 +199,6 @@ For the managed Vertex/GCS batch bucket, disable Cloud Storage soft delete or co
 
 ## Provider Notes
 
-`gemini_api`:
-
-- Uses Gemini Batch API with JSONL file mode.
-- Supports Gemini `apikey` upstream accounts with a configured API key.
-- Result file refs are internal.
-- API keys are never returned.
-- The provider can be selected and submitted through AiFerry when an administrator configures a Gemini API-key upstream account. In the 2026-07-07 PR validation, this path was verified as selectable/callable, but successful image generation was not continued because the test API key had no prepayment.
-
 `vertex`:
 
 - Uses Vertex `BatchPredictionJob` with managed GCS JSONL.
@@ -212,7 +208,7 @@ For the managed Vertex/GCS batch bucket, disable Cloud Storage soft delete or co
 - Batch image output should be treated as `1K`/default only in MVP.
 - Do not promise `2K` or `4K`.
 
-Other Gemini account/login types are not selected by the current batch image providers unless they expose equivalent API-key or service-account credentials through the same provider flow. They were not covered by the 2026-07-07 PR validation.
+Other Gemini account/login types (OAuth, third-party keys) are not selected by the batch image provider: only `service_account` accounts are.
 
 ## Official Google Enablement
 
@@ -227,17 +223,11 @@ Recommended production path:
 - Configure AiFerry with the project id, location, managed bucket, provider account, model whitelist, and pricing.
 - Enable `BATCH_IMAGE_ENABLED` globally. There is no per-group or per-key batch image switch any more; the backend picks a schedulable Gemini/Vertex account that supports the requested model, returning `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` when none does.
 
-API-key path:
-
-- Google API keys are suitable for Gemini API development and supported Gemini methods.
-- The AiFerry `x-goog-api-key` compatibility header still expects an AiFerry key, not a plain Google key.
-- Plain Google API keys should not be documented as the default production credential for Vertex service-account batch jobs.
-- If an administrator configures a Gemini API-key upstream account, validate it with one low-cost batch image after the Google account has the required billing/prepayment state. If it has no prepayment, record only that the provider is selectable/callable and that failed submit releases hold.
+Google API keys are not a batch image credential: third-party keys (including ones pointing at the official Gemini API)
+are relays and never selected. The AiFerry `x-goog-api-key` compatibility header still expects an AiFerry key, not a plain Google key.
 
 Official references:
 
-- Gemini API key guide: https://ai.google.dev/gemini-api/docs/api-key
-- Gemini API Batch API: https://ai.google.dev/gemini-api/docs/batch-api
 - Gemini API image generation and batch image notes: https://ai.google.dev/gemini-api/docs/image-generation
 - Vertex/Gemini batch inference: https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/batch-inference
 - Vertex batch predictions API: https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/batch-prediction-api

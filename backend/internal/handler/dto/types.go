@@ -146,7 +146,8 @@ type Account struct {
 	// ProtocolEndpoints 协议 → 上游地址映射。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints,omitempty"`
 	// Vendor 按上游地址识别出的官方厂商：成品号等于 platform；第三方 key 只有全部协议地址
-	// 都是某厂商官方域时才有值，中转 / 聚合平台为空。厂商特化按它启用，platform 对 key 只是展示标签。
+	// 都是国产厂商 / OpenCode 的官方域时才有值，中转 / 聚合平台为空（指向 Anthropic、OpenAI、Gemini、
+	// xAI 官方域名的 key 也按中转，为空）。厂商特化按它启用，platform 对 key 只是展示标签。
 	Vendor string `json:"vendor,omitempty"`
 
 	// 影子账号回填的母账号信息（仅影子非空，源自母账号 Credentials/Extra）

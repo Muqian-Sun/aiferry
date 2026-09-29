@@ -259,7 +259,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	}
 
 	// 529 过载：只对 Claude 成品号（OAuth / setup-token）暂停调度 OverloadCooldownMinutes；
-	// 其余渠道（官方 API Key、中转、Bedrock、OpenAI、Gemini、Antigravity、Grok 等）不冷却，
+	// 其余渠道（第三方 key、Bedrock、OpenAI、Gemini、Antigravity、Grok 等）不冷却，
 	// 本次请求照常换号（2026-09-29 muqian 定）。
 	if statusCode == 529 {
 		if account.IsAnthropicOAuthOrSetupToken() {
@@ -273,8 +273,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	}
 
 	// Anthropic official 5h / 7d window exhaustion is a hard account limit.
-	// 窗口头是 Anthropic 官方上游的语义，按 Vendor 判定：中转 key 透传的窗口头
-	// 说的是中转背后的账号，不能据此把整把 key 停到窗口重置。
+	// 窗口头是 Anthropic 官方上游的语义，按 Vendor 判定、只对 Anthropic 成品号：第三方 key
+	// 一律按中转（指向 api.anthropic.com 的也一样），透传的窗口头说的是中转背后的账号，
+	// 不能据此把整把 key 停到窗口重置。
 	if statusCode == http.StatusTooManyRequests && account.Vendor() == PlatformAnthropic {
 		// Fable may be rejected because the organization has no usage credits for
 		// this model. Anthropic reports that as 429, but it is a model entitlement
@@ -303,12 +304,6 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			msg := "Organization disabled (400): " + upstreamMsg
 			s.handleAuthError(ctx, account, msg)
 			shouldDisable = true
-		} else if account.Vendor() == PlatformAnthropic && strings.Contains(strings.ToLower(upstreamMsg), "credit balance") {
-			// Anthropic API key 余额不足（语义等同 402），停止调度。
-			// 只认官方地址：中转透传的同类文案说的是中转背后的账号。
-			msg := "Credit balance exhausted (400): " + upstreamMsg
-			s.handleAuthError(ctx, account, msg)
-			shouldDisable = true
 		} else if strings.Contains(strings.ToLower(upstreamMsg), "identity verification is required") {
 			// KYC 身份验证要求 → 永久禁用，账号需完成身份验证后才能恢复
 			msg := "Identity verification required (400): " + upstreamMsg
@@ -326,7 +321,8 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		if resolved, rerr := resolveCredentialAccount(ctx, s.accountRepo, account); rerr == nil && resolved != nil {
 			authAccount = resolved
 		}
-		// OpenAI: token_invalidated / token_revoked 表示 token 被永久作废（非过期），直接标记 error
+		// OpenAI 成品号: token_invalidated / token_revoked 表示 token 被永久作废（非过期），直接标记 error。
+		// 按 Vendor 判定：第三方 key 一律按中转，透传的同类错误码说的是中转背后的账号。
 		openai401Code := extractUpstreamErrorCode(responseBody)
 		if authAccount.Vendor() == PlatformOpenAI && (openai401Code == "token_invalidated" || openai401Code == "token_revoked") {
 			msg := "Token revoked (401): account authentication permanently revoked"
@@ -337,7 +333,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			shouldDisable = true
 			break
 		}
-		// OpenAI: {"detail":"Unauthorized"} 表示 token 完全无效（非标准 OpenAI 错误格式），直接标记 error
+		// OpenAI 成品号: {"detail":"Unauthorized"} 表示 token 完全无效（非标准 OpenAI 错误格式），直接标记 error
 		if authAccount.Vendor() == PlatformOpenAI && gjson.GetBytes(responseBody, "detail").String() == "Unauthorized" {
 			msg := "Unauthorized (401): account authentication failed permanently"
 			if upstreamMsg != "" {
@@ -422,7 +418,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			shouldDisable = true
 			break
 		}
-		// OpenAI: deactivated_workspace 表示工作区已停用，直接标记 error
+		// OpenAI 成品号: deactivated_workspace 表示工作区已停用，直接标记 error
 		if account.Vendor() == PlatformOpenAI && gjson.GetBytes(responseBody, "detail.code").String() == "deactivated_workspace" {
 			msg := "Workspace deactivated (402): workspace has been deactivated"
 			s.handleAuthError(ctx, account, msg)
@@ -621,10 +617,10 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 // usesEscalating403Policy 报告账号的 403 是否走「HTML 豁免 + 连续计数 + 临时冷却」，
 // 而不是首次 403 即永久停用。
 //
-// 官方 OpenAI、国产供应商与 OpenCode 上游沿用原口径；通用中转（第三方 key 且
-// Vendor 为空）同样适用——中转前面多一层代理/CDN，拦截页和请求级 403 只会更多，
-// 首次即永久停用会把整组中转 key 连环打下线。其他已知厂商（Anthropic、Gemini、
-// Grok 官方地址）保持首次 403 即停用。成功请求清零计数的口径必须与此一致。
+// OpenAI 成品号、国产供应商与 OpenCode 上游沿用原口径；通用中转（第三方 key 且
+// Vendor 为空，含指向海外四家官方域名的 key）同样适用——中转前面多一层代理/CDN，
+// 拦截页和请求级 403 只会更多，首次即永久停用会把整组中转 key 连环打下线。其他
+// 成品号（Anthropic、Gemini、Grok）保持首次 403 即停用。成功请求清零计数的口径必须与此一致。
 func usesEscalating403Policy(account *Account) bool {
 	if account == nil {
 		return false
@@ -633,7 +629,7 @@ func usesEscalating403Policy(account *Account) bool {
 	if IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
 		return true
 	}
-	// 官方 OpenAI 或通用中转（同 OpenAI 协议特性的判定口径）。
+	// OpenAI 成品号或通用中转（同 OpenAI 协议特性的判定口径）。
 	return openAIProtocolFeaturesApplyToVendor(vendor, account.IsThirdPartyKey())
 }
 
@@ -808,10 +804,10 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		}
 	}
 
-	// Anthropic 窗口头（5h / 7d / 聚合 reset）对第三方 key 只认官方 Anthropic 地址：
-	// 中转透传的窗口头描述的是中转背后的某个账号，按它把整把 key 停到窗口重置会
-	// 过度停调（HandleUpstreamError 里的 Fable / 窗口耗尽判定同一口径）。成品号保持原样。
-	anthropicWindowHeadersApply := !account.IsThirdPartyKey() || vendor == PlatformAnthropic
+	// Anthropic 窗口头（5h / 7d / 聚合 reset）只对成品号：第三方 key 一律按中转（指向
+	// api.anthropic.com 的也一样），透传的窗口头描述的是中转背后的某个账号，按它把整把 key
+	// 停到窗口重置会过度停调（HandleUpstreamError 里的 Fable / 窗口耗尽判定同一口径）。
+	anthropicWindowHeadersApply := !account.IsThirdPartyKey()
 
 	// 2. Anthropic 平台：尝试解析 per-window 头（5h / 7d），选择实际触发的窗口
 	var anthropicWindowResult *anthropic429Result
@@ -1836,7 +1832,7 @@ func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, accou
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
-	// gpt-image 限流文案是 OpenAI 协议错误，中转原样透传；按「官方 OpenAI 或通用
+	// gpt-image 限流文案是 OpenAI 协议错误，中转原样透传；按「OpenAI 成品号或通用
 	// 中转」判定，读取侧 modelRateLimitKeysForRequest 用同一口径。
 	if !openAIProtocolFeaturesApply(account) {
 		return false

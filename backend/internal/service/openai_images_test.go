@@ -517,7 +517,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	})
 
-	t.Run("alpha search 允许 OpenAI OAuth/PAT 与 APIKey 账号，拒绝指向 xAI 的 key", func(t *testing.T) {
+	t.Run("alpha search 允许 OpenAI OAuth/PAT 与中转 key，拒绝国产厂商官方地址的 key", func(t *testing.T) {
 		// OAuth/PAT 走 chatgpt.com Codex 端点，APIKey 走 {base_url}/v1/alpha/search，
 		// 两类都能承接独立搜索（APIKey 被排除曾导致纯 APIKey 分组搜索失效的回归）。
 		apiKey := &Account{
@@ -529,11 +529,17 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 			Platform: PlatformOpenAI,
 			Type:     AccountTypeOAuth,
 		}
-		// 厂商看地址不看标签：openai 标签但指向 xAI 官方的 key 同样没有 alpha/search。
-		grok := &Account{
+		// 厂商看地址不看标签：openai 标签但指向 DeepSeek 官方的 key 没有 alpha/search；
+		// 指向 xAI 官方域名的 key 按中转（2026-09-29 海外四家不再有官方 key），与其他中转一样放行。
+		deepseek := &Account{
 			Platform:          PlatformOpenAI,
 			Type:              AccountTypeAPIKey,
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL},
+		}
+		keyOnXAI := &Account{
+			Platform:          PlatformGrok,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"},
 		}
 		grokLabelledRelay := &Account{
 			Platform:          PlatformGrok,
@@ -543,7 +549,8 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 		require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 		require.True(t, oauth.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
-		require.False(t, grok.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
+		require.False(t, deepseek.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
+		require.True(t, keyOnXAI.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 		require.True(t, grokLabelledRelay.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 	})
 

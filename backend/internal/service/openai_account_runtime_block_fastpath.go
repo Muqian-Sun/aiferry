@@ -119,8 +119,9 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
-	// 账号/工作区停用码描述的是 OpenAI 官方凭据本身，直接永久停用。中转透传的同类
-	// 错误码说的是中转背后某个上游账号，不能据此停用整把中转 key，只认官方地址。
+	// 账号/工作区停用码描述的是 OpenAI 官方凭据本身，直接永久停用，只对 OpenAI 成品号。
+	// 第三方 key 一律按中转（指向 api.openai.com 的也一样）：透传的同类错误码说的是中转
+	// 背后某个上游账号，不能据此停用整把 key。
 	if account != nil && account.Vendor() == PlatformOpenAI && isOpenAIHTTPUpstreamAccessStateError(statusCode, "", responseBody) {
 		message := "OpenAI upstream account or workspace is unavailable"
 		if upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(responseBody)); upstreamMsg != "" {
@@ -188,7 +189,7 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	// cooldown here would block the next approved retry before that budget is used.
 	poolModeRetryable := account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode)
 	// 账号×模型的瞬时冷却针对第三方 key：5xx/52x 与 OpenAI 协议的处理中错误，
-	// 官方 OpenAI 地址与通用中转都适用；成品号不参与。
+	// 通用中转适用（国产厂商另有处置）；成品号不参与。
 	if !shouldDisable && account.IsThirdPartyKey() && openAIProtocolFeaturesApply(account) &&
 		shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) && !poolModeRetryable {
 		model := ""

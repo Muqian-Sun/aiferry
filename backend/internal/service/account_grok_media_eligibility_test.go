@@ -42,9 +42,9 @@ func TestGrokMediaGenerationEligibility(t *testing.T) {
 	}{
 		{name: "nil account", account: nil, want: false, wantReason: "not_grok"},
 		{name: "non grok account", account: &Account{Platform: PlatformOpenAI}, want: false, wantReason: "not_grok"},
-		{name: "non oauth grok account stays eligible", account: &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}, want: true, wantReason: "non_oauth"},
-		// 第三方 key 按协议地址判厂商，与调度侧一致：openai 标签 + 官方 xAI 地址是 grok；grok 标签 + 中转不是。
-		{name: "openai-labelled key on official xAI host is grok", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}, want: true, wantReason: "non_oauth"},
+		// 第三方 key 一律按中转、不是 grok（2026-09-29 海外四家不再有官方 key）：地址是 xAI 官方站、标签是 grok 都一样。
+		{name: "grok-labelled key on official xAI host is not grok", account: &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"}}, want: false, wantReason: "not_grok"},
+		{name: "openai-labelled key on official xAI host is not grok", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.x.ai/v1"}}, want: false, wantReason: "not_grok"},
 		{name: "grok-labelled key on a relay is not grok", account: &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}}, want: false, wantReason: "not_grok"},
 		{name: "unobserved oauth fails closed", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth}, want: false, wantReason: "billing_unobserved"},
 		{name: "inconclusive successful billing remains eligible", account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: map[string]any{grokBillingExtraKey: &xai.BillingSummary{StatusCode: http.StatusOK, Partial: true}}}, want: true, wantReason: "billing_inconclusive"},

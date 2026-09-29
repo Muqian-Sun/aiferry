@@ -71,7 +71,12 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 			},
 		}
 	}
-	official := newAccount("https://api.openai.com/v1")
+	// Astra 官方默认值只对 OpenAI 成品号；指向 api.openai.com 的 key 按中转，与自定义地址一样不猜能力
+	// （2026-09-29 海外四家不再有官方 key）。
+	official := Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{
+		"model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
+	}}
+	keyOnOfficialHost := newAccount("https://api.openai.com/v1")
 	custom := newAccount("https://relay.example/v1")
 	bridge := newAccount("https://bridge.example/v1")
 	// 只配 chat_completions 地址：Responses 入站转成 Chat Completions，由桥接实现工具发现。
@@ -80,11 +85,13 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 		name     string
 		accounts []Account
 		search   bool
+		lite     bool
 	}{
-		{"official fallback", []Account{official}, true},
-		{"custom host has no guessed capability", []Account{custom}, false},
-		{"missing peer capability", []Account{official, custom}, false},
-		{"implemented chat bridge", []Account{bridge}, true},
+		{"official fallback for OpenAI subscriptions", []Account{official}, true, true},
+		{"key on api.openai.com has no guessed capability", []Account{keyOnOfficialHost}, false, false},
+		{"custom host has no guessed capability", []Account{custom}, false, false},
+		{"missing peer capability", []Account{official, custom}, false, false},
+		{"implemented chat bridge", []Account{bridge}, true, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, tt.accounts)
@@ -92,10 +99,12 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 			model := decodeCodexManifestModels(t, body)[0]
 			require.Equal(t, "public-astra", model["slug"])
 			require.Equal(t, tt.search, model["supports_search_tool"])
-			require.Equal(t, false, model["use_responses_lite"])
-			if tt.name == "official fallback" {
+			require.Equal(t, tt.lite, model["use_responses_lite"])
+			if tt.name == "official fallback for OpenAI subscriptions" {
 				require.Equal(t, "freeform", model["apply_patch_tool_type"])
 				require.Equal(t, "3000", model["comp_hash"])
+			} else {
+				require.NotEqual(t, "freeform", model["apply_patch_tool_type"])
 			}
 		})
 	}
@@ -450,13 +459,16 @@ func TestAccountCodexToolCapabilities_KeysIgnoreLabel(t *testing.T) {
 		require.Equal(t, json.RawMessage("true"), accountCodexToolCapabilities(bridge, "gpt-5.1")["supports_search_tool"])
 	})
 
-	t.Run("astra official defaults follow openai vendor", func(t *testing.T) {
-		official := &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey,
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
-		require.Equal(t, PlatformOpenAI, official.Vendor())
-		capabilities := accountCodexToolCapabilities(official, "gpt-6-astra")
+	t.Run("astra official defaults only for OpenAI subscriptions", func(t *testing.T) {
+		keyOnOfficialHost := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com/v1"}}
+		require.Empty(t, keyOnOfficialHost.Vendor())
+		require.NotContains(t, accountCodexToolCapabilities(keyOnOfficialHost, "gpt-6-astra"), "apply_patch_tool_type")
+
+		subscription := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+		capabilities := accountCodexToolCapabilities(subscription, "gpt-6-astra")
 		require.Equal(t, json.RawMessage(`"freeform"`), capabilities["apply_patch_tool_type"])
-		require.Equal(t, json.RawMessage("false"), capabilities["use_responses_lite"])
+		require.Equal(t, json.RawMessage("true"), capabilities["use_responses_lite"])
 	})
 
 	t.Run("responses lite guard for any key label", func(t *testing.T) {

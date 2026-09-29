@@ -127,7 +127,7 @@ export default {
         kinds: {
           key: {
             title: 'Third-party key',
-            description: 'An API key from a vendor or a relay: fill in the protocol, address and key; the vendor is detected from the address'
+            description: 'An API key for any upstream: fill in the protocol, address and key; Chinese vendors and OpenCode are recognised by their official addresses, everything else is treated as a relay'
           },
           subscription: {
             title: 'Subscription account',
@@ -155,7 +155,7 @@ export default {
       keyAddress: {
         presetPlaceholder: 'Fill from a common official address…',
         detected: 'Detected from the address: {vendor}',
-        relay: 'No official vendor recognised: treated as a relay, standard protocols only'
+        relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
       },
       // Catalog models this channel serves (picked right in the channel form)
       catalogEntries: {
@@ -600,11 +600,8 @@ export default {
         }
       },
       apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: 'Your Claude Console API Key',
       // OpenAI specific hints
       openai: {
-        apiKeyHint: 'Your OpenAI API Key',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           'Disabled by default. Enable to allow responses_websockets_v2 capability (still gated by global and account-type switches).',
@@ -628,7 +625,6 @@ export default {
       },
       grok: {
         baseUrlHint: 'Grok OAuth accounts forward to the official xAI API base URL.',
-        apiKeyHint: 'Grok subscription support uses OAuth refresh tokens; API keys are out of scope for this account type.',
         // Account connectivity test modal
         testMode: 'Test mode',
         testModeHint:
@@ -742,12 +738,6 @@ export default {
         duplicateName: 'Duplicate header name (matching is case-insensitive)',
         invalidValue: 'Invalid header value (control characters are not allowed; max length 8192)',
         tooManyEntries: 'Too many header override entries (max 64)'
-      },
-      grokCustomBaseUrl: {
-        presets: {
-          cli: 'Grok Build CLI',
-          official: 'Official API'
-        }
       },
       grokClientToolCache: {
       },
@@ -1129,7 +1119,6 @@ export default {
         modelPassthrough: 'Gemini Model Passthrough',
         modelPassthroughDesc:
           'All model requests are forwarded directly to the Gemini API without model restrictions or mappings.',
-        apiKeyHint: 'Your Gemini API Key (starts with AIza)',
         tier: {
           googleOne: {
           },

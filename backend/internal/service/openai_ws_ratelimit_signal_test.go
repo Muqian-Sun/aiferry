@@ -82,9 +82,8 @@ func (r *openAICodexExtraListRepo) ListWithFilters(_ context.Context, params pag
 	return r.accounts, &pagination.PaginationResult{Total: int64(len(r.accounts)), Page: params.Page, PageSize: params.PageSize}, nil
 }
 
-// usage_limit_reached 的 resets_at 是 OpenAI 官方上游的限流语义，只对官方地址（Vendor
-// 为 openai）的 key 生效。本地测试服务当不了官方域名，这里用抓包拨号器承载 error event，
-// 账号地址保持官方 OpenAI。
+// usage_limit_reached 的 resets_at 是 OpenAI 官方上游的限流语义，只对 OpenAI 成品号（Vendor 为 openai）
+// 生效；第三方 key 一律按中转（2026-09-29 海外四家不再有官方 key）。这里用抓包拨号器承载 error event。
 func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -118,16 +117,12 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 		ID:          501,
 		Name:        "openai-ws-rate-limit-event",
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key": "sk-test",
-		},
-		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com",
-			APIProtocolResponses:       "https://api.openai.com",
+			"access_token": "oauth-test-token",
 		},
 		Extra: map[string]any{},
 	}
@@ -169,8 +164,8 @@ func (d *openAIWSHandshakeRejectDialer) Dial(context.Context, string, http.Heade
 	}
 }
 
-// x-codex-* 头是 OpenAI 官方上游的额度窗口语义，只对官方地址的 key 落库；
-// 与上面的 error event 用例同理，用拨号器模拟握手 429，账号地址保持官方 OpenAI。
+// x-codex-* 头是 OpenAI 官方上游的额度窗口语义，只对 OpenAI 成品号落库；
+// 与上面的 error event 用例同理，用拨号器模拟握手 429。
 func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -210,16 +205,12 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 		ID:          502,
 		Name:        "openai-ws-rate-limit-handshake",
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key": "sk-test",
-		},
-		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com",
-			APIProtocolResponses:       "https://api.openai.com",
+			"access_token": "oauth-test-token",
 		},
 		Extra: map[string]any{},
 	}
@@ -326,15 +317,14 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ErrorEventUsageL
 		ID:          503,
 		Name:        "openai-ingress-rate-limit",
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key": "sk-test",
+			"access_token": "oauth-test-token",
 		},
-		Extra:             map[string]any{},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		Extra: map[string]any{},
 	}
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
 	rateSvc := &RateLimitService{accountRepo: repo}

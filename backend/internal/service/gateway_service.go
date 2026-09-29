@@ -1148,7 +1148,8 @@ func (s *GatewayService) DoGrokNativeResponsesJSON(ctx context.Context, account 
 	if account == nil {
 		return nil, errors.New("account is required")
 	}
-	if !account.IsGrok() {
+	// xAI 搜索是 Grok 成品号专属的厂商端点：第三方 key 一律按中转（指向 api.x.ai 的也一样，2026-09-29）。
+	if account.Vendor() != PlatformGrok {
 		return nil, errors.New("grok account required")
 	}
 	token, _, err := s.GetAccessToken(ctx, account)

@@ -69,9 +69,11 @@ func TestUpstreamProtocolFor(t *testing.T) {
 		{name: "gemini-only key cannot serve responses", account: conversionTestKey(map[string]string{APIProtocolGemini: relayCC}), inbound: APIProtocolResponses, want: ""},
 		{name: "gemini-only key serves message via gemini", account: conversionTestKey(map[string]string{APIProtocolGemini: relayCC}), inbound: APIProtocolAnthropic, want: APIProtocolGemini},
 		{name: "same protocol wins for generic relay", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: relayCC, APIProtocolResponses: relayCC}), inbound: APIProtocolChatCompletions, want: APIProtocolChatCompletions},
-		{name: "official openai prefers responses even for chat inbound", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}), inbound: APIProtocolChatCompletions, want: APIProtocolResponses},
-		{name: "official openai message inbound", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}), inbound: APIProtocolAnthropic, want: APIProtocolResponses},
-		{name: "official openai without responses address falls back to chat", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com"}), inbound: APIProtocolAnthropic, want: APIProtocolChatCompletions},
+		// 指向 api.openai.com 的 key 按中转（2026-09-29）：同协议直连优先，不再先转 Responses。
+		{name: "key on api.openai.com keeps chat inbound direct", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}), inbound: APIProtocolChatCompletions, want: APIProtocolChatCompletions},
+		{name: "key on api.openai.com serves message via responses like any relay", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}), inbound: APIProtocolAnthropic, want: APIProtocolResponses},
+		{name: "key on api.openai.com without responses address serves message via chat", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com"}), inbound: APIProtocolAnthropic, want: APIProtocolChatCompletions},
+		{name: "key on api.openai.com with anthropic address serves message directly", account: conversionTestKey(map[string]string{APIProtocolAnthropic: "https://api.openai.com"}), inbound: APIProtocolAnthropic, want: APIProtocolAnthropic},
 		{name: "anthropic key with anthropic+responses serves message directly", account: conversionTestKey(map[string]string{APIProtocolAnthropic: relayCC, APIProtocolResponses: relayCC}), inbound: APIProtocolAnthropic, want: APIProtocolAnthropic},
 		{name: "extension endpoint needs chat address on keys", account: conversionTestKey(map[string]string{APIProtocolResponses: relayCC}), inbound: "", want: ""},
 		{name: "extension endpoint chat key", account: conversionTestKey(map[string]string{APIProtocolChatCompletions: relayCC}), inbound: "", want: APIProtocolChatCompletions},
@@ -99,5 +101,5 @@ func TestProtocolMatches(t *testing.T) {
 	require.True(t, conversionTestSubscription(PlatformAnthropic).ProtocolMatches(APIProtocolAnthropic))
 	require.False(t, conversionTestSubscription(PlatformAntigravity).ProtocolMatches(APIProtocolGemini), "antigravity 的上游是 v1internal 封装，不算 generate 直连")
 	require.False(t, conversionTestKey(map[string]string{APIProtocolChatCompletions: relay}).ProtocolMatches(""), "扩展端点没有直连概念")
-	require.False(t, conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}).ProtocolMatches(APIProtocolChatCompletions), "官方 OpenAI 先转 Responses，chat 入站不算直连")
+	require.True(t, conversionTestKey(map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}).ProtocolMatches(APIProtocolChatCompletions), "指向 api.openai.com 的 key 按中转，chat 入站直连")
 }

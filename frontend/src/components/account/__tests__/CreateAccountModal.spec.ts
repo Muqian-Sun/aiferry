@@ -138,7 +138,6 @@ const PROTOCOL_DEFAULTS = {
 const KEY = {
   anthropic: { protocol: 'anthropic', url: 'https://api.anthropic.com' },
   openai: { protocol: 'responses', url: 'https://api.openai.com' },
-  grokUsEast: { protocol: 'responses', url: 'https://us-east-1.api.x.ai/v1' },
   kimi: { protocol: 'chat_completions', url: 'https://api.moonshot.cn/v1' },
   kimiCoding: { protocol: 'chat_completions', url: 'https://api.kimi.com/coding/v1' },
   minimax: { protocol: 'chat_completions', url: 'https://api.minimaxi.com/v1', mode: 'payg' },
@@ -492,17 +491,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('submits the official address picked from the common addresses for an OpenAI key', async () => {
-    await submitApiKeyAccount('openai')
-
-    const payload = createAccountMock.mock.calls[0]?.[0]
-    // 从常用地址里挑的 OpenAI 官方 Responses 地址（官方地址表列了两个协议，一个 key 只取一个）
-    expect(payload?.protocol_endpoints).toEqual({ responses: PROTOCOL_DEFAULTS.defaults.openai.default.responses })
-    expect(payload?.credentials).not.toHaveProperty('base_url')
-    // 第三方 key 不带平台，后端按地址认厂商
-    expect(payload).not.toHaveProperty('platform')
-  })
-
   it('refuses to create a third-party key without any protocol endpoint', async () => {
     const wrapper = mountModal()
     // 自定义中转不预填地址
@@ -568,20 +556,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
     expect(payload?.credentials).not.toHaveProperty('api_protocol')
     expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://api.minimax.io/anthropic' })
-  })
-
-  it('fills a Grok regional address from the common addresses', async () => {
-    const wrapper = mountModal()
-    await selectKey(wrapper, KEY.grokUsEast)
-
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('grok preset')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('xai-test')
-    await wrapper.get('form#create-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({
-      responses: 'https://us-east-1.api.x.ai/v1'
-    })
   })
 
   it('asks for manual endpoints when official addresses fail to load', async () => {

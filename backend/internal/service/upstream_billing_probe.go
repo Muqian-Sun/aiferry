@@ -524,9 +524,9 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_protocol_endpoint", 0)
 	}
 	if upstreamBillingProbeTargetIsOfficialAPI(baseURL) {
-		// 指向官方 API 根域（前端创建时预填官方默认域，且提供 us-east-1.api.x.ai 等
-		// 官方区域预设）⇒ 必无 /v1/sub2api/billing；不发请求，直接记 unsupported，
-		// 避免拿账号 Key 周期性请求官方域的不存在路径。平台标签不参与判定。
+		// 指向官方 API 根域（管理员可能手填 api.openai.com、us-east-1.api.x.ai 等官方地址，
+		// 这类 key 按中转转发，但官方域）⇒ 必无 /v1/sub2api/billing；不发请求，直接记
+		// unsupported，避免拿账号 Key 周期性请求官方域的不存在路径。平台标签不参与判定。
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "unsupported", 0)
 	}
 	normalizedBaseURL, err := s.accountTestService.validateUpstreamBaseURL(baseURL)
@@ -894,10 +894,11 @@ func isUpstreamBillingProbeAccount(account *Account) bool {
 }
 
 // upstreamBillingProbeOfficialAPIDomains lists the root domains of official
-// provider APIs. The create form fills empty base_url values with official
-// defaults (and offers official regional presets like us-east-1.api.x.ai),
-// so probing them would send the account key to an official API path that
-// cannot exist. Matching is by registrable root domain — exact host or any
+// provider APIs. Admins may still type official addresses into a key (the
+// create form prefills the CN providers' official defaults; keys pointing at
+// api.openai.com / us-east-1.api.x.ai and friends are accepted and treated as
+// relays), so probing them would send the account key to an official API path
+// that cannot exist. Matching is by registrable root domain — exact host or any
 // subdomain, after stripping the port and a trailing DNS dot — because no
 // third-party sub2api relay can live under these domains, while custom
 // relays (the only targets that can answer /v1/sub2api/billing) always do
@@ -909,6 +910,7 @@ func isUpstreamBillingProbeAccount(account *Account) bool {
 // CN provider domains (moonshot.cn / kimi.com / bigmodel.cn / deepseek.com)
 // serve the same role: official APIs that can never host /v1/sub2api/billing,
 // so their accounts short-circuit to "unsupported" without a request.
+// 这是安全防线，与「海外四家不再有官方 key」（2026-09-29）无关：表保持不变。
 var upstreamBillingProbeOfficialAPIDomains = []string{
 	"anthropic.com",
 	"googleapis.com",

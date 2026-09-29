@@ -1128,11 +1128,12 @@ func (a *Account) GetOpenAIRefreshToken() string {
 // Grok media traffic has a different transport contract and must use
 // GetGrokMediaBaseURL instead.
 //
-// OAuth accounts always use an official xAI host; the site default region
-// (code constant GrokDefaultBaseURLMode, via resolveGrokBaseURL) picks which
-// one. Accounts carry no per-account address override.
+// 只有 Grok 成品号：OAuth accounts always use an official xAI host; the site
+// default region (code constant GrokDefaultBaseURLMode, via resolveGrokBaseURL)
+// picks which one. Accounts carry no per-account address override. 第三方 key
+// 不走 Grok 链路（指向 xAI 官方域名的 key 也按中转），返回空串。
 func (a *Account) GetGrokBaseURL() string {
-	if a == nil || (!a.IsThirdPartyKey() && !a.IsGrok()) {
+	if a.Vendor() != PlatformGrok {
 		return ""
 	}
 	if a.IsGrokOAuth() {
@@ -1141,19 +1142,11 @@ func (a *Account) GetGrokBaseURL() string {
 	return a.GetGrokBaseURLOr(xai.DefaultBaseURL)
 }
 
-// GetGrokBaseURLOr returns the upstream for Grok traffic. Third-party keys use
-// their protocol endpoints; subscription accounts use the supplied official
-// default (normally the site-wide mode), never a per-account override.
+// GetGrokBaseURLOr returns the upstream for Grok subscription traffic: the
+// supplied official default (normally the site-wide mode), never a per-account
+// override. 第三方 key 不走 Grok 链路，返回空串。
 func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
-	if a == nil {
-		return ""
-	}
-	// 第三方 key：地址只认协议映射，平台标签、站点默认区域与 CLI 网关都不参与。
-	// 需要按协议区分 responses / chat_completions 的调用方走 grokProtocolBaseURL。
-	if a.IsThirdPartyKey() {
-		return a.PrimaryUpstreamBaseURL()
-	}
-	if !a.IsGrok() {
+	if a.Vendor() != PlatformGrok {
 		return ""
 	}
 	defaultBaseURL = strings.TrimRight(strings.TrimSpace(defaultBaseURL), "/")
@@ -1169,16 +1162,11 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 // GetGrokMediaBaseURL selects the upstream used by Grok Imagine APIs.
 // The subscription CLI gateway enforces a small request-body limit that
 // rejects large Base64 media payloads, so OAuth media leaves for api.x.ai
-// whenever text traffic resolves to the CLI gateway. Every other manually
-// selected endpoint (official/regional API hosts or custom relays) serves
-// media as-is.
+// whenever text traffic resolves to the CLI gateway. The official/regional
+// API hosts serve media as-is.
 func (a *Account) GetGrokMediaBaseURL() string {
-	// 第三方 key：媒体与语音是扩展端点，取 KeyUpstreamProtocols 入站为空时的协议地址
-	// （chat_completions 根地址），不看平台标签。
-	if a.IsThirdPartyKey() {
-		return openAIGatewayKeyExtensionBaseURL(a)
-	}
-	if !a.IsGrok() {
+	// 只有 Grok 成品号；第三方 key 不走 Grok 媒体 / 语音链路，返回空串。
+	if a.Vendor() != PlatformGrok {
 		return ""
 	}
 	baseURL := a.GetGrokBaseURL()
@@ -1337,7 +1325,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 }
 
 // keySupportsOpenAIEndpointCapability 是第三方 key 的端点能力判定：平台只是展示标签，
-// 能力由协议地址、厂商（地址是否指向官方域名）与账号类型决定（渠道级能力集已删，不限制）。
+// 能力由协议地址、厂商（地址是否指向国产厂商官方域名）与账号类型决定（渠道级能力集已删，不限制）。
 func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
@@ -1348,8 +1336,8 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 			return false
 		}
 	case OpenAIEndpointCapabilityAlphaSearch:
-		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
-		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点；base_url 是扩展端点根地址。
+		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：通用中转承接，
+		// 国产厂商没有这个端点；base_url 是扩展端点根地址。
 		if a.Type != AccountTypeAPIKey || !keyUsesOpenAIProtocolFeatures(a) || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
@@ -1358,11 +1346,9 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		if a.Type != AccountTypeAPIKey || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
-	case OpenAIEndpointCapabilityGrokMediaGeneration:
-		// xAI 的图片/视频生成是厂商私有端点：只有地址指向 xAI 官方的 key 具备（渠道级覆盖 2026-09-28 P5 删了）。
-		return a.Vendor() == PlatformGrok
 	default:
-		// live 是 ChatGPT OAuth 专属能力，第三方 key 不具备。
+		// live 是 ChatGPT OAuth 专属能力；xAI 图片 / 视频生成是 Grok 成品号专属的厂商私有端点
+		// （指向 xAI 官方域名的 key 也按中转，2026-09-29 定）。第三方 key 都不具备。
 		return false
 	}
 	return true
@@ -1374,13 +1360,10 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 // remains eligible for backwards compatibility. 渠道级手动覆盖（grok_media_eligible）
 // 2026-09-28 P5 删了，只按探测结果自动判断。
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
-	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
-	// 否则会出现调度放行、转发拒绝的错位。
+	// 按厂商判，只有 Grok 成品号：第三方 key 的厂商不会是 grok（指向 xAI 官方域名的 key 也按中转），
+	// 与调度侧口径（keySupportsOpenAIEndpointCapability）一致，不会出现调度放行、转发拒绝的错位。
 	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
-	}
-	if a.Type != AccountTypeOAuth {
-		return true, "non_oauth"
 	}
 
 	billing, err := grokBillingSnapshotFromExtra(a.Extra)
@@ -1407,8 +1390,8 @@ func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapabilit
 	if capability == "" {
 		return true
 	}
-	// /v1/images 是 OpenAI 协议的扩展端点：成品号只有 OpenAI；第三方 key 看厂商，官方
-	// OpenAI 与通用中转承接，其他已知厂商没有这个端点。
+	// /v1/images 是 OpenAI 协议的扩展端点：成品号只有 OpenAI；第三方 key 看厂商，通用中转
+	// 承接（含指向 OpenAI 官方域名的 key），国产厂商与 OpenCode 没有这个端点。
 	if !openAIProtocolFeaturesApply(a) {
 		return false
 	}

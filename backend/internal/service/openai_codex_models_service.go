@@ -427,28 +427,6 @@ func isOpenAICodexImageInputModel(modelID string) bool {
 		strings.HasPrefix(normalized, "gpt-4-vision")
 }
 
-func isOfficialOpenAICodexCatalogModel(modelID string) bool {
-	normalized := strings.ToLower(codexProviderQualifiedModelID(modelID))
-	if normalized == "" || isCodexDedicatedMediaModel(normalized) {
-		return false
-	}
-	if strings.HasPrefix(normalized, "codex-") {
-		return true
-	}
-	if strings.HasPrefix(normalized, "o1") || strings.HasPrefix(normalized, "o3") || strings.HasPrefix(normalized, "o4") {
-		return true
-	}
-	if !strings.HasPrefix(normalized, "gpt-") {
-		return false
-	}
-	for _, incompatibleFamily := range []string{"audio", "realtime", "transcribe", "tts"} {
-		if strings.Contains(normalized, incompatibleFamily) {
-			return false
-		}
-	}
-	return true
-}
-
 func openaiCodexDisplayName(modelID string) string {
 	normalized := canonicalizeOpenAIModelAliasSpelling(modelID)
 	if normalized == "" {
@@ -802,14 +780,11 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	if account == nil {
 		return false
 	}
-	// 成品号按平台；第三方 key 不看标签：官方 xAI 地址的 key 走 Grok 规则，
-	// 其余一律按 OpenAI 兼容清单处理。
+	// 成品号按平台；第三方 key 不看标签，一律按 OpenAI 兼容清单处理（指向 xAI 官方域名的 key
+	// 也按中转，不走 Grok 规则）。
 	platform := account.Platform
 	if account.IsThirdPartyKey() {
 		platform = PlatformOpenAI
-		if account.Vendor() == PlatformGrok {
-			platform = PlatformGrok
-		}
 	}
 	switch platform {
 	case PlatformOpenAI:
@@ -819,7 +794,7 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 				// text-only modality list. Keep explicit provider metadata
 				// authoritative for compatible hosts, but repair that stale
 				// official snapshot at the capability boundary.
-				if isOpenAIGPT6AstraModel(upstreamModel) && isOfficialOpenAICodexAccount(account) {
+				if isOpenAIGPT6AstraModel(upstreamModel) && account.IsOpenAIOAuth() {
 					return true
 				}
 				return stringSliceContains(modalities, "image")
@@ -843,18 +818,6 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	default:
 		return false
 	}
-}
-
-// isOfficialOpenAICodexAccount 报告账号是否直连 OpenAI 官方：OpenAI 成品号，或协议地址
-// 全是 OpenAI 官方域的第三方 key（不看平台标签）。
-func isOfficialOpenAICodexAccount(account *Account) bool {
-	if account == nil {
-		return false
-	}
-	if account.IsThirdPartyKey() {
-		return account.Vendor() == PlatformOpenAI
-	}
-	return account.IsOpenAIOAuth()
 }
 
 func isGrokCodexImageInputModel(model string) bool {
@@ -1772,26 +1735,7 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 		return nil, fmt.Errorf("decode top-level models array: %w", err)
 	}
 
-	officialOpenAI := account != nil && isOfficialOpenAIModelsBaseURL(account.GetOpenAIBaseURL())
 	changed := false
-	if officialOpenAI {
-		filtered := make([]json.RawMessage, 0, len(models))
-		for _, rawModel := range models {
-			var model struct {
-				Slug string `json:"slug"`
-			}
-			if err := json.Unmarshal(rawModel, &model); err != nil || strings.TrimSpace(model.Slug) == "" {
-				filtered = append(filtered, rawModel)
-				continue
-			}
-			if !isOfficialOpenAICodexCatalogModel(model.Slug) {
-				changed = true
-				continue
-			}
-			filtered = append(filtered, rawModel)
-		}
-		models = filtered
-	}
 	for i, rawModel := range models {
 		var model map[string]json.RawMessage
 		if err := json.Unmarshal(rawModel, &model); err != nil || model == nil {
@@ -1807,8 +1751,7 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 		}
 
 		completeDescriptor := completeAll || isDeepSeekCodexModel(slug)
-		forceOfficialImage := officialOpenAI && isOpenAICodexImageInputModel(slug)
-		if !completeDescriptor && !forceOfficialImage {
+		if !completeDescriptor {
 			continue
 		}
 
@@ -1816,10 +1759,6 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 		descriptor.SupportsSearchTool = shouldForwardOpenAIResponsesViaRawChatCompletions(account)
 		if accountCodexModelSupportsImageInput(account, slug) {
 			descriptor.InputModalities = []string{"text", "image"}
-		}
-		if forceOfficialImage {
-			descriptor.InputModalities = []string{"text", "image"}
-			descriptor.SupportsImageDetailOriginal = true
 		}
 		defaultBody, err := json.Marshal(descriptor)
 		if err != nil {
@@ -1836,28 +1775,11 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 		}
 		capabilities := accountCodexToolCapabilities(account, capabilityModel)
 		modelChanged := applyCodexToolCapabilities(model, capabilities, false)
-		if completeDescriptor {
-			merged, err := mergeMissingCodexModelFields(model, defaults)
-			if err != nil {
-				return nil, fmt.Errorf("complete model %q: %w", slug, err)
-			}
-			modelChanged = merged || modelChanged
+		merged, err := mergeMissingCodexModelFields(model, defaults)
+		if err != nil {
+			return nil, fmt.Errorf("complete model %q: %w", slug, err)
 		}
-		if forceOfficialImage {
-			modalities, err := json.Marshal([]string{"text", "image"})
-			if err != nil {
-				return nil, fmt.Errorf("encode input modalities for model %q: %w", slug, err)
-			}
-			if !bytes.Equal(bytes.TrimSpace(model["input_modalities"]), modalities) {
-				model["input_modalities"] = modalities
-				modelChanged = true
-			}
-			imageDetailOriginal := json.RawMessage("true")
-			if !bytes.Equal(bytes.TrimSpace(model["supports_image_detail_original"]), imageDetailOriginal) {
-				model["supports_image_detail_original"] = imageDetailOriginal
-				modelChanged = true
-			}
-		}
+		modelChanged = merged || modelChanged
 		if !modelChanged {
 			continue
 		}
@@ -2013,15 +1935,6 @@ func codexModelsManifestETagMatches(ifNoneMatch, etag string) bool {
 // catalog ETag, including weak and comma-separated validators.
 func CodexModelsManifestETagMatches(ifNoneMatch, etag string) bool {
 	return codexModelsManifestETagMatches(ifNoneMatch, etag)
-}
-
-func isOfficialOpenAIModelsBaseURL(raw string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return false
-	}
-	hostname := strings.TrimSuffix(parsed.Hostname(), ".")
-	return strings.EqualFold(hostname, "api.openai.com")
 }
 
 func buildCodexModelsManifestURL(endpoint string, appendModelsPath bool, clientVersion string) (*url.URL, error) {

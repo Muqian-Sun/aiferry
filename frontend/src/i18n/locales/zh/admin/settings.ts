@@ -43,7 +43,7 @@ export default {
       },
       webSearchEmulation: {
         title: 'Web Search 模拟',
-        description: '为不原生支持搜索的 Anthropic API Key 渠道注入 web search 能力。配了 Key 的服务商就生效（按列表顺序使用，前一个失败换下一个）；对所有走 Anthropic 协议、地址不是 Anthropic 官方的第三方 key 生效，渠道上不再单独设置。',
+        description: '为第三方 key 注入 web search 能力。配了 Key 的服务商就生效（按列表顺序使用，前一个失败换下一个）；对所有走 Anthropic 协议的第三方 key 生效，渠道上不再单独设置。',
         providers: '搜索服务商',
         addProvider: '添加服务商',
         providerType: '服务商类型',

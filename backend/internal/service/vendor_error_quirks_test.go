@@ -19,6 +19,10 @@ import (
 // 第三方 key 的错误语义按 Vendor（协议地址）判定，平台标签只用于展示。
 // 夹具工厂 vendorTestKey 与 vendorTestRelayURL 定义在 account_vendor_model_mapping_test.go；
 // 每个用例先断言夹具的 Vendor，保证「中转 / 官方」前提真的成立。
+//
+// 2026-09-29 起海外四家（Anthropic、OpenAI、Gemini、Grok）不再有官方 key：指向它们官方域名的
+// key（vendorTestAnthropic / OpenAI / XAI / Gemini）与中转同一套规则，厂商特化只对成品号
+// （vendorTestSubscription）生效；国产厂商与 OpenCode 的官方 key 特化不变。
 
 var (
 	vendorTestRelayChat      = map[string]string{APIProtocolChatCompletions: vendorTestRelayURL}
@@ -30,6 +34,18 @@ var (
 	vendorTestXAI            = map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}
 	vendorTestGemini         = map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}
 )
+
+// vendorTestSubscription 海外四家的成品号夹具：厂商特化只对它们生效。
+func vendorTestSubscription(platform, accountType string, credentials map[string]any) *Account {
+	return &Account{
+		ID:          9150,
+		Platform:    platform,
+		Type:        accountType,
+		Status:      StatusActive,
+		Schedulable: true,
+		Credentials: credentials,
+	}
+}
 
 func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 	body := []byte(`{"error":{"message":"insufficient balance"}}`)
@@ -87,28 +103,27 @@ func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 	})
 }
 
-func TestHandleUpstreamError_CreditBalance400FollowsVendor(t *testing.T) {
+// 「credit balance」400 是 Anthropic Console API key 的计费文案：官方 Anthropic key 已删，这条永久停用
+// 分支一并删了——中转、指向 api.anthropic.com 的 key、成品号收到都只是普通 400，不停用账号。
+func TestHandleUpstreamError_CreditBalance400IsNotAnAccountError(t *testing.T) {
 	body := []byte(`{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}`)
 
-	t.Run("anthropic label on relay is not disabled", func(t *testing.T) {
-		repo := &rateLimitAccountRepoStub{}
-		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-		account := vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic)
-		require.Empty(t, account.Vendor())
+	for name, account := range map[string]*Account{
+		"anthropic label on relay":             vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
+		"key on api.anthropic.com":             vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		"anthropic subscription (setup-token)": vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &rateLimitAccountRepoStub{}
+			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+			if account.IsThirdPartyKey() {
+				require.Empty(t, account.Vendor())
+			}
 
-		require.False(t, svc.HandleUpstreamError(context.Background(), account, http.StatusBadRequest, http.Header{}, body))
-		require.Zero(t, repo.setErrorCalls)
-	})
-
-	t.Run("openai label on api.anthropic.com is disabled", func(t *testing.T) {
-		repo := &rateLimitAccountRepoStub{}
-		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-		account := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-		require.Equal(t, PlatformAnthropic, account.Vendor())
-
-		require.True(t, svc.HandleUpstreamError(context.Background(), account, http.StatusBadRequest, http.Header{}, body))
-		require.Equal(t, 1, repo.setErrorCalls)
-	})
+			require.False(t, svc.HandleUpstreamError(context.Background(), account, http.StatusBadRequest, http.Header{}, body))
+			require.Zero(t, repo.setErrorCalls)
+		})
+	}
 }
 
 // requireShortFallbackReset 断言限流只走了秒级通用兜底，没有被厂商窗口拉长。
@@ -127,42 +142,49 @@ func TestHandleUpstreamError_Anthropic429WindowHeadersFollowVendor(t *testing.T)
 		headers.Set("anthropic-ratelimit-unified-5h-utilization", "1.02")
 		headers.Set("anthropic-ratelimit-unified-5h-reset", strconv.FormatInt(resetAt.Unix(), 10))
 
-		relayRepo := &anthropicWindowLimitRepo{}
-		relay := vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic)
-		require.Empty(t, relay.Vendor())
-		before := time.Now()
-		NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), relay, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Equal(t, 1, relayRepo.rateLimitCalls)
-		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
-		require.Zero(t, relayRepo.sessionWindowCalls)
+		for name, key := range map[string]*Account{
+			"relay":                    vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
+			"key on api.anthropic.com": vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		} {
+			relayRepo := &anthropicWindowLimitRepo{}
+			require.Empty(t, key.Vendor(), name)
+			before := time.Now()
+			NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), key, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+			require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+			requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+			require.Zero(t, relayRepo.sessionWindowCalls, name)
+		}
 
-		officialRepo := &anthropicWindowLimitRepo{}
-		official := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-		require.Equal(t, PlatformAnthropic, official.Vendor())
-		NewRateLimitService(officialRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), official, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Equal(t, 1, officialRepo.rateLimitCalls)
-		require.Equal(t, resetAt, officialRepo.lastRateLimitReset)
+		subscriptionRepo := &anthropicWindowLimitRepo{}
+		subscription := vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil)
+		NewRateLimitService(subscriptionRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), subscription, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+		require.Equal(t, 1, subscriptionRepo.rateLimitCalls)
+		require.Equal(t, resetAt, subscriptionRepo.lastRateLimitReset)
 	})
 
 	t.Run("fable 7d_oi window exhausted", func(t *testing.T) {
 		now := time.Now()
 		headers := fable429Headers(now.Add(2*time.Hour).Truncate(time.Second), now.Add(96*time.Hour).Truncate(time.Second))
 
-		relayRepo := &anthropicWindowLimitRepo{}
-		relay := vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic)
-		require.Empty(t, relay.Vendor())
-		before := time.Now()
-		NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), relay, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Zero(t, relayRepo.modelRateLimitCalls)
-		require.Equal(t, 1, relayRepo.rateLimitCalls)
-		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		for name, key := range map[string]*Account{
+			"relay":                    vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
+			"key on api.anthropic.com": vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		} {
+			relayRepo := &anthropicWindowLimitRepo{}
+			require.Empty(t, key.Vendor(), name)
+			before := time.Now()
+			NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), key, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+			require.Zero(t, relayRepo.modelRateLimitCalls, name)
+			require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+			requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		}
 
-		officialRepo := &anthropicWindowLimitRepo{}
-		official := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-		NewRateLimitService(officialRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), official, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Equal(t, 1, officialRepo.modelRateLimitCalls)
-		require.Equal(t, anthropicFableRateLimitKey, officialRepo.lastModelRateLimitScope)
-		require.Zero(t, officialRepo.rateLimitCalls)
+		subscriptionRepo := &anthropicWindowLimitRepo{}
+		subscription := vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil)
+		NewRateLimitService(subscriptionRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), subscription, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+		require.Equal(t, 1, subscriptionRepo.modelRateLimitCalls)
+		require.Equal(t, anthropicFableRateLimitKey, subscriptionRepo.lastModelRateLimitScope)
+		require.Zero(t, subscriptionRepo.rateLimitCalls)
 	})
 
 	t.Run("aggregated unified reset only", func(t *testing.T) {
@@ -170,18 +192,22 @@ func TestHandleUpstreamError_Anthropic429WindowHeadersFollowVendor(t *testing.T)
 		headers := http.Header{}
 		headers.Set("anthropic-ratelimit-unified-reset", strconv.FormatInt(resetAt.Unix(), 10))
 
-		relayRepo := &anthropicWindowLimitRepo{}
-		relay := vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic)
-		before := time.Now()
-		NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), relay, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Equal(t, 1, relayRepo.rateLimitCalls)
-		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		for name, key := range map[string]*Account{
+			"relay":                    vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
+			"key on api.anthropic.com": vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		} {
+			relayRepo := &anthropicWindowLimitRepo{}
+			before := time.Now()
+			NewRateLimitService(relayRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), key, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+			require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+			requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		}
 
-		officialRepo := &anthropicWindowLimitRepo{}
-		official := vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-		NewRateLimitService(officialRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), official, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
-		require.Equal(t, 1, officialRepo.rateLimitCalls)
-		require.Equal(t, resetAt, officialRepo.lastRateLimitReset)
+		subscriptionRepo := &anthropicWindowLimitRepo{}
+		subscription := vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil)
+		NewRateLimitService(subscriptionRepo, nil, nil, nil, nil).HandleUpstreamError(context.Background(), subscription, http.StatusTooManyRequests, headers, []byte(rateLimitBody))
+		require.Equal(t, 1, subscriptionRepo.rateLimitCalls)
+		require.Equal(t, resetAt, subscriptionRepo.lastRateLimitReset)
 	})
 }
 
@@ -193,39 +219,47 @@ func TestHandle429_OpenAICodexSignalsFollowVendor(t *testing.T) {
 		headers.Set("x-codex-primary-window-minutes", "10080")
 		body := []byte(`{"error":{"type":"rate_limit_exceeded","message":"rate limited"}}`)
 
-		relayRepo := &anthropicWindowLimitRepo{}
-		relay := vendorTestKey(PlatformOpenAI, vendorTestRelayChat)
-		require.Empty(t, relay.Vendor())
-		before := time.Now()
-		NewRateLimitService(relayRepo, nil, nil, nil, nil).handle429(context.Background(), relay, headers, body)
-		require.Equal(t, 1, relayRepo.rateLimitCalls)
-		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
-		require.Nil(t, relayRepo.lastExtraUpdates, "relay keys must not persist codex usage snapshots")
+		for name, key := range map[string]*Account{
+			"relay":                 vendorTestKey(PlatformOpenAI, vendorTestRelayChat),
+			"key on api.openai.com": vendorTestKey(PlatformKimi, vendorTestOpenAI),
+		} {
+			relayRepo := &anthropicWindowLimitRepo{}
+			require.Empty(t, key.Vendor(), name)
+			before := time.Now()
+			NewRateLimitService(relayRepo, nil, nil, nil, nil).handle429(context.Background(), key, headers, body)
+			require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+			requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+			require.Nil(t, relayRepo.lastExtraUpdates, "keys must not persist codex usage snapshots: %s", name)
+		}
 
-		officialRepo := &anthropicWindowLimitRepo{}
-		official := vendorTestKey(PlatformKimi, vendorTestOpenAI)
-		require.Equal(t, PlatformOpenAI, official.Vendor())
-		before = time.Now()
-		NewRateLimitService(officialRepo, nil, nil, nil, nil).handle429(context.Background(), official, headers, body)
-		require.Equal(t, 1, officialRepo.rateLimitCalls)
-		require.WithinDuration(t, before.Add(7200*time.Second), officialRepo.lastRateLimitReset, 5*time.Second)
-		require.Contains(t, officialRepo.lastExtraUpdates, "codex_usage_updated_at")
+		subscriptionRepo := &anthropicWindowLimitRepo{}
+		subscription := vendorTestSubscription(PlatformOpenAI, AccountTypeOAuth, nil)
+		before := time.Now()
+		NewRateLimitService(subscriptionRepo, nil, nil, nil, nil).handle429(context.Background(), subscription, headers, body)
+		require.Equal(t, 1, subscriptionRepo.rateLimitCalls)
+		require.WithinDuration(t, before.Add(7200*time.Second), subscriptionRepo.lastRateLimitReset, 5*time.Second)
+		require.Contains(t, subscriptionRepo.lastExtraUpdates, "codex_usage_updated_at")
 	})
 
 	t.Run("usage_limit_reached body", func(t *testing.T) {
 		resetAt := time.Now().Add(90 * time.Minute).Unix()
 		body := []byte(`{"error":{"type":"usage_limit_reached","message":"The usage limit has been reached","resets_at":` + strconv.FormatInt(resetAt, 10) + `}}`)
 
-		relayRepo := &anthropicWindowLimitRepo{}
-		before := time.Now()
-		NewRateLimitService(relayRepo, nil, nil, nil, nil).handle429(context.Background(), vendorTestKey(PlatformOpenAI, vendorTestRelayChat), http.Header{}, body)
-		require.Equal(t, 1, relayRepo.rateLimitCalls)
-		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		for name, key := range map[string]*Account{
+			"relay":                 vendorTestKey(PlatformOpenAI, vendorTestRelayChat),
+			"key on api.openai.com": vendorTestKey(PlatformKimi, vendorTestOpenAI),
+		} {
+			relayRepo := &anthropicWindowLimitRepo{}
+			before := time.Now()
+			NewRateLimitService(relayRepo, nil, nil, nil, nil).handle429(context.Background(), key, http.Header{}, body)
+			require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+			requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+		}
 
-		officialRepo := &anthropicWindowLimitRepo{}
-		NewRateLimitService(officialRepo, nil, nil, nil, nil).handle429(context.Background(), vendorTestKey(PlatformKimi, vendorTestOpenAI), http.Header{}, body)
-		require.Equal(t, 1, officialRepo.rateLimitCalls)
-		require.Equal(t, time.Unix(resetAt, 0), officialRepo.lastRateLimitReset)
+		subscriptionRepo := &anthropicWindowLimitRepo{}
+		NewRateLimitService(subscriptionRepo, nil, nil, nil, nil).handle429(context.Background(), vendorTestSubscription(PlatformOpenAI, AccountTypeOAuth, nil), http.Header{}, body)
+		require.Equal(t, 1, subscriptionRepo.rateLimitCalls)
+		require.Equal(t, time.Unix(resetAt, 0), subscriptionRepo.lastRateLimitReset)
 	})
 }
 
@@ -256,20 +290,24 @@ func TestHandleGeminiUpstreamError_PSTMidnightCooldownFollowsVendor(t *testing.T
 		return &GeminiMessagesCompatService{accountRepo: repo, rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil)}
 	}
 
-	relayRepo := &rateLimit429AccountRepoStub{}
-	relay := vendorTestKey(PlatformGemini, vendorTestRelayGemini)
-	require.Empty(t, relay.Vendor())
-	before := time.Now()
-	newSvc(relayRepo).handleGeminiUpstreamError(context.Background(), relay, http.StatusTooManyRequests, http.Header{}, body)
-	require.Equal(t, 1, relayRepo.rateLimitCalls)
-	requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+	for name, key := range map[string]*Account{
+		"relay": vendorTestKey(PlatformGemini, vendorTestRelayGemini),
+		"key on generativelanguage.googleapis.com": vendorTestKey(PlatformOpenAI, vendorTestGemini),
+	} {
+		relayRepo := &rateLimit429AccountRepoStub{}
+		require.Empty(t, key.Vendor(), name)
+		before := time.Now()
+		newSvc(relayRepo).handleGeminiUpstreamError(context.Background(), key, http.StatusTooManyRequests, http.Header{}, body)
+		require.Equal(t, 1, relayRepo.rateLimitCalls, name)
+		requireShortFallbackReset(t, before, relayRepo.lastRateLimitReset)
+	}
 
-	officialRepo := &rateLimit429AccountRepoStub{}
-	official := vendorTestKey(PlatformOpenAI, vendorTestGemini)
-	require.Equal(t, PlatformGemini, official.Vendor())
-	newSvc(officialRepo).handleGeminiUpstreamError(context.Background(), official, http.StatusTooManyRequests, http.Header{}, body)
-	require.Equal(t, 1, officialRepo.rateLimitCalls)
-	require.WithinDuration(t, geminiDailyResetTime(time.Now()), officialRepo.lastRateLimitReset, 2*time.Second)
+	// AI Studio OAuth 成品号仍按 PST 午夜（AI Studio 官方日配额的重置点）。
+	subscriptionRepo := &rateLimit429AccountRepoStub{}
+	subscription := vendorTestSubscription(PlatformGemini, AccountTypeOAuth, map[string]any{"oauth_type": "ai_studio"})
+	newSvc(subscriptionRepo).handleGeminiUpstreamError(context.Background(), subscription, http.StatusTooManyRequests, http.Header{}, body)
+	require.Equal(t, 1, subscriptionRepo.rateLimitCalls)
+	require.WithinDuration(t, geminiDailyResetTime(time.Now()), subscriptionRepo.lastRateLimitReset, 2*time.Second)
 }
 
 func TestGeminiQuotaForAccount_FollowsVendor(t *testing.T) {
@@ -281,18 +319,20 @@ func TestGeminiQuotaForAccount_FollowsVendor(t *testing.T) {
 	require.False(t, ok)
 	require.Empty(t, geminiQuotaTierKeyForAccount(relay))
 
-	official := vendorTestKey(PlatformOpenAI, vendorTestGemini)
-	require.Equal(t, PlatformGemini, official.Vendor())
-	_, ok = quotaSvc.QuotaForAccount(context.Background(), official)
-	require.True(t, ok)
-	require.Equal(t, GeminiTierAIStudioPaid, geminiQuotaTierKeyForAccount(official))
+	// 指向 generativelanguage.googleapis.com 的 key 按中转：没有本地配额，库里存的档位也不看。
+	keyOnOfficialHost := vendorTestKey(PlatformGemini, vendorTestGemini)
+	keyOnOfficialHost.Credentials = map[string]any{"tier_id": GeminiTierAIStudioFree}
+	require.Empty(t, keyOnOfficialHost.Vendor())
+	_, ok = quotaSvc.QuotaForAccount(context.Background(), keyOnOfficialHost)
+	require.False(t, ok)
+	require.Empty(t, geminiQuotaTierKeyForAccount(keyOnOfficialHost))
 
-	// 官方 key 的档位由代码决定：库里存着免费档也按付费档，不在本地卡 2 RPM
-	official.Credentials = map[string]any{"tier_id": GeminiTierAIStudioFree}
-	require.Equal(t, GeminiTierAIStudioPaid, geminiQuotaTierKeyForAccount(official))
-	quota, ok := quotaSvc.QuotaForAccount(context.Background(), official)
+	// Gemini 成品号按档位取本地配额（AI Studio OAuth 免费档：Pro 50 RPD）。
+	subscription := vendorTestSubscription(PlatformGemini, AccountTypeOAuth, map[string]any{"oauth_type": "ai_studio", "tier_id": GeminiTierAIStudioFree})
+	require.Equal(t, GeminiTierAIStudioFree, geminiQuotaTierKeyForAccount(subscription))
+	quota, ok := quotaSvc.QuotaForAccount(context.Background(), subscription)
 	require.True(t, ok)
-	require.EqualValues(t, -1, quota.ProRPD)
+	require.EqualValues(t, 50, quota.ProRPD)
 }
 
 type geminiPrecheckUsageRepoStub struct {
@@ -302,6 +342,30 @@ type geminiPrecheckUsageRepoStub struct {
 
 func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, *int16, *bool, *int8) ([]usagestats.ModelStat, error) {
 	return r.stats, nil
+}
+
+// OpenAI 401 的 token_invalidated / token_revoked 是 OpenAI 成品号的凭据作废语义：成品号按「Token revoked」
+// 永久停用；第三方 key 一律按中转（指向 api.openai.com 的也一样），只走通用的 401 停用文案。
+func TestHandleUpstreamError_OpenAI401TokenRevokedOnlyForSubscriptions(t *testing.T) {
+	body := []byte(`{"error":{"code":"token_revoked","message":"token has been revoked"}}`)
+
+	for name, key := range map[string]*Account{
+		"relay":                 vendorTestKey(PlatformOpenAI, vendorTestRelayChat),
+		"key on api.openai.com": vendorTestKey(PlatformOpenAI, vendorTestOpenAI),
+	} {
+		repo := &rateLimitAccountRepoStub{}
+		require.Empty(t, key.Vendor(), name)
+		require.True(t, NewRateLimitService(repo, nil, &config.Config{}, nil, nil).HandleUpstreamError(context.Background(), key, http.StatusUnauthorized, http.Header{}, body), name)
+		require.Equal(t, 1, repo.setErrorCalls, name)
+		require.True(t, strings.HasPrefix(repo.lastErrorMsg, "Authentication failed (401)"), "%s: %s", name, repo.lastErrorMsg)
+	}
+
+	repo := &rateLimitAccountRepoStub{}
+	subscription := vendorTestSubscription(PlatformOpenAI, AccountTypeOAuth, map[string]any{"refresh_token": "rt"})
+	require.True(t, NewRateLimitService(repo, nil, &config.Config{}, nil, nil).HandleUpstreamError(context.Background(), subscription, http.StatusUnauthorized, http.Header{}, body))
+	require.Equal(t, 1, repo.setErrorCalls)
+	require.True(t, strings.HasPrefix(repo.lastErrorMsg, "Token revoked (401)"), repo.lastErrorMsg)
+	require.Zero(t, repo.tempCalls, "revoked token must not be treated as a refreshable OAuth 401")
 }
 
 func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {
@@ -320,10 +384,20 @@ func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {
 		})
 	}
 
-	t.Run("official anthropic key keeps the immediate disable", func(t *testing.T) {
+	t.Run("key on api.anthropic.com uses the escalating policy like any relay", func(t *testing.T) {
 		h := newOpenAI403TestHarness(t, 9202, 1)
 		h.account = vendorTestKey(PlatformOpenAI, vendorTestAnthropic)
-		require.Equal(t, PlatformAnthropic, h.account.Vendor())
+		require.Empty(t, h.account.Vendor())
+
+		require.True(t, h.handle(structured403))
+		require.Zero(t, h.repo.setErrorCalls)
+		require.Equal(t, 1, h.repo.tempCalls)
+		require.Equal(t, 1, h.counter.increments)
+	})
+
+	t.Run("anthropic subscription keeps the immediate disable", func(t *testing.T) {
+		h := newOpenAI403TestHarness(t, 9205, 1)
+		h.account = vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil)
 
 		require.True(t, h.handle(structured403))
 		require.Equal(t, 1, h.repo.setErrorCalls)
@@ -389,22 +463,25 @@ func newVendorFastpathGateway() (*OpenAIGatewayService, *errorPolicyRepoStub) {
 	return &OpenAIGatewayService{rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil)}, repo
 }
 
-func TestOpenAIAccessStateBlock_OnlyForOfficialOpenAIVendor(t *testing.T) {
+func TestOpenAIAccessStateBlock_OnlyForOpenAISubscriptions(t *testing.T) {
 	body := []byte(`{"error":{"code":"account_deactivated","message":"This account has been deactivated."}}`)
 
-	gateway, repo := newVendorFastpathGateway()
-	relay := vendorTestKey(PlatformOpenAI, vendorTestRelayChat)
-	require.Empty(t, relay.Vendor())
-	require.False(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), relay, http.StatusBadRequest, http.Header{}, body, "gpt-5.4"))
-	require.Zero(t, repo.setErrCalls)
-	require.False(t, gateway.isOpenAIAccountRuntimeBlocked(relay))
+	for name, key := range map[string]*Account{
+		"relay":                 vendorTestKey(PlatformOpenAI, vendorTestRelayChat),
+		"key on api.openai.com": vendorTestKey(PlatformKimi, vendorTestOpenAI),
+	} {
+		gateway, repo := newVendorFastpathGateway()
+		require.Empty(t, key.Vendor(), name)
+		require.False(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), key, http.StatusBadRequest, http.Header{}, body, "gpt-5.4"), name)
+		require.Zero(t, repo.setErrCalls, name)
+		require.False(t, gateway.isOpenAIAccountRuntimeBlocked(key), name)
+	}
 
-	gateway, repo = newVendorFastpathGateway()
-	official := vendorTestKey(PlatformKimi, vendorTestOpenAI)
-	require.Equal(t, PlatformOpenAI, official.Vendor())
-	require.True(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), official, http.StatusBadRequest, http.Header{}, body, "gpt-5.4"))
+	gateway, repo := newVendorFastpathGateway()
+	subscription := vendorTestSubscription(PlatformOpenAI, AccountTypeOAuth, nil)
+	require.True(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), subscription, http.StatusBadRequest, http.Header{}, body, "gpt-5.4"))
 	require.Equal(t, 1, repo.setErrCalls)
-	require.True(t, gateway.isOpenAIAccountRuntimeBlocked(official))
+	require.True(t, gateway.isOpenAIAccountRuntimeBlocked(subscription))
 }
 
 func TestOpenAITransientCooldown_OnlyForOpenAIOrRelayVendorKeys(t *testing.T) {
@@ -457,16 +534,20 @@ func TestGrokContentPolicyExemption_FollowsVendor(t *testing.T) {
 	require.True(t, isGrokContentPolicyRejection(http.StatusForbidden, body))
 
 	gateway, repo := newVendorFastpathGateway()
-	official := vendorTestKey(PlatformOpenAI, vendorTestXAI)
-	require.Equal(t, PlatformGrok, official.Vendor())
-	require.False(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), official, http.StatusForbidden, http.Header{}, body))
+	subscription := vendorTestSubscription(PlatformGrok, AccountTypeOAuth, nil)
+	require.False(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), subscription, http.StatusForbidden, http.Header{}, body))
 	require.Zero(t, repo.setErrCalls)
 
-	gateway, repo = newVendorFastpathGateway()
-	relay := vendorTestKey(PlatformGrok, vendorTestRelayChat)
-	require.Empty(t, relay.Vendor())
-	require.True(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), relay, http.StatusForbidden, http.Header{}, body))
-	require.Equal(t, 1, repo.setErrCalls)
+	// 第三方 key 一律按中转：指向 api.x.ai 的 key 也不豁免。
+	for name, key := range map[string]*Account{
+		"grok label on relay": vendorTestKey(PlatformGrok, vendorTestRelayChat),
+		"key on api.x.ai":     vendorTestKey(PlatformGrok, vendorTestXAI),
+	} {
+		gateway, repo = newVendorFastpathGateway()
+		require.Empty(t, key.Vendor(), name)
+		require.True(t, gateway.handleOpenAIAccountUpstreamError(context.Background(), key, http.StatusForbidden, http.Header{}, body), name)
+		require.Equal(t, 1, repo.setErrCalls, name)
+	}
 }
 
 func TestOpenAIRuntimeBlock_AppliesToKeysOfAnyLabel(t *testing.T) {

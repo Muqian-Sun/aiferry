@@ -133,19 +133,15 @@ func TestHandleUpstreamError_OpenAIStructured403StillPenalizes(t *testing.T) {
 	})
 }
 
-// 作用域守卫：放行只针对 OpenAI 平台。其他平台的 403 处理不受影响。
-// 官方 Anthropic / Gemini 地址的 key 保持首次 403 即停用；标签不参与判断，
-// 标签写成 openai 的官方地址 key 同样停用。
+// 作用域守卫：放行只针对 OpenAI 平台。其他平台的 403 处理不受影响：
+// 其他厂商的成品号保持原有 SetError 行为（海外四家的厂商语义只对成品号，2026-09-29）。
 func TestHandleUpstreamError_HTML403OnOtherVendorsUnchanged(t *testing.T) {
-	for name, endpoints := range map[string]map[string]string{
-		"anthropic": {APIProtocolAnthropic: "https://api.anthropic.com"},
-		"gemini":    {APIProtocolGemini: "https://generativelanguage.googleapis.com"},
-	} {
-		t.Run(name, func(t *testing.T) {
+	for _, platform := range []string{PlatformAnthropic, PlatformGemini} {
+		t.Run(platform, func(t *testing.T) {
 			repo := &rateLimitAccountRepoStub{}
 			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-			account := &Account{ID: 506, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: endpoints}
-			require.Equal(t, name, account.Vendor())
+			account := &Account{ID: 506, Platform: platform, Type: AccountTypeOAuth}
+			require.Equal(t, platform, account.Vendor())
 
 			shouldDisable := svc.HandleUpstreamError(
 				context.Background(), account, http.StatusForbidden, http.Header{}, []byte(openAI403HTMLBody),
@@ -157,15 +153,18 @@ func TestHandleUpstreamError_HTML403OnOtherVendorsUnchanged(t *testing.T) {
 	}
 }
 
-// 通用中转 key 不论标签都走 HTML 豁免：拦截页不构成账号失效证据。
+// 通用中转 key 不论标签都走 HTML 豁免：拦截页不构成账号失效证据。指向 Anthropic / Gemini 官方域名的 key
+// 也按中转（2026-09-29 海外四家不再有官方 key）。
 func TestHandleUpstreamError_HTML403OnRelayKeySkipsPenaltyRegardlessOfLabel(t *testing.T) {
-	for _, platform := range []string{PlatformAnthropic, PlatformGemini} {
-		t.Run(platform, func(t *testing.T) {
+	for name, endpoints := range map[string]map[string]string{
+		"anthropic label on relay": {APIProtocolAnthropic: "https://relay.example.com"},
+		"gemini label on relay":    {APIProtocolGemini: "https://relay.example.com"},
+		"key on api.anthropic.com": {APIProtocolAnthropic: "https://api.anthropic.com"},
+		"key on gemini official":   {APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+	} {
+		t.Run(name, func(t *testing.T) {
 			h := newOpenAI403TestHarness(t, 507)
-			h.account = &Account{ID: 507, Platform: platform, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{
-				APIProtocolAnthropic: "https://relay.example.com",
-				APIProtocolGemini:    "https://relay.example.com",
-			}}
+			h.account = &Account{ID: 507, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: endpoints}
 			require.Empty(t, h.account.Vendor())
 
 			require.False(t, h.handle(openAI403HTMLBody))

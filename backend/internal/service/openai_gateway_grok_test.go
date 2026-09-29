@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -970,24 +971,6 @@ func TestConvertGrokResponseToOpenAICompactRequiresEncryptedContent(t *testing.T
 	require.ErrorContains(t, err, "reasoning.encrypted_content")
 }
 
-func TestBuildGrokResponsesRequestAllowsPublicAPIKeyBaseURLByDefault(t *testing.T) {
-	account := &Account{
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"base_url": "https://grok.example.test/v1/",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1/", APIProtocolResponses: "https://grok.example.test/v1/"},
-	}
-
-	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "api-key", "", nil)
-	require.NoError(t, err)
-	require.Equal(t, "https://grok.example.test/v1/responses", req.URL.String())
-	require.Equal(t, "Bearer api-key", req.Header.Get("Authorization"))
-	require.Empty(t, req.Header.Get("X-Grok-Client-Version"))
-	require.NotEqual(t, defaultGrokUpstreamUserAgent(), req.Header.Get("User-Agent"))
-}
-
 func TestBuildGrokResponsesRequestIgnoresStoredOAuthEndpoint(t *testing.T) {
 	t.Parallel()
 
@@ -1039,14 +1022,18 @@ func TestBuildGrokResponsesRequestIgnoresBlockedHeaderOverrides(t *testing.T) {
 
 	account := &Account{
 		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
+		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
+			"access_token":  "grok-oauth-token",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			"header_overrides": map[string]any{
 				"Authorization":  "Bearer stolen",
 				"x-grok-conv-id": "pinned-conversation",
 			},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "api-key", "conv-2", nil)
@@ -1264,13 +1251,15 @@ func TestForwardGrokMediaImagesGenerationNormalizesImagineAlias(t *testing.T) {
 		ID:          61,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1280,11 +1269,11 @@ func TestForwardGrokMediaImagesGenerationNormalizesImagineAlias(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader(`{"data":[{"url":"https://images.test/cat.png"}]}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.NoError(t, err)
-	require.Equal(t, "https://xai.test/v1/images/generations", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/images/generations", upstream.lastReq.URL.String())
 	require.Equal(t, http.MethodPost, upstream.lastReq.Method)
 	require.Equal(t, "Bearer api-key", upstream.lastReq.Header.Get("Authorization"))
 	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Content-Type"))
@@ -1383,21 +1372,23 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 				ID:          66,
 				Name:        "grok-mapped",
 				Platform:    PlatformGrok,
-				Type:        AccountTypeAPIKey,
+				Type:        AccountTypeOAuth,
 				Concurrency: 1,
 				Credentials: map[string]any{
-					"api_key":       "api-key",
-					"base_url":      "https://xai.test/v1",
+					"access_token":  "api-key",
+					"refresh_token": "grok-refresh-token",
+					"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 					"model_mapping": tt.modelMapping,
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+				Status:      StatusActive,
+				Schedulable: true,
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
 				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
 			}}
-			svc := &OpenAIGatewayService{httpUpstream: upstream}
+			svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 			result, err := svc.ForwardGrokMedia(context.Background(), c, account, tt.endpoint, "", []byte(tt.body), "application/json")
 
@@ -1424,20 +1415,22 @@ func TestForwardGrokMediaImagesGenerationRejectsEmptySuccessfulResponse(t *testi
 		ID:          66,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.Nil(t, result)
@@ -1462,14 +1455,16 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 		ID:          65,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "api-key",
-			"base_url":      "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1478,7 +1473,7 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader(`{"data":[{"url":"https://images.test/cat.png"}]}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.NoError(t, err)
@@ -1514,14 +1509,16 @@ func TestForwardGrokMediaImagesEditMultipartConvertsToJSON(t *testing.T) {
 		ID:          62,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "api-key",
-			"base_url":      "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1530,11 +1527,11 @@ func TestForwardGrokMediaImagesEditMultipartConvertsToJSON(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader(`{"data":[{"url":"https://images.test/edited.png"}]}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesEdits, "", buf.Bytes(), writer.FormDataContentType())
 	require.NoError(t, err)
-	require.Equal(t, "https://xai.test/v1/images/edits", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/images/edits", upstream.lastReq.URL.String())
 	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Content-Type"))
 	require.True(t, json.Valid(upstream.lastBody))
 	require.Equal(t, "vendor-image-edit", gjson.GetBytes(upstream.lastBody, "model").String())
@@ -1574,20 +1571,22 @@ func TestForwardGrokMediaImagesEditMultipartPreservesExplicitGeometry(t *testing
 		ID:          67,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"https://images.test/edited.png"}]}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesEdits, "", buf.Bytes(), writer.FormDataContentType())
 	require.NoError(t, err)
@@ -1612,13 +1611,15 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 		ID:          63,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1628,11 +1629,11 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 		},
 		Body: io.NopCloser(strings.NewReader(`{"request_id":"video-request-123","usage":{"prompt_tokens":3,"completion_tokens":4}}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
 	require.NoError(t, err)
-	require.Equal(t, "https://xai.test/v1/videos/generations", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/generations", upstream.lastReq.URL.String())
 	require.JSONEq(t, `{"model":"grok-imagine-video-1.5","prompt":"waves","resolution":"720p","duration":10}`, string(upstream.lastBody))
 	require.Equal(t, "video-request-123", result.ResponseID)
 	require.Equal(t, "grok-imagine-video-1.5", result.BillingModel)
@@ -1660,20 +1661,22 @@ func TestForwardGrokMediaVideoGenerationReturnsTaskIDAsResponseID(t *testing.T) 
 		ID:          63,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"task_id":"video-task-123"}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
 	require.NoError(t, err)
@@ -1706,13 +1709,15 @@ func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T)
 		ID:          63,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1721,11 +1726,11 @@ func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T)
 		},
 		Body: io.NopCloser(strings.NewReader(`{"request_id":"video-request-456"}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideosGenerations, "", body, "application/json")
 	require.NoError(t, err)
-	require.Equal(t, "https://xai.test/v1/videos/generations", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/generations", upstream.lastReq.URL.String())
 	require.JSONEq(t, `{"model":"grok-imagine-video-1.5","prompt":"animate","image":{"url":"data:image/png;base64,aW1n"}}`, string(upstream.lastBody))
 	require.Equal(t, "video-request-456", result.ResponseID)
 	require.Equal(t, "grok-imagine-video-1.5", result.BillingModel)
@@ -1788,13 +1793,15 @@ func TestForwardGrokMediaVideoStatusUsesGETWithoutBody(t *testing.T) {
 		ID:          62,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "api-key",
-			"base_url": "https://xai.test/v1",
+			"access_token":  "api-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1804,11 +1811,11 @@ func TestForwardGrokMediaVideoStatusUsesGETWithoutBody(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader(`{"id":"request-123","status":"completed"}`)),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointVideoStatus, "request-123", nil, "")
 	require.NoError(t, err)
-	require.Equal(t, "https://xai.test/v1/videos/request-123", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultBaseURL+"/videos/request-123", upstream.lastReq.URL.String())
 	require.Equal(t, http.MethodGet, upstream.lastReq.Method)
 	require.Equal(t, "Bearer api-key", upstream.lastReq.Header.Get("Authorization"))
 	require.Empty(t, upstream.lastReq.Header.Get("X-Grok-Client-Version"))
@@ -1841,24 +1848,30 @@ func TestForwardGrokMediaVideoMutationEndpoints(t *testing.T) {
 			c.Request.Header.Set("Content-Type", "application/json")
 
 			account := &Account{
-				ID: 71, Name: "grok", Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
+				ID:          71,
+				Name:        "grok",
+				Platform:    PlatformGrok,
+				Type:        AccountTypeOAuth,
+				Concurrency: 1,
 				Credentials: map[string]any{
-					"api_key":       "api-key",
-					"base_url":      "https://xai.test/v1",
+					"access_token":  "api-key",
+					"refresh_token": "grok-refresh-token",
+					"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 					"model_mapping": map[string]any{"grok-imagine-video": "vendor-video-mutation"},
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+				Status:      StatusActive,
+				Schedulable: true,
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
 				Body:       io.NopCloser(strings.NewReader(`{"request_id":"video-mutation-123"}`)),
 			}}
-			svc := &OpenAIGatewayService{httpUpstream: upstream}
+			svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 			result, err := svc.ForwardGrokMedia(context.Background(), c, account, tt.endpoint, "", body, "application/json")
 			require.NoError(t, err)
-			require.Equal(t, "https://xai.test/v1"+tt.path, upstream.lastReq.URL.String())
+			require.Equal(t, xai.DefaultBaseURL+tt.path, upstream.lastReq.URL.String())
 			require.Equal(t, http.MethodPost, upstream.lastReq.Method)
 			require.JSONEq(t, `{"model":"vendor-video-mutation","prompt":"continue","video":{"url":"https://example.com/in.mp4"},"duration":6}`, string(upstream.lastBody))
 			require.Equal(t, "video-mutation-123", result.ResponseID)
@@ -1914,15 +1927,17 @@ func TestForwardGrokMedia429ReconcilesRateLimitAndFailsOverDespiteLegacyCustomCo
 		ID:          64,
 		Name:        "grok",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":                    "api-key",
-			"base_url":                   "https://xai.test/v1",
+			"access_token":               "api-key",
+			"refresh_token":              "grok-refresh-token",
+			"expires_at":                 time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 			"custom_error_codes_enabled": true,
 			"custom_error_codes":         []any{float64(http.StatusBadRequest)},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusTooManyRequests,
@@ -1934,7 +1949,7 @@ func TestForwardGrokMedia429ReconcilesRateLimitAndFailsOverDespiteLegacyCustomCo
 		Body: io.NopCloser(strings.NewReader(`{"error":{"message":"do not expose this upstream detail"}}`)),
 	}}
 	repo := &grokQuotaAccountRepo{}
-	svc := &OpenAIGatewayService{httpUpstream: upstream, accountRepo: repo}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, accountRepo: repo, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.ForwardGrokMedia(context.Background(), c, account, GrokMediaEndpointImagesGenerations, "", body, "application/json")
 	require.Error(t, err)
@@ -2113,51 +2128,26 @@ func TestForwardGrokResponsesStreamingDefaultsEmptyModelTo45AndSnapshots(t *test
 	require.NotNil(t, repo.updates[52][grokQuotaSnapshotExtraKey])
 }
 
-func TestForwardGrokResponsesAPIKeyUsesXAIResponses(t *testing.T) {
+// Grok Responses 转发只对 Grok 成品号：第三方 key（指向 api.x.ai 也一样）走通用链路，这里直接拒绝，
+// 一次上游请求都不发（2026-09-29 海外四家不再有官方 key）。
+func TestForwardGrokResponsesRejectsThirdPartyKeys(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	body := []byte(`{"model":"grok","input":"hi","metadata":{"session_id":"abc"},"stream":true}`)
+	body := []byte(`{"model":"grok","input":"hi","stream":false}`)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-
 	account := &Account{
-		ID:          53,
-		Name:        "grok-api-key",
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 2,
-		Credentials: map[string]any{
-			"api_key":  "xai-test-key",
-			"base_url": "https://api.x.ai/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		ID: 53, Name: "grok-key", Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
+		Credentials:       map[string]any{"api_key": "xai-test-key"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: xai.DefaultBaseURL},
 	}
-	upstreamBody := strings.Join([]string{
-		`data: {"type":"response.output_text.delta","sequence_number":0,"delta":"ok"}`,
-		"",
-		`data: {"type":"response.completed","sequence_number":1,"response":{"id":"resp_grok_api_key","model":"grok-4.5","usage":{"input_tokens":2,"output_tokens":1}}}`,
-		"",
-	}, "\n")
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
-	}}
+	upstream := &httpUpstreamRecorder{err: errors.New("must not be called")}
 	svc := &OpenAIGatewayService{httpUpstream: upstream}
 
-	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", true, time.Now())
-	require.NoError(t, err)
-	require.Equal(t, "https://api.x.ai/v1/responses", upstream.lastReq.URL.String())
-	require.Equal(t, "Bearer xai-test-key", upstream.lastReq.Header.Get("Authorization"))
-	require.Empty(t, upstream.lastReq.Header.Get("X-Grok-Client-Version"))
-	require.NotEqual(t, defaultGrokUpstreamUserAgent(), upstream.lastReq.Header.Get("User-Agent"))
-	require.Equal(t, "grok-4.6", gjson.GetBytes(upstream.lastBody, "model").String())
-	require.False(t, gjson.GetBytes(upstream.lastBody, "metadata").Exists())
-	require.Equal(t, "resp_grok_api_key", result.ResponseID)
-	require.Equal(t, 2, result.Usage.InputTokens)
-	require.Equal(t, 1, result.Usage.OutputTokens)
+	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
+	require.Nil(t, result)
+	require.ErrorContains(t, err, "not supported by Responses forwarding")
+	require.Empty(t, upstream.requests)
 }
 
 func TestForwardGrokResponsesUsesMetadataSessionForCacheIdentityWithoutForwardingMetadata(t *testing.T) {
@@ -2169,13 +2159,15 @@ func TestForwardGrokResponsesUsesMetadataSessionForCacheIdentityWithoutForwardin
 		ID:          5401,
 		Name:        "grok-api-key",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 2,
 		Credentials: map[string]any{
-			"api_key":  "xai-test-key",
-			"base_url": "https://api.x.ai/v1",
+			"access_token":  "xai-test-key",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2189,7 +2181,7 @@ func TestForwardGrokResponsesUsesMetadataSessionForCacheIdentityWithoutForwardin
 			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_second","object":"response","model":"grok-4.6","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1}}`)),
 		},
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 	newContext := func(body []byte) *gin.Context {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
@@ -2234,15 +2226,15 @@ func TestForwardGrokResponsesRetriesInvalidEncryptedContentOnce(t *testing.T) {
 		ID:          4535,
 		Name:        "grok-api-key",
 		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 2,
 		Credentials: map[string]any{
-			"api_key":  "same-token",
-			"base_url": "https://api.x.ai/v1",
+			"access_token":  "same-token",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2262,7 +2254,7 @@ func TestForwardGrokResponsesRetriesInvalidEncryptedContentOnce(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(`{"id":"resp_recovered","object":"response","model":"grok-4.5","status":"completed","output":[],"usage":{"input_tokens":2,"output_tokens":1}}`)),
 		},
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 	require.NoError(t, err)
@@ -2332,20 +2324,25 @@ func TestForwardGrokResponsesInvalidEncryptedContentRecoveryDoesNotOvermatch(t *
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 			account := &Account{
-				ID:                4536,
-				Name:              "grok-api-key",
-				Platform:          PlatformGrok,
-				Type:              AccountTypeAPIKey,
-				Concurrency:       1,
-				Credentials:       map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+				ID:          4536,
+				Name:        "grok-api-key",
+				Platform:    PlatformGrok,
+				Type:        AccountTypeOAuth,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"access_token":  "token",
+					"refresh_token": "grok-refresh-token",
+					"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+				},
+				Status:      StatusActive,
+				Schedulable: true,
 			}
 			upstream := &httpUpstreamRecorder{responses: []*http.Response{{
 				StatusCode: http.StatusBadRequest,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
 				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
 			}}}
-			svc := &OpenAIGatewayService{httpUpstream: upstream}
+			svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 			result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 			require.Nil(t, result)
@@ -2375,13 +2372,18 @@ func TestForwardGrokResponsesInvalidEncryptedContentRecoveryNestedErrorShape(t *
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 	account := &Account{
-		ID:                4538,
-		Name:              "grok-api-key",
-		Platform:          PlatformGrok,
-		Type:              AccountTypeAPIKey,
-		Concurrency:       1,
-		Credentials:       map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		ID:          4538,
+		Name:        "grok-api-key",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":  "token",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2395,7 +2397,7 @@ func TestForwardGrokResponsesInvalidEncryptedContentRecoveryNestedErrorShape(t *
 			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_ok","output":[],"usage":{"input_tokens":1,"output_tokens":1}}`)),
 		},
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 	require.NoError(t, err)
@@ -2414,13 +2416,18 @@ func TestForwardGrokResponsesInvalidEncryptedContentRetryFailureIsTerminal(t *te
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 	account := &Account{
-		ID:                4537,
-		Name:              "grok-api-key",
-		Platform:          PlatformGrok,
-		Type:              AccountTypeAPIKey,
-		Concurrency:       1,
-		Credentials:       map[string]any{"api_key": "same-token", "base_url": "https://api.x.ai/v1"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		ID:          4537,
+		Name:        "grok-api-key",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":  "same-token",
+			"refresh_token": "grok-refresh-token",
+			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
+		},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	newInvalidEncryptedResponse := func(requestID string) *http.Response {
 		return &http.Response{
@@ -2436,7 +2443,7 @@ func TestForwardGrokResponsesInvalidEncryptedContentRetryFailureIsTerminal(t *te
 		newInvalidEncryptedResponse("recoverable-first"),
 		newInvalidEncryptedResponse("terminal-second"),
 	}}
-	svc := &OpenAIGatewayService{httpUpstream: upstream}
+	svc := &OpenAIGatewayService{httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(nil, nil)}
 
 	result, err := svc.forwardGrokResponses(context.Background(), c, account, body, "grok", false, time.Now())
 	require.Nil(t, result)
@@ -2457,7 +2464,8 @@ func TestForwardGrokResponsesInvalidEncryptedContentRetryFailureIsTerminal(t *te
 	require.Equal(t, http.StatusBadRequest, c.GetInt(OpsUpstreamStatusCodeKey))
 }
 
-func TestForwardAsChatCompletionsForGrokAPIKeyUsesConfiguredRawEndpointWithoutOAuthIdentity(t *testing.T) {
+// 贴 grok 标签的第三方 key 按中转：走自己配的 Chat Completions 地址，不带 Grok 成品号的 CLI 身份。
+func TestForwardAsChatCompletionsForGrokLabelledKeyUsesConfiguredRawEndpointWithoutOAuthIdentity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -2490,7 +2498,8 @@ func TestForwardAsChatCompletionsForGrokAPIKeyUsesConfiguredRawEndpointWithoutOA
 	require.NotEqual(t, defaultGrokUpstreamUserAgent(), upstream.lastReq.Header.Get("User-Agent"))
 }
 
-func TestForwardAsChatCompletionsForGrokAPIKeyRejectsNonStreamingResponseWithoutUsage(t *testing.T) {
+// grok 模型的用量完整性按模型判定：中转 key 转发 grok 模型、响应没带 usage 同样拒绝。
+func TestForwardAsChatCompletionsForGrokModelOnRelayKeyRejectsNonStreamingResponseWithoutUsage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -2526,77 +2535,6 @@ func TestForwardAsChatCompletionsForGrokAPIKeyRejectsNonStreamingResponseWithout
 	require.Equal(t, grokMissingUsageErrorCode, gjson.GetBytes(failoverErr.ResponseBody, "error.code").String())
 	require.False(t, c.Writer.Written(), "an unbillable response must not be committed to the client")
 	require.Empty(t, recorder.Body.String())
-}
-
-func TestAccountTestServiceGrokAPIKeyUsesXAIResponses(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	account := &Account{
-		ID:          54,
-		Name:        "grok-api-key",
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 2,
-		Credentials: map[string]any{
-			"api_key":  "xai-test-key",
-			"base_url": "https://api.x.ai/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
-	}
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-		Body: io.NopCloser(strings.NewReader(
-			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n" +
-				"data: {\"type\":\"response.completed\"}\n\n",
-		)),
-	}}
-	svc := &AccountTestService{httpUpstream: upstream}
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/54/test", nil)
-
-	err := svc.testGrokAccountConnection(c, account, "grok", "", AccountTestModeDefault, AccountTestOptions{})
-	require.NoError(t, err)
-	require.Equal(t, "https://api.x.ai/v1/responses", upstream.lastReq.URL.String())
-	require.Equal(t, "Bearer xai-test-key", upstream.lastReq.Header.Get("Authorization"))
-	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
-}
-
-func TestAccountTestServiceGrokAPIKeyAllowsConfiguredHTTPWhenGlobalPolicyDoes(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	account := &Account{
-		ID:          55,
-		Name:        "grok-api-key-http",
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "third-party-key",
-			"base_url": "http://grok.example.test/v1",
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://grok.example.test/v1", APIProtocolResponses: "http://grok.example.test/v1"},
-	}
-	upstream := &httpUpstreamRecorder{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-		Body: io.NopCloser(strings.NewReader(
-			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n" +
-				"data: {\"type\":\"response.completed\"}\n\n",
-		)),
-	}}
-	svc := &AccountTestService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/55/test", nil)
-
-	err := svc.testGrokAccountConnection(c, account, "grok", "", AccountTestModeDefault, AccountTestOptions{})
-	require.NoError(t, err)
-	require.Equal(t, "http://grok.example.test/v1/responses", upstream.lastReq.URL.String())
-	require.Equal(t, "Bearer third-party-key", upstream.lastReq.Header.Get("Authorization"))
-	require.Empty(t, upstream.lastReq.Header.Get("X-Grok-Client-Version"))
-	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
 func TestAccountTestServiceGrokOAuthPaymentRequiredTemporarilyUnschedulesAccount(t *testing.T) {

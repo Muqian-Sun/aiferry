@@ -51,12 +51,11 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 
-	account := &Account{
-		// view_image 剔除是 xAI 厂商特化：按官方地址识别厂商，标签不参与。
-		ID: 800, Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
-		Credentials:       map[string]any{"api_key": "test-key"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
-	}
+	// view_image 剔除是 xAI 厂商特化，只对 Grok 成品号（第三方 key 一律按中转，2026-09-29）。
+	account := healthyGrokOAuthGatewayTestAccount(800, "access-token")
+	repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
+		accountsByID: map[int64]*Account{account.ID: account},
+	}}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -64,12 +63,12 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 			`{"id":"chatcmpl","object":"chat.completion","model":"grok-4.6","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}`,
 		)),
 	}}
-	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream, grokTokenProvider: NewGrokTokenProvider(repo, nil), accountRepo: repo}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "https://api.x.ai/v1/chat/completions", upstream.lastReq.URL.String())
+	require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "image_url", gjson.GetBytes(upstream.lastBody, "messages.0.content.1.type").String())
 	assertGrokUpstreamKeepsOtherToolAndDropsViewImage(t, upstream.lastBody, "tools.#(function.name==\"%s\")")
 }

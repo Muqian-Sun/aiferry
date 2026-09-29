@@ -17,7 +17,7 @@ func vendorBenchCandidates(n int, thirdPartyKeys bool) []Account {
 	endpointSets := []map[string]string{
 		// 通用中转，三协议
 		{APIProtocolChatCompletions: "https://relay.example.com/v1", APIProtocolResponses: "https://relay.example.com/v1", APIProtocolAnthropic: "https://relay.example.com"},
-		// 官方 OpenAI
+		// 指向 api.openai.com（按中转，不在官方域名表里）
 		{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 		// 官方 Kimi Coding
 		{APIProtocolChatCompletions: DefaultKimiCodingBaseURL, APIProtocolAnthropic: DefaultKimiCodingAnthropicBaseURL, APIProtocolResponses: DefaultKimiCodingBaseURL},

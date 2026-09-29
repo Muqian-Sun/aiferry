@@ -45,14 +45,14 @@ func TestApplyAccountUsageState_GrokFreeQuotaPauses(t *testing.T) {
 	require.Equal(t, 1, repo.tempCalls)
 }
 
-// Google 官方档位的本地 RPD 用满后按模型档写模型级限流：官方地址的 key 被挡，中转 key 不受影响。
+// Google 官方档位的本地 RPD 用满后按模型档写模型级限流：Gemini 成品号被挡，第三方 key（一律按中转）不受影响。
 func TestApplyAccountUsageState_GeminiLocalRPDSetsModelRateLimit(t *testing.T) {
 	usage := &geminiPrecheckUsageRepoStub{stats: []usagestats.ModelStat{{Model: "gemini-2.5-pro", Requests: 1000}}}
 	quotaSvc := NewGeminiQuotaService(&config.Config{}, nil)
 	repo := &geminiLocalQuotaRepoStub{}
 	rl := NewRateLimitService(repo, usage, &config.Config{}, quotaSvc, nil)
 
-	// 本地按天限流只对免费档成立：官方 API Key 一律按付费档（geminiQuotaTierKeyForAccount），这里用 AI Studio 授权的免费档成品号
+	// 本地按天限流只对免费档成立，这里用 AI Studio 授权的免费档成品号
 	official := &Account{ID: 3007, Platform: PlatformGemini, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
 		Credentials: map[string]any{"oauth_type": "ai_studio", "tier_id": GeminiTierAIStudioFree}}
 	require.Equal(t, PlatformGemini, official.Vendor())

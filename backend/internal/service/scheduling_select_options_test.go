@@ -189,7 +189,7 @@ func TestSelectAccountWithOptions_Transport(t *testing.T) {
 }
 
 // 无模型端点：没有目录路由、没有分组，池按 SelectOptions.Platform 装载（成品号按平台过滤；
-// 第三方 key 任意平台标签都进池，由能力门决定）。
+// 第三方 key 一律不承接厂商原生端点，见 TestSelectAccountWithOptions_PlatformRejectsKeysOfSameLabel）。
 func TestSelectAccountWithOptions_PlatformFiltersPool(t *testing.T) {
 	grokOAuth := Account{
 		ID: 81041, Name: "grok-oauth", Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive,
@@ -231,6 +231,36 @@ func TestSelectAccountWithOptions_PlatformRejectsOtherVendorKeys(t *testing.T) {
 	onlyKey := newProtocolMatchService(t, true, nil, openAIKey)
 	_, err = onlyKey.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
+}
+
+// 厂商原生端点（xAI 搜索 / 语音、OpenAI live）只由该厂商的成品号承接：贴着同一平台标签、地址还是厂商官方
+// 域名的第三方 key 也按中转，不进候选（2026-09-29 海外四家不再有官方 key）。
+func TestSelectAccountWithOptions_PlatformRejectsKeysOfSameLabel(t *testing.T) {
+	grokOAuth := Account{
+		ID: 81061, Name: "grok-oauth", Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive,
+		Schedulable: true, Concurrency: 5, Priority: 50, Credentials: map[string]any{"access_token": "tok"},
+	}
+	grokKey := Account{
+		ID: 81062, Name: "grok-key", Platform: PlatformGrok, Type: AccountTypeAPIKey, Status: StatusActive,
+		Schedulable: true, Concurrency: 5, Priority: 1, Credentials: map[string]any{"api_key": "xai"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"},
+	}
+	ctx := context.Background()
+
+	svc := newProtocolMatchService(t, true, nil, grokOAuth, grokKey)
+	result, err := svc.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	require.NoError(t, err)
+	require.Equal(t, grokOAuth.ID, result.Account.ID, "优先级 1 的 grok 标签 key（地址是 api.x.ai）也不能承接 grok 原生端点")
+
+	onlyKey := newProtocolMatchService(t, true, nil, grokKey)
+	_, err = onlyKey.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	require.ErrorIs(t, err, ErrNoAvailableAccounts)
+
+	ok, reason := SelectOptions{Platform: PlatformGrok}.admits(nil, nil, &grokKey)
+	require.False(t, ok)
+	require.Equal(t, "platform_mismatch", reason)
+	ok, _ = SelectOptions{Platform: PlatformGrok}.admits(nil, nil, &grokOAuth)
+	require.True(t, ok)
 }
 
 // NoSlot（计 token）：不抢槽、不绑粘性、不等待；粘性命中且在候选里就用它，否则优先级 + LRU 首个。

@@ -72,6 +72,17 @@ func TestNormalizeProtocolEndpoints(t *testing.T) {
 	})
 }
 
+// TestPlatformProtocolDefaultsOnlyDomesticProviders 官方预填只有国产厂商与 OpenCode：海外四家只认成品号，
+// 不再预填官方地址（2026-09-29）。
+func TestPlatformProtocolDefaultsOnlyDomesticProviders(t *testing.T) {
+	require.ElementsMatch(t, []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo}, PlatformsWithProtocolDefaults())
+	for _, platform := range []string{PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok} {
+		for _, mode := range []string{"", AccountModeCoding, AccountModeGo} {
+			require.Emptyf(t, PlatformProtocolDefaults(platform, mode), "%s/%s", platform, mode)
+		}
+	}
+}
+
 // TestPlatformProtocolDefaultsCoverRoutedProtocols 固定官方预填与转发路径的一致性：
 // 预填缺了某个协议，按预填建出来的 key 走到该协议时就会报缺地址。
 func TestPlatformProtocolDefaultsCoverRoutedProtocols(t *testing.T) {

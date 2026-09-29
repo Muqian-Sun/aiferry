@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
@@ -149,27 +148,15 @@ func prepareNativeOpenAIInputTokensCountRequest(body []byte, account *Account) (
 	}, nil
 }
 
+// shouldEstimateOpenAIInputTokensLocally 报告 /v1/responses/input_tokens 是否本地估算、不发上游。
+//
+// input_tokens 是 OpenAI 官方 Responses 的子端点：只有 OpenAI 成品号发上游。第三方 key 一律按
+// 中转本地估算（指向 api.openai.com 的 key 也一样，2026-09-29 定）；Grok 与国产供应商没有这个端点。
 func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
-	if account == nil {
+	if account == nil || account.IsThirdPartyKey() {
 		return true
 	}
-	if !account.IsThirdPartyKey() {
-		// 成品号：Grok 与国产供应商没有 input_tokens 端点；OpenAI 成品号走官方端点。
-		return account.IsGrok() || account.IsCNProvider()
-	}
-	// 第三方 key：input_tokens 是 OpenAI 官方 Responses 的子端点，只有 responses 地址指向
-	// api.openai.com 才发上游，平台标签不参与；没有 responses 地址（请求会转成别的协议）
-	// 同样本地估算。与 buildInputTokensUpstreamRequest 判断同一个地址，否则会出现「按 A
-	// 判定是否中转、实际请求 B」。
-	rawBaseURL := account.GetOpenAIResponsesBaseURL()
-	if rawBaseURL == "" {
-		return true
-	}
-	parsed, err := url.Parse(rawBaseURL)
-	if err != nil {
-		return true
-	}
-	return !strings.EqualFold(parsed.Hostname(), "api.openai.com")
+	return account.IsGrok() || account.IsCNProvider()
 }
 
 func isOpenAIResponsesInputTokensUnsupported(account *Account, statusCode int, body []byte) bool {

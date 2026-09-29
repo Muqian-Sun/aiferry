@@ -284,13 +284,9 @@ func (s *AccountTestService) testKeyAnthropicConnection(c *gin.Context, account 
 	if hint := anthropicProbeBaseURLMisconfigHint(baseURL); hint != "" {
 		return s.sendErrorAndEnd(c, hint)
 	}
-	// 与真实转发同一个拼接口径：地址带不带 /v1 都得到 {base}/v1/messages。
-	// ?beta=true 是 Anthropic 官方端点的 beta 开关（GatewayService 对 Anthropic
-	// 网关的 API-Key 转发就这么拼），厂商特化只对官方地址生效；中转按朴素路径。
+	// 地址带不带 /v1 都得到 {base}/v1/messages。第三方 key 一律按中转探测：不带 Anthropic
+	// 官方端点的 ?beta=true 与 anthropic-beta（指向 api.anthropic.com 的 key 也一样）。
 	apiURL := joinUpstreamEndpointURL(baseURL, "/v1/messages")
-	if account.Vendor() == PlatformAnthropic {
-		apiURL = joinAnthropicBetaEndpointURL(baseURL, "/v1/messages")
-	}
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -315,11 +311,6 @@ func (s *AccountTestService) testKeyAnthropicConnection(c *gin.Context, account 
 	req.Header.Set("anthropic-version", "2023-06-01")
 	for key, value := range claude.DefaultHeaders {
 		req.Header.Set(key, value)
-	}
-	if account.Vendor() == PlatformAnthropic {
-		// 官方端点的 beta 能力开关，与 ?beta=true 同源的厂商特化；中转不带，
-		// 未知 beta 名会被部分中转当成 400。
-		req.Header.Set("anthropic-beta", claude.APIKeyBetaHeader)
 	}
 	// Ollama Cloud Anthropic 兼容端点按实际 base_url 强制 Bearer，其余保持
 	// extra/default 行为。

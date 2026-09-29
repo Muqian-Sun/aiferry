@@ -548,21 +548,6 @@ describe('EditAccountModal', () => {
     expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://api.minimax.io/anthropic' })
   })
 
-  it('applies a Grok preset to the configured Grok endpoints', async () => {
-    const account = buildGrokAPIKeyAccount()
-    updateAccountMock.mockReset().mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const preset = wrapper.findAll('[data-testid="grok-base-url-preset"]').find(button => button.text().includes('eu-west-1'))
-    expect(preset).toBeDefined()
-    await preset!.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      responses: 'https://eu-west-1.api.x.ai/v1'
-    })
-  })
-
   it('keeps every mapping row, same-name rows included, and saves the mapping as rename-only', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = {

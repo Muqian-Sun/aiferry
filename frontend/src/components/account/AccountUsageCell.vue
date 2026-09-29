@@ -219,7 +219,7 @@
     </template>
 
     <!-- Gemini：授权通道与等级 + 本地模拟的每日配额 -->
-    <template v-else-if="account.platform === 'gemini'">
+    <template v-else-if="isGeminiSubscription">
       <div v-if="geminiAuthTypeLabel" class="space-y-0.5 text-xs text-af-ink-3" data-testid="gemini-quota-policy">
         <p class="font-medium text-af-ink-2">{{ geminiAuthTypeLabel }}</p>
         <p>
@@ -260,7 +260,7 @@
 
     <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.none') }}</p>
 
-    <!-- 第三方 key / Bedrock 设了配额时的日 / 周 / 总额度（成本口径）。平台标签是 Gemini、国产平台的 key 也能设额度，
+    <!-- 第三方 key / Bedrock 设了配额时的日 / 周 / 总额度（成本口径）。国产平台的 key 也能设额度，
          所以不放进上面按平台分的分支里（容量里已不再重复画额度，这里是唯一一处） -->
     <UsageProgressBar
       v-for="bar in quotaBars"
@@ -318,10 +318,14 @@ const isAnthropicOAuthOrSetupToken = computed(() =>
   props.account.platform === 'anthropic' && (props.account.type === 'oauth' || props.account.type === 'setup-token')
 )
 
+// Gemini 的授权通道 / 等级 / 模拟配额只对成品号（OAuth、Vertex）成立：第三方 key 一律按中转处理
+// （muqian 2026-09-29 删海外四家官方 Key），平台标签是 gemini 的 key 只是按 Gemini 协议归族，走下面的通用额度
+const isGeminiSubscription = computed(() => props.account.platform === 'gemini' && props.account.type !== 'apikey')
+
 // 只有这些渠道有上游用量接口可拉
 const shouldFetchUsage = computed(() => {
   if (isAnthropicOAuthOrSetupToken.value) return true
-  if (props.account.platform === 'gemini') return true
+  if (isGeminiSubscription.value) return true
   if (['antigravity', 'grok', 'openai'].includes(props.account.platform)) return props.account.type === 'oauth'
   return false
 })
@@ -443,8 +447,7 @@ const isGeminiCodeAssist = computed(() => {
 type GeminiChannel = 'aiStudio' | 'codeAssist' | 'googleOne' | 'client'
 
 const geminiChannel = computed((): GeminiChannel | null => {
-  if (props.account.platform !== 'gemini') return null
-  if (props.account.type === 'apikey') return 'aiStudio'
+  if (!isGeminiSubscription.value) return null
   if (geminiOAuthType.value === 'google_one') return 'googleOne'
   if (isGeminiCodeAssist.value) return 'codeAssist'
   if (geminiOAuthType.value === 'ai_studio') return 'client'
@@ -455,7 +458,7 @@ const geminiChannel = computed((): GeminiChannel | null => {
 type GeminiLevel = 'free' | 'pro' | 'ultra' | 'standard' | 'enterprise' | 'paid'
 
 const geminiUserLevel = computed((): GeminiLevel | null => {
-  if (props.account.platform !== 'gemini') return null
+  if (!isGeminiSubscription.value) return null
 
   const tier = (geminiTier.value || '').toString().trim()
   const tierLower = tier.toLowerCase()
@@ -481,13 +484,13 @@ const geminiUserLevel = computed((): GeminiLevel | null => {
     return 'standard'
   }
 
-  // AI Studio（API Key 与客户端 OAuth）：free / paid
-  if (props.account.type === 'apikey' || geminiOAuthType.value === 'ai_studio') {
+  // AI Studio 客户端 OAuth：free / paid
+  if (geminiOAuthType.value === 'ai_studio') {
     if (tierLower === 'aistudio_paid') return 'paid'
     if (tierLower === 'aistudio_free') return 'free'
     if (tierUpper.includes('PAID') || tierUpper.includes('PAYG') || tierUpper.includes('PAY')) return 'paid'
     if (tierUpper.includes('FREE')) return 'free'
-    return props.account.type === 'apikey' ? 'free' : null
+    return null
   }
 
   return null
@@ -544,7 +547,7 @@ const geminiUsesSharedDaily = computed(() => {
 
 const geminiUsageBars = computed(() => {
   const info = usageInfo.value
-  if (props.account.platform !== 'gemini' || !info) return []
+  if (!isGeminiSubscription.value || !info) return []
 
   const bars: Array<{ key: string; label: string; utilization: number; resetsAt: string | null; windowStats?: WindowStats | null }> = []
   if (geminiUsesSharedDaily.value) {

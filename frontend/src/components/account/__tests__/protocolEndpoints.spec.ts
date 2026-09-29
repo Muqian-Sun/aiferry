@@ -8,7 +8,6 @@ vi.mock('@/api/admin/accounts', () => ({
 
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import {
-  applyPresetUrl,
   describeProtocolEndpointsIssue,
   endpointsAfterDefaultsChange,
   loadProtocolDefaults,
@@ -140,26 +139,6 @@ describe('describeProtocolEndpointsIssue', () => {
     )
     expect(describeProtocolEndpointsIssue({ kind: 'empty' }, t)).toBe('admin.accounts.protocolEndpoints.errors.empty')
     expect(describeProtocolEndpointsIssue({ kind: 'multiple' }, t)).toBe('admin.accounts.protocolEndpoints.errors.multiple')
-  })
-})
-
-describe('applyPresetUrl', () => {
-  const both = ['chat_completions', 'responses'] as const
-
-  it('keeps the configured protocol when the preset serves it', () => {
-    expect(applyPresetUrl({ responses: 'https://api.x.ai/v1' }, both, 'https://eu-west-1.api.x.ai/v1')).toEqual({
-      responses: 'https://eu-west-1.api.x.ai/v1'
-    })
-  })
-
-  it('switches to the preset\'s first protocol when the configured one is not served', () => {
-    expect(applyPresetUrl({ anthropic: 'https://a.example' }, both, 'https://api.x.ai/v1')).toEqual({
-      chat_completions: 'https://api.x.ai/v1'
-    })
-  })
-
-  it('fills the preset\'s first protocol when none is configured', () => {
-    expect(applyPresetUrl({}, both, 'https://api.x.ai/v1')).toEqual({ chat_completions: 'https://api.x.ai/v1' })
   })
 })
 

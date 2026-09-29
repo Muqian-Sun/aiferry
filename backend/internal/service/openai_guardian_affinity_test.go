@@ -204,17 +204,21 @@ func TestOpenAIGatewayService_GuardianParentHashCollisionPreservesParentBinding(
 
 // 续链绑定的账号（不论它绑着什么分组——池是全部资源）命中，并作为预取粘性被选中。
 func TestOpenAIGatewayService_PreviousResponseBoundAccountSelectedAsPrefetch(t *testing.T) {
+	// 续链只对第三方 key 的 HTTP Responses 成立；key 走目录路由（平台池只放成品号，2026-09-29）。
+	const entryID = int64(7)
 	bound := Account{
 		ID: 39051, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1,
 		Extra:             map[string]any{},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
+		CatalogEntryIDs:   []int64{entryID},
 	}
 	fallback := Account{
 		ID: 39052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
 		Extra:             map[string]any{},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
+		CatalogEntryIDs:   []int64{entryID},
 	}
 	accounts := []Account{bound, fallback}
 	repo := &guardianAffinityAccountRepo{schedulerTestOpenAIAccountRepo: schedulerTestOpenAIAccountRepo{accounts: accounts}}
@@ -238,8 +242,9 @@ func TestOpenAIGatewayService_PreviousResponseBoundAccountSelectedAsPrefetch(t *
 	require.Equal(t, bound.ID, stickyID)
 
 	gw := newGuardianScheduler(svc)
-	ctx := WithPrefetchedStickySession(context.Background(), stickyID, SchedulingScopeID(context.Background()), false)
-	selection, err := gw.SelectAccountWithOptions(ctx, "", codexAutoReviewModel, nil, SelectOptions{Capability: OpenAIEndpointCapabilityResponses, Platform: PlatformOpenAI})
+	routed := WithInboundProtocol(WithCatalogRoute(context.Background(), CatalogRoute{EntryID: entryID, Entry: &ModelCatalogEntry{ID: entryID, ModelID: codexAutoReviewModel}}), APIProtocolResponses)
+	ctx := WithPrefetchedStickySession(routed, stickyID, SchedulingScopeID(routed), false)
+	selection, err := gw.SelectAccountWithOptions(ctx, "", codexAutoReviewModel, nil, SelectOptions{Capability: OpenAIEndpointCapabilityResponses})
 	require.NoError(t, err)
 	require.NotNil(t, selection)
 	require.Equal(t, bound.ID, selection.Account.ID)

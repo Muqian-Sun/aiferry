@@ -30,8 +30,9 @@ type accountSchedulingThresholdCandidate struct {
 //
 // 阈值与用量快照描述的是上游厂商的额度窗口（Codex 5h/7d、Anthropic 统一限流、xAI 配额、
 // 国产 Coding Plan、OpenCode Go），按 Vendor 选阈值与快照读取方式，不看第三方 key 的平台
-// 标签：成品号 Vendor 即平台，行为不变；官方地址的 key 按其厂商评估；通用中转（Vendor 为空）
-// 转发来的限流头不代表某个固定上游账号的窗口，不参与阈值停调。
+// 标签：成品号 Vendor 即平台；国产厂商与 OpenCode 官方地址的 key 按其厂商评估；通用中转
+// （Vendor 为空，含指向海外四家官方域名的 key）转发来的限流头不代表某个固定上游账号的窗口，
+// 不参与阈值停调。
 func EvaluateAccountSchedulingThreshold(account *Account, thresholds map[string]int, now time.Time) AccountSchedulingThresholdDecision {
 	decision := AccountSchedulingThresholdDecision{}
 	if account == nil {

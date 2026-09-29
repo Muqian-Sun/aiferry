@@ -12,21 +12,15 @@ import (
 )
 
 func grokBaseURLValidator(account *Account, cfg *config.Config) (xai.BaseURLValidator, error) {
-	if account == nil {
-		return nil, fmt.Errorf("grok account is required")
-	}
-	// 第三方 key 的地址来自管理员填写的协议映射，按出站 URL 安全策略校验，与标签无关。
-	if account.IsThirdPartyKey() {
-		return redactedGrokBaseURLValidator(grokOperatorPolicyValidator(cfg)), nil
-	}
-	if !account.IsGrok() {
+	// 只有 Grok 成品号走 Grok 链路；第三方 key（含指向 xAI 官方域名的）按中转走通用链路。
+	if account.Vendor() != PlatformGrok {
 		return nil, fmt.Errorf("grok account is required")
 	}
 	switch account.Type {
 	case AccountTypeOAuth:
 		// Official gateway hosts are always trusted and always usable, even when
 		// the operator enables a restrictive URL allowlist. A custom forwarding
-		// host is vetted by the same operator policy as API-key accounts.
+		// host is vetted by the operator's outbound URL policy.
 		//
 		// The official-vs-custom decision is made on the host, not via
 		// ValidateTrustedBaseURL: that validator relaxes to accept-any under the
@@ -79,25 +73,7 @@ func buildGrokResponsesURL(account *Account, cfg *config.Config) (string, error)
 	if err != nil {
 		return "", err
 	}
-	baseURL, err := grokProtocolBaseURL(account, APIProtocolResponses)
-	if err != nil {
-		return "", err
-	}
-	return xai.BuildResponsesURLWithValidator(baseURL, validator)
-}
-
-// grokProtocolBaseURL 取 Grok 文本流量在指定协议下的上游地址。
-//
-// 第三方 key 只认该协议的映射，缺了直接报错；成品号用站点默认区域（代码常量 GrokDefaultBaseURLMode）。
-func grokProtocolBaseURL(account *Account, protocol string) (string, error) {
-	if account.IsThirdPartyKey() {
-		baseURL := account.ProtocolEndpoint(protocol)
-		if baseURL == "" {
-			return "", MissingProtocolEndpointError(account, protocol)
-		}
-		return baseURL, nil
-	}
-	return resolveGrokBaseURL(account), nil
+	return xai.BuildResponsesURLWithValidator(resolveGrokBaseURL(account), validator)
 }
 
 func buildGrokChatCompletionsURL(account *Account, cfg *config.Config) (string, error) {
@@ -105,11 +81,7 @@ func buildGrokChatCompletionsURL(account *Account, cfg *config.Config) (string, 
 	if err != nil {
 		return "", err
 	}
-	baseURL, err := grokProtocolBaseURL(account, APIProtocolChatCompletions)
-	if err != nil {
-		return "", err
-	}
-	return xai.BuildChatCompletionsURLWithValidator(baseURL, validator)
+	return xai.BuildChatCompletionsURLWithValidator(resolveGrokBaseURL(account), validator)
 }
 
 // buildGrokBillingURL 解析 billing 探测端点：跟随账号的转发 base_url，
@@ -135,9 +107,6 @@ func buildGrokMediaURL(account *Account, cfg *config.Config, endpoint GrokMediaE
 		return "", err
 	}
 	baseURL := account.GetGrokMediaBaseURL()
-	if baseURL == "" {
-		return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
-	}
 	switch endpoint {
 	case GrokMediaEndpointImagesGenerations:
 		return xai.BuildImagesGenerationsURLWithValidator(baseURL, validator)
@@ -171,13 +140,7 @@ func buildGrokVoiceURL(account *Account, cfg *config.Config, endpoint string) (s
 	if err != nil {
 		return "", err
 	}
-	base := ""
-	if account != nil {
-		base = account.GetGrokMediaBaseURL()
-		if base == "" && account.IsThirdPartyKey() {
-			return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
-		}
-	}
+	base := account.GetGrokMediaBaseURL()
 	if strings.TrimSpace(base) == "" || isGrokCLIProxyBaseURL(base) {
 		base = xai.DefaultBaseURL
 	}

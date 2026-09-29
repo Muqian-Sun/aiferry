@@ -34,7 +34,14 @@ func TestAccountHandler_GetProtocolDefaults_VendorHosts(t *testing.T) {
 	require.Equal(t, service.OfficialVendorHosts(), body.Data.VendorHosts)
 	require.Equal(t, service.PlatformKimi, body.Data.VendorHosts["api.kimi.com"])
 	require.Equal(t, service.PlatformKimi, body.Data.VendorHosts["api.moonshot.ai"], "国际站不在预填表里，也要下发")
-	require.Equal(t, service.PlatformOpenAI, body.Data.VendorHosts["api.openai.com"])
+	// 海外四家不再有官方 key（2026-09-29）：既不预填官方地址，也不按地址提示厂商。
+	for _, host := range []string{"api.anthropic.com", "api.openai.com", "generativelanguage.googleapis.com", "api.x.ai"} {
+		require.NotContains(t, body.Data.VendorHosts, host)
+	}
+	for _, platform := range []string{service.PlatformAnthropic, service.PlatformOpenAI, service.PlatformGemini, service.PlatformGrok} {
+		require.NotContains(t, body.Data.Defaults, platform)
+	}
+	require.Contains(t, body.Data.Defaults, service.PlatformDeepseek)
 	for host, vendor := range body.Data.VendorHosts {
 		require.Equal(t, vendor, service.OfficialVendorOfURL("https://"+host), host)
 	}

@@ -492,8 +492,14 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			account: &Account{ID: 7, Platform: domain.PlatformDeepseek},
 		},
 		{
-			name:    "anthropic api key cannot query usage",
+			// 海外四家不再有官方 key（2026-09-29）：指向官方域名的 key 按中转，没有数据源。
+			name:    "key on api.anthropic.com is a relay without quota source",
 			account: &Account{ID: 8, Platform: domain.PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}},
+			wantErr: ErrChannelMonitorAccountNotSupportable,
+		},
+		{
+			name:    "anthropic bedrock cannot query usage",
+			account: &Account{ID: 16, Platform: domain.PlatformAnthropic, Type: AccountTypeBedrock},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
@@ -505,7 +511,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			account: &Account{ID: 10, Platform: domain.PlatformAnthropic, Type: AccountTypeSetupToken},
 		},
 		{
-			name:    "openai api key cannot query usage",
+			name:    "key on api.openai.com is a relay without quota source",
 			account: &Account{ID: 11, Platform: domain.PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
@@ -514,13 +520,23 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			account: &Account{ID: 12, Platform: domain.PlatformOpenAI, Type: AccountTypeOAuth},
 		},
 		{
-			// 防过度拦截：gemini/grok/antigravity 走本地统计/值通道降级，不会永久 error。
-			name:    "gemini api key ok",
+			name:    "key on gemini official host is a relay without quota source",
 			account: &Account{ID: 13, Platform: domain.PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
+			wantErr: ErrChannelMonitorAccountNotSupportable,
+		},
+		{
+			name:    "key on api.x.ai is a relay without quota source",
+			account: &Account{ID: 17, Platform: domain.PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1"}},
+			wantErr: ErrChannelMonitorAccountNotSupportable,
+		},
+		{
+			// 防过度拦截：gemini/grok/antigravity 成品号走本地统计/值通道降级，不会永久 error。
+			name:    "gemini oauth ok",
+			account: &Account{ID: 18, Platform: domain.PlatformGemini, Type: AccountTypeOAuth},
 		},
 		{
 			name:    "grok ok",
-			account: &Account{ID: 14, Platform: domain.PlatformGrok},
+			account: &Account{ID: 14, Platform: domain.PlatformGrok, Type: AccountTypeOAuth},
 		},
 		{
 			name:    "antigravity ok",

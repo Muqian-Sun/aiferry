@@ -113,22 +113,8 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			_, err := accountTest.buildUpstreamModelsRequest(ctx, apiKey(PlatformAnthropic))
 			return err
 		}},
-		{"grok responses", func() error {
-			_, err := buildGrokResponsesURL(apiKey(PlatformGrok), cfg)
-			return err
-		}},
-		{"grok chat completions", func() error {
-			_, err := buildGrokChatCompletionsURL(apiKey(PlatformGrok), cfg)
-			return err
-		}},
-		{"grok media", func() error {
-			_, err := buildGrokMediaURL(apiKey(PlatformGrok), cfg, GrokMediaEndpointImagesGenerations, "")
-			return err
-		}},
-		{"grok voice", func() error {
-			_, err := buildGrokVoiceURL(apiKey(PlatformGrok), cfg, "tts")
-			return err
-		}},
+		// Grok 的 Responses / Chat / 媒体 / 语音地址只对 Grok 成品号，第三方 key 在 grokBaseURLValidator 就被拒
+		// （TestGrokURLBuildersRejectThirdPartyKeys），走不到取址。
 		{"cn coding plan quota", func() error {
 			// 只配 anthropic 官方 Go 地址：能识别成 OpenCode Go，额度 URL 仍要
 			// chat_completions 根地址，缺了必须报 MISSING_PROTOCOL_ENDPOINT。

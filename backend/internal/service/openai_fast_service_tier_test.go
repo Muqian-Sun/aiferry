@@ -689,10 +689,11 @@ func TestForwardAsChatCompletions_KeepsOutboundAndObservedServiceTiersSeparate(t
 		httpUpstream:   upstream,
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
+	// 只配 responses 地址：入站 Chat Completions 转 Responses（指向 api.openai.com 的 key 按中转、同协议直连
+	// 优先，配了 CC 地址就不转了，2026-09-29）。
 	account := &Account{
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com",
-			APIProtocolResponses:       "https://api.openai.com",
+			APIProtocolResponses: "https://api.openai.com",
 		},
 		ID:          21,
 		Name:        "openai-compatible",

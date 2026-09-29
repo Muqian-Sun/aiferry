@@ -282,8 +282,10 @@ func normalizeAccountConcurrency(platform, accountType string, concurrency int) 
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
 // resolveCreateAccountPlatform 第三方 key 不再要求填平台（管理端添加渠道先选「第三方 key / 成品号」，
-// key 只填地址 + Key，2026-09-25）：没带平台时按地址推导——认得出官方厂商就是该厂商，指向中转的按主协议归族
-// （AccountModelFamily）。这个标签仍用于无模型接口（联网搜索 / 语音 / live）按平台归池。成品号的厂商决定授权流程，必须填。
+// key 只填地址 + Key，2026-09-25）：没带平台时按地址推导——认得出国产厂商 / OpenCode 的官方地址就是该厂商，
+// 其余一律按中转、按主协议归族（AccountModelFamily；指向海外四家官方域名的 key 也按协议归族，不会得到 grok 标签）。
+// 这个标签仍用于无模型端点按平台归池（厂商原生端点另要求成品号，见 SelectOptions.Platform）。
+// 成品号的厂商决定授权流程，必须填。
 func resolveCreateAccountPlatform(input *CreateAccountInput) error {
 	input.Platform = strings.TrimSpace(input.Platform)
 	if input.Platform != "" {

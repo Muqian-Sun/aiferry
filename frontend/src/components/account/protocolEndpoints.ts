@@ -51,18 +51,6 @@ function configuredProtocols(endpoints: ProtocolEndpoints): UpstreamProtocol[] {
   return Object.keys(endpoints) as UpstreamProtocol[]
 }
 
-/** 各平台默认承接的协议：厂商原生协议；没列出的（国产供应商、中转）默认 Chat Completions。 */
-const PREFERRED_PROTOCOL_BY_PLATFORM: Record<string, UpstreamProtocol> = {
-  anthropic: 'anthropic',
-  openai: 'responses',
-  gemini: 'gemini',
-  grok: 'responses',
-}
-
-export function preferredProtocolFor(platform: string): UpstreamProtocol {
-  return PREFERRED_PROTOCOL_BY_PLATFORM[platform] ?? 'chat_completions'
-}
-
 /** 从一份多协议的官方地址里挑一个：优先 preferred，没有就按 UPSTREAM_PROTOCOLS 顺序取第一个。 */
 export function pickSingleEndpoint(endpoints: ProtocolEndpoints, preferred: UpstreamProtocol): ProtocolEndpoints {
   if (endpoints[preferred] !== undefined) return { [preferred]: endpoints[preferred] }
@@ -89,7 +77,8 @@ export function sameEndpoints(a: ProtocolEndpoints, b: ProtocolEndpoints): boole
  * 平台或模式切换后是否换成新的官方地址：当前为空、或当前协议的地址仍等于切换前的官方地址
  * （管理员没改过）时替换成新官方地址里 preferred 那个协议（没有就按协议顺序取第一个）；
  * 管理员手填过的地址保留，避免切换一下就被吞掉。结果只含一个协议。
- * preferred 由调用方定：换了平台用新平台的默认协议，同一平台换模式（按量 / 套餐）传当前协议。
+ * preferred 由调用方定：换模式（按量 / 套餐）传当前协议；还没配协议时传 Chat Completions
+ * （有官方地址的只剩国产厂商与 OpenCode，默认都承接 Chat Completions）。
  */
 export function endpointsAfterDefaultsChange(
   current: ProtocolEndpoints,
@@ -145,20 +134,6 @@ export function describeProtocolEndpointsIssue(issue: ProtocolEndpointsIssue, t:
   }
   const protocol = t(`admin.accounts.protocolEndpoints.protocols.${issue.protocol}`)
   return t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
-}
-
-/**
- * 把一个预设地址填进当前协议：当前协议在预设支持的协议里就填它，否则换成预设的第一个协议。
- * 用于同一地址服务多个协议的预设（如 Grok）。结果只含一个协议。
- */
-export function applyPresetUrl(
-  endpoints: ProtocolEndpoints,
-  protocols: readonly UpstreamProtocol[],
-  url: string
-): ProtocolEndpoints {
-  const [current] = configuredProtocols(endpoints)
-  const protocol = current && protocols.includes(current) ? current : protocols[0]
-  return protocol ? { [protocol]: url } : { ...endpoints }
 }
 
 /** 提交用的映射：地址去首尾空白。须先通过 validateProtocolEndpoints。 */

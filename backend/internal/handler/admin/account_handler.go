@@ -2068,8 +2068,8 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	// 默认模型表按厂商族选：成品号看平台；第三方 key 不看标签——按地址识别出官方厂商就用
-	// 该厂商的表，指向中转的按主协议归到对应协议族（Anthropic / Gemini / OpenAI 兼容）。
+	// 默认模型表按厂商族选：成品号看平台；第三方 key 不看标签——按地址识别出国产厂商 / OpenCode
+	// 就用该厂商的表，其余按中转、按主协议归到对应协议族（Anthropic / Gemini / OpenAI 兼容）。
 	family := service.AccountModelFamily(account)
 
 	// Handle OpenAI-compatible accounts
@@ -2620,7 +2620,8 @@ func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
 			out[platform] = perMode
 		}
 	}
-	// vendor_hosts：官方域名 → 厂商，建第三方 key 时前端据此按地址提示厂商（key 不选平台）
+	// vendor_hosts：官方域名 → 厂商（只有国产厂商与 OpenCode），建第三方 key 时前端据此按地址提示厂商
+	//（key 不选平台）；认不出的地址（含海外四家官方域名）提示按中转处理。
 	response.Success(c, gin.H{
 		"protocols":    service.UpstreamProtocols(),
 		"defaults":     out,

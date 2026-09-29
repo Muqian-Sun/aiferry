@@ -503,7 +503,7 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 		endpoints   map[string]string
 	}{
 		{name: "oauth", accountType: AccountTypeOAuth, credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"}},
-		{name: "apikey", accountType: AccountTypeAPIKey, credentials: map[string]any{"api_key": "sk-test"}, endpoints: PlatformProtocolDefaults(PlatformOpenAI, "")},
+		{name: "apikey", accountType: AccountTypeAPIKey, credentials: map[string]any{"api_key": "sk-test"}, endpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"}},
 	}
 	parallelCases := []struct {
 		name  string
