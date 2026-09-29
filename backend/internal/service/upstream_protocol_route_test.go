@@ -15,25 +15,22 @@ func TestKeyUpstreamProtocols(t *testing.T) {
 		name     string
 		group    string
 		inbound  string
-		vendor   string
 		expected []string
 	}{
-		{"anthropic 分组只转 anthropic", PlatformAnthropic, cc, "", []string{anthropic}},
-		{"gemini 分组只转 gemini", PlatformGemini, anthropic, "", []string{gemini}},
-		{"antigravity 分组入站 gemini", PlatformAntigravity, gemini, "", []string{gemini}},
-		{"antigravity 分组入站 messages", PlatformAntigravity, anthropic, "", []string{anthropic}},
-		{"OpenAI 网关入站 responses 同协议优先", PlatformDeepseek, responses, "", []string{responses, cc, anthropic}},
-		{"OpenAI 网关入站 CC 同协议优先", PlatformOpenAI, cc, "", []string{cc, responses, anthropic}},
-		{"OpenAI 网关入站 messages 同协议优先", PlatformGrok, anthropic, PlatformGrok, []string{anthropic, responses, cc}},
-		{"官方 OpenAI 入站 CC 先转 Responses", PlatformOpenAI, cc, PlatformOpenAI, []string{responses, cc}},
-		{"官方 OpenAI 入站 messages 先转 Responses", PlatformOpenAI, anthropic, PlatformOpenAI, []string{responses, cc}},
-		{"OpenAI 扩展端点只认 CC 根地址", PlatformOpenAI, "", "", []string{cc}},
-		{"OpenAI 网关不收 gemini 入站", PlatformOpenAI, gemini, "", nil},
-		{"未知分组平台没有可用协议", "", cc, "", nil},
+		{"anthropic 分组只转 anthropic", PlatformAnthropic, cc, []string{anthropic}},
+		{"gemini 分组只转 gemini", PlatformGemini, anthropic, []string{gemini}},
+		{"antigravity 分组入站 gemini", PlatformAntigravity, gemini, []string{gemini}},
+		{"antigravity 分组入站 messages", PlatformAntigravity, anthropic, []string{anthropic}},
+		{"OpenAI 网关入站 responses 同协议优先", PlatformDeepseek, responses, []string{responses, cc, anthropic}},
+		{"OpenAI 网关入站 CC 同协议优先", PlatformOpenAI, cc, []string{cc, responses, anthropic}},
+		{"OpenAI 网关入站 messages 同协议优先", PlatformGrok, anthropic, []string{anthropic, responses, cc}},
+		{"OpenAI 扩展端点只认 CC 根地址", PlatformOpenAI, "", []string{cc}},
+		{"OpenAI 网关不收 gemini 入站", PlatformOpenAI, gemini, nil},
+		{"未知分组平台没有可用协议", "", cc, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, KeyUpstreamProtocols(tc.group, tc.inbound, tc.vendor))
+			require.Equal(t, tc.expected, KeyUpstreamProtocols(tc.group, tc.inbound))
 		})
 	}
 }

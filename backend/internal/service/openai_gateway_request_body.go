@@ -77,15 +77,10 @@ func (s *OpenAIGatewayService) openAIKeyResponsesURL(account *Account) (string, 
 	return buildOpenAIResponsesURLForVendor(account.Vendor(), validatedURL), nil
 }
 
+// shouldPreserveOpenAIResponsesNoneReasoningEffort 只有 OpenAI 成品号保留 "none"：第三方 key
+// 一律按兼容上游处理（兼容上游不认 "none"），指向 OpenAI 官方域名的 key 也一样。
 func shouldPreserveOpenAIResponsesNoneReasoningEffort(account *Account) bool {
-	if account == nil {
-		return false
-	}
-	if account.IsOpenAIOAuthLike() {
-		return true
-	}
-	// 第三方 key 只在地址指向 OpenAI 官方时保留：兼容上游不认 "none"。
-	return account.IsThirdPartyKey() && account.Vendor() == PlatformOpenAI
+	return account.IsOpenAIOAuthLike()
 }
 
 // Codex 0.149.0 needs a single advertised effort to directly select a visible

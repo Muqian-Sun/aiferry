@@ -91,19 +91,3 @@ func TestGatewayServiceForward_RelayKeyFastTierFollowsUpstreamSpeed(t *testing.T
 		})
 	}
 }
-
-// web_search 模拟只适用于第三方 key，与展示标签无关；成品号恒不适用。
-func TestWebSearchEmulationAppliesTo_KeysOfAnyLabelSubscriptionsNever(t *testing.T) {
-	key := &Account{
-		Platform:          PlatformOpenAI,
-		Type:              AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
-	}
-	require.True(t, webSearchEmulationAppliesTo(key))
-
-	subscription := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeOAuth,
-	}
-	require.False(t, webSearchEmulationAppliesTo(subscription))
-}

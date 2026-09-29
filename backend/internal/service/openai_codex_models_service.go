@@ -802,14 +802,11 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	if account == nil {
 		return false
 	}
-	// 成品号按平台；第三方 key 不看标签：官方 xAI 地址的 key 走 Grok 规则，
-	// 其余一律按 OpenAI 兼容清单处理。
+	// 成品号按平台；第三方 key 不看标签，一律按 OpenAI 兼容清单处理（指向 xAI 官方域名的 key
+	// 也按中转，不走 Grok 规则）。
 	platform := account.Platform
 	if account.IsThirdPartyKey() {
 		platform = PlatformOpenAI
-		if account.Vendor() == PlatformGrok {
-			platform = PlatformGrok
-		}
 	}
 	switch platform {
 	case PlatformOpenAI:
@@ -819,7 +816,7 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 				// text-only modality list. Keep explicit provider metadata
 				// authoritative for compatible hosts, but repair that stale
 				// official snapshot at the capability boundary.
-				if isOpenAIGPT6AstraModel(upstreamModel) && isOfficialOpenAICodexAccount(account) {
+				if isOpenAIGPT6AstraModel(upstreamModel) && account.IsOpenAIOAuth() {
 					return true
 				}
 				return stringSliceContains(modalities, "image")
@@ -843,18 +840,6 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	default:
 		return false
 	}
-}
-
-// isOfficialOpenAICodexAccount 报告账号是否直连 OpenAI 官方：OpenAI 成品号，或协议地址
-// 全是 OpenAI 官方域的第三方 key（不看平台标签）。
-func isOfficialOpenAICodexAccount(account *Account) bool {
-	if account == nil {
-		return false
-	}
-	if account.IsThirdPartyKey() {
-		return account.Vendor() == PlatformOpenAI
-	}
-	return account.IsOpenAIOAuth()
 }
 
 func isGrokCodexImageInputModel(model string) bool {

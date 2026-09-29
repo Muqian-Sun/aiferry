@@ -23,13 +23,11 @@ func IsOpenAIGatewayPlatform(platform string) bool {
 //   - antigravity 分组：入站 gemini 走 gemini，其余走 anthropic；
 //   - OpenAI 网关的分组能在 responses、chat_completions、anthropic 之间互转。
 //
-// OpenAI 网关上同协议直连优先，没有才转换。例外是官方 OpenAI 地址：入站
-// Chat Completions 与 Messages 也先转 Responses——codex 系列模型只在 Responses
-// 上提供，这是 OpenAI 的厂商特性，不套到中转上。
+// OpenAI 网关上同协议直连优先，没有才转换；不分厂商（第三方 key 的厂商特化不改协议选择）。
 //
 // 入站协议为空（图片、向量、搜索等 OpenAI 扩展端点）时只认 chat_completions
 // 地址：这些端点与 Chat Completions 挂在同一个 OpenAI API 根地址下。
-func KeyUpstreamProtocols(groupPlatform, inboundProtocol, vendor string) []string {
+func KeyUpstreamProtocols(groupPlatform, inboundProtocol string) []string {
 	switch {
 	case groupPlatform == PlatformAnthropic:
 		return []string{APIProtocolAnthropic}
@@ -41,18 +39,15 @@ func KeyUpstreamProtocols(groupPlatform, inboundProtocol, vendor string) []strin
 		}
 		return []string{APIProtocolAnthropic}
 	case IsOpenAIGatewayPlatform(groupPlatform):
-		return openAIGatewayKeyUpstreamProtocols(inboundProtocol, vendor)
+		return openAIGatewayKeyUpstreamProtocols(inboundProtocol)
 	default:
 		return nil
 	}
 }
 
-func openAIGatewayKeyUpstreamProtocols(inboundProtocol, vendor string) []string {
+func openAIGatewayKeyUpstreamProtocols(inboundProtocol string) []string {
 	if inboundProtocol == "" {
 		return []string{APIProtocolChatCompletions}
-	}
-	if vendor == PlatformOpenAI {
-		return []string{APIProtocolResponses, APIProtocolChatCompletions}
 	}
 	switch inboundProtocol {
 	case APIProtocolResponses:
@@ -75,7 +70,7 @@ func (a *Account) KeyUpstreamProtocolFor(groupPlatform, inboundProtocol string) 
 	if a == nil || !a.IsThirdPartyKey() {
 		return ""
 	}
-	for _, protocol := range KeyUpstreamProtocols(groupPlatform, inboundProtocol, a.Vendor()) {
+	for _, protocol := range KeyUpstreamProtocols(groupPlatform, inboundProtocol) {
 		if a.ProtocolEndpoint(protocol) != "" {
 			return protocol
 		}

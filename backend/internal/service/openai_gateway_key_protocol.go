@@ -24,7 +24,7 @@ func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string) (
 	if protocol := openAIGatewayKeyProtocol(account, inboundProtocol); protocol != "" {
 		return protocol, nil
 	}
-	return "", MissingProtocolEndpointError(account, strings.Join(UpstreamProtocolPreference(inboundProtocol, account.Vendor()), " / "))
+	return "", MissingProtocolEndpointError(account, strings.Join(upstreamProtocolOrder[inboundProtocol], " / "))
 }
 
 // anthropicUpstreamOnOpenAIGatewayError 报告一次不该发生的分发：anthropic 上游由
@@ -41,7 +41,7 @@ func anthropicUpstreamOnOpenAIGatewayError(account *Account, inboundProtocol str
 }
 
 // openAIGatewayKeyProtocol 返回第三方 key 处理该入站协议的上游协议（协议转换注册表：
-// 同协议直连优先，官方 OpenAI 先转 Responses），不能承接时返回空串。
+// 同协议直连优先），不能承接时返回空串。
 func openAIGatewayKeyProtocol(account *Account, inboundProtocol string) string {
 	return account.UpstreamProtocolFor(inboundProtocol)
 }
@@ -75,8 +75,8 @@ func hasStatelessVendorResponses(vendor string) bool {
 
 // openAIProtocolFeaturesApply 报告 OpenAI 标准协议层面的特性与错误形态是否对账号生效。
 //
-// 成品号看厂商是否为 openai（等同平台）；第三方 key 看 Vendor：官方 OpenAI 地址生效，
-// 通用中转（Vendor 为空）按标准协议实现对待也生效，其他已知厂商不生效。
+// 成品号看厂商是否为 openai（等同平台）；第三方 key 看 Vendor：通用中转（Vendor 为空，
+// 含指向 OpenAI 官方域名的 key）按标准协议实现对待，生效；国产厂商与 OpenCode 不生效。
 func openAIProtocolFeaturesApply(account *Account) bool {
 	if account == nil {
 		return false
@@ -99,7 +99,7 @@ func openAIProtocolFeaturesApplyToVendor(vendor string, thirdPartyKey bool) bool
 
 // keyUsesOpenAIProtocolFeatures 报告第三方 key 专属的 OpenAI Responses 协议处理（续链
 // previous_response_id、parallel_tool_calls / store=false 修正、客户端工具降级、compat
-// prompt_cache_key 等）是否启用：key 的厂商是官方 OpenAI 或通用中转。
+// prompt_cache_key 等）是否启用：key 是通用中转（Vendor 为空）。
 func keyUsesOpenAIProtocolFeatures(account *Account) bool {
 	return account.IsThirdPartyKey() && openAIProtocolFeaturesApply(account)
 }
@@ -109,7 +109,7 @@ func keyUsesOpenAIProtocolFeatures(account *Account) bool {
 //
 // 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
 // 第三方 key 要求请求确实以 responses 协议转发（没被转换成别的协议，否则续链状态会被
-// 静默丢弃），且厂商是官方 OpenAI 或通用中转。
+// 静默丢弃），且是通用中转（国产厂商的 Responses 端点无状态）。
 func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
 	return account != nil && keyUsesOpenAIProtocolFeatures(account) &&
 		openAIGatewayKeyProtocol(account, APIProtocolResponses) == APIProtocolResponses
@@ -117,7 +117,8 @@ func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
 
 // openAIToolSchemaPlatform 给工具 schema 修正选择平台口径（null type 修复、正则
 // lookaround 剥离的规则按平台区分）。成品号用平台；第三方 key 看实际上游：转成
-// Anthropic 协议时按 Anthropic 处理，否则按地址识别的厂商，通用中转按 OpenAI 处理。
+// Anthropic 协议时按 Anthropic 处理，否则按地址识别的厂商（国产厂商 / OpenCode），
+// 通用中转按 OpenAI 处理。
 func openAIToolSchemaPlatform(account *Account, keyProtocol string) string {
 	if !account.IsThirdPartyKey() {
 		return account.Platform

@@ -45,17 +45,6 @@ func ConversionExists(inbound, upstream string) bool {
 	return false
 }
 
-// UpstreamProtocolPreference 返回资源承接 inbound 时候选上游协议的偏好序。
-//
-// 官方 OpenAI 地址是厂商特性：completion / message 入站也先转 Responses——codex 系列模型只在
-// Responses 上提供，这是 OpenAI 的厂商特性，不套到中转上。其余厂商按注册表顺序。
-func UpstreamProtocolPreference(inbound, vendor string) []string {
-	if vendor == PlatformOpenAI && inbound != "" && inbound != APIProtocolGemini {
-		return []string{APIProtocolResponses, APIProtocolChatCompletions}
-	}
-	return upstreamProtocolOrder[inbound]
-}
-
 // UpstreamProtocols 返回资源拥有的上游协议：第三方 key = 配了地址的协议（按 UpstreamProtocols() 固定序），
 // 成品号 = 厂商固定的那一个；厂商没有成品号的返回 nil。
 func (a *Account) UpstreamProtocols() []string {
@@ -77,8 +66,9 @@ func (a *Account) UpstreamProtocols() []string {
 	return nil
 }
 
-// UpstreamProtocolFor 返回资源承接 inbound 实际用的上游协议：偏好序里第一个资源拥有的。
-// 空串 = 不能承接，调度必须排除它。
+// UpstreamProtocolFor 返回资源承接 inbound 实际用的上游协议：注册表偏好序里第一个资源拥有的。
+// 空串 = 不能承接，调度必须排除它。偏好序不分厂商：第三方 key 一个资源只有一个协议，成品号
+// 的协议由厂商固定，偏好序只决定「能不能承接」。
 func (a *Account) UpstreamProtocolFor(inbound string) string {
 	owned := a.UpstreamProtocols()
 	if len(owned) == 0 {
@@ -91,7 +81,7 @@ func (a *Account) UpstreamProtocolFor(inbound string) string {
 		}
 		return ""
 	}
-	for _, candidate := range UpstreamProtocolPreference(inbound, a.Vendor()) {
+	for _, candidate := range upstreamProtocolOrder[inbound] {
 		for _, protocol := range owned {
 			if protocol == candidate {
 				return protocol

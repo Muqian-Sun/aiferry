@@ -34,11 +34,3 @@ const (
 
 // builtinTLSFingerprintProfileName 内置 TLS 模板的名字（Profile 其余字段为空 = dialer 用内置默认值）。
 const builtinTLSFingerprintProfileName = "Built-in Default (Node.js 24.x)"
-
-// webSearchEmulationAppliesTo 渠道是否做 web_search 模拟：第三方 key 且上游不是 Anthropic 官方地址。
-// 模拟只在 Anthropic Messages 转发路径上判定（走到那里用的就是 Anthropic 协议）；全站是否生效另看
-// 「配了带 Key 的服务商」（SettingService.IsWebSearchEmulationEnabled）。成品号与官方地址的 key 不模拟：
-// 官方上游自己支持 web_search。依据：2026-09-28 muqian 定（原来是渠道开关，默认关）。
-func webSearchEmulationAppliesTo(account *Account) bool {
-	return account != nil && account.IsThirdPartyKey() && account.Vendor() != PlatformAnthropic
-}
