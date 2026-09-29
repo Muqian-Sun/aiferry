@@ -745,7 +745,7 @@ export default {
         urlPlaceholder: 'https://api.example.com',
         protocolLabel: '协议',
         choose: '选择协议',
-        empty: '还没有选协议和地址。',
+        empty: '还没有选协议。不确定上游支持哪种，可以先填地址，填好 Key 后用下方「探测协议」看看。',
         loadFailed: '官方地址加载失败，请手动填写地址。',
         restoreOfficial: '填入官方地址',
         errors: {

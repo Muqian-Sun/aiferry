@@ -1,6 +1,7 @@
 <template>
   <!--
     「探测协议」（muqian 2026-09-29）：用表单里填的地址与 key 逐个试四个上游协议，列出支持 / 不支持 / 不确定；
+    还没选协议时用地址草稿（draftUrl）试，不必先随便选一个协议；
     结果旁边的选择框选一个（一个 key 只承接一个协议），协议与地址交给父组件填进表单。结果与出错都在这里就地显示。
   -->
   <div class="rounded-lg border border-af-hairline px-3 py-2.5" data-testid="upstream-protocol-probe">
@@ -56,6 +57,8 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 const props = defineProps<{
   /** 表单里的协议地址：拿其中填了的那一个地址去试 */
   protocolEndpoints: ProtocolEndpoints
+  /** 还没选协议时地址栏里填的地址 */
+  draftUrl?: string
   /** 新填的 key；编辑已有渠道不改 key 时为空，用 accountId 取存着的 */
   apiKey?: string
   accountId?: number
@@ -85,11 +88,13 @@ const currentEntry = computed(() => {
   }
   return null
 })
-const canProbe = computed(() => !!currentEntry.value && (!!props.apiKey?.trim() || !!props.accountId))
+// 拿去试的地址：选了协议用协议地址，没选用草稿
+const probeBase = computed(() => currentEntry.value?.url ?? props.draftUrl?.trim() ?? '')
+const canProbe = computed(() => !!probeBase.value && (!!props.apiKey?.trim() || !!props.accountId))
 
 // 地址改成结果以外的、或 key 改了，旧结果就不作数；在结果里选协议引起的地址变化不清
 watch(
-  () => [currentEntry.value?.url, props.apiKey] as const,
+  () => [probeBase.value, props.apiKey] as const,
   ([url, apiKey], [, previousApiKey]) => {
     if (!results.value) return
     if (apiKey !== previousApiKey || !results.value.some((r) => r.base_url === url)) {
@@ -115,14 +120,14 @@ function describe(result: ProbedUpstreamProtocol): string {
 }
 
 async function probe() {
-  const entry = currentEntry.value
-  if (!entry) return
+  const base = probeBase.value
+  if (!base) return
   probing.value = true
   error.value = ''
   results.value = null
   try {
     const { protocols } = await adminAPI.accounts.probeUpstreamProtocols({
-      base_url: entry.url,
+      base_url: base,
       api_key: props.apiKey?.trim() || undefined,
       account_id: props.apiKey?.trim() ? undefined : props.accountId,
       proxy_id: props.proxyId ?? undefined

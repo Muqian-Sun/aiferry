@@ -623,7 +623,7 @@ export default {
         urlPlaceholder: 'https://api.example.com',
         protocolLabel: 'Protocol',
         choose: 'Choose a protocol',
-        empty: 'No protocol and address yet.',
+        empty: 'No protocol yet. Not sure which one the upstream supports? Fill in the address, then use “Detect protocols” below once the key is in.',
         loadFailed: 'Failed to load official addresses. Please fill in the address manually.',
         restoreOfficial: 'Use official address',
         errors: {

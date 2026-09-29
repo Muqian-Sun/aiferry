@@ -519,6 +519,7 @@
           />
           <ProtocolEndpointsEditor
             v-model="protocolEndpoints"
+            v-model:draft-url="keyAddressDraft"
             :protocols="UPSTREAM_PROTOCOLS"
             :official-endpoints="officialProtocolEndpoints"
             :defaults-load-failed="protocolDefaultsLoadFailed"
@@ -580,9 +581,10 @@
       <UpstreamProtocolProbe
         v-if="form.type === 'apikey'"
         :protocol-endpoints="protocolEndpoints"
+        :draft-url="keyAddressDraft"
         :api-key="apiKeyValue"
         :proxy-id="form.proxy_id"
-        @select="(protocol, url) => (protocolEndpoints = { [protocol]: url })"
+        @select="applyProbedProtocol"
       />
 
       <!-- 探测模型（muqian 2026-09-29）：第三方 key 填好地址与 key 后向上游要模型名单，对得上的按上游支持的重新勾选 -->
@@ -1423,7 +1425,8 @@ import type {
   AccountType,
   CreateAccountRequest,
   CodexSessionImportMessage,
-  ProtocolEndpoints
+  ProtocolEndpoints,
+  UpstreamProtocol
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
@@ -1615,6 +1618,8 @@ watch(accessSourceId, (sourceId) => {
 const protocolDefaults = ref<ProtocolDefaultsResponse | null>(null)
 const protocolDefaultsLoadFailed = ref(false)
 const protocolEndpoints = ref<ProtocolEndpoints>({})
+// 还没选协议时地址栏里先填的地址（好用「探测协议」），选了协议就并进 protocolEndpoints
+const keyAddressDraft = ref('')
 const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
 // 按地址识别出的厂商（官方域名表由后端下发，与后端 Account.Vendor 同口径）；认不出的是中转
 const keyVendor = computed(() =>
@@ -1675,8 +1680,14 @@ const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
   const mode = vendor === 'opencode_go' ? keyAccountMode.value : keyHasCodingPlan.value ? keyPlanMode.value : undefined
   return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })
+// 探测协议里选中一个：协议与地址填进表单，草稿作废
+function applyProbedProtocol(protocol: UpstreamProtocol, url: string) {
+  protocolEndpoints.value = { [protocol]: url }
+  keyAddressDraft.value = ''
+}
 function applyKeyAddressPreset(preset: KeyAddressPreset) {
   protocolEndpoints.value = { [preset.protocol]: preset.url }
+  keyAddressDraft.value = ''
   if (preset.mode === 'payg' || preset.mode === 'coding') keyPlanMode.value = preset.mode
 }
 // 承接的模型：成品号的厂商、或 key 按地址识别出的厂商排在最前；中转没有
@@ -2101,6 +2112,7 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   keyPlanMode.value = 'payg'
   protocolEndpoints.value = {}
+  keyAddressDraft.value = ''
   zhipuOrganization.value = ''
   zhipuProject.value = ''
   apiKeyValue.value = ''

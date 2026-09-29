@@ -73,11 +73,16 @@ describe('ProtocolEndpointsEditor', () => {
     expect(lastEmitted(wrapper)).toEqual({ chat_completions: 'https://api.moonshot.cn/v1' })
   })
 
-  it('shows the empty state and a disabled address box when nothing is configured', () => {
+  // 还没选协议也能先填地址（草稿），好用「探测协议」（muqian 2026-09-29）
+  it('shows the empty state and keeps the address box usable as a draft when nothing is configured', async () => {
     const wrapper = mountEditor({})
 
     expect(wrapper.find('[data-testid="protocol-endpoints-empty"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="protocol-endpoint-input-none"]').attributes('disabled')).toBeDefined()
+    const input = wrapper.get('[data-testid="protocol-endpoint-input-none"]')
+    expect(input.attributes('disabled')).toBeUndefined()
+    await input.setValue('https://relay.example.com')
+    expect(wrapper.emitted('update:draftUrl')?.at(-1)).toEqual(['https://relay.example.com'])
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
   it('offers the official address only when it differs from the current value', () => {
