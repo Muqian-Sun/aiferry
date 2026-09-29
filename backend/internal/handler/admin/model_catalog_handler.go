@@ -485,3 +485,40 @@ func parseModelCatalogID(c *gin.Context, message string) (int64, bool) {
 	}
 	return id, true
 }
+
+// UpstreamModelIDsRequest 一批上游模型名（「探测模型」拿到的名单）。
+type UpstreamModelIDsRequest struct {
+	ModelIDs []string `json:"model_ids" binding:"required"`
+}
+
+// MatchUpstreamModels 把上游模型名对到目录条目（按规范化模型名与别名，再试去掉厂商前缀），没对上的 entry_id 为空。
+// POST /api/v1/admin/model-catalog/entries/match
+func (h *ModelCatalogHandler) MatchUpstreamModels(c *gin.Context) {
+	var req UpstreamModelIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	models, err := h.service.MatchUpstreamModels(c.Request.Context(), req.ModelIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"models": models})
+}
+
+// ImportUpstreamModels 把目录里还没有的上游模型建成未上架条目（内置价格表查得到就带价），已有的原样返回。
+// POST /api/v1/admin/model-catalog/entries/import
+func (h *ModelCatalogHandler) ImportUpstreamModels(c *gin.Context) {
+	var req UpstreamModelIDsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	entries, err := h.service.ImportUpstreamModels(c.Request.Context(), req.ModelIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"entries": entries})
+}

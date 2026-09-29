@@ -257,39 +257,3 @@ func TestOpenAIQuotaPauseDecision_KeysIgnoreLabel(t *testing.T) {
 	_, _, paused = openAIQuotaPauseDecision(&anthropicOAuth, settings, time.Now())
 	require.False(t, paused)
 }
-
-// Gemini AI Studio 端点（GET /v1beta/models 等）只转发到 Gemini 协议，池 = gemini 平台池：
-// key 要标签为 gemini（D18：桶只装平台相等的账号）且配了 gemini 地址。
-func TestGeminiSelectAccountForAIStudioEndpoints_KeysByGeminiEndpoint(t *testing.T) {
-	geminiEndpointGeminiLabel := schedulingTestKey(21211, PlatformGemini, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
-	geminiEndpointGeminiLabel.Priority = 2
-	geminiEndpointGeminiLabel.Credentials = map[string]any{"api_key": "relay-key"}
-	anthropicEndpointGeminiLabel := schedulingTestKey(21212, PlatformGemini, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
-	anthropicEndpointGeminiLabel.Priority = 1
-	anthropicEndpointGeminiLabel.Credentials = map[string]any{"api_key": "relay-key"}
-	geminiEndpointAnthropicLabel := schedulingTestKey(21213, PlatformAnthropic, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
-	geminiEndpointAnthropicLabel.Credentials = map[string]any{"api_key": "relay-key"}
-
-	repo := &mockAccountRepoForGemini{
-		accounts:     []Account{anthropicEndpointGeminiLabel, geminiEndpointGeminiLabel},
-		accountsByID: map[int64]*Account{},
-	}
-	for i := range repo.accounts {
-		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-	}
-	svc := &GeminiMessagesCompatService{accountRepo: repo}
-
-	selected, err := svc.SelectAccountForAIStudioEndpoints(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, geminiEndpointGeminiLabel.ID, selected.ID, "只有配了 gemini 地址的 gemini 标签 key 能承接")
-
-	// 只剩没有 gemini 地址的 key：承接不了
-	repo.accounts = []Account{anthropicEndpointGeminiLabel}
-	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background())
-	require.Error(t, err)
-
-	// 有 gemini 地址但标签不是 gemini：不在 gemini 平台池里
-	repo.accounts = []Account{geminiEndpointAnthropicLabel}
-	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background())
-	require.Error(t, err)
-}

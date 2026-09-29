@@ -80,10 +80,6 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			_, err := openai.buildOpenAIImagesRequest(ctx, ginCtx(), apiKey(PlatformOpenAI), body, "application/json", "tok", openAIImagesGenerationsEndpoint)
 			return err
 		}},
-		{"gemini aistudio GET", func() error {
-			_, err := (&GeminiMessagesCompatService{cfg: cfg}).ForwardAIStudioGET(ctx, apiKey(PlatformGemini), "/v1beta/models")
-			return err
-		}},
 		{"gemini chat completions compat", func() error {
 			buildReq, _ := (&GeminiMessagesCompatService{cfg: cfg}).buildGeminiChatCompletionsUpstreamRequestFunc(apiKey(PlatformGemini), "gemini-2.5-pro", body, false, false)
 			_, _, err := buildReq(ctx)

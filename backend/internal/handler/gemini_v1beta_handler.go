@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -31,7 +32,9 @@ import (
 // 匹配格式: /Users/xxx/.gemini/tmp/[64位十六进制哈希]
 var geminiCLITmpDirRegex = regexp.MustCompile(`/\.gemini/tmp/([A-Fa-f0-9]{64})`)
 
-// GeminiV1BetaListModels proxies:
+// GeminiV1BetaListModels 列出用户可见的模型（Gemini 形状）：与 /v1/models 同一份目录——已上架、订阅 key 只含
+// 套餐模型；网关能把任一目录模型转成 Gemini 协议服务，所以不只列 Gemini 厂商的，也不再转发上游
+// （原来转给某个 Gemini 渠道、上游回什么就透传什么，2026-09-29 改）。/antigravity 强制平台仍列 Antigravity 模型。
 // GET /v1beta/models
 func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 	apiKey, ok := middleware.GetAPIKeyFromContext(c)
@@ -39,30 +42,14 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		googleError(c, http.StatusUnauthorized, "Invalid API key")
 		return
 	}
-	// 无模型端点：池 = 全部 gemini 资源（/antigravity 路由带强制平台）
 	forcePlatform, _ := middleware.GetForcePlatformFromContext(c)
 
-	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里。
-	subscription, _ := middleware.GetSubscriptionFromContext(c)
-	visible := func(name string) bool {
-		return service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, strings.TrimPrefix(name, "models/"))
-	}
-	filterGeminiModels := func(models []gemini.Model) []gemini.Model {
-		filtered := make([]gemini.Model, 0, len(models))
-		for _, model := range models {
-			if visible(model.Name) {
-				filtered = append(filtered, model)
-			}
-		}
-		return filtered
-	}
-
-	// 强制 antigravity 模式：返回 antigravity 支持的模型列表
 	if forcePlatform == service.PlatformAntigravity {
+		subscription, _ := middleware.GetSubscriptionFromContext(c)
 		agModels := antigravity.DefaultGeminiModels()
 		filtered := make([]antigravity.GeminiModel, 0, len(agModels))
 		for _, model := range agModels {
-			if visible(model.Name) {
+			if service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, strings.TrimPrefix(model.Name, "models/")) {
 				filtered = append(filtered, model)
 			}
 		}
@@ -70,85 +57,22 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context())
-	if err != nil {
-		// 没有 gemini 账户，检查是否有 antigravity 账户可用
-		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context())
-		if hasAntigravity {
-			// antigravity 账户使用静态模型列表
-			c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: filterGeminiModels(gemini.DefaultModels())})
-			return
-		}
-		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-		googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
-		return
+	entries := h.listedEntries(c)
+	models := make([]gemini.Model, 0, len(entries))
+	for i := range entries {
+		models = append(models, geminiCatalogModel(&entries[i]))
 	}
-
-	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models")
-	if err != nil {
-		googleError(c, http.StatusBadGateway, err.Error())
-		return
-	}
-	if shouldFallbackGeminiModels(res) {
-		c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: filterGeminiModels(gemini.DefaultModels())})
-		return
-	}
-	if filtered, dropped, ok := filterUpstreamGeminiModelsBody(res.Body, visible); ok && dropped {
-		// 只在确有条目被过滤时替换响应体；全命中或解析失败时保持原始响应，
-		// 统一经 writeUpstreamResponse 写出（保留全部上游响应头）。
-		res.Body = filtered
-	}
-	writeUpstreamResponse(c, res)
+	c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: models})
 }
 
-// filterUpstreamGeminiModelsBody 按 keep 过滤上游 /v1beta/models 响应中的
-// models[].name，其余信封字段（如 nextPageToken）原样保留。
-// 返回值：filtered 为过滤后的响应体；dropped 表示是否有条目被移除（全命中时
-// 为 false，调用方应保持原始响应以完整透传上游头）；ok=false 表示解析失败，
-// 调用方同样应透传原始响应。
-func filterUpstreamGeminiModelsBody(body []byte, keep func(name string) bool) (filtered []byte, dropped bool, ok bool) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, false, false
-	}
-	rawModels, hasModels := envelope["models"]
-	if !hasModels {
-		return body, false, true
-	}
-	type geminiModelName struct {
-		Name string `json:"name"`
-	}
-	var models []json.RawMessage
-	if err := json.Unmarshal(rawModels, &models); err != nil {
-		return nil, false, false
-	}
-	kept := make([]json.RawMessage, 0, len(models))
-	for _, raw := range models {
-		var model geminiModelName
-		if err := json.Unmarshal(raw, &model); err != nil {
-			return nil, false, false
-		}
-		if keep(model.Name) {
-			kept = append(kept, raw)
-		}
-	}
-	if len(kept) == len(models) {
-		// 全部命中时直接透传原始响应体。
-		return body, false, true
-	}
-	mergedModels, err := json.Marshal(kept)
-	if err != nil {
-		return nil, false, false
-	}
-	envelope["models"] = mergedModels
-	merged, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, false, false
-	}
-	return merged, true, true
+// geminiCatalogModel 把目录条目写成 Gemini 模型对象：name 带 models/ 前缀，调用方式是网关支持的两种。
+func geminiCatalogModel(entry *service.ModelCatalogEntry) gemini.Model {
+	model := gemini.NewModel(entry.ModelID)
+	model.DisplayName = catalogEntryDisplayName(entry)
+	return model
 }
 
-// GeminiV1BetaGetModel proxies:
+// GeminiV1BetaGetModel 取一个用户可见的模型（Gemini 形状），不在目录可见范围内回 404。
 // GET /v1beta/models/{model}
 func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 	apiKey, ok := middleware.GetAPIKeyFromContext(c)
@@ -156,7 +80,6 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		googleError(c, http.StatusUnauthorized, "Invalid API key")
 		return
 	}
-	// 无模型端点：池 = 全部 gemini 资源（/antigravity 路由带强制平台）
 	forcePlatform, _ := middleware.GetForcePlatformFromContext(c)
 
 	modelName := strings.TrimSpace(c.Param("model"))
@@ -164,43 +87,25 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		googleError(c, http.StatusBadRequest, "Missing model in URL")
 		return
 	}
-	// 模型名会被拼进上游 URL 的 path，先在入口校验片段合规性，
-	// 见 service/upstream_path_guard.go。
 	if !service.IsSafeGeminiModelPathSegment(modelName) {
 		googleError(c, http.StatusBadRequest, "Invalid model in URL")
 		return
 	}
 
-	// 强制 antigravity 模式：返回 antigravity 模型信息
 	if forcePlatform == service.PlatformAntigravity {
 		c.JSON(http.StatusOK, antigravity.FallbackGeminiModel(modelName))
 		return
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context())
-	if err != nil {
-		// 没有 gemini 账户，检查是否有 antigravity 账户可用
-		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context())
-		if hasAntigravity {
-			// antigravity 账户使用静态模型信息
-			c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
+	modelID := strings.TrimPrefix(modelName, "models/")
+	entries := h.listedEntries(c)
+	for i := range entries {
+		if entries[i].ModelID == modelID {
+			c.JSON(http.StatusOK, geminiCatalogModel(&entries[i]))
 			return
 		}
-		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-		googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
-		return
 	}
-
-	res, err := h.geminiCompatService.ForwardAIStudioGET(c.Request.Context(), account, "/v1beta/models/"+modelName)
-	if err != nil {
-		googleError(c, http.StatusBadGateway, err.Error())
-		return
-	}
-	if shouldFallbackGeminiModel(modelName, res) {
-		c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
-		return
-	}
-	writeUpstreamResponse(c, res)
+	googleError(c, http.StatusNotFound, fmt.Sprintf("models/%s is not found", modelID))
 }
 
 // GeminiV1BetaModels proxies Gemini native REST endpoints like:
@@ -721,56 +626,6 @@ func googleError(c *gin.Context, status int, message string) {
 			"status":  googleapi.HTTPStatusToGoogleStatus(status),
 		},
 	})
-}
-
-func writeUpstreamResponse(c *gin.Context, res *service.UpstreamHTTPResult) {
-	if res == nil {
-		googleError(c, http.StatusBadGateway, "Empty upstream response")
-		return
-	}
-	for k, vv := range res.Headers {
-		// Avoid overriding content-length and hop-by-hop headers.
-		if strings.EqualFold(k, "Content-Length") || strings.EqualFold(k, "Transfer-Encoding") || strings.EqualFold(k, "Connection") {
-			continue
-		}
-		for _, v := range vv {
-			c.Writer.Header().Add(k, v)
-		}
-	}
-	contentType := res.Headers.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/json"
-	}
-	c.Data(res.StatusCode, contentType, res.Body)
-}
-
-func shouldFallbackGeminiModels(res *service.UpstreamHTTPResult) bool {
-	if res == nil {
-		return true
-	}
-	if res.StatusCode != http.StatusUnauthorized && res.StatusCode != http.StatusForbidden {
-		return false
-	}
-	if strings.Contains(strings.ToLower(res.Headers.Get("Www-Authenticate")), "insufficient_scope") {
-		return true
-	}
-	if strings.Contains(strings.ToLower(string(res.Body)), "insufficient authentication scopes") {
-		return true
-	}
-	if strings.Contains(strings.ToLower(string(res.Body)), "access_token_scope_insufficient") {
-		return true
-	}
-	return false
-}
-
-func shouldFallbackGeminiModel(modelName string, res *service.UpstreamHTTPResult) bool {
-	if shouldFallbackGeminiModels(res) {
-		return true
-	}
-	if res == nil || res.StatusCode != http.StatusNotFound {
-		return false
-	}
-	return gemini.HasFallbackModel(modelName)
 }
 
 // extractGeminiCLISessionHash 从 Gemini CLI 请求中提取会话标识。
