@@ -1,7 +1,8 @@
 <template>
   <!--
     模型页：厂商页签（彩色图标 + 计数）→ 工具（计费 / 搜索 / 价格单位，与页签同一行）→ 网格。
-    只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名。
+    只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名；
+    按 Token 分段的模型把计费项换成一张小分段表（muqian 2026-09-29）。
     价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子里直接显示折算后的你的价格，工具行注明倍率。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
     一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
@@ -116,8 +117,30 @@
               </p>
             </div>
           </div>
+          <!--
+            按 Token 分段的模型：一段一行（≤272K / >272K），列输入 / 输出，有缓存读就带上，代替下面的两列计费项。
+            行距比两列计费项略紧（24px 对 28px），两三段的格子与普通格子高度差不多。
+          -->
+          <table v-if="entry.segments.length" class="mt-5 w-full text-13 tabular-nums" data-testid="price-segments">
+            <thead>
+              <tr class="text-af-ink-4">
+                <th class="pb-0.5 text-left font-normal" :title="t('userUi.models.segmentNote')">{{ t('userUi.models.segmentRange') }}</th>
+                <th v-for="key in segmentColumns(entry)" :key="key" class="pb-0.5 pl-3 text-right font-normal">
+                  {{ t(`userUi.models.prices.${key}`) }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="segment in segmentRows(entry)" :key="segment.min" data-testid="price-segment">
+                <td class="whitespace-nowrap py-0.5 text-af-ink-3">{{ formatSegmentRange(segment) }}</td>
+                <td v-for="key in segmentColumns(entry)" :key="key" class="whitespace-nowrap py-0.5 pl-3 text-right font-medium text-af-ink">
+                  {{ formatPrice(segment.prices[key]) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
           <!-- 计费项：两列对齐，名在左、价在右；单位见工具行 -->
-          <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums">
+          <dl v-else class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums">
             <div v-for="item in priceItems(entry)" :key="item.key" class="flex items-baseline justify-between gap-3">
               <dt class="text-af-ink-4">{{ item.label }}</dt>
               <dd class="font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</dd>
@@ -134,6 +157,7 @@
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
         {{ t('userUi.models.priceNote') }}
+        <template v-if="hasSegments"> {{ t('userUi.models.segmentNote') }}</template>
         <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: multiplierLabel }) }}</template>
       </p>
     </div>
@@ -159,6 +183,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
 import { formatMultiplier } from '@/utils/formatters'
+import { formatSegmentRange, type TokenSegment } from '@/utils/tokenSegments'
 import {
   applyMultiplier,
   buildCatalog,
@@ -168,6 +193,7 @@ import {
   filterCatalog,
   formatCatalogPrice as formatPrice,
   formatTimePricing,
+  scalePrices,
   vendorLabel,
   type CatalogModel,
   type CatalogPriceKey
@@ -291,6 +317,16 @@ function priceItems(entry: CatalogModel): Array<{ key: string; label: string; va
     value: price?.[key] ?? null
   }))
 }
+/** 分段表的列：输入 / 输出始终列，缓存读有一段定了价才列（缓存写与图片价不进分段表） */
+function segmentColumns(entry: CatalogModel): Array<'input' | 'output' | 'cacheRead'> {
+  return entry.segments.some((segment) => segment.prices.cacheRead != null) ? ['input', 'output', 'cacheRead'] : ['input', 'output']
+}
+function segmentRows(entry: CatalogModel): TokenSegment[] {
+  return entry.segments.map((segment) => ({ ...segment, prices: scalePrices(segment.prices, userMultiplier.value) }))
+}
+/** 当前列表里有分段计价的模型时，脚注补一句分段怎么计 */
+const hasSegments = computed(() => filtered.value.some((entry) => entry.segments.length > 0))
+
 function timePricingText(entry: CatalogModel): string {
   return entry.timePricing ? formatTimePricing(entry.timePricing, t('userUi.models.weekdaysOnly')) : ''
 }
