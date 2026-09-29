@@ -254,6 +254,8 @@ export default {
         perSecond: 'Per second'
       },
       priceNote: 'Prices are this site\'s catalog list prices. You pay list price × your account multiplier, recorded per request on the usage page.',
+      segmentRange: 'Input tokens',
+      segmentNote: 'Segmented models bill the whole request at the segment its input tokens (input + cache write + cache read) fall into.',
       copyId: 'Copy model ID',
       copied: 'Copied',
       empty: 'No models available',
