@@ -1223,7 +1223,7 @@ export default {
               limits: 'RPD ~1000; RPM ~60 (preview)'
             },
             aiStudio: {
-              channel: 'AI Studio API Key / OAuth',
+              channel: 'AI Studio OAuth',
               free: 'No billing (free tier)',
               paid: 'Billing enabled (pay-as-you-go)',
               limitsFree: 'RPD 50; RPM 2 (Pro) / 15 (Flash)',
