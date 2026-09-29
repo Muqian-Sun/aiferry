@@ -72,9 +72,7 @@ type PublicSettings struct {
 	InvitationCodeEnabled               bool                     `json:"invitation_code_enabled"`
 	PasskeyEnabled                      bool                     `json:"passkey_enabled"`
 	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
-	LoginAgreementMode                  string                   `json:"login_agreement_mode"`
 	LoginAgreementUpdatedAt             string                   `json:"login_agreement_updated_at"`
-	LoginAgreementRevision              string                   `json:"login_agreement_revision"`
 	LoginAgreementDocuments             []LoginAgreementDocument `json:"login_agreement_documents"`
 	TurnstileEnabled                    bool                     `json:"turnstile_enabled"`
 	TurnstileSiteKey                    string                   `json:"turnstile_site_key"`

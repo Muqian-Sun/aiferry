@@ -312,7 +312,6 @@ func TestSettingService_GetPublicSettings_LoginAgreementComesFromCode(t *testing
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
 			"login_agreement_enabled":    "false",
-			"login_agreement_mode":       "checkbox",
 			"login_agreement_updated_at": "2020-01-01",
 			"login_agreement_documents":  `[{"id":"stale","title":"旧条款","content_md":"stale"}]`,
 		},
@@ -322,8 +321,6 @@ func TestSettingService_GetPublicSettings_LoginAgreementComesFromCode(t *testing
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
 	require.True(t, settings.LoginAgreementEnabled)
-	require.Equal(t, LoginAgreementMode, settings.LoginAgreementMode)
 	require.Equal(t, LoginAgreementUpdatedAt, settings.LoginAgreementUpdatedAt)
 	require.Equal(t, LoginAgreementDocuments(), settings.LoginAgreementDocuments)
-	require.Equal(t, buildLoginAgreementRevision(LoginAgreementUpdatedAt, LoginAgreementDocuments()), settings.LoginAgreementRevision)
 }
