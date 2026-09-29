@@ -280,6 +280,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				return
 			}
 			result, err = h.geminiCompatService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		case compatForwardAntigravity:
 			if h.antigravityGatewayService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
@@ -292,6 +293,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			result, err = h.antigravityGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
 		default:
 			result, err = h.gatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		}
 
 		if accountReleaseFunc != nil {

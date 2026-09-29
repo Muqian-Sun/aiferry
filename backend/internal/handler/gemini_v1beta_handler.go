@@ -544,6 +544,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			)
 		} else {
 			result, err = h.geminiCompatService.ForwardNative(requestCtx, c, account, modelName, action, stream, body)
+			h.gatewayService.ObserveRelayKeyResult(account, modelName, err)
 		}
 		if accountReleaseFunc != nil {
 			accountReleaseFunc()

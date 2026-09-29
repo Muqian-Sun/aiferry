@@ -385,6 +385,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			result, err = h.antigravityGatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
 		default:
 			result, err = h.gatewayService.ForwardAsResponses(requestCtx, c, account, forwardBody, parsedReq)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		}
 
 		if accountReleaseFunc != nil {

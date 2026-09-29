@@ -561,6 +561,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		switch forwardTarget {
 		case compatForwardGemini:
 			result, err = h.geminiCompatService.Forward(requestCtx, c, account, attemptBody)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		case compatForwardAntigravity:
 			result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
 		case compatForwardOpenAI:
@@ -568,6 +569,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			oaResult, err = h.openAIGatewayService.ForwardAsAnthropic(requestCtx, c, account, attemptBody, promptCacheKey)
 		default:
 			result, err = h.gatewayService.Forward(requestCtx, c, account, attemptParsedReq)
+			h.gatewayService.ObserveRelayKeyResult(account, reqModel, err)
 		}
 
 		// 兜底释放串行锁（正常情况已通过回调提前释放）
