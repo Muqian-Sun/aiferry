@@ -83,6 +83,12 @@ const PROTOCOL_DEFAULTS = {
         responses: 'https://api.kimi.com/coding/v1'
       }
     }
+  },
+  vendor_hosts: {
+    'api.moonshot.cn': 'kimi',
+    'api.kimi.com': 'kimi',
+    'api.minimaxi.com': 'minimax',
+    'api.minimax.io': 'minimax'
   }
 }
 
@@ -525,6 +531,7 @@ describe('EditAccountModal', () => {
     updateAccountMock.mockReset().mockResolvedValue(account)
 
     const wrapper = mountModal(account)
+    await flushPromises()
     const preset = wrapper
       .findAll('[data-testid="cn-base-url-preset"]')
       .find(button => button.text().startsWith('MiniMax Intl Anthropic (api.minimax.io/anthropic)'))

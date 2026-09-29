@@ -238,7 +238,7 @@
           :defaults-load-failed="protocolDefaultsLoadFailed"
         />
         <CnBaseUrlPresets
-          v-if="isCNApiKeyAccount && account.platform !== 'opencode_go'"
+          v-if="cnPresetPlatform"
           class="mt-2"
           :platform="cnPresetPlatform"
           :mode="editAccountMode"
@@ -883,20 +883,13 @@ interface ModelMapping {
 const submitting = ref(false)
 const editApiKey = ref('')
 
-// 国产厂商 / OpenCode 的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。
-const isCNApiKeyAccount = computed(
-  () =>
-    props.account?.type === 'apikey' &&
-    (isCNProviderPlatform(props.account.platform) || props.account.platform === 'opencode_go')
-)
+// 国产厂商的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。按地址识别出的厂商判断，
+// 与「填入官方地址」同一口径、不看平台标签；中转与 OpenCode 没有这组预设（null）。
 // CnBaseUrlPresets 的 platform prop 是平台字面量联合类型，模板里不能写
 // `as` 断言（其中的 `|` 会被 eslint 误判为 Vue2 filter 语法），经此 computed 传递。
-const cnPresetPlatform = computed<CnProviderPlatform>(() => {
-  const platform = props.account?.platform
-  if (isCNProviderPlatform(platform ?? '')) {
-    return platform as CnProviderPlatform
-  }
-  return 'kimi'
+const cnPresetPlatform = computed<CnProviderPlatform | null>(() => {
+  const vendor = keyVendor.value
+  return vendor && isCNProviderPlatform(vendor) ? (vendor as CnProviderPlatform) : null
 })
 // 地址分不出套餐时管理员选的计费方式（见下方 keyAccountMode）
 const editAccountMode = ref<CnAccountMode>('payg')
