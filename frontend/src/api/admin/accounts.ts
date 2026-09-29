@@ -647,7 +647,7 @@ export interface ProbedUpstreamProtocol {
     | 'not_found'
     | 'not_api'
     | 'unexpected_body'
-    | 'same_as_missing'
+    | 'real_rejected'
     | 'auth_rejected'
     | 'rate_limited'
     | 'upstream_error'

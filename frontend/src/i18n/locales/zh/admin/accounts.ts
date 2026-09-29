@@ -186,11 +186,11 @@ export default {
         },
         reason: {
           accepted: '上游正常响应',
-          validation_error: '端点存在（空请求被参数校验拦下）',
+          validation_error: '空请求被参数校验拦下，端点多半存在，但没能用真实请求确认',
           not_found: '上游没有这个端点',
           not_api: '返回的不是 API 响应（像是网页）',
           unexpected_body: '返回内容不像这个协议的响应',
-          same_as_missing: '和不存在的路径返回一样，无法判断',
+          real_rejected: '真实请求被上游拒绝，这个 Key 多半用不了该协议',
           auth_rejected: 'Key 被拒绝，无法判断',
           rate_limited: '被限流，无法判断',
           upstream_error: '上游出错，无法判断',

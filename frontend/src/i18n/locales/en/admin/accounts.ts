@@ -186,11 +186,11 @@ export default {
         },
         reason: {
           accepted: 'Upstream responded normally',
-          validation_error: 'Endpoint exists (empty request failed validation)',
+          validation_error: 'Empty request failed validation, so the endpoint likely exists, but it could not be confirmed with a real request',
           not_found: 'Upstream has no such endpoint',
           not_api: 'Response is not an API response (looks like a web page)',
           unexpected_body: 'Response does not look like this protocol',
-          same_as_missing: 'Same response as a nonexistent path, cannot tell',
+          real_rejected: 'Real request rejected by upstream; this key likely cannot use this protocol',
           auth_rejected: 'Key rejected, cannot tell',
           rate_limited: 'Rate limited, cannot tell',
           upstream_error: 'Upstream error, cannot tell',
