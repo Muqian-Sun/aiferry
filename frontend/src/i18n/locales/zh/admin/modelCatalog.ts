@@ -129,7 +129,7 @@ export default {
         maxReasoning: '最高推理倍率'
       },
       segments: '按 Token 分段',
-      segmentsHint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费；第一段就是上面的标价。单位：美元 / 百万 Token',
+      segmentsHint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费；第一段就是上面的标价。缓存价留空时按本段输入价同比例折算。单位：美元 / 百万 Token',
       segmentColumns: {
         range: '输入 Token',
         input: '输入',
