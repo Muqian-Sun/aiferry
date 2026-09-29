@@ -374,7 +374,7 @@ export default {
     serviceTierFlex: 'Flex',
     serviceTierStandard: 'Standard',
     rate: 'Rate',
-    original: 'Original',
+    original: 'Official price',
     billed: 'Billed',
     noRecords: 'No usage records found. Try adjusting your filters.',
     failedToLoad: 'Failed to load usage logs',

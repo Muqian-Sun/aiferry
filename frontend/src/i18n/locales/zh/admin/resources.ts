@@ -450,8 +450,8 @@ export default {
       },
       detail: {
         sections: { money: '费用构成', request: '请求', tokens: 'Token', timing: '耗时' },
-        userRate: '用户倍率',
-        accountRate: '渠道成本倍率',
+        userRate: '售价倍率（相对官方价）',
+        accountRate: '渠道倍率（相对官方价）',
         longContext: '长上下文计费',
         longContextApplied: '已按长上下文价格计费',
         cacheCreation5m: '缓存创建（5 分钟）',

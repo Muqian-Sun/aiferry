@@ -173,7 +173,7 @@ export default {
         requests: '请求',
         tokens: 'Token',
         actualCost: '实付',
-        standardCost: '标准价',
+        standardCost: '官方价',
         cacheHitRate: '缓存命中',
         avgLatency: '平均耗时',
         failures: '失败请求',

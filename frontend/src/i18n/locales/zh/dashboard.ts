@@ -376,7 +376,7 @@ export default {
     serviceTierFlex: '弹性',
     serviceTierStandard: '标准',
     rate: '倍率',
-    original: '原始',
+    original: '官方价',
     billed: '计费',
     noRecords: '未找到使用记录，请尝试调整筛选条件。',
     failedToLoad: '加载使用记录失败',

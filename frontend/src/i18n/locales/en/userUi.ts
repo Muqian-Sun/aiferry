@@ -173,7 +173,7 @@ export default {
         requests: 'Requests',
         tokens: 'Tokens',
         actualCost: 'Billed',
-        standardCost: 'List price',
+        standardCost: 'Official price',
         cacheHitRate: 'Cache hit rate',
         avgLatency: 'Avg latency',
         failures: 'Failed requests',
