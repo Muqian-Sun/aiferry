@@ -147,7 +147,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { accountsAPI } from '@/api/admin/accounts'
 import type { SyncUpstreamPreviewParams } from '@/api/admin/accounts'
 import { useClipboard } from '@/composables/useClipboard'
@@ -170,7 +169,6 @@ const emit = defineEmits<{
   'upstream-synced': []
 }>()
 
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 const showDropdown = ref(false)
@@ -266,7 +264,6 @@ const addCustom = () => {
   const model = customModel.value.trim()
   if (!model) return
   if (props.modelValue.includes(model)) {
-    appStore.showInfo(t('admin.accounts.modelExists'))
     return
   }
   emit('update:modelValue', [...props.modelValue, model])
@@ -305,47 +302,23 @@ const syncUpstreamModels = async () => {
     }
 
     const upstreamModels = result.models.map(model => model.trim()).filter(Boolean)
-    if (upstreamModels.length === 0) {
-      appStore.showInfo(t('admin.accounts.syncUpstreamModelsEmpty'))
-      return
-    }
+    if (upstreamModels.length === 0) return
 
     if (!props.accountId) {
       emit('upstream-synced')
     }
 
     const newModels = [...props.modelValue]
-    let addedCount = 0
     for (const model of upstreamModels) {
       if (!newModels.includes(model)) {
         newModels.push(model)
-        addedCount += 1
       }
     }
 
     emit('update:modelValue', newModels)
-    const warnings = result.warnings ?? []
-    const hasPartialMetadata = warnings.some(
-      warning => warning.code === 'upstream_model_metadata_partial'
-    )
-    const hasIncompleteMetadata = warnings.some(
-      warning => warning.code === 'upstream_model_metadata_incomplete'
-    )
-    if (hasIncompleteMetadata) {
-      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataIncomplete'))
-      return
-    }
-    if (addedCount > 0) {
-      appStore.showSuccess(t('admin.accounts.syncUpstreamModelsSuccess', { count: addedCount, total: upstreamModels.length }))
-    } else {
-      appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))
-    }
-    if (hasPartialMetadata) {
-      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataPartial'))
-    }
   } catch (error) {
     const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
-    appStore.showError(t('admin.accounts.syncUpstreamModelsError', { message }))
+    console.error(t('admin.accounts.syncUpstreamModelsError', { message }), error)
   } finally {
     isSyncingUpstream.value = false
   }

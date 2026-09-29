@@ -230,7 +230,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogAlias, ModelCatalogEntry } from '@/api/admin/modelCatalog'
@@ -257,7 +256,6 @@ import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePer
 
 const { t } = useI18n()
 const router = useRouter()
-const appStore = useAppStore()
 
 const loading = ref(false)
 const seeding = ref(false)
@@ -290,8 +288,8 @@ const drawerEntry = computed(() => entries.value.find((entry) => entry.id === dr
 const page = ref(1)
 const pageSize = ref(getPersistedPageSize())
 
-function showApiError(error: unknown) {
-  appStore.showError(extractApiErrorMessage(error, t('common.unknownError')))
+function logApiError(error: unknown) {
+  console.error(extractApiErrorMessage(error, t('common.unknownError')), error)
 }
 
 function bindingCount(entry: ModelCatalogEntry): number {
@@ -420,7 +418,7 @@ async function loadEntries() {
     const known = new Set(entries.value.map((entry) => entry.id))
     selectedIds.value = selectedIds.value.filter((id) => known.has(id))
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   } finally {
     loading.value = false
   }
@@ -449,10 +447,9 @@ async function setEntryStatus(entry: ModelCatalogEntry, status: 'listed' | 'unli
   if (entry.status === status) return
   try {
     await adminAPI.modelCatalog.updateEntry(entry.id, { ...entryToRequest(entry), status })
-    appStore.showSuccess(t(`admin.modelCatalog.drawer.${status}Done`, { model: entry.model_id }))
     await loadEntries()
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   }
 }
 
@@ -479,7 +476,7 @@ async function confirmDelete() {
     if (drawerEntryId.value === entry.id) drawerOpen.value = false
     await loadEntries()
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   }
 }
 
@@ -490,7 +487,6 @@ async function confirmDelete() {
 async function bulkSetStatus(status: 'listed' | 'unlisted') {
   const targets = entries.value.filter((entry) => selectedIds.value.includes(entry.id) && entry.status !== status)
   if (targets.length === 0) {
-    appStore.showInfo(t('admin.modelCatalog.bulk.nothingToDo'))
     return
   }
   bulkRunning.value = true
@@ -505,10 +501,9 @@ async function bulkSetStatus(status: 'listed' | 'unlisted') {
     }
     const done = targets.length - failures.length
     if (failures.length === 0) {
-      appStore.showSuccess(t(`admin.modelCatalog.bulk.${status}Done`, { count: done }))
       selectedIds.value = []
     } else {
-      appStore.showError(t('admin.modelCatalog.bulk.partial', { done, failed: failures.length, errors: failures.join('；') }))
+      console.error(t('admin.modelCatalog.bulk.partial', { done, failed: failures.length, errors: failures.join('；') }))
       // 失败的留在选中集里，方便修完价格 / 绑定再试
       const failedIds = new Set(targets.filter((entry) => failures.some((line) => line.startsWith(`${entry.model_id}:`))).map((entry) => entry.id))
       selectedIds.value = selectedIds.value.filter((id) => failedIds.has(id))
@@ -529,20 +524,18 @@ async function runSeed() {
       skipped: result.skipped_admin
     })
     if (result.failed > 0) {
-      // 单条写库失败不拖垮整批，但不能静默：把失败数和前几条原因摆出来。
-      appStore.showError(
+      // 单条写库失败不拖垮整批，但不能静默：把失败数和前几条原因记下来。
+      console.error(
         t('admin.modelCatalog.seedPartial', {
           summary,
           failed: result.failed,
           errors: (result.errors ?? []).join('；')
         })
       )
-    } else {
-      appStore.showSuccess(summary)
     }
     await loadEntries()
   } catch (error) {
-    showApiError(error)
+    logApiError(error)
   } finally {
     seeding.value = false
   }

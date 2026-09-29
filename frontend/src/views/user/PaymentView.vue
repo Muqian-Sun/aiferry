@@ -227,7 +227,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
-import { useAppStore } from '@/stores'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { loadCheckoutInfo } from './billing/checkoutPreload'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
@@ -253,7 +252,7 @@ import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import { DEFAULT_PAYMENT_CURRENCY, USD_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix as validitySuffixOf } from '@/components/payment/validity'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
-import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
+import { buildPaymentErrorMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 
 /** 由路由决定：/billing/recharge 传 recharge，SubscriptionsView 嵌入时传 subscription。 */
@@ -271,7 +270,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
-const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
@@ -799,7 +797,6 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         const jsapiResult = await invokeWechatJsapiPayment(decision.jsapi as Record<string, unknown>)
         const errMsg = String(jsapiResult.err_msg || '').toLowerCase()
         if (errMsg.includes('cancel')) {
-          appStore.showInfo(t('payment.qr.cancelled'))
           resetPayment()
         } else if (errMsg && !errMsg.includes('ok')) {
           resetPayment()
@@ -873,7 +870,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         return
       }
     }
-    appStore.showError(buildPaymentErrorToastMessage(errorMessage.value, errorHintMessage.value))
+    console.error(buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value), err)
   } finally {
     submitting.value = false
   }
@@ -967,7 +964,6 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
     paymentState.value = decision.paymentState
     paymentPhase.value = 'paying'
     persistRecoverySnapshot(decision.recovery)
-    appStore.showWarning(t('payment.errors.mobilePaymentFallbackToQr'))
     return true
   } catch {
     return false
@@ -987,7 +983,7 @@ function applyScenarioError(err: unknown, paymentMethod: string): boolean {
   }
   errorMessage.value = t(descriptor.messageKey)
   errorHintMessage.value = descriptor.hintKey ? t(descriptor.hintKey) : ''
-  appStore.showError(buildPaymentErrorToastMessage(errorMessage.value, errorHintMessage.value))
+  console.error(buildPaymentErrorMessage(errorMessage.value, errorHintMessage.value))
   return true
 }
 
@@ -1064,7 +1060,7 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
-  } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  } catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking); skipped while subscriptions are hidden
   if (SITE_FEATURES.subscription) {

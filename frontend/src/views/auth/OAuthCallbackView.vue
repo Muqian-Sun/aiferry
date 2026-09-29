@@ -150,7 +150,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@/composables/useClipboard'
-import { useAppStore, useAuthStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import { apiClient } from '@/api/client'
 import { buildApiUrl } from '@/api/url'
 import {
@@ -173,7 +173,6 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
-const appStore = useAppStore()
 const authStore = useAuthStore()
 const isProcessing = ref(false)
 const isSubmitting = ref(false)
@@ -283,7 +282,6 @@ async function finalizeTokenResponse(tokenResponse: OAuthTokenResponse, redirect
     window.sessionStorage.removeItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY)
   }
   clearAllAffiliateReferralCodes()
-  appStore.showSuccess(t('auth.loginSuccess'))
   await router.replace(sanitizeRedirectPath(redirect))
 }
 
@@ -315,11 +313,11 @@ async function resumePendingEmailOAuth() {
       return
     }
 
-    appStore.showError(completion.error || t('auth.loginFailed'))
+    console.error(completion.error || t('auth.loginFailed'))
   } catch (e: unknown) {
     const err = e as { message?: string; response?: { data?: { message?: string } } }
     const message = err.response?.data?.message || err.message || t('auth.loginFailed')
-    appStore.showError(message)
+    console.error(message, e)
     invalidCallback.value = true
   } finally {
     if (!needsRegistrationCompletion.value) {
@@ -376,7 +374,7 @@ onMounted(async () => {
     params.get('error_description') || params.get('error_message') || ''
 
   if (fragmentError) {
-    appStore.showError(fragmentErrorDescription || fragmentError)
+    console.error(fragmentErrorDescription || fragmentError)
     return
   }
   if (!tokenResponse) {
@@ -396,7 +394,7 @@ onMounted(async () => {
     await finalizeTokenResponse(tokenResponse, params.get('redirect') || DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     const message = (error as { message?: string })?.message || t('auth.loginFailed')
-    appStore.showError(message)
+    console.error(message, error)
     isProcessing.value = false
   }
 })
@@ -405,7 +403,7 @@ watch(
   error,
   (message) => {
     if (message) {
-      appStore.showError(message)
+      console.error(message)
     }
   },
   { immediate: true }

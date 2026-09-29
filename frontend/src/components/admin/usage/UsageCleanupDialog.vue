@@ -117,7 +117,6 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -137,7 +136,6 @@ const props = defineProps<Props>()
 const emit = defineEmits(['close'])
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const localFilters = ref<AdminUsageQueryParams>({})
 const localStartDate = ref('')
@@ -255,7 +253,6 @@ const loadTasks = async () => {
     }
   } catch (error) {
     console.error('Failed to load cleanup tasks:', error)
-    appStore.showError(t('admin.usage.cleanup.loadFailed'))
   } finally {
     tasksLoading.value = false
   }
@@ -288,7 +285,7 @@ const openCancelConfirm = (task: UsageCleanupTask) => {
 
 const buildPayload = (): CreateUsageCleanupTaskRequest | null => {
   if (!localStartDate.value || !localEndDate.value) {
-    appStore.showError(t('admin.usage.cleanup.missingRange'))
+    console.error(t('admin.usage.cleanup.missingRange'))
     return null
   }
 
@@ -336,11 +333,9 @@ const submitCleanup = async () => {
   confirmVisible.value = false
   try {
     await adminUsageAPI.createCleanupTask(payload)
-    appStore.showSuccess(t('admin.usage.cleanup.submitSuccess'))
     loadTasks()
   } catch (error) {
     console.error('Failed to create cleanup task:', error)
-    appStore.showError(t('admin.usage.cleanup.submitFailed'))
   } finally {
     submitting.value = false
   }
@@ -356,11 +351,9 @@ const cancelTask = async () => {
   cancelConfirmVisible.value = false
   try {
     await adminUsageAPI.cancelCleanupTask(task.id)
-    appStore.showSuccess(t('admin.usage.cleanup.cancelSuccess'))
     loadTasks()
   } catch (error) {
     console.error('Failed to cancel cleanup task:', error)
-    appStore.showError(t('admin.usage.cleanup.cancelFailed'))
   } finally {
     canceling.value = false
     cancelTarget.value = null

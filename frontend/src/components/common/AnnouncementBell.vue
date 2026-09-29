@@ -128,7 +128,6 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { useAppStore } from '@/stores/app'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeTime, formatRelativeWithDateTime } from '@/utils/format'
 import type { UserAnnouncement } from '@/types'
@@ -136,7 +135,6 @@ import Icon from '@/components/icons/Icon.vue'
 import '@/styles/announcement-markdown.css'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const announcementStore = useAnnouncementStore()
 
 // Configure marked
@@ -186,22 +184,20 @@ async function markAsRead(id: number) {
   try {
     await announcementStore.markAsRead(id)
   } catch (err: any) {
-    appStore.showError(err?.message || t('common.unknownError'))
+    console.error(err?.message || t('common.unknownError'), err)
   }
 }
 
 async function markAsReadAndClose(id: number) {
   await markAsRead(id)
-  appStore.showSuccess(t('announcements.markedAsRead'))
   closeDetail()
 }
 
 async function markAllAsRead() {
   try {
     await announcementStore.markAllAsRead()
-    appStore.showSuccess(t('announcements.allMarkedAsRead'))
   } catch (err: any) {
-    appStore.showError(err?.message || t('common.unknownError'))
+    console.error(err?.message || t('common.unknownError'), err)
   }
 }
 

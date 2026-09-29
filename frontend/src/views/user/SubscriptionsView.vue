@@ -122,7 +122,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, onMounted, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -139,7 +138,6 @@ import {
 } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const billingFlags = useBillingFlags()
 
 const subscriptions = ref<UserSubscription[]>([])
@@ -215,7 +213,6 @@ async function loadSubscriptions() {
     subscriptions.value = await subscriptionsAPI.getMySubscriptions()
   } catch (error) {
     console.error('Failed to load subscriptions:', error)
-    appStore.showError(t('userSubscriptions.failedToLoad'))
   } finally {
     loading.value = false
   }

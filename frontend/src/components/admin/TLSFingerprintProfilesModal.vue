@@ -328,7 +328,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { TLSFingerprintProfile } from '@/api/admin/tlsFingerprintProfile'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -347,7 +346,6 @@ const emit = defineEmits<{
 void emit // suppress unused warning - emit is used via $emit in template
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const profiles = ref<TLSFingerprintProfile[]>([])
 const loading = ref(false)
@@ -390,7 +388,6 @@ const loadProfiles = async () => {
   try {
     profiles.value = await adminAPI.tlsFingerprintProfiles.list()
   } catch (error) {
-    appStore.showError(t('admin.tlsFingerprintProfiles.loadFailed'))
     console.error('Error loading TLS fingerprint profiles:', error)
   } finally {
     loading.value = false
@@ -495,10 +492,8 @@ const parseYamlInput = () => {
     }
   }
 
-  if (foundName) {
-    appStore.showSuccess(t('admin.tlsFingerprintProfiles.form.yamlParsed'))
-  } else {
-    appStore.showError(t('admin.tlsFingerprintProfiles.form.yamlParseFailed'))
+  if (!foundName) {
+    console.error(t('admin.tlsFingerprintProfiles.form.yamlParseFailed'))
   }
 }
 
@@ -568,7 +563,7 @@ const handleDelete = (profile: TLSFingerprintProfile) => {
 
 const handleSubmit = async () => {
   if (!form.name.trim()) {
-    appStore.showError(t('admin.tlsFingerprintProfiles.form.name') + ' ' + t('common.required'))
+    console.error(t('admin.tlsFingerprintProfiles.form.name') + ' ' + t('common.required'))
     return
   }
 
@@ -591,16 +586,13 @@ const handleSubmit = async () => {
 
     if (showEditModal.value && editingProfile.value) {
       await adminAPI.tlsFingerprintProfiles.update(editingProfile.value.id, data)
-      appStore.showSuccess(t('admin.tlsFingerprintProfiles.updateSuccess'))
     } else {
       await adminAPI.tlsFingerprintProfiles.create(data)
-      appStore.showSuccess(t('admin.tlsFingerprintProfiles.createSuccess'))
     }
 
     closeFormModal()
     loadProfiles()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.tlsFingerprintProfiles.saveFailed'))
     console.error('Error saving TLS fingerprint profile:', error)
   } finally {
     submitting.value = false
@@ -612,12 +604,10 @@ const confirmDelete = async () => {
 
   try {
     await adminAPI.tlsFingerprintProfiles.delete(deletingProfile.value.id)
-    appStore.showSuccess(t('admin.tlsFingerprintProfiles.deleteSuccess'))
     showDeleteDialog.value = false
     deletingProfile.value = null
     loadProfiles()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.tlsFingerprintProfiles.deleteFailed'))
     console.error('Error deleting TLS fingerprint profile:', error)
   }
 }

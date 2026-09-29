@@ -138,14 +138,9 @@ import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAppStore } from '@/stores'
 import { getPublicSettings, forgotPassword } from '@/api/auth'
 
 const { t } = useI18n()
-
-// ==================== Stores ====================
-
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -194,11 +189,11 @@ const errors = reactive({
   turnstile: ''
 })
 
-const validationToastMessage = computed(() => errors.email || errors.turnstile || '')
+const validationMessage = computed(() => errors.email || errors.turnstile || '')
 
-watch(validationToastMessage, (value, previousValue) => {
+watch(validationMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -310,7 +305,6 @@ async function handleSubmit(): Promise<void> {
     })
 
     isSubmitted.value = true
-    appStore.showSuccess(t('auth.resetEmailSent'))
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { detail?: string } } }
 
@@ -322,7 +316,7 @@ async function handleSubmit(): Promise<void> {
       errorMessage.value = t('auth.sendResetLinkFailed')
     }
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaEnabled.value) {
       resetCaptchaProof()

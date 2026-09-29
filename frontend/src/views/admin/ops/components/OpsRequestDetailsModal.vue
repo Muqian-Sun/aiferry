@@ -5,7 +5,6 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import { useClipboard } from '@/composables/useClipboard'
-import { useAppStore } from '@/stores'
 import { opsAPI, type OpsRequestDetailsParams, type OpsRequestDetail } from '@/api/admin/ops'
 import { parseTimeRangeMinutes, formatDateTime } from '../utils/opsFormatters'
 
@@ -32,7 +31,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 // 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
@@ -93,7 +91,6 @@ const fetchData = async () => {
     total.value = res.total || 0
   } catch (e: any) {
     console.error('[OpsRequestDetailsModal] Failed to fetch request details', e)
-    appStore.showError(e?.message || t('admin.ops.requestDetails.failedToLoad'))
     items.value = []
     total.value = 0
   } finally {
@@ -141,10 +138,8 @@ function handlePageSizeChange(next: number) {
 }
 
 async function handleCopyRequestId(requestId: string) {
-  const ok = await copyToClipboard(requestId, t('admin.ops.requestDetails.requestIdCopied'))
+  const ok = await copyToClipboard(requestId)
   if (ok) return
-  // `useClipboard` already shows toast on failure; this keeps UX consistent with older ops modal.
-  appStore.showWarning(t('admin.ops.requestDetails.copyFailed'))
 }
 
 function openErrorDetail(errorId: number | null | undefined) {

@@ -467,7 +467,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type {
   Proxy as ProxyConfig,
@@ -513,7 +512,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 // Platform awareness
 const targetMode = computed(() => props.target?.mode ?? 'selected')
@@ -695,7 +693,7 @@ const handleClose = () => {
 
 const handleSubmit = async () => {
   if (targetMode.value === 'selected' && props.accountIds.length === 0) {
-    appStore.showError(t('admin.accounts.bulkEdit.noSelection'))
+    console.error(t('admin.accounts.bulkEdit.noSelection'))
     return
   }
 
@@ -712,7 +710,7 @@ const handleSubmit = async () => {
     enableRpmLimit.value
 
   if (!hasAnyFieldEnabled) {
-    appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
+    console.error(t('admin.accounts.bulkEdit.noFieldsSelected'))
     return
   }
 
@@ -720,19 +718,19 @@ const handleSubmit = async () => {
     // 批量保存对 header_overrides 是整键替换：开启但没有任何有效行会把所选账号的
     // 既有覆写配置静默清空，必须显式拦截（清空请走关闭开关的路径，有专门提示）
     if (!headerOverrideRows.value.some((row) => row.name.trim())) {
-      appStore.showError(t('admin.accounts.headerOverride.bulkEmptyRows'))
+      console.error(t('admin.accounts.headerOverride.bulkEmptyRows'))
       return
     }
     const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
     if (headerError) {
-      appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+      console.error(t(`admin.accounts.headerOverride.${headerError}`))
       return
     }
   }
 
   const built = buildUpdatePayload()
   if (!built) {
-    appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
+    console.error(t('admin.accounts.bulkEdit.noFieldsSelected'))
     return
   }
 
@@ -752,12 +750,10 @@ const submitBulkUpdate = async (updates: Record<string, unknown>) => {
     const success = res.success || 0
     const failed = res.failed || 0
 
-    if (success > 0 && failed === 0) {
-      appStore.showSuccess(t('admin.accounts.bulkEdit.success', { count: success }))
-    } else if (success > 0) {
-      appStore.showError(t('admin.accounts.bulkEdit.partialSuccess', { success, failed }))
-    } else {
-      appStore.showError(t('admin.accounts.bulkEdit.failed'))
+    if (success > 0 && failed > 0) {
+      console.error(t('admin.accounts.bulkEdit.partialSuccess', { success, failed }))
+    } else if (success === 0) {
+      console.error(t('admin.accounts.bulkEdit.failed'))
     }
 
     if (success > 0) {
@@ -766,11 +762,10 @@ const submitBulkUpdate = async (updates: Record<string, unknown>) => {
     }
   } catch (error: any) {
     if (error.reason === 'UPSTREAM_BILLING_RATE_SYNC_BULK_CONFLICT') {
-      appStore.showError(t('admin.accounts.bulkEdit.rateSyncConflict', {
+      console.error(t('admin.accounts.bulkEdit.rateSyncConflict', {
         count: error.metadata?.count ?? 1
-      }))
+      }), error)
     } else {
-      appStore.showError(error.message || t('admin.accounts.bulkEdit.failed'))
       console.error('Error bulk updating accounts:', error)
     }
   } finally {

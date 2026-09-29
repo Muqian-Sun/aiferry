@@ -48,7 +48,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
 import {
   parseHeaderOverridesJson,
@@ -65,7 +64,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 // JSON 示例语言中立，且花括号会被 vue-i18n 消息编译器当作插值占位符解析
@@ -97,7 +95,7 @@ const closeImportPanel = () => {
 const applyImport = () => {
   const rows = parseHeaderOverridesJson(importText.value)
   if (rows === null) {
-    appStore.showError(t('admin.accounts.headerOverride.importJsonInvalid'))
+    console.error(t('admin.accounts.headerOverride.importJsonInvalid'))
     return
   }
   emit('update:rows', rows)

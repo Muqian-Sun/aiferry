@@ -50,7 +50,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
-import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -59,7 +58,6 @@ import CatalogEntryEditor from '@/components/admin/catalog/CatalogEntryEditor.vu
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const appStore = useAppStore()
 
 /** 编辑页的条目 ID；新建页没有 */
 const routeId = computed(() => (typeof route.params.id === 'string' ? route.params.id : ''))
@@ -109,7 +107,6 @@ function back() {
 }
 
 function onSaved() {
-  appStore.showSuccess(t('admin.modelCatalog.formPage.saved'))
   back()
 }
 

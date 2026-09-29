@@ -66,7 +66,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
@@ -74,7 +73,6 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 defineProps<{ headless?: boolean }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const loading = ref(false)
 const form = ref({
   old_password: '',
@@ -84,12 +82,12 @@ const form = ref({
 
 const handleChangePassword = async () => {
   if (form.value.new_password !== form.value.confirm_password) {
-    appStore.showError(t('profile.passwordsNotMatch'))
+    console.error(t('profile.passwordsNotMatch'))
     return
   }
 
   if (form.value.new_password.length < 8) {
-    appStore.showError(t('profile.passwordTooShort'))
+    console.error(t('profile.passwordTooShort'))
     return
   }
 
@@ -97,9 +95,8 @@ const handleChangePassword = async () => {
   try {
     await userAPI.changePassword(form.value.old_password, form.value.new_password)
     form.value = { old_password: '', new_password: '', confirm_password: '' }
-    appStore.showSuccess(t('profile.passwordChangeSuccess'))
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t('profile.passwordChangeFailed')))
+    console.error(extractApiErrorMessage(error, t('profile.passwordChangeFailed')), error)
   } finally {
     loading.value = false
   }

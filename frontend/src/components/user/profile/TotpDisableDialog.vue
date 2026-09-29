@@ -85,7 +85,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { totpAPI } from '@/api'
 
 const emit = defineEmits<{
@@ -94,7 +93,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const methodLoading = ref(true)
 const verificationMethod = ref<'email' | 'password'>('password')
@@ -120,7 +118,7 @@ const loadVerificationMethod = async () => {
     const method = await totpAPI.getVerificationMethod()
     verificationMethod.value = method.method
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('common.error'))
+    console.error(err.response?.data?.message || t('common.error'), err)
     emit('close')
   } finally {
     methodLoading.value = false
@@ -131,7 +129,6 @@ const handleSendCode = async () => {
   sendingCode.value = true
   try {
     await totpAPI.sendVerifyCode()
-    appStore.showSuccess(t('profile.totp.codeSent'))
     // Start cooldown
     codeCooldown.value = 60
     if (cooldownTimer.value) {
@@ -148,7 +145,7 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('profile.totp.sendCodeFailed'))
+    console.error(err.response?.data?.message || t('profile.totp.sendCodeFailed'), err)
   } finally {
     sendingCode.value = false
   }
@@ -165,10 +162,9 @@ const handleDisable = async () => {
       : { password: form.value.password }
 
     await totpAPI.disable(request)
-    appStore.showSuccess(t('profile.totp.disableSuccess'))
     emit('success')
   } catch (err: any) {
-    appStore.showError(err.response?.data?.message || t('profile.totp.disableFailed'))
+    console.error(err.response?.data?.message || t('profile.totp.disableFailed'), err)
   } finally {
     loading.value = false
   }

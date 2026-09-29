@@ -206,7 +206,7 @@
                   type="button"
                   class="shrink-0 text-13 text-af-ink-3 hover:text-af-ink"
                   data-testid="usage-detail-copy-request-id"
-                  @click="copyToClipboard(detailLog.request_id, t('userUi.usage.detail.requestIdCopied'))"
+                  @click="copyToClipboard(detailLog.request_id)"
                 >
                   {{ t('userUi.usage.detail.copy') }}
                 </button>
@@ -545,7 +545,7 @@ const loadLogs = async () => {
   } catch (error: any) {
     if (error?.name !== 'AbortError' && error?.code !== 'ERR_CANCELED') {
       logsError.value = true
-      appStore.showError(t('usage.failedToLoad'))
+      console.error(t('usage.failedToLoad'), error)
     }
   } finally {
     if (abortController === controller) loading.value = false
@@ -681,7 +681,7 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 }
 
 const handleIpGeoBatchFailed = () => {
-  appStore.showError(t('usage.ipGeo.batchFailed'))
+  console.error(t('usage.ipGeo.batchFailed'))
 }
 
 // ---------- 请求详情 ----------
@@ -731,11 +731,9 @@ const escapeCSVValue = (value: unknown): string => {
 
 const exportToCSV = async () => {
   if (pagination.total === 0) {
-    appStore.showWarning(t('usage.noDataToExport'))
     return
   }
   exporting.value = true
-  appStore.showInfo(t('usage.preparingExport'))
   try {
     const allLogs: UsageLog[] = []
     const pageSize = 100
@@ -746,7 +744,6 @@ const exportToCSV = async () => {
       allLogs.push(...response.items)
     }
     if (allLogs.length === 0) {
-      appStore.showWarning(t('usage.noDataToExport'))
       return
     }
     const headers = [
@@ -798,10 +795,8 @@ const exportToCSV = async () => {
     link.download = `usage_${exportParams.start_date}_to_${exportParams.end_date}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
-    appStore.showSuccess(t('usage.exportSuccess'))
   } catch (error) {
     console.error('CSV Export failed:', error)
-    appStore.showError(t('usage.exportFailed'))
   } finally {
     exporting.value = false
   }
@@ -900,7 +895,6 @@ const loadErrors = async () => {
     errorTotal.value = resp.total
   } catch (error) {
     console.error('[UsageView] loadErrors failed:', error)
-    appStore.showError(t('usage.errors.failedToLoad'))
   } finally {
     errorLoading.value = false
   }

@@ -21,7 +21,7 @@ const STEP_UP_ADMIN_API_KEY_FORBIDDEN = 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
 
 /**
  * Thrown by run() when the user dismisses the TOTP dialog.
- * Callers should treat it as a silent no-op, not an error to toast.
+ * Callers should treat it as a silent no-op, not an error to report.
  */
 export class StepUpCancelledError extends Error {
   readonly code = 'STEP_UP_CANCELLED'

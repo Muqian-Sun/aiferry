@@ -135,7 +135,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import type { AdminPaymentConfig } from '@/api/admin/payment'
@@ -159,7 +158,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const saving = ref(false)
 // 限额：null / '' = 不限（提交成 -1，后端 <= 0 即不限）
@@ -181,7 +179,7 @@ async function loadListedEntries() {
     const entries = await adminAPI.modelCatalog.listEntries()
     listedEntries.value = entries.filter(e => e.status === 'listed')
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   }
 }
 
@@ -292,15 +290,15 @@ function buildPlanPayload() {
 
 async function handleSavePlan() {
   if (planForm.entry_ids.length === 0) {
-    appStore.showError(t('payment.admin.modelsRequired'))
+    console.error(t('payment.admin.modelsRequired'))
     return
   }
   if (!planForm.price || planForm.price <= 0) {
-    appStore.showError(t('payment.admin.priceRequired'))
+    console.error(t('payment.admin.priceRequired'))
     return
   }
   if (!planForm.validity_days || planForm.validity_days < 1) {
-    appStore.showError(t('payment.admin.validityRequired'))
+    console.error(t('payment.admin.validityRequired'))
     return
   }
   saving.value = true
@@ -308,10 +306,9 @@ async function handleSavePlan() {
     const data = buildPlanPayload()
     if (props.plan) { await adminPaymentAPI.updatePlan(props.plan.id, data) }
     else { await adminPaymentAPI.createPlan(data) }
-    appStore.showSuccess(t('common.saved'))
     emit('close')
     emit('saved')
-  } catch (err: unknown) { appStore.showError(extractApiErrorMessage(err, t('common.error'))) }
+  } catch (err: unknown) { console.error(extractApiErrorMessage(err, t('common.error')), err) }
   finally { saving.value = false }
 }
 </script>

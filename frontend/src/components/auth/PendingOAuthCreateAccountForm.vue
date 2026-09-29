@@ -101,7 +101,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
-import { useAppStore } from '@/stores'
 
 export type PendingOAuthCreateAccountPayload = {
   email: string
@@ -126,7 +125,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const email = ref('')
 const password = ref('')
@@ -179,7 +177,7 @@ watch(
 
 watch(sendCodeError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -187,7 +185,7 @@ watch(
   () => props.errorMessage,
   value => {
     if (value) {
-      appStore.showError(value)
+      console.error(value)
       if (captchaEnabled.value) {
         resetTurnstile()
       }

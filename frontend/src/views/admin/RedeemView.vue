@@ -497,7 +497,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
@@ -533,7 +532,6 @@ import { BulkBar, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } f
 import type { RowAction } from '@/components/admin/list'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 const browserTimeZone = getBrowserTimeZone()
 
@@ -576,7 +574,7 @@ const closeResultDialog = () => {
 }
 
 const copyGeneratedCodes = async () => {
-  const success = await clipboardCopy(generatedCodesText.value, t('admin.redeem.copied'))
+  const success = await clipboardCopy(generatedCodesText.value)
   if (success) {
     copiedAll.value = true
     setTimeout(() => {
@@ -806,7 +804,6 @@ const loadCodes = async () => {
     ) {
       return
     }
-    appStore.showError(t('admin.redeem.failedToLoad'))
     console.error('Error loading redeem codes:', error)
   } finally {
     if (abortController === currentController && !currentController.signal.aborted) {
@@ -901,7 +898,6 @@ const resetBatchUpdateForm = () => {
 
 const openBatchUpdateDialog = () => {
   if (selectedCount.value === 0) {
-    appStore.showInfo(t('admin.redeem.selectCodesFirst'))
     return
   }
   resetBatchUpdateForm()
@@ -924,7 +920,7 @@ const buildBatchUpdateFields = (): BatchUpdateRedeemCodeFields | null => {
     } else {
       const expiresAt = parseDateTimeLocalInput(batchUpdateForm.expires_at_local)
       if (expiresAt === null) {
-        appStore.showError(t('admin.redeem.expiryDateRequired'))
+        console.error(t('admin.redeem.expiryDateRequired'))
         return null
       }
       fields.expires_at = new Date(expiresAt * 1000).toISOString()
@@ -944,13 +940,13 @@ const buildBatchUpdateFields = (): BatchUpdateRedeemCodeFields | null => {
 const handleGenerateCodes = async () => {
   // 订阅类型必须选择套餐
   if (generateForm.type === 'subscription' && !generateForm.plan_id) {
-    appStore.showError(t('admin.redeem.planRequired'))
+    console.error(t('admin.redeem.planRequired'))
     return
   }
 
   const expiresInDays = getRedeemCodeExpiresInDays()
   if (expiresInDays === null) {
-    appStore.showError(t('admin.redeem.expiryDaysRequired'))
+    console.error(t('admin.redeem.expiryDaysRequired'))
     return
   }
 
@@ -974,7 +970,6 @@ const handleGenerateCodes = async () => {
     generateForm.custom_expiry_days = 7
     refresh()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToGenerate'))
     console.error('Error generating codes:', error)
   } finally {
     generating.value = false
@@ -982,7 +977,7 @@ const handleGenerateCodes = async () => {
 }
 
 const copyToClipboard = async (text: string) => {
-  const success = await clipboardCopy(text, t('admin.redeem.copied'))
+  const success = await clipboardCopy(text)
   if (success) {
     copiedCode.value = text
     setTimeout(() => {
@@ -1004,10 +999,7 @@ const handleExportCodes = async () => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-
-    appStore.showSuccess(t('admin.redeem.codesExported'))
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToExport'))
     console.error('Error exporting codes:', error)
   }
 }
@@ -1022,13 +1014,11 @@ const confirmDelete = async () => {
 
   try {
     await adminAPI.redeem.delete(deletingCode.value.id)
-    appStore.showSuccess(t('admin.redeem.codeDeleted'))
     showDeleteDialog.value = false
     removeSelectedCodes([deletingCode.value.id])
     deletingCode.value = null
     refresh()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDelete'))
     console.error('Error deleting code:', error)
   }
 }
@@ -1040,7 +1030,6 @@ const bulkDeleteSkipped = ref(0)
 const openBulkDelete = () => {
   const ids = selectedIds.value.filter((id) => knownStatus.get(id) === 'unused')
   if (ids.length === 0) {
-    appStore.showInfo(t('admin.redeem.bulkDelete.noneDeletable'))
     return
   }
   bulkDeleteSkipped.value = selectedIds.value.length - ids.length
@@ -1052,13 +1041,11 @@ const confirmBulkDelete = async () => {
   if (ids.length === 0) return
   bulkDeleting.value = true
   try {
-    const result = await adminAPI.redeem.batchDelete(ids)
-    appStore.showSuccess(t('admin.redeem.bulkDelete.done', { count: result.deleted }))
+    await adminAPI.redeem.batchDelete(ids)
     bulkDeleteIds.value = []
     clearSelectedCodes()
     refresh()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDelete'))
     console.error('Error bulk deleting codes:', error)
   } finally {
     bulkDeleting.value = false
@@ -1072,18 +1059,15 @@ const confirmDeleteUnused = async () => {
     const unusedCodeIds = unusedCodesResponse.items.map((code) => code.id)
 
     if (unusedCodeIds.length === 0) {
-      appStore.showInfo(t('admin.redeem.noUnusedCodes'))
       showDeleteUnusedDialog.value = false
       return
     }
 
-    const result = await adminAPI.redeem.batchDelete(unusedCodeIds)
-    appStore.showSuccess(t('admin.redeem.codesDeleted', { count: result.deleted }))
+    await adminAPI.redeem.batchDelete(unusedCodeIds)
     showDeleteUnusedDialog.value = false
     removeSelectedCodes(unusedCodeIds)
     refresh()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDeleteUnused'))
     console.error('Error deleting unused codes:', error)
   }
 }
@@ -1091,7 +1075,6 @@ const confirmDeleteUnused = async () => {
 const handleBatchUpdate = async () => {
   const ids = Array.from(selectedCodeIds.value)
   if (ids.length === 0) {
-    appStore.showInfo(t('admin.redeem.selectCodesFirst'))
     return
   }
 
@@ -1101,7 +1084,7 @@ const handleBatchUpdate = async () => {
     batchUpdateForm.update_notes ||
     batchUpdateForm.update_plan_id
   if (!hasSelectedFields) {
-    appStore.showError(t('admin.redeem.noBatchFieldsSelected'))
+    console.error(t('admin.redeem.noBatchFieldsSelected'))
     return
   }
 
@@ -1112,13 +1095,11 @@ const handleBatchUpdate = async () => {
 
   batchUpdating.value = true
   try {
-    const result = await adminAPI.redeem.batchUpdate(ids, fields)
-    appStore.showSuccess(t('admin.redeem.batchUpdateSuccess', { count: result.updated }))
+    await adminAPI.redeem.batchUpdate(ids, fields)
     showBatchUpdateDialog.value = false
     clearSelectedCodes()
     refresh()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToBatchUpdate'))
     console.error('Error batch updating codes:', error)
   } finally {
     batchUpdating.value = false

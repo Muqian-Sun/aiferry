@@ -154,7 +154,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { NotifyEmailEntry } from '@/types'
@@ -181,7 +180,6 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 const notifyEnabled = ref(props.enabled)
 const customThreshold = ref<number | null>(props.threshold)
@@ -225,7 +223,7 @@ const handleToggle = async () => {
     const updated = await userAPI.updateProfile({ balance_notify_enabled: notifyEnabled.value })
     authStore.user = updated
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
     notifyEnabled.value = !notifyEnabled.value
   }
 }
@@ -236,9 +234,8 @@ const handleThresholdUpdate = async () => {
     const threshold = customThreshold.value && customThreshold.value > 0 ? customThreshold.value : 0
     const updated = await userAPI.updateProfile({ balance_notify_threshold: threshold })
     authStore.user = updated
-    appStore.showSuccess(t('common.saved'))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   } finally {
     savingThreshold.value = false
   }
@@ -251,7 +248,7 @@ async function handleEmailToggle(entry: NotifyEmailEntry) {
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   }
 }
 
@@ -262,7 +259,7 @@ function addPendingEmail() {
   const isDuplicate = emailEntries.value.some(e => e.email.toLowerCase() === email.toLowerCase())
     || pendingEmails.value.some(p => p.email.toLowerCase() === email.toLowerCase())
   if (isDuplicate) {
-    appStore.showError(t('profile.balanceNotify.emailDuplicate'))
+    console.error(t('profile.balanceNotify.emailDuplicate'))
     return
   }
   pendingEmails.value.push({ email, codeSent: false, code: '', sending: false, verifying: false, countdown: 0, timer: null })
@@ -284,9 +281,8 @@ async function sendCodeFor(idx: number) {
         pe.timer = null
       }
     }, 1000)
-    appStore.showSuccess(t('profile.balanceNotify.codeSent'))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   } finally {
     pe.sending = false
   }
@@ -300,12 +296,11 @@ async function verifyPending(idx: number) {
     await userAPI.verifyNotifyEmail(pe.email, pe.code)
     if (pe.timer) clearInterval(pe.timer)
     pendingEmails.value = pendingEmails.value.filter(entry => entry !== pe)
-    appStore.showSuccess(t('profile.balanceNotify.verifySuccess'))
     const updated = await userAPI.getProfile()
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   } finally {
     pe.verifying = false
   }
@@ -314,12 +309,11 @@ async function verifyPending(idx: number) {
 const handleRemoveEmail = async (email: string) => {
   try {
     await userAPI.removeNotifyEmail(email)
-    appStore.showSuccess(t('profile.balanceNotify.removeSuccess'))
     const updated = await userAPI.getProfile()
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   }
 }
 
@@ -339,9 +333,8 @@ async function sendCodeForSaved(email: string) {
         verifyTimer = null
       }
     }, 1000)
-    appStore.showSuccess(t('profile.balanceNotify.codeSent'))
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   } finally {
     sendingSavedCode.value = false
   }
@@ -355,12 +348,11 @@ async function verifySavedEmail(email: string) {
     verifyingEmail.value = ''
     verifyCode.value = ''
     if (verifyTimer) { clearInterval(verifyTimer); verifyTimer = null }
-    appStore.showSuccess(t('profile.balanceNotify.verifySuccess'))
     const updated = await userAPI.getProfile()
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
   } finally {
     verifyingSaved.value = false
   }

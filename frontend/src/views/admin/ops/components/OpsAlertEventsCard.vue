@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import Select from '@/components/common/Select.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -11,7 +10,6 @@ import type { AlertEvent } from '../types'
 import { formatDateTime } from '../utils/opsFormatters'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 // 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
 const isDesktopViewport = useMediaQuery('(min-width: 768px)')
@@ -117,7 +115,6 @@ async function loadFirstPage() {
     hasMore.value = data.length === PAGE_SIZE
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to load alert events', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.loadFailed'))
     events.value = []
     hasMore.value = false
   } finally {
@@ -225,7 +222,6 @@ async function openDetail(row: AlertEvent) {
     selected.value = detail
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to load alert detail', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.detail.loadFailed'))
   } finally {
     detailLoading.value = false
   }
@@ -292,11 +288,8 @@ async function silenceAlert() {
       until: durationToUntilRFC3339(silenceDuration.value),
       reason: `silence from UI (${silenceDuration.value})`
     })
-
-    appStore.showSuccess(t('admin.ops.alertEvents.detail.silenceSuccess'))
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to silence alert', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.detail.silenceFailed'))
   } finally {
     detailActionLoading.value = false
   }
@@ -308,7 +301,6 @@ async function manualResolve() {
   detailActionLoading.value = true
   try {
     await opsAPI.updateAlertEventStatus(selected.value.id, 'manual_resolved')
-    appStore.showSuccess(t('admin.ops.alertEvents.detail.manualResolvedSuccess'))
 
     // Refresh detail + first page to reflect new status
     const detail = await opsAPI.getAlertEvent(selected.value.id)
@@ -317,7 +309,6 @@ async function manualResolve() {
     await loadHistory()
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to resolve alert', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.detail.manualResolvedFailed'))
   } finally {
     detailActionLoading.value = false
   }

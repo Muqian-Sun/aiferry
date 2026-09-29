@@ -96,7 +96,6 @@
 <script setup lang="ts">
 import { computed, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, UserAttributeValuesMap } from '@/types'
@@ -109,7 +108,7 @@ import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 
 const props = defineProps<{ show: boolean, user: AdminUser | null }>()
 const emit = defineEmits(['close', 'success'])
-const { t } = useI18n(); const appStore = useAppStore(); const { copyToClipboard } = useClipboard()
+const { t } = useI18n(); const { copyToClipboard } = useClipboard()
 
 const submitting = ref(false); const passwordCopied = ref(false)
 const roleOptions = computed(() => [
@@ -141,7 +140,7 @@ const generatePassword = () => {
   form.password = p
 }
 const copyPassword = async () => {
-  if (form.password && await copyToClipboard(form.password, t('admin.users.passwordCopied'))) {
+  if (form.password && await copyToClipboard(form.password)) {
     passwordCopied.value = true; setTimeout(() => passwordCopied.value = false, 2000)
   }
 }
@@ -150,12 +149,12 @@ const stepUp = useStepUp()
 const handleUpdateUser = async () => {
   if (!props.user) return
   if (!form.email.trim()) {
-    appStore.showError(t('admin.users.emailRequired'))
+    console.error(t('admin.users.emailRequired'))
     return
   }
   // 0 = 不限制，与网关 (AcquireUserSlot: maxConcurrency <= 0) 和批量改限额一致
   if (!Number.isInteger(form.concurrency) || form.concurrency < 0) {
-    appStore.showError(t('admin.users.concurrencyNonNegative'))
+    console.error(t('admin.users.concurrencyNonNegative'))
     return
   }
   const userId = props.user.id
@@ -166,19 +165,19 @@ const handleUpdateUser = async () => {
     // 提升为管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.update(userId, data))
     if (Object.keys(form.customAttributes).length > 0) await adminAPI.userAttributes.updateUserAttributeValues(userId, form.customAttributes)
-    appStore.showSuccess(t('admin.users.userUpdated'))
     emit('success'); emit('close')
   } catch (e: any) {
     if (isStepUpCancelled(e)) {
       // 用户主动取消二次验证：静默返回，表单保持打开。
     } else if (isStepUpBlocked(e)) {
-      appStore.showError(
+      console.error(
         stepUpBlockReason(e) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
           ? t('stepUp.adminApiKeyForbidden')
-          : t('stepUp.notEnabled')
+          : t('stepUp.notEnabled'),
+        e
       )
     } else {
-      appStore.showError(e?.message || t('admin.users.failedToUpdate'))
+      console.error(e?.message || t('admin.users.failedToUpdate'), e)
     }
   } finally { submitting.value = false }
 }

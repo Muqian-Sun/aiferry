@@ -42,18 +42,16 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useAppStore } from '@/stores'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const appStore = useAppStore()
 
 const errorMessage = ref('')
 
 watch(errorMessage, (message) => {
   if (message) {
-    appStore.showError(message)
+    console.error(message)
   }
 })
 

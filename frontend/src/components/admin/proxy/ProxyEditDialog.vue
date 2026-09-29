@@ -120,7 +120,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Proxy, ProxyProtocol } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -141,7 +140,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const protocolSelectOptions = computed(() => [
   { value: 'http', label: t('admin.proxies.protocols.http') },
@@ -230,15 +228,15 @@ const close = () => {
 const handleUpdateProxy = async () => {
   if (!props.proxy) return
   if (!editForm.name.trim()) {
-    appStore.showError(t('admin.proxies.nameRequired'))
+    console.error(t('admin.proxies.nameRequired'))
     return
   }
   if (!editForm.host.trim()) {
-    appStore.showError(t('admin.proxies.hostRequired'))
+    console.error(t('admin.proxies.hostRequired'))
     return
   }
   if (editForm.port < 1 || editForm.port > 65535) {
-    appStore.showError(t('admin.proxies.portInvalid'))
+    console.error(t('admin.proxies.portInvalid'))
     return
   }
 
@@ -263,11 +261,9 @@ const handleUpdateProxy = async () => {
     }
 
     await adminAPI.proxies.update(props.proxy.id, updateData)
-    appStore.showSuccess(t('admin.proxies.proxyUpdated'))
     close()
     emit('updated')
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.failedToUpdate'))
     console.error('Error updating proxy:', error)
   } finally {
     submitting.value = false

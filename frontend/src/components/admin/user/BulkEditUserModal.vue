@@ -122,7 +122,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
-import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
 
@@ -137,7 +136,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const enableConcurrency = ref(false)
 const enableRPMLimit = ref(false)
 const enableRateMultiplier = ref(false)
@@ -246,16 +244,14 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     const result = await adminAPI.users.batchUpdateLimits(request)
-    appStore.showSuccess(
-      t('admin.users.bulkLimits.success', { count: result.affected })
-    )
     emit('success', result.affected)
     emit('close')
   } catch (error: any) {
-    appStore.showError(
+    console.error(
       error.response?.data?.message
       || error.response?.data?.detail
-      || t('admin.users.bulkLimits.failed')
+      || t('admin.users.bulkLimits.failed'),
+      error
     )
   } finally {
     submitting.value = false

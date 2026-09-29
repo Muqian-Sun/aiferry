@@ -269,7 +269,7 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import {
   buildOAuthLoginStartURL,
   getPublicSettings,
@@ -305,7 +305,6 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -390,7 +389,7 @@ const errors = reactive({
   invitation_code: ''
 })
 
-const validationToastMessage = computed(() =>
+const validationMessage = computed(() =>
   errors.email ||
   errors.password ||
   errors.confirmPassword ||
@@ -415,9 +414,9 @@ const registrationActionDisabled = computed(
   () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
 )
 
-watch(validationToastMessage, (value, previousValue) => {
+watch(validationMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -540,7 +539,6 @@ function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
   showAgreementModal.value = false
-  appStore.showWarning(t('legal.loginAgreementPrompt.registerRejectedWarning'))
 }
 
 // ==================== Invitation Code Validation ====================
@@ -675,7 +673,7 @@ async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
       'auth.errors',
       t('auth.turnstileFailed')
     )
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     resetCaptchaProof()
     isLoading.value = false
@@ -716,7 +714,6 @@ function validateForm(): boolean {
   let isValid = true
 
   if (agreementGateActive.value) {
-    appStore.showWarning(t('legal.loginAgreementPrompt.registerRequiredWarning'))
     if (loginAgreementMode.value !== 'checkbox') {
       showAgreementModal.value = true
     }
@@ -856,17 +853,12 @@ async function handleRegister(): Promise<void> {
     })
     clearAffiliateReferralCode()
 
-    // Show success toast
-    appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
-
     // Redirect to dashboard
     await router.push(DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     // Handle registration error
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.registrationFailed'))
-
-    // Also show error toast
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaEnabled.value) {
       resetCaptchaProof()

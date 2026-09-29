@@ -89,7 +89,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { adminAPI } from '@/api/admin'
-import { useAppStore } from '@/stores/app'
 import type { AdminDataImportResult } from '@/types'
 
 interface Props {
@@ -105,7 +104,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const importing = ref(false)
 const hasImportedData = ref(false)
@@ -169,7 +167,7 @@ const readFileAsText = async (sourceFile: File): Promise<string> => {
 
 const handleImport = async () => {
   if (!file.value) {
-    appStore.showError(t('admin.proxies.dataImportSelectFile'))
+    console.error(t('admin.proxies.dataImportSelectFile'))
     return
   }
 
@@ -190,17 +188,16 @@ const handleImport = async () => {
 
     if (res.proxy_failed > 0) {
       hasImportedData.value ||= res.proxy_created > 0 || res.proxy_reused > 0
-      appStore.showError(t('admin.proxies.dataImportCompletedWithErrors', msgParams))
+      console.error(t('admin.proxies.dataImportCompletedWithErrors', msgParams))
     } else {
       hasImportedData.value = false
-      appStore.showSuccess(t('admin.proxies.dataImportSuccess', msgParams))
       emit('imported')
     }
   } catch (error: any) {
     if (error instanceof SyntaxError) {
-      appStore.showError(t('admin.proxies.dataImportParseFailed'))
+      console.error(t('admin.proxies.dataImportParseFailed'), error)
     } else {
-      appStore.showError(error?.message || t('admin.proxies.dataImportFailed'))
+      console.error(error?.message || t('admin.proxies.dataImportFailed'), error)
     }
   } finally {
     importing.value = false

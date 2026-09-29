@@ -218,7 +218,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePaymentStore } from '@/stores/payment'
-import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
@@ -256,7 +255,6 @@ const emit = defineEmits<{ done: []; success: []; settled: [outcome: PaymentOutc
 const i18n = useI18n()
 const { t } = i18n
 const paymentStore = usePaymentStore()
-const appStore = useAppStore()
 
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
@@ -457,7 +455,7 @@ async function handleCancel() {
     cleanup()
     setOutcome('cancelled')
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   } finally {
     cancelling.value = false
   }

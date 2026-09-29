@@ -626,7 +626,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useClipboard } from '@/composables/useClipboard'
 import { useColumnSettings } from '@/composables/useColumnSettings'
@@ -678,7 +677,6 @@ const formatDateTimeLocal = (isoDate: string): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const appStore = useAppStore()
 const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 // 单测里不装路由：拿不到就当没有地址栏参数
@@ -921,7 +919,7 @@ const onStatusFilterChange = (value: string | number) => {
 }
 
 const copyToClipboard = async (text: string, keyId: number) => {
-  const success = await clipboardCopy(text, t('keys.copied'))
+  const success = await clipboardCopy(text)
   if (success) {
     copiedKeyId.value = keyId
     setTimeout(() => {
@@ -988,7 +986,7 @@ const loadApiKeys = async (options: { refreshAttention?: boolean } = {}) => {
     if (isAbortError(error)) {
       return
     }
-    appStore.showError(t('keys.failedToLoad'))
+    console.error(t('keys.failedToLoad'), error)
   } finally {
     if (abortController === controller) {
       loading.value = false
@@ -1054,12 +1052,9 @@ const toggleKeyStatus = async (key: ApiKey) => {
   const newStatus = key.status === 'active' ? 'inactive' : 'active'
   try {
     await keysAPI.toggleStatus(key.id, newStatus)
-    appStore.showSuccess(
-      newStatus === 'active' ? t('keys.keyEnabledSuccess') : t('keys.keyDisabledSuccess')
-    )
     loadApiKeys({ refreshAttention: true })
   } catch (error) {
-    appStore.showError(t('keys.failedToUpdateStatus'))
+    console.error(t('keys.failedToUpdateStatus'), error)
   }
 }
 
@@ -1072,18 +1067,18 @@ const handleSubmit = async () => {
   // Validate custom key if enabled
   if (!showEditModal.value && formData.value.use_custom_key) {
     if (!formData.value.custom_key) {
-      appStore.showError(t('keys.customKeyRequired'))
+      console.error(t('keys.customKeyRequired'))
       return
     }
     if (customKeyError.value) {
-      appStore.showError(customKeyError.value)
+      console.error(customKeyError.value)
       return
     }
   }
 
   // 打开了有效期却没有日期（比如手动清空了），不能悄悄建成永久有效
   if (formData.value.enable_expiration && !formData.value.expiration_date) {
-    appStore.showError(t('keys.expirationDateRequired'))
+    console.error(t('keys.expirationDateRequired'))
     return
   }
 
@@ -1139,7 +1134,6 @@ const handleSubmit = async () => {
         updates.status = formData.value.status
       }
       await keysAPI.update(selectedKey.value.id, updates)
-      appStore.showSuccess(t('keys.keyUpdatedSuccess'))
     } else {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
@@ -1151,7 +1145,6 @@ const handleSubmit = async () => {
         expiresInDays,
         rateLimitData
       )
-      appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
       if (onboardingStore.isCurrentStep('[data-tour="key-form-submit"]')) {
         onboardingStore.nextStep(500)
@@ -1161,7 +1154,7 @@ const handleSubmit = async () => {
     loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
-    appStore.showError(errorMsg)
+    console.error(errorMsg, error)
     // Don't advance tour on error
   } finally {
     submitting.value = false
@@ -1178,14 +1171,13 @@ const handleDelete = async () => {
 
   try {
     await keysAPI.delete(selectedKey.value.id)
-    appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
     if (detailKey.value?.id === selectedKey.value.id) detailKey.value = null
     loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
-    appStore.showError(errorMsg)
+    console.error(errorMsg, error)
   }
 }
 
@@ -1244,11 +1236,10 @@ const resetQuotaUsed = async () => {
   showResetQuotaDialog.value = false
   try {
     const updatedKey = await keysAPI.update(key.id, { reset_quota: true })
-    appStore.showSuccess(t('keys.quotaResetSuccess'))
     applyKeyUpdate({ ...key, quota_used: updatedKey.quota_used, status: updatedKey.status })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetQuota')
-    appStore.showError(errorMsg)
+    console.error(errorMsg, error)
   } finally {
     resetTarget.value = null
   }
@@ -1260,11 +1251,10 @@ const resetRateLimitUsage = async () => {
   showResetRateLimitDialog.value = false
   try {
     await keysAPI.update(key.id, { reset_rate_limit_usage: true })
-    appStore.showSuccess(t('keys.rateLimitResetSuccess'))
     await loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetRateLimit')
-    appStore.showError(errorMsg)
+    console.error(errorMsg, error)
   } finally {
     resetTarget.value = null
   }
@@ -1311,11 +1301,11 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     setTimeout(() => {
       if (document.hasFocus()) {
         // Still focused means the protocol handler likely failed
-        appStore.showError(t('keys.ccSwitchNotInstalled'))
+        console.error(t('keys.ccSwitchNotInstalled'))
       }
     }, 100)
   } catch (error) {
-    appStore.showError(t('keys.ccSwitchNotInstalled'))
+    console.error(t('keys.ccSwitchNotInstalled'), error)
   }
 }
 

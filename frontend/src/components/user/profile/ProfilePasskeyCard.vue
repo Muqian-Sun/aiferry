@@ -179,12 +179,10 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
-import { useAppStore } from '@/stores/app'
 
 const props = defineProps<{ enabled: boolean; headless?: boolean }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const supported = passkeyAPI.isSupported()
 const loading = ref(false)
 const busy = ref(false)
@@ -215,7 +213,7 @@ async function loadCredentials(): Promise<void> {
     // 设置变更竞态下后端仍可能返回 PASSKEY_DISABLED，静默处理
     const reason = (error as { reason?: string }).reason
     if (reason !== 'PASSKEY_DISABLED') {
-      appStore.showError(t('profile.passkey.loadFailed'))
+      console.error(t('profile.passkey.loadFailed'), error)
     }
   } finally {
     loading.value = false
@@ -227,12 +225,11 @@ async function addPasskey(): Promise<void> {
   busy.value = true
   try {
     await passkeyAPI.register(newName.value.trim(), newPassword.value)
-    appStore.showSuccess(t('profile.passkey.added'))
     cancelAdd()
     await loadCredentials()
   } catch (error) {
     if (!(error instanceof DOMException && error.name === 'NotAllowedError')) {
-      appStore.showError(extractErrorMessage(error, t('profile.passkey.addFailed')))
+      console.error(extractErrorMessage(error, t('profile.passkey.addFailed')), error)
     }
   } finally {
     busy.value = false
@@ -252,9 +249,8 @@ async function renamePasskey(credential: PasskeyCredentialSummary): Promise<void
   try {
     await passkeyAPI.rename(credential.id, name)
     credential.name = name
-    appStore.showSuccess(t('profile.passkey.renamed'))
-  } catch {
-    appStore.showError(t('profile.passkey.renameFailed'))
+  } catch (error) {
+    console.error(t('profile.passkey.renameFailed'), error)
   } finally {
     busy.value = false
   }
@@ -277,11 +273,10 @@ async function confirmDelete(): Promise<void> {
   try {
     await passkeyAPI.remove(credential.id, deletePassword.value)
     credentials.value = credentials.value.filter((item) => item.id !== credential.id)
-    appStore.showSuccess(t('profile.passkey.deleted'))
     closeDeleteDialog()
   } catch (error) {
     // 密码错误等失败保持对话框打开，允许重试
-    appStore.showError(extractErrorMessage(error, t('profile.passkey.deleteFailed')))
+    console.error(extractErrorMessage(error, t('profile.passkey.deleteFailed')), error)
   } finally {
     busy.value = false
   }

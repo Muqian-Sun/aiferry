@@ -484,7 +484,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Proxy, ProxyAccountSummary, ProxyQualityCheckResult } from '@/types'
 import type { Column } from '@/components/common/types'
@@ -511,7 +510,6 @@ import { formatDateOnly, formatDateTime } from '@/utils/format'
 import { EXPIRY_DANGER_DAYS, EXPIRY_WARN_DAYS, daysUntil, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
 // 协议、状态并进名称列，认证并进地址列（A4：默认列在 1440 宽下不用横向滚动）
@@ -658,7 +656,6 @@ const loadProxies = async () => {
     if (isAbortError(error)) {
       return
     }
-    appStore.showError(t('admin.proxies.failedToLoad'))
     console.error('Error loading proxies:', error)
   } finally {
     if (abortController === currentAbortController) {
@@ -820,23 +817,13 @@ const runProxyTest = async (proxyId: number, notify: boolean) => {
   try {
     const result = await adminAPI.proxies.testProxy(proxyId)
     applyLatencyResult(proxyId, result)
-    if (notify) {
-      if (result.success) {
-        const message = result.latency_ms
-          ? t('admin.proxies.proxyWorkingWithLatency', { latency: result.latency_ms })
-          : t('admin.proxies.proxyWorking')
-        appStore.showSuccess(message)
-      } else {
-        appStore.showError(result.message || t('admin.proxies.proxyTestFailed'))
-      }
+    if (notify && !result.success) {
+      console.error(result.message || t('admin.proxies.proxyTestFailed'))
     }
     return result
   } catch (error: any) {
     const message = error.response?.data?.detail || t('admin.proxies.failedToTest')
     applyLatencyResult(proxyId, { success: false, message })
-    if (notify) {
-      appStore.showError(message)
-    }
     console.error('Error testing proxy:', error)
     return null
   } finally {
@@ -868,13 +855,7 @@ const handleQualityCheck = async (proxy: Proxy) => {
       })
     }
     applyQualityResult(proxy.id, result)
-
-    appStore.showSuccess(
-      t('admin.proxies.qualityCheckDone', { score: result.score, grade: result.grade })
-    )
   } catch (error: any) {
-    const message = error.response?.data?.detail || t('admin.proxies.qualityCheckFailed')
-    appStore.showError(message)
     console.error('Error checking proxy quality:', error)
   } finally {
     stopQualityCheckingProxy(proxy.id)
@@ -882,14 +863,10 @@ const handleQualityCheck = async (proxy: Proxy) => {
 }
 
 const runBatchProxyQualityChecks = async (ids: number[]) => {
-  if (ids.length === 0) return { total: 0, healthy: 0, warn: 0, challenge: 0, failed: 0 }
+  if (ids.length === 0) return
 
   const concurrency = 3
   let index = 0
-  let healthy = 0
-  let warn = 0
-  let challenge = 0
-  let failed = 0
 
   const worker = async () => {
     while (index < ids.length) {
@@ -913,17 +890,8 @@ const runBatchProxyQualityChecks = async (ids: number[]) => {
           }
         }
         applyQualityResult(current, result)
-        if (result.challenge_count > 0) {
-          challenge++
-        } else if (result.failed_count > 0) {
-          failed++
-        } else if (result.warn_count > 0) {
-          warn++
-        } else {
-          healthy++
-        }
-      } catch {
-        failed++
+      } catch (error) {
+        console.error(t('admin.proxies.qualityCheckFailed'), error)
       } finally {
         stopQualityCheckingProxy(current)
       }
@@ -932,13 +900,6 @@ const runBatchProxyQualityChecks = async (ids: number[]) => {
 
   const workers = Array.from({ length: Math.min(concurrency, ids.length) }, () => worker())
   await Promise.all(workers)
-  return {
-    total: ids.length,
-    healthy,
-    warn,
-    challenge,
-    failed
-  }
 }
 
 const closeQualityReportDialog = () => {
@@ -1076,15 +1037,12 @@ const handleBatchTest = async (scope: BatchScope) => {
     const ids = await resolveBatchIds(scope)
 
     if (ids.length === 0) {
-      appStore.showInfo(t('admin.proxies.batchTestEmpty'))
       return
     }
 
     await runBatchProxyTests(ids)
-    appStore.showSuccess(t('admin.proxies.batchTestDone', { count: ids.length }))
     loadProxies()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.batchTestFailed'))
     console.error('Error batch testing proxies:', error)
   } finally {
     batchTesting.value = false
@@ -1099,23 +1057,12 @@ const handleBatchQualityCheck = async (scope: BatchScope) => {
     const ids = await resolveBatchIds(scope)
 
     if (ids.length === 0) {
-      appStore.showInfo(t('admin.proxies.batchQualityEmpty'))
       return
     }
 
-    const summary = await runBatchProxyQualityChecks(ids)
-    appStore.showSuccess(
-      t('admin.proxies.batchQualityDone', {
-        count: summary.total,
-        healthy: summary.healthy,
-        warn: summary.warn,
-        challenge: summary.challenge,
-        failed: summary.failed
-      })
-    )
+    await runBatchProxyQualityChecks(ids)
     loadProxies()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.batchQualityFailed'))
     console.error('Error batch checking quality:', error)
   } finally {
     batchQualityChecking.value = false
@@ -1148,9 +1095,8 @@ const handleExportData = async () => {
     link.download = filename
     link.click()
     URL.revokeObjectURL(url)
-    appStore.showSuccess(t('admin.proxies.dataExported'))
   } catch (error: any) {
-    appStore.showError(error?.message || t('admin.proxies.dataExportFailed'))
+    console.error(error?.message || t('admin.proxies.dataExportFailed'), error)
   } finally {
     exportingData.value = false
     showExportDataDialog.value = false
@@ -1159,7 +1105,7 @@ const handleExportData = async () => {
 
 const handleDelete = (proxy: Proxy) => {
   if ((proxy.account_count || 0) > 0) {
-    appStore.showError(t('admin.proxies.deleteBlockedInUse'))
+    console.error(t('admin.proxies.deleteBlockedInUse'))
     return
   }
   deletingProxy.value = proxy
@@ -1178,13 +1124,11 @@ const confirmDelete = async () => {
 
   try {
     await adminAPI.proxies.delete(deletingProxy.value.id)
-    appStore.showSuccess(t('admin.proxies.proxyDeleted'))
     showDeleteDialog.value = false
     removeSelectedProxies([deletingProxy.value.id])
     deletingProxy.value = null
     loadProxies()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.failedToDelete'))
     console.error('Error deleting proxy:', error)
   }
 }
@@ -1197,21 +1141,11 @@ const confirmBatchDelete = async () => {
   }
 
   try {
-    const result = await adminAPI.proxies.batchDelete(ids)
-    const deleted = result.deleted_ids?.length || 0
-    const skipped = result.skipped?.length || 0
-
-    if (deleted > 0) {
-      appStore.showSuccess(t('admin.proxies.batchDeleteDone', { deleted, skipped }))
-    } else if (skipped > 0) {
-      appStore.showInfo(t('admin.proxies.batchDeleteSkipped', { skipped }))
-    }
-
+    await adminAPI.proxies.batchDelete(ids)
     clearSelectedProxies()
     showBatchDeleteDialog.value = false
     loadProxies()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.batchDeleteFailed'))
     console.error('Error batch deleting proxies:', error)
   }
 }
@@ -1225,7 +1159,6 @@ const openAccountsModal = async (proxy: Proxy) => {
   try {
     proxyAccounts.value = await adminAPI.proxies.getProxyAccounts(proxy.id)
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.proxies.accountsFailed'))
     console.error('Error loading proxy accounts:', error)
   } finally {
     accountsLoading.value = false
@@ -1280,12 +1213,12 @@ function openCopyMenu(id: number) {
 }
 
 function copyProxyUrl(row: any) {
-  copyToClipboard(buildProxyUrl(row), t('admin.proxies.urlCopied'))
+  copyToClipboard(buildProxyUrl(row))
   copyMenus.get(row.id)?.close()
 }
 
 function copyFormat(value: string) {
-  copyToClipboard(value, t('admin.proxies.urlCopied'))
+  copyToClipboard(value)
 }
 
 onMounted(() => {

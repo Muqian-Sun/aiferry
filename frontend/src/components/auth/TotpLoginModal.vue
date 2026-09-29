@@ -77,7 +77,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores'
 
 defineProps<{
   tempToken: string
@@ -90,7 +89,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const verifying = ref(false)
 const code = ref<string[]>(['', '', '', '', '', ''])
@@ -111,7 +109,7 @@ defineExpose({
   setVerifying: (value: boolean) => { verifying.value = value },
   setError: (message: string) => {
     if (message) {
-      appStore.showError(message)
+      console.error(message)
     }
     code.value = ['', '', '', '', '', '']
     // Clear input DOM values

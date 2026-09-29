@@ -795,7 +795,6 @@ async function queryKey() {
   if (isQuerying.value) return
   const key = apiKey.value.trim()
   if (!key) {
-    appStore.showInfo(t('keyUsage.enterApiKey'))
     return
   }
 
@@ -814,12 +813,10 @@ async function queryKey() {
     nextTick(() => {
       triggerRingAnimation(ringItems.value)
     })
-
-    appStore.showSuccess(t('keyUsage.querySuccess'))
   } catch (err) {
     showResults.value = false
     showLoading.value = false
-    appStore.showError((err as Error).message || t('keyUsage.queryFailedRetry'))
+    console.error((err as Error).message || t('keyUsage.queryFailedRetry'), err)
   } finally {
     isQuerying.value = false
   }

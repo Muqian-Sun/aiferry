@@ -150,7 +150,7 @@
               type="button"
               class="text-13 font-medium text-af-ink-3 transition-colors hover:text-af-danger disabled:opacity-40"
               :disabled="unbindingProvider === item.provider"
-              @click="handleUnbindForItem(item.provider, item.label)"
+              @click="handleUnbindForItem(item.provider)"
             >
               {{
                 unbindingProvider === item.provider
@@ -464,45 +464,44 @@ function applyUpdatedUser(user: User): void {
   authStore.user = user
 }
 
-async function handleUnbind(provider: BindableProvider, providerLabel: string): Promise<void> {
+async function handleUnbind(provider: BindableProvider): Promise<void> {
   unbindingProvider.value = provider
   try {
     const user = await unbindAuthIdentity(provider)
     applyUpdatedUser(user)
-    appStore.showSuccess(t('profile.authBindings.unbindSuccess', { providerName: providerLabel }))
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
+    console.error((error as { message?: string }).message || t('common.tryAgain'), error)
   } finally {
     unbindingProvider.value = null
   }
 }
 
-function handleUnbindForItem(provider: UserAuthProvider, providerLabel: string): void {
+function handleUnbindForItem(provider: UserAuthProvider): void {
   if (provider === 'email') {
     return
   }
-  void handleUnbind(provider, providerLabel)
+  void handleUnbind(provider)
 }
 
 function validateEmailBindingForm(requireCode: boolean): boolean {
   if (!emailBindingForm.email) {
-    appStore.showError(t('auth.emailRequired'))
+    console.error(t('auth.emailRequired'))
     return false
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailBindingForm.email)) {
-    appStore.showError(t('auth.invalidEmail'))
+    console.error(t('auth.invalidEmail'))
     return false
   }
   if (requireCode && !emailBindingForm.verifyCode) {
-    appStore.showError(t('auth.codeRequired'))
+    console.error(t('auth.codeRequired'))
     return false
   }
   if (requireCode && !emailBindingForm.password) {
-    appStore.showError(t('auth.passwordRequired'))
+    console.error(t('auth.passwordRequired'))
     return false
   }
   if (requireCode && !emailBound.value && emailBindingForm.password.length < 6) {
-    appStore.showError(t('auth.passwordMinLength'))
+    console.error(t('auth.passwordMinLength'))
     return false
   }
   return true
@@ -516,9 +515,8 @@ async function sendEmailCode(): Promise<void> {
   isSendingEmailCode.value = true
   try {
     await sendEmailBindingCode(emailBindingForm.email)
-    appStore.showSuccess(t('profile.authBindings.codeSentTo', { email: emailBindingForm.email }))
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('auth.sendCodeFailed'))
+    console.error((error as { message?: string }).message || t('auth.sendCodeFailed'), error)
   } finally {
     isSendingEmailCode.value = false
   }
@@ -536,20 +534,14 @@ async function bindEmail(): Promise<void> {
       verify_code: emailBindingForm.verifyCode,
       password: emailBindingForm.password,
     })
-    const replacingBoundEmail = emailBound.value
     applyUpdatedUser(user)
     emailBindingForm.verifyCode = ''
     emailBindingForm.password = ''
     if (compact.value) {
       isEmailFormExpanded.value = false
     }
-    appStore.showSuccess(
-      replacingBoundEmail
-        ? t('profile.authBindings.replaceSuccess')
-        : t('profile.authBindings.bindSuccess')
-    )
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.tryAgain'))
+    console.error((error as { message?: string }).message || t('common.tryAgain'), error)
   } finally {
     isBindingEmail.value = false
   }

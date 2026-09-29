@@ -94,7 +94,7 @@
                 :title="t('keys.copyToClipboard')"
                 :aria-label="t('keys.copyToClipboard')"
                 :data-testid="`usage-detail-copy-${id.key}`"
-                @click="copyToClipboard(id.value, id.copiedMessage)"
+                @click="copyToClipboard(id.value)"
               >
                 <Icon name="copy" size="sm" />
               </button>
@@ -167,14 +167,12 @@ const idFields = computed(() => [
   {
     key: 'request_id',
     label: t('admin.usage.requestId'),
-    value: props.log?.request_id || '',
-    copiedMessage: t('admin.usage.requestIdCopied')
+    value: props.log?.request_id || ''
   },
   {
     key: 'upstream_request_id',
     label: t('admin.usage.upstreamRequestId'),
-    value: props.log?.upstream_request_id || '',
-    copiedMessage: t('admin.usage.upstreamRequestIdCopied')
+    value: props.log?.upstream_request_id || ''
   }
 ])
 

@@ -121,7 +121,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import type { DashboardStats, TrendDataPoint, ModelStat, ModelTrendPoint, UserUsageTrendPoint } from '@/types'
@@ -140,7 +139,6 @@ import { fillTrendBuckets, formatLocalDate, trendBucketKeys, type TrendGranulari
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const router = useRouter()
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(false)
@@ -293,7 +291,6 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
     userTrend.value = response.users_trend || []
   } catch (error) {
     if (currentSeq !== chartLoadSeq) return
-    appStore.showError(t('admin.dashboard.failedToLoad'))
     console.error('Error loading dashboard snapshot:', error)
   } finally {
     if (currentSeq === chartLoadSeq) {

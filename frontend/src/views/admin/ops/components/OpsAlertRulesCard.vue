@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
@@ -12,7 +11,6 @@ import type { OpsSeverity } from '@/api/admin/ops'
 import { formatDateTime } from '../utils/opsFormatters'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 // 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
 const isDesktopViewport = useMediaQuery('(min-width: 768px)')
@@ -26,7 +24,6 @@ async function load() {
     rules.value = await opsAPI.listAlertRules()
   } catch (err: any) {
     console.error('[OpsAlertRulesCard] Failed to load rules', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.loadFailed'))
     rules.value = []
   } finally {
     loading.value = false
@@ -252,7 +249,7 @@ const editorValidation = computed(() => {
 async function save() {
   if (!draft.value) return
   if (!editorValidation.value.valid) {
-    appStore.showError(editorValidation.value.errors[0] || t('admin.ops.alertRules.validation.invalid'))
+    console.error(editorValidation.value.errors[0] || t('admin.ops.alertRules.validation.invalid'))
     return
   }
   saving.value = true
@@ -266,10 +263,8 @@ async function save() {
     draft.value = null
     editingId.value = null
     await load()
-    appStore.showSuccess(t('admin.ops.alertRules.saveSuccess'))
   } catch (err: any) {
     console.error('[OpsAlertRulesCard] Failed to save rule', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -290,10 +285,8 @@ async function confirmDelete() {
     showDeleteConfirm.value = false
     pendingDelete.value = null
     await load()
-    appStore.showSuccess(t('admin.ops.alertRules.deleteSuccess'))
   } catch (err: any) {
     console.error('[OpsAlertRulesCard] Failed to delete rule', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.deleteFailed'))
   }
 }
 

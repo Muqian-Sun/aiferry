@@ -768,7 +768,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 
 import { adminAPI } from '@/api/admin'
 import type {
@@ -850,7 +849,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const browserTimeZone = getBrowserTimeZone()
 
 // Spark 影子账号(parent_account_id 非空):代理恒继承母账号,不可独立编辑(外审 B/P1),
@@ -973,7 +971,7 @@ watch(
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
   const issue = validateProtocolEndpoints(editProtocolEndpoints.value)
   if (issue) {
-    appStore.showError(describeProtocolEndpointsIssue(issue, t))
+    console.error(describeProtocolEndpointsIssue(issue, t))
     return null
   }
   return trimProtocolEndpoints(editProtocolEndpoints.value)
@@ -1036,9 +1034,9 @@ const persistCatalogEntries = async (accountID: number): Promise<boolean> => {
     selectedCatalogEntryIds.value = [...ids]
     return true
   } catch (error: any) {
-    appStore.showError(t('admin.accounts.catalogEntries.saveFailed', {
+    console.error(t('admin.accounts.catalogEntries.saveFailed', {
       message: error?.response?.data?.message || error?.message || ''
-    }))
+    }), error)
     return false
   }
 }
@@ -1340,42 +1338,15 @@ const syncAntigravityUpstreamModels = async () => {
   try {
     const result = await adminAPI.accounts.syncUpstreamModels(props.account.id)
     const upstreamModels = result.models.map((model) => model.trim()).filter(Boolean)
-    if (upstreamModels.length === 0) {
-      appStore.showInfo(t('admin.accounts.syncUpstreamModelsEmpty'))
-      return
-    }
-
-    let addedCount = 0
     for (const model of upstreamModels) {
       const exists = modelMappings.value.some((mapping) => mapping.from === model)
       if (!exists) {
         modelMappings.value = [...modelMappings.value, { from: model, to: model }]
-        addedCount += 1
       }
-    }
-
-    const warnings = result.warnings ?? []
-    const hasPartialMetadata = warnings.some(
-      (warning) => warning.code === 'upstream_model_metadata_partial'
-    )
-    const hasIncompleteMetadata = warnings.some(
-      (warning) => warning.code === 'upstream_model_metadata_incomplete'
-    )
-    if (hasIncompleteMetadata) {
-      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataIncomplete'))
-      return
-    }
-    if (addedCount > 0) {
-      appStore.showSuccess(t('admin.accounts.syncUpstreamModelsSuccess', { count: addedCount, total: upstreamModels.length }))
-    } else {
-      appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))
-    }
-    if (hasPartialMetadata) {
-      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataPartial'))
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
-    appStore.showError(t('admin.accounts.syncUpstreamModelsError', { message }))
+    console.error(t('admin.accounts.syncUpstreamModelsError', { message }), error)
   } finally {
     isSyncingAntigravityUpstream.value = false
   }
@@ -1425,11 +1396,10 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
   try {
     const updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
     const catalogSaved = await persistCatalogEntries(accountID)
-    appStore.showSuccess(t('admin.accounts.accountUpdated'))
     emit('updated', updatedAccount)
     if (catalogSaved) handleClose()
   } catch (error: any) {
-    appStore.showError(error.message || t('admin.accounts.failedToUpdate'))
+    console.error(error.message || t('admin.accounts.failedToUpdate'), error)
   } finally {
     submitting.value = false
   }
@@ -1440,7 +1410,7 @@ const handleSubmit = async () => {
   const accountID = props.account.id
 
   if (form.status !== 'active' && form.status !== 'inactive' && form.status !== 'error') {
-    appStore.showError(t('admin.accounts.pleaseSelectStatus'))
+    console.error(t('admin.accounts.pleaseSelectStatus'))
     return
   }
 
@@ -1502,7 +1472,7 @@ const handleSubmit = async () => {
       if (editApiKey.value.trim()) {
         newCredentials.api_key = editApiKey.value.trim()
       } else if (!hasExistingApiKey) {
-        appStore.showError(t('admin.accounts.apiKeyIsRequired'))
+        console.error(t('admin.accounts.apiKeyIsRequired'))
         return
       }
 
@@ -1519,7 +1489,7 @@ const handleSubmit = async () => {
       // 请求头覆写对任何第三方 key 开放，有条目就生效
       const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
       if (headerError) {
-        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+        console.error(t(`admin.accounts.headerOverride.${headerError}`))
         return
       }
       applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
@@ -1533,7 +1503,7 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
 
       if (!editVertexLocation.value.trim()) {
-        appStore.showError(t('admin.accounts.vertexLocationRequired'))
+        console.error(t('admin.accounts.vertexLocationRequired'))
         return
       }
 
@@ -1546,7 +1516,7 @@ const handleSubmit = async () => {
           )
         : Boolean(currentCredentials.service_account_json || currentCredentials.service_account)
       if (!hasExistingServiceAccountJson) {
-        appStore.showError(t('admin.accounts.vertexSaJsonRequired'))
+        console.error(t('admin.accounts.vertexSaJsonRequired'))
         return
       }
       newCredentials.location = editVertexLocation.value.trim()
@@ -1617,7 +1587,7 @@ const handleSubmit = async () => {
 
       const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
       if (headerError) {
-        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+        console.error(t(`admin.accounts.headerOverride.${headerError}`))
         return
       }
       applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
@@ -1757,7 +1727,7 @@ const handleSubmit = async () => {
 
     await submitUpdateAccount(accountID, updatePayload)
   } catch (error: any) {
-    appStore.showError(error.message || t('admin.accounts.failedToUpdate'))
+    console.error(error.message || t('admin.accounts.failedToUpdate'), error)
   }
 }
 </script>

@@ -383,7 +383,6 @@ import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'v
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/composables/useSwipeSelect'
@@ -419,7 +418,6 @@ import { fetchAllAccountIds } from '@/utils/accountSelection'
 import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
-import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats, UpstreamBillingProbeSnapshot } from '@/types'
 import StatRow from '@/components/user/shell/StatRow.vue'
@@ -428,7 +426,6 @@ import { ColumnSettingsMenu, ListToolbar, MenuItem, MiniSwitch, PopoverMenu } fr
 import { useColumnSettings } from '@/composables/useColumnSettings'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 const router = useRouter()
 
 const proxies = ref<AccountProxy[]>([])
@@ -1184,7 +1181,6 @@ const loadAccountDetails = async (account: Pick<AccountListItem, 'id'>): Promise
     return await adminAPI.accounts.getById(account.id)
   } catch (error) {
     console.error('Failed to load account details:', error)
-    appStore.showError(extractApiErrorMessage(error, t('common.error')))
     return null
   } finally {
     accountDetailLoading.delete(account.id)
@@ -1237,19 +1233,17 @@ const handleBulkDelete = async () => {
   try {
     const result = await adminAPI.accounts.batchDelete(accountIds)
     if (result.failed > 0) {
-      appStore.showError(t('admin.accounts.bulkActions.partialSuccess', {
+      console.error(t('admin.accounts.bulkActions.partialSuccess', {
         success: result.success,
         failed: result.failed
       }))
       setSelectedIds(result.failed_ids?.length ? result.failed_ids : accountIds)
     } else {
-      appStore.showSuccess(t('admin.accounts.bulkActions.deleteSuccess', { count: result.success }))
       clearSelection()
     }
     await reload()
   } catch (error) {
     console.error('Failed to bulk delete accounts:', error)
-    appStore.showError(String(error))
   }
 }
 const handleBulkResetStatus = async () => {
@@ -1257,15 +1251,13 @@ const handleBulkResetStatus = async () => {
   try {
     const result = await adminAPI.accounts.batchClearError(selIds.value)
     if (result.failed > 0) {
-      appStore.showError(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
+      console.error(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
     } else {
-      appStore.showSuccess(t('admin.accounts.bulkActions.resetStatusSuccess', { count: result.success }))
       clearSelection()
     }
     reload()
   } catch (error) {
     console.error('Failed to bulk reset status:', error)
-    appStore.showError(String(error))
   }
 }
 const handleBulkRefreshToken = async () => {
@@ -1274,27 +1266,25 @@ const handleBulkRefreshToken = async () => {
   try {
     const result = await adminAPI.accounts.batchRefresh(accountIds)
     if (result.failed > 0) {
-      appStore.showError(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
+      console.error(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
       const failedIds = result.errors?.map(error => error.account_id) ?? []
       setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
     } else {
-      appStore.showSuccess(t('admin.accounts.bulkActions.refreshTokenSuccess', { count: result.success }))
       clearSelection()
     }
     reload()
   } catch (error) {
     console.error('Failed to bulk refresh token:', error)
-    appStore.showError(String(error))
   }
 }
 const handleBulkProbeUpstreamBilling = async () => {
   const accountIDs = [...selIds.value]
   if (accountIDs.length === 0) {
-    appStore.showError(t('admin.accounts.upstreamBilling.noEligibleAccounts'))
+    console.error(t('admin.accounts.upstreamBilling.noEligibleAccounts'))
     return
   }
   if (accountIDs.length > 20) {
-    appStore.showError(t('admin.accounts.upstreamBilling.batchLimit'))
+    console.error(t('admin.accounts.upstreamBilling.batchLimit'))
     return
   }
   accountIDs.forEach(id => probingUpstreamBilling.add(id))
@@ -1310,13 +1300,10 @@ const handleBulkProbeUpstreamBilling = async () => {
     if (patched) await refreshAccountsAfterUpstreamBillingProbe()
     const failed = results.filter(result => result.error).length
     if (failed > 0) {
-      appStore.showError(t('admin.accounts.upstreamBilling.batchPartial', { success: results.length - failed, failed }))
-    } else {
-      appStore.showSuccess(t('admin.accounts.upstreamBilling.batchCompleted', { count: results.length }))
+      console.error(t('admin.accounts.upstreamBilling.batchPartial', { success: results.length - failed, failed }))
     }
   } catch (error) {
     console.error('Failed to probe upstream billing in batch:', error)
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.upstreamBilling.probeFailed')))
   } finally {
     accountIDs.forEach(id => probingUpstreamBilling.delete(id))
   }
@@ -1392,7 +1379,7 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, { schedulable })
     const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
     if (!hasIds && !hasCounts) {
-      appStore.showError(t('admin.accounts.bulkSchedulableResultUnknown'))
+      console.error(t('admin.accounts.bulkSchedulableResultUnknown'))
       setSelectedIds(accountIds)
       load().catch((error) => {
         console.error('Failed to refresh accounts:', error)
@@ -1402,17 +1389,11 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     if (successIds.length > 0) {
       updateSchedulableInList(successIds, schedulable)
     }
-    if (successCount > 0 && failedCount === 0) {
-      const message = schedulable
-        ? t('admin.accounts.bulkSchedulableEnabled', { count: successCount })
-        : t('admin.accounts.bulkSchedulableDisabled', { count: successCount })
-      appStore.showSuccess(message)
-    }
     if (failedCount > 0) {
       const message = hasCounts || hasIds
         ? t('admin.accounts.bulkSchedulablePartial', { success: successCount, failed: failedCount })
         : t('admin.accounts.bulkSchedulableResultUnknown')
-      appStore.showError(message)
+      console.error(message)
       setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
     } else {
       if (hasIds) clearSelection()
@@ -1420,7 +1401,6 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     }
   } catch (error) {
     console.error('Failed to bulk toggle schedulable:', error)
-    appStore.showError(t('common.error'))
   }
 }
 const buildBulkEditFilterSnapshot = () => {
@@ -1455,7 +1435,6 @@ const handleSelectAllResults = async () => {
   } catch (error) {
     if (requestVersion !== selectionRequestVersion.value) return
     console.error('Failed to select all account results:', error)
-    appStore.showError(t('admin.accounts.bulkActions.selectAllFailed'))
   } finally {
     if (requestVersion === selectionRequestVersion.value) {
       selectingAllResults.value = false
@@ -1610,7 +1589,6 @@ const handleProbeUpstreamBilling = async (account: Account) => {
     }
   } catch (error) {
     console.error('Failed to probe upstream billing:', error)
-    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.upstreamBilling.probeFailed')))
   } finally {
     probingUpstreamBilling.delete(account.id)
   }
@@ -1650,23 +1628,22 @@ const handleExportData = async () => {
     link.click()
     URL.revokeObjectURL(url)
     // spark 影子账号被后端排除出备份(其凭据透传母账号、调度配置不可经凭据型导入重建);
-    // 跳过非零时明确提示用户,避免「下载成功但少了账号」的静默丢失。
+    // 跳过非零时记一条日志,避免「下载成功但少了账号」无声无息。
     if (dataPayload.skipped_shadows && dataPayload.skipped_shadows > 0) {
-      appStore.showWarning(t('admin.accounts.dataExportedSkippedShadows', { count: dataPayload.skipped_shadows }))
-    } else {
-      appStore.showSuccess(t('admin.accounts.dataExported'))
+      console.warn(t('admin.accounts.dataExportedSkippedShadows', { count: dataPayload.skipped_shadows }))
     }
   } catch (error: any) {
     if (isStepUpCancelled(error)) {
       // 用户主动取消 step-up 验证，静默返回，不弹错误提示。
     } else if (isStepUpBlocked(error)) {
-      appStore.showError(
+      console.error(
         stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
           ? t('stepUp.adminApiKeyForbidden')
-          : t('stepUp.notEnabled')
+          : t('stepUp.notEnabled'),
+        error
       )
     } else {
-      appStore.showError(error?.message || t('admin.accounts.dataExportFailed'))
+      console.error(error?.message || t('admin.accounts.dataExportFailed'), error)
     }
   } finally {
     exportingData.value = false
@@ -1695,12 +1672,10 @@ const handleDuplicateAccount = async (a: Account) => {
   if (duplicatingAccountIDs.has(a.id)) return
   duplicatingAccountIDs.add(a.id)
   try {
-    const duplicate = await adminAPI.accounts.duplicate(a.id)
-    appStore.showSuccess(t('admin.accounts.duplicateSuccess', { name: duplicate.name }))
+    await adminAPI.accounts.duplicate(a.id)
     reload()
   } catch (error: any) {
     console.error('Failed to duplicate account:', error)
-    appStore.showError(error?.message || t('admin.accounts.duplicateFailed'))
   } finally {
     duplicatingAccountIDs.delete(a.id)
   }
@@ -1710,7 +1685,7 @@ const handleRefresh = async (a: Account) => {
     const result = await adminAPI.accounts.refreshCredentials(a.id)
     patchAccountInList(result.account)
     enterAutoRefreshSilentWindow()
-    if (result.warning) appStore.showWarning(result.message)
+    if (result.warning) console.warn(result.message)
   } catch (error) {
     console.error('Failed to refresh credentials:', error)
   }
@@ -1720,10 +1695,8 @@ const handleRecoverState = async (a: Account) => {
     const updated = await adminAPI.accounts.recoverState(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
-    appStore.showSuccess(t('admin.accounts.recoverStateSuccess'))
   } catch (error: any) {
     console.error('Failed to recover account state:', error)
-    appStore.showError(error?.message || t('admin.accounts.recoverStateFailed'))
   }
 }
 const handleResetQuota = async (a: Account) => {
@@ -1731,7 +1704,6 @@ const handleResetQuota = async (a: Account) => {
     const updated = await adminAPI.accounts.resetAccountQuota(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
-    appStore.showSuccess(t('common.success'))
   } catch (error) {
     console.error('Failed to reset quota:', error)
   }
@@ -1764,24 +1736,19 @@ const handleSetPrivacy = async (a: Account) => {
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
     const result = privacyResultMessageKey(updated)
-    if (result.type === 'success') {
-      appStore.showSuccess(t(result.key))
-    } else {
-      appStore.showError(t(result.key))
+    if (result.type === 'error') {
+      console.error(t(result.key))
     }
   } catch (error: any) {
     console.error('Failed to set privacy:', error)
-    appStore.showError(error?.response?.data?.message || t('admin.accounts.privacyFailed'))
   }
 }
 const onRevertFallback = async (a: Account) => {
   try {
     await adminAPI.accounts.revertProxyFallback(a.id)
-    appStore.showSuccess(t('admin.accounts.revertProxySuccess'))
     reload()
   } catch (error: any) {
     console.error('Failed to revert proxy fallback:', error)
-    appStore.showError(error?.response?.data?.message || t('admin.accounts.revertProxyFailed'))
   }
 }
 const handleCreateSparkShadow = (a: Account) => {
@@ -1795,11 +1762,9 @@ const confirmCreateSparkShadow = async () => {
     await adminAPI.accounts.createSparkShadow(a.id, { name: `${a.name} (Spark)` })
     showCreateShadowDialog.value = false
     creatingShadowAcc.value = null
-    appStore.showSuccess(t('admin.accounts.createSparkShadowSuccess'))
     reload()
   } catch (error: any) {
     console.error('Failed to create spark shadow:', error)
-    appStore.showError(error?.response?.data?.message || t('admin.accounts.createSparkShadowFailed'))
   }
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
@@ -1813,7 +1778,6 @@ const handleToggleSchedulable = async (a: Account) => {
     enterAutoRefreshSilentWindow()
   } catch (error) {
     console.error('Failed to toggle schedulable:', error)
-    appStore.showError(t('admin.accounts.failedToToggleSchedulable'))
   } finally {
     togglingSchedulable.value = null
   }

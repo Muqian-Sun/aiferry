@@ -300,11 +300,10 @@ async function saveConfig() {
     const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(draft.value))
     serverConfig.value = configToDraft(saved)
     draft.value = configToDraft(saved)
-    appStore.showSuccess(t('admin.promptAudit.messages.saved'))
     await loadRuntime()
   } catch (error) {
     const code = extractApiErrorCode(error)
-    appStore.showError(errorMessage(error, code === 'prompt_audit_config_conflict' ? 'admin.promptAudit.errors.prompt_audit_config_conflict' : 'admin.promptAudit.errors.saveConfig'))
+    console.error(errorMessage(error, code === 'prompt_audit_config_conflict' ? 'admin.promptAudit.errors.prompt_audit_config_conflict' : 'admin.promptAudit.errors.saveConfig'), error)
   } finally {
     loading.saving = false
   }
@@ -315,10 +314,9 @@ async function runProbe(endpoint: PromptAuditEndpointDraft) {
   try {
     const result = await promptAuditAPI.probeEndpoint(endpoint)
     probeResults[endpoint.id] = result
-    if (result.ok) appStore.showSuccess(t('admin.promptAudit.messages.probeSucceeded'))
-    else appStore.showError(`${result.error_code || result.status}: ${result.message}`)
+    if (!result.ok) console.error(`${result.error_code || result.status}: ${result.message}`)
   } catch (error) {
-    appStore.showError(errorMessage(error, 'admin.promptAudit.errors.probe'))
+    console.error(errorMessage(error, 'admin.promptAudit.errors.probe'), error)
   } finally {
     probingIds.value = probingIds.value.filter((id) => id !== endpoint.id)
   }
@@ -342,7 +340,7 @@ async function openEvent(id: number) {
   loading.detail = true
   activeEvent.value = null
   try { activeEvent.value = await promptAuditAPI.getEvent(id) }
-  catch (error) { appStore.showError(errorMessage(error, 'admin.promptAudit.errors.loadDetail')); showEventDetail.value = false }
+  catch (error) { console.error(errorMessage(error, 'admin.promptAudit.errors.loadDetail'), error); showEventDetail.value = false }
   finally { loading.detail = false }
 }
 function closeEventDetail() { showEventDetail.value = false; activeEvent.value = null }
@@ -356,10 +354,10 @@ async function confirmIDDelete() {
   if (!mode || ids.length === 0) return
   loading.deleting = true
   try {
-    const result = mode === 'single' ? await promptAuditAPI.deleteEvent(ids[0]) : await promptAuditAPI.batchDeleteEvents(ids)
-    appStore.showSuccess(t('admin.promptAudit.messages.deleted', { count: result.deleted_events }))
+    if (mode === 'single') await promptAuditAPI.deleteEvent(ids[0])
+    else await promptAuditAPI.batchDeleteEvents(ids)
     await Promise.allSettled([loadEvents(), loadRuntime()])
-  } catch (error) { appStore.showError(errorMessage(error, 'admin.promptAudit.errors.delete')) }
+  } catch (error) { console.error(errorMessage(error, 'admin.promptAudit.errors.delete'), error) }
   finally { loading.deleting = false }
 }
 function clearDeletePreview() {
@@ -381,7 +379,7 @@ async function runFilterDeletePreview(value: PromptEventFilters) {
     deletePreviewFilters.value = cloneData(value)
   } catch (error) {
     clearDeletePreview()
-    appStore.showError(errorMessage(error, 'admin.promptAudit.errors.previewDelete'))
+    console.error(errorMessage(error, 'admin.promptAudit.errors.previewDelete'), error)
   } finally { loading.previewing = false }
 }
 async function confirmFilterDelete(filters?: PromptEventFilters) {
@@ -398,13 +396,12 @@ async function confirmFilterDelete(filters?: PromptEventFilters) {
       previewFilters = cloneData(filters)
     }
     if (!preview || !previewFilters) return
-    const result = await promptAuditAPI.deleteEventsByFilter(previewFilters, preview)
+    await promptAuditAPI.deleteEventsByFilter(previewFilters, preview)
     closeFilterDelete()
-    appStore.showSuccess(t('admin.promptAudit.messages.deleted', { count: result.deleted_events }))
     await Promise.allSettled([loadEvents(), loadRuntime()])
   } catch (error) {
     clearDeletePreview()
-    appStore.showError(errorMessage(error, 'admin.promptAudit.errors.deleteConfirmation'))
+    console.error(errorMessage(error, 'admin.promptAudit.errors.deleteConfirmation'), error)
   } finally { loading.deleting = false }
 }
 function formatDate(value: string): string {

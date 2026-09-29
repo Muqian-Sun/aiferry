@@ -384,7 +384,6 @@ const totpTempToken = ref('')
 const totpCode = ref('')
 const totpError = ref('')
 const totpUserEmailMasked = ref('')
-const bindSuccessMessage = t('profile.authBindings.bindSuccess')
 
 const providerName = t('auth.wechatProviderName')
 const showBackToChooser = computed(
@@ -396,25 +395,25 @@ const hasCurrentAuthToken = computed(() => Boolean(getAuthToken()))
 
 watch(invitationError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(accountActionError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(totpError, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
 watch(errorMessage, value => {
   if (value) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -813,7 +812,6 @@ async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redi
     const bindRedirect = sanitizeRedirectPath(completion.redirect || '/profile/security')
     clearPendingAuthSession()
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(bindSuccessMessage)
     await router.replace(bindRedirect)
     return
   }
@@ -825,7 +823,6 @@ async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redi
   persistOAuthTokenContext(completion)
   await authStore.setToken(completion.access_token)
   clearAllAffiliateReferralCodes()
-  appStore.showSuccess(t('auth.loginSuccess'))
   await router.replace(redirect)
 }
 
@@ -978,7 +975,6 @@ async function handleSubmitTotpChallenge() {
     persistOAuthTokenContext(completion)
     await authStore.setToken(completion.access_token)
     clearAllAffiliateReferralCodes()
-    appStore.showSuccess(t('auth.loginSuccess'))
     await router.replace(redirectTo.value)
   } catch (e: unknown) {
     totpError.value = getRequestErrorMessage(e, t('auth.loginFailed'))
@@ -1039,7 +1035,6 @@ onMounted(async () => {
       persistOAuthTokenContext(legacyLogin)
       await authStore.setToken(legacyLogin.access_token)
       clearAllAffiliateReferralCodes()
-      appStore.showSuccess(t('auth.loginSuccess'))
       await router.replace(redirect)
       return
     }

@@ -28,7 +28,7 @@ export function paymentMethodI18nKey(paymentType: string): string {
   return `payment.methods.${normalizePaymentMethodForDisplay(paymentType)}`
 }
 
-export function buildPaymentErrorToastMessage(message: string, hint?: string): string {
+export function buildPaymentErrorMessage(message: string, hint?: string): string {
   if (!hint) return message
   return `${message} ${hint}`.trim()
 }

@@ -605,7 +605,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, UserSubscription, UserSubscriptionPlan } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
@@ -637,7 +636,6 @@ import {
 } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 // User column display mode: 'email' or 'username'
 const userColumnMode = ref<'email' | 'username'>('email')
@@ -890,7 +888,6 @@ const loadSubscriptions = async () => {
     if (signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
       return
     }
-    appStore.showError(t('admin.subscriptions.failedToLoad'))
     console.error('Error loading subscriptions:', error)
   } finally {
     if (abortController === requestController) {
@@ -1065,15 +1062,15 @@ const closeAssignModal = () => {
 const handleAssignSubscription = async () => {
   if (submitting.value) return
   if (batchAssignEnabled.value ? assignUsers.value.length === 0 : !assignForm.user_id) {
-    appStore.showError(t('admin.subscriptions.pleaseSelectUser'))
+    console.error(t('admin.subscriptions.pleaseSelectUser'))
     return
   }
   if (!assignForm.plan_id) {
-    appStore.showError(t('admin.subscriptions.pleaseSelectPlan'))
+    console.error(t('admin.subscriptions.pleaseSelectPlan'))
     return
   }
   if (!Number.isInteger(assignForm.validity_days) || assignForm.validity_days < 1 || assignForm.validity_days > 36500) {
-    appStore.showError(t('admin.subscriptions.validityDaysRequired'))
+    console.error(t('admin.subscriptions.validityDaysRequired'))
     return
   }
 
@@ -1090,7 +1087,6 @@ const handleAssignSubscription = async () => {
       const successIds = new Set(result.subscriptions.map((subscription) => subscription.user_id))
       assignUsers.value = assignUsers.value.filter((user) => !successIds.has(user.id))
       if (result.success_count > 0) {
-        appStore.showSuccess(t('admin.subscriptions.batchAssign.result', { success: result.success_count, failed: result.failed_count }))
         await loadSubscriptions()
       }
       return
@@ -1100,12 +1096,10 @@ const handleAssignSubscription = async () => {
       plan_id: assignForm.plan_id,
       validity_days: assignForm.validity_days
     })
-    appStore.showSuccess(t('admin.subscriptions.subscriptionAssigned'))
     submitting.value = false
     closeAssignModal()
     loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToAssign'))
     console.error('Error assigning subscription:', error)
   } finally {
     submitting.value = false
@@ -1131,7 +1125,7 @@ const handleExtendSubscription = async () => {
     const expiresAt = new Date(extendingSubscription.value.expires_at)
     const newExpiresAt = new Date(expiresAt.getTime() + extendForm.days * 24 * 60 * 60 * 1000)
     if (newExpiresAt <= new Date()) {
-      appStore.showError(t('admin.subscriptions.adjustWouldExpire'))
+      console.error(t('admin.subscriptions.adjustWouldExpire'))
       return
     }
   }
@@ -1141,11 +1135,9 @@ const handleExtendSubscription = async () => {
     await adminAPI.subscriptions.extend(extendingSubscription.value.id, {
       days: extendForm.days
     })
-    appStore.showSuccess(t('admin.subscriptions.subscriptionAdjusted'))
     closeExtendModal()
     loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToAdjust'))
     console.error('Error adjusting subscription:', error)
   } finally {
     submitting.value = false
@@ -1162,12 +1154,10 @@ const confirmRevoke = async () => {
 
   try {
     await adminAPI.subscriptions.revoke(revokingSubscription.value.id)
-    appStore.showSuccess(t('admin.subscriptions.subscriptionRevoked'))
     showRevokeDialog.value = false
     revokingSubscription.value = null
     loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToRevoke'))
     console.error('Error revoking subscription:', error)
   }
 }
@@ -1182,12 +1172,10 @@ const confirmRestore = async () => {
 
   try {
     await adminAPI.subscriptions.restore(restoringSubscription.value.id)
-    appStore.showSuccess(t('admin.subscriptions.subscriptionRestored'))
     showRestoreDialog.value = false
     restoringSubscription.value = null
     loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToRestore'))
     console.error('Error restoring subscription:', error)
   }
 }
@@ -1203,12 +1191,10 @@ const confirmResetQuota = async () => {
   resettingQuota.value = true
   try {
     await adminAPI.subscriptions.resetQuota(resettingSubscription.value.id, { daily: true, weekly: true, monthly: true })
-    appStore.showSuccess(t('admin.subscriptions.quotaResetSuccess'))
     showResetQuotaConfirm.value = false
     resettingSubscription.value = null
     await loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToResetQuota'))
     console.error('Error resetting quota:', error)
   } finally {
     resettingQuota.value = false

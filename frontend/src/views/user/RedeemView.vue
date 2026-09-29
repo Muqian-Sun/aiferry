@@ -90,7 +90,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { useAppStore } from '@/stores/app'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import SettingsRow from '@/components/user/shell/SettingsRow.vue'
@@ -101,7 +100,6 @@ import { formatCurrency, formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 const subscriptionStore = useSubscriptionStore()
 
 const user = computed(() => authStore.user)
@@ -178,7 +176,7 @@ const fetchHistory = async () => {
 
 const handleRedeem = async () => {
   if (!redeemCode.value.trim()) {
-    appStore.showError(t('redeem.pleaseEnterCode'))
+    console.error(t('redeem.pleaseEnterCode'))
     return
   }
 
@@ -196,7 +194,6 @@ const handleRedeem = async () => {
       await authStore.refreshUser()
     } catch (error) {
       console.error('Failed to refresh user after redeem:', error)
-      appStore.showWarning(t('redeem.userRefreshFailed'))
     }
 
     // If subscription type, immediately refresh subscription status
@@ -205,7 +202,6 @@ const handleRedeem = async () => {
         await subscriptionStore.fetchActiveSubscriptions(true) // force refresh
       } catch (error) {
         console.error('Failed to refresh subscriptions after redeem:', error)
-        appStore.showWarning(t('redeem.subscriptionRefreshFailed'))
       }
     }
 
@@ -214,13 +210,10 @@ const handleRedeem = async () => {
 
     // Refresh history
     await fetchHistory()
-
-    // Show success toast
-    appStore.showSuccess(t('redeem.codeRedeemSuccess'))
   } catch (error: any) {
     errorMessage.value = error.response?.data?.detail || t('redeem.failedToRedeem')
 
-    appStore.showError(t('redeem.redeemFailed'))
+    console.error(t('redeem.redeemFailed'), error)
   } finally {
     submitting.value = false
   }

@@ -184,7 +184,7 @@ import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import {
   persistOAuthTokenContext,
   getPublicSettings,
@@ -218,7 +218,6 @@ const { t, locale } = useI18n()
 
 const router = useRouter()
 const authStore = useAuthStore()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -309,7 +308,7 @@ const errors = ref({
   turnstile: ''
 })
 
-const validationToastMessage = computed(
+const validationMessage = computed(
   () => errors.value.code || errors.value.turnstile || ''
 )
 const pendingOAuthCreateTurnstileRequired = computed(
@@ -319,9 +318,9 @@ const pendingOAuthCreateCaptchaEnabled = computed(
   () => isPendingOAuthFlow() && captchaEnabled.value
 )
 
-watch(validationToastMessage, (value, previousValue) => {
+watch(validationMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -534,7 +533,7 @@ async function sendCode(): Promise<void> {
   try {
     if (!shouldBypassRegistrationEmailPolicy() && !isRegistrationEmailSuffixAllowed(email.value, registrationEmailSuffixWhitelist.value)) {
       errorMessage.value = buildEmailSuffixNotAllowedMessage()
-      appStore.showError(errorMessage.value)
+      console.error(errorMessage.value)
       return
     }
 
@@ -583,7 +582,7 @@ async function sendCode(): Promise<void> {
   } catch (error: unknown) {
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.sendCodeFailed'))
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     if (captchaProofUsed) {
       clearStoredCaptchaProof()
@@ -661,7 +660,7 @@ async function handleVerify(): Promise<void> {
 
   if (!shouldBypassRegistrationEmailPolicy() && !isRegistrationEmailSuffixAllowed(email.value, registrationEmailSuffixWhitelist.value)) {
     errorMessage.value = buildEmailSuffixNotAllowedMessage()
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value)
     return
   }
 
@@ -737,15 +736,12 @@ async function handleVerify(): Promise<void> {
     sessionStorage.removeItem('register_data')
     clearAllAffiliateReferralCodes()
 
-    // Show success toast
-    appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
-
     // Redirect to dashboard
     await router.push(pendingRedirect.value || DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.verifyFailed'))
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     initialTurnstileToken.value = ''
     initialTencentCaptchaRandstr.value = ''

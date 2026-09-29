@@ -2,7 +2,7 @@
   <!--
     区块内的 加载 / 空 / 错误 三态：一段居中文字 + 至多一个文字按钮，不做插画卡片。
     error 用 role=alert 让辅助技术立即播报；loading 用 role=status + aria-busy。
-    组件不负责请求、toast、路由或权限，点击动作只 emit('action')。
+    组件不负责请求、路由或权限，点击动作只 emit('action')。
   -->
   <section
     class="flex flex-col items-center justify-center px-4 py-12 text-center"

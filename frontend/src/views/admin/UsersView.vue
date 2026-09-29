@@ -401,7 +401,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
@@ -436,8 +435,6 @@ import BulkEditUserModal from '@/components/admin/user/BulkEditUserModal.vue'
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserDetailDrawer from '@/components/admin/user/UserDetailDrawer.vue'
 import { formatAttributeValue } from '@/components/admin/user/attributeValue'
-
-const appStore = useAppStore()
 
 // 自定义属性定义与本页用户的属性值（放在最前：列定义和排序恢复都要读它）
 const attributeDefinitions = ref<UserAttributeDefinition[]>([])
@@ -932,8 +929,6 @@ const loadUsers = async () => {
     if (errorInfo?.name === 'AbortError' || errorInfo?.name === 'CanceledError' || errorInfo?.code === 'ERR_CANCELED') {
       return
     }
-    const message = error.response?.data?.detail || error.message || t('admin.users.failedToLoad')
-    appStore.showError(message)
     console.error('Error loading users:', error)
   } finally {
     if (abortController === currentAbortController) {
@@ -1022,12 +1017,8 @@ const handleToggleStatus = async (user: AdminUser) => {
   const newStatus = user.status === 'active' ? 'disabled' : 'active'
   try {
     await adminAPI.users.toggleStatus(user.id, newStatus)
-    appStore.showSuccess(
-      newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
-    )
     void handleUserMutated()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
     console.error('Error toggling user status:', error)
   }
 }
@@ -1041,13 +1032,11 @@ const confirmDelete = async () => {
   if (!deletingUser.value) return
   try {
     await adminAPI.users.delete(deletingUser.value.id)
-    appStore.showSuccess(t('common.success'))
     if (drawerUserId.value === deletingUser.value.id) drawerOpen.value = false
     showDeleteDialog.value = false
     deletingUser.value = null
     loadUsers()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.failedToDelete'))
     console.error('Error deleting user:', error)
   }
 }
@@ -1067,11 +1056,10 @@ const confirmBulkDelete = async () => {
   }
   removeSelectedIds(deletedIds)
   if (deletedIds.length > 0) {
-    appStore.showSuccess(t('admin.users.bulkDelete.success', { count: deletedIds.length }))
     pagination.page = 1
   }
   const failed = ids.length - deletedIds.length
-  if (failed > 0) appStore.showError(t('admin.users.bulkDelete.failed', { count: failed }))
+  if (failed > 0) console.error(t('admin.users.bulkDelete.failed', { count: failed }))
   await loadUsers()
   bulkDeleting.value = false
 }

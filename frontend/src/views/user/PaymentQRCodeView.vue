@@ -40,7 +40,6 @@ import SiteShell from '@/components/user/shell/SiteShell.vue'
 import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import { useAppStore } from '@/stores'
 import { isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
@@ -50,7 +49,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const paymentStore = usePaymentStore()
-const appStore = useAppStore()
 
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
@@ -178,7 +176,7 @@ async function handleCancel() {
     cleanup()
     router.push('/billing/recharge')
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
   } finally {
     cancelling.value = false
   }

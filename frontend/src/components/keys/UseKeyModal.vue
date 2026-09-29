@@ -1301,7 +1301,7 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
 }
 
 const copyContent = async (content: string, index: number) => {
-  const success = await clipboardCopy(content, t('keys.copied'))
+  const success = await clipboardCopy(content)
   if (success) {
     copiedIndex.value = index
     setTimeout(() => {

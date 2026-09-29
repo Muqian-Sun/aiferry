@@ -107,16 +107,15 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   async function copyApiKey(idx: number) {
     const key = webSearchConfig.providers[idx]?.api_key;
     if (!key) {
-      appStore.showError(
+      console.error(
         t("admin.settings.webSearchEmulation.apiKeyPlaceholder"),
       );
       return;
     }
     try {
       await navigator.clipboard.writeText(key);
-      appStore.showSuccess(t("admin.settings.webSearchEmulation.copied"));
-    } catch {
-      appStore.showError(t("common.error"));
+    } catch (error) {
+      console.error(t("common.error"), error);
     }
   }
 
@@ -129,7 +128,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
         t("admin.settings.webSearchEmulation.testDefaultQuery");
       wsTestResult.value = await adminAPI.settings.testWebSearchEmulation(query);
     } catch (err: unknown) {
-      appStore.showError(extractApiErrorMessage(err, t("common.error")));
+      console.error(extractApiErrorMessage(err, t("common.error")), err);
     } finally {
       wsTestLoading.value = false;
     }
@@ -145,7 +144,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       // 404 is expected when config hasn't been created yet; show error for other failures
       const status = (err as { status?: number })?.status;
       if (status !== 404 && status !== undefined) {
-        appStore.showError(extractApiErrorMessage(err, t("common.error")));
+        console.error(extractApiErrorMessage(err, t("common.error")), err);
       }
     }
   }
@@ -157,7 +156,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       });
       return true;
     } catch (err: unknown) {
-      appStore.showError(extractApiErrorMessage(err, t("common.error")));
+      console.error(extractApiErrorMessage(err, t("common.error")), err);
       return false;
     }
   }
@@ -178,8 +177,8 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       await loadWebSearchConfig();
     } catch (error: unknown) {
       loadFailed.value = true;
-      appStore.showError(
-        extractApiErrorMessage(error, t("admin.settings.failedToLoad")),
+      console.error(
+        extractApiErrorMessage(error, t("admin.settings.failedToLoad")), error,
       );
     } finally {
       loading.value = false;
@@ -204,13 +203,10 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       const wsOk = await saveWebSearchConfig();
       // Refresh cached settings so sidebar/header update immediately
       await appStore.fetchPublicSettings(true);
-      if (wsOk) {
-        appStore.showSuccess(t("admin.settings.settingsSaved"));
-      }
       return wsOk;
     } catch (error: unknown) {
-      appStore.showError(
-        extractApiErrorMessage(error, t("admin.settings.failedToSave")),
+      console.error(
+        extractApiErrorMessage(error, t("admin.settings.failedToSave")), error,
       );
       return false;
     } finally {

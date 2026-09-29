@@ -205,7 +205,6 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
-import { useAppStore } from '@/stores'
 import { resetPassword } from '@/api/auth'
 
 const { t } = useI18n()
@@ -213,7 +212,6 @@ const { t } = useI18n()
 // ==================== Router & Stores ====================
 
 const route = useRoute()
-const appStore = useAppStore()
 
 // ==================== State ====================
 
@@ -237,13 +235,13 @@ const errors = reactive({
   confirmPassword: ''
 })
 
-const validationToastMessage = computed(
+const validationMessage = computed(
   () => errors.password || errors.confirmPassword || ''
 )
 
-watch(validationToastMessage, (value, previousValue) => {
+watch(validationMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
-    appStore.showError(value)
+    console.error(value)
   }
 })
 
@@ -258,7 +256,7 @@ onMounted(() => {
   token.value = (route.query.token as string) || ''
 
   if (!email.value || !token.value) {
-    appStore.showError(t('auth.invalidResetLink'))
+    console.error(t('auth.invalidResetLink'))
   }
 })
 
@@ -310,7 +308,6 @@ async function handleSubmit(): Promise<void> {
     })
 
     isSuccess.value = true
-    appStore.showSuccess(t('auth.passwordResetSuccess'))
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { detail?: string; code?: string } } }
 
@@ -325,7 +322,7 @@ async function handleSubmit(): Promise<void> {
       errorMessage.value = t('auth.resetPasswordFailed')
     }
 
-    appStore.showError(errorMessage.value)
+    console.error(errorMessage.value, error)
   } finally {
     isLoading.value = false
   }

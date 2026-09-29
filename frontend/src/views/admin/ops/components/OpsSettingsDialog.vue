@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { opsAPI } from '@/api/admin/ops'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -9,7 +8,6 @@ import Toggle from '@/components/common/Toggle.vue'
 import type { OpsAlertRuntimeSettings, EmailNotificationConfig, AlertSeverity, OpsAdvancedSettings, OpsMetricThresholds } from '../types'
 
 const { t } = useI18n()
-const appStore = useAppStore()
 
 const props = defineProps<{
   show: boolean
@@ -65,7 +63,6 @@ async function loadAllSettings() {
     }
   } catch (err: any) {
     console.error('[OpsSettingsDialog] Failed to load settings', err)
-    appStore.showError(err?.response?.data?.detail || t('admin.ops.settings.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -102,7 +99,7 @@ function addRecipient(target: 'alert' | 'report') {
   if (!raw) return
 
   if (!isValidEmailAddress(raw)) {
-    appStore.showError(t('common.invalidEmail'))
+    console.error(t('common.invalidEmail'))
     return
   }
 
@@ -198,7 +195,7 @@ const validation = computed(() => {
 // 保存所有配置
 async function saveAllSettings() {
   if (!validation.value.valid) {
-    appStore.showError(validation.value.errors[0])
+    console.error(validation.value.errors[0])
     return
   }
 
@@ -219,12 +216,10 @@ async function saveAllSettings() {
       advancedSettings.value ? opsAPI.updateAdvancedSettings(advancedSettings.value) : Promise.resolve(),
       opsAPI.updateMetricThresholds(metricThresholds.value)
     ])
-    appStore.showSuccess(t('admin.ops.settings.saveSuccess'))
     emit('saved')
     emit('close')
   } catch (err: any) {
     console.error('[OpsSettingsDialog] Failed to save settings', err)
-    appStore.showError(err?.response?.data?.message || err?.response?.data?.detail || t('admin.ops.settings.saveFailed'))
   } finally {
     saving.value = false
   }
