@@ -50,9 +50,9 @@ func geminiLadderCatalogStub(t *testing.T) *PricingService {
 	return newStubPricingServiceFromJSON(t, geminiLadderCatalogJSON)
 }
 
-// 渠道平价之上叠加目录阶梯：与分组价卡/OpenAI 渠道价的既有语义一致，
-// 超阈值整单按渠道价 × 目录倍率。
-func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *testing.T) {
+// 目录条目只配了平价、没配分段时，超过价格文件阶梯阈值也按平价：分段只认目录条目自己的，
+// 不从价格文件继承（阶梯只在播种 / 导入时换算成分段写进条目）。
+func TestCalculateTokenCostForRequest_CatalogFlatPriceDoesNotInheritPriceFileLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
 		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
@@ -66,13 +66,12 @@ func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *tes
 		Resolver: resolver, Resolved: resolved,
 	})
 	require.NoError(t, err)
-	require.InDelta(t, 300000*10e-6*2, got.InputCost, 1e-9)
-	require.InDelta(t, 1000*40e-6*1.5, got.OutputCost, 1e-9)
-	require.True(t, got.LongContextBillingApplied)
+	require.InDelta(t, 300000*10e-6, got.InputCost, 1e-9)
+	require.InDelta(t, 1000*40e-6, got.OutputCost, 1e-9)
 }
 
-// 渠道配置了定价区间时以渠道区间为准：目录阶梯（倍率）不再叠加。
-func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *testing.T) {
+// 目录条目的分段按请求输入侧 token 数整条取价，价格文件的阶梯不再叠加。
+func TestCalculateTokenCostForRequest_CatalogIntervalsPriceWholeRequest(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
 		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
@@ -89,47 +88,32 @@ func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *t
 	require.NoError(t, err)
 	require.InDelta(t, 300000*10e-6, got.InputCost, 1e-9)
 	require.InDelta(t, 1000*40e-6, got.OutputCost, 1e-9)
-	require.False(t, got.LongContextBillingApplied)
 }
 
-// 目录阶梯没有开关：价卡带阈值就整单换档（输入 ×2、输出 ×1.5）。
-func TestCalculateTokenCostForRequest_CatalogLadderAlwaysApplies(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiLadderCatalogStub(t))
-	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
+// 价格文件的阶梯（above_200k：输入 ×2、输出 ×1.5）播种成分段后走目录计费：超阈值整单按高段价。
+func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToWholeRequest(t *testing.T) {
+	ps := geminiLadderCatalogStub(t)
+	bs := NewBillingService(&config.Config{}, ps)
+	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
-	require.Equal(t, PricingSourceLiteLLM, resolved.Source)
-
-	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
-		Resolver: resolver, Resolved: resolved,
-	})
-	require.NoError(t, err)
+	got := costViaCatalog(t, bs, resolver, "gemini-2.5-pro", UsageTokens{InputTokens: 300000, OutputTokens: 1000}, "")
 	// 300K × 1.25e-6 × 2 = 0.75；1000 × 10e-6 × 1.5 = 0.015
 	require.InDelta(t, 0.765, got.ActualCost, 1e-9)
-	require.True(t, got.LongContextBillingApplied)
 }
 
-// 目录阶梯对缓存分项同样生效：cache_read / cache_creation 随输入倍率整单换档，
-// 阈值判定计入全部输入侧 token（input + cache_creation + cache_read）。
-func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiLadderCatalogStub(t))
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
-	require.Equal(t, PricingSourceLiteLLM, resolved.Source)
-
+// 播种出的分段对缓存分项同样生效：cache_read / cache_creation 随输入倍数整单换段，
+// 分段按全部输入侧 token（input + cache_creation + cache_read）判定。
+func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToCacheItems(t *testing.T) {
+	ps := geminiLadderCatalogStub(t)
+	bs := NewBillingService(&config.Config{}, ps)
+	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 	calc := func(tokens UsageTokens) *CostBreakdown {
-		got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-			Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
-			Resolver: resolver, Resolved: resolved,
-		})
-		require.NoError(t, err)
-		return got
+		return costViaCatalog(t, bs, resolver, "gemini-2.5-pro", tokens, "")
 	}
 
-	// 输入侧合计 90K + 100K + 20K = 210K > 200K：所有分项按高档计。
-	// 不计 cache_creation 时只有 110K，不会过阈值——用例同时守住"缓存写入 token 计入阈值"。
+	// 输入侧合计 90K + 100K + 20K = 210K > 200K：所有分项按高段计。
+	// 不计 cache_creation 时只有 110K，不会过阈值——用例同时守住"缓存写入 token 计入分段判定"。
 	above := calc(UsageTokens{InputTokens: 90000, CacheCreationTokens: 100000, CacheReadTokens: 20000, OutputTokens: 1000})
-	require.True(t, above.LongContextBillingApplied)
 	require.InDelta(t, 90000*1.25e-6*2, above.InputCost, 1e-9)
 	require.InDelta(t, 100000*1.25e-6*2, above.CacheCreationCost, 1e-9)
 	require.InDelta(t, 20000*1.25e-7*2, above.CacheReadCost, 1e-9)
@@ -137,13 +121,12 @@ func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing
 
 	// 输入侧合计 50K + 100K + 40K = 190K ≤ 200K：按基础价计
 	below := calc(UsageTokens{InputTokens: 50000, CacheCreationTokens: 100000, CacheReadTokens: 40000, OutputTokens: 1000})
-	require.False(t, below.LongContextBillingApplied)
 	require.InDelta(t, 50000*1.25e-6, below.InputCost, 1e-9)
 	require.InDelta(t, 100000*1.25e-6, below.CacheCreationCost, 1e-9)
 	require.InDelta(t, 40000*1.25e-7, below.CacheReadCost, 1e-9)
 }
 
-// 目录条目没有阶梯字段时，开关开启也不产生阶梯。
+// 价格数据没有阶梯时不产生分段。
 func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiCatalogStub())
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
@@ -155,7 +138,6 @@ func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) 
 	})
 	require.NoError(t, err)
 	require.InDelta(t, 0.385, got.ActualCost, 1e-9)
-	require.False(t, got.LongContextBillingApplied)
 }
 
 func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T) {
@@ -174,9 +156,8 @@ func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T
 	})
 	require.NoError(t, err)
 	require.Equal(t, want, got)
-	// 目录阶梯：超 272K 整单输入 ×2
-	require.InDelta(t, 300000*2.5e-6*2, got.InputCost, 1e-9)
-	require.True(t, got.LongContextBillingApplied)
+	// 没有目录条目、直接按价格文件计费时没有分段（分段只存在于模型目录）：超 272K 仍按基础价
+	require.InDelta(t, 300000*2.5e-6, got.InputCost, 1e-9)
 }
 
 func TestCalculateTokenCostForRequest_NoResolverFallsBackToCatalog(t *testing.T) {
@@ -223,4 +204,31 @@ func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier
 	require.NoError(t, err)
 	require.InDelta(t, 1000*10e-6*configured, got.TotalCost, 1e-12)
 	require.InDelta(t, got.TotalCost, got.ActualCost, 1e-12)
+}
+
+// 分段里留空的缓存价 = 基础价 × 本段输入价 / 基础输入价：只填输入 / 输出时缓存读、缓存写 5 分钟 / 1 小时都同比例；
+// 只填了缓存写 5 分钟时，留空的 1 小时照样同比例（不按 5 分钟价算）。
+func TestCalculateTokenCostForRequest_BlankSegmentCachePricesFollowInputRatio(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	base := func(model string, seg PricingInterval) ModelCatalogEntry {
+		return ModelCatalogEntry{
+			ModelID: model, BillingMode: BillingModeToken,
+			InputPrice: price(3e-6), OutputPrice: price(15e-6),
+			CacheWritePrice: price(3.75e-6), CacheWrite1hPrice: price(6e-6), CacheReadPrice: price(0.3e-6),
+			Intervals: []PricingInterval{seg},
+		}
+	}
+	onlyInputOutput := base("seg-io", PricingInterval{MinTokens: 200000, InputPrice: price(6e-6), OutputPrice: price(22.5e-6)})
+	explicit5m := base("seg-5m", PricingInterval{MinTokens: 200000, InputPrice: price(6e-6), OutputPrice: price(22.5e-6), CacheWritePrice: price(7.5e-6)})
+	bs := NewBillingService(&config.Config{}, nil)
+	resolver := newResolverWithSeededEntries(bs, onlyInputOutput, explicit5m)
+	tokens := UsageTokens{InputTokens: 100000, CacheReadTokens: 100000, CacheCreationTokens: 30000,
+		CacheCreation5mTokens: 20000, CacheCreation1hTokens: 10000, OutputTokens: 1000}
+
+	for _, model := range []string{"seg-io", "seg-5m"} {
+		got := costViaCatalog(t, bs, resolver, model, tokens, "")
+		require.InDelta(t, 100000*6e-6, got.InputCost, 1e-10, model)
+		require.InDelta(t, 100000*0.3e-6*2, got.CacheReadCost, 1e-10, model)
+		require.InDelta(t, 20000*3.75e-6*2+10000*6e-6*2, got.CacheCreationCost, 1e-10, model)
+	}
 }

@@ -213,22 +213,12 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		OutputPricePriority:     positivePrice(pricing.OutputCostPerTokenPriority),
 		CacheWritePricePriority: positivePrice(pricing.CacheCreationInputTokenCostPriority),
 		CacheReadPricePriority:  positivePrice(pricing.CacheReadInputTokenCostPriority),
-
-		LongContextInputMultiplier:  positivePrice(pricing.LongContextInputCostMultiplier),
-		LongContextOutputMultiplier: positivePrice(pricing.LongContextOutputCostMultiplier),
-		// xAI 的长上下文阈值语义是「达到即进高档」，其余提供商严格大于，
-		// 口径与 getModelPricingAt 一致。
-		LongContextThresholdInclusive: strings.EqualFold(pricing.LiteLLMProvider, "xai"),
 	}
 	// 5m/1h 分档只在 1h 价严格高于 5m 价时成立，与 getModelPricingAt 同口径：
 	// 价格文件写反时不分档，避免把 1h 缓存按更低的价算。
 	if pricing.CacheCreationInputTokenCostAbove1hr > 0 &&
 		pricing.CacheCreationInputTokenCostAbove1hr > pricing.CacheCreationInputTokenCost {
 		entry.CacheWrite1hPrice = positivePrice(pricing.CacheCreationInputTokenCostAbove1hr)
-	}
-	if pricing.LongContextInputTokenThreshold > 0 {
-		threshold := pricing.LongContextInputTokenThreshold
-		entry.LongContextInputThreshold = &threshold
 	}
 	if pricing.Mode == liteLLMModeImageGeneration && pricing.OutputCostPerImage > 0 {
 		// 按张计价的生图模型：默认价 = 每张价。token 价照抄——同一模型经对话入口调用、
@@ -239,6 +229,13 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 	// 模型内置搜索价只存 medium 档（拍的：OpenAI 按请求的 search_context_size 三档计，
 	// 我们只存一档；对账发现偏差再决定是否三档都存）。
 	entry.SearchPricePerCall = positivePrice(pricing.SearchContextCostPerQuery["search_context_size_medium"])
+	// 价格文件的长上下文阶梯换算成按 token 分段；xAI 的阈值是「达到即进高段」，其余提供商严格大于。
+	tokenLadder{
+		threshold:        pricing.LongContextInputTokenThreshold,
+		inclusive:        strings.EqualFold(pricing.LiteLLMProvider, "xai"),
+		inputMultiplier:  pricing.LongContextInputCostMultiplier,
+		outputMultiplier: pricing.LongContextOutputCostMultiplier,
+	}.applyTo(&entry)
 	return entry
 }
 
@@ -267,10 +264,6 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		CacheWritePricePriority: positivePrice(pricing.CacheCreationPricePerTokenPriority),
 		CacheReadPricePriority:  positivePrice(pricing.CacheReadPricePerTokenPriority),
 
-		LongContextInputMultiplier:    positivePrice(pricing.LongContextInputMultiplier),
-		LongContextOutputMultiplier:   positivePrice(pricing.LongContextOutputMultiplier),
-		LongContextThresholdInclusive: pricing.LongContextThresholdInclusive,
-
 		FastMultiplier:               clonePricePtr(pricing.FastMultiplier),
 		FlexMultiplier:               clonePricePtr(pricing.FlexMultiplier),
 		MaxReasoningEffortMultiplier: clonePricePtr(pricing.MaxReasoningEffortMultiplier),
@@ -280,11 +273,19 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		pricing.CacheCreation1hPrice > pricing.CacheCreation5mPrice {
 		entry.CacheWrite1hPrice = positivePrice(pricing.CacheCreation1hPrice)
 	}
-	if pricing.LongContextInputThreshold > 0 {
-		threshold := pricing.LongContextInputThreshold
-		entry.LongContextInputThreshold = &threshold
-	}
+	fallbackSeedLadders[name].applyTo(&entry)
 	return entry
+}
+
+// fallbackSeedLadders 兜底价表（BillingService.fallbackPrices）里有官方长上下文加价的模型，播种时换算成按 token 分段。
+// 值照搬原来写在兜底表 LongContext* 字段里的阶梯（2026-09-29 引擎改为只认分段时搬到这里）。
+var fallbackSeedLadders = map[string]tokenLadder{
+	"gpt-6-astra":    {threshold: 272_000, inputMultiplier: 2, outputMultiplier: 1.5},
+	"grok-4.5":       {threshold: 200_000, inclusive: true, inputMultiplier: 2, outputMultiplier: 2},
+	"grok-4.6":       {threshold: 200_000, inclusive: true, inputMultiplier: 2, outputMultiplier: 2},
+	"grok-4.3":       {threshold: 200_000, inclusive: true, inputMultiplier: 2, outputMultiplier: 2},
+	"grok-4.20":      {threshold: 200_000, inclusive: true, inputMultiplier: 2, outputMultiplier: 2},
+	"grok-build-0.1": {threshold: 200_000, inclusive: true, inputMultiplier: 2, outputMultiplier: 2},
 }
 
 func clonePricePtr(value *float64) *float64 {

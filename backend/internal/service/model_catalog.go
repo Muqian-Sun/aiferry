@@ -101,11 +101,6 @@ type ModelCatalogEntry struct {
 	// SearchPricePerCall 模型内置搜索每次调用价（alpha search 用）；nil 表示用内置单价。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
-	LongContextInputThreshold     *int     `json:"long_context_input_threshold"`
-	LongContextThresholdInclusive bool     `json:"long_context_threshold_inclusive"`
-	LongContextInputMultiplier    *float64 `json:"long_context_input_multiplier"`
-	LongContextOutputMultiplier   *float64 `json:"long_context_output_multiplier"`
-
 	FastMultiplier               *float64 `json:"fast_multiplier"`
 	FlexMultiplier               *float64 `json:"flex_multiplier"`
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
@@ -188,7 +183,7 @@ func (e *ModelCatalogEntry) IsOperatorAuthored() bool {
 
 // PricingCard 把目录条目投影成共享的价卡结构，供区间匹配、显式字段判定与分时
 // 倍率复用同一套代码。只投影 PricingCard 已有的字段；目录独有的字段
-// （priority 价、长上下文、图片缓存读价）由 ApplyToModelPricing 直接写进 ModelPricing。
+// （priority 价、图片缓存读价等）由 ApplyToModelPricing 直接写进 ModelPricing。
 func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 	if e == nil {
 		return nil
@@ -316,17 +311,6 @@ func (e *ModelCatalogEntry) ApplyToModelPricing(pricing *ModelPricing) {
 	}
 	if e.AudioOutputPrice != nil {
 		pricing.AudioOutputPricePerToken = *e.AudioOutputPrice
-	}
-
-	if e.LongContextInputThreshold != nil {
-		pricing.LongContextInputThreshold = *e.LongContextInputThreshold
-		pricing.LongContextThresholdInclusive = e.LongContextThresholdInclusive
-	}
-	if e.LongContextInputMultiplier != nil {
-		pricing.LongContextInputMultiplier = *e.LongContextInputMultiplier
-	}
-	if e.LongContextOutputMultiplier != nil {
-		pricing.LongContextOutputMultiplier = *e.LongContextOutputMultiplier
 	}
 
 	if e.FastMultiplier != nil {
@@ -457,8 +441,6 @@ func (e *ModelCatalogEntry) Validate() error {
 		}
 	}
 	multipliers := map[string]*float64{
-		"long_context_input_multiplier":   e.LongContextInputMultiplier,
-		"long_context_output_multiplier":  e.LongContextOutputMultiplier,
 		"fast_multiplier":                 e.FastMultiplier,
 		"flex_multiplier":                 e.FlexMultiplier,
 		"max_reasoning_effort_multiplier": e.MaxReasoningEffortMultiplier,
@@ -467,9 +449,6 @@ func (e *ModelCatalogEntry) Validate() error {
 		if value := multipliers[name]; value != nil && *value <= 0 {
 			return catalogValidationError(fmt.Sprintf("%s must be > 0", name))
 		}
-	}
-	if e.LongContextInputThreshold != nil && *e.LongContextInputThreshold < 0 {
-		return catalogValidationError("long_context_input_threshold must be >= 0")
 	}
 	if err := ValidateIntervals(e.Intervals, e.EffectiveBillingMode()); err != nil {
 		return catalogValidationError(err.Error())

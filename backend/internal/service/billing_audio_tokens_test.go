@@ -111,7 +111,7 @@ func TestComputeTokenBreakdown_AudioCostsAreFoldedIntoInputAndOutput(t *testing.
 	}
 	bd := bs.computeTokenBreakdown(pricing, UsageTokens{
 		InputTokens: 1000, OutputTokens: 500, AudioInputTokens: 400, AudioOutputTokens: 200,
-	}, 2, "flex", false)
+	}, 2, "flex")
 
 	// flex 档 0.5 倍同样作用到音频明细。
 	require.InDelta(t, 400*audioTestAudioInput*0.5, bd.AudioInputCost, 1e-12)

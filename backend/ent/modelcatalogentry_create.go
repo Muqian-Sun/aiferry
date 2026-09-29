@@ -358,62 +358,6 @@ func (_c *ModelCatalogEntryCreate) SetNillableSearchPricePerCall(v *float64) *Mo
 	return _c
 }
 
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (_c *ModelCatalogEntryCreate) SetLongContextInputThreshold(v int) *ModelCatalogEntryCreate {
-	_c.mutation.SetLongContextInputThreshold(v)
-	return _c
-}
-
-// SetNillableLongContextInputThreshold sets the "long_context_input_threshold" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableLongContextInputThreshold(v *int) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetLongContextInputThreshold(*v)
-	}
-	return _c
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (_c *ModelCatalogEntryCreate) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryCreate {
-	_c.mutation.SetLongContextThresholdInclusive(v)
-	return _c
-}
-
-// SetNillableLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableLongContextThresholdInclusive(v *bool) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetLongContextThresholdInclusive(*v)
-	}
-	return _c
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (_c *ModelCatalogEntryCreate) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetLongContextInputMultiplier(v)
-	return _c
-}
-
-// SetNillableLongContextInputMultiplier sets the "long_context_input_multiplier" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableLongContextInputMultiplier(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetLongContextInputMultiplier(*v)
-	}
-	return _c
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (_c *ModelCatalogEntryCreate) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetLongContextOutputMultiplier(v)
-	return _c
-}
-
-// SetNillableLongContextOutputMultiplier sets the "long_context_output_multiplier" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableLongContextOutputMultiplier(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetLongContextOutputMultiplier(*v)
-	}
-	return _c
-}
-
 // SetFastMultiplier sets the "fast_multiplier" field.
 func (_c *ModelCatalogEntryCreate) SetFastMultiplier(v float64) *ModelCatalogEntryCreate {
 	_c.mutation.SetFastMultiplier(v)
@@ -563,10 +507,6 @@ func (_c *ModelCatalogEntryCreate) defaults() {
 		v := modelcatalogentry.DefaultManagedBy
 		_c.mutation.SetManagedBy(v)
 	}
-	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
-		v := modelcatalogentry.DefaultLongContextThresholdInclusive
-		_c.mutation.SetLongContextThresholdInclusive(v)
-	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -624,9 +564,6 @@ func (_c *ModelCatalogEntryCreate) check() error {
 		if err := modelcatalogentry.ManagedByValidator(v); err != nil {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
-		return &ValidationError{Name: "long_context_threshold_inclusive", err: errors.New(`ent: missing required field "ModelCatalogEntry.long_context_threshold_inclusive"`)}
 	}
 	return nil
 }
@@ -754,22 +691,6 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.SearchPricePerCall(); ok {
 		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
 		_node.SearchPricePerCall = &value
-	}
-	if value, ok := _c.mutation.LongContextInputThreshold(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
-		_node.LongContextInputThreshold = &value
-	}
-	if value, ok := _c.mutation.LongContextThresholdInclusive(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextThresholdInclusive, field.TypeBool, value)
-		_node.LongContextThresholdInclusive = value
-	}
-	if value, ok := _c.mutation.LongContextInputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextInputMultiplier, field.TypeFloat64, value)
-		_node.LongContextInputMultiplier = &value
-	}
-	if value, ok := _c.mutation.LongContextOutputMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldLongContextOutputMultiplier, field.TypeFloat64, value)
-		_node.LongContextOutputMultiplier = &value
 	}
 	if value, ok := _c.mutation.FastMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
@@ -1358,90 +1279,6 @@ func (u *ModelCatalogEntryUpsert) AddSearchPricePerCall(v float64) *ModelCatalog
 // ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
 func (u *ModelCatalogEntryUpsert) ClearSearchPricePerCall() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldSearchPricePerCall)
-	return u
-}
-
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsert) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldLongContextInputThreshold, v)
-	return u
-}
-
-// UpdateLongContextInputThreshold sets the "long_context_input_threshold" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateLongContextInputThreshold() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldLongContextInputThreshold)
-	return u
-}
-
-// AddLongContextInputThreshold adds v to the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsert) AddLongContextInputThreshold(v int) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldLongContextInputThreshold, v)
-	return u
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsert) ClearLongContextInputThreshold() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldLongContextInputThreshold)
-	return u
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (u *ModelCatalogEntryUpsert) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldLongContextThresholdInclusive, v)
-	return u
-}
-
-// UpdateLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateLongContextThresholdInclusive() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldLongContextThresholdInclusive)
-	return u
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsert) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldLongContextInputMultiplier, v)
-	return u
-}
-
-// UpdateLongContextInputMultiplier sets the "long_context_input_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateLongContextInputMultiplier() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldLongContextInputMultiplier)
-	return u
-}
-
-// AddLongContextInputMultiplier adds v to the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsert) AddLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldLongContextInputMultiplier, v)
-	return u
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsert) ClearLongContextInputMultiplier() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldLongContextInputMultiplier)
-	return u
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsert) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldLongContextOutputMultiplier, v)
-	return u
-}
-
-// UpdateLongContextOutputMultiplier sets the "long_context_output_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateLongContextOutputMultiplier() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldLongContextOutputMultiplier)
-	return u
-}
-
-// AddLongContextOutputMultiplier adds v to the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsert) AddLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldLongContextOutputMultiplier, v)
-	return u
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsert) ClearLongContextOutputMultiplier() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldLongContextOutputMultiplier)
 	return u
 }
 
@@ -2144,104 +1981,6 @@ func (u *ModelCatalogEntryUpsertOne) UpdateSearchPricePerCall() *ModelCatalogEnt
 func (u *ModelCatalogEntryUpsertOne) ClearSearchPricePerCall() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
-	})
-}
-
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertOne) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextInputThreshold(v)
-	})
-}
-
-// AddLongContextInputThreshold adds v to the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertOne) AddLongContextInputThreshold(v int) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextInputThreshold(v)
-	})
-}
-
-// UpdateLongContextInputThreshold sets the "long_context_input_threshold" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateLongContextInputThreshold() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextInputThreshold()
-	})
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertOne) ClearLongContextInputThreshold() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextInputThreshold()
-	})
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (u *ModelCatalogEntryUpsertOne) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextThresholdInclusive(v)
-	})
-}
-
-// UpdateLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateLongContextThresholdInclusive() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextThresholdInclusive()
-	})
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextInputMultiplier(v)
-	})
-}
-
-// AddLongContextInputMultiplier adds v to the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) AddLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextInputMultiplier(v)
-	})
-}
-
-// UpdateLongContextInputMultiplier sets the "long_context_input_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateLongContextInputMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextInputMultiplier()
-	})
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) ClearLongContextInputMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextInputMultiplier()
-	})
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextOutputMultiplier(v)
-	})
-}
-
-// AddLongContextOutputMultiplier adds v to the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) AddLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextOutputMultiplier(v)
-	})
-}
-
-// UpdateLongContextOutputMultiplier sets the "long_context_output_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateLongContextOutputMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextOutputMultiplier()
-	})
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) ClearLongContextOutputMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextOutputMultiplier()
 	})
 }
 
@@ -3125,104 +2864,6 @@ func (u *ModelCatalogEntryUpsertBulk) UpdateSearchPricePerCall() *ModelCatalogEn
 func (u *ModelCatalogEntryUpsertBulk) ClearSearchPricePerCall() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
-	})
-}
-
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertBulk) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextInputThreshold(v)
-	})
-}
-
-// AddLongContextInputThreshold adds v to the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertBulk) AddLongContextInputThreshold(v int) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextInputThreshold(v)
-	})
-}
-
-// UpdateLongContextInputThreshold sets the "long_context_input_threshold" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateLongContextInputThreshold() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextInputThreshold()
-	})
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearLongContextInputThreshold() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextInputThreshold()
-	})
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (u *ModelCatalogEntryUpsertBulk) SetLongContextThresholdInclusive(v bool) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextThresholdInclusive(v)
-	})
-}
-
-// UpdateLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateLongContextThresholdInclusive() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextThresholdInclusive()
-	})
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) SetLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextInputMultiplier(v)
-	})
-}
-
-// AddLongContextInputMultiplier adds v to the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) AddLongContextInputMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextInputMultiplier(v)
-	})
-}
-
-// UpdateLongContextInputMultiplier sets the "long_context_input_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateLongContextInputMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextInputMultiplier()
-	})
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearLongContextInputMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextInputMultiplier()
-	})
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) SetLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetLongContextOutputMultiplier(v)
-	})
-}
-
-// AddLongContextOutputMultiplier adds v to the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) AddLongContextOutputMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddLongContextOutputMultiplier(v)
-	})
-}
-
-// UpdateLongContextOutputMultiplier sets the "long_context_output_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateLongContextOutputMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateLongContextOutputMultiplier()
-	})
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearLongContextOutputMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearLongContextOutputMultiplier()
 	})
 }
 

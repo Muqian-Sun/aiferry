@@ -316,16 +316,16 @@ func TestOpenAIFastBilling_FastMultiplierOverridesEnforcedRatio(t *testing.T) {
 	pricing.FastMultiplier = &multiplier
 
 	tokens := UsageTokens{InputTokens: 1_000_000, OutputTokens: 1_000_000, CacheReadTokens: 1_000_000}
-	standard := svc.computeTokenBreakdown(pricing, tokens, 1, "", false)
-	fast := svc.computeTokenBreakdown(pricing, tokens, 1, "fast", false)
-	priority := svc.computeTokenBreakdown(pricing, tokens, 1, "priority", false)
+	standard := svc.computeTokenBreakdown(pricing, tokens, 1, "")
+	fast := svc.computeTokenBreakdown(pricing, tokens, 1, "fast")
+	priority := svc.computeTokenBreakdown(pricing, tokens, 1, "priority")
 
 	require.InDelta(t, standard.TotalCost*1.7, fast.TotalCost, 1e-9)
 	require.InDelta(t, fast.TotalCost, priority.TotalCost, 1e-12)
 
 	withoutOverride := *pricing
 	withoutOverride.FastMultiplier = nil
-	enforced := svc.computeTokenBreakdown(&withoutOverride, tokens, 1, "fast", false)
+	enforced := svc.computeTokenBreakdown(&withoutOverride, tokens, 1, "fast")
 	require.InDelta(t, standard.TotalCost*2.5, enforced.TotalCost, 1e-9,
 		"without FastMultiplier the same enforced prices still bill 2.5x")
 }

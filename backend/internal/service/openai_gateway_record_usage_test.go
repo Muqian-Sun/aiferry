@@ -894,12 +894,14 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	require.InDelta(t, usageRepo.lastLog.TotalCost*1.1, usageRepo.lastLog.ActualCost, 1e-12)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *testing.T) {
+// 目录里 grok-4.5 的分段（兜底价表的 200K 阶梯播种而来）在记录用量时整条生效。
+func TestOpenAIGatewayServiceRecordUsage_GrokTokenSegmentApplies(t *testing.T) {
 	baseInput := 250000 * 2e-6
 	baseOutput := 1000 * 6e-6
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
-	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
+	svc.resolver = newResolverWithSeededEntries(svc.billingService,
+		seedEntryFromFallback("grok-4.5", svc.billingService.SnapshotFallbackPricing()["grok-4.5"]))
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
 			RequestID: "resp_grok_longctx",
@@ -912,7 +914,6 @@ func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *t
 		Account: &Account{ID: 3031, Platform: PlatformGrok, Type: AccountTypeOAuth},
 	})
 	require.NoError(t, err)
-	require.True(t, usageRepo.lastLog.LongContextBillingApplied)
 	require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
 	require.InDelta(t, baseOutput*2, usageRepo.lastLog.OutputCost, 1e-10)
 }

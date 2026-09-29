@@ -23504,13 +23504,6 @@ type ModelCatalogEntryMutation struct {
 	addper_request_price               *float64
 	search_price_per_call              *float64
 	addsearch_price_per_call           *float64
-	long_context_input_threshold       *int
-	addlong_context_input_threshold    *int
-	long_context_threshold_inclusive   *bool
-	long_context_input_multiplier      *float64
-	addlong_context_input_multiplier   *float64
-	long_context_output_multiplier     *float64
-	addlong_context_output_multiplier  *float64
 	fast_multiplier                    *float64
 	addfast_multiplier                 *float64
 	flex_multiplier                    *float64
@@ -25101,252 +25094,6 @@ func (m *ModelCatalogEntryMutation) ResetSearchPricePerCall() {
 	delete(m.clearedFields, modelcatalogentry.FieldSearchPricePerCall)
 }
 
-// SetLongContextInputThreshold sets the "long_context_input_threshold" field.
-func (m *ModelCatalogEntryMutation) SetLongContextInputThreshold(i int) {
-	m.long_context_input_threshold = &i
-	m.addlong_context_input_threshold = nil
-}
-
-// LongContextInputThreshold returns the value of the "long_context_input_threshold" field in the mutation.
-func (m *ModelCatalogEntryMutation) LongContextInputThreshold() (r int, exists bool) {
-	v := m.long_context_input_threshold
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLongContextInputThreshold returns the old "long_context_input_threshold" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldLongContextInputThreshold(ctx context.Context) (v *int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLongContextInputThreshold is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLongContextInputThreshold requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLongContextInputThreshold: %w", err)
-	}
-	return oldValue.LongContextInputThreshold, nil
-}
-
-// AddLongContextInputThreshold adds i to the "long_context_input_threshold" field.
-func (m *ModelCatalogEntryMutation) AddLongContextInputThreshold(i int) {
-	if m.addlong_context_input_threshold != nil {
-		*m.addlong_context_input_threshold += i
-	} else {
-		m.addlong_context_input_threshold = &i
-	}
-}
-
-// AddedLongContextInputThreshold returns the value that was added to the "long_context_input_threshold" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedLongContextInputThreshold() (r int, exists bool) {
-	v := m.addlong_context_input_threshold
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearLongContextInputThreshold clears the value of the "long_context_input_threshold" field.
-func (m *ModelCatalogEntryMutation) ClearLongContextInputThreshold() {
-	m.long_context_input_threshold = nil
-	m.addlong_context_input_threshold = nil
-	m.clearedFields[modelcatalogentry.FieldLongContextInputThreshold] = struct{}{}
-}
-
-// LongContextInputThresholdCleared returns if the "long_context_input_threshold" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) LongContextInputThresholdCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldLongContextInputThreshold]
-	return ok
-}
-
-// ResetLongContextInputThreshold resets all changes to the "long_context_input_threshold" field.
-func (m *ModelCatalogEntryMutation) ResetLongContextInputThreshold() {
-	m.long_context_input_threshold = nil
-	m.addlong_context_input_threshold = nil
-	delete(m.clearedFields, modelcatalogentry.FieldLongContextInputThreshold)
-}
-
-// SetLongContextThresholdInclusive sets the "long_context_threshold_inclusive" field.
-func (m *ModelCatalogEntryMutation) SetLongContextThresholdInclusive(b bool) {
-	m.long_context_threshold_inclusive = &b
-}
-
-// LongContextThresholdInclusive returns the value of the "long_context_threshold_inclusive" field in the mutation.
-func (m *ModelCatalogEntryMutation) LongContextThresholdInclusive() (r bool, exists bool) {
-	v := m.long_context_threshold_inclusive
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLongContextThresholdInclusive returns the old "long_context_threshold_inclusive" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldLongContextThresholdInclusive(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLongContextThresholdInclusive is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLongContextThresholdInclusive requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLongContextThresholdInclusive: %w", err)
-	}
-	return oldValue.LongContextThresholdInclusive, nil
-}
-
-// ResetLongContextThresholdInclusive resets all changes to the "long_context_threshold_inclusive" field.
-func (m *ModelCatalogEntryMutation) ResetLongContextThresholdInclusive() {
-	m.long_context_threshold_inclusive = nil
-}
-
-// SetLongContextInputMultiplier sets the "long_context_input_multiplier" field.
-func (m *ModelCatalogEntryMutation) SetLongContextInputMultiplier(f float64) {
-	m.long_context_input_multiplier = &f
-	m.addlong_context_input_multiplier = nil
-}
-
-// LongContextInputMultiplier returns the value of the "long_context_input_multiplier" field in the mutation.
-func (m *ModelCatalogEntryMutation) LongContextInputMultiplier() (r float64, exists bool) {
-	v := m.long_context_input_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLongContextInputMultiplier returns the old "long_context_input_multiplier" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldLongContextInputMultiplier(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLongContextInputMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLongContextInputMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLongContextInputMultiplier: %w", err)
-	}
-	return oldValue.LongContextInputMultiplier, nil
-}
-
-// AddLongContextInputMultiplier adds f to the "long_context_input_multiplier" field.
-func (m *ModelCatalogEntryMutation) AddLongContextInputMultiplier(f float64) {
-	if m.addlong_context_input_multiplier != nil {
-		*m.addlong_context_input_multiplier += f
-	} else {
-		m.addlong_context_input_multiplier = &f
-	}
-}
-
-// AddedLongContextInputMultiplier returns the value that was added to the "long_context_input_multiplier" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedLongContextInputMultiplier() (r float64, exists bool) {
-	v := m.addlong_context_input_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearLongContextInputMultiplier clears the value of the "long_context_input_multiplier" field.
-func (m *ModelCatalogEntryMutation) ClearLongContextInputMultiplier() {
-	m.long_context_input_multiplier = nil
-	m.addlong_context_input_multiplier = nil
-	m.clearedFields[modelcatalogentry.FieldLongContextInputMultiplier] = struct{}{}
-}
-
-// LongContextInputMultiplierCleared returns if the "long_context_input_multiplier" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) LongContextInputMultiplierCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldLongContextInputMultiplier]
-	return ok
-}
-
-// ResetLongContextInputMultiplier resets all changes to the "long_context_input_multiplier" field.
-func (m *ModelCatalogEntryMutation) ResetLongContextInputMultiplier() {
-	m.long_context_input_multiplier = nil
-	m.addlong_context_input_multiplier = nil
-	delete(m.clearedFields, modelcatalogentry.FieldLongContextInputMultiplier)
-}
-
-// SetLongContextOutputMultiplier sets the "long_context_output_multiplier" field.
-func (m *ModelCatalogEntryMutation) SetLongContextOutputMultiplier(f float64) {
-	m.long_context_output_multiplier = &f
-	m.addlong_context_output_multiplier = nil
-}
-
-// LongContextOutputMultiplier returns the value of the "long_context_output_multiplier" field in the mutation.
-func (m *ModelCatalogEntryMutation) LongContextOutputMultiplier() (r float64, exists bool) {
-	v := m.long_context_output_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLongContextOutputMultiplier returns the old "long_context_output_multiplier" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldLongContextOutputMultiplier(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLongContextOutputMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLongContextOutputMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLongContextOutputMultiplier: %w", err)
-	}
-	return oldValue.LongContextOutputMultiplier, nil
-}
-
-// AddLongContextOutputMultiplier adds f to the "long_context_output_multiplier" field.
-func (m *ModelCatalogEntryMutation) AddLongContextOutputMultiplier(f float64) {
-	if m.addlong_context_output_multiplier != nil {
-		*m.addlong_context_output_multiplier += f
-	} else {
-		m.addlong_context_output_multiplier = &f
-	}
-}
-
-// AddedLongContextOutputMultiplier returns the value that was added to the "long_context_output_multiplier" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedLongContextOutputMultiplier() (r float64, exists bool) {
-	v := m.addlong_context_output_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearLongContextOutputMultiplier clears the value of the "long_context_output_multiplier" field.
-func (m *ModelCatalogEntryMutation) ClearLongContextOutputMultiplier() {
-	m.long_context_output_multiplier = nil
-	m.addlong_context_output_multiplier = nil
-	m.clearedFields[modelcatalogentry.FieldLongContextOutputMultiplier] = struct{}{}
-}
-
-// LongContextOutputMultiplierCleared returns if the "long_context_output_multiplier" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) LongContextOutputMultiplierCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldLongContextOutputMultiplier]
-	return ok
-}
-
-// ResetLongContextOutputMultiplier resets all changes to the "long_context_output_multiplier" field.
-func (m *ModelCatalogEntryMutation) ResetLongContextOutputMultiplier() {
-	m.long_context_output_multiplier = nil
-	m.addlong_context_output_multiplier = nil
-	delete(m.clearedFields, modelcatalogentry.FieldLongContextOutputMultiplier)
-}
-
 // SetFastMultiplier sets the "fast_multiplier" field.
 func (m *ModelCatalogEntryMutation) SetFastMultiplier(f float64) {
 	m.fast_multiplier = &f
@@ -25748,7 +25495,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 33)
+	fields := make([]string, 0, 29)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -25824,18 +25571,6 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	if m.search_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
 	}
-	if m.long_context_input_threshold != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputThreshold)
-	}
-	if m.long_context_threshold_inclusive != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextThresholdInclusive)
-	}
-	if m.long_context_input_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputMultiplier)
-	}
-	if m.long_context_output_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextOutputMultiplier)
-	}
 	if m.fast_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
 	}
@@ -25906,14 +25641,6 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.PerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.SearchPricePerCall()
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		return m.LongContextInputThreshold()
-	case modelcatalogentry.FieldLongContextThresholdInclusive:
-		return m.LongContextThresholdInclusive()
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		return m.LongContextInputMultiplier()
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		return m.LongContextOutputMultiplier()
 	case modelcatalogentry.FieldFastMultiplier:
 		return m.FastMultiplier()
 	case modelcatalogentry.FieldFlexMultiplier:
@@ -25981,14 +25708,6 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldPerRequestPrice(ctx)
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.OldSearchPricePerCall(ctx)
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		return m.OldLongContextInputThreshold(ctx)
-	case modelcatalogentry.FieldLongContextThresholdInclusive:
-		return m.OldLongContextThresholdInclusive(ctx)
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		return m.OldLongContextInputMultiplier(ctx)
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		return m.OldLongContextOutputMultiplier(ctx)
 	case modelcatalogentry.FieldFastMultiplier:
 		return m.OldFastMultiplier(ctx)
 	case modelcatalogentry.FieldFlexMultiplier:
@@ -26181,34 +25900,6 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetSearchPricePerCall(v)
 		return nil
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLongContextInputThreshold(v)
-		return nil
-	case modelcatalogentry.FieldLongContextThresholdInclusive:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLongContextThresholdInclusive(v)
-		return nil
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLongContextInputMultiplier(v)
-		return nil
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLongContextOutputMultiplier(v)
-		return nil
 	case modelcatalogentry.FieldFastMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -26293,15 +25984,6 @@ func (m *ModelCatalogEntryMutation) AddedFields() []string {
 	if m.addsearch_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
 	}
-	if m.addlong_context_input_threshold != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputThreshold)
-	}
-	if m.addlong_context_input_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputMultiplier)
-	}
-	if m.addlong_context_output_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldLongContextOutputMultiplier)
-	}
 	if m.addfast_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
 	}
@@ -26351,12 +26033,6 @@ func (m *ModelCatalogEntryMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.AddedSearchPricePerCall()
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		return m.AddedLongContextInputThreshold()
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		return m.AddedLongContextInputMultiplier()
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		return m.AddedLongContextOutputMultiplier()
 	case modelcatalogentry.FieldFastMultiplier:
 		return m.AddedFastMultiplier()
 	case modelcatalogentry.FieldFlexMultiplier:
@@ -26484,27 +26160,6 @@ func (m *ModelCatalogEntryMutation) AddField(name string, value ent.Value) error
 		}
 		m.AddSearchPricePerCall(v)
 		return nil
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddLongContextInputThreshold(v)
-		return nil
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddLongContextInputMultiplier(v)
-		return nil
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddLongContextOutputMultiplier(v)
-		return nil
 	case modelcatalogentry.FieldFastMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -26585,15 +26240,6 @@ func (m *ModelCatalogEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogentry.FieldSearchPricePerCall) {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
 	}
-	if m.FieldCleared(modelcatalogentry.FieldLongContextInputThreshold) {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputThreshold)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldLongContextInputMultiplier) {
-		fields = append(fields, modelcatalogentry.FieldLongContextInputMultiplier)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldLongContextOutputMultiplier) {
-		fields = append(fields, modelcatalogentry.FieldLongContextOutputMultiplier)
-	}
 	if m.FieldCleared(modelcatalogentry.FieldFastMultiplier) {
 		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
 	}
@@ -26670,15 +26316,6 @@ func (m *ModelCatalogEntryMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ClearSearchPricePerCall()
-		return nil
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		m.ClearLongContextInputThreshold()
-		return nil
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		m.ClearLongContextInputMultiplier()
-		return nil
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		m.ClearLongContextOutputMultiplier()
 		return nil
 	case modelcatalogentry.FieldFastMultiplier:
 		m.ClearFastMultiplier()
@@ -26774,18 +26411,6 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ResetSearchPricePerCall()
-		return nil
-	case modelcatalogentry.FieldLongContextInputThreshold:
-		m.ResetLongContextInputThreshold()
-		return nil
-	case modelcatalogentry.FieldLongContextThresholdInclusive:
-		m.ResetLongContextThresholdInclusive()
-		return nil
-	case modelcatalogentry.FieldLongContextInputMultiplier:
-		m.ResetLongContextInputMultiplier()
-		return nil
-	case modelcatalogentry.FieldLongContextOutputMultiplier:
-		m.ResetLongContextOutputMultiplier()
 		return nil
 	case modelcatalogentry.FieldFastMultiplier:
 		m.ResetFastMultiplier()
@@ -43529,80 +43154,79 @@ func (m *UsageCleanupTaskMutation) ResetEdge(name string) error {
 // UsageLogMutation represents an operation that mutates the UsageLog nodes in the graph.
 type UsageLogMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *int64
-	request_id                   *string
-	model                        *string
-	requested_model              *string
-	upstream_model               *string
-	upstream_response_model      *string
-	upstream_model_mismatch      *bool
-	billing_mode                 *string
-	input_tokens                 *int
-	addinput_tokens              *int
-	output_tokens                *int
-	addoutput_tokens             *int
-	cache_creation_tokens        *int
-	addcache_creation_tokens     *int
-	cache_read_tokens            *int
-	addcache_read_tokens         *int
-	cache_creation_5m_tokens     *int
-	addcache_creation_5m_tokens  *int
-	cache_creation_1h_tokens     *int
-	addcache_creation_1h_tokens  *int
-	input_cost                   *float64
-	addinput_cost                *float64
-	output_cost                  *float64
-	addoutput_cost               *float64
-	cache_creation_cost          *float64
-	addcache_creation_cost       *float64
-	cache_read_cost              *float64
-	addcache_read_cost           *float64
-	total_cost                   *float64
-	addtotal_cost                *float64
-	actual_cost                  *float64
-	addactual_cost               *float64
-	rate_multiplier              *float64
-	addrate_multiplier           *float64
-	long_context_billing_applied *bool
-	account_rate_multiplier      *float64
-	addaccount_rate_multiplier   *float64
-	billing_type                 *int8
-	addbilling_type              *int8
-	stream                       *bool
-	duration_ms                  *int
-	addduration_ms               *int
-	first_token_ms               *int
-	addfirst_token_ms            *int
-	user_agent                   *string
-	ip_address                   *string
-	image_count                  *int
-	addimage_count               *int
-	image_size                   *string
-	image_input_size             *string
-	image_output_size            *string
-	image_size_source            *string
-	image_size_breakdown         *map[string]int
-	video_count                  *int
-	addvideo_count               *int
-	video_resolution             *string
-	video_duration_seconds       *int
-	addvideo_duration_seconds    *int
-	cache_ttl_overridden         *bool
-	created_at                   *time.Time
-	clearedFields                map[string]struct{}
-	user                         *int64
-	cleareduser                  bool
-	api_key                      *int64
-	clearedapi_key               bool
-	account                      *int64
-	clearedaccount               bool
-	subscription                 *int64
-	clearedsubscription          bool
-	done                         bool
-	oldValue                     func(context.Context) (*UsageLog, error)
-	predicates                   []predicate.UsageLog
+	op                          Op
+	typ                         string
+	id                          *int64
+	request_id                  *string
+	model                       *string
+	requested_model             *string
+	upstream_model              *string
+	upstream_response_model     *string
+	upstream_model_mismatch     *bool
+	billing_mode                *string
+	input_tokens                *int
+	addinput_tokens             *int
+	output_tokens               *int
+	addoutput_tokens            *int
+	cache_creation_tokens       *int
+	addcache_creation_tokens    *int
+	cache_read_tokens           *int
+	addcache_read_tokens        *int
+	cache_creation_5m_tokens    *int
+	addcache_creation_5m_tokens *int
+	cache_creation_1h_tokens    *int
+	addcache_creation_1h_tokens *int
+	input_cost                  *float64
+	addinput_cost               *float64
+	output_cost                 *float64
+	addoutput_cost              *float64
+	cache_creation_cost         *float64
+	addcache_creation_cost      *float64
+	cache_read_cost             *float64
+	addcache_read_cost          *float64
+	total_cost                  *float64
+	addtotal_cost               *float64
+	actual_cost                 *float64
+	addactual_cost              *float64
+	rate_multiplier             *float64
+	addrate_multiplier          *float64
+	account_rate_multiplier     *float64
+	addaccount_rate_multiplier  *float64
+	billing_type                *int8
+	addbilling_type             *int8
+	stream                      *bool
+	duration_ms                 *int
+	addduration_ms              *int
+	first_token_ms              *int
+	addfirst_token_ms           *int
+	user_agent                  *string
+	ip_address                  *string
+	image_count                 *int
+	addimage_count              *int
+	image_size                  *string
+	image_input_size            *string
+	image_output_size           *string
+	image_size_source           *string
+	image_size_breakdown        *map[string]int
+	video_count                 *int
+	addvideo_count              *int
+	video_resolution            *string
+	video_duration_seconds      *int
+	addvideo_duration_seconds   *int
+	cache_ttl_overridden        *bool
+	created_at                  *time.Time
+	clearedFields               map[string]struct{}
+	user                        *int64
+	cleareduser                 bool
+	api_key                     *int64
+	clearedapi_key              bool
+	account                     *int64
+	clearedaccount              bool
+	subscription                *int64
+	clearedsubscription         bool
+	done                        bool
+	oldValue                    func(context.Context) (*UsageLog, error)
+	predicates                  []predicate.UsageLog
 }
 
 var _ ent.Mutation = (*UsageLogMutation)(nil)
@@ -44905,42 +44529,6 @@ func (m *UsageLogMutation) ResetRateMultiplier() {
 	m.addrate_multiplier = nil
 }
 
-// SetLongContextBillingApplied sets the "long_context_billing_applied" field.
-func (m *UsageLogMutation) SetLongContextBillingApplied(b bool) {
-	m.long_context_billing_applied = &b
-}
-
-// LongContextBillingApplied returns the value of the "long_context_billing_applied" field in the mutation.
-func (m *UsageLogMutation) LongContextBillingApplied() (r bool, exists bool) {
-	v := m.long_context_billing_applied
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldLongContextBillingApplied returns the old "long_context_billing_applied" field's value of the UsageLog entity.
-// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UsageLogMutation) OldLongContextBillingApplied(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldLongContextBillingApplied is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldLongContextBillingApplied requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldLongContextBillingApplied: %w", err)
-	}
-	return oldValue.LongContextBillingApplied, nil
-}
-
-// ResetLongContextBillingApplied resets all changes to the "long_context_billing_applied" field.
-func (m *UsageLogMutation) ResetLongContextBillingApplied() {
-	m.long_context_billing_applied = nil
-}
-
 // SetAccountRateMultiplier sets the "account_rate_multiplier" field.
 func (m *UsageLogMutation) SetAccountRateMultiplier(f float64) {
 	m.account_rate_multiplier = &f
@@ -46031,7 +45619,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 43)
+	fields := make([]string, 0, 42)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -46103,9 +45691,6 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
-	}
-	if m.long_context_billing_applied != nil {
-		fields = append(fields, usagelog.FieldLongContextBillingApplied)
 	}
 	if m.account_rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
@@ -46217,8 +45802,6 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.RateMultiplier()
-	case usagelog.FieldLongContextBillingApplied:
-		return m.LongContextBillingApplied()
 	case usagelog.FieldAccountRateMultiplier:
 		return m.AccountRateMultiplier()
 	case usagelog.FieldBillingType:
@@ -46312,8 +45895,6 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldActualCost(ctx)
 	case usagelog.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
-	case usagelog.FieldLongContextBillingApplied:
-		return m.OldLongContextBillingApplied(ctx)
 	case usagelog.FieldAccountRateMultiplier:
 		return m.OldAccountRateMultiplier(ctx)
 	case usagelog.FieldBillingType:
@@ -46526,13 +46107,6 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
-		return nil
-	case usagelog.FieldLongContextBillingApplied:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetLongContextBillingApplied(v)
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		v, ok := value.(float64)
@@ -47134,9 +46708,6 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldRateMultiplier:
 		m.ResetRateMultiplier()
-		return nil
-	case usagelog.FieldLongContextBillingApplied:
-		m.ResetLongContextBillingApplied()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ResetAccountRateMultiplier()
