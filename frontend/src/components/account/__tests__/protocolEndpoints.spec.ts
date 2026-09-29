@@ -21,8 +21,8 @@ import {
 const defaults: ProtocolDefaultsResponse = {
   protocols: ['anthropic', 'chat_completions', 'responses', 'gemini'],
   defaults: {
-    openai: {
-      default: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' }
+    deepseek: {
+      default: { chat_completions: 'https://api.deepseek.com', responses: 'https://api.deepseek.com' }
     },
     kimi: {
       default: { chat_completions: 'https://api.moonshot.cn/v1' },
@@ -55,15 +55,15 @@ describe('protocolDefaultsFor', () => {
   })
 
   it('returns an empty mapping instead of borrowing another mode or platform', () => {
-    expect(protocolDefaultsFor(defaults, 'openai', 'coding')).toEqual({})
+    expect(protocolDefaultsFor(defaults, 'deepseek', 'coding')).toEqual({})
     expect(protocolDefaultsFor(defaults, 'antigravity')).toEqual({})
-    expect(protocolDefaultsFor(null, 'openai')).toEqual({})
+    expect(protocolDefaultsFor(null, 'deepseek')).toEqual({})
   })
 
   it('returns a copy so editing the form cannot mutate the cached table', () => {
-    const endpoints = protocolDefaultsFor(defaults, 'openai')
+    const endpoints = protocolDefaultsFor(defaults, 'deepseek')
     endpoints.chat_completions = 'https://relay.example.com/v1'
-    expect(defaults.defaults.openai.default.chat_completions).toBe('https://api.openai.com')
+    expect(defaults.defaults.deepseek.default.chat_completions).toBe('https://api.deepseek.com')
   })
 })
 

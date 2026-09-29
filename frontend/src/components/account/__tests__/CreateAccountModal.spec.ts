@@ -78,9 +78,6 @@ import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 const PROTOCOL_DEFAULTS = {
   protocols: ['anthropic', 'chat_completions', 'responses', 'gemini'],
   defaults: {
-    anthropic: { default: { anthropic: 'https://api.anthropic.com' } },
-    openai: { default: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' } },
-    grok: { default: { chat_completions: 'https://api.x.ai/v1', responses: 'https://api.x.ai/v1' } },
     kimi: {
       default: {
         anthropic: 'https://api.moonshot.cn/anthropic',
@@ -114,10 +111,6 @@ const PROTOCOL_DEFAULTS = {
     },
   },
   vendor_hosts: {
-    'api.anthropic.com': 'anthropic',
-    'api.openai.com': 'openai',
-    'api.x.ai': 'grok',
-    'us-east-1.api.x.ai': 'grok',
     'api.moonshot.cn': 'kimi',
     'api.kimi.com': 'kimi',
     'api.minimaxi.com': 'minimax',
@@ -126,10 +119,11 @@ const PROTOCOL_DEFAULTS = {
   },
 }
 
-// 第三方 key 常用官方地址（选「第三方 key」后从地址菜单里挑，厂商按地址识别）
+// 第三方 key 常用官方地址（选「第三方 key」后从地址菜单里挑，厂商按地址识别）；
+// 官方地址只剩国产厂商与 OpenCode，其余都是中转，手填（typed）
 const KEY = {
-  anthropic: { protocol: 'anthropic', url: 'https://api.anthropic.com' },
-  openai: { protocol: 'responses', url: 'https://api.openai.com' },
+  relayAnthropic: { protocol: 'anthropic', url: 'https://relay.example.com', typed: true },
+  relayResponses: { protocol: 'responses', url: 'https://relay.example.com/v1', typed: true },
   kimi: { protocol: 'chat_completions', url: 'https://api.moonshot.cn/v1' },
   kimiCoding: { protocol: 'chat_completions', url: 'https://api.kimi.com/coding/v1' },
   minimax: { protocol: 'chat_completions', url: 'https://api.minimaxi.com/v1', mode: 'payg' },
@@ -137,7 +131,7 @@ const KEY = {
   opencodeZen: { protocol: 'chat_completions', url: 'https://opencode.ai/zen/v1' },
   opencodeGo: { protocol: 'chat_completions', url: 'https://opencode.ai/zen/go/v1' },
 } as const
-type KeyAddress = { protocol: string; url: string; mode?: string }
+type KeyAddress = { protocol: string; url: string; mode?: string; typed?: boolean }
 
 beforeEach(() => {
   resetProtocolDefaultsCacheForTest()
@@ -215,12 +209,19 @@ async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: st
   await expandMoreSettings(wrapper)
 }
 
-// 第三方 key 不选平台 / 来源：选「第三方 key」，再从常用官方地址里挑一条；不传地址就留空（中转自己填）
+// 第三方 key 不选平台 / 来源：选「第三方 key」，再从常用官方地址里挑一条或手填中转地址；不传地址就留空
 async function selectKey(wrapper: ReturnType<typeof mountModal>, address?: KeyAddress) {
   await wrapper.get('[data-testid="access-kind-key"]').trigger('click')
   await flushPromises()
-  if (address) await pickKeyAddress(wrapper, address)
+  if (address?.typed) await typeKeyAddress(wrapper, address)
+  else if (address) await pickKeyAddress(wrapper, address)
   await expandMoreSettings(wrapper)
+}
+
+async function typeKeyAddress(wrapper: ReturnType<typeof mountModal>, address: KeyAddress) {
+  await switchProtocol(wrapper, address.protocol)
+  await wrapper.get(`[data-testid="protocol-endpoint-input-${address.protocol}"]`).setValue(address.url)
+  await flushPromises()
 }
 
 async function pickKeyAddress(wrapper: ReturnType<typeof mountModal>, address: KeyAddress) {
@@ -241,12 +242,12 @@ async function switchProtocol(wrapper: ReturnType<typeof mountModal>, protocol: 
 }
 
 async function submitApiKeyAccount(
-  platform: 'openai' | 'anthropic',
+  protocol: 'responses' | 'anthropic',
   disableUpstreamBillingProbe = false
 ) {
   const wrapper = mountModal()
-  await selectKey(wrapper, platform === 'openai' ? KEY.openai : KEY.anthropic)
-  await wrapper.get('form#create-account-form input[type="text"]').setValue(`${platform} account`)
+  await selectKey(wrapper, protocol === 'responses' ? KEY.relayResponses : KEY.relayAnthropic)
+  await wrapper.get('form#create-account-form input[type="text"]').setValue(`${protocol} relay`)
   await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
   if (disableUpstreamBillingProbe) {
     await wrapper.get('[data-testid="upstream-billing-auto-probe"]').trigger('click')
@@ -288,7 +289,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-01-31T12:34:00'))
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.openai)
+    await selectKey(wrapper, KEY.relayResponses)
     await wrapper.get('form#create-account-form input[type="text"]').setValue('expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     const input = wrapper.get<HTMLInputElement>('input[type="datetime-local"]')
@@ -312,7 +313,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('allows a manually entered expiry to override a preset before account creation', async () => {
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.openai)
+    await selectKey(wrapper, KEY.relayResponses)
     await wrapper.get('form#create-account-form input[type="text"]').setValue('custom expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await selectButtonByText(wrapper, 'payment.oneMonth')
@@ -326,7 +327,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('runs formal capability sync after creating an account with explicit mappings', async () => {
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.openai)
+    await selectKey(wrapper, KEY.relayResponses)
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Mapped account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await wrapper.get('[data-testid="model-rename-add"]').trigger('click')
@@ -345,7 +346,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
 
   it('enables upstream billing probes by default for new OpenAI API key accounts', async () => {
-    await submitApiKeyAccount('openai')
+    await submitApiKeyAccount('responses')
 
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
   })
@@ -358,7 +359,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
       })
     )
 
-    const wrapper = await submitApiKeyAccount('openai')
+    const wrapper = await submitApiKeyAccount('responses')
 
     expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)
     expect(wrapper.emitted('created')).toBeUndefined()
@@ -370,7 +371,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   })
 
   it('sends an explicit disabled state when the create toggle is turned off', async () => {
-    await submitApiKeyAccount('openai', true)
+    await submitApiKeyAccount('responses', true)
 
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
     expect(probeUpstreamBillingMock).not.toHaveBeenCalled()
@@ -715,9 +716,9 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     })
   })
 
-  it('hides Anthropic protocol settings once an Anthropic-labelled key drops its anthropic endpoint', async () => {
+  it('hides Anthropic protocol settings once a relay key drops its anthropic endpoint', async () => {
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.anthropic)
+    await selectKey(wrapper, KEY.relayAnthropic)
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(true)
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
@@ -725,7 +726,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
-    await fillKeyBasics(wrapper, 'anthropic label without anthropic endpoint')
+    await fillKeyBasics(wrapper, 'relay without anthropic endpoint')
     const payload = await submitPayload(wrapper)
     expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
   })
