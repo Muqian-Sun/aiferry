@@ -173,9 +173,9 @@ func RunCLI() error {
 
 	for {
 		cfg.Admin.Password = promptPassword("Admin Password")
-		// SECURITY: Match Web API requirement of 8 characters minimum
-		if len(cfg.Admin.Password) < 8 {
-			fmt.Println("  Password must be at least 8 characters")
+		// 与 Web 安装向导同一下限：全站密码统一至少 6 位
+		if len(cfg.Admin.Password) < 6 {
+			fmt.Println("  Password must be at least 6 characters")
 			continue
 		}
 		if len(cfg.Admin.Password) > 128 {

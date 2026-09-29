@@ -218,7 +218,7 @@ export default {
         overview: '账户概况',
         overviewDesc: '登录身份、余额与计价倍率',
         usernameDesc: '未设置时显示邮箱',
-        passwordDesc: '用于邮箱登录，至少 8 个字符'
+        passwordDesc: '用于邮箱登录，至少 6 个字符'
       }
     },
     summary: {
