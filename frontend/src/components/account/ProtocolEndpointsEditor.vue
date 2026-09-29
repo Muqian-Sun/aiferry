@@ -2,6 +2,7 @@
   <!--
     第三方 key 的上游地址：一个 key 只承接一个上游协议（后端拒绝多协议），所以是「协议 + 地址」一行。
     切换协议时，地址没改过（空或仍是原协议的官方地址）就换成新协议的官方地址。
+    还没选协议也能先填地址（草稿，v-model:draft-url），好用「探测协议」看上游支持哪些；选了协议草稿就并进来（muqian 2026-09-29）。
   -->
   <div data-testid="protocol-endpoints-editor">
     <div class="flex items-center justify-between gap-2">
@@ -36,10 +37,9 @@
         <option v-for="option in protocolOptions" :key="option" :value="option">{{ protocolLabel(option) }}</option>
       </select>
       <input
-        :value="protocol ? modelValue[protocol] : ''"
+        :value="protocol ? modelValue[protocol] : draftUrl"
         type="text"
         class="input flex-1 font-mono text-sm"
-        :disabled="!protocol"
         :placeholder="t('admin.accounts.protocolEndpoints.urlPlaceholder')"
         :data-testid="`protocol-endpoint-input-${protocol ?? 'none'}`"
         @input="onInput"
@@ -70,6 +70,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: ProtocolEndpoints]
 }>()
 
+/** 还没选协议时填的地址；选协议时并进 modelValue 并清空。父组件不绑定时是组件内部状态。 */
+const draftUrl = defineModel<string>('draftUrl', { default: '' })
+
 const { t } = useI18n()
 
 const protocol = computed<UpstreamProtocol | null>(() => (Object.keys(props.modelValue)[0] as UpstreamProtocol) ?? null)
@@ -95,12 +98,15 @@ function protocolLabel(value: UpstreamProtocol): string {
 function onProtocolChange(event: Event) {
   const next = (event.target as HTMLSelectElement).value as UpstreamProtocol
   const current = protocol.value
-  const currentUrl = current ? (props.modelValue[current] ?? '') : ''
+  const currentUrl = current ? (props.modelValue[current] ?? '') : draftUrl.value
   const untouched = !currentUrl.trim() || (!!current && currentUrl === props.officialEndpoints?.[current])
   emit('update:modelValue', { [next]: untouched ? (props.officialEndpoints?.[next] ?? '') : currentUrl })
+  draftUrl.value = ''
 }
 
 function onInput(event: Event) {
-  if (protocol.value) emit('update:modelValue', { [protocol.value]: (event.target as HTMLInputElement).value })
+  const value = (event.target as HTMLInputElement).value
+  if (protocol.value) emit('update:modelValue', { [protocol.value]: value })
+  else draftUrl.value = value
 }
 </script>
