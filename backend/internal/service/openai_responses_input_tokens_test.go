@@ -82,16 +82,16 @@ func TestForwardResponsesInputTokensUpstream404FallsBackLocally(t *testing.T) {
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 		httpUpstream: upstream,
 	}
+	// 只有 OpenAI 成品号发官方 input_tokens（第三方 key 一律本地估算，2026-09-29）。
 	account := &Account{
 		ID:          171,
 		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
+		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "official-key",
-			"base_url": "https://api.openai.com/v1",
+			"access_token":       "oauth-access-token",
+			"chatgpt_account_id": "chatgpt-account",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 	body := []byte(`{"model":"gpt-5.4","instructions":"Be concise.","input":"hello world"}`)
 
@@ -102,4 +102,35 @@ func TestForwardResponsesInputTokensUpstream404FallsBackLocally(t *testing.T) {
 	require.Equal(t, "response.input_tokens", gjson.Get(recorder.Body.String(), "object").String())
 	require.Positive(t, gjson.Get(recorder.Body.String(), "input_tokens").Int())
 	require.NotNil(t, upstream.lastReq)
+	require.Equal(t, openaiPlatformAPIInputTokensURL, upstream.lastReq.URL.String())
+}
+
+// 指向 api.openai.com 的 key 按中转（2026-09-29 海外四家不再有官方 key）：本地估算，不发官方 input_tokens。
+func TestForwardResponsesInputTokensKeyOnOfficialHostUsesLocalEstimate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses/input_tokens", nil)
+
+	upstream := &httpUpstreamRecorder{}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+		httpUpstream: upstream,
+	}
+	account := &Account{
+		ID:                172,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com/v1"},
+	}
+	body := []byte(`{"model":"gpt-5.4","instructions":"Be concise.","input":"hello world"}`)
+
+	err := svc.ForwardResponsesInputTokens(context.Background(), c, account, body)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Positive(t, gjson.Get(recorder.Body.String(), "input_tokens").Int())
+	require.Nil(t, upstream.lastReq)
 }

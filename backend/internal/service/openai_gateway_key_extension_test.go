@@ -157,9 +157,11 @@ func TestSupportsOpenAIImageCapabilityForKeysFollowsVendorNotLabel(t *testing.T)
 	require.False(t, (&Account{Platform: PlatformGrok, Type: AccountTypeOAuth}).SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative))
 }
 
+// input_tokens 是 OpenAI 成品号才发上游：第三方 key 一律本地估算，responses 地址是 api.openai.com 也一样
+// （2026-09-29 海外四家不再有官方 key）。
 func TestShouldEstimateOpenAIInputTokensLocallyForKeysIgnoresLabel(t *testing.T) {
-	require.False(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolResponses: "https://api.openai.com"})),
-		"a key whose responses address is api.openai.com calls the official input_tokens endpoint whatever its label")
+	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://api.openai.com"})),
+		"a key on api.openai.com is a relay and estimates locally")
 	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolResponses: "https://relay.example/v1"})))
 	require.True(t, shouldEstimateOpenAIInputTokensLocally(keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "https://api.openai.com"})),
 		"without a responses address there is no input_tokens endpoint to call")

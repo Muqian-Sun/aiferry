@@ -1388,7 +1388,9 @@ func TestCompleteAPIKeyCodexModelsManifestForClientUsesCurrentSnapshotForCachedN
 	require.Equal(t, int32(1), calls.Load(), "second response should use the cached upstream source body")
 }
 
-func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTImageInput(t *testing.T) {
+// 指向 api.openai.com 的 key 按中转（2026-09-29 海外四家不再有官方 key）：图片输入按 OpenAI 兼容清单补全，
+// 不再强制官方的 supports_image_detail_original。
+func TestCompleteAPIKeyCodexModelsManifestForClientKeyOnOfficialHostUsesCompatibleImageInput(t *testing.T) {
 	t.Parallel()
 
 	svc := &OpenAIGatewayService{}
@@ -1407,7 +1409,7 @@ func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTIma
 	}
 	for _, slug := range []string{"gpt-6-astra", "gpt-5.6-sol", "gpt-4o"} {
 		require.Equal(t, []any{"text", "image"}, bySlug[slug]["input_modalities"])
-		require.Equal(t, true, bySlug[slug]["supports_image_detail_original"])
+		require.Equal(t, false, bySlug[slug]["supports_image_detail_original"])
 	}
 	for _, slug := range []string{"gpt-3.5-turbo", "gpt-4"} {
 		require.Equal(t, []any{"text"}, bySlug[slug]["input_modalities"])
@@ -1416,15 +1418,17 @@ func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTIma
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 }
 
-func TestCompleteAPIKeyCodexModelsManifestForClientFiltersOfficialNonAgentModels(t *testing.T) {
+// 指向 api.openai.com 的 key 按中转：不按官方目录过滤非对话模型，上游列什么就给什么（2026-09-29）。
+func TestCompleteAPIKeyCodexModelsManifestForClientKeyOnOfficialHostKeepsAllModels(t *testing.T) {
 	t.Parallel()
 
 	svc := &OpenAIGatewayService{}
+	slugs := []string{"gpt-5.6-sol", "gpt-4o-realtime-preview", "gpt-4o-mini-tts", "text-embedding-3-large", "omni-moderation-latest", "o4-mini", "codex-mini-latest"}
 	manifest := &OpenAIModelsResponse{Body: []byte(`{"models":[{"slug":"gpt-5.6-sol"},{"slug":"gpt-4o-realtime-preview"},{"slug":"gpt-4o-mini-tts"},{"slug":"text-embedding-3-large"},{"slug":"omni-moderation-latest"},{"slug":"o4-mini"},{"slug":"codex-mini-latest"}]}`)}
 	account := newCodexModelsAPIKeyTestAccount("https://api.openai.com")
 
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(manifest, account))
-	require.Equal(t, []string{"gpt-5.6-sol", "o4-mini", "codex-mini-latest"}, codexManifestModelSlugs(t, manifest.Body))
+	require.Equal(t, slugs, codexManifestModelSlugs(t, manifest.Body))
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 }
 
