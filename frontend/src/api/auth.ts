@@ -557,23 +557,19 @@ export async function resetPassword(request: ResetPasswordRequest): Promise<Rese
 
 export async function completeWeChatOAuthRegistration(
   invitationCode: string,
-  decision?: OAuthAdoptionDecision,
-  affiliateCode?: string
+  decision?: OAuthAdoptionDecision
 ): Promise<OAuthTokenResponse> {
-  return createPendingWeChatOAuthAccount(invitationCode, decision, affiliateCode)
+  return createPendingWeChatOAuthAccount(invitationCode, decision)
 }
 
 export async function createPendingWeChatOAuthAccount(
   invitationCode: string,
-  decision?: OAuthAdoptionDecision,
-  affiliateCode?: string
+  decision?: OAuthAdoptionDecision
 ): Promise<PendingOAuthCreateAccountResponse> {
-  const normalizedAffiliateCode = affiliateCode?.trim()
   const { data } = await apiClient.post<PendingOAuthCreateAccountResponse>(
     '/auth/oauth/wechat/complete-registration',
     {
       invitation_code: invitationCode,
-      ...(normalizedAffiliateCode ? { aff_code: normalizedAffiliateCode } : {}),
       ...serializeOAuthAdoptionDecision(decision)
     }
   )

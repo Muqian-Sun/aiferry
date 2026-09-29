@@ -135,7 +135,6 @@ export interface RegisterRequest {
   tencent_captcha_ticket?: string
   tencent_captcha_randstr?: string
   invitation_code?: string
-  aff_code?: string
 }
 
 export interface SendVerifyCodeRequest {
@@ -231,7 +230,6 @@ export interface PublicSettings {
   channel_monitor_hide_throughput?: boolean
   /** When true, user monitor hides the user ranking tab and /users payload. */
   channel_monitor_hide_user_ranking?: boolean
-  affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
 }
 

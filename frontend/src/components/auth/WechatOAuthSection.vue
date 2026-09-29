@@ -33,7 +33,6 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { resolveWeChatOAuthStart, type OAuthLoginStart } from '@/api/auth'
 import { useAppStore } from '@/stores'
-import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
 import { APP_SITE } from '@/app/site'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 
@@ -42,7 +41,6 @@ const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
-  affCode?: string
   showDivider?: boolean
 }>(), {
   showDivider: true,
@@ -94,7 +92,6 @@ function startLogin(): void {
     return
   }
   const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
-  storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
   const mode = resolvedStart.value.mode
   emit('start', {
     provider: 'wechat',

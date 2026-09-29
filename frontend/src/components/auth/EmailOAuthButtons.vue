@@ -37,14 +37,12 @@ import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 // 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
 const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 import type { OAuthLoginStart } from '@/api/auth'
-import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
 
 type EmailOAuthProvider = 'github' | 'google'
 const EMAIL_OAUTH_PENDING_PROVIDER_KEY = 'email_oauth_pending_provider'
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
-  affCode?: string
   githubEnabled?: boolean
   googleEnabled?: boolean
   showDivider?: boolean
@@ -81,13 +79,7 @@ function providerLabel(provider: EmailOAuthProvider): string {
 
 function startLogin(provider: EmailOAuthProvider): void {
   const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
-  const affiliateCode = resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code)
-  storeOAuthAffiliateCode(affiliateCode)
   window.sessionStorage.setItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY, provider)
-  const params: Record<string, string> = { redirect: redirectTo }
-  if (affiliateCode) {
-    params.aff_code = affiliateCode
-  }
-  emit('start', { provider, params })
+  emit('start', { provider, params: { redirect: redirectTo } })
 }
 </script>
