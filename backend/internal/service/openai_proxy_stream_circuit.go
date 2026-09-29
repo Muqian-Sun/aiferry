@@ -217,7 +217,7 @@ func (c *openAIProxyStreamCircuit) ensureCapacityLocked(now time.Time) {
 // openAIProxyStreamCircuitProxyID 返回参与代理流断熔断的代理 ID。
 //
 // 「流在终止事件前断开」按 OpenAI Responses 流的终止语义判定，只对 openAIProtocolFeaturesApply
-// 的账号生效：OpenAI 成品号（行为不变）、官方 OpenAI 与通用中转的 key；不看第三方 key 的平台标签。
+// 的账号生效：OpenAI 成品号（行为不变）与通用中转的 key；不看第三方 key 的平台标签。
 func openAIProxyStreamCircuitProxyID(account *Account) (int64, bool) {
 	if account == nil || !openAIProtocolFeaturesApply(account) || account.ProxyID == nil || *account.ProxyID <= 0 {
 		return 0, false

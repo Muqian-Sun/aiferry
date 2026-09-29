@@ -420,7 +420,8 @@ func (s *ChannelMonitorService) validateLinkedAccount(ctx context.Context, provi
 	if err != nil || account == nil {
 		return ErrChannelMonitorAccountRequired
 	}
-	// 供应商按厂商判：成品号即平台，第三方 key 按协议地址识别（中转 key 不属于任何供应商）。
+	// 供应商按厂商判：成品号即平台，第三方 key 按协议地址识别（只认国产厂商与 OpenCode 的官方
+	// 域名；中转 key 不属于任何供应商）。
 	if account.Vendor() != provider {
 		return ErrChannelMonitorProviderIncompatible
 	}
@@ -535,7 +536,7 @@ func (s *ChannelMonitorService) revalidateLinkedAccount(ctx context.Context, m *
 		m.AccountID = nil
 		return nil
 	}
-	// 能力失配（如 deepseek coding / zhipu payg / API-Key 型海外账号）：
+	// 能力失配（如 deepseek coding / zhipu payg / Bedrock 型 Anthropic 账号）：
 	// quota 模式显式报错（有该类存量监控时编辑会被拦，出路是换账号或切 probe），
 	// probe 模式账号无用途，静默解绑。
 	if err := monitorAccountQuotaCapability(account); err != nil {

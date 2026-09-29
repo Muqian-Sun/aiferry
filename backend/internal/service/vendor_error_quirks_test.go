@@ -103,14 +103,15 @@ func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 	})
 }
 
-// 「credit balance」400 是 Anthropic Console API key 的计费文案：第三方 key 一律按中转，指向
-// api.anthropic.com 的 key 收到也只是普通 400，不停用账号。
+// 「credit balance」400 是 Anthropic Console API key 的计费文案：官方 Anthropic key 已删，这条永久停用
+// 分支一并删了——中转、指向 api.anthropic.com 的 key、成品号收到都只是普通 400，不停用账号。
 func TestHandleUpstreamError_CreditBalance400IsNotAnAccountError(t *testing.T) {
 	body := []byte(`{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}`)
 
 	for name, account := range map[string]*Account{
-		"anthropic label on relay": vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
-		"key on api.anthropic.com": vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		"anthropic label on relay":             vendorTestKey(PlatformAnthropic, vendorTestRelayAnthropic),
+		"key on api.anthropic.com":             vendorTestKey(PlatformOpenAI, vendorTestAnthropic),
+		"anthropic subscription (setup-token)": vendorTestSubscription(PlatformAnthropic, AccountTypeSetupToken, nil),
 	} {
 		t.Run(name, func(t *testing.T) {
 			repo := &rateLimitAccountRepoStub{}

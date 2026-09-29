@@ -17,7 +17,7 @@ const openAIAPIKeyHealthBreakerReason = "openai_apikey_health_breaker"
 
 // isOpenAIAPIKeyHealthBreakerAccount 报告账号是否受 OpenAI 网关的号池 key 健康熔断约束。
 //
-// 只看第三方 key 的类别与厂商，不看平台标签：池模式 key 且厂商是官方 OpenAI 或通用中转
+// 只看第三方 key 的类别与厂商，不看平台标签：池模式 key 且是通用中转
 // （keyUsesOpenAIProtocolFeatures），与其他「原先只给 openai 标签 key」的 OpenAI 特性同一口径。
 func isOpenAIAPIKeyHealthBreakerAccount(account *Account) bool {
 	return account != nil && keyUsesOpenAIProtocolFeatures(account) && account.IsPoolMode()

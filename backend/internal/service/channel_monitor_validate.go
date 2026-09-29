@@ -212,9 +212,12 @@ func normalizeMonitorPrimaryModel(provider, checkMode, model string) string {
 //   - kimi/zhipu/deepseek/minimax coding：GetCodingPlanProvider 须识别官方域名
 //     （deepseek coding、自定义中转、minimax payg 无法路由额度端点）
 //   - kimi/zhipu/deepseek/minimax payg：仅 kimi/deepseek 有公开余额端点
-//   - anthropic：OAuth / Setup Token（API-Key 型无 usage 通道，永久 error）
-//   - openai：OAuth（API-Key 型无 usage 通道）
+//   - anthropic：OAuth / Setup Token（Bedrock / Vertex 无 usage 通道，永久 error）
+//   - openai：OAuth
 //   - gemini/grok/antigravity：本地统计/值通道降级，不会永久 error，放行
+//
+// 海外四家（anthropic / openai / gemini / grok）只有成品号能当数据源：第三方 key 一律按中转，
+// 指向它们官方域名的 key 也一样。
 func monitorAccountQuotaCapability(account *Account) error {
 	// 按厂商判，不看平台标签：额度 / 用量端点都是厂商的，指向中转的 key 不属于任何厂商，
 	// 没有可用的数据源。
