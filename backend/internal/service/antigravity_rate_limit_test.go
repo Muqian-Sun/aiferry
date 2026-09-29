@@ -226,13 +226,13 @@ func TestHandleUpstreamError_429_NonModelRateLimit_UsesMappedModelKey(t *testing
 }
 
 // TestHandleUpstreamError_503_ModelCapacityExhausted 测试 503 模型容量不足场景
-// MODEL_CAPACITY_EXHAUSTED 时应等待重试，不切换账号
+// MODEL_CAPACITY_EXHAUSTED 只标记已处理、不设模型限流；503 由上层直接换号
 func TestHandleUpstreamError_503_ModelCapacityExhausted(t *testing.T) {
 	repo := &stubAntigravityAccountRepo{}
 	svc := &AntigravityGatewayService{accountRepo: repo}
 	account := &Account{ID: 3, Name: "acc-3", Platform: PlatformAntigravity}
 
-	// 503 + MODEL_CAPACITY_EXHAUSTED → 等待重试，不切换账号
+	// 503 + MODEL_CAPACITY_EXHAUSTED → 不设限流（本次请求由上层换号）
 	body := []byte(`{
 		"error": {
 			"status": "UNAVAILABLE",
@@ -245,8 +245,7 @@ func TestHandleUpstreamError_503_ModelCapacityExhausted(t *testing.T) {
 
 	result := svc.handleUpstreamError(context.Background(), "[test]", account, http.StatusServiceUnavailable, http.Header{}, body, "gemini-3-pro-high", 0, "", false)
 
-	// MODEL_CAPACITY_EXHAUSTED 应该标记为已处理，不切换账号，不设置模型限流
-	// 实际重试由 handleSmartRetry 处理
+	// MODEL_CAPACITY_EXHAUSTED 应该标记为已处理，不设置模型限流
 	require.NotNil(t, result)
 	require.True(t, result.Handled)
 	require.False(t, result.ShouldRetry, "MODEL_CAPACITY_EXHAUSTED should not trigger retry from handleModelRateLimit path")
@@ -533,14 +532,13 @@ func TestShouldTriggerAntigravitySmartRetry(t *testing.T) {
 	apiKeyAccount := &Account{Type: AccountTypeAPIKey}
 
 	tests := []struct {
-		name                             string
-		account                          *Account
-		body                             string
-		expectedShouldRetry              bool
-		expectedShouldRateLimit          bool
-		expectedIsModelCapacityExhausted bool
-		minWait                          time.Duration
-		modelName                        string
+		name                    string
+		account                 *Account
+		body                    string
+		expectedShouldRetry     bool
+		expectedShouldRateLimit bool
+		minWait                 time.Duration
+		modelName               string
 	}{
 		{
 			name:    "OAuth account with short delay (< 7s) - smart retry",
@@ -624,8 +622,9 @@ func TestShouldTriggerAntigravitySmartRetry(t *testing.T) {
 			minWait:                 7 * time.Second,
 			modelName:               "gemini-pro",
 		},
+		// MODEL_CAPACITY_EXHAUSTED 是 503 语义：不智能重试、不限流模型，交上层直接换号（2026-09-29 定）
 		{
-			name:    "503 UNAVAILABLE with MODEL_CAPACITY_EXHAUSTED - long delay",
+			name:    "503 UNAVAILABLE with MODEL_CAPACITY_EXHAUSTED - long delay - no smart retry",
 			account: oauthAccount,
 			body: `{
 				"error": {
@@ -637,14 +636,11 @@ func TestShouldTriggerAntigravitySmartRetry(t *testing.T) {
 					]
 				}
 			}`,
-			expectedShouldRetry:              true,
-			expectedShouldRateLimit:          false,
-			expectedIsModelCapacityExhausted: true,
-			minWait:                          1 * time.Second,
-			modelName:                        "gemini-3-pro-high",
+			expectedShouldRetry:     false,
+			expectedShouldRateLimit: false,
 		},
 		{
-			name:    "503 UNAVAILABLE with MODEL_CAPACITY_EXHAUSTED - no retryDelay - use fixed wait",
+			name:    "503 UNAVAILABLE with MODEL_CAPACITY_EXHAUSTED - no retryDelay - no smart retry",
 			account: oauthAccount,
 			body: `{
 				"error": {
@@ -656,11 +652,8 @@ func TestShouldTriggerAntigravitySmartRetry(t *testing.T) {
 					"message": "No capacity available for model gemini-2.5-flash on the server"
 				}
 			}`,
-			expectedShouldRetry:              true,
-			expectedShouldRateLimit:          false,
-			expectedIsModelCapacityExhausted: true,
-			minWait:                          1 * time.Second,
-			modelName:                        "gemini-2.5-flash",
+			expectedShouldRetry:     false,
+			expectedShouldRateLimit: false,
 		},
 		{
 			name:    "429 RESOURCE_EXHAUSTED with RATE_LIMIT_EXCEEDED - no retryDelay - use default rate limit",
@@ -684,15 +677,12 @@ func TestShouldTriggerAntigravitySmartRetry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shouldRetry, shouldRateLimit, wait, model, isModelCapacityExhausted := shouldTriggerAntigravitySmartRetry(tt.account, []byte(tt.body))
+			shouldRetry, shouldRateLimit, wait, model := shouldTriggerAntigravitySmartRetry(tt.account, []byte(tt.body))
 			if shouldRetry != tt.expectedShouldRetry {
 				t.Errorf("shouldRetry = %v, want %v", shouldRetry, tt.expectedShouldRetry)
 			}
 			if shouldRateLimit != tt.expectedShouldRateLimit {
 				t.Errorf("shouldRateLimit = %v, want %v", shouldRateLimit, tt.expectedShouldRateLimit)
-			}
-			if isModelCapacityExhausted != tt.expectedIsModelCapacityExhausted {
-				t.Errorf("isModelCapacityExhausted = %v, want %v", isModelCapacityExhausted, tt.expectedIsModelCapacityExhausted)
 			}
 			if shouldRetry {
 				if wait < tt.minWait {

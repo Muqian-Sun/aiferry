@@ -239,3 +239,40 @@ func TestFailoverE2E_ChatCompletions_OverloadNoSameAccountRetry(t *testing.T) {
 		require.Less(t, elapsed, time.Second, "status=%d 不得等待", status)
 	}
 }
+
+// /v1/messages，两个 Antigravity 成品号：第一个恒 503（MODEL_CAPACITY_EXHAUSTED），第二个正常。
+// 旧逻辑在原渠道每秒重试、最多 60 次；现在坏渠道只打 1 次就落到第二个。
+func TestFailoverE2E_Messages_AntigravityModelCapacity503HitOnce(t *testing.T) {
+	antigravityAccount := func(id int64, priority int) *service.Account {
+		return &service.Account{
+			ID:          id,
+			Name:        "ag-oauth",
+			Platform:    service.PlatformAntigravity,
+			Type:        service.AccountTypeOAuth,
+			Credentials: map[string]any{"access_token": "tok", "project_id": "proj-1", "model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-5"}},
+			Concurrency: 1,
+			Priority:    priority,
+			Status:      service.StatusActive,
+			Schedulable: true,
+		}
+	}
+	modelCapacity503 := `{"error":{"code":503,"status":"UNAVAILABLE","message":"No capacity available","details":[` +
+		`{"@type":"type.googleapis.com/google.rpc.ErrorInfo","metadata":{"model":"claude-sonnet-4-5"},"reason":"MODEL_CAPACITY_EXHAUSTED"},` +
+		`{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"39s"}]}}`
+	okSSE := `data: {"response":{"responseId":"resp_1","candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1}}}` + "\n\n"
+	upstream := &failoverStatusUpstream{fail: map[int64]bool{51: true}, failStatus: http.StatusServiceUnavailable, failBody: modelCapacity503, okBody: okSSE, okContentType: "text/event-stream"}
+	h := newFailoverE2EHandler(t, []*service.Account{antigravityAccount(51, 1), antigravityAccount(52, 2)}, upstream, 3)
+	h.antigravityGatewayService = service.NewAntigravityGatewayService(
+		nil, nil, nil, service.NewAntigravityTokenProvider(nil, &fakeAntigravityTokenCache{token: "fresh"}, nil), nil, upstream,
+		service.NewSettingService(nil, &config.Config{}), nil)
+
+	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, service.APIProtocolAnthropic, "")
+	start := time.Now()
+	h.Messages(c)
+	elapsed := time.Since(start)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []int64{51, 52}, upstream.calls(), "坏渠道只能打 1 次")
+	require.Less(t, elapsed, time.Second, "不得在原渠道等待")
+}
