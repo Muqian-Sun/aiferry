@@ -3,9 +3,11 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -414,4 +416,46 @@ func TestFailoverE2E_ChatCompletions_OpenAIKey529NoCooldown(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Equal(t, []int64{91, 92}, upstream.calls(), "坏渠道只能打 1 次")
 	require.Empty(t, repo.overloadedIDs(), "OpenAI key 不做过载冷却")
+}
+
+// Grok 成品号回 529（普通响应体 / 模型容量文案）：不冷却账号、不按模型封锁，只打 1 次就换号；
+// 下一个请求照常能选回这个账号。旧逻辑分别临时停调 2 分钟 / 按模型封锁 1 分钟。
+func TestFailoverE2E_Grok529NoCooldown(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{name: "plain", body: `{"error":{"message":"upstream unavailable"}}`},
+		{name: "model_capacity", body: `{"error":{"message":"The model is currently at capacity due to high demand"}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// first_429 夹具：801 / 802 两个 token 有效的 Grok 成品号，801 优先；这里把 801 改成恒 529。
+			_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "first_429")
+			defer cleanup()
+			upstream.rateLimitIDs = nil
+			upstream.failureStatus = map[int64]int{801: 529}
+			upstream.failureBody = map[int64]string{801: tc.body}
+
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(recorder, req)
+
+			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+			require.Equal(t, []int64{801, 802}, upstream.accountHits(), "529 只打 1 次就换号")
+			require.Empty(t, repo.setTempIDs, "529 不临时停调")
+			require.Empty(t, repo.rateLimitedAccountIDs(), "529 不装限流")
+
+			// 801 恢复后，下一个请求应能直接选回它（没有进程内的账号 / 模型封锁）。
+			upstream.failureStatus = nil
+			second := httptest.NewRecorder()
+			secondReq := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"again","stream":false}`))
+			secondReq.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(second, secondReq)
+
+			require.Equal(t, http.StatusOK, second.Code, second.Body.String())
+			require.Equal(t, []int64{801, 802, 801}, upstream.accountHits(), "529 后不得封锁该账号或该模型")
+		})
+	}
 }

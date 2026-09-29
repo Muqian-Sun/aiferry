@@ -309,3 +309,31 @@ func TestHandleGrokAccountUpstreamError_Entitlement403Unchanged(t *testing.T) {
 	require.Greater(t, repo.lastTempUnschedUntil, before.Add(29*time.Minute))
 	require.Less(t, repo.lastTempUnschedUntil, before.Add(31*time.Minute))
 }
+
+// 上游 529：Grok 渠道不冷却、不按模型封锁、也不因 Retry-After 装限流，本次由 handler 换号；
+// 配额快照照常写入（2026-09-29 muqian 定：过载冷却只对 Claude 成品号）。
+func TestHandleGrokAccountUpstreamError_529NeverCoolsOrBlocks(t *testing.T) {
+	for i, tc := range []struct {
+		name string
+		body string
+	}{
+		{name: "plain", body: `{"error":{"message":"upstream unavailable"}}`},
+		{name: "engine_overloaded", body: `{"error":{"message":"engine_overloaded"}}`},
+		{name: "model_capacity", body: `{"error":{"message":"The model is currently at capacity due to high demand"}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &grokQuotaAccountRepo{}
+			svc := &OpenAIGatewayService{accountRepo: repo}
+			account := &Account{ID: 9130 + int64(i), Platform: PlatformGrok, Type: AccountTypeOAuth}
+			ctx := withGrokTeamRateLimitModel(context.Background(), "grok-4.6")
+
+			svc.handleGrokAccountUpstreamError(ctx, account, 529, http.Header{"Retry-After": []string{"120"}}, []byte(tc.body))
+
+			require.Zero(t, repo.tempUnschedCalls, "529 不临时停调")
+			require.Zero(t, repo.rateLimitedCalls, "529 不装限流")
+			require.False(t, svc.isOpenAIAccountRuntimeBlocked(account), "529 不做进程内账号封锁")
+			require.False(t, isGrokModelQuotaBlocked(account.ID, "grok-4.6", time.Now()), "529 不按模型封锁")
+			require.NotZero(t, repo.updateCalls, "配额快照照常写入")
+		})
+	}
+}

@@ -2030,10 +2030,16 @@ func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Contex
 	decision := classifyGrokUpstreamFailure(statusCode, responseBody, grokRequestedModelFromCtx(ctx))
 	snapshot := parseGrokQuotaSnapshot(headers, statusCode, now)
 	stampGrokQuotaSnapshotForPlan(account, snapshot, grokRequestedModelFromCtx(ctx))
+	// 上游 529 过载：Grok 渠道不冷却、不按模型封锁，本次请求直接换号（2026-09-29 muqian 定，
+	// 过载冷却只对 Claude 成品号）。配额快照照常记下，但不据此装限流。
+	overloaded := statusCode == 529
 	// Capacity 429 is model pressure, not account quota exhaustion. Keep the
 	// snapshot for observability but do not install account-level rate limiting;
 	// the failover decision below applies a bounded model-scoped block instead.
-	s.updateGrokUsageSnapshotWithRateLimit(ctx, account, snapshot, decision.Class != GrokFailureModelCapacity)
+	s.updateGrokUsageSnapshotWithRateLimit(ctx, account, snapshot, decision.Class != GrokFailureModelCapacity && !overloaded)
+	if overloaded {
+		return
+	}
 
 	// Body-first free-usage / empty / billing / capacity must run before the
 	// status switch so non-429 free-usage bodies still cool the account.

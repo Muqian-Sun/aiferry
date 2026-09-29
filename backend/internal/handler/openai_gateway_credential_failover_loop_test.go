@@ -344,6 +344,8 @@ type grokCredentialHandlerUpstream struct {
 	failAccountID int64
 	rateLimitIDs  map[int64]bool
 	failureStatus map[int64]int
+	// failureBody 按账号覆盖 failureStatus 的响应体；未设置时回 upstream unavailable。
+	failureBody   map[int64]string
 	cancelRequest context.CancelFunc
 }
 
@@ -359,6 +361,7 @@ func (u *grokCredentialHandlerUpstream) Do(req *http.Request, _ string, accountI
 	failAccountID := u.failAccountID
 	rateLimited := u.rateLimitIDs[accountID]
 	failureStatus := u.failureStatus[accountID]
+	failureBody := u.failureBody[accountID]
 	cancelRequest := u.cancelRequest
 	u.mu.Unlock()
 	if rateLimited {
@@ -372,10 +375,13 @@ func (u *grokCredentialHandlerUpstream) Do(req *http.Request, _ string, accountI
 		}, nil
 	}
 	if failureStatus > 0 {
+		if failureBody == "" {
+			failureBody = `{"error":{"message":"upstream unavailable"}}`
+		}
 		return &http.Response{
 			StatusCode: failureStatus,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString(`{"error":{"message":"upstream unavailable"}}`)),
+			Body:       io.NopCloser(bytes.NewBufferString(failureBody)),
 		}, nil
 	}
 	if accountID == failAccountID {
