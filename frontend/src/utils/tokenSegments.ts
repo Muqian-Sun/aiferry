@@ -96,9 +96,19 @@ export function formatTokenCount(tokens: number): string {
   return tokens.toLocaleString('en-US')
 }
 
-/** 段的范围：第一段「≤272K」、中间段「32K–128K」、最后一段「>128K」 */
+function isRoundTokenCount(tokens: number): boolean {
+  return tokens !== 0 && tokens % 1_000 === 0
+}
+
+/**
+ * 段的范围：第一段「≤272K」、中间段「32K–128K」、最后一段「>128K」。区间左开右闭，边界按整数 token 取：
+ * 「达到即进高段」的阈值存成阈值 - 1（如 xAI 的 199,999），这时写成「<200K」「≥200K」，不露出 199,999。
+ */
 export function formatSegmentRange(segment: Pick<TokenSegment, 'min' | 'max'>): string {
-  if (segment.min === 0 && segment.max != null) return `≤${formatTokenCount(segment.max)}`
-  if (segment.max == null) return `>${formatTokenCount(segment.min)}`
-  return `${formatTokenCount(segment.min)}–${formatTokenCount(segment.max)}`
+  const lower = (min: number) => (!isRoundTokenCount(min) && isRoundTokenCount(min + 1) ? `≥${formatTokenCount(min + 1)}` : `>${formatTokenCount(min)}`)
+  const upper = (max: number) => (!isRoundTokenCount(max) && isRoundTokenCount(max + 1) ? `<${formatTokenCount(max + 1)}` : `≤${formatTokenCount(max)}`)
+  const edge = (tokens: number) => formatTokenCount(!isRoundTokenCount(tokens) && isRoundTokenCount(tokens + 1) ? tokens + 1 : tokens)
+  if (segment.min === 0 && segment.max != null) return upper(segment.max)
+  if (segment.max == null) return lower(segment.min)
+  return `${edge(segment.min)}–${edge(segment.max)}`
 }
