@@ -129,7 +129,7 @@ export default {
         maxReasoning: 'Max reasoning multiplier'
       },
       segments: 'Token segments',
-      segmentsHint: 'A request is billed entirely at the segment its input tokens (input + cache write + cache read) fall into; the first segment is the list price above. In $ / 1M tokens',
+      segmentsHint: 'A request is billed entirely at the segment its input tokens (input + cache write + cache read) fall into; the first segment is the list price above. Blank cache prices scale with the segment input price. In $ / 1M tokens',
       segmentColumns: {
         range: 'Input tokens',
         input: 'Input',
