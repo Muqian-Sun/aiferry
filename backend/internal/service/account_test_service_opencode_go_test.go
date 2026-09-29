@@ -58,8 +58,9 @@ func TestAccountTestService_OpenCodeGoResponsesKeyUsesResponses(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-// TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages：anthropic 地址走原生
-// messages，且不附加 ?beta=true——OpenCode 的第三方端点不接受该参数。
+// TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages：anthropic 地址走原生 messages，与真实转发同址
+// （{base}/v1/messages?beta=true）。原注释说 OpenCode 不接受 ?beta=true，但那次 404 实为 /v1/v1 拼接错误，
+// 没有实测依据；真实转发本来就带，测连与之一致才能如实反映（2026-09-29）。
 func TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages(t *testing.T) {
 	account := openCodeGoTestAccount(403, APIProtocolAnthropic, "https://opencode.ai/zen/go")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNAnthropicTestResponse())
@@ -70,8 +71,7 @@ func TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
 	req := upstream.requests[0]
-	require.Equal(t, "https://opencode.ai/zen/go/v1/messages", req.URL.String())
-	require.Empty(t, req.URL.RawQuery)
+	require.Equal(t, "https://opencode.ai/zen/go/v1/messages?beta=true", req.URL.String())
 	require.Equal(t, "sk-opencode-go-test", req.Header.Get("x-api-key"))
 	require.NotEmpty(t, req.Header.Get("X-OpenCode-Session"))
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)

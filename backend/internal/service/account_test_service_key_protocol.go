@@ -284,9 +284,10 @@ func (s *AccountTestService) testKeyAnthropicConnection(c *gin.Context, account 
 	if hint := anthropicProbeBaseURLMisconfigHint(baseURL); hint != "" {
 		return s.sendErrorAndEnd(c, hint)
 	}
-	// 地址带不带 /v1 都得到 {base}/v1/messages。第三方 key 一律按中转探测：不带 Anthropic
-	// 官方端点的 ?beta=true 与 anthropic-beta（指向 api.anthropic.com 的 key 也一样）。
-	apiURL := joinUpstreamEndpointURL(baseURL, "/v1/messages")
+	// 与真实转发同址同形（buildUpstreamRequest 对所有 key 都拼 {base}/v1/messages?beta=true，
+	// 地址带不带 /v1 都一样）：测连能过就代表真实请求的地址能通（2026-09-29 定）。anthropic-beta
+	// 头与真实转发一样不主动加——真实转发只透传客户端带来的，探测请求没有客户端。
+	apiURL := joinAnthropicBetaEndpointURL(baseURL, "/v1/messages")
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")

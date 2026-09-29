@@ -45,8 +45,7 @@ func TestAccountTestService_KeyAnthropicLabelChatEndpointProbesChatCompletions(t
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-// 标签 openai、只配 anthropic 地址：打 {anthropic}/v1/messages，用 x-api-key，
-// 中转不带 ?beta=true。
+// 标签 openai、只配 anthropic 地址：打 {anthropic}/v1/messages?beta=true（与真实转发同址），用 x-api-key。
 func TestAccountTestService_KeyOpenAILabelAnthropicEndpointProbesMessages(t *testing.T) {
 	account := keyDispatchAccount(402, PlatformOpenAI, map[string]string{
 		APIProtocolAnthropic: "http://anthropic.example",
@@ -58,14 +57,13 @@ func TestAccountTestService_KeyOpenAILabelAnthropicEndpointProbesMessages(t *tes
 
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "http://anthropic.example/v1/messages", upstream.requests[0].URL.String())
-	require.Empty(t, upstream.requests[0].URL.RawQuery)
+	require.Equal(t, "http://anthropic.example/v1/messages?beta=true", upstream.requests[0].URL.String())
 	require.Equal(t, "sk-dispatch", upstream.requests[0].Header.Get("x-api-key"))
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-// ?beta=true 与 anthropic-beta 是 Anthropic 官方端点的 beta 开关，按 Vendor 生效：
-// 标签是 kimi 也一样，地址是 api.anthropic.com 就带上。
+// 指向 api.anthropic.com 的 key 也按中转测，与真实转发同址同形：带 ?beta=true（真实转发对所有 key 都拼），
+// 不主动加 anthropic-beta（真实转发只透传客户端带来的）。
 func TestAccountTestService_KeyOnOfficialAnthropicHostProbesLikeRelay(t *testing.T) {
 	account := keyDispatchAccount(403, PlatformKimi, map[string]string{
 		APIProtocolAnthropic: "https://api.anthropic.com",
@@ -78,7 +76,7 @@ func TestAccountTestService_KeyOnOfficialAnthropicHostProbesLikeRelay(t *testing
 
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "https://api.anthropic.com/v1/messages", upstream.requests[0].URL.String(), "不带官方端点的 ?beta=true")
+	require.Equal(t, "https://api.anthropic.com/v1/messages?beta=true", upstream.requests[0].URL.String(), "与真实转发同址")
 	require.Empty(t, upstream.requests[0].Header.Get("anthropic-beta"))
 }
 
@@ -95,7 +93,7 @@ func TestAccountTestService_KeyAnthropicEndpointWithVersionSuffixJoinsOnce(t *te
 
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "http://anthropic.example/v1/messages", upstream.requests[0].URL.String())
+	require.Equal(t, "http://anthropic.example/v1/messages?beta=true", upstream.requests[0].URL.String())
 }
 
 // 只配 responses 地址的 key 打 {responses}/v1/responses。
