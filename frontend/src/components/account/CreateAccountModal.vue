@@ -89,7 +89,7 @@
         </div>
       </div>
 
-      <!-- Gemini 成品号的附加选项（key 的档位在地址下面，按地址识别出 Gemini 才显示） -->
+      <!-- Gemini 成品号的附加选项 -->
       <div v-if="form.platform === 'gemini'">
         <div
           v-if="accountCategory === 'service_account'"
@@ -506,7 +506,8 @@
 
       <!--
         第三方 key 的协议地址（muqian 2026-09-25：key 不选平台）：可从常用官方地址里选一条填入，也可直接填中转地址；
-        厂商按地址识别，识别出的厂商才有它的专属选项（Coding 套餐、智谱团队版、Gemini 档位）。
+        厂商按地址识别，识别出的厂商才有它的专属选项（Coding 套餐、智谱团队版）。常用官方地址只有国产厂商与 OpenCode，
+        Anthropic / OpenAI / Gemini / Grok 的官方地址手填也不拦，一律按中转处理（muqian 2026-09-29）。
       -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
         <div>
@@ -572,7 +573,7 @@
           class="input font-mono"
           :placeholder="apiKeyValuePlaceholder"
         />
-        <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
+        <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
 
       <!-- 承接的模型：默认勾上识别出的厂商已上架的对话模型（muqian 2026-09-25），收成一行，点「修改」展开 -->
@@ -675,7 +676,7 @@
 
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
-      <!-- 第三方 key 的其余设置：智谱团队版、Gemini 档位（按识别出的厂商显示）、上游倍率探测 -->
+      <!-- 第三方 key 的其余设置：智谱团队版（按识别出的厂商显示）、上游倍率探测 -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
         <!-- 智谱团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
         <div v-if="keyVendor === 'zhipu' && keyPlanMode === 'coding'">
@@ -1450,6 +1451,7 @@ import Toggle from '@/components/common/Toggle.vue'
 import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
 import {
   VENDORS_WITH_CODING_PLAN,
+  apiKeyPlaceholderFor,
   detectKeyVendor,
   keyAddressPresets,
   modeOfAddress,
@@ -1514,36 +1516,8 @@ const oauthStepTitle = computed(() => {
   return t('admin.accounts.oauth.title')
 })
 
-// API Key 的提示与占位跟着按地址识别出的厂商走；中转用通用说法
-const apiKeyHint = computed(() => {
-  switch (keyVendor.value) {
-    case 'anthropic':
-      return t('admin.accounts.apiKeyHint')
-    case 'openai':
-      return t('admin.accounts.openai.apiKeyHint')
-    case 'gemini':
-      return t('admin.accounts.gemini.apiKeyHint')
-    default:
-      return t('admin.accounts.upstream.apiKeyHint')
-  }
-})
-
-const apiKeyValuePlaceholder = computed(() => {
-  switch (keyVendor.value) {
-    case 'anthropic':
-      return 'sk-ant-...'
-    case 'openai':
-      return 'sk-proj-...'
-    case 'gemini':
-      return 'AIza...'
-    case 'grok':
-      return 'xai-...'
-    case 'zhipu':
-      return '<api-key>.<secret>'
-    default:
-      return 'sk-...'
-  }
-})
+// API Key 的占位跟着按地址识别出的厂商走（与编辑同一规则）；提示一律用通用说法
+const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.value))
 
 interface Props {
   show: boolean

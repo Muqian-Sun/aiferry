@@ -39,8 +39,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// 厂商分组按常用程度排：海外三家、xAI、国产、OpenCode；表里没有的排最后
-const VENDOR_ORDER = ['anthropic', 'openai', 'gemini', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
+// 厂商分组按常用程度排：国产、OpenCode；表里没有的排最后。
+// 海外四家（Anthropic / OpenAI / Gemini / Grok）没有 key 的官方地址，指向它们的 key 按中转处理
+const VENDOR_ORDER = ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
 
 const groups = computed(() => {
   const byVendor = new Map<string, { index: number; preset: KeyAddressPreset }[]>()

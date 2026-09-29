@@ -8,7 +8,6 @@ import {
   buildHeaderOverridesObject,
   cnQuotaCellVisible,
   isHeaderOverrideCapable,
-  GROK_BASE_URL_PRESETS,
   parseHeaderOverridesJson,
   serializeHeaderOverrideRows,
   splitHeaderOverridesObject,
@@ -166,30 +165,6 @@ describe('serializeHeaderOverrideRows', () => {
       { name: 'b-header', value: '2' }
     ]
     expect(parseHeaderOverridesJson(serializeHeaderOverrideRows(rows))).toEqual(rows)
-  })
-})
-
-describe('GROK_BASE_URL_PRESETS', () => {
-  it('covers the CLI gateway, official API and regional endpoints', () => {
-    const urls = GROK_BASE_URL_PRESETS.map((p) => p.url)
-    expect(urls).toEqual([
-      'https://cli-chat-proxy.grok.com/v1',
-      'https://api.x.ai/v1',
-      'https://us-east-1.api.x.ai/v1',
-      'https://us-west-2.api.x.ai/v1',
-      'https://eu-west-1.api.x.ai/v1'
-    ])
-    for (const preset of GROK_BASE_URL_PRESETS) {
-      // 每个预设要么有 i18n 标签键，要么有区域标识等字面标签
-      expect(Boolean(preset.labelKey) || Boolean(preset.label)).toBe(true)
-      if (preset.labelKey) {
-        expect(['cli', 'official']).toContain(preset.labelKey)
-      }
-    }
-    // 区域端点用区域标识作字面标签（us-east-1 这样的专有名词不做 i18n）
-    expect(GROK_BASE_URL_PRESETS[2].label).toBe('us-east-1')
-    expect(GROK_BASE_URL_PRESETS[3].label).toBe('us-west-2')
-    expect(GROK_BASE_URL_PRESETS[4].label).toBe('eu-west-1')
   })
 })
 

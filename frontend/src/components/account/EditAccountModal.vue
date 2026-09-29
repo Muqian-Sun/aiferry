@@ -125,17 +125,7 @@
             data-1p-ignore
             data-lpignore="true"
             data-bwignore="true"
-            :placeholder="
-              account.platform === 'openai'
-                ? 'sk-proj-...'
-                : account.platform === 'gemini'
-                  ? 'AIza...'
-                  : account.platform === 'antigravity'
-                    ? 'sk-...'
-                    : account.platform === 'grok'
-                      ? 'xai-...'
-                      : 'sk-ant-...'
-            "
+            :placeholder="apiKeyValuePlaceholder"
           />
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
@@ -246,11 +236,6 @@
           :protocols="UPSTREAM_PROTOCOLS"
           :official-endpoints="officialProtocolEndpoints"
           :defaults-load-failed="protocolDefaultsLoadFailed"
-        />
-        <GrokBaseUrlPresets
-          v-if="account.platform === 'grok'"
-          class="mt-2"
-          @select="applyGrokPreset"
         />
         <CnBaseUrlPresets
           v-if="isCNApiKeyAccount && account.platform !== 'opencode_go'"
@@ -803,16 +788,13 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
-import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
 import {
   UPSTREAM_PROTOCOLS,
-  applyPresetUrl,
   describeProtocolEndpointsIssue,
   currentProtocolOf,
   endpointsAfterDefaultsChange,
-  preferredProtocolFor,
   hasAnthropicEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
@@ -821,6 +803,7 @@ import {
 } from '@/components/account/protocolEndpoints'
 import {
   VENDORS_WITH_CODING_PLAN,
+  apiKeyPlaceholderFor,
   detectKeyVendor,
   keyAddressPresets,
   modeOfAddress
@@ -932,6 +915,8 @@ const keyVendor = computed(() =>
     ? detectKeyVendor(editProtocolEndpoints.value, protocolDefaults.value?.vendor_hosts)
     : null
 )
+// API Key 占位跟着按地址识别出的厂商走，与新建同一规则（不看平台标签）
+const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.value))
 const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
 const keyPlanFromAddress = computed(() => {
   const vendor = keyVendor.value
@@ -954,6 +939,8 @@ const protocolDefaultsMode = computed(() => {
   if (isCNProviderPlatform(platform)) return keyPlanFromAddress.value ?? editAccountMode.value
   return undefined
 })
+// 按平台标签取官方地址：后端官方地址表只有国产厂商与 OpenCode，中转 key 按协议归族的
+// anthropic / openai / gemini 标签取到空表，不给「填入官方地址」（muqian 2026-09-29 删海外四家官方 Key）
 const officialProtocolEndpoints = computed(() =>
   protocolDefaultsFor(protocolDefaults.value, props.account?.platform ?? '', protocolDefaultsMode.value)
 )
@@ -963,8 +950,8 @@ watch(officialProtocolEndpoints, (next, previous) => {
     editProtocolEndpoints.value,
     previous ?? {},
     next,
-    // 编辑时平台不变，换模式保留当前协议
-    currentProtocolOf(editProtocolEndpoints.value) ?? preferredProtocolFor(props.account?.platform ?? '')
+    // 编辑时平台不变，换模式保留当前协议；还没配协议时取 Chat Completions（国产厂商与 OpenCode 的默认协议）
+    currentProtocolOf(editProtocolEndpoints.value) ?? 'chat_completions'
   )
 })
 async function ensureProtocolDefaults() {
@@ -995,10 +982,6 @@ function validatedProtocolEndpoints(): ProtocolEndpoints | null {
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   editAccountMode.value = preset.mode
   editProtocolEndpoints.value = { [preset.protocol]: preset.url }
-}
-// Grok 预设地址同时服务 Chat Completions 与 Responses。
-function applyGrokPreset(url: string) {
-  editProtocolEndpoints.value = applyPresetUrl(editProtocolEndpoints.value, ['chat_completions', 'responses'], url)
 }
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')

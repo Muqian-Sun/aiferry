@@ -1,9 +1,11 @@
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import type { ProtocolEndpoints, UpstreamProtocol } from '@/types'
-import { CN_BASE_URL_PRESETS, GROK_BASE_URL_PRESETS, isCNProviderPlatform, type CnAccountMode } from './credentialsBuilder'
+import { CN_BASE_URL_PRESETS, isCNProviderPlatform, type CnAccountMode } from './credentialsBuilder'
 
 // 第三方 key 不选平台（muqian 2026-09-25）：只填协议 + 地址 + Key，常用官方地址做快捷填入，
 // 厂商按地址识别——域名表由后端下发（protocol-defaults 的 vendor_hosts），前端不另抄。
+// 官方地址与域名表里只有国产厂商与 OpenCode：Anthropic、OpenAI、Gemini、Grok 只认成品号，
+// 指向它们官方域名的 key 一律按中转处理（muqian 2026-09-29 定）。
 
 /** 地址的主机名（小写）；解析不了返回空串。只认完整域名，与后端 upstreamHostOf 一致。 */
 export function hostOf(url: string): string {
@@ -31,6 +33,14 @@ export function detectKeyVendor(endpoints: ProtocolEndpoints, vendorHosts: Recor
   return vendor
 }
 
+/**
+ * 第三方 key 的 API Key 输入框占位：按地址识别出的厂商给格式提示，智谱的 key 是「id.secret」两段；
+ * 其余（含中转）一律 sk-...，不按平台标签猜海外厂商的官方格式——指向它们的 key 都按中转处理。
+ */
+export function apiKeyPlaceholderFor(vendor: string | null): string {
+  return vendor === 'zhipu' ? '<api-key>.<secret>' : 'sk-...'
+}
+
 /** 有「按量 / Coding 套餐」两种计费的厂商：套餐要管理员选（MiniMax 两种套餐同一个地址，靠地址分不出来）。 */
 export const VENDORS_WITH_CODING_PLAN: ReadonlySet<string> = new Set(['kimi', 'zhipu', 'minimax'])
 
@@ -40,14 +50,14 @@ export interface KeyAddressPreset {
   mode?: CnAccountMode | 'zen' | 'go'
   protocol: UpstreamProtocol
   url: string
-  /** 专名标签（国产预设、Grok 区域）；没有时由界面按厂商 / 模式 / 协议拼 */
+  /** 专名标签（国产预设）；没有时由界面按厂商 / 模式 / 协议拼 */
   label?: string
 }
 
 const normalizeUrl = (url: string) => url.trim().replace(/\/+$/, '')
 
 /**
- * 常用官方地址：国产厂商用带国际站的预设表，Grok 加区域地址，其余取后端官方地址表。
+ * 常用官方地址：国产厂商用带国际站的预设表，其余（OpenCode）取后端官方地址表。
  * 同一厂商同一协议同一地址只留一条。
  */
 export function keyAddressPresets(defaults: ProtocolDefaultsResponse | null): KeyAddressPreset[] {
@@ -70,11 +80,6 @@ export function keyAddressPresets(defaults: ProtocolDefaultsResponse | null): Ke
       const mode = modeKey === 'zen' || modeKey === 'go' ? modeKey : undefined
       for (const [protocol, url] of Object.entries(endpoints)) {
         if (url) push({ vendor, mode, protocol: protocol as UpstreamProtocol, url })
-      }
-    }
-    if (vendor === 'grok') {
-      for (const preset of GROK_BASE_URL_PRESETS) {
-        if (preset.label) push({ vendor, protocol: 'responses', url: preset.url, label: preset.label })
       }
     }
   }

@@ -609,7 +609,10 @@ export async function syncUpstreamModelsPreview(params: SyncUpstreamPreviewParam
 export interface ProtocolDefaultsResponse {
   /** 全部可配置协议，顺序固定。 */
   protocols: UpstreamProtocol[]
-  /** 平台 → 账号模式（default / coding / zen / go）→ 协议 → 官方地址。 */
+  /**
+   * 平台 → 账号模式（default / coding / zen / go）→ 协议 → 官方地址。只有国产厂商与 OpenCode：
+   * Anthropic、OpenAI、Gemini、Grok 只认成品号，指向它们的 key 按中转处理（muqian 2026-09-29）。
+   */
   defaults: Record<string, Record<string, ProtocolEndpoints>>
   /** 官方域名 → 厂商（与后端 OfficialVendorOfURL 同一张表）：建第三方 key 时按地址提示厂商。 */
   vendor_hosts: Record<string, string>

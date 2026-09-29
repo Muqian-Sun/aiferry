@@ -154,7 +154,6 @@ describe('BulkEditAccountModal', () => {
     const wrapper = mountModal({ selectedPlatforms: ['grok'], selectedTypes: ['oauth'] })
 
     expect(wrapper.find('#bulk-edit-base-url').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="grok-base-url-preset"]').exists()).toBe(false)
   })
 
   it('OpenAI API Key 批量编辑可统一开启上游倍率自动探测', async () => {

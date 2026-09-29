@@ -127,7 +127,7 @@ export default {
         kinds: {
           key: {
             title: '第三方 key',
-            description: '厂商官方或中转站的 API Key：填协议、地址和 Key，厂商按地址识别'
+            description: '任意上游的 API Key：填协议、地址和 Key；国产厂商与 OpenCode 按官方地址识别，其余一律按中转处理'
           },
           subscription: {
             title: '成品号',
@@ -155,7 +155,7 @@ export default {
       keyAddress: {
         presetPlaceholder: '从常用官方地址填入…',
         detected: '按地址识别为 {vendor}',
-        relay: '没认出官方厂商：按中转处理，只走标准协议'
+        relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
       },
       // 渠道承接的目录模型（渠道表单里直接勾选）
       catalogEntries: {
@@ -722,11 +722,8 @@ export default {
         }
       },
       apiKeyRequired: 'API Key *',
-      apiKeyPlaceholder: 'sk-ant-api03-...',
-      apiKeyHint: '您的 Claude Console API Key',
       // OpenAI specific hints
       openai: {
-        apiKeyHint: '您的 OpenAI API Key',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           '默认关闭。开启后可启用 responses_websockets_v2 协议能力（受网关全局开关与渠道类型开关约束）。',
@@ -749,7 +746,6 @@ export default {
       },
       grok: {
         baseUrlHint: 'Grok OAuth 渠道会转发到官方 xAI API Base URL。',
-        apiKeyHint: 'Grok 订阅支持使用 OAuth refresh token；API Key 渠道不在本次范围内。',
         // 账号连通性测试弹窗
         testMode: '测试模式',
         testModeHint:
@@ -859,12 +855,6 @@ export default {
         duplicateName: '存在重复的请求头名称（匹配不区分大小写）',
         invalidValue: '请求头值不合法（不允许控制字符，长度不超过 8192）',
         tooManyEntries: '请求头覆写条目过多（最多 64 条）'
-      },
-      grokCustomBaseUrl: {
-        presets: {
-          cli: 'Grok Build CLI',
-          official: '官方 API'
-        }
       },
       grokClientToolCache: {
       },
@@ -1235,7 +1225,6 @@ export default {
         },
         modelPassthrough: 'Gemini 直接转发模型',
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
-        apiKeyHint: '您的 Gemini API Key（以 AIza 开头）',
         tier: {
           googleOne: {
           },
