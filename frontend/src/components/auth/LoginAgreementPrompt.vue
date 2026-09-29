@@ -1,7 +1,7 @@
 <template>
   <!--
     登录 / 注册按钮下方一行「我已阅读并同意 …」，前面一个圆圈让用户勾选（muqian 2026-09-29：条款不弹窗）。
-    没勾就提交由页面在表单里报错；勾上记住这一版条款，下次进来默认已勾。
+    默认不勾、不记住上次同意；没勾就提交由页面在表单里报错。
   -->
   <div v-if="documents.length > 0" class="flex items-start gap-2 px-0.5" data-testid="login-agreement">
     <span class="relative mt-[2px] inline-flex h-4 w-4 flex-shrink-0">

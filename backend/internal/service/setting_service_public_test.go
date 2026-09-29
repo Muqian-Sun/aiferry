@@ -323,5 +323,4 @@ func TestSettingService_GetPublicSettings_LoginAgreementComesFromCode(t *testing
 	require.True(t, settings.LoginAgreementEnabled)
 	require.Equal(t, LoginAgreementUpdatedAt, settings.LoginAgreementUpdatedAt)
 	require.Equal(t, LoginAgreementDocuments(), settings.LoginAgreementDocuments)
-	require.Equal(t, buildLoginAgreementRevision(LoginAgreementUpdatedAt, LoginAgreementDocuments()), settings.LoginAgreementRevision)
 }

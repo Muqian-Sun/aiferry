@@ -36,8 +36,8 @@ const (
 const (
 	// LoginAgreementEnabled 登录 / 注册前要确认条款。
 	LoginAgreementEnabled = true
-	// LoginAgreementUpdatedAt 条款更新日期（进修订号；登录 / 注册页只是一行勾选，不展示日期）。改了 legal/*.md 的正文要同时改它；
-	// 用户要不要重新确认看的是修订号（日期 + 正文哈希），忘改日期也会要求重新确认。
+	// LoginAgreementUpdatedAt 条款更新日期，显示在条款正文页。改了 legal/*.md 的正文要同时改它。
+	// 登录 / 注册每次都要勾选同意（默认不勾、不记住），没有「同意过哪一版」的记录。
 	LoginAgreementUpdatedAt = "2026-09-23"
 )
 

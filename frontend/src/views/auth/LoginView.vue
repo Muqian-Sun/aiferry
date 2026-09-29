@@ -224,7 +224,6 @@ import { defaultAuthedPath } from '@/router/defaultAuthedPath'
 const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 
 const { t } = useI18n()
-const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 
 // ==================== Router & Stores ====================
 
@@ -259,7 +258,6 @@ const googleOAuthEnabled = ref<boolean>(false)
 const passwordResetEnabled = ref<boolean>(false)
 const passkeyEnabled = ref<boolean>(false)
 const loginAgreementEnabled = ref<boolean>(false)
-const loginAgreementRevision = ref<string>('')
 const loginAgreementDocuments = ref<LoginAgreementDocument[]>([])
 const agreementAccepted = ref<boolean>(false)
 
@@ -381,8 +379,6 @@ onMounted(async () => {
 
 function applyLoginAgreementSettings(settings: {
   login_agreement_enabled?: boolean
-  login_agreement_updated_at?: string
-  login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]
 }): void {
   const documents = Array.isArray(settings.login_agreement_documents)
@@ -390,46 +386,17 @@ function applyLoginAgreementSettings(settings: {
     : []
   loginAgreementDocuments.value = documents
   loginAgreementEnabled.value = settings.login_agreement_enabled === true && documents.length > 0
-  loginAgreementRevision.value =
-    settings.login_agreement_revision ||
-    `${settings.login_agreement_updated_at || ''}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
-
-  agreementAccepted.value = !loginAgreementEnabled.value || hasAcceptedLoginAgreement(loginAgreementRevision.value)
-}
-
-function hasAcceptedLoginAgreement(revision: string): boolean {
-  if (!revision) {
-    return false
-  }
-  try {
-    const raw = localStorage.getItem(LOGIN_AGREEMENT_STORAGE_KEY)
-    if (!raw) {
-      return false
-    }
-    const parsed = JSON.parse(raw) as { revision?: string }
-    return parsed.revision === revision
-  } catch {
-    return false
-  }
+  // 默认不勾、不记住上次同意：每次进来都要自己勾（muqian 2026-09-29）
+  agreementAccepted.value = !loginAgreementEnabled.value
 }
 
 function acceptLoginAgreement(): void {
-  if (loginAgreementRevision.value) {
-    localStorage.setItem(
-      LOGIN_AGREEMENT_STORAGE_KEY,
-      JSON.stringify({
-        revision: loginAgreementRevision.value,
-        accepted_at: new Date().toISOString()
-      })
-    )
-  }
   agreementAccepted.value = true
   errorMessage.value = ''
 }
 
-// 取消勾选不算出错：只是不再记住同意，点登录时再提示
+// 取消勾选不算出错，点登录时再提示
 function rejectLoginAgreement(): void {
-  localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
 }
 

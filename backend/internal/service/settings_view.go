@@ -58,7 +58,6 @@ type PublicSettings struct {
 	PasskeyEnabled                      bool
 	LoginAgreementEnabled               bool
 	LoginAgreementUpdatedAt             string
-	LoginAgreementRevision              string
 	LoginAgreementDocuments             []LoginAgreementDocument
 	TurnstileEnabled                    bool
 	TurnstileSiteKey                    string

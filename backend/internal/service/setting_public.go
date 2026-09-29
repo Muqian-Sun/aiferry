@@ -81,22 +81,6 @@ func normalizeLoginAgreementDocuments(docs []LoginAgreementDocument) []LoginAgre
 	return normalized
 }
 
-func buildLoginAgreementRevision(updatedAt string, docs []LoginAgreementDocument) string {
-	normalized := normalizeLoginAgreementDocuments(docs)
-	payload, err := json.Marshal(struct {
-		UpdatedAt string                   `json:"updated_at"`
-		Documents []LoginAgreementDocument `json:"documents"`
-	}{
-		UpdatedAt: strings.TrimSpace(updatedAt),
-		Documents: normalized,
-	})
-	if err != nil {
-		payload = []byte(strings.TrimSpace(updatedAt))
-	}
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:])[:16]
-}
-
 // GetFrontendURL 用户站地址：部署时由 SERVER_FRONTEND_URL 配置，后台不再能改。
 // API 与用户站同一个域名，邮件链接、第三方登录回调、给用户看的 API 地址都从它来。
 func (s *SettingService) GetFrontendURL(ctx context.Context) string {
@@ -151,7 +135,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		PasskeyEnabled:                      s.PasskeyEnabled(),
 		LoginAgreementEnabled:               LoginAgreementEnabled && len(loginAgreementDocuments) > 0,
 		LoginAgreementUpdatedAt:             LoginAgreementUpdatedAt,
-		LoginAgreementRevision:              buildLoginAgreementRevision(LoginAgreementUpdatedAt, loginAgreementDocuments),
 		LoginAgreementDocuments:             loginAgreementDocuments,
 		// 人机验证只认部署配置（CaptchaProviderConfig），这里只给前端公开字段，密钥不出去。
 		TurnstileEnabled:      captcha.TurnstileEnabled,
@@ -332,7 +315,6 @@ type PublicSettingsInjectionPayload struct {
 	PasskeyEnabled                      bool                     `json:"passkey_enabled"`
 	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
 	LoginAgreementUpdatedAt             string                   `json:"login_agreement_updated_at"`
-	LoginAgreementRevision              string                   `json:"login_agreement_revision"`
 	LoginAgreementDocuments             []LoginAgreementDocument `json:"login_agreement_documents"`
 	TurnstileEnabled                    bool                     `json:"turnstile_enabled"`
 	TurnstileSiteKey                    string                   `json:"turnstile_site_key"`
@@ -411,7 +393,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		PasskeyEnabled:                      settings.PasskeyEnabled,
 		LoginAgreementEnabled:               settings.LoginAgreementEnabled,
 		LoginAgreementUpdatedAt:             settings.LoginAgreementUpdatedAt,
-		LoginAgreementRevision:              settings.LoginAgreementRevision,
 		LoginAgreementDocuments:             settings.LoginAgreementDocuments,
 		TurnstileEnabled:                    settings.TurnstileEnabled,
 		TurnstileSiteKey:                    settings.TurnstileSiteKey,

@@ -185,7 +185,6 @@ export interface PublicSettings {
   invitation_code_enabled: boolean
   login_agreement_enabled?: boolean
   login_agreement_updated_at?: string
-  login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]
   turnstile_enabled: boolean
   tencent_captcha_enabled?: boolean

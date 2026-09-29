@@ -54,7 +54,6 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		PasskeyEnabled:                      settings.PasskeyEnabled,
 		LoginAgreementEnabled:               settings.LoginAgreementEnabled,
 		LoginAgreementUpdatedAt:             settings.LoginAgreementUpdatedAt,
-		LoginAgreementRevision:              settings.LoginAgreementRevision,
 		LoginAgreementDocuments:             publicLoginAgreementDocumentsToDTO(settings.LoginAgreementDocuments),
 		TurnstileEnabled:                    settings.TurnstileEnabled,
 		TurnstileSiteKey:                    settings.TurnstileSiteKey,
