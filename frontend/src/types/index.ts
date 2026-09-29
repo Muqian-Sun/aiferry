@@ -184,7 +184,6 @@ export interface PublicSettings {
   password_reset_enabled: boolean
   invitation_code_enabled: boolean
   login_agreement_enabled?: boolean
-  login_agreement_mode?: 'modal' | 'checkbox' | string
   login_agreement_updated_at?: string
   login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]

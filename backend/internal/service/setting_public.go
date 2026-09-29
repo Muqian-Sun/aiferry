@@ -150,7 +150,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		InvitationCodeEnabled:               InvitationCodeRequired,
 		PasskeyEnabled:                      s.PasskeyEnabled(),
 		LoginAgreementEnabled:               LoginAgreementEnabled && len(loginAgreementDocuments) > 0,
-		LoginAgreementMode:                  LoginAgreementMode,
 		LoginAgreementUpdatedAt:             LoginAgreementUpdatedAt,
 		LoginAgreementRevision:              buildLoginAgreementRevision(LoginAgreementUpdatedAt, loginAgreementDocuments),
 		LoginAgreementDocuments:             loginAgreementDocuments,
@@ -332,7 +331,6 @@ type PublicSettingsInjectionPayload struct {
 	InvitationCodeEnabled               bool                     `json:"invitation_code_enabled"`
 	PasskeyEnabled                      bool                     `json:"passkey_enabled"`
 	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
-	LoginAgreementMode                  string                   `json:"login_agreement_mode"`
 	LoginAgreementUpdatedAt             string                   `json:"login_agreement_updated_at"`
 	LoginAgreementRevision              string                   `json:"login_agreement_revision"`
 	LoginAgreementDocuments             []LoginAgreementDocument `json:"login_agreement_documents"`
@@ -412,7 +410,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		InvitationCodeEnabled:               settings.InvitationCodeEnabled,
 		PasskeyEnabled:                      settings.PasskeyEnabled,
 		LoginAgreementEnabled:               settings.LoginAgreementEnabled,
-		LoginAgreementMode:                  settings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:             settings.LoginAgreementUpdatedAt,
 		LoginAgreementRevision:              settings.LoginAgreementRevision,
 		LoginAgreementDocuments:             settings.LoginAgreementDocuments,

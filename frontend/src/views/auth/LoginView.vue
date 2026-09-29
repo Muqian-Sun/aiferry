@@ -119,12 +119,8 @@
           v-if="loginAgreementEnabled"
           :accepted="agreementAccepted"
           :documents="loginAgreementDocuments"
-          :mode="loginAgreementMode"
-          :updated-at="loginAgreementUpdatedAt"
-          :visible="showAgreementModal"
           @accept="acceptLoginAgreement"
           @reject="rejectLoginAgreement"
-          @open="showAgreementModal = true"
         />
 
         <div v-if="showPasskeyLogin || showOAuthLogin" class="space-y-3 pt-1">
@@ -263,12 +259,9 @@ const googleOAuthEnabled = ref<boolean>(false)
 const passwordResetEnabled = ref<boolean>(false)
 const passkeyEnabled = ref<boolean>(false)
 const loginAgreementEnabled = ref<boolean>(false)
-const loginAgreementMode = ref<'modal' | 'checkbox' | string>('modal')
-const loginAgreementUpdatedAt = ref<string>('')
 const loginAgreementRevision = ref<string>('')
 const loginAgreementDocuments = ref<LoginAgreementDocument[]>([])
 const agreementAccepted = ref<boolean>(false)
-const showAgreementModal = ref<boolean>(false)
 
 // Turnstile
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
@@ -312,8 +305,9 @@ const agreementGateActive = computed(
   () => loginAgreementEnabled.value && !agreementAccepted.value
 )
 
+// 条款没勾不禁用输入与按钮：点登录（含 Passkey / 三方登录）时在表单里提示先勾选
 const authActionDisabled = computed(
-  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value
 )
 
 const showPasskeyLogin = computed(
@@ -387,7 +381,6 @@ onMounted(async () => {
 
 function applyLoginAgreementSettings(settings: {
   login_agreement_enabled?: boolean
-  login_agreement_mode?: string
   login_agreement_updated_at?: string
   login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]
@@ -397,15 +390,11 @@ function applyLoginAgreementSettings(settings: {
     : []
   loginAgreementDocuments.value = documents
   loginAgreementEnabled.value = settings.login_agreement_enabled === true && documents.length > 0
-  loginAgreementMode.value = settings.login_agreement_mode === 'checkbox' ? 'checkbox' : 'modal'
-  loginAgreementUpdatedAt.value = settings.login_agreement_updated_at || ''
   loginAgreementRevision.value =
     settings.login_agreement_revision ||
-    `${loginAgreementUpdatedAt.value}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
+    `${settings.login_agreement_updated_at || ''}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
 
   agreementAccepted.value = !loginAgreementEnabled.value || hasAcceptedLoginAgreement(loginAgreementRevision.value)
-  showAgreementModal.value =
-    loginAgreementEnabled.value && !agreementAccepted.value && loginAgreementMode.value !== 'checkbox'
 }
 
 function hasAcceptedLoginAgreement(revision: string): boolean {
@@ -435,15 +424,13 @@ function acceptLoginAgreement(): void {
     )
   }
   agreementAccepted.value = true
-  showAgreementModal.value = false
   errorMessage.value = ''
 }
 
+// 取消勾选不算出错：只是不再记住同意，点登录时再提示
 function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
-  showAgreementModal.value = false
-  errorMessage.value = t('legal.loginAgreementPrompt.loginRejectedWarning')
 }
 
 // ==================== Turnstile Handlers ====================
@@ -496,9 +483,6 @@ function validateForm(): boolean {
 
   if (agreementGateActive.value) {
     errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
-    if (loginAgreementMode.value !== 'checkbox') {
-      showAgreementModal.value = true
-    }
     return false
   }
 
@@ -589,9 +573,6 @@ async function handlePasskeyLogin(): Promise<void> {
   errorMessage.value = ''
   if (agreementGateActive.value) {
     errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
-    if (loginAgreementMode.value !== 'checkbox') {
-      showAgreementModal.value = true
-    }
     return
   }
 
@@ -630,6 +611,10 @@ async function handlePasskeyLogin(): Promise<void> {
 async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
   if (authActionDisabled.value) return
   errorMessage.value = ''
+  if (agreementGateActive.value) {
+    errorMessage.value = t('legal.loginAgreementPrompt.loginRequiredWarning')
+    return
+  }
 
   if (!actionCaptchaEnabled.value) {
     window.location.href = buildOAuthLoginStartURL(request)

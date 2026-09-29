@@ -53,7 +53,6 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		InvitationCodeEnabled:               settings.InvitationCodeEnabled,
 		PasskeyEnabled:                      settings.PasskeyEnabled,
 		LoginAgreementEnabled:               settings.LoginAgreementEnabled,
-		LoginAgreementMode:                  settings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:             settings.LoginAgreementUpdatedAt,
 		LoginAgreementRevision:              settings.LoginAgreementRevision,
 		LoginAgreementDocuments:             publicLoginAgreementDocumentsToDTO(settings.LoginAgreementDocuments),

@@ -36,9 +36,7 @@ const (
 const (
 	// LoginAgreementEnabled 登录 / 注册前要确认条款。
 	LoginAgreementEnabled = true
-	// LoginAgreementMode 条款的展示形式：modal 弹窗 / checkbox 复选框。
-	LoginAgreementMode = "modal"
-	// LoginAgreementUpdatedAt 条款更新日期，显示给用户。改了 legal/*.md 的正文要同时改它；
+	// LoginAgreementUpdatedAt 条款更新日期（进修订号；登录 / 注册页只是一行勾选，不展示日期）。改了 legal/*.md 的正文要同时改它；
 	// 用户要不要重新确认看的是修订号（日期 + 正文哈希），忘改日期也会要求重新确认。
 	LoginAgreementUpdatedAt = "2026-09-23"
 )

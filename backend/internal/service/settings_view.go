@@ -57,7 +57,6 @@ type PublicSettings struct {
 	InvitationCodeEnabled               bool
 	PasskeyEnabled                      bool
 	LoginAgreementEnabled               bool
-	LoginAgreementMode                  string
 	LoginAgreementUpdatedAt             string
 	LoginAgreementRevision              string
 	LoginAgreementDocuments             []LoginAgreementDocument

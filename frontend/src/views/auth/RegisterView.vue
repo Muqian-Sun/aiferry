@@ -172,18 +172,6 @@
           <FormError :message="errors.turnstile" />
         </div>
 
-        <LoginAgreementPrompt
-          v-if="loginAgreementEnabled"
-          :accepted="agreementAccepted"
-          :documents="loginAgreementDocuments"
-          :mode="loginAgreementMode"
-          :updated-at="loginAgreementUpdatedAt"
-          :visible="showAgreementModal"
-          @accept="acceptLoginAgreement"
-          @reject="rejectLoginAgreement"
-          @open="showAgreementModal = true"
-        />
-
         <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
@@ -221,6 +209,13 @@
           }}
         </button>
 
+        <LoginAgreementPrompt
+          v-if="loginAgreementEnabled"
+          :accepted="agreementAccepted"
+          :documents="loginAgreementDocuments"
+          @accept="acceptLoginAgreement"
+          @reject="rejectLoginAgreement"
+        />
       </form>
 
       <div v-if="showOAuthLogin" class="space-y-3 pt-1">
@@ -345,12 +340,9 @@ const registrationEmailSuffixWhitelist = ref<string[]>([])
 // 域名限量注册开关：开启时非白名单域名可注册 1 个账户（由后端判定），前端不做白名单预检。
 const emailDomainQuotaEnabled = ref<boolean>(false)
 const loginAgreementEnabled = ref<boolean>(false)
-const loginAgreementMode = ref<'modal' | 'checkbox' | string>('modal')
-const loginAgreementUpdatedAt = ref<string>('')
 const loginAgreementRevision = ref<string>('')
 const loginAgreementDocuments = ref<LoginAgreementDocument[]>([])
 const agreementAccepted = ref<boolean>(false)
-const showAgreementModal = ref<boolean>(false)
 
 // Turnstile
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
@@ -412,8 +404,9 @@ const agreementGateActive = computed(
   () => loginAgreementEnabled.value && !agreementAccepted.value
 )
 
+// 条款没勾不禁用输入与按钮：点注册（含三方登录）时在表单里提示先勾选
 const registrationActionDisabled = computed(
-  () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
+  () => isLoading.value || !settingsLoaded.value
 )
 
 // 重新输入时清掉对应字段和表单级的报错
@@ -500,7 +493,6 @@ onUnmounted(() => {
 
 function applyLoginAgreementSettings(settings: {
   login_agreement_enabled?: boolean
-  login_agreement_mode?: string
   login_agreement_updated_at?: string
   login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]
@@ -510,15 +502,11 @@ function applyLoginAgreementSettings(settings: {
     : []
   loginAgreementDocuments.value = documents
   loginAgreementEnabled.value = settings.login_agreement_enabled === true && documents.length > 0
-  loginAgreementMode.value = settings.login_agreement_mode === 'checkbox' ? 'checkbox' : 'modal'
-  loginAgreementUpdatedAt.value = settings.login_agreement_updated_at || ''
   loginAgreementRevision.value =
     settings.login_agreement_revision ||
-    `${loginAgreementUpdatedAt.value}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
+    `${settings.login_agreement_updated_at || ''}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
 
   agreementAccepted.value = !loginAgreementEnabled.value || hasAcceptedLoginAgreement(loginAgreementRevision.value)
-  showAgreementModal.value =
-    loginAgreementEnabled.value && !agreementAccepted.value && loginAgreementMode.value !== 'checkbox'
 }
 
 function hasAcceptedLoginAgreement(revision: string): boolean {
@@ -548,15 +536,13 @@ function acceptLoginAgreement(): void {
     )
   }
   agreementAccepted.value = true
-  showAgreementModal.value = false
   errorMessage.value = ''
 }
 
+// 取消勾选不算出错：只是不再记住同意，点注册时再提示
 function rejectLoginAgreement(): void {
   localStorage.removeItem(LOGIN_AGREEMENT_STORAGE_KEY)
   agreementAccepted.value = false
-  showAgreementModal.value = false
-  errorMessage.value = t('legal.loginAgreementPrompt.registerRejectedWarning')
 }
 
 // ==================== Invitation Code Validation ====================
@@ -663,6 +649,10 @@ async function acquireActionProof(): Promise<boolean> {
 
 async function handleOAuthStart(request: OAuthLoginStart): Promise<void> {
   if (registrationActionDisabled.value) return
+  if (agreementGateActive.value) {
+    errorMessage.value = t('legal.loginAgreementPrompt.registerRequiredWarning')
+    return
+  }
 
   if (!actionCaptchaEnabled.value) {
     window.location.href = buildOAuthLoginStartURL(request)
@@ -733,9 +723,6 @@ function validateForm(): boolean {
 
   if (agreementGateActive.value) {
     errorMessage.value = t('legal.loginAgreementPrompt.registerRequiredWarning')
-    if (loginAgreementMode.value !== 'checkbox') {
-      showAgreementModal.value = true
-    }
     return false
   }
 

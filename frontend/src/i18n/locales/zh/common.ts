@@ -135,20 +135,10 @@ export default {
     loginAgreement: '登录条款',
     loginAgreementPrompt: {
       checkboxPrefix: '我已阅读并同意',
+      documentTitle: '《{title}》',
       documentSeparator: '、',
-      noticeTitle: '继续登录前需要先同意最新条款。',
-      noticeDescription: '未同意前，账号密码输入和快捷登录会保持禁用。',
-      viewTerms: '查看条款',
-      dialogTitle: '条款更新通知',
-      dialogDescription: '我们的服务条款已于 {date} 更新。在继续使用服务之前，请仔细阅读并同意以下条款。',
-      recently: '近期',
-      relatedDocuments: '相关文档',
-      reject: '拒绝',
-      accept: '同意并继续',
-      loginRejectedWarning: '未同意最新条款前，无法输入账号密码或使用快捷登录。',
-      loginRequiredWarning: '请先阅读并同意最新条款后再登录。',
-      registerRejectedWarning: '未同意最新条款前，无法注册或使用快捷登录。',
-      registerRequiredWarning: '请先阅读并同意最新条款后再注册。'
+      loginRequiredWarning: '请先阅读并勾选同意条款后再登录。',
+      registerRequiredWarning: '请先阅读并勾选同意条款后再注册。'
     }
   },
 
