@@ -944,17 +944,14 @@ const keyAccountMode = computed<string | undefined>(() => {
   return keyHasCodingPlan.value ? (keyPlanFromAddress.value ?? editAccountMode.value) : undefined
 })
 
-const protocolDefaultsMode = computed(() => {
-  const platform = props.account?.platform ?? ''
-  if (platform === 'opencode_go') return modeOfAddress(keyPresets.value, platform, editProtocolEndpoints.value) ?? 'zen'
-  if (isCNProviderPlatform(platform)) return keyPlanFromAddress.value ?? editAccountMode.value
-  return undefined
+// 按地址识别出的厂商与套餐取官方地址，与新建同一规则：平台标签只在新建时按地址推导一次，
+// 编辑改了地址标签不跟着变，不能拿它判断。认不出厂商（中转）就不给「填入官方地址」。
+const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return {}
+  const mode = vendor === 'opencode_go' || keyHasCodingPlan.value ? keyAccountMode.value : undefined
+  return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })
-// 按平台标签取官方地址：后端官方地址表只有国产厂商与 OpenCode，中转 key 按协议归族的
-// anthropic / openai / gemini 标签取到空表，不给「填入官方地址」（muqian 2026-09-29 删海外四家官方 Key）
-const officialProtocolEndpoints = computed(() =>
-  protocolDefaultsFor(protocolDefaults.value, props.account?.platform ?? '', protocolDefaultsMode.value)
-)
 watch(officialProtocolEndpoints, (next, previous) => {
   if (syncingForm.value) return
   editProtocolEndpoints.value = endpointsAfterDefaultsChange(
