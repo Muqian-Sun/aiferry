@@ -602,7 +602,7 @@ func (r *ollama429LinkRepo) UpdateOllamaCloudUsageSnapshot(ctx context.Context, 
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if a, ok := r.upstreamBillingProbeAccountRepo.accounts[expected.ID]; ok {
+	if a, ok := r.inMemoryAccountRepo.accounts[expected.ID]; ok {
 		r.bump(a)
 	}
 	return nil
@@ -611,7 +611,7 @@ func (r *ollama429LinkRepo) UpdateOllamaCloudUsageSnapshot(ctx context.Context, 
 func (r *ollama429LinkRepo) SetRateLimitedIfLater(_ context.Context, id int64, resetAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	a := r.upstreamBillingProbeAccountRepo.accounts[id]
+	a := r.inMemoryAccountRepo.accounts[id]
 	if a == nil {
 		return nil
 	}
@@ -634,7 +634,7 @@ func (r *ollama429LinkRepo) SetRateLimitedIfUnchanged(
 ) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	a := r.upstreamBillingProbeAccountRepo.accounts[id]
+	a := r.inMemoryAccountRepo.accounts[id]
 	if a == nil {
 		return false, nil
 	}
@@ -653,7 +653,7 @@ func (r *ollama429LinkRepo) SetRateLimitedIfUnchanged(
 func (r *ollama429LinkRepo) currentReset(id int64) *time.Time {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	a := r.upstreamBillingProbeAccountRepo.accounts[id]
+	a := r.inMemoryAccountRepo.accounts[id]
 	if a == nil || a.RateLimitResetAt == nil {
 		return nil
 	}
@@ -690,7 +690,7 @@ func TestOllama429RealProbeLinkage_SnapshotPersistThenWriteBack(t *testing.T) {
 		</section>`)
 
 	repo := &ollama429LinkRepo{ollamaUsageTestRepo: &ollamaUsageTestRepo{
-		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+		inMemoryAccountRepo: &inMemoryAccountRepo{
 			accounts: map[int64]*Account{account.ID: account},
 		},
 	}}

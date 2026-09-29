@@ -227,16 +227,16 @@ func TestLockAndMergeAccountProbeExtraCoalescesNullableOllamaGroupIdentity(t *te
 	account := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ordinary-openai-without-base-url", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-no-base-url"},
-		Extra:       map[string]any{service.UpstreamBillingProbeEnabledExtraKey: true},
+		Extra:       map[string]any{"custom_note": "keep-me"},
 	})
 	loaded, err := newAccountRepositoryWithSQL(tx.Client(), tx, nil).GetByID(ctx, account.ID)
 	require.NoError(t, err)
 
-	merged, err := lockAndMergeAccountProbeExtra(ctx, tx.Client(), loaded, nil, nil)
+	merged, err := lockAndMergeAccountProbeExtra(ctx, tx.Client(), loaded)
 
 	require.NoError(t, err, "a NULL Ollama eligibility expression must scan as false")
 	require.NotContains(t, merged, service.OllamaCloudUsageSessionExtraKey)
-	require.Equal(t, true, merged[service.UpstreamBillingProbeEnabledExtraKey])
+	require.Equal(t, "keep-me", merged["custom_note"])
 }
 
 func TestOllamaCloudUsageGroupWritesAreAtomicAcrossPlatformsAndURLVariants(t *testing.T) {
@@ -410,7 +410,7 @@ func TestOllamaCloudUsageGroupSharesAcrossPlatformLabels(t *testing.T) {
 	// lockAndMerge 组身份守卫：CN 行凭证未变时必须保留 ollama 托管键。
 	kimiLoaded, err := repo.GetByID(ctx, kimi.ID)
 	require.NoError(t, err)
-	merged, err := lockAndMergeAccountProbeExtra(ctx, tx.Client(), kimiLoaded, nil, nil)
+	merged, err := lockAndMergeAccountProbeExtra(ctx, tx.Client(), kimiLoaded)
 	require.NoError(t, err)
 	require.Equal(t, "cipher:cn-shared", merged[service.OllamaCloudUsageSessionExtraKey])
 
@@ -434,8 +434,8 @@ func TestOllamaCloudUsageGroupSharesAcrossPlatformLabels(t *testing.T) {
 	require.NotNil(t, due[0].LastUsedAt)
 }
 
-// 语义等价性端到端：普通（非 ollama）kimi apikey 账号改凭证落进 Ollama 分支后，
-// probe 快照仍被清理，开关键与其它 extra 键不受影响。
+// 端到端：普通（非 ollama）kimi apikey 账号改凭证落进 Ollama 分支后，
+// 其它 extra 键不受影响。
 func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupIsSemanticallyEquivalent(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
@@ -445,8 +445,6 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupIsSemanticallyEquivalent(t 
 		Credentials:       map[string]any{"api_key": "sk-moonshot"},
 		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.moonshot.cn"},
 		Extra: map[string]any{
-			service.UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
-			service.UpstreamBillingProbeEnabledExtraKey: true,
 			"custom_note": "keep-me",
 		},
 	})
@@ -457,10 +455,6 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupIsSemanticallyEquivalent(t 
 
 	loaded, err := repo.GetByID(ctx, account.ID)
 	require.NoError(t, err)
-	require.NotContains(t, loaded.Extra, service.UpstreamBillingProbeExtraKey,
-		"probe 快照仍必须被清理")
-	require.Equal(t, true, loaded.Extra[service.UpstreamBillingProbeEnabledExtraKey],
-		"探测开关键不受清理影响")
 	require.Equal(t, "keep-me", loaded.Extra["custom_note"], "其它 extra 键不得误伤")
 	require.NotContains(t, loaded.Extra, service.OllamaCloudUsageSessionExtraKey)
 }
@@ -571,29 +565,11 @@ func TestProxyIdentityUpdateInvalidatesOllamaSnapshotAndRejectsInFlightCAS(t *te
 	require.ErrorIs(t, err, service.ErrOllamaCloudUsageIdentityChanged)
 }
 
-// 无变化的凭证持久化（如重复提交同一凭证）不得触发任何 extra 清理；
-// 真实变化仍必须按旧语义清 openai 探测快照。
+// 无变化的凭证持久化（如重复提交同一凭证）不得触发任何 extra 清理。
 func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
 	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
-
-	probeAccount := mustCreateAccount(t, tx.Client(), &service.Account{
-		Name: "openai-probe-unchanged", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials:       map[string]any{"api_key": "sk-probe"},
-		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com/v1"},
-		Extra: map[string]any{
-			service.UpstreamBillingProbeEnabledExtraKey: true,
-			service.UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
-		},
-	})
-	require.NoError(t, repo.UpdateCredentials(ctx, probeAccount.ID, map[string]any{
-		"api_key": "sk-probe",
-	}))
-	probeLoaded, err := repo.GetByID(ctx, probeAccount.ID)
-	require.NoError(t, err)
-	require.Contains(t, probeLoaded.Extra, service.UpstreamBillingProbeExtraKey,
-		"unchanged credentials must not clear the probe snapshot")
 
 	now := time.Now().UTC()
 	ollamaAccount := mustCreateAccount(t, tx.Client(), &service.Account{
@@ -614,14 +590,6 @@ func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, "cipher:wos-session=fixture", ollamaLoaded.Extra[service.OllamaCloudUsageSessionExtraKey])
 	require.Contains(t, ollamaLoaded.Extra, service.OllamaCloudUsageSnapshotExtraKey)
-
-	require.NoError(t, repo.UpdateCredentials(ctx, probeAccount.ID, map[string]any{
-		"api_key": "sk-probe-rotated",
-	}))
-	probeLoaded, err = repo.GetByID(ctx, probeAccount.ID)
-	require.NoError(t, err)
-	require.NotContains(t, probeLoaded.Extra, service.UpstreamBillingProbeExtraKey,
-		"changed credentials must keep clearing the probe snapshot")
 }
 
 // TestListDueOllamaCloudUsageAccountsSQLDueRulesMatchService proves the SQL

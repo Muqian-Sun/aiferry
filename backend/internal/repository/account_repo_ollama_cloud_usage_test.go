@@ -340,9 +340,8 @@ func TestOllamaCloudUsageEligibilityIgnoresPlatformLabel(t *testing.T) {
 	require.False(t, service.IsOllamaCloudUsageAccount(oauth))
 }
 
-// 语义等价性：平台放开后，普通（非 ollama）kimi apikey 账号改凭证会从通用
-// apikey 分支落到 Ollama 分支——多减三个它本来就不存在的 ollama 键。分支必须
-// 仍然清掉 probe 快照，且不得减其它任何 extra 键。
+// 普通（非 ollama）kimi apikey 账号改凭证会落到 Ollama 分支——只减两个它本来就
+// 不存在的 ollama 键，不得减其它任何 extra 键。
 func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupStaysSemanticallyEquivalent(t *testing.T) {
 	var capturedSQL string
 	matcher := sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
@@ -357,7 +356,7 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupStaysSemanticallyEquivalent
 	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 	t.Cleanup(func() { _ = client.Close() })
 	mock.ExpectBegin()
-	mock.ExpectExec(`(?s)UPDATE accounts.*- 'upstream_billing_probe'.*- 'ollama_cloud_usage_session'.*- 'ollama_cloud_usage_snapshot'`).
+	mock.ExpectExec(`(?s)UPDATE accounts.*- 'ollama_cloud_usage_session'.*- 'ollama_cloud_usage_snapshot'`).
 		WithArgs(`{"api_key":"rotated-key","base_url":"https://api.moonshot.cn/v1"}`, int64(17)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
@@ -375,8 +374,6 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupStaysSemanticallyEquivalent
 	require.Contains(t, query, "WHEN type = 'apikey' AND credentials IS DISTINCT FROM $1::jsonb")
 	require.NotContains(t, query, "platform IN")
 	require.Contains(t, query,
-		"THEN COALESCE(extra, '{}'::jsonb) - 'upstream_billing_probe' - 'ollama_cloud_usage_session' - 'ollama_cloud_usage_snapshot'")
-	require.NotContains(t, query, "- 'upstream_billing_probe_enabled'")
-	require.NotContains(t, query, "- 'upstream_billing_rate_sync_enabled'")
+		"THEN COALESCE(extra, '{}'::jsonb) - 'ollama_cloud_usage_session' - 'ollama_cloud_usage_snapshot' ELSE extra END")
 	require.NoError(t, mock.ExpectationsWereMet())
 }

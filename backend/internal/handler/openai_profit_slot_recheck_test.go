@@ -33,27 +33,14 @@ func (c *profitCountingConcurrencyCache) ReleaseAccountSlot(context.Context, int
 }
 
 func profitSlotTestAccount(id int64, rate float64) *service.Account {
-	now := time.Now()
 	return &service.Account{
-		ID:             id,
-		Platform:       service.PlatformOpenAI,
-		Type:           service.AccountTypeAPIKey,
-		Status:         service.StatusActive,
-		Schedulable:    true,
-		Concurrency:    2,
-		RateMultiplier: &rate,
-		Extra: map[string]any{
-			"upstream_billing_probe": map[string]any{
-				"status":      service.UpstreamBillingProbeStatusOK,
-				"received_at": now.Add(-time.Minute),
-				"fresh_until": now.Add(30 * time.Minute),
-				"data": map[string]any{
-					"billing_scope":            "token",
-					"resolved_rate_multiplier": rate,
-					"peak_rate_enabled":        false,
-				},
-			},
-		},
+		ID:                id,
+		Platform:          service.PlatformOpenAI,
+		Type:              service.AccountTypeAPIKey,
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		Concurrency:       2,
+		RateMultiplier:    &rate,
 		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 }

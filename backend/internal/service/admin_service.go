@@ -177,7 +177,6 @@ type CreateAccountInput struct {
 	Priority       int
 	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
 	ExpiresAt      *int64
-	ProbeEnabled   *bool
 	// ProtocolEndpoints 协议 → 上游地址映射，键必须是具体协议，见 NormalizeProtocolEndpoints。
 	ProtocolEndpoints map[string]string
 }
@@ -191,19 +190,17 @@ type ShadowOptions struct {
 }
 
 type UpdateAccountInput struct {
-	Name            string
-	Notes           *string
-	Type            string // Account type: oauth, setup-token, apikey
-	Credentials     map[string]any
-	Extra           map[string]any
-	ProxyID         *int64
-	Concurrency     *int     // 使用指针区分"未提供"和"设置为0"
-	Priority        *int     // 使用指针区分"未提供"和"设置为0"
-	RateMultiplier  *float64 // 账号计费倍率（>=0，允许 0）
-	Status          string
-	ExpiresAt       *int64
-	ProbeEnabled    *bool
-	RateSyncEnabled *bool
+	Name           string
+	Notes          *string
+	Type           string // Account type: oauth, setup-token, apikey
+	Credentials    map[string]any
+	Extra          map[string]any
+	ProxyID        *int64
+	Concurrency    *int     // 使用指针区分"未提供"和"设置为0"
+	Priority       *int     // 使用指针区分"未提供"和"设置为0"
+	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
+	Status         string
+	ExpiresAt      *int64
 	// ProtocolEndpoints 为 nil 表示不修改；非 nil（含空 map）表示整体替换。
 	ProtocolEndpoints *map[string]string
 }
@@ -221,7 +218,6 @@ type BulkUpdateAccountsInput struct {
 	Schedulable    *bool
 	Credentials    map[string]any
 	Extra          map[string]any
-	ProbeEnabled   *bool
 }
 
 type BulkUpdateAccountFilters struct {
@@ -415,7 +411,6 @@ type adminServiceImpl struct {
 	cfg                  *config.Config
 	userRepo             UserRepository
 	accountRepo          AccountRepository
-	accountBillingRepo   AccountBillingSettingsRepository
 	proxyRepo            ProxyRepository
 	apiKeyRepo           APIKeyRepository
 	redeemCodeRepo       RedeemCodeRepository
@@ -441,7 +436,7 @@ type adminRechargeAffiliateAccruer interface {
 func NewAdminService(
 	cfg *config.Config,
 	userRepo UserRepository,
-	accountRepo AdminAccountRepository,
+	accountRepo AccountRepository,
 	proxyRepo ProxyRepository,
 	apiKeyRepo APIKeyRepository,
 	redeemCodeRepo RedeemCodeRepository,
@@ -462,7 +457,6 @@ func NewAdminService(
 		cfg:                  cfg,
 		userRepo:             userRepo,
 		accountRepo:          accountRepo,
-		accountBillingRepo:   accountRepo,
 		proxyRepo:            proxyRepo,
 		apiKeyRepo:           apiKeyRepo,
 		redeemCodeRepo:       redeemCodeRepo,

@@ -149,12 +149,8 @@ const (
 // OpenAICodexVersionAutoSyncEnabled 定时从官方仓库同步 Codex 客户端最新稳定版，出站身份跟着走。
 const OpenAICodexVersionAutoSyncEnabled = true
 
-// 余额探测
+// Ollama Cloud 用量刷新
 const (
-	// UpstreamBillingProbeEnabled 定时探测上游倍率（渠道自己还有单独的开关）。
-	UpstreamBillingProbeEnabled = true
-	// UpstreamBillingProbeIntervalMinutes 探测间隔（分钟）。
-	UpstreamBillingProbeIntervalMinutes = 30
 	// OllamaCloudUsageIntervalMinutes 定时拉 Ollama Cloud 用量时，请求一直不停最长隔多久也要刷新一次（分钟）。
 	OllamaCloudUsageIntervalMinutes = 60
 	// OllamaCloudUsageDebounceMinutes 最后一次请求之后静默多久再刷新（分钟）。

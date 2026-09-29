@@ -1043,6 +1043,23 @@ func nextOllamaCloudUsageDelay(intervalMinutes, failureCount int, retryAfterDura
 	return base
 }
 
+// retryAfter 解析 Retry-After（秒数或 HTTP 日期），没有或已过期返回 0。
+func retryAfter(header http.Header, now time.Time) time.Duration {
+	value := strings.TrimSpace(header.Get("Retry-After"))
+	if value == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil {
+		if delay := at.Sub(now); delay > 0 {
+			return delay
+		}
+	}
+	return 0
+}
+
 func (s *OllamaCloudUsageService) currentTime() time.Time {
 	if s != nil && s.now != nil {
 		return s.now()
