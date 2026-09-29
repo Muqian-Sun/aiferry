@@ -1127,8 +1127,7 @@ export default {
       gemini: {
         helpButton: 'Help',
         helpDialog: {
-          title: 'Gemini Usage Guide',
-          apiKeySection: 'API Key Links'
+          title: 'Gemini Usage Guide'
         },
         modelPassthrough: 'Gemini Model Passthrough',
         modelPassthroughDesc:
@@ -1140,10 +1139,6 @@ export default {
           },
           aiStudio: {
           }
-        },
-        accountType: {
-          apiKeyLink: 'Get API Key',
-          quotaLink: 'Quota guide'
         },
         oauthType: {
           builtInTitle: 'Built-in OAuth (Gemini CLI / Code Assist)',
