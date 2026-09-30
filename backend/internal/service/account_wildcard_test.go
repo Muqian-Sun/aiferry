@@ -15,6 +15,21 @@ func requireMappedModel(t *testing.T, account *Account, requested, expected stri
 	}
 }
 
+// newMappingTestAccount 装配映射测试用的账号：普通渠道的改名放在 CatalogUpstreamModels（承接关系上的上游名）；
+// shadow=true 时是 spark 影子号，credentials.model_mapping 是它的模型集合（替换默认表、兼任白名单、支持通配）。
+func newMappingTestAccount(platform string, credentials map[string]any, catalogUpstreamModels map[string]string, shadow bool) *Account {
+	account := &Account{
+		Platform:              platform,
+		Credentials:           credentials,
+		CatalogUpstreamModels: catalogUpstreamModels,
+	}
+	if shadow {
+		parentID := int64(1)
+		account.ParentAccountID = &parentID
+	}
+	return account
+}
+
 func TestMatchWildcard(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -141,9 +156,12 @@ func TestMatchWildcardMappingResult(t *testing.T) {
 
 func TestAccountIsModelSupported(t *testing.T) {
 	tests := []struct {
-		name           string
-		platform       string
-		credentials    map[string]any
+		name                  string
+		platform              string
+		credentials           map[string]any
+		catalogUpstreamModels map[string]string
+		// shadow 为 true 时按 spark 影子号装配：credentials.model_mapping 是模型集合（白名单、支持通配）。
+		shadow         bool
 		requestedModel string
 		expected       bool
 	}{
@@ -161,9 +179,24 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       true,
 		},
 
-		// 精确匹配
+		// 承接关系上的上游名只改名、不兼任白名单
 		{
-			name: "exact match supported",
+			name:                  "catalog upstream rename supported",
+			catalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "target-model"},
+			requestedModel:        "claude-sonnet-4-5",
+			expected:              true,
+		},
+		{
+			name:                  "catalog upstream rename does not restrict other models",
+			catalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "target-model"},
+			requestedModel:        "claude-opus-4-5",
+			expected:              true,
+		},
+
+		// spark 影子号的模型列表：精确匹配（白名单）
+		{
+			name:   "shadow list exact match supported",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"claude-sonnet-4-5": "target-model",
@@ -173,7 +206,8 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name: "exact match not supported",
+			name:   "shadow list exact match not supported",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"claude-sonnet-4-5": "target-model",
@@ -183,9 +217,10 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       false,
 		},
 
-		// 通配符匹配
+		// spark 影子号的模型列表：通配符匹配
 		{
-			name: "wildcard match supported",
+			name:   "shadow list wildcard match supported",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"claude-*": "claude-sonnet-4-5",
@@ -195,8 +230,9 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name:     "gemini customtools alias matches normalized mapping",
+			name:     "gemini customtools alias matches normalized shadow list",
 			platform: PlatformGemini,
+			shadow:   true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
@@ -206,7 +242,8 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name: "wildcard match not supported",
+			name:   "shadow list wildcard match not supported",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"claude-*": "claude-sonnet-4-5",
@@ -274,15 +311,12 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       false,
 		},
 		{
-			name:     "deepseek explicit mapping wins over whitelist",
-			platform: PlatformDeepseek,
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"foo-bar": "deepseek-flash",
-				},
-			},
-			requestedModel: "foo-bar",
-			expected:       true,
+			name:                  "deepseek catalog upstream model wins over whitelist",
+			platform:              PlatformDeepseek,
+			credentials:           map[string]any{},
+			catalogUpstreamModels: map[string]string{"foo-bar": "deepseek-flash"},
+			requestedModel:        "foo-bar",
+			expected:              true,
 		},
 		{
 			name:           "non deepseek empty mapping still allows all",
@@ -295,10 +329,7 @@ func TestAccountIsModelSupported(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account := &Account{
-				Platform:    tt.platform,
-				Credentials: tt.credentials,
-			}
+			account := newMappingTestAccount(tt.platform, tt.credentials, tt.catalogUpstreamModels, tt.shadow)
 			result := account.IsModelSupported(tt.requestedModel)
 			if result != tt.expected {
 				t.Errorf("IsModelSupported(%q) = %v, want %v", tt.requestedModel, result, tt.expected)
@@ -309,11 +340,13 @@ func TestAccountIsModelSupported(t *testing.T) {
 
 func TestAccountGetMappedModel(t *testing.T) {
 	tests := []struct {
-		name           string
-		platform       string
-		credentials    map[string]any
-		requestedModel string
-		expected       string
+		name                  string
+		platform              string
+		credentials           map[string]any
+		catalogUpstreamModels map[string]string
+		shadow                bool
+		requestedModel        string
+		expected              string
 	}{
 		// 无映射 = 返回原始模型
 		{
@@ -332,19 +365,16 @@ func TestAccountGetMappedModel(t *testing.T) {
 
 		// 精确匹配
 		{
-			name: "exact match",
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"claude-sonnet-4-5": "target-model",
-				},
-			},
-			requestedModel: "claude-sonnet-4-5",
-			expected:       "target-model",
+			name:                  "exact match",
+			catalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "target-model"},
+			requestedModel:        "claude-sonnet-4-5",
+			expected:              "target-model",
 		},
 
-		// 通配符匹配（最长优先）
+		// 通配符匹配（最长优先）：只有 spark 影子号的模型列表支持通配
 		{
-			name: "wildcard longest match",
+			name:   "wildcard longest match",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"claude-*":        "claude-default",
@@ -357,30 +387,25 @@ func TestAccountGetMappedModel(t *testing.T) {
 
 		// 无匹配返回原始模型
 		{
-			name:     "gemini customtools alias resolves through normalized mapping",
-			platform: PlatformGemini,
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
-				},
-			},
-			requestedModel: "gemini-3.1-pro-preview-customtools",
-			expected:       "gemini-3.1-pro-preview",
+			name:                  "gemini customtools alias resolves through normalized mapping",
+			platform:              PlatformGemini,
+			catalogUpstreamModels: map[string]string{"gemini-3.1-pro-preview": "gemini-3.1-pro-preview"},
+			requestedModel:        "gemini-3.1-pro-preview-customtools",
+			expected:              "gemini-3.1-pro-preview",
 		},
 		{
 			name:     "gemini customtools exact mapping wins over normalized fallback",
 			platform: PlatformGemini,
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gemini-3.1-pro-preview":             "gemini-3.1-pro-preview",
-					"gemini-3.1-pro-preview-customtools": "gemini-3.1-pro-preview-customtools",
-				},
+			catalogUpstreamModels: map[string]string{
+				"gemini-3.1-pro-preview":             "gemini-3.1-pro-preview",
+				"gemini-3.1-pro-preview-customtools": "gemini-3.1-pro-preview-customtools",
 			},
 			requestedModel: "gemini-3.1-pro-preview-customtools",
 			expected:       "gemini-3.1-pro-preview-customtools",
 		},
 		{
-			name: "no match returns original",
+			name:   "no match returns original",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"gemini-*": "gemini-mapped",
@@ -393,10 +418,7 @@ func TestAccountGetMappedModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account := &Account{
-				Platform:    tt.platform,
-				Credentials: tt.credentials,
-			}
+			account := newMappingTestAccount(tt.platform, tt.credentials, tt.catalogUpstreamModels, tt.shadow)
 			result := account.GetMappedModel(tt.requestedModel)
 			if result != tt.expected {
 				t.Errorf("GetMappedModel(%q) = %q, want %q", tt.requestedModel, result, tt.expected)
@@ -410,12 +432,10 @@ func TestAccountGetModelMapping_AntigravityNormalizesGemini31ProAliases(t *testi
 
 	account := &Account{
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
-				"gemini-3.1-pro-high":                   "gemini-3.1-pro-high",
-				"gemini-3.1-pro-preview":                "gemini-3.1-pro-high",
-			},
+		CatalogUpstreamModels: map[string]string{
+			domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
+			"gemini-3.1-pro-high":                   "gemini-3.1-pro-high",
+			"gemini-3.1-pro-preview":                "gemini-3.1-pro-high",
 		},
 	}
 
@@ -437,12 +457,10 @@ func TestAccountGetModelMapping_AntigravityPreservesGemini31ProOverrides(t *test
 
 	account := &Account{
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
-				"gemini-3.1-pro-high":                   "custom-high",
-				"gemini-3.1-pro-preview":                "custom-preview",
-			},
+		CatalogUpstreamModels: map[string]string{
+			domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
+			"gemini-3.1-pro-high":                   "custom-high",
+			"gemini-3.1-pro-preview":                "custom-preview",
 		},
 	}
 
@@ -459,11 +477,14 @@ func TestAccountGetModelMapping_AntigravityPreservesGemini31ProOverrides(t *test
 	}
 }
 
+// 通配只出现在 spark 影子号的模型列表里（它替换默认表），别名补全要让位给通配。
 func TestAccountGetModelMapping_AntigravityGemini31ProAliasesRespectWildcard(t *testing.T) {
 	t.Parallel()
 
+	parentID := int64(1)
 	account := &Account{
-		Platform: PlatformAntigravity,
+		Platform:        PlatformAntigravity,
+		ParentAccountID: &parentID,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
 				domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
@@ -487,12 +508,14 @@ func TestAccountGetModelMapping_AntigravityGemini31ProAliasesRespectWildcard(t *
 
 func TestAccountResolveMappedModel(t *testing.T) {
 	tests := []struct {
-		name           string
-		platform       string
-		credentials    map[string]any
-		requestedModel string
-		expectedModel  string
-		expectedMatch  bool
+		name                  string
+		platform              string
+		credentials           map[string]any
+		catalogUpstreamModels map[string]string
+		shadow                bool
+		requestedModel        string
+		expectedModel         string
+		expectedMatch         bool
 	}{
 		{
 			name:           "no mapping reports unmatched",
@@ -502,18 +525,15 @@ func TestAccountResolveMappedModel(t *testing.T) {
 			expectedMatch:  false,
 		},
 		{
-			name: "exact passthrough mapping still counts as matched",
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gpt-5.4": "gpt-5.4",
-				},
-			},
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4",
-			expectedMatch:  true,
+			name:                  "exact passthrough mapping still counts as matched",
+			catalogUpstreamModels: map[string]string{"gpt-5.4": "gpt-5.4"},
+			requestedModel:        "gpt-5.4",
+			expectedModel:         "gpt-5.4",
+			expectedMatch:         true,
 		},
 		{
-			name: "wildcard passthrough mapping still counts as matched",
+			name:   "wildcard passthrough mapping still counts as matched",
+			shadow: true,
 			credentials: map[string]any{
 				"model_mapping": map[string]any{
 					"gpt-*": "gpt-5.4",
@@ -524,49 +544,36 @@ func TestAccountResolveMappedModel(t *testing.T) {
 			expectedMatch:  true,
 		},
 		{
-			name:     "gemini customtools alias reports normalized match",
-			platform: PlatformGemini,
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
-				},
-			},
-			requestedModel: "gemini-3.1-pro-preview-customtools",
-			expectedModel:  "gemini-3.1-pro-preview",
-			expectedMatch:  true,
+			name:                  "gemini customtools alias reports normalized match",
+			platform:              PlatformGemini,
+			catalogUpstreamModels: map[string]string{"gemini-3.1-pro-preview": "gemini-3.1-pro-preview"},
+			requestedModel:        "gemini-3.1-pro-preview-customtools",
+			expectedModel:         "gemini-3.1-pro-preview",
+			expectedMatch:         true,
 		},
 		{
 			name:     "gemini customtools exact mapping reports exact match",
 			platform: PlatformGemini,
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gemini-3.1-pro-preview":             "gemini-3.1-pro-preview",
-					"gemini-3.1-pro-preview-customtools": "gemini-3.1-pro-preview-customtools",
-				},
+			catalogUpstreamModels: map[string]string{
+				"gemini-3.1-pro-preview":             "gemini-3.1-pro-preview",
+				"gemini-3.1-pro-preview-customtools": "gemini-3.1-pro-preview-customtools",
 			},
 			requestedModel: "gemini-3.1-pro-preview-customtools",
 			expectedModel:  "gemini-3.1-pro-preview-customtools",
 			expectedMatch:  true,
 		},
 		{
-			name: "missing mapping reports unmatched",
-			credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gpt-5.2": "gpt-5.2",
-				},
-			},
-			requestedModel: "gpt-5.4",
-			expectedModel:  "gpt-5.4",
-			expectedMatch:  false,
+			name:                  "missing mapping reports unmatched",
+			catalogUpstreamModels: map[string]string{"gpt-5.2": "gpt-5.2"},
+			requestedModel:        "gpt-5.4",
+			expectedModel:         "gpt-5.4",
+			expectedMatch:         false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account := &Account{
-				Platform:    tt.platform,
-				Credentials: tt.credentials,
-			}
+			account := newMappingTestAccount(tt.platform, tt.credentials, tt.catalogUpstreamModels, tt.shadow)
 			mappedModel, matched := account.ResolveMappedModel(tt.requestedModel)
 			if mappedModel != tt.expectedModel || matched != tt.expectedMatch {
 				t.Fatalf("ResolveMappedModel(%q) = (%q, %v), want (%q, %v)", tt.requestedModel, mappedModel, matched, tt.expectedModel, tt.expectedMatch)
@@ -575,9 +582,12 @@ func TestAccountResolveMappedModel(t *testing.T) {
 	}
 }
 
+// 透传补全保证替换默认表的模型列表（spark 影子号）里仍有这些 Gemini 默认模型。
 func TestAccountGetModelMapping_AntigravityEnsuresGeminiDefaultPassthroughs(t *testing.T) {
+	parentID := int64(1)
 	account := &Account{
-		Platform: PlatformAntigravity,
+		Platform:        PlatformAntigravity,
+		ParentAccountID: &parentID,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
 				"gemini-3-pro-high": "gemini-3.1-pro-high",
@@ -622,30 +632,36 @@ func TestAccountGetModelMapping_GoogleOneUsesConservativeDefaults(t *testing.T) 
 	}
 }
 
-func TestAccountGetModelMapping_GoogleOnePreservesExplicitMapping(t *testing.T) {
+// 承接关系上的上游名叠在 Google One 保守默认表之上：改名生效、默认表里的模型仍在，默认表仍是模型集合。
+func TestAccountGetModelMapping_GoogleOneMergesCatalogUpstreamModels(t *testing.T) {
 	account := &Account{
 		Platform: PlatformGemini,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
 			"oauth_type": "google_one",
-			"model_mapping": map[string]any{
-				"custom-model": "gemini-2.5-flash",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"custom-model": "gemini-2.5-flash",
 		},
 	}
 
 	mapping := account.GetModelMapping()
 	if mapping["custom-model"] != "gemini-2.5-flash" {
-		t.Fatalf("expected explicit Google One mapping to be preserved, got %v", mapping)
+		t.Fatalf("expected catalog upstream model to be applied, got %v", mapping)
 	}
-	if _, ok := mapping["gemini-2.5-flash"]; ok {
-		t.Fatalf("did not expect defaults to overwrite an explicit mapping: %v", mapping)
+	if mapping["gemini-2.5-pro"] != "gemini-2.5-pro" {
+		t.Fatalf("expected Google One defaults to stay under the catalog upstream models: %v", mapping)
+	}
+	if account.IsModelSupported("gemini-3.5-flash") {
+		t.Fatal("Google One defaults must stay the model set when catalog upstream models are merged on top")
 	}
 }
 
 func TestAccountGetModelMapping_AntigravityRespectsWildcardOverride(t *testing.T) {
+	parentID := int64(1)
 	account := &Account{
-		Platform: PlatformAntigravity,
+		Platform:        PlatformAntigravity,
+		ParentAccountID: &parentID,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
 				"gemini-3*": "gemini-3.1-pro-high",
@@ -668,8 +684,11 @@ func TestAccountGetModelMapping_AntigravityRespectsWildcardOverride(t *testing.T
 	}
 }
 
+// 影子号的模型列表在 credentials 里：换了 credentials 缓存要失效。
 func TestAccountGetModelMapping_CacheInvalidatesOnCredentialsReplace(t *testing.T) {
+	parentID := int64(1)
 	account := &Account{
+		ParentAccountID: &parentID,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
 				"claude-3-5-sonnet": "upstream-a",
@@ -693,14 +712,29 @@ func TestAccountGetModelMapping_CacheInvalidatesOnCredentialsReplace(t *testing.
 	}
 }
 
+func TestAccountGetModelMapping_CacheInvalidatesOnCatalogUpstreamModelsReplace(t *testing.T) {
+	account := &Account{
+		CatalogUpstreamModels: map[string]string{"claude-3-5-sonnet": "upstream-a"},
+	}
+
+	first := account.GetModelMapping()
+	if first["claude-3-5-sonnet"] != "upstream-a" {
+		t.Fatalf("unexpected first mapping: %v", first)
+	}
+
+	account.CatalogUpstreamModels = map[string]string{"claude-3-5-sonnet": "upstream-b"}
+	second := account.GetModelMapping()
+	if second["claude-3-5-sonnet"] != "upstream-b" {
+		t.Fatalf("expected cache invalidated after catalog upstream models replace, got: %v", second)
+	}
+}
+
 func TestAccountGetModelMapping_CacheInvalidatesOnMappingLenChange(t *testing.T) {
-	rawMapping := map[string]any{
+	rawMapping := map[string]string{
 		"claude-sonnet": "sonnet-a",
 	}
 	account := &Account{
-		Credentials: map[string]any{
-			"model_mapping": rawMapping,
-		},
+		CatalogUpstreamModels: rawMapping,
 	}
 
 	first := account.GetModelMapping()
@@ -716,13 +750,11 @@ func TestAccountGetModelMapping_CacheInvalidatesOnMappingLenChange(t *testing.T)
 }
 
 func TestAccountGetModelMapping_CacheInvalidatesOnInPlaceValueChange(t *testing.T) {
-	rawMapping := map[string]any{
+	rawMapping := map[string]string{
 		"claude-sonnet": "sonnet-a",
 	}
 	account := &Account{
-		Credentials: map[string]any{
-			"model_mapping": rawMapping,
-		},
+		CatalogUpstreamModels: rawMapping,
 	}
 
 	first := account.GetModelMapping()

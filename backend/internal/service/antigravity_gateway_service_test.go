@@ -903,9 +903,9 @@ func TestAntigravityGatewayService_Forward_BillsWithMappedModel(t *testing.T) {
 		Credentials: map[string]any{
 			"access_token": "token",
 			"project_id":   "proj",
-			"model_mapping": map[string]any{
-				"claude-sonnet-4-5": mappedModel,
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"claude-sonnet-4-5": mappedModel,
 		},
 	}
 
@@ -957,9 +957,9 @@ func TestAntigravityGatewayService_ForwardGemini_BillsWithMappedModel(t *testing
 		Credentials: map[string]any{
 			"access_token": "token",
 			"project_id":   "proj",
-			"model_mapping": map[string]any{
-				"gemini-2.5-flash": mappedModel,
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"gemini-2.5-flash": mappedModel,
 		},
 	}
 
@@ -1029,9 +1029,9 @@ func TestAntigravityGatewayService_ForwardGemini_RetriesCorruptedThoughtSignatur
 		Credentials: map[string]any{
 			"access_token": "token",
 			"project_id":   "proj",
-			"model_mapping": map[string]any{
-				originalModel: mappedModel,
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			originalModel: mappedModel,
 		},
 	}
 
@@ -1088,9 +1088,9 @@ func TestAntigravityGatewayService_ForwardGemini_SignatureRetryPropagatesFailove
 		Credentials: map[string]any{
 			"access_token": "token",
 			"project_id":   "proj",
-			"model_mapping": map[string]any{
-				originalModel: mappedModel,
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			originalModel: mappedModel,
 		},
 	}
 

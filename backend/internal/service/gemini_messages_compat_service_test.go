@@ -592,9 +592,9 @@ func TestGeminiMessagesCompatServiceForward_PreservesRequestedModelAndMappedUpst
 		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "test-key",
-			"model_mapping": map[string]any{
-				"claude-sonnet-4": "claude-sonnet-4-20250514",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"claude-sonnet-4": "claude-sonnet-4-20250514",
 		},
 	}
 	body := []byte(`{"model":"claude-sonnet-4","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)

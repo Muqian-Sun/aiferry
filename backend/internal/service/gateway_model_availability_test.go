@@ -49,14 +49,18 @@ func TestDiagnoseModelAvailabilityForPlatform_NoAccountsInPool(t *testing.T) {
 	require.False(t, diag.HasModelSupport, "no accounts means no support; caller stays on 503 (empty-pool branch)")
 }
 
+// 只有 spark 影子号的模型列表兼任白名单（普通渠道的上游名只改名），映射匹配用影子号装配。
+var modelAvailabilityShadowParentID = int64(100)
+
 func TestDiagnoseModelAvailabilityForPlatform_ExplicitMappingMatches(t *testing.T) {
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
-				ID:          1,
-				Platform:    PlatformOpenAI,
-				Status:      StatusActive,
-				Schedulable: true,
+				ID:              1,
+				Platform:        PlatformOpenAI,
+				Status:          StatusActive,
+				Schedulable:     true,
+				ParentAccountID: &modelAvailabilityShadowParentID,
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"gpt-5.1-codex-mini": "gpt-5.1-codex-mini"},
 				},
@@ -96,10 +100,11 @@ func TestDiagnoseModelAvailabilityForPlatform_WildcardMappingMatches(t *testing.
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
-				ID:          1,
-				Platform:    PlatformOpenAI,
-				Status:      StatusActive,
-				Schedulable: true,
+				ID:              1,
+				Platform:        PlatformOpenAI,
+				Status:          StatusActive,
+				Schedulable:     true,
+				ParentAccountID: &modelAvailabilityShadowParentID,
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"*": "gpt-5"},
 				},
@@ -121,18 +126,20 @@ func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSig
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
-				ID:          1,
-				Platform:    PlatformOpenAI,
-				Status:      StatusActive,
-				Schedulable: true,
-				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5": "gpt-5"}},
+				ID:              1,
+				Platform:        PlatformOpenAI,
+				Status:          StatusActive,
+				Schedulable:     true,
+				ParentAccountID: &modelAvailabilityShadowParentID,
+				Credentials:     map[string]any{"model_mapping": map[string]any{"gpt-5": "gpt-5"}},
 			},
 			{
-				ID:          2,
-				Platform:    PlatformOpenAI,
-				Status:      StatusActive,
-				Schedulable: true,
-				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5-mini": "gpt-5-mini"}},
+				ID:              2,
+				Platform:        PlatformOpenAI,
+				Status:          StatusActive,
+				Schedulable:     true,
+				ParentAccountID: &modelAvailabilityShadowParentID,
+				Credentials:     map[string]any{"model_mapping": map[string]any{"gpt-5-mini": "gpt-5-mini"}},
 			},
 		},
 		accountsByID: map[int64]*Account{},

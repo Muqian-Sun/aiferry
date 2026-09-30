@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -88,12 +89,6 @@ func newAntigravityCompatAccount(accountType string) *Account {
 		Credentials: map[string]any{
 			"access_token": "stale-account-token",
 			"project_id":   "project-3757",
-			"model_mapping": map[string]any{
-				"gemini-3.1-pro-high":      "gemini-3.1-pro-high",
-				"claude-sonnet-4-5":        "claude-sonnet-4-5",
-				"claude-sonnet-4-6":        "claude-sonnet-4-6",
-				"claude-opus-4-6-thinking": "claude-opus-4-6-thinking",
-			},
 		},
 	}
 }
@@ -439,10 +434,12 @@ func TestAntigravityCompatRoutesByMappedModelFamily(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
 		model         string
+		upstreamModel string
 		wantSessionID bool
 	}{
-		{model: "gemini-3.1-pro-high", wantSessionID: false},
-		{model: "claude-sonnet-4-5", wantSessionID: true},
+		// 默认表：gemini-3.1-pro-high → gemini-pro-agent，仍按 Gemini 家族路由
+		{model: "gemini-3.1-pro-high", upstreamModel: domain.AntigravityGemini31ProAgentModel, wantSessionID: false},
+		{model: "claude-sonnet-4-5", upstreamModel: "claude-sonnet-4-5", wantSessionID: true},
 	}
 
 	for _, tt := range tests {
@@ -463,7 +460,7 @@ func TestAntigravityCompatRoutesByMappedModelFamily(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Len(t, upstream.requestBodies, 1)
-			require.Equal(t, tt.model, gjson.GetBytes(upstream.requestBodies[0], "model").String())
+			require.Equal(t, tt.upstreamModel, gjson.GetBytes(upstream.requestBodies[0], "model").String())
 			require.Equal(t, tt.wantSessionID, gjson.GetBytes(upstream.requestBodies[0], "request.sessionId").Exists())
 		})
 	}
