@@ -66,19 +66,23 @@ describe('ModelPlazaContent', () => {
     copyToClipboard.mockClear()
   })
 
-  it('renders one grid cell per listed entry (vendor, then id) with list prices per 1M tokens', () => {
+  it('renders one grid cell per listed entry (vendor, then id) with list prices per 1M tokens', async () => {
     const wrapper = mountContent()
     expect(rowIds(wrapper)).toEqual(['claude-opus-5', 'gpt-5.5', 'gpt-image-2'])
     const gpt = wrapper.findAll('[data-testid="catalog-cell"]')[1]
     expect(gpt.text()).toContain('OpenAI')
     expect(gpt.text()).toContain('$10.00')
     expect(gpt.text()).toContain('$30.00')
-    expect(gpt.text()).toContain('$2.5')
-    expect(gpt.text()).toContain('gpt-5.5-sol')
+    // 缓存读与别名在详情抽屉里
+    await gpt.trigger('click')
+    const detail = document.body.querySelector('[data-testid="model-pricing-detail"]')
+    expect(detail?.textContent).toContain('$2.5')
+    expect(detail?.textContent).toContain('gpt-5.5-sol')
     expect(wrapper.get('[data-testid="price-unit"]').text()).toContain('userUi.models.priceUnit')
     expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
     // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格
     expect(wrapper.get('[data-testid="catalog-cell"]').classes().join(' ')).not.toMatch(/rounded|shadow/)
+    wrapper.unmount()
   })
 
   it('shows vendor tabs with counts and filters by the selected vendor, writing it to the URL', async () => {
@@ -134,7 +138,7 @@ describe('ModelPlazaContent', () => {
 
   it('copies a model id from the cell button', async () => {
     const wrapper = mountContent()
-    await wrapper.findAll('[data-testid="catalog-cell"]')[1].find('button').trigger('click')
+    await wrapper.findAll('[data-testid="catalog-cell"]')[1].get('[data-testid="copy-model-id"]').trigger('click')
     expect(copyToClipboard).toHaveBeenCalledWith('gpt-5.5')
   })
 
