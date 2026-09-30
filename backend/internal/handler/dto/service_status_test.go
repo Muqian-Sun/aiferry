@@ -33,3 +33,11 @@ func TestServiceStatusCoverageBackfillPercent(t *testing.T) {
 	require.Equal(t, 42, *active.BackfillPercent)
 	require.Nil(t, serviceStatusCoverage(service.ChannelMonitorV2Coverage{}).BackfillPercent)
 }
+
+// 缓存命中率：有输入时给比率，没有输入（分母 0）时为 null，不能显示成 0%。
+func TestServiceStatusCacheHitRate(t *testing.T) {
+	got := serviceStatusMetric(service.ChannelMonitorV2Metric{SuccessRate: 1, CacheRate: 0.86, CacheRateDenominator: 1000})
+	require.NotNil(t, got.CacheHitRate)
+	require.InDelta(t, 0.86, *got.CacheHitRate, 1e-9)
+	require.Nil(t, serviceStatusMetric(service.ChannelMonitorV2Metric{SuccessRate: 1}).CacheHitRate)
+}

@@ -13,12 +13,15 @@ export interface ServiceStatusMetric {
   availability: number | null
   ttft_p50_ms: number | null
   ttft_p90_ms: number | null
+  /** 0–1：输入里命中缓存的 token 占比；这段时间没有输入时为 null */
+  cache_hit_rate: number | null
 }
 
 export interface ServiceStatusHealth {
   overall: ServiceHealth
   availability: ServiceHealth
   ttft: ServiceHealth
+  cache: ServiceHealth
 }
 
 export interface ServiceStatusCoverage {

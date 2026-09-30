@@ -313,7 +313,7 @@ export default {
     },
     serviceStatus: {
       title: '服务状态',
-      description: '各模型最近的可用率和首字延迟，按本站的真实请求统计',
+      description: '各模型最近的可用率、首字延迟和缓存命中率，按本站的真实请求统计',
       range: { label: '时间范围', '90m': '90 分钟', '24h': '24 小时', '7d': '7 天', '30d': '30 天' },
       headline: {
         healthy: '各模型运行正常',
@@ -324,7 +324,7 @@ export default {
       updatedAt: '数据更新于 {time}',
       noDataYet: '还没有统计数据',
       backfill: '正在补齐历史数据（{percent}%），较长的时间范围暂时不完整',
-      stats: { availability: '可用率', ttft: '首字延迟（中位数）', ttftP90: '九成请求在 {value} 内' },
+      stats: { availability: '可用率', ttft: '首字延迟（中位数）', ttftP90: '九成请求在 {value} 内', cache: '缓存命中率' },
       models: {
         title: '各模型',
         description: '有问题的排在前面；色条从左到右是时间，一格是一段，悬停看那一段的数字',
@@ -337,12 +337,12 @@ export default {
         hideIdle: '收起',
         stripLabel: '{model} 各时段状态'
       },
-      columns: { availability: '可用率', ttft: '首字延迟' },
+      columns: { availability: '可用率', ttft: '首字延迟', cache: '缓存命中率' },
       legend: { healthy: '正常', warning: '不稳定', critical: '异常', unknown: '请求太少' },
-      slot: { detail: '{time}　可用率 {availability} · 首字延迟 {ttft}', fewRequests: '（请求较少，不评状态）', noRequests: '{time}　没有请求' },
+      slot: { detail: '{time}　可用率 {availability} · 首字延迟 {ttft} · 缓存命中率 {cache}', fewRequests: '（请求较少，不评状态）', noRequests: '{time}　没有请求' },
       trend: { title: '整体趋势', empty: '这段时间还没有数据' },
       loadFailed: '服务状态没有加载出来',
-      footnote: '数据来自本站的真实请求。首字延迟是从发出请求到收到第一段输出的时间。'
+      footnote: '数据来自本站的真实请求。首字延迟是从发出请求到收到第一段输出的时间；缓存命中率是输入里命中缓存的 token 占比。'
     }
   }
 }

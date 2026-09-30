@@ -1,19 +1,26 @@
 <template>
   <!--
-    服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快」。
-    与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）。
-    ① 整体：一句话结论 + 可用率 / 首字延迟 + 全站趋势（可用率 / 首字延迟切换）
+    服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快、缓存命中多少」。
+    与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）；
+    加载方式也与模型页一样：路由预加载默认时间范围，数据到了再换页（serviceStatusQuery）；
+    切换时间范围时旧内容留在原处（变淡），新数据到了再替换，不收成加载占位、不丢滚动位置。
+    ① 整体：一句话结论 + 可用率 / 首字延迟 / 缓存命中率 + 全站趋势（三项切换）
     ② 各模型 = 上架目录里的模型（muqian 2026-09-30，后端按目录出名单，别名并入本名，没上架的不计）：
-       多列格子（一格 = 状态、逐段细色条、可用率、首字延迟），有问题的排前面，可按状态筛选、搜索；
+       多列格子（一格 = 状态、逐段细色条、可用率、首字延迟、缓存命中率），有问题的排前面，可按状态筛选、搜索；
        这段时间一个请求都没有的模型不占格子，折成一行「另有 N 个模型没有请求」，展开只列名字。
-    数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行、缓存率）。
+    数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行）。
   -->
   <SiteShell variant="public">
-    <PageHeader :title="t('userUi.serviceStatus.title')" :description="t('userUi.serviceStatus.description')">
-      <template #actions>
-        <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
-      </template>
-    </PageHeader>
+    <!-- 页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
+    <div class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header v-reveal.stagger data-testid="service-status-hero">
+        <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
+          {{ t('userUi.serviceStatus.title') }}
+        </h1>
+        <p class="mt-3 max-w-2xl text-[15px] leading-7 text-af-ink-2">{{ t('userUi.serviceStatus.description') }}</p>
+      </header>
+      <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
+    </div>
 
     <StatusState
       v-if="loadError && !models"
@@ -24,7 +31,7 @@
     />
     <StatusState v-else-if="!models" kind="loading" :title="t('userUi.status.loading')" />
 
-    <div v-else class="space-y-10" :aria-busy="loading ? 'true' : undefined">
+    <div v-else class="space-y-10 transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading ? 'true' : undefined">
       <!-- ① 整体 -->
       <section class="space-y-6" data-testid="service-status-summary">
         <div>
@@ -79,14 +86,18 @@
                 :bucket-seconds="bucketSeconds"
                 :label="t('userUi.serviceStatus.models.stripLabel', { model: row.model })"
               />
-              <p class="mt-2.5 flex items-center justify-between gap-4 text-xs tabular-nums text-af-ink-3">
+              <p class="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs tabular-nums text-af-ink-3">
                 <span>
                   {{ t('userUi.serviceStatus.columns.availability') }}
-                  <span :class="HEALTH_TEXT[row.health.availability]">{{ formatAvailability(row.metrics.availability) }}</span>
+                  <span :class="HEALTH_TEXT[row.health.availability]">{{ formatPercent(row.metrics.availability) }}</span>
                 </span>
                 <span>
                   {{ t('userUi.serviceStatus.columns.ttft') }}
                   <span :class="HEALTH_TEXT[row.health.ttft]">{{ formatLatency(row.metrics.ttft_p50_ms) }}</span>
+                </span>
+                <span>
+                  {{ t('userUi.serviceStatus.columns.cache') }}
+                  <span :class="HEALTH_TEXT[row.health.cache]">{{ formatPercent(row.metrics.cache_hit_rate) }}</span>
                 </span>
               </p>
             </li>
@@ -132,17 +143,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  getServiceStatusModels,
-  getServiceStatusSnapshot,
-  type ServiceHealth,
-  type ServiceStatusModels,
-  type ServiceStatusRange,
-  type ServiceStatusSnapshot
-} from '@/api/serviceStatus'
+import { usePreferredReducedMotion, useTransition } from '@vueuse/core'
+import { vReveal } from '@/directives/reveal'
+import type { ServiceHealth, ServiceStatusModels, ServiceStatusRange, ServiceStatusSnapshot } from '@/api/serviceStatus'
+import { SERVICE_STATUS_DEFAULT_RANGE, loadServiceStatus } from './serviceStatusQuery'
 import { useAppStore } from '@/stores/app'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import PageHeader from '@/components/user/shell/PageHeader.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
@@ -157,7 +163,7 @@ import {
   HEALTH_DOT,
   HEALTH_TEXT,
   fillSlots,
-  formatAvailability,
+  formatPercent,
   formatLatency
 } from '@/components/user/status/serviceStatus'
 
@@ -171,7 +177,7 @@ const SEARCH_THRESHOLD = 8
 /** 有问题的排前面；「请求太少」不下结论，排在正常之后 */
 const HEALTH_RANK: Record<ServiceHealth, number> = { critical: 0, warning: 1, healthy: 2, unknown: 3 }
 
-const range = ref<ServiceStatusRange>('24h')
+const range = ref<ServiceStatusRange>(SERVICE_STATUS_DEFAULT_RANGE)
 const rangeTabs = computed<SectionTab[]>(() => RANGES.map((key) => ({ key, label: t(`userUi.serviceStatus.range.${key}`) })))
 
 // ---------- 数据 ----------
@@ -189,10 +195,7 @@ async function reload() {
   loading.value = true
   loadError.value = false
   try {
-    const [nextSnapshot, nextModels] = await Promise.all([
-      getServiceStatusSnapshot(range.value, request.signal),
-      getServiceStatusModels(range.value, request.signal)
-    ])
+    const [nextSnapshot, nextModels] = await loadServiceStatus(range.value, request.signal)
     if (controller !== request) return
     snapshot.value = nextSnapshot
     models.value = nextModels
@@ -217,11 +220,8 @@ function scheduleRefresh() {
   }, seconds * 1000)
 }
 
-watch(range, () => {
-  models.value = null
-  snapshot.value = null
-  void reload()
-})
+// 旧内容留着（变淡），新数据到了再替换：不收成加载占位，页面高度与滚动位置不跳
+watch(range, () => void reload())
 onMounted(() => {
   // 公开壳的顶栏需要站点名 / Logo；有 __APP_CONFIG__ 注入时同步命中缓存
   void appStore.fetchPublicSettings()
@@ -288,6 +288,20 @@ const headline = computed<{ level: ServiceHealth; text: string }>(() => {
   return { level: 'unknown', text: t('userUi.serviceStatus.headline.unknown') }
 })
 
+// 页首数字从 0 跳到位，与模型页页首数字同一条缓动（style.css 的 .count-up：1.2 秒、cubic-bezier(0.22, 1, 0.36, 1)、
+// 延后 0.15 秒）。模型页是 CSS 整数计数器，这里的数带小数和单位，改用 useTransition 补间后再格式化；
+// 切换时间范围时从旧值过渡到新值；系统开了「减少动态效果」时直接显示
+const reducedMotion = usePreferredReducedMotion()
+function useCountUp(value: () => number | null | undefined) {
+  return useTransition(
+    computed(() => value() ?? 0),
+    { duration: 1200, delay: 150, transition: [0.22, 1, 0.36, 1], disabled: computed(() => reducedMotion.value === 'reduce') }
+  )
+}
+const availabilityCount = useCountUp(() => snapshot.value?.metrics.availability)
+const ttftCount = useCountUp(() => snapshot.value?.metrics.ttft_p50_ms)
+const cacheCount = useCountUp(() => snapshot.value?.metrics.cache_hit_rate)
+
 const statItems = computed<StatItem[]>(() => {
   const metrics = snapshot.value?.metrics
   const health = snapshot.value?.health
@@ -295,15 +309,21 @@ const statItems = computed<StatItem[]>(() => {
     {
       key: 'availability',
       label: t('userUi.serviceStatus.stats.availability'),
-      value: formatAvailability(metrics?.availability),
+      value: metrics?.availability == null ? formatPercent(null) : formatPercent(availabilityCount.value),
       valueClass: health ? HEALTH_TEXT[health.availability] : undefined
     },
     {
       key: 'ttft',
       label: t('userUi.serviceStatus.stats.ttft'),
-      value: formatLatency(metrics?.ttft_p50_ms),
+      value: metrics?.ttft_p50_ms == null ? formatLatency(null) : formatLatency(ttftCount.value),
       hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined,
       valueClass: health ? HEALTH_TEXT[health.ttft] : undefined
+    },
+    {
+      key: 'cache',
+      label: t('userUi.serviceStatus.stats.cache'),
+      value: metrics?.cache_hit_rate == null ? formatPercent(null) : formatPercent(cacheCount.value),
+      valueClass: health ? HEALTH_TEXT[health.cache] : undefined
     }
   ]
 })
@@ -326,7 +346,8 @@ const backfillPercent = computed(() => snapshot.value?.coverage.backfill_percent
 const trendMetric = ref<ServiceTrendMetric>('availability')
 const trendOptions = computed<Array<{ key: ServiceTrendMetric; label: string }>>(() => [
   { key: 'availability', label: t('userUi.serviceStatus.columns.availability') },
-  { key: 'ttft', label: t('userUi.serviceStatus.columns.ttft') }
+  { key: 'ttft', label: t('userUi.serviceStatus.columns.ttft') },
+  { key: 'cache', label: t('userUi.serviceStatus.columns.cache') }
 ])
 const trendSlots = computed(() => (snapshot.value ? fillSlots(snapshot.value.coverage, snapshot.value.trend) : []))
 </script>

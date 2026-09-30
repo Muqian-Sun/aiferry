@@ -26,7 +26,8 @@ export const HEALTH_TEXT: Record<ServiceHealth, string> = {
   unknown: 'text-af-ink-3'
 }
 
-export function formatAvailability(value: number | null | undefined): string {
+/** 0–1 的比率写成百分比（可用率、缓存命中率） */
+export function formatPercent(value: number | null | undefined): string {
   if (value == null) return '—'
   const percent = value * 100
   // 99.95% 以上写 100%，其余一位小数：再多的精度读不出差别

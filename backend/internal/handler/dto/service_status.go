@@ -8,17 +8,19 @@ import (
 
 // 用户站「服务状态」页（/channel-monitor-v2/snapshot 与 /matrix，对未登录访客公开）的响应。
 //
-// 只回答「各模型现在能不能用、快不快」，字段一律白名单：
-// 不含平台 / 渠道、上游状态码与错误原文、请求量与 Token 量、RPM / TPM、缓存率、
+// 只回答「各模型现在能不能用、快不快、缓存命中多少」，字段一律白名单：
+// 不含平台 / 渠道、上游状态码与错误原文、请求量与 Token 量、RPM / TPM、
 // 健康分的阈值与权重、任何用户的信息。
 
-// ServiceStatusMetric 一个统计格：可用率与首字延迟。
+// ServiceStatusMetric 一个统计格：可用率、首字延迟与缓存命中率。
 type ServiceStatusMetric struct {
 	// Availability = 1 − 计入错误率的失败占比（内容审核、余额不足这类客户端原因的失败不计）。
 	// 该区间没有请求时为 null。
 	Availability *float64 `json:"availability"`
 	TTFTP50Ms    *int64   `json:"ttft_p50_ms"`
 	TTFTP90Ms    *int64   `json:"ttft_p90_ms"`
+	// CacheHitRate 输入里命中缓存的 token 占比（缓存读 ÷（输入 + 缓存写 + 缓存读））；没有输入时为 null。
+	CacheHitRate *float64 `json:"cache_hit_rate"`
 }
 
 // ServiceStatusHealth 状态档位：healthy / warning / critical / unknown（样本不足）。
@@ -26,6 +28,7 @@ type ServiceStatusHealth struct {
 	Overall      string `json:"overall"`
 	Availability string `json:"availability"`
 	TTFT         string `json:"ttft"`
+	Cache        string `json:"cache"`
 }
 
 // ServiceStatusCoverage 统计窗口与数据新鲜度。
@@ -73,11 +76,15 @@ func serviceStatusMetric(m service.ChannelMonitorV2Metric) ServiceStatusMetric {
 		availability := 1 - m.ErrorRate
 		out.Availability = &availability
 	}
+	if m.CacheRateDenominator > 0 {
+		rate := m.CacheRate
+		out.CacheHitRate = &rate
+	}
 	return out
 }
 
 func serviceStatusHealth(h service.ChannelMonitorV2Health) ServiceStatusHealth {
-	return ServiceStatusHealth{Overall: h.Overall, Availability: h.ErrorRate, TTFT: h.TTFT}
+	return ServiceStatusHealth{Overall: h.Overall, Availability: h.ErrorRate, TTFT: h.TTFT, Cache: h.Cache}
 }
 
 func serviceStatusCoverage(c service.ChannelMonitorV2Coverage) ServiceStatusCoverage {

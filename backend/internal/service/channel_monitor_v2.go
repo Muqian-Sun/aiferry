@@ -26,9 +26,10 @@ type ChannelMonitorV2Config struct {
 	Roster                 ChannelMonitorV2ModelRoster
 }
 
-// channelMonitorV2Config 取原配置表在全新安装时实际生效的值（迁移 198 / 203 / 205），行为不变：
-// 首字延迟目标 3 秒、8 秒不稳定、20 秒异常；错误率 5% 不稳定、20% 异常；满 50 个请求才评状态；
-// 缓存命中率不参与评分（阈值 0 / 0）。忽略的错误类别去掉了分类里已不存在的 group_access。
+// channelMonitorV2Config 服务状态的评分配置。错误率与首字延迟取原配置表全新安装时的生效值（迁移 198 / 205）：
+// 首字延迟目标 3 秒、8 秒不稳定、20 秒异常；错误率 5% 不稳定、20% 异常；满 50 个请求才评状态。
+// 缓存命中率参与评分（muqian 2026-09-30）：85% 以下提醒、60% 以下异常，取迁移 203 当时的出厂值。
+// 忽略的错误类别去掉了分类里已不存在的 group_access。
 var channelMonitorV2Config = ChannelMonitorV2Config{
 	HealthThresholds: ChannelMonitorV2HealthThresholds{
 		MinimumSample:     50,
@@ -37,8 +38,8 @@ var channelMonitorV2Config = ChannelMonitorV2Config{
 		TargetTTFTMs:      3000,
 		WarningTTFTMs:     8000,
 		CriticalTTFTMs:    20000,
-		WarningCacheRate:  0,
-		CriticalCacheRate: 0,
+		WarningCacheRate:  0.85,
+		CriticalCacheRate: 0.60,
 		ErrorWeight:       0.60,
 		TTFTWeight:        0.20,
 		CacheWeight:       0.20,
@@ -146,7 +147,7 @@ type ChannelMonitorV2HealthThresholds struct {
 	WarningTTFTMs  int64 `json:"warning_ttft_ms"`
 	CriticalTTFTMs int64 `json:"critical_ttft_ms"`
 	// WarningCacheRate / CriticalCacheRate: cache rate below these → warning/critical bands.
-	// Higher cache rate is better; defaults 20% warning / 5% critical.
+	// Higher cache rate is better.
 	WarningCacheRate  float64 `json:"warning_cache_rate"`
 	CriticalCacheRate float64 `json:"critical_cache_rate"`
 	// ErrorWeight + TTFTWeight + CacheWeight should sum to 1.0.
@@ -412,13 +413,10 @@ func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thr
 			parts = append(parts, scored{score: s, weight: thresholds.TTFTWeight, band: result.TTFT})
 		}
 	}
-	// Cache: need a meaningful denominator; higher rate is better.
-	if metrics.CacheRateDenominator >= result.MinimumSample {
+	// Cache: same request-count gate as error rate (the token denominator alone would let a
+	// handful of long requests rate a model on cache only); higher rate is better.
+	if metrics.RequestCount >= result.MinimumSample && metrics.CacheRateDenominator > 0 {
 		s := cacheRateScore(metrics.CacheRate)
-		if thresholds.WarningCacheRate <= 0 && thresholds.CriticalCacheRate <= 0 {
-			// A zero/zero cache threshold means "do not penalize cache misses".
-			s = 100
-		}
 		result.CacheScore = &s
 		// Invert for healthBand (lower is worse): use (1 - rate) against warning/critical floors.
 		result.Cache = cacheRateBand(metrics.CacheRate, thresholds.WarningCacheRate, thresholds.CriticalCacheRate)
