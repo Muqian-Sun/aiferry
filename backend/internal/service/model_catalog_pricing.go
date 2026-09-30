@@ -87,6 +87,52 @@ func validatePriceSegments(label string, intervals []PricingInterval) error {
 	return nil
 }
 
+// sameOfficialPrices 两份条目的五项 token 价与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
+func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
+	pairs := [][2]*float64{
+		{a.InputPrice, b.InputPrice},
+		{a.OutputPrice, b.OutputPrice},
+		{a.CacheWritePrice, b.CacheWritePrice},
+		{a.CacheWrite1hPrice, b.CacheWrite1hPrice},
+		{a.CacheReadPrice, b.CacheReadPrice},
+	}
+	for _, p := range pairs {
+		if !samePricePtr(p[0], p[1]) {
+			return false
+		}
+	}
+	as, bs := normalizePriceSegments(a.Intervals), normalizePriceSegments(b.Intervals)
+	if len(as) != len(bs) {
+		return false
+	}
+	for i := range as {
+		x, y := as[i], bs[i]
+		if x.MinTokens != y.MinTokens || !sameIntPtr(x.MaxTokens, y.MaxTokens) || x.TierLabel != y.TierLabel ||
+			!samePricePtr(x.InputPrice, y.InputPrice) || !samePricePtr(x.OutputPrice, y.OutputPrice) ||
+			!samePricePtr(x.CacheWritePrice, y.CacheWritePrice) || !samePricePtr(x.CacheWrite1hPrice, y.CacheWrite1hPrice) ||
+			!samePricePtr(x.CacheReadPrice, y.CacheReadPrice) || !samePricePtr(x.PerRequestPrice, y.PerRequestPrice) ||
+			!samePricePtr(x.InputMultiplier, y.InputMultiplier) || !samePricePtr(x.OutputMultiplier, y.OutputMultiplier) ||
+			!samePricePtr(x.CacheWriteMultiplier, y.CacheWriteMultiplier) || !samePricePtr(x.CacheReadMultiplier, y.CacheReadMultiplier) {
+			return false
+		}
+	}
+	return true
+}
+
+func samePricePtr(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func sameIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
 // normalizePriceSegments 按起点排序并重排 SortOrder；丢掉请求里带来的 ID 与时间戳（整份覆盖时重建）。
 func normalizePriceSegments(intervals []PricingInterval) []PricingInterval {
 	if len(intervals) == 0 {
@@ -166,7 +212,11 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 	entry.CacheWrite1hPrice = clonePricePtr(official.CacheWrite1hPrice)
 	entry.CacheReadPrice = clonePricePtr(official.CacheReadPrice)
 	entry.Intervals = normalizePriceSegments(official.Intervals)
-	entry.ManagedBy = ModelCatalogManagedByAdmin
+	// 官方价真改了才算运营者定价：运营者定价不再套 DeepSeek 强制官方价与高峰加价，种子也不再刷新它；
+	// 只加 / 改承接渠道时保持原来的归属。
+	if !sameOfficialPrices(current, entry) {
+		entry.ManagedBy = ModelCatalogManagedByAdmin
+	}
 	entry.Normalize()
 	if err := entry.Validate(); err != nil {
 		return nil, err

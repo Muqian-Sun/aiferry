@@ -191,6 +191,27 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 		})
 	}
 
+	// 只改承接渠道、官方价原样提交时不改归属：种子条目仍是平台默认价卡（DeepSeek 强制官方价 / 高峰加价照常、种子照常刷新）
+	t.Run("unchanged official prices keep the seed ownership", func(t *testing.T) {
+		seed := upstreamCostTestEntry()
+		seed.ManagedBy = ModelCatalogManagedBySeed
+		svc, _ := newTestModelCatalogService(seed)
+		same := OfficialPrices{
+			InputPrice: seed.InputPrice, OutputPrice: seed.OutputPrice, CacheReadPrice: seed.CacheReadPrice,
+			// 请求里带回来的分段有 ID / 排序号，与库里的不同，不算改价
+			Intervals: []PricingInterval{{ID: 9, SortOrder: 3, MinTokens: 272000, InputPrice: upstreamCostPtr(10e-6), OutputPrice: upstreamCostPtr(45e-6)}},
+		}
+		got, err := svc.SaveEntryPricing(ctx, 1, same, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
+		require.NoError(t, err)
+		require.Equal(t, ModelCatalogManagedBySeed, got.ManagedBy)
+
+		changedSegment := same
+		changedSegment.Intervals = []PricingInterval{{MinTokens: 272000, InputPrice: upstreamCostPtr(10e-6), OutputPrice: upstreamCostPtr(40e-6)}}
+		got, err = svc.SaveEntryPricing(ctx, 1, changedSegment, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
+		require.NoError(t, err)
+		require.Equal(t, ModelCatalogManagedByAdmin, got.ManagedBy, "a changed segment price is operator pricing")
+	})
+
 	t.Run("rejects non-token model", func(t *testing.T) {
 		image := upstreamCostTestEntry()
 		image.BillingMode = BillingModeImage
