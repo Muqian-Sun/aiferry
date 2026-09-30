@@ -37,7 +37,6 @@ type AdminHandlers struct {
 	PromptAudit            *securityaudit.PromptAdminHandler
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
-	AuditLog               *admin.AuditLogHandler
 }
 
 // Handlers contains all HTTP handlers

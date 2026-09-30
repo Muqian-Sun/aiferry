@@ -20,7 +20,6 @@ const (
 	auditCtxKeyAction     = "audit_action"
 	auditCtxKeyActorID    = "audit_actor_id"
 	auditCtxKeyActorEmail = "audit_actor_email"
-	auditCtxKeySkip       = "audit_skip"
 	auditCtxKeyExtra      = "audit_extra"
 	// ContextKeyAuthEmail 认证中间件写入的用户邮箱（审计用）。
 	ContextKeyAuthEmail = "auth_email"
@@ -41,11 +40,6 @@ func SetAuditActor(c *gin.Context, userID int64, email string) {
 	if email != "" {
 		c.Set(auditCtxKeyActorEmail, email)
 	}
-}
-
-// SkipAudit 跳过当前请求的审计记录。
-func SkipAudit(c *gin.Context) {
-	c.Set(auditCtxKeySkip, true)
 }
 
 // auditExtraAllowedKeys is deliberately narrow: handlers may only attach
@@ -125,7 +119,6 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/auth/register":                              service.AuditActionRegister,
 	"POST /api/v1/auth/refresh":                               service.AuditActionTokenRefresh,
 	"POST /api/v1/user/totp/step-up":                          service.AuditActionStepUpVerify,
-	"POST /api/v1/admin/audit-logs/clear":                     service.AuditActionAuditLogClear,
 	"POST /api/v1/admin/accounts/data":                        "admin.accounts.import",
 	"POST /api/v1/admin/settings/admin-api-key/regenerate":    "admin.admin_api_key.regenerate",
 	"DELETE /api/v1/admin/settings/admin-api-key":             "admin.admin_api_key.delete",
@@ -199,10 +192,6 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 
 		start := time.Now()
 		c.Next()
-
-		if c.GetBool(auditCtxKeySkip) {
-			return
-		}
 
 		status := c.Writer.Status()
 		// token 刷新成功属于高频常规操作，只记录失败（潜在攻击信号）。

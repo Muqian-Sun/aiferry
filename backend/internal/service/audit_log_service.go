@@ -20,8 +20,7 @@ const (
 )
 
 // AuditLogService 管理面操作审计日志服务。
-// 写入端为非阻塞异步批量落库（不拖慢管理请求）；
-// 读取端提供分页查询；清空端点由 handler 层做 TOTP 强校验后调用 ClearAll。
+// 只负责写入：非阻塞异步批量落库（不拖慢管理请求），并按保留期定期清理过期记录。
 type AuditLogService struct {
 	repo           AuditLogRepository
 	settingService *SettingService
@@ -85,46 +84,6 @@ func (s *AuditLogService) Record(entry *AuditLog) {
 	default:
 		atomic.AddUint64(&s.droppedCount, 1)
 	}
-}
-
-// List 分页查询审计日志。
-func (s *AuditLogService) List(ctx context.Context, filter *AuditLogFilter) (*AuditLogList, error) {
-	return s.repo.List(ctx, filter)
-}
-
-// GetByID 查询单条详情。
-func (s *AuditLogService) GetByID(ctx context.Context, id int64) (*AuditLog, error) {
-	return s.repo.GetByID(ctx, id)
-}
-
-// ClearAll 全量清空审计日志并写入留痕记录。
-// 调用方（handler）必须先完成 TOTP 验证；本方法负责：
-//  1. 统计并清空全表
-//  2. 同步写入一条 "audit_log.clear" 留痕记录（绕过异步队列，保证落库）
-func (s *AuditLogService) ClearAll(ctx context.Context, trace *AuditLog) (int64, error) {
-	deleted, err := s.repo.Count(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("count audit logs: %w", err)
-	}
-	if err := s.repo.TruncateAll(ctx); err != nil {
-		return 0, fmt.Errorf("truncate audit logs: %w", err)
-	}
-
-	if trace != nil {
-		trace.Action = AuditActionAuditLogClear
-		if trace.CreatedAt.IsZero() {
-			trace.CreatedAt = time.Now().UTC()
-		}
-		if trace.Extra == nil {
-			trace.Extra = map[string]any{}
-		}
-		trace.Extra["deleted_rows"] = deleted
-		if err := s.repo.Insert(ctx, trace); err != nil {
-			// 留痕失败必须显式暴露：清空已发生，但审计链断裂。
-			return deleted, fmt.Errorf("audit logs cleared (%d rows) but failed to persist clear-trace record: %w", deleted, err)
-		}
-	}
-	return deleted, nil
 }
 
 func (s *AuditLogService) runWriter() {
