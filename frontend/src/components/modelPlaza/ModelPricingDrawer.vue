@@ -119,9 +119,11 @@
         <dl class="divide-y divide-af-hairline">
           <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.search')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(searchPerThousand) }) }}</span>
+            <span class="ml-2 text-xs text-af-ink-3">{{ t('userUi.models.detail.searchVia') }}</span>
           </DetailField>
           <DetailField v-if="toolSearchPerThousand != null" :label="t('userUi.models.detail.toolSearch')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(toolSearchPerThousand) }) }}</span>
+            <span class="ml-2 text-xs text-af-ink-3">{{ t('userUi.models.detail.toolSearchVia') }}</span>
           </DetailField>
         </dl>
       </section>
