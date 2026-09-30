@@ -63,7 +63,7 @@ func TestCodexDirectImagesMappingBeforeRouting(t *testing.T) {
 			require.NoError(t, err)
 			account := directImagesTestAccount()
 			account.Type = accountType
-			account.Credentials["model_mapping"] = map[string]any{"gpt-image-2": "gpt-image-2.5-flare"}
+			account.CatalogUpstreamModels = map[string]string{"gpt-image-2": "gpt-image-2.5-flare"}
 			result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "gpt-image-2")
 			require.NoError(t, err)
 			require.Equal(t, "gpt-image-2.5-flare", result.UpstreamModel)
@@ -211,7 +211,7 @@ func TestCodexDirectImagesEmptyResponseFails(t *testing.T) {
 	}
 }
 
-func TestCodexDirectImagesAccountTestAndWhitelist(t *testing.T) {
+func TestCodexDirectImagesAccountTest(t *testing.T) {
 	body := []byte(`{"model":"gpt-image-2.5-sunburst","prompt":"draw"}`)
 	c, rec := newOpenAIImagesTestContext(t, body)
 	upstream := &httpUpstreamRecorder{resp: openAIImagesJSONResponse()}
@@ -219,13 +219,4 @@ func TestCodexDirectImagesAccountTestAndWhitelist(t *testing.T) {
 	require.NoError(t, svc.testOpenAIImageOAuth(c, context.Background(), directImagesTestAccount(), "gpt-image-2.5-sunburst", "draw"))
 	require.Equal(t, "/backend-api/codex/images/generations", upstream.lastReq.URL.Path)
 	require.Contains(t, rec.Body.String(), `"success":true`)
-	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-5.6-luna"}]}`)
-	svc.openaiGatewayService = &OpenAIGatewayService{}
-	account := newCodexModelsTestAccount()
-	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare"}
-	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
-	require.NoError(t, err)
-	for _, model := range models {
-		require.NotEqual(t, "gpt-image-2.5-sunburst", model.ID)
-	}
 }

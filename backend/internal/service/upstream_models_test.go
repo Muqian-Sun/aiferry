@@ -560,12 +560,12 @@ func TestSyncUpstreamModelCatalogUsesConfiguredModelsWhenListEndpointUnsupported
 		Credentials: map[string]any{
 			"api_key":  "key",
 			"base_url": "https://provider.example/v1",
-			"model_mapping": map[string]any{
-				"public-glm": "glm-5.3",
-				"duplicate":  "glm-5.3",
-				"wildcard":   "glm-*",
-				"empty":      "",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"public-glm": "glm-5.3",
+			"duplicate":  "glm-5.3",
+			"wildcard":   "glm-*",
+			"empty":      "",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://provider.example/v1",
@@ -610,10 +610,10 @@ func TestSyncUpstreamModelCatalogDoesNotUseConfiguredModelsForRealUpstreamFailur
 			_, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 				ID: 98, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 				Credentials: map[string]any{
-					"api_key":       "key",
-					"base_url":      "https://provider.example/v1",
-					"model_mapping": map[string]any{"public-glm": "glm-5.3"},
+					"api_key":  "key",
+					"base_url": "https://provider.example/v1",
 				},
+				CatalogUpstreamModels: map[string]string{"public-glm": "glm-5.3"},
 				ProtocolEndpoints: map[string]string{
 					APIProtocolChatCompletions: "https://provider.example/v1",
 				},
@@ -1162,9 +1162,9 @@ func TestSyncUpstreamModelCatalogEnrichesConfiguredMappingModelsMissingFromUpstr
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
-			"model_mapping": map[string]any{
-				"gpt-6-astra": "gpt-6-astra",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"public-astra": "gpt-6-astra",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://api.openai.com/v1",
@@ -1199,8 +1199,8 @@ func TestSyncUpstreamModelCatalogAstraPartialRefreshPreservesKnownCapabilities(t
 	repo := &upstreamModelMetadataRepoStub{}
 	svc := &AccountTestService{accountRepo: repo, httpUpstream: upstream, cfg: upstreamModelSyncTestConfig()}
 	account := &Account{ID: 114, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "test", "base_url": "https://api.openai.com/v1",
-			"model_mapping": map[string]any{"public-model": "mapped-only"}},
+		Credentials:           map[string]any{"api_key": "test", "base_url": "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"public-model": "mapped-only"},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://api.openai.com/v1",
 		},

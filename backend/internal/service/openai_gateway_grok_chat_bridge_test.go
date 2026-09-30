@@ -550,7 +550,7 @@ func TestForwardGrokChatRuntimeGateFallsBackToRaw(t *testing.T) {
 
 			account := grokChatBridgeTestAccount(int64(73 + index))
 			if tt.mappedModel != "" {
-				account.Credentials["model_mapping"] = map[string]any{"grok": tt.mappedModel}
+				account.CatalogUpstreamModels = map[string]string{"grok": tt.mappedModel}
 			}
 			repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
 				accountsByID: map[int64]*Account{account.ID: account},

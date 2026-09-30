@@ -16,7 +16,7 @@ import (
 )
 
 // 渠道级 compact 专属映射 2026-09-28 P5 删了：库里残留的 compact_model_mapping 不再改写 compact 请求的
-// 上游模型，没配全局 GATEWAY_OPENAI_COMPACT_MODEL 时按普通 model_mapping 走（改之前换成专属映射的模型）。
+// 上游模型，没配全局 GATEWAY_OPENAI_COMPACT_MODEL 时按承接关系上的上游名走（改之前换成专属映射的模型）。
 func TestOpenAIGatewayService_Forward_LegacyCompactOnlyModelMappingIgnored(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -42,11 +42,11 @@ func TestOpenAIGatewayService_Forward_LegacyCompactOnlyModelMappingIgnored(t *te
 		Credentials: map[string]any{
 			"access_token":          "oauth-token",
 			"chatgpt_account_id":    "chatgpt-acc",
-			"model_mapping":         map[string]any{"gpt-5.4": "gpt-5.3-codex"},
 			"compact_model_mapping": map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"},
 		},
-		Status:      StatusActive,
-		Schedulable: true,
+		CatalogUpstreamModels: map[string]string{"gpt-5.4": "gpt-5.3-codex"},
+		Status:                StatusActive,
+		Schedulable:           true,
 	}
 
 	result, err := svc.Forward(context.Background(), c, account, body)

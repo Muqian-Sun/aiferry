@@ -28,10 +28,10 @@ func openCodeMappedTestAccount(id int64, protocol, baseURL string) *Account {
 			"account_mode":  AccountModeZen,
 			"base_url":      baseURL,
 			"api_base_urls": map[string]any{protocol: baseURL},
-			"model_mapping": map[string]any{
-				"opencode/muse-spark-1.3-contributior-free": "muse-spark-1.3-contributior-free",
-				"opencode/glm-5.3":                          "glm-5.3",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"opencode/muse-spark-1.3-contributior-free": "muse-spark-1.3-contributior-free",
+			"opencode/glm-5.3":                          "glm-5.3",
 		},
 		ProtocolEndpoints: map[string]string{protocol: baseURL},
 	}

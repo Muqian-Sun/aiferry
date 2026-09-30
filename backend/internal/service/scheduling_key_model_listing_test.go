@@ -14,7 +14,7 @@ import (
 
 func anthropicEndpointKeyWithMapping(id int64) Account {
 	key := schedulingTestKey(id, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
-	key.Credentials = map[string]any{"model_mapping": map[string]any{"claude-relay-custom": "claude-sonnet-4-5"}}
+	key.CatalogUpstreamModels = map[string]string{"claude-relay-custom": "claude-sonnet-4-5"}
 	return key
 }
 
@@ -42,19 +42,21 @@ func TestDiagnoseModelAvailabilityForPlatform_PlatformPoolCountsKeysByLabel(t *t
 
 // 目录路由下诊断按条目绑定：绑了但不支持该模型 → {true,false}（404）；没绑任何账号 → {false,false}（503）；
 // 没绑到条目的账号哪怕支持模型也不算。
+// 承接关系上的上游名不兼任白名单，中转 key 什么模型都接；「绑了但不支持」用 DeepSeek 官方地址的 key：
+// 没改名的模型按 DeepSeek 官方白名单判定。
 func TestDiagnoseModelAvailabilityForPlatform_CatalogRouteUsesBindings(t *testing.T) {
 	const entryID = int64(21120)
-	bound := anthropicEndpointKeyWithMapping(21121)
+	bound := schedulingTestKey(21121, PlatformOpenAI, map[string]string{APIProtocolAnthropic: DefaultDeepseekAnthropicBaseURL})
+	bound.CatalogUpstreamModels = map[string]string{"claude-relay-custom": "deepseek-v4-flash"}
 	bound.CatalogEntryIDs = []int64{entryID}
-	unbound := anthropicEndpointKeyWithMapping(21122)
-	unbound.Credentials = map[string]any{"model_mapping": map[string]any{"claude-other": "claude-sonnet-4-5"}}
+	unbound := schedulingTestKey(21122, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
 	repo := &mockAccountRepoForPlatform{accounts: []Account{bound, unbound}, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 	ctx := catalogRouteCtx(entryID, APIProtocolAnthropic)
 
 	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformAnthropic)
 	require.True(t, diag.HasAccountsInPool)
-	require.True(t, diag.HasModelSupport, "绑定账号的映射含该模型")
+	require.True(t, diag.HasModelSupport, "绑定账号的承接关系把该模型改名到上游")
 
 	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-other", PlatformAnthropic)
 	require.True(t, diag.HasAccountsInPool)

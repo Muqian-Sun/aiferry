@@ -114,13 +114,15 @@ func TestGPTImage25PricingDoesNotUseLegacyImageRates(t *testing.T) {
 func TestGPTImage25AccountModelPermissions(t *testing.T) {
 	for _, accountType := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
 		for _, model := range []string{"gpt-image-2.5-flare", "gpt-image-2.5-sunburst"} {
-			for _, mapping := range []map[string]any{nil, {model: model}} {
-				account := &Account{Platform: PlatformOpenAI, Type: accountType, Credentials: map[string]any{"model_mapping": mapping}}
+			for _, upstreamModels := range []map[string]string{nil, {model: model}} {
+				account := &Account{Platform: PlatformOpenAI, Type: accountType, CatalogUpstreamModels: upstreamModels}
 				require.True(t, account.IsModelSupported(model))
 				require.Equal(t, model, account.GetMappedModel(model))
 			}
-			restricted := &Account{Platform: PlatformOpenAI, Type: accountType, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-image-2": "gpt-image-2"}}}
-			require.False(t, restricted.IsModelSupported(model), "an explicit administrator allowlist must remain restricted")
+			// 承接关系上的上游名只改名、不兼任白名单：别的模型改了名不限制这个模型
+			renamedOther := &Account{Platform: PlatformOpenAI, Type: accountType, CatalogUpstreamModels: map[string]string{"gpt-image-2": "gpt-image-2-upstream"}}
+			require.True(t, renamedOther.IsModelSupported(model))
+			require.Equal(t, model, renamedOther.GetMappedModel(model))
 		}
 	}
 }

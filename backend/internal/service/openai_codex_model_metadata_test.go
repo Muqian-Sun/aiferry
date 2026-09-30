@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,8 +17,9 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 	}]}`), false)
 	require.NoError(t, err)
 	account := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
-		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
-	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
+		"base_url": "https://relay.example/v1",
+	}, CatalogUpstreamModels: map[string]string{"public-astra": "gpt-6-astra"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: metadata})
 	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account})
 	require.NoError(t, err)
@@ -26,7 +28,8 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 	require.Equal(t, "v2", model["multi_agent_version"])
 	require.Equal(t, []string{"high", "ultra"}, effortsFromManifestModel(t, model))
 
-	peer := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: account.Credentials}
+	peer := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: account.Credentials,
+		CatalogUpstreamModels: account.CatalogUpstreamModels}
 	body, err = buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account, peer})
 	require.NoError(t, err)
 	model = decodeCodexManifestModels(t, body)[0]
@@ -62,8 +65,8 @@ func TestAstraUltraCatalogPreservesExplicitWorkflowOverrides(t *testing.T) {
 func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testing.T) {
 	newAccount := func(baseURL string) Account {
 		return Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
-			"base_url": baseURL, "model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
-		},
+			"base_url": baseURL,
+		}, CatalogUpstreamModels: map[string]string{"public-astra": "gpt-6-astra"},
 			// 第三方 key 的上游地址只认协议映射，与 base_url 指向同一地址。
 			ProtocolEndpoints: map[string]string{
 				APIProtocolChatCompletions: baseURL,
@@ -73,9 +76,8 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 	}
 	// Astra 官方默认值只对 OpenAI 成品号；指向 api.openai.com 的 key 按中转，与自定义地址一样不猜能力
 	// （2026-09-29 海外四家不再有官方 key）。
-	official := Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{
-		"model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
-	}}
+	official := Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+		CatalogUpstreamModels: map[string]string{"public-astra": "gpt-6-astra"}}
 	keyOnOfficialHost := newAccount("https://api.openai.com/v1")
 	custom := newAccount("https://relay.example/v1")
 	bridge := newAccount("https://bridge.example/v1")
@@ -242,10 +244,10 @@ func TestBuildCodexModelsManifestForGroupIntersectsDifferentMappedTargetsWithout
 		account := Account{
 			ID: id, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			Credentials: map[string]any{
-				"base_url":      "https://provider.example/v1",
-				"model_mapping": map[string]any{"my-coder": target},
+				"base_url": "https://provider.example/v1",
 			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
+			CatalogUpstreamModels: map[string]string{"my-coder": target},
+			ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 		}
 		account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 			target: {
@@ -297,7 +299,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsTransientlyUnschedulableMappe
 	t.Parallel()
 
 	const groupID int64 = 741
-	schedulable := newCodexCatalogMappedAccount(
+	schedulable := newCodexCatalogBoundAccount(
 		41,
 		"gpt-5.6-sol",
 		"GPT-5.6 Sol",
@@ -307,7 +309,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsTransientlyUnschedulableMappe
 		true,
 		nil,
 	)
-	transientlyUnschedulable := newCodexCatalogMappedAccount(
+	transientlyUnschedulable := newCodexCatalogBoundAccount(
 		42,
 		"glm-5.3",
 		"GLM 5.3",
@@ -315,7 +317,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsTransientlyUnschedulableMappe
 		[]string{"text"},
 		272_000,
 		true,
-		map[string]any{"exclusive-model": "exclusive-upstream"},
+		map[string]string{"exclusive-model": "exclusive-upstream"},
 	)
 	svc := &GatewayService{accountRepo: splitCodexModelsAccountRepo{
 		schedulable: map[int64][]Account{groupID: {schedulable}},
@@ -338,7 +340,7 @@ func TestBuildCodexModelsManifestForGroupIgnoresPersistentlyDisabledMappedAccoun
 	t.Parallel()
 
 	const groupID int64 = 742
-	remaining := newCodexCatalogMappedAccount(
+	remaining := newCodexCatalogBoundAccount(
 		41,
 		"gpt-5.6-sol",
 		"GPT-5.6 Sol",
@@ -348,7 +350,7 @@ func TestBuildCodexModelsManifestForGroupIgnoresPersistentlyDisabledMappedAccoun
 		true,
 		nil,
 	)
-	disabled := newCodexCatalogMappedAccount(
+	disabled := newCodexCatalogBoundAccount(
 		42,
 		"glm-5.3",
 		"GLM 5.3",
@@ -372,10 +374,71 @@ func TestBuildCodexModelsManifestForGroupIgnoresPersistentlyDisabledMappedAccoun
 	require.EqualValues(t, 1_000_000, models[0]["context_window"])
 }
 
+// newCodexCatalogBoundAccount 建一个承接 my-coder 的 key：承接关系把 my-coder 改名成 target
+// （CatalogUpstreamModels），extraUpstream 是这个渠道其它目录模型的上游名。
+func newCodexCatalogBoundAccount(
+	id int64,
+	target string,
+	displayName string,
+	levels []string,
+	modalities []string,
+	contextWindow int64,
+	schedulable bool,
+	extraUpstream map[string]string,
+) Account {
+	reasoning := true
+	upstreamModels := map[string]string{"my-coder": target}
+	for key, value := range extraUpstream {
+		upstreamModels[key] = value
+	}
+	account := Account{
+		ID:          id,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: schedulable,
+		Credentials: map[string]any{
+			"base_url": fmt.Sprintf("https://provider-%d.example/v1", id),
+		},
+		CatalogUpstreamModels: upstreamModels,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: fmt.Sprintf("https://provider-%d.example/v1", id),
+		},
+	}
+	models := map[string]UpstreamModelMetadata{
+		target: {
+			ID:                       target,
+			DisplayName:              displayName,
+			Description:              displayName + " upstream",
+			Reasoning:                &reasoning,
+			SupportedReasoningLevels: levels,
+			InputModalities:          modalities,
+			ContextWindow:            contextWindow,
+		},
+	}
+	for _, exclusive := range extraUpstream {
+		if exclusive == "" || exclusive == target {
+			continue
+		}
+		models[exclusive] = UpstreamModelMetadata{
+			ID:                       exclusive,
+			DisplayName:              "Exclusive Model",
+			Description:              "Only mapped on the unschedulable account",
+			Reasoning:                &reasoning,
+			SupportedReasoningLevels: []string{"high"},
+			InputModalities:          []string{"text", "image"},
+			ContextWindow:            1_000_000,
+		}
+	}
+	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: models})
+	return account
+}
+
 func TestAstraCodexToolCapabilitiesFollowAPIKeyAlias(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
-		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"my-astra": "gpt-6-astra"},
-	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
+		"base_url": "https://relay.example/v1",
+	}, CatalogUpstreamModels: map[string]string{"my-astra": "gpt-6-astra"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{
 			"supports_search_tool": json.RawMessage("true"), "apply_patch_tool_type": json.RawMessage(`"freeform"`),
@@ -399,8 +462,9 @@ func TestAstraCodexToolCapabilitiesFollowAPIKeyAlias(t *testing.T) {
 
 func TestAstraCodexToolCapabilitiesKeepAPIKeyResponsesLiteGuard(t *testing.T) {
 	account := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
-		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"my-astra": "gpt-6-astra"},
-	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
+		"base_url": "https://relay.example/v1",
+	}, CatalogUpstreamModels: map[string]string{"my-astra": "gpt-6-astra"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
 	}})
@@ -423,10 +487,10 @@ func TestCodexAliasFailoverMappingFailsClosed(t *testing.T) {
 			Type:     AccountTypeAPIKey,
 			Priority: priority,
 			Credentials: map[string]any{
-				"base_url":      "https://relay.example/v1",
-				"model_mapping": map[string]any{"gpt-6-astra": target},
+				"base_url": "https://relay.example/v1",
 			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
+			CatalogUpstreamModels: map[string]string{"gpt-6-astra": target},
+			ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 		}
 	}
 	// Account 16-alike serves the alias natively; account 1-alike is the failover

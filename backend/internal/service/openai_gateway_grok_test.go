@@ -1298,7 +1298,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 		endpoint         GrokMediaEndpoint
 		path             string
 		body             string
-		modelMapping     map[string]any
+		upstreamModels   map[string]string
 		wantRequestModel string
 		wantUpstream     string
 		wantBody         string
@@ -1309,7 +1309,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			endpoint:         GrokMediaEndpointImagesGenerations,
 			path:             "/v1/images/generations",
 			body:             `{"model":"grok-imagine","prompt":"draw a cat"}`,
-			modelMapping:     map[string]any{"grok-imagine-image-quality": "vendor-image-model"},
+			upstreamModels:   map[string]string{"grok-imagine-image-quality": "vendor-image-model"},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "vendor-image-model",
 			wantBody:         `{"model":"vendor-image-model","prompt":"draw a cat"}`,
@@ -1320,7 +1320,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			endpoint:         GrokMediaEndpointVideosGenerations,
 			path:             "/v1/videos/generations",
 			body:             `{"model":"grok-imagine-video-1.5","prompt":"waves"}`,
-			modelMapping:     map[string]any{"grok-imagine-video": "grok-image-video"},
+			upstreamModels:   map[string]string{"grok-imagine-video": "grok-image-video"},
 			wantRequestModel: "grok-imagine-video-1.5",
 			wantUpstream:     "grok-imagine-video-1.5",
 			wantBody:         `{"model":"grok-imagine-video-1.5","prompt":"waves"}`,
@@ -1331,7 +1331,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			endpoint:         GrokMediaEndpointVideosGenerations,
 			path:             "/v1/videos/generations",
 			body:             `{"model":"grok-imagine-video-1.5","prompt":"animate","image":{"url":"https://example.com/input.png"}}`,
-			modelMapping:     map[string]any{"grok-imagine-video-1.5": "vendor-image-video"},
+			upstreamModels:   map[string]string{"grok-imagine-video-1.5": "vendor-image-video"},
 			wantRequestModel: "grok-imagine-video-1.5",
 			wantUpstream:     "vendor-image-video",
 			wantBody:         `{"model":"vendor-image-video","prompt":"animate","image":{"url":"https://example.com/input.png"}}`,
@@ -1342,7 +1342,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			endpoint:         GrokMediaEndpointImagesGenerations,
 			path:             "/v1/images/generations",
 			body:             `{"model":"grok-imagine","prompt":"draw","size":"1024x1024"}`,
-			modelMapping:     map[string]any{"grok-imagine-image-quality": "vendor-image-model"},
+			upstreamModels:   map[string]string{"grok-imagine-image-quality": "vendor-image-model"},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "vendor-image-model",
 			wantBody:         `{"model":"vendor-image-model","prompt":"draw","resolution":"1k","aspect_ratio":"1:1"}`,
@@ -1353,7 +1353,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 			endpoint:         GrokMediaEndpointImagesGenerations,
 			path:             "/v1/images/generations",
 			body:             `{"model":"grok-imagine","prompt":"draw"}`,
-			modelMapping:     map[string]any{"grok-imagine-image-quality": "   "},
+			upstreamModels:   map[string]string{"grok-imagine-image-quality": "   "},
 			wantRequestModel: "grok-imagine-image-quality",
 			wantUpstream:     "grok-imagine-image-quality",
 			wantBody:         `{"model":"grok-imagine-image-quality","prompt":"draw"}`,
@@ -1378,10 +1378,10 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 					"access_token":  "api-key",
 					"refresh_token": "grok-refresh-token",
 					"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
-					"model_mapping": tt.modelMapping,
 				},
-				Status:      StatusActive,
-				Schedulable: true,
+				CatalogUpstreamModels: tt.upstreamModels,
+				Status:                StatusActive,
+				Schedulable:           true,
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1461,10 +1461,10 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 			"access_token":  "api-key",
 			"refresh_token": "grok-refresh-token",
 			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
-			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
-		Status:      StatusActive,
-		Schedulable: true,
+		CatalogUpstreamModels: map[string]string{"grok-imagine-edit": "vendor-image-edit"},
+		Status:                StatusActive,
+		Schedulable:           true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1515,10 +1515,10 @@ func TestForwardGrokMediaImagesEditMultipartConvertsToJSON(t *testing.T) {
 			"access_token":  "api-key",
 			"refresh_token": "grok-refresh-token",
 			"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
-			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
-		Status:      StatusActive,
-		Schedulable: true,
+		CatalogUpstreamModels: map[string]string{"grok-imagine-edit": "vendor-image-edit"},
+		Status:                StatusActive,
+		Schedulable:           true,
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1857,10 +1857,10 @@ func TestForwardGrokMediaVideoMutationEndpoints(t *testing.T) {
 					"access_token":  "api-key",
 					"refresh_token": "grok-refresh-token",
 					"expires_at":    time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339),
-					"model_mapping": map[string]any{"grok-imagine-video": "vendor-video-mutation"},
 				},
-				Status:      StatusActive,
-				Schedulable: true,
+				CatalogUpstreamModels: map[string]string{"grok-imagine-video": "vendor-video-mutation"},
+				Status:                StatusActive,
+				Schedulable:           true,
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,

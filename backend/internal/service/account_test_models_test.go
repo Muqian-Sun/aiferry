@@ -96,18 +96,3 @@ func TestFetchOpenAIAccountModelsOAuthLabelsLocalImageModelsLikeUpstream(t *test
 	require.Equal(t, "GPT-5.6 Sol", byID["gpt-5.6-sol"], "upstream slug must not be the only label source")
 	require.Equal(t, "GPT Image 2.5 Flare", byID["gpt-image-2.5-flare"], "locally added models use the same naming rule")
 }
-
-func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
-	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-6-astra"}]}`)
-	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
-	account := newCodexModelsTestAccount()
-	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare"}
-	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
-	require.NoError(t, err)
-	ids := []string{}
-	for _, model := range models {
-		ids = append(ids, model.ID)
-	}
-	require.Contains(t, ids, "gpt-image-2.5-flare")
-	require.NotContains(t, ids, "gpt-image-2.5-sunburst")
-}

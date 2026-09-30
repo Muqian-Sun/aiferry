@@ -723,9 +723,9 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 	return matchWildcardMappingResult(mapping, requestedModel)
 }
 
-// IsModelSupported 检查模型是否在 model_mapping 中（支持通配符）
-// 如果未配置 mapping，返回 true（允许所有模型）。
-// 映射标记为「只改名」时（ModelMappingRenameOnly）不兼任白名单，没命中映射按无映射处理。
+// IsModelSupported 检查模型是否在有效模型映射中（GetModelMapping，支持通配符）。
+// 没有映射时返回 true（允许所有模型）。承接关系上的上游名只改名、不兼任白名单：没命中按无映射处理；
+// 厂商默认表与 spark 影子号的模型列表仍是模型集合。
 //
 // 例外：OpenAI OAuth 账号（Codex 上游）的空映射会排除明确属于其他厂商
 // 家族的模型（deepseek-*/glm-* 等）——转发阶段 normalizeOpenAIModelForUpstream

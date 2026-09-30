@@ -133,65 +133,6 @@ func (r splitCodexModelsAccountRepo) ListModelAvailabilityCandidates(_ context.C
 	return out, nil
 }
 
-func newCodexCatalogMappedAccount(
-	id int64,
-	target string,
-	displayName string,
-	levels []string,
-	modalities []string,
-	contextWindow int64,
-	schedulable bool,
-	extraMapping map[string]any,
-) Account {
-	reasoning := true
-	mapping := map[string]any{"my-coder": target}
-	for key, value := range extraMapping {
-		mapping[key] = value
-	}
-	account := Account{
-		ID:          id,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: schedulable,
-		Credentials: map[string]any{
-			"base_url":      fmt.Sprintf("https://provider-%d.example/v1", id),
-			"model_mapping": mapping,
-		},
-		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: fmt.Sprintf("https://provider-%d.example/v1", id),
-		},
-	}
-	models := map[string]UpstreamModelMetadata{
-		target: {
-			ID:                       target,
-			DisplayName:              displayName,
-			Description:              displayName + " upstream",
-			Reasoning:                &reasoning,
-			SupportedReasoningLevels: levels,
-			InputModalities:          modalities,
-			ContextWindow:            contextWindow,
-		},
-	}
-	for _, value := range extraMapping {
-		exclusive, _ := value.(string)
-		if exclusive == "" || exclusive == target {
-			continue
-		}
-		models[exclusive] = UpstreamModelMetadata{
-			ID:                       exclusive,
-			DisplayName:              "Exclusive Model",
-			Description:              "Only mapped on the unschedulable account",
-			Reasoning:                &reasoning,
-			SupportedReasoningLevels: []string{"high"},
-			InputModalities:          []string{"text", "image"},
-			ContextWindow:            1_000_000,
-		}
-	}
-	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: models})
-	return account
-}
-
 func decodeCodexManifestModels(t *testing.T, body []byte) []map[string]any {
 	t.Helper()
 

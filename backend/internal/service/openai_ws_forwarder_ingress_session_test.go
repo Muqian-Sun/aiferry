@@ -541,9 +541,9 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_FollowupCreateCa
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key": "sk-test",
-			"model_mapping": map[string]any{
-				"client-model": "gpt-5.1",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"client-model": "gpt-5.1",
 		},
 		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},

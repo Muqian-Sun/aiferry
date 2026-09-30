@@ -67,30 +67,28 @@ func TestIsModelSupported_OpenAIOAuthEmptyMapping_RejectsForeignModels(t *testin
 
 func TestIsModelSupported_OpenAIOAuthExplicitMappingUnchanged(t *testing.T) {
 	account := newOpenAIOAuthAccountForModelTest()
-	account.Credentials = map[string]any{
-		"model_mapping": map[string]any{
-			"deepseek-v4": "gpt-5.4",
-			"k3":          "gpt-5.4", // 显式映射优先：bare k3 仍可被账号声明支持
-		},
+	account.CatalogUpstreamModels = map[string]string{
+		"deepseek-v4": "gpt-5.4",
+		"k3":          "gpt-5.4", // 承接关系上的上游名优先：bare k3 改名后仍可支持
 	}
 
-	// 显式映射沿用原有语义：命中映射即支持，未命中即不支持。
+	// 命中承接关系上的上游名即支持；上游名不兼任白名单，未命中的按空映射规则判定（其他厂商家族仍排除）。
 	require.True(t, account.IsModelSupported("deepseek-v4"))
 	require.True(t, account.IsModelSupported("k3"))
 	require.False(t, account.IsModelSupported("glm-4.7"))
+	require.True(t, account.IsModelSupported("gpt-5.6-sol"))
 }
 
 // OpenAI 自动透传 2026-09-28 P5 写死关：残留 openai_passthrough=true 的 OAuth 账号与普通账号一样
-// 按空映射规则排除其他厂商模型、按显式映射判白名单（改之前一律放行）。
+// 按空映射规则排除其他厂商模型（改之前一律放行）；有承接关系上的上游名时，未命中的同样按空映射规则判定。
 func TestIsModelSupported_OpenAIOAuthLegacyPassthroughKeyIgnored(t *testing.T) {
 	account := newOpenAIOAuthAccountForModelTest()
 	account.Extra = map[string]any{"openai_passthrough": true}
 	require.False(t, account.IsModelSupported("deepseek-v4"), "空映射仍排除其他厂商家族")
 
-	account.Credentials = map[string]any{
-		"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"},
-	}
-	require.False(t, account.IsModelSupported("gpt-5.6-sol"), "显式映射仍是白名单")
+	account.CatalogUpstreamModels = map[string]string{"gpt-5.4": "gpt-5.4-mini"}
+	require.False(t, account.IsModelSupported("deepseek-v4"), "有上游名时未命中的仍排除其他厂商家族")
+	require.True(t, account.IsModelSupported("gpt-5.6-sol"), "承接关系上的上游名不兼任白名单")
 	require.True(t, account.IsModelSupported("gpt-5.4"))
 }
 
