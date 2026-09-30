@@ -111,7 +111,6 @@ export default {
         imageCacheRead: 'Image cache read',
         audioInput: 'Audio input',
         audioOutput: 'Audio output',
-        // Service tier: the priority tier is the Fast tier (same name as the user site's service tier), not the scheduling priority
         perRequest: 'Per request',
         per: {
           per_request: '{price} / request',
@@ -175,7 +174,7 @@ export default {
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (time pricing, Fast tier prices, tier multipliers, per-request tiers) are written back unchanged; token segments and image / video tiers are edited above.',
+    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (time pricing, max reasoning multiplier, per-request tiers) are written back unchanged; token segments and image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
     noResources: 'No channels',
     fields: {
