@@ -11,11 +11,16 @@
     数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行）。
   -->
   <SiteShell variant="public">
-    <PageHeader :title="t('userUi.serviceStatus.title')" :description="t('userUi.serviceStatus.description')">
-      <template #actions>
-        <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
-      </template>
-    </PageHeader>
+    <!-- 页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
+    <div class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header v-reveal.stagger data-testid="service-status-hero">
+        <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
+          {{ t('userUi.serviceStatus.title') }}
+        </h1>
+        <p class="mt-3 max-w-2xl text-[15px] leading-7 text-af-ink-2">{{ t('userUi.serviceStatus.description') }}</p>
+      </header>
+      <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
+    </div>
 
     <StatusState
       v-if="loadError && !models"
@@ -139,11 +144,11 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePreferredReducedMotion, useTransition } from '@vueuse/core'
+import { vReveal } from '@/directives/reveal'
 import type { ServiceHealth, ServiceStatusModels, ServiceStatusRange, ServiceStatusSnapshot } from '@/api/serviceStatus'
 import { SERVICE_STATUS_DEFAULT_RANGE, loadServiceStatus } from './serviceStatusQuery'
 import { useAppStore } from '@/stores/app'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import PageHeader from '@/components/user/shell/PageHeader.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
