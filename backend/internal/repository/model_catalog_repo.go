@@ -615,14 +615,8 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetNillableImageCacheReadPrice(entry.ImageCacheReadPrice).
 		SetNillableAudioInputPrice(entry.AudioInputPrice).
 		SetNillableAudioOutputPrice(entry.AudioOutputPrice).
-		SetNillableInputPricePriority(entry.InputPricePriority).
-		SetNillableOutputPricePriority(entry.OutputPricePriority).
-		SetNillableCacheWritePricePriority(entry.CacheWritePricePriority).
-		SetNillableCacheReadPricePriority(entry.CacheReadPricePriority).
 		SetNillablePerRequestPrice(entry.PerRequestPrice).
 		SetNillableSearchPricePerCall(entry.SearchPricePerCall).
-		SetNillableFastMultiplier(entry.FastMultiplier).
-		SetNillableFlexMultiplier(entry.FlexMultiplier).
 		SetNillableMaxReasoningEffortMultiplier(entry.MaxReasoningEffortMultiplier)
 	if len(entry.Protocols) > 0 {
 		builder = builder.SetProtocols(entry.Protocols)
@@ -666,14 +660,8 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 	setPrice(builder.SetImageCacheReadPrice, builder.ClearImageCacheReadPrice, entry.ImageCacheReadPrice)
 	setPrice(builder.SetAudioInputPrice, builder.ClearAudioInputPrice, entry.AudioInputPrice)
 	setPrice(builder.SetAudioOutputPrice, builder.ClearAudioOutputPrice, entry.AudioOutputPrice)
-	setPrice(builder.SetInputPricePriority, builder.ClearInputPricePriority, entry.InputPricePriority)
-	setPrice(builder.SetOutputPricePriority, builder.ClearOutputPricePriority, entry.OutputPricePriority)
-	setPrice(builder.SetCacheWritePricePriority, builder.ClearCacheWritePricePriority, entry.CacheWritePricePriority)
-	setPrice(builder.SetCacheReadPricePriority, builder.ClearCacheReadPricePriority, entry.CacheReadPricePriority)
 	setPrice(builder.SetPerRequestPrice, builder.ClearPerRequestPrice, entry.PerRequestPrice)
 	setPrice(builder.SetSearchPricePerCall, builder.ClearSearchPricePerCall, entry.SearchPricePerCall)
-	setPrice(builder.SetFastMultiplier, builder.ClearFastMultiplier, entry.FastMultiplier)
-	setPrice(builder.SetFlexMultiplier, builder.ClearFlexMultiplier, entry.FlexMultiplier)
 	setPrice(builder.SetMaxReasoningEffortMultiplier, builder.ClearMaxReasoningEffortMultiplier, entry.MaxReasoningEffortMultiplier)
 
 	if entry.Notes != nil {
@@ -709,16 +697,9 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		AudioInputPrice:     row.AudioInputPrice,
 		AudioOutputPrice:    row.AudioOutputPrice,
 
-		InputPricePriority:      row.InputPricePriority,
-		OutputPricePriority:     row.OutputPricePriority,
-		CacheWritePricePriority: row.CacheWritePricePriority,
-		CacheReadPricePriority:  row.CacheReadPricePriority,
-
 		PerRequestPrice:    row.PerRequestPrice,
 		SearchPricePerCall: row.SearchPricePerCall,
 
-		FastMultiplier:               row.FastMultiplier,
-		FlexMultiplier:               row.FlexMultiplier,
 		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
 
 		Notes:     row.Notes,

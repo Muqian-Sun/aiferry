@@ -89,7 +89,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	}
 	// Anthropic Fast is requested with speed=fast rather than OpenAI's
 	// service_tier. Attach it at this shared boundary so passthrough, OAuth and
-	// partial-stream results all use the same billing and usage-log path.
+	// partial-stream results all record the same tier on the usage log.
 	defer func() {
 		if result != nil {
 			if tier := anthropicSpeedServiceTier(account, parsed.Speed, anthropicSpeedModel(parsed, result), result.UpstreamResponseServiceTier); tier != nil {
@@ -865,19 +865,19 @@ func anthropicSpeedModel(parsed *ParsedRequest, result *ForwardResult) string {
 	return parsed.Model
 }
 
-// anthropicSpeedServiceTier 把 Anthropic 的 speed=fast 归一成可计费的 "fast" tier。
+// anthropicSpeedServiceTier 把 Anthropic 的 speed=fast 归一成用量记录上的 "fast" 档位。
+// 档位只记录、不影响计费（Fast / Flex 计价 2026-09-30 已删），这里只求记得真实。
 //
 // Fast mode 目前只在 Claude Opus 5 / Opus 4.8 上存在，且不支持 Bedrock 等第三方
 // 承载（Opus 4.7 的 fast mode 已被移除，传 speed=fast 会直接报错）。这里按模型和
-// 平台收紧，避免上游根本没跑 fast 时仍然按 2x 计费——宁可漏收也不能多收。
+// 平台收紧，避免上游根本没跑 fast 时记成 fast。
 //
 // 上游是否真跑了 fast mode 按厂商区分：
 //   - Anthropic 成品号：请求带 speed=fast 就定为 fast；响应里的 usage.speed 由
-//     UpstreamResponseServiceTier 带回，用量记录时经 ResolveBillingServiceTier 只降不升
-//     （usage.speed=standard 按标准价）。
+//     UpstreamResponseServiceTier 带回，用量记录时经 ResolveBillingServiceTier 只降不升。
 //   - 第三方 key（一律按中转，含指向 api.anthropic.com 的 key 与国产厂商的 Anthropic 兼容地址）：
 //     不知道上游是否实现了 fast mode，而响应不声明档位时 ResolveBillingServiceTier 会保留请求
-//     档位、照样计 2x。因此只有响应明确回了 usage.speed=fast（observedTier）才定为 fast。
+//     档位。因此只有响应明确回了 usage.speed=fast（observedTier）才定为 fast。
 func anthropicSpeedServiceTier(account *Account, speed, model, observedTier string) *string {
 	if account == nil || speed != "fast" {
 		return nil

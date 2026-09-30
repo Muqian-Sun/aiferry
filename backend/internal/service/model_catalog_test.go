@@ -103,30 +103,6 @@ func TestApplyToModelPricing_OnlyWritesConfiguredFields(t *testing.T) {
 	require.InDelta(t, 2e-6, base.ImageInputPricePerToken, 1e-12, "图片输入价不得被归零")
 }
 
-// 显式 priority 价优先于按基准价比例推导出来的档位价。
-func TestApplyToModelPricing_ExplicitPriorityPriceWins(t *testing.T) {
-	base := &ModelPricing{InputPricePerToken: 3e-6, InputPricePerTokenPriority: 6e-6}
-	entry := &ModelCatalogEntry{
-		InputPrice:         testPtrFloat64(10e-6),
-		InputPricePriority: testPtrFloat64(11e-6),
-	}
-
-	entry.ApplyToModelPricing(base)
-
-	require.InDelta(t, 10e-6, base.InputPricePerToken, 1e-12)
-	require.InDelta(t, 11e-6, base.InputPricePerTokenPriority, 1e-12)
-}
-
-// 没写 priority 价时按基准价比例推导（与渠道覆盖同口径）。
-func TestApplyToModelPricing_DerivesPriorityPriceFromRatio(t *testing.T) {
-	base := &ModelPricing{InputPricePerToken: 3e-6, InputPricePerTokenPriority: 6e-6}
-	entry := &ModelCatalogEntry{InputPrice: testPtrFloat64(10e-6)}
-
-	entry.ApplyToModelPricing(base)
-
-	require.InDelta(t, 20e-6, base.InputPricePerTokenPriority, 1e-12)
-}
-
 // 5m/1h 分档只在 1h 价严格高于 5m 价时成立：写反了必须不分档，
 // 否则 1h 缓存会按更低的价算。
 func TestApplyToModelPricing_CacheBreakdownRequiresHigher1hPrice(t *testing.T) {
@@ -175,7 +151,7 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 
 	t.Run("non-positive multiplier", func(t *testing.T) {
 		entry := valid()
-		entry.FastMultiplier = testPtrFloat64(0)
+		entry.MaxReasoningEffortMultiplier = testPtrFloat64(0)
 		require.Error(t, entry.Validate())
 	})
 

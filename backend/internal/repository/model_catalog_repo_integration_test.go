@@ -36,17 +36,16 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	repo, unique := newModelCatalogRepoForTest(t, "repo-crud")
 
 	entry := &service.ModelCatalogEntry{
-		ModelID:            unique("sonnet"),
-		DisplayName:        "Sonnet",
-		Vendor:             "anthropic",
-		Protocols:          []string{service.ModelCatalogProtocolAnthropic},
-		BillingMode:        service.BillingModeToken,
-		Status:             service.ModelCatalogStatusListed,
-		ManagedBy:          service.ModelCatalogManagedByAdmin,
-		InputPrice:         float64Value(3e-6),
-		OutputPrice:        float64Value(15e-6),
-		CacheWrite1hPrice:  float64Value(6e-6),
-		InputPricePriority: float64Value(6e-6),
+		ModelID:           unique("sonnet"),
+		DisplayName:       "Sonnet",
+		Vendor:            "anthropic",
+		Protocols:         []string{service.ModelCatalogProtocolAnthropic},
+		BillingMode:       service.BillingModeToken,
+		Status:            service.ModelCatalogStatusListed,
+		ManagedBy:         service.ModelCatalogManagedByAdmin,
+		InputPrice:        float64Value(3e-6),
+		OutputPrice:       float64Value(15e-6),
+		CacheWrite1hPrice: float64Value(6e-6),
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, MaxTokens: func() *int { v := 100000; return &v }(), InputPrice: float64Value(1e-6), SortOrder: 0},
 			{MinTokens: 100000, InputPrice: float64Value(2e-6), SortOrder: 1},
@@ -69,7 +68,6 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	require.Equal(t, []string{service.ModelCatalogProtocolAnthropic}, loaded.Protocols)
 	require.InDelta(t, 3e-6, *loaded.InputPrice, 1e-15)
 	require.InDelta(t, 6e-6, *loaded.CacheWrite1hPrice, 1e-15)
-	require.InDelta(t, 6e-6, *loaded.InputPricePriority, 1e-15)
 	require.Len(t, loaded.Intervals, 2)
 	require.InDelta(t, 1e-6, *loaded.Intervals[0].InputPrice, 1e-15)
 	require.NotNil(t, loaded.TimePricing)

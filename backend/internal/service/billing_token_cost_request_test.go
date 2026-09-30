@@ -96,7 +96,7 @@ func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToWholeRequest(t
 	bs := NewBillingService(&config.Config{}, ps)
 	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 
-	got := costViaCatalog(t, bs, resolver, "gemini-2.5-pro", UsageTokens{InputTokens: 300000, OutputTokens: 1000}, "")
+	got := costViaCatalog(t, bs, resolver, "gemini-2.5-pro", UsageTokens{InputTokens: 300000, OutputTokens: 1000})
 	// 300K × 1.25e-6 × 2 = 0.75；1000 × 10e-6 × 1.5 = 0.015
 	require.InDelta(t, 0.765, got.ActualCost, 1e-9)
 }
@@ -108,7 +108,7 @@ func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToCacheItems(t *
 	bs := NewBillingService(&config.Config{}, ps)
 	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 	calc := func(tokens UsageTokens) *CostBreakdown {
-		return costViaCatalog(t, bs, resolver, "gemini-2.5-pro", tokens, "")
+		return costViaCatalog(t, bs, resolver, "gemini-2.5-pro", tokens)
 	}
 
 	// 输入侧合计 90K + 100K + 20K = 210K > 200K：所有分项按高段计。
@@ -226,7 +226,7 @@ func TestCalculateTokenCostForRequest_BlankSegmentCachePricesFollowInputRatio(t 
 		CacheCreation5mTokens: 20000, CacheCreation1hTokens: 10000, OutputTokens: 1000}
 
 	for _, model := range []string{"seg-io", "seg-5m"} {
-		got := costViaCatalog(t, bs, resolver, model, tokens, "")
+		got := costViaCatalog(t, bs, resolver, model, tokens)
 		require.InDelta(t, 100000*6e-6, got.InputCost, 1e-10, model)
 		require.InDelta(t, 100000*0.3e-6*2, got.CacheReadCost, 1e-10, model)
 		require.InDelta(t, 20000*3.75e-6*2+10000*6e-6*2, got.CacheCreationCost, 1e-10, model)

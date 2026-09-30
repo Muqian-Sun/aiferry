@@ -124,20 +124,12 @@ type userSupportedModelPricing struct {
 	ImageOutputPrice             *float64 `json:"image_output_price"`
 	PerRequestPrice              *float64 `json:"per_request_price"`
 	// SearchPricePerCall 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有；ToolSearchPricePerCall grok 搜索工具每次价。
-	SearchPricePerCall     *float64 `json:"search_price_per_call,omitempty"`
-	ToolSearchPricePerCall *float64 `json:"tool_search_price_per_call,omitempty"`
-	// Fast 档（service_tier=priority）各项价；没配的项 Fast 不加价、按标准价计。FastMultiplier 非空时整单按标准价 × 它。
-	InputPricePriority      *float64 `json:"input_price_priority"`
-	OutputPricePriority     *float64 `json:"output_price_priority"`
-	CacheWritePricePriority *float64 `json:"cache_write_price_priority"`
-	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
-	FastMultiplier          *float64 `json:"fast_multiplier"`
-	// FlexMultiplier Flex 档（service_tier=flex）整单倍率；nil 按默认 0.5。
-	FlexMultiplier      *float64                 `json:"flex_multiplier"`
-	ImageCacheReadPrice *float64                 `json:"image_cache_read_price"`
-	AudioInputPrice     *float64                 `json:"audio_input_price"`
-	AudioOutputPrice    *float64                 `json:"audio_output_price"`
-	Intervals           []userPricingIntervalDTO `json:"intervals"`
+	SearchPricePerCall     *float64                 `json:"search_price_per_call,omitempty"`
+	ToolSearchPricePerCall *float64                 `json:"tool_search_price_per_call,omitempty"`
+	ImageCacheReadPrice    *float64                 `json:"image_cache_read_price"`
+	AudioInputPrice        *float64                 `json:"audio_input_price"`
+	AudioOutputPrice       *float64                 `json:"audio_output_price"`
+	Intervals              []userPricingIntervalDTO `json:"intervals"`
 }
 
 // userPricingIntervalDTO 定价区间白名单（去掉内部 ID、SortOrder 等前端不渲染的字段）。
@@ -210,12 +202,6 @@ func toUserPricing(p *service.PricingCard, extras service.PlazaTokenExtras) *use
 		PerRequestPrice:              p.PerRequestPrice,
 		SearchPricePerCall:           extras.WebSearchPricePerCall,
 		ToolSearchPricePerCall:       extras.ToolSearchPricePerCall,
-		InputPricePriority:           extras.InputPricePriority,
-		OutputPricePriority:          extras.OutputPricePriority,
-		CacheWritePricePriority:      extras.CacheWritePricePriority,
-		CacheReadPricePriority:       extras.CacheReadPricePriority,
-		FastMultiplier:               p.FastMultiplier,
-		FlexMultiplier:               p.FlexMultiplier,
 		ImageCacheReadPrice:          extras.ImageCacheReadPrice,
 		AudioInputPrice:              extras.AudioInputPrice,
 		AudioOutputPrice:             extras.AudioOutputPrice,

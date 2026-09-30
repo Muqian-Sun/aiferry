@@ -28,7 +28,6 @@ func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 		[]string{"claude-sonnet-4"},
 		1.0,
 		UsageTokens{InputTokens: 1000, OutputTokens: 500},
-		"",
 		time.Time{},
 	)
 	require.NoError(t, err)
@@ -52,7 +51,6 @@ func TestCalculateOpenAIRecordUsageCost_SearchOnlyWhenNoTokenPricing(t *testing.
 		nil,
 		1.0,
 		UsageTokens{},
-		"",
 		time.Time{},
 	)
 	require.NoError(t, err)
@@ -75,7 +73,6 @@ func TestCalculateOpenAIRecordUsageCost_TokenPricingErrorNotSwallowedBySearch(t 
 		[]string{"totally-unknown-model-xyz-no-pricing"},
 		1.0,
 		UsageTokens{InputTokens: 1000, OutputTokens: 500},
-		"",
 		time.Time{},
 	)
 	require.Error(t, err)

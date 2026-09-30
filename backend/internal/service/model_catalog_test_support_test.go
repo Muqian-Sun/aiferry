@@ -310,8 +310,6 @@ func catalogEntryFromCard(modelID, managedBy string, card PricingCard) ModelCata
 		ImageOutputPrice:             card.ImageOutputPrice,
 		PerRequestPrice:              card.PerRequestPrice,
 		SearchPricePerCall:           card.SearchPricePerCall,
-		FastMultiplier:               card.FastMultiplier,
-		FlexMultiplier:               card.FlexMultiplier,
 		MaxReasoningEffortMultiplier: card.MaxReasoningEffortMultiplier,
 		Intervals:                    card.Intervals,
 		TimePricing:                  card.TimePricing,
@@ -379,11 +377,11 @@ func seededLiteLLMEntry(t *testing.T, ps *PricingService, model string) ModelCat
 }
 
 // costViaCatalog 走目录计费（与网关同一入口）。
-func costViaCatalog(t *testing.T, bs *BillingService, resolver *ModelPricingResolver, model string, tokens UsageTokens, serviceTier string) *CostBreakdown {
+func costViaCatalog(t *testing.T, bs *BillingService, resolver *ModelPricingResolver, model string, tokens UsageTokens) *CostBreakdown {
 	t.Helper()
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
 		Ctx: context.Background(), Model: model, Tokens: tokens, RateMultiplier: 1,
-		ServiceTier: serviceTier, Resolver: resolver,
+		Resolver: resolver,
 	})
 	if err != nil {
 		t.Fatalf("calculate %s: %v", model, err)

@@ -92,17 +92,10 @@ type ModelCatalogEntry struct {
 	AudioInputPrice  *float64 `json:"audio_input_price"`
 	AudioOutputPrice *float64 `json:"audio_output_price"`
 
-	InputPricePriority      *float64 `json:"input_price_priority"`
-	OutputPricePriority     *float64 `json:"output_price_priority"`
-	CacheWritePricePriority *float64 `json:"cache_write_price_priority"`
-	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
-
 	PerRequestPrice *float64 `json:"per_request_price"`
 	// SearchPricePerCall 模型内置搜索每次调用价（alpha search 用）；nil 表示用内置单价。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
-	FastMultiplier               *float64 `json:"fast_multiplier"`
-	FlexMultiplier               *float64 `json:"flex_multiplier"`
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 
 	Notes *string `json:"notes,omitempty"`
@@ -183,7 +176,7 @@ func (e *ModelCatalogEntry) IsOperatorAuthored() bool {
 
 // PricingCard 把目录条目投影成共享的价卡结构，供区间匹配、显式字段判定与分时
 // 倍率复用同一套代码。只投影 PricingCard 已有的字段；目录独有的字段
-// （priority 价、图片缓存读价等）由 ApplyToModelPricing 直接写进 ModelPricing。
+// （图片缓存读价、音频价等）由 ApplyToModelPricing 直接写进 ModelPricing。
 func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 	if e == nil {
 		return nil
@@ -196,8 +189,6 @@ func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 		CacheWritePrice:              e.CacheWritePrice,
 		CacheWrite1hPrice:            e.CacheWrite1hPrice,
 		CacheReadPrice:               e.CacheReadPrice,
-		FastMultiplier:               e.FastMultiplier,
-		FlexMultiplier:               e.FlexMultiplier,
 		MaxReasoningEffortMultiplier: e.MaxReasoningEffortMultiplier,
 		ImageInputPrice:              e.ImageInputPrice,
 		ImageOutputPrice:             e.ImageOutputPrice,
@@ -237,7 +228,6 @@ func (e *ModelCatalogEntry) HasAnyTokenPrice() bool {
 		e.InputPrice, e.OutputPrice, e.CacheWritePrice, e.CacheWrite1hPrice, e.CacheReadPrice,
 		e.ImageInputPrice, e.ImageOutputPrice, e.ImageCacheReadPrice,
 		e.AudioInputPrice, e.AudioOutputPrice,
-		e.InputPricePriority, e.OutputPricePriority, e.CacheWritePricePriority, e.CacheReadPricePriority,
 	} {
 		if p != nil {
 			return true
@@ -255,36 +245,23 @@ func (e *ModelCatalogEntry) ApplyToModelPricing(pricing *ModelPricing) {
 		return
 	}
 
-	setStandardAndPriority := func(standard, priority *float64, std, prio *float64) {
-		// standard/priority 是目标字段地址，std/prio 是目录里的值。
-		if std != nil {
-			// 目录没写 priority 价时，沿用「基准价比例」推出来的档位价，
-			// 与渠道覆盖同口径（channelTierOverridePrice）。
-			derived := channelTierOverridePrice(*standard, *priority, *std)
-			*standard = *std
-			*priority = derived
-		}
-		if prio != nil {
-			*priority = *prio
-		}
+	if e.InputPrice != nil {
+		pricing.InputPricePerToken = *e.InputPrice
+	}
+	if e.OutputPrice != nil {
+		pricing.OutputPricePerToken = *e.OutputPrice
+	}
+	if e.CacheReadPrice != nil {
+		pricing.CacheReadPricePerToken = *e.CacheReadPrice
 	}
 
-	setStandardAndPriority(&pricing.InputPricePerToken, &pricing.InputPricePerTokenPriority, e.InputPrice, e.InputPricePriority)
-	setStandardAndPriority(&pricing.OutputPricePerToken, &pricing.OutputPricePerTokenPriority, e.OutputPrice, e.OutputPricePriority)
-	setStandardAndPriority(&pricing.CacheReadPricePerToken, &pricing.CacheReadPricePerTokenPriority, e.CacheReadPrice, e.CacheReadPricePriority)
-
 	if e.CacheWritePrice != nil {
-		derived := channelTierOverridePrice(pricing.CacheCreationPricePerToken, pricing.CacheCreationPricePerTokenPriority, *e.CacheWritePrice)
 		pricing.CacheCreationPricePerToken = *e.CacheWritePrice
-		pricing.CacheCreationPricePerTokenPriority = derived
 		pricing.CacheCreationPriceExplicit = true
 		pricing.CacheCreation5mPrice = *e.CacheWritePrice
 		if e.CacheWrite1hPrice == nil {
 			pricing.CacheCreation1hPrice = *e.CacheWritePrice
 		}
-	}
-	if e.CacheWritePricePriority != nil {
-		pricing.CacheCreationPricePerTokenPriority = *e.CacheWritePricePriority
 	}
 	if e.CacheWrite1hPrice != nil {
 		pricing.CacheCreation1hPrice = *e.CacheWrite1hPrice
@@ -313,12 +290,6 @@ func (e *ModelCatalogEntry) ApplyToModelPricing(pricing *ModelPricing) {
 		pricing.AudioOutputPricePerToken = *e.AudioOutputPrice
 	}
 
-	if e.FastMultiplier != nil {
-		pricing.FastMultiplier = e.FastMultiplier
-	}
-	if e.FlexMultiplier != nil {
-		pricing.FlexMultiplier = e.FlexMultiplier
-	}
 	if e.MaxReasoningEffortMultiplier != nil {
 		pricing.MaxReasoningEffortMultiplier = e.MaxReasoningEffortMultiplier
 	}
@@ -418,22 +389,18 @@ func (e *ModelCatalogEntry) Validate() error {
 		}
 	}
 	prices := map[string]*float64{
-		"input_price":                e.InputPrice,
-		"output_price":               e.OutputPrice,
-		"cache_write_price":          e.CacheWritePrice,
-		"cache_write_1h_price":       e.CacheWrite1hPrice,
-		"cache_read_price":           e.CacheReadPrice,
-		"image_input_price":          e.ImageInputPrice,
-		"image_output_price":         e.ImageOutputPrice,
-		"image_cache_read_price":     e.ImageCacheReadPrice,
-		"audio_input_price":          e.AudioInputPrice,
-		"audio_output_price":         e.AudioOutputPrice,
-		"input_price_priority":       e.InputPricePriority,
-		"output_price_priority":      e.OutputPricePriority,
-		"cache_write_price_priority": e.CacheWritePricePriority,
-		"cache_read_price_priority":  e.CacheReadPricePriority,
-		"per_request_price":          e.PerRequestPrice,
-		"search_price_per_call":      e.SearchPricePerCall,
+		"input_price":            e.InputPrice,
+		"output_price":           e.OutputPrice,
+		"cache_write_price":      e.CacheWritePrice,
+		"cache_write_1h_price":   e.CacheWrite1hPrice,
+		"cache_read_price":       e.CacheReadPrice,
+		"image_input_price":      e.ImageInputPrice,
+		"image_output_price":     e.ImageOutputPrice,
+		"image_cache_read_price": e.ImageCacheReadPrice,
+		"audio_input_price":      e.AudioInputPrice,
+		"audio_output_price":     e.AudioOutputPrice,
+		"per_request_price":      e.PerRequestPrice,
+		"search_price_per_call":  e.SearchPricePerCall,
 	}
 	for _, name := range sortedPriceFieldNames(prices) {
 		if value := prices[name]; value != nil && *value < 0 {
@@ -441,8 +408,6 @@ func (e *ModelCatalogEntry) Validate() error {
 		}
 	}
 	multipliers := map[string]*float64{
-		"fast_multiplier":                 e.FastMultiplier,
-		"flex_multiplier":                 e.FlexMultiplier,
 		"max_reasoning_effort_multiplier": e.MaxReasoningEffortMultiplier,
 	}
 	for _, name := range sortedPriceFieldNames(multipliers) {

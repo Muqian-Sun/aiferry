@@ -409,114 +409,6 @@ func (_u *ModelCatalogEntryUpdate) ClearAudioOutputPrice() *ModelCatalogEntryUpd
 	return _u
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) SetInputPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetInputPricePriority()
-	_u.mutation.SetInputPricePriority(v)
-	return _u
-}
-
-// SetNillableInputPricePriority sets the "input_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableInputPricePriority(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetInputPricePriority(*v)
-	}
-	return _u
-}
-
-// AddInputPricePriority adds value to the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) AddInputPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddInputPricePriority(v)
-	return _u
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) ClearInputPricePriority() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearInputPricePriority()
-	return _u
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) SetOutputPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetOutputPricePriority()
-	_u.mutation.SetOutputPricePriority(v)
-	return _u
-}
-
-// SetNillableOutputPricePriority sets the "output_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableOutputPricePriority(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetOutputPricePriority(*v)
-	}
-	return _u
-}
-
-// AddOutputPricePriority adds value to the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) AddOutputPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddOutputPricePriority(v)
-	return _u
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) ClearOutputPricePriority() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearOutputPricePriority()
-	return _u
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) SetCacheWritePricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetCacheWritePricePriority()
-	_u.mutation.SetCacheWritePricePriority(v)
-	return _u
-}
-
-// SetNillableCacheWritePricePriority sets the "cache_write_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableCacheWritePricePriority(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetCacheWritePricePriority(*v)
-	}
-	return _u
-}
-
-// AddCacheWritePricePriority adds value to the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) AddCacheWritePricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddCacheWritePricePriority(v)
-	return _u
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) ClearCacheWritePricePriority() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearCacheWritePricePriority()
-	return _u
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) SetCacheReadPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetCacheReadPricePriority()
-	_u.mutation.SetCacheReadPricePriority(v)
-	return _u
-}
-
-// SetNillableCacheReadPricePriority sets the "cache_read_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableCacheReadPricePriority(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetCacheReadPricePriority(*v)
-	}
-	return _u
-}
-
-// AddCacheReadPricePriority adds value to the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) AddCacheReadPricePriority(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddCacheReadPricePriority(v)
-	return _u
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdate) ClearCacheReadPricePriority() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearCacheReadPricePriority()
-	return _u
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (_u *ModelCatalogEntryUpdate) SetPerRequestPrice(v float64) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetPerRequestPrice()
@@ -568,60 +460,6 @@ func (_u *ModelCatalogEntryUpdate) AddSearchPricePerCall(v float64) *ModelCatalo
 // ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
 func (_u *ModelCatalogEntryUpdate) ClearSearchPricePerCall() *ModelCatalogEntryUpdate {
 	_u.mutation.ClearSearchPricePerCall()
-	return _u
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) SetFastMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetFastMultiplier()
-	_u.mutation.SetFastMultiplier(v)
-	return _u
-}
-
-// SetNillableFastMultiplier sets the "fast_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableFastMultiplier(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetFastMultiplier(*v)
-	}
-	return _u
-}
-
-// AddFastMultiplier adds value to the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) AddFastMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddFastMultiplier(v)
-	return _u
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) ClearFastMultiplier() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearFastMultiplier()
-	return _u
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) SetFlexMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.ResetFlexMultiplier()
-	_u.mutation.SetFlexMultiplier(v)
-	return _u
-}
-
-// SetNillableFlexMultiplier sets the "flex_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableFlexMultiplier(v *float64) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetFlexMultiplier(*v)
-	}
-	return _u
-}
-
-// AddFlexMultiplier adds value to the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) AddFlexMultiplier(v float64) *ModelCatalogEntryUpdate {
-	_u.mutation.AddFlexMultiplier(v)
-	return _u
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdate) ClearFlexMultiplier() *ModelCatalogEntryUpdate {
-	_u.mutation.ClearFlexMultiplier()
 	return _u
 }
 
@@ -954,42 +792,6 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if _u.mutation.AudioOutputPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64)
 	}
-	if value, ok := _u.mutation.InputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedInputPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.InputPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.OutputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedOutputPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.OutputPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.CacheWritePricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedCacheWritePricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.CacheWritePricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.CacheReadPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedCacheReadPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.CacheReadPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64)
-	}
 	if value, ok := _u.mutation.PerRequestPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64, value)
 	}
@@ -1007,24 +809,6 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.FastMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFastMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.FastMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.FlexMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFlexMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.FlexMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
@@ -1541,114 +1325,6 @@ func (_u *ModelCatalogEntryUpdateOne) ClearAudioOutputPrice() *ModelCatalogEntry
 	return _u
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) SetInputPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetInputPricePriority()
-	_u.mutation.SetInputPricePriority(v)
-	return _u
-}
-
-// SetNillableInputPricePriority sets the "input_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableInputPricePriority(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetInputPricePriority(*v)
-	}
-	return _u
-}
-
-// AddInputPricePriority adds value to the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) AddInputPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddInputPricePriority(v)
-	return _u
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearInputPricePriority() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearInputPricePriority()
-	return _u
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) SetOutputPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetOutputPricePriority()
-	_u.mutation.SetOutputPricePriority(v)
-	return _u
-}
-
-// SetNillableOutputPricePriority sets the "output_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableOutputPricePriority(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetOutputPricePriority(*v)
-	}
-	return _u
-}
-
-// AddOutputPricePriority adds value to the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) AddOutputPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddOutputPricePriority(v)
-	return _u
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearOutputPricePriority() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearOutputPricePriority()
-	return _u
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) SetCacheWritePricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetCacheWritePricePriority()
-	_u.mutation.SetCacheWritePricePriority(v)
-	return _u
-}
-
-// SetNillableCacheWritePricePriority sets the "cache_write_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableCacheWritePricePriority(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetCacheWritePricePriority(*v)
-	}
-	return _u
-}
-
-// AddCacheWritePricePriority adds value to the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) AddCacheWritePricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddCacheWritePricePriority(v)
-	return _u
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearCacheWritePricePriority() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearCacheWritePricePriority()
-	return _u
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) SetCacheReadPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetCacheReadPricePriority()
-	_u.mutation.SetCacheReadPricePriority(v)
-	return _u
-}
-
-// SetNillableCacheReadPricePriority sets the "cache_read_price_priority" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableCacheReadPricePriority(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetCacheReadPricePriority(*v)
-	}
-	return _u
-}
-
-// AddCacheReadPricePriority adds value to the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) AddCacheReadPricePriority(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddCacheReadPricePriority(v)
-	return _u
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearCacheReadPricePriority() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearCacheReadPricePriority()
-	return _u
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (_u *ModelCatalogEntryUpdateOne) SetPerRequestPrice(v float64) *ModelCatalogEntryUpdateOne {
 	_u.mutation.ResetPerRequestPrice()
@@ -1700,60 +1376,6 @@ func (_u *ModelCatalogEntryUpdateOne) AddSearchPricePerCall(v float64) *ModelCat
 // ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
 func (_u *ModelCatalogEntryUpdateOne) ClearSearchPricePerCall() *ModelCatalogEntryUpdateOne {
 	_u.mutation.ClearSearchPricePerCall()
-	return _u
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) SetFastMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetFastMultiplier()
-	_u.mutation.SetFastMultiplier(v)
-	return _u
-}
-
-// SetNillableFastMultiplier sets the "fast_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableFastMultiplier(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetFastMultiplier(*v)
-	}
-	return _u
-}
-
-// AddFastMultiplier adds value to the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) AddFastMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddFastMultiplier(v)
-	return _u
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearFastMultiplier() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearFastMultiplier()
-	return _u
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) SetFlexMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.ResetFlexMultiplier()
-	_u.mutation.SetFlexMultiplier(v)
-	return _u
-}
-
-// SetNillableFlexMultiplier sets the "flex_multiplier" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableFlexMultiplier(v *float64) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetFlexMultiplier(*v)
-	}
-	return _u
-}
-
-// AddFlexMultiplier adds value to the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) AddFlexMultiplier(v float64) *ModelCatalogEntryUpdateOne {
-	_u.mutation.AddFlexMultiplier(v)
-	return _u
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (_u *ModelCatalogEntryUpdateOne) ClearFlexMultiplier() *ModelCatalogEntryUpdateOne {
-	_u.mutation.ClearFlexMultiplier()
 	return _u
 }
 
@@ -2116,42 +1738,6 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	if _u.mutation.AudioOutputPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64)
 	}
-	if value, ok := _u.mutation.InputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedInputPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.InputPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.OutputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedOutputPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.OutputPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.CacheWritePricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedCacheWritePricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.CacheWritePricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.CacheReadPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedCacheReadPricePriority(); ok {
-		_spec.AddField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64, value)
-	}
-	if _u.mutation.CacheReadPricePriorityCleared() {
-		_spec.ClearField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64)
-	}
 	if value, ok := _u.mutation.PerRequestPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64, value)
 	}
@@ -2169,24 +1755,6 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.FastMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFastMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.FastMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64)
-	}
-	if value, ok := _u.mutation.FlexMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64, value)
-	}
-	if value, ok := _u.mutation.AddedFlexMultiplier(); ok {
-		_spec.AddField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64, value)
-	}
-	if _u.mutation.FlexMultiplierCleared() {
-		_spec.ClearField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)

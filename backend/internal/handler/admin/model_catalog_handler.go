@@ -45,16 +45,9 @@ type ModelCatalogEntryRequest struct {
 	AudioInputPrice  *float64 `json:"audio_input_price"`
 	AudioOutputPrice *float64 `json:"audio_output_price"`
 
-	InputPricePriority      *float64 `json:"input_price_priority"`
-	OutputPricePriority     *float64 `json:"output_price_priority"`
-	CacheWritePricePriority *float64 `json:"cache_write_price_priority"`
-	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
-
 	PerRequestPrice    *float64 `json:"per_request_price"`
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
-	FastMultiplier               *float64 `json:"fast_multiplier"`
-	FlexMultiplier               *float64 `json:"flex_multiplier"`
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 
 	Notes *string `json:"notes"`
@@ -83,16 +76,9 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 		AudioInputPrice:     r.AudioInputPrice,
 		AudioOutputPrice:    r.AudioOutputPrice,
 
-		InputPricePriority:      r.InputPricePriority,
-		OutputPricePriority:     r.OutputPricePriority,
-		CacheWritePricePriority: r.CacheWritePricePriority,
-		CacheReadPricePriority:  r.CacheReadPricePriority,
-
 		PerRequestPrice:    r.PerRequestPrice,
 		SearchPricePerCall: r.SearchPricePerCall,
 
-		FastMultiplier:               r.FastMultiplier,
-		FlexMultiplier:               r.FlexMultiplier,
 		MaxReasoningEffortMultiplier: r.MaxReasoningEffortMultiplier,
 
 		Notes:       r.Notes,

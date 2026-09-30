@@ -80,19 +80,11 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		modelCatalogPriceField("audio_input_price"),
 		modelCatalogPriceField("audio_output_price"),
 
-		// priority / fast 服务档显式价格，nil 时由 fast 倍率或基准价比例推导。
-		modelCatalogPriceField("input_price_priority"),
-		modelCatalogPriceField("output_price_priority"),
-		modelCatalogPriceField("cache_write_price_priority"),
-		modelCatalogPriceField("cache_read_price_priority"),
-
 		// 按次 / 图片 / 视频计费的默认单价。
 		modelCatalogPriceField("per_request_price"),
 		// 模型内置搜索每次调用价（alpha search 用；未配则用内置单价）。
 		modelCatalogPriceField("search_price_per_call"),
 
-		modelCatalogMultiplierField("fast_multiplier"),
-		modelCatalogMultiplierField("flex_multiplier"),
 		modelCatalogMultiplierField("max_reasoning_effort_multiplier"),
 
 		field.Text("notes").

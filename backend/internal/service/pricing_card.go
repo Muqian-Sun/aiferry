@@ -50,8 +50,6 @@ type PricingCard struct {
 	CacheWritePrice              *float64          `json:"cache_write_price"`
 	CacheWrite1hPrice            *float64          `json:"cache_write_1h_price"`
 	CacheReadPrice               *float64          `json:"cache_read_price"`
-	FastMultiplier               *float64          `json:"fast_multiplier"`
-	FlexMultiplier               *float64          `json:"flex_multiplier"`
 	MaxReasoningEffortMultiplier *float64          `json:"max_reasoning_effort_multiplier"`
 	ImageInputPrice              *float64          `json:"image_input_price"`
 	ImageOutputPrice             *float64          `json:"image_output_price"`
