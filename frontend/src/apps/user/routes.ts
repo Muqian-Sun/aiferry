@@ -375,7 +375,8 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Service Status',
       titleKey: 'userUi.serviceStatus.title',
-      descriptionKey: 'userUi.serviceStatus.description'
+      descriptionKey: 'userUi.serviceStatus.description',
+      preload: (_to, prefetch) => import('@/views/user/serviceStatusQuery').then((m) => m.preloadServiceStatus(prefetch))
     }
   },
   { path: '/monitor', redirect: '/status' },

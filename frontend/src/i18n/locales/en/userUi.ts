@@ -324,7 +324,7 @@ export default {
       updatedAt: 'Updated {time}',
       noDataYet: 'No statistics yet',
       backfill: 'Filling in history ({percent}%); longer ranges are incomplete for now',
-      stats: { availability: 'Availability', ttft: 'Time to first token (median)', ttftP90: '90% within {value}' },
+      stats: { availability: 'Availability', ttft: 'Time to first token (median)', ttftP90: '90% within {value}', cache: 'Cache hit rate' },
       models: {
         title: 'Models',
         description: 'Problems first. Time runs left to right, one block per period; hover a block for its numbers',
@@ -337,12 +337,12 @@ export default {
         hideIdle: 'Hide',
         stripLabel: '{model} status by period'
       },
-      columns: { availability: 'Availability', ttft: 'First token' },
+      columns: { availability: 'Availability', ttft: 'First token', cache: 'Cache hits' },
       legend: { healthy: 'Normal', warning: 'Unstable', critical: 'Problems', unknown: 'Too few requests' },
-      slot: { detail: '{time}  Availability {availability} · First token {ttft}', fewRequests: ' (too few requests to rate)', noRequests: '{time}  No requests' },
+      slot: { detail: '{time}  Availability {availability} · First token {ttft} · Cache hits {cache}', fewRequests: ' (too few requests to rate)', noRequests: '{time}  No requests' },
       trend: { title: 'Overall trend', empty: 'No data for this period yet' },
       loadFailed: 'Could not load service status',
-      footnote: 'Measured from real requests on this site. Time to first token is the time from sending a request to receiving the first output.'
+      footnote: 'Measured from real requests on this site. Time to first token is the time from sending a request to receiving the first output; cache hit rate is the share of input tokens served from cache.'
     }
   }
 }

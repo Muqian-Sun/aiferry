@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { HEALTH_BAR, formatAvailability, formatLatency, formatSlotTime, type StatusSlot } from './serviceStatus'
+import { HEALTH_BAR, formatPercent, formatLatency, formatSlotTime, type StatusSlot } from './serviceStatus'
 
 const props = defineProps<{
   slots: StatusSlot[]
@@ -33,8 +33,9 @@ function describe(slot: StatusSlot): string {
   if (!metrics || metrics.availability == null) return t('userUi.serviceStatus.slot.noRequests', { time })
   const detail = t('userUi.serviceStatus.slot.detail', {
     time,
-    availability: formatAvailability(metrics.availability),
-    ttft: formatLatency(metrics.ttft_p50_ms)
+    availability: formatPercent(metrics.availability),
+    ttft: formatLatency(metrics.ttft_p50_ms),
+    cache: formatPercent(metrics.cache_hit_rate)
   })
   // 有请求但太少时格子是灰的，说明一下为什么不评状态
   return slot.point?.health.overall === 'unknown' ? `${detail}${t('userUi.serviceStatus.slot.fewRequests')}` : detail
