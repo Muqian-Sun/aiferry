@@ -11,6 +11,11 @@ export interface StatItem {
   action?: { label: string; onClick: () => void }
   /** 数值的文字色，不传是正文色；只用于状态（如利润为负时 text-af-danger） */
   valueClass?: string
+  /**
+   * 整数从 0 跳到位（style.css 的 .count-up，与模型页页首数字同一套）：要祖先挂 v-reveal 触发；
+   * value 仍要给，作读屏与测试用的真实值
+   */
+  countTo?: number
 }
 
 /** 页内页签（账务四页签、记录 / 错误页签）。 */

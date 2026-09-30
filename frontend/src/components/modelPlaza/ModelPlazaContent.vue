@@ -30,8 +30,9 @@
       </dl>
     </div>
 
-    <!-- 控制台形态：页头由壳画，这里补一条数字摘要（上架模型 / 厂商），与其它列表页一致 -->
-    <StatRow v-if="embedded && catalog.length" :items="consoleSummary" data-testid="plaza-console-summary" />
+    <!-- 控制台形态：页头由壳画，这里补一条数字摘要（上架模型 / 厂商），与其它列表页一致；
+         数字与公开页页首一样进视口时从 0 跳到位（v-reveal 触发 .count-up） -->
+    <StatRow v-if="embedded && catalog.length" v-reveal="200" :items="consoleSummary" data-testid="plaza-console-summary" />
 
     <!-- 管理员配置的全局价格说明（Markdown） -->
     <div v-if="descriptionHtml" class="plaza-description text-sm text-af-ink-2" v-html="descriptionHtml"></div>
@@ -243,8 +244,8 @@ const catalog = computed(() => buildCatalog(props.response?.models ?? []))
 const vendors = computed(() => catalogVendors(catalog.value))
 /** 页首数字：与首页数字段同一口径（上架模型数 / 厂商数） */
 const consoleSummary = computed<StatItem[]>(() => [
-  { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
-  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) }
+  { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length), countTo: catalog.value.length },
+  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length), countTo: vendors.value.length }
 ])
 const stats = computed(() => [
   { key: 'models', value: catalog.value.length },
