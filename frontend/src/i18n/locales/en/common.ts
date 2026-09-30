@@ -178,6 +178,7 @@ export default {
     accountSecurity: 'Account Security',
     users: 'Users',
     channels: 'Channels',
+    channelStatus: 'Channel status',
     subscriptions: 'Subscription',
     accounts: 'Channels',
     proxies: 'Proxies',

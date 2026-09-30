@@ -1,4 +1,34 @@
 export default {
+    channelStatus: {
+      description: 'Recent availability, time to first token, cache hit rate and requests per channel — the same statistics as the public service status',
+      allModels: 'All models',
+      allPlatforms: 'All platforms',
+      modelFilter: 'Filter by model',
+      platformFilter: 'Filter by platform',
+      loadFailed: 'Could not load channel status',
+      headline: {
+        healthy: 'All channels are operating normally',
+        warning: '{count} channel(s) responding unevenly',
+        critical: '{count} channel(s) having problems',
+        unknown: 'Too few requests in this period to tell'
+      },
+      stats: { requests: 'Requests' },
+      channels: {
+        title: 'Channels',
+        description: 'Problems first; open a channel to edit it. Time runs left to right, one block per period; hover a block for its numbers',
+        search: 'Search channels',
+        empty: 'No channels yet',
+        noMatch: 'No matching channels',
+        idle: '{count} more channel(s) had no requests in this period',
+        showIdle: 'Show',
+        hideIdle: 'Hide',
+        unrouted: 'No channel selected',
+        unroutedHint: 'Requests that failed before reaching any channel (e.g. none available)',
+        deleted: 'Deleted',
+        requests: 'Requests',
+        filter: { label: 'Filter by status', all: 'All', issues: 'Problems {count}', healthy: 'Normal {count}' }
+      }
+    },
 
 
     riskControl: {

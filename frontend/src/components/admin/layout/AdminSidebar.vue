@@ -30,6 +30,7 @@ import {
   PriceTagIcon,
   ServerIcon,
   ShieldIcon,
+  SignalIcon,
   UsersIcon
 } from '@/components/layout/sidebar/navIcons'
 
@@ -72,6 +73,7 @@ const sections = computed((): NavSection[] => {
       items: [
         // 渠道 = 资源（成品号 / 第三方 key）；模型决定上架与标价
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
+        { path: '/channels/status', label: t('nav.channelStatus'), icon: SignalIcon },
         { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
         { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
       ],
