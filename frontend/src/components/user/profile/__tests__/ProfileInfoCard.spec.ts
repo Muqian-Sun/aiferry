@@ -171,15 +171,9 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-basics-panel"]').find('input#username').exists()).toBe(true)
   })
 
-  it('shows the price multiplier next to balance, defaulting a missing one to 1 and keeping 0 (free)', () => {
-    const metric = (user: User) =>
-      mount(ProfileInfoCard, { props: { user }, global: { stubs: { Icon: true } } })
-        .get('[data-testid="profile-overview-metric-multiplier"]')
-        .text()
-    expect(metric(createUser({ rate_multiplier: 2 }))).toContain('Price multiplier')
-    expect(metric(createUser({ rate_multiplier: 2 }))).toContain('× 2')
-    expect(metric(createUser({ rate_multiplier: 0.5 }))).toContain('× 0.5')
-    expect(metric(createUser({ rate_multiplier: 0 }))).toContain('× 0')
-    expect(metric(createUser())).toContain('× 1')
+  it('does not show the price multiplier to users (muqian 2026-09-30)', () => {
+    const wrapper = mount(ProfileInfoCard, { props: { user: createUser({ rate_multiplier: 0.0667 }) }, global: { stubs: { Icon: true } } })
+    expect(wrapper.find('[data-testid="profile-overview-metric-multiplier"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('0.0667')
   })
 })
