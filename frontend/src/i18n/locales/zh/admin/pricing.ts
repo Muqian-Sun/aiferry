@@ -23,6 +23,7 @@ export default {
     columns: {
       channel: '渠道',
       model: '模型',
+      upstreamModel: '上游模型名',
       input_price: '输入',
       output_price: '输出',
       cache_read_price: '缓存读',
@@ -34,6 +35,9 @@ export default {
       actions: '操作'
     },
     official: '官方价',
+    catalogName: '目录标识',
+    sameName: '同名',
+    upstreamModelHint: '这个渠道给这个模型用的模型名；留空 = 与目录模型标识同名。用户只能请求目录模型标识，转发时只转换这一次。',
     officialHint: '售价 = 官方价 × 用户倍率（默认 {rate}）',
     officialRef: '官方 {price}',
     officialUnset: '官方未设',
@@ -79,7 +83,8 @@ export default {
     issueSeparator: '；',
     issues: {
       missing: '{fields}还没填',
-      segment: '第 {index} 段：{error}'
+      segment: '第 {index} 段：{error}',
+      upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格'
     },
     discardTitle: '放弃未保存的修改？',
     discardMessage: '有 {count} 块改了还没保存，继续会丢掉这些修改。',

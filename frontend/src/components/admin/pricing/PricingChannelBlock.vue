@@ -48,6 +48,7 @@
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
             <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.model') }}</th>
+            <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
             <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
             <th class="px-3 py-2 text-right font-medium">{{ t('admin.pricing.columns.margin') }}</th>
@@ -72,6 +73,19 @@
               </div>
               <div v-if="entriesById.get(row.id)?.status === 'unlisted'" class="text-xs text-af-ink-4">{{ t('admin.pricing.status.unlisted') }}</div>
             </template>
+            <template #upstream>
+              <input
+                v-model="row.upstreamModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="t('admin.pricing.sameName')"
+                :aria-label="t('admin.pricing.columns.upstreamModel')"
+                :title="t('admin.pricing.upstreamModelHint')"
+                :class="['input h-8 w-40 px-2 py-1 font-mono text-13', upstreamModelInvalid(row.upstreamModel) ? 'border-af-danger' : '']"
+                data-testid="pricing-upstream-model"
+              />
+            </template>
             <template #margin><MarginCell :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #status><ChannelStatusCell :account="account" :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #actions>
@@ -81,7 +95,7 @@
             </template>
           </PricingPriceRows>
           <tr v-if="draft.rows.length === 0">
-            <td :colspan="10" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noModels') }}</td>
+            <td :colspan="11" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noModels') }}</td>
           </tr>
         </tbody>
       </table>
@@ -124,6 +138,7 @@ import MarginCell from './MarginCell.vue'
 import ChannelStatusCell from './ChannelStatusCell.vue'
 import {
   PRICE_KEYS,
+  bindingRowIssues,
   channelDraftChanges,
   cloneChannelDraft,
   emptyPriceRow,
@@ -132,7 +147,7 @@ import {
   marginOf,
   priceRowFrom,
   priceRowToRequest,
-  upstreamIssues,
+  upstreamModelInvalid,
   type BlockState,
   type ChannelDraft,
   type KeyedRow,
@@ -180,7 +195,7 @@ function officialOf(entryId: number): Record<PriceKey, number | null> {
 }
 
 function rowIssues(row: KeyedRow): RowIssues {
-  return upstreamIssues(row.prices, officialOf(row.id))
+  return bindingRowIssues(row, officialOf(row.id))
 }
 
 function isNewRow(row: KeyedRow): boolean {
@@ -216,7 +231,12 @@ const filteredAddable = computed(() => {
 })
 
 function addModel(entry: PricingEntry) {
-  draft.value.rows.push({ id: entry.id, prices: siblingPrices(entry.id) ?? emptyPriceRow() })
+  const sibling = siblingBinding(entry.id)
+  draft.value.rows.push({
+    id: entry.id,
+    upstreamModel: sibling?.upstream_model ?? '',
+    prices: sibling ? priceRowFrom(sibling) : emptyPriceRow()
+  })
 }
 
 // ---- 从同上游的渠道复制价格：同一家上游按协议建了几个渠道（fenno 有 Chat / Responses / Messages）时，
@@ -229,13 +249,12 @@ const copySources = computed(() => {
   )
 })
 
-/** 同上游的渠道承接这个模型时的上游价（取第一个） */
-function siblingPrices(entryId: number) {
+/** 同上游的渠道承接这个模型时的那条承接关系（取第一个） */
+function siblingBinding(entryId: number) {
   const entry = entriesById.value.get(entryId)
   const host = props.account.upstream_host
   if (!entry || !host) return null
-  const binding = entry.bindings.find((b) => b.account_id !== props.account.id && props.accounts.find((a) => a.id === b.account_id)?.upstream_host === host)
-  return binding ? priceRowFrom(binding) : null
+  return entry.bindings.find((b) => b.account_id !== props.account.id && props.accounts.find((a) => a.id === b.account_id)?.upstream_host === host) ?? null
 }
 
 function copyFrom(sourceId: number) {
@@ -244,8 +263,12 @@ function copyFrom(sourceId: number) {
     if (!binding || !entry.bindable_account_ids.includes(props.account.id)) continue
     const prices = priceRowFrom(binding)
     const existing = draft.value.rows.find((row) => row.id === entry.id)
-    if (existing) existing.prices = prices
-    else draft.value.rows.push({ id: entry.id, prices })
+    if (existing) {
+      existing.prices = prices
+      existing.upstreamModel = binding.upstream_model ?? ''
+    } else {
+      draft.value.rows.push({ id: entry.id, upstreamModel: binding.upstream_model ?? '', prices })
+    }
   }
 }
 
@@ -274,7 +297,11 @@ async function save() {
   saveError.value = ''
   try {
     await adminAPI.pricing.saveChannel(props.account.id, {
-      bindings: props.state.draft.rows.map((row) => ({ entry_id: row.id, ...priceRowToRequest(row.prices) }))
+      bindings: props.state.draft.rows.map((row) => ({
+        entry_id: row.id,
+        upstream_model: row.upstreamModel.trim(),
+        ...priceRowToRequest(row.prices)
+      }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利
     blockState.value.initial = cloneChannelDraft(props.state.draft)

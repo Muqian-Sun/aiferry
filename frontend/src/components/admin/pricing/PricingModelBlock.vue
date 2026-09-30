@@ -36,6 +36,7 @@
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
             <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.channel') }}</th>
+            <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
             <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
             <th class="px-3 py-2 text-right font-medium">{{ t('admin.pricing.columns.margin') }}</th>
@@ -49,6 +50,7 @@
               <div class="font-medium text-af-ink">{{ t('admin.pricing.official') }}</div>
               <div class="text-xs text-af-ink-3">{{ t('admin.pricing.officialHint', { rate: rateText }) }}</div>
             </template>
+            <template #upstream><span class="text-xs text-af-ink-4">{{ t('admin.pricing.catalogName') }}</span></template>
             <template #margin><span class="text-af-ink-4">—</span></template>
           </PricingPriceRows>
           <PricingPriceRows
@@ -65,6 +67,19 @@
                 <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-[11px] text-af-warning">{{ t('admin.pricing.newRow') }}</span>
               </div>
             </template>
+            <template #upstream>
+              <input
+                v-model="row.upstreamModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="t('admin.pricing.sameName')"
+                :aria-label="t('admin.pricing.columns.upstreamModel')"
+                :title="t('admin.pricing.upstreamModelHint')"
+                :class="['input h-8 w-40 px-2 py-1 font-mono text-13', upstreamModelInvalid(row.upstreamModel) ? 'border-af-danger' : '']"
+                data-testid="pricing-upstream-model"
+              />
+            </template>
             <template #margin><MarginCell :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #status><ChannelStatusCell :account="accounts.get(row.id)" :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #actions>
@@ -74,7 +89,7 @@
             </template>
           </PricingPriceRows>
           <tr v-if="draft.rows.length === 0">
-            <td :colspan="10" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noChannels') }}</td>
+            <td :colspan="11" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noChannels') }}</td>
           </tr>
         </tbody>
       </table>
@@ -119,6 +134,7 @@ import MarginCell from './MarginCell.vue'
 import ChannelStatusCell from './ChannelStatusCell.vue'
 import {
   PRICE_KEYS,
+  bindingRowIssues,
   cloneModelDraft,
   clonePriceRow,
   emptyPriceRow,
@@ -130,7 +146,7 @@ import {
   priceRowChanges,
   priceRowFrom,
   priceRowToRequest,
-  upstreamIssues,
+  upstreamModelInvalid,
   type BlockState,
   type KeyedRow,
   type ModelDraft,
@@ -163,7 +179,7 @@ const officialChanged = computed(() => priceRowChanges(props.state.draft.officia
 const officialRowIssues = computed(() => officialIssues(props.state.draft.official))
 
 function rowIssues(row: KeyedRow): RowIssues {
-  return upstreamIssues(row.prices, props.state.draft.official)
+  return bindingRowIssues(row, props.state.draft.official)
 }
 
 function isNewRow(row: KeyedRow): boolean {
@@ -203,12 +219,16 @@ const addableAccounts = computed(() => {
     .sort((a, b) => props.accountOrder(a.id) - props.accountOrder(b.id))
 })
 
-/** 新加的渠道：同一上游（主机名相同）已经承接这个模型的，先带上它的上游价 */
+/** 新加的渠道：同一上游（主机名相同）已经承接这个模型的，先带上它的上游模型名与上游价 */
 function addChannel(account: PricingAccount) {
   const sibling = account.upstream_host
     ? draft.value.rows.find((row) => props.accounts.get(row.id)?.upstream_host === account.upstream_host)
     : undefined
-  draft.value.rows.push({ id: account.id, prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow() })
+  draft.value.rows.push({
+    id: account.id,
+    upstreamModel: sibling?.upstreamModel ?? '',
+    prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow()
+  })
 }
 
 function removeRow(id: number) {
@@ -240,7 +260,11 @@ async function save() {
   try {
     await adminAPI.pricing.saveModel(props.entry.id, {
       ...priceRowToRequest(props.state.draft.official),
-      bindings: props.state.draft.rows.map((row) => ({ account_id: row.id, ...priceRowToRequest(row.prices) }))
+      bindings: props.state.draft.rows.map((row) => ({
+        account_id: row.id,
+        upstream_model: row.upstreamModel.trim(),
+        ...priceRowToRequest(row.prices)
+      }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利
     blockState.value.initial = cloneModelDraft(props.state.draft)

@@ -70,10 +70,12 @@ export interface PricingPrices {
   intervals: PricingInterval[]
 }
 
-/** 一条承接关系的上游价 */
+/** 一条承接关系的上游模型名与上游价 */
 export interface PricingBinding extends PricingPrices {
   entry_id: number
   account_id: number
+  /** 这个渠道给这个模型用的上游模型名，空 = 与目录模型标识同名 */
+  upstream_model: string
   input_price: number
   output_price: number
   /** 上游成本比（上游价 ÷ 官方价，逐项、逐段取最高），与利润门同一个数；官方价没有可比项时为 null */
@@ -119,12 +121,12 @@ export interface PricingOverview {
 
 /** 按模型保存一块：官方价 + 这个模型的全部承接关系（整份覆盖） */
 export interface PricingModelSaveRequest extends PricingPrices {
-  bindings: Array<PricingPrices & { account_id: number }>
+  bindings: Array<PricingPrices & { account_id: number; upstream_model: string }>
 }
 
 /** 按渠道保存一块：这个渠道承接的全部模型与上游价（整份覆盖） */
 export interface PricingChannelSaveRequest {
-  bindings: Array<PricingPrices & { entry_id: number }>
+  bindings: Array<PricingPrices & { entry_id: number; upstream_model: string }>
 }
 
 export const pricingAPI = {
