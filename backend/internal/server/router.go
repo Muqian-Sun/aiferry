@@ -75,6 +75,7 @@ func registerUserSiteRoutes(r *gin.Engine, d routeDeps) {
 	routes.RegisterAccountSecurityRoutes(v1, h, d.jwtAuth, d.auditLog, d.settingService, panelRateLimiter)
 	routes.RegisterUserRoutes(v1, h, d.jwtAuth, d.auditLog, d.settingService, panelRateLimiter)
 	routes.RegisterModelPlazaRoutes(v1, h, d.optionalJWTAuth, d.settingService, panelRateLimiter)
+	routes.RegisterServiceStatusRoutes(v1, h, d.settingService, panelRateLimiter)
 	routes.RegisterGatewayRoutes(r, h, d.apiKeyAuth, d.apiKeyService, d.subscriptionService, d.opsService, d.modelCatalog, d.cfg)
 	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, d.jwtAuth, d.settingService, panelRateLimiter)
 
