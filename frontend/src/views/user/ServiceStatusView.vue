@@ -3,7 +3,8 @@
     服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快」。
     与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）。
     ① 整体：一句话结论 + 可用率 / 首字延迟 + 全站趋势（可用率 / 首字延迟切换）
-    ② 各模型：多列格子（一格 = 状态、逐段细色条、可用率、首字延迟），有问题的排前面，可按状态筛选、搜索；
+    ② 各模型 = 上架目录里的模型（muqian 2026-09-30，后端按目录出名单，别名并入本名，没上架的不计）：
+       多列格子（一格 = 状态、逐段细色条、可用率、首字延迟），有问题的排前面，可按状态筛选、搜索；
        这段时间一个请求都没有的模型不占格子，折成一行「另有 N 个模型没有请求」，展开只列名字。
     数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行、缓存率）。
   -->
@@ -75,14 +76,14 @@
             >
               <div class="flex items-center gap-2.5">
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="HEALTH_DOT[row.health.overall]" aria-hidden="true" />
-                <span class="min-w-0 flex-1 truncate font-mono text-sm font-medium text-af-ink" :title="row.label">{{ row.label }}</span>
+                <span class="min-w-0 flex-1 truncate font-mono text-sm font-medium text-af-ink" :title="row.model">{{ row.model }}</span>
                 <span class="shrink-0 text-xs" :class="HEALTH_TEXT[row.health.overall]">{{ healthLabel(row.health.overall) }}</span>
               </div>
               <ServiceStatusStrip
                 class="mt-3"
                 :slots="row.slots"
                 :bucket-seconds="bucketSeconds"
-                :label="t('userUi.serviceStatus.models.stripLabel', { model: row.label })"
+                :label="t('userUi.serviceStatus.models.stripLabel', { model: row.model })"
               />
               <p class="mt-2.5 flex items-center justify-between gap-4 text-xs tabular-nums text-af-ink-3">
                 <span>
@@ -115,7 +116,7 @@
               </button>
             </p>
             <ul v-if="idleExpanded || searchKeyword" class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-xs text-af-ink-3">
-              <li v-for="row in visibleIdle" :key="row.model">{{ row.label }}</li>
+              <li v-for="row in visibleIdle" :key="row.model">{{ row.model }}</li>
             </ul>
           </div>
 
@@ -138,7 +139,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  OTHER_MODELS,
   SERVICE_STATUS_DISABLED_REASON,
   getServiceStatusModels,
   getServiceStatusSnapshot,
@@ -248,22 +248,13 @@ onBeforeUnmount(() => {
 // ---------- 各模型 ----------
 const bucketSeconds = computed(() => models.value?.coverage.bucket_seconds ?? 0)
 
-function modelLabel(model: string): string {
-  return model === OTHER_MODELS ? t('userUi.serviceStatus.models.other') : model
-}
-
-/** 有问题的在前，同档按模型名；「其他模型」垫底 */
+/** 有问题的在前，同档按模型名 */
 const rows = computed(() => {
   const data = models.value
   if (!data) return []
   return data.items
-    .map((item) => ({ ...item, label: modelLabel(item.model), slots: fillSlots(data.coverage, item.buckets) }))
-    .sort(
-      (a, b) =>
-        Number(a.model === OTHER_MODELS) - Number(b.model === OTHER_MODELS) ||
-        HEALTH_RANK[a.health.overall] - HEALTH_RANK[b.health.overall] ||
-        a.label.localeCompare(b.label)
-    )
+    .map((item) => ({ ...item, slots: fillSlots(data.coverage, item.buckets) }))
+    .sort((a, b) => HEALTH_RANK[a.health.overall] - HEALTH_RANK[b.health.overall] || a.model.localeCompare(b.model))
 })
 /** 这段时间有请求的模型占格子；一个请求都没有的（可用率为空）折叠起来 */
 const activeRows = computed(() => rows.value.filter((row) => row.metrics.availability != null))
@@ -288,11 +279,11 @@ function matchesFilter(level: ServiceHealth): boolean {
 
 const search = ref('')
 const searchKeyword = computed(() => search.value.trim().toLowerCase())
-function matchesSearch(label: string): boolean {
-  return !searchKeyword.value || label.toLowerCase().includes(searchKeyword.value)
+function matchesSearch(model: string): boolean {
+  return !searchKeyword.value || model.toLowerCase().includes(searchKeyword.value)
 }
-const visibleActive = computed(() => activeRows.value.filter((row) => matchesFilter(row.health.overall) && matchesSearch(row.label)))
-const visibleIdle = computed(() => idleRows.value.filter((row) => matchesSearch(row.label)))
+const visibleActive = computed(() => activeRows.value.filter((row) => matchesFilter(row.health.overall) && matchesSearch(row.model)))
+const visibleIdle = computed(() => idleRows.value.filter((row) => matchesSearch(row.model)))
 const idleExpanded = ref(false)
 
 function healthLabel(level: ServiceHealth): string {

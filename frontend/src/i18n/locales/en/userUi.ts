@@ -335,7 +335,6 @@ export default {
         idle: '{count} more model(s) had no requests in this period',
         showIdle: 'Show',
         hideIdle: 'Hide',
-        other: 'Other models',
         stripLabel: '{model} status by period'
       },
       columns: { availability: 'Availability', ttft: 'First token' },

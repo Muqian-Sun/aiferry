@@ -454,6 +454,13 @@ func seedChannelMonitorV2MatrixAccumulators(filter service.ChannelMonitorV2Filte
 	}
 	// model 维度：跨平台播种模型行（同名模型只播一次）。
 	if groupBy == service.ChannelMonitorV2GroupByModel {
+		// 访客名单与平台无关：名单里的每个模型都有一行，没有请求也在
+		if cfg.ModelRoster != nil {
+			for _, model := range channelMonitorV2RosterModels(cfg.ModelRoster, filter) {
+				accs[channelMonitorV2MatrixKey{model: model}] = newAcc()
+			}
+			return accs
+		}
 		for _, platform := range platforms {
 			for _, model := range configuredChannelMonitorV2Models(cfg, platform, filter) {
 				if model == "" {
@@ -486,6 +493,14 @@ func seedChannelMonitorV2MatrixAccumulators(filter service.ChannelMonitorV2Filte
 		}
 	}
 	return accs
+}
+
+// channelMonitorV2RosterModels 访客名单里要出行的模型（带模型筛选时取交集）。
+func channelMonitorV2RosterModels(roster *service.ChannelMonitorV2ModelRoster, filter service.ChannelMonitorV2Filter) []string {
+	if len(filter.Models) > 0 {
+		return intersectStrings(roster.Models, filter.Models)
+	}
+	return roster.Models
 }
 
 func configuredChannelMonitorV2Models(cfg service.ChannelMonitorV2Config, platform string, filter service.ChannelMonitorV2Filter) []string {
@@ -990,6 +1005,10 @@ func channelMonitorV2WhereWithRollup(filter service.ChannelMonitorV2Filter, cfg 
 func channelMonitorV2Where(filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config, alias string) (string, []any) {
 	conditions := []string{alias + ".bucket_start >= $1", alias + ".bucket_start < $2"}
 	args := []any{filter.Start, filter.End}
+	// 访客名单不按上游平台筛（含没选到上游的 unknown）：模型归属由名单解析决定
+	if cfg.ModelRoster != nil {
+		return "WHERE " + strings.Join(conditions, " AND "), args
+	}
 	platforms := channelMonitorV2EnabledPlatforms(cfg)
 	if len(filter.Platforms) > 0 {
 		platforms = intersectStrings(platforms, filter.Platforms)
@@ -1015,12 +1034,19 @@ func channelMonitorV2EnabledPlatforms(cfg service.ChannelMonitorV2Config) []stri
 
 // channelMonitorV2DisplayModel maps a raw model name for presentation.
 // Semantics:
+//   - visitor roster set → the listed model the name resolves to, else __other__ (platform ignored)
 //   - platform not in config / disabled → keep raw model (still collected)
 //   - models list empty → show the real model name (no collapsing)
 //   - models list non-empty → selected keep identity; everything else → __other__
 func channelMonitorV2DisplayModel(cfg service.ChannelMonitorV2Config, platform, model string) string {
 	model = strings.TrimSpace(model)
 	if model == "" {
+		return service.ChannelMonitorV2OtherModel
+	}
+	if cfg.ModelRoster != nil {
+		if id, ok := cfg.ModelRoster.Resolve(model); ok {
+			return id
+		}
 		return service.ChannelMonitorV2OtherModel
 	}
 	for _, p := range cfg.Platforms {
@@ -1043,6 +1069,10 @@ func channelMonitorV2DisplayModel(cfg service.ChannelMonitorV2Config, platform, 
 	return model
 }
 func channelMonitorV2ModelSelected(filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config, platform, model string) bool {
+	// 访客名单外的流量（没上架的模型名、没解析出模型的失败请求）不计
+	if cfg.ModelRoster != nil && channelMonitorV2DisplayModel(cfg, platform, model) == service.ChannelMonitorV2OtherModel {
+		return false
+	}
 	if len(filter.Models) == 0 {
 		return true
 	}

@@ -335,7 +335,6 @@ export default {
         idle: '另有 {count} 个模型这段时间没有请求',
         showIdle: '展开',
         hideIdle: '收起',
-        other: '其他模型',
         stripLabel: '{model} 各时段状态'
       },
       columns: { availability: '可用率', ttft: '首字延迟' },

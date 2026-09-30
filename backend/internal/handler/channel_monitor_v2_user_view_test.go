@@ -152,7 +152,7 @@ func (monitorV2RuntimeFixture) GetChannelMonitorRuntime(context.Context) service
 }
 
 func newMonitorV2FixtureHandler() *ChannelMonitorV2Handler {
-	svc := service.NewChannelMonitorV2Service(monitorV2FixtureRepo{})
+	svc := service.NewChannelMonitorV2Service(monitorV2FixtureRepo{}, listedCatalogStub{ids: []string{"gpt-5"}})
 	svc.SetRuntimeReader(monitorV2RuntimeFixture{})
 	return NewChannelMonitorV2Handler(svc)
 }

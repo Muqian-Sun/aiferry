@@ -20,6 +20,34 @@ type channelMonitorV2RepoStub struct {
 	models *ChannelMonitorV2List[ChannelMonitorV2ModelRow]
 	group  ChannelMonitorV2GroupBy
 	admin  bool
+	// cfg 是最近一次快照 / 矩阵读数收到的配置（看访客名单有没有带上）
+	cfg ChannelMonitorV2Config
+}
+
+// channelMonitorV2CatalogStub 上架目录：ids 是上架条目本名，aliases 把别名指到本名。
+type channelMonitorV2CatalogStub struct {
+	ids     []string
+	aliases map[string]string
+}
+
+func (s channelMonitorV2CatalogStub) ListListedEntries(context.Context) []ModelCatalogEntry {
+	entries := make([]ModelCatalogEntry, 0, len(s.ids))
+	for i, id := range s.ids {
+		entries = append(entries, ModelCatalogEntry{ID: int64(i + 1), ModelID: id, Status: ModelCatalogStatusListed})
+	}
+	return entries
+}
+
+func (s channelMonitorV2CatalogStub) ResolveRoute(_ context.Context, model string) (CatalogRoute, bool) {
+	if canonical, ok := s.aliases[model]; ok {
+		model = canonical
+	}
+	for i, id := range s.ids {
+		if id == model {
+			return CatalogRoute{EntryID: int64(i + 1), CanonicalModel: id, RequestedModel: model}, true
+		}
+	}
+	return CatalogRoute{}, false
 }
 
 // Alias keeps composite literals readable without introducing another package.
@@ -35,8 +63,8 @@ func (s *channelMonitorV2RepoStub) UpdateConfig(context.Context, ChannelMonitorV
 func (s *channelMonitorV2RepoStub) GetDimensions(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config) (*ChannelMonitorV2Dimensions, error) {
 	return s.dims, nil
 }
-func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2Snapshot, error) {
-	s.admin = admin
+func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, got ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2Snapshot, error) {
+	s.admin, s.cfg = admin, got
 	if s.snap == nil {
 		return nil, nil
 	}
@@ -55,8 +83,8 @@ func (s *channelMonitorV2RepoStub) GetModels(_ context.Context, _ ChannelMonitor
 	s.admin = admin
 	return s.models, nil
 }
-func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
-	s.group, s.admin = groupBy, admin
+func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, cfg ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
+	s.group, s.admin, s.cfg = groupBy, admin, cfg
 	return s.matrix, nil
 }
 func (s *channelMonitorV2RepoStub) GetErrors(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ErrorRow], error) {
@@ -159,13 +187,13 @@ func TestParseChannelMonitorV2GroupBy(t *testing.T) {
 func TestChannelMonitorV2MatrixForwardsGroupingAndAdminScope(t *testing.T) {
 	want := &ChannelMonitorV2Matrix{GroupBy: ChannelMonitorV2GroupByPlatformModel}
 	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: true}, matrix: want}
-	result, err := NewChannelMonitorV2Service(repo).Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatformModel, true)
+	result, err := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{}).Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatformModel, true)
 	require.NoError(t, err)
 	require.Same(t, want, result)
 	require.Equal(t, ChannelMonitorV2GroupByPlatformModel, repo.group)
 	require.True(t, repo.admin)
 
-	_, err = NewChannelMonitorV2Service(repo).Matrix(context.Background(), ChannelMonitorV2Filter{}, "bad", false)
+	_, err = NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{}).Matrix(context.Background(), ChannelMonitorV2Filter{}, "bad", false)
 	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy)
 }
 
@@ -318,7 +346,7 @@ func TestChannelMonitorV2UsersHiddenWhenSettingEnabled(t *testing.T) {
 		{UserID: &otherID, Email: "other@example.com", Username: "other"},
 		{UserID: &selfID, Email: "self@example.com", Username: "self"},
 	}}}
-	svc := NewChannelMonitorV2Service(repo)
+	svc := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{})
 	svc.SetRuntimeReader(channelMonitorV2RuntimeStub{rt: ChannelMonitorRuntime{HideUserRanking: true}})
 
 	hidden, err := svc.Users(context.Background(), ChannelMonitorV2Filter{}, selfID, false)
@@ -336,7 +364,7 @@ func TestChannelMonitorV2UsersRemovesOtherUserIdentity(t *testing.T) {
 		{UserID: &otherID, Email: "other@example.com", Username: "other"},
 		{UserID: &selfID, Email: "self@example.com", Username: "self"},
 	}}}
-	result, err := NewChannelMonitorV2Service(repo).Users(context.Background(), ChannelMonitorV2Filter{}, selfID, false)
+	result, err := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{}).Users(context.Background(), ChannelMonitorV2Filter{}, selfID, false)
 	require.NoError(t, err)
 	require.Nil(t, result.Items[0].UserID)
 	require.Empty(t, result.Items[0].Email)
@@ -351,7 +379,7 @@ func TestChannelMonitorV2UsersAppendsSelfWhenMissingFromRanking(t *testing.T) {
 	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: true}, users: &ChannelMonitorV2List[ChannelMonitorV2UserRow]{Items: []ChannelMonitorV2UserRow{
 		{UserID: &otherID, Email: "other@example.com", Username: "other", Metrics: ChannelMonitorV2Metric{RequestCount: 10}},
 	}}}
-	result, err := NewChannelMonitorV2Service(repo).Users(context.Background(), ChannelMonitorV2Filter{}, selfID, false)
+	result, err := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{}).Users(context.Background(), ChannelMonitorV2Filter{}, selfID, false)
 	require.NoError(t, err)
 	require.Len(t, result.Items, 2)
 	self := result.Items[1]
@@ -376,7 +404,7 @@ func TestChannelMonitorV2TopUsersKeepsSelfOutsideLimit(t *testing.T) {
 
 func TestChannelMonitorV2ReadAPIsRejectDisabledConfig(t *testing.T) {
 	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: false}}
-	_, err := NewChannelMonitorV2Service(repo).Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatform, false)
+	_, err := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{}).Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatform, false)
 	require.ErrorIs(t, err, ErrChannelMonitorDisabled)
 }
 
@@ -418,7 +446,7 @@ func TestErrorsForViewerStripsDetailsAndCountsForNonAdmin(t *testing.T) {
 		}},
 	}
 	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: true}, errors: fixture}
-	svc := NewChannelMonitorV2Service(repo)
+	svc := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{})
 
 	userList, err := svc.ErrorsForViewer(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
@@ -454,7 +482,7 @@ func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {
 			Metrics: ChannelMonitorV2Metric{RequestCount: 100, ErrorRate: 0.1, SuccessRate: 0.9, RPM: 5},
 		},
 	}
-	svc := NewChannelMonitorV2Service(repo)
+	svc := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{})
 	snap, err := svc.Snapshot(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
 	require.Empty(t, snap.Config.IgnoredErrorCategories)
@@ -515,7 +543,7 @@ func TestChannelMonitorV2MatrixRejectsPlatformDimensionForNonAdmin(t *testing.T)
 		config: ChannelMonitorV2Config{Enabled: true},
 		matrix: &ChannelMonitorV2Matrix{GroupBy: ChannelMonitorV2GroupByModel},
 	}
-	svc := NewChannelMonitorV2Service(repo)
+	svc := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{})
 
 	for _, groupBy := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel} {
 		_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, groupBy, false)
@@ -544,14 +572,46 @@ func TestChannelMonitorV2DimensionsHidePlatformsForNonAdmin(t *testing.T) {
 		}
 	}
 
-	user, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, false)
+	user, err := NewChannelMonitorV2Service(newRepo(), channelMonitorV2CatalogStub{}).Dimensions(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
 	require.Empty(t, user.Platforms)
 	require.Len(t, user.Models, 1)
 	require.Empty(t, user.Models[0].Platform)
 
-	admin, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, true)
+	admin, err := NewChannelMonitorV2Service(newRepo(), channelMonitorV2CatalogStub{}).Dimensions(context.Background(), ChannelMonitorV2Filter{}, true)
 	require.NoError(t, err)
 	require.Len(t, admin.Platforms, 1)
 	require.Equal(t, "openai", admin.Models[0].Platform)
+}
+
+// 访客读数（用户站服务状态页）按上架目录出模型（muqian 2026-09-30）：名单 = 上架条目本名，
+// 别名归到本名，名单外解析不到；管理员仍按监控配置，不带名单。
+func TestChannelMonitorV2VisitorReadsUseListedCatalog(t *testing.T) {
+	catalog := channelMonitorV2CatalogStub{ids: []string{"gpt-5.5", "grok-4.6"}, aliases: map[string]string{"grok-latest": "grok-4.6"}}
+	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: true}, snap: &ChannelMonitorV2Snapshot{}, matrix: &ChannelMonitorV2Matrix{}}
+	svc := NewChannelMonitorV2Service(repo, catalog)
+	reads := map[string]func(admin bool) error{
+		"snapshot": func(admin bool) error {
+			_, err := svc.Snapshot(context.Background(), ChannelMonitorV2Filter{}, admin)
+			return err
+		},
+		"matrix": func(admin bool) error {
+			_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByModel, admin)
+			return err
+		},
+	}
+	for name, read := range reads {
+		require.NoError(t, read(false), name)
+		roster := repo.cfg.ModelRoster
+		require.NotNil(t, roster, name)
+		require.Equal(t, []string{"gpt-5.5", "grok-4.6"}, roster.Models, name)
+		id, ok := roster.Resolve("grok-latest")
+		require.True(t, ok, name)
+		require.Equal(t, "grok-4.6", id, name)
+		_, ok = roster.Resolve("claude-opus-4")
+		require.False(t, ok, name)
+
+		require.NoError(t, read(true), name)
+		require.Nil(t, repo.cfg.ModelRoster, name)
+	}
 }

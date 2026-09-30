@@ -57,6 +57,16 @@ type ChannelMonitorV2Config struct {
 	IgnoredErrorCategories []string  `json:"ignored_error_categories"`
 	UpdatedAt              time.Time `json:"updated_at"`
 	UpdatedBy              *int64    `json:"updated_by,omitempty"`
+	// ModelRoster 只在访客读数时由服务按上架目录填入，不入库，见 ChannelMonitorV2ModelRoster。
+	ModelRoster *ChannelMonitorV2ModelRoster `json:"-"`
+}
+
+// ChannelMonitorV2ModelRoster 访客（用户站服务状态页）的模型名单 = 上架目录（muqian 2026-09-30）。
+// 设置后只统计名单里的模型：请求名（含别名）经 Resolve 归到条目本名，名单外的流量不计；
+// 也不按上游平台筛——访客看的是这个模型好不好用，与哪个上游在服务、平台开没开监控无关。
+type ChannelMonitorV2ModelRoster struct {
+	Models  []string
+	Resolve func(model string) (string, bool)
 }
 
 // ChannelMonitorV2ErrorCategories is the ordered, versioned taxonomy used by the
@@ -368,12 +378,39 @@ func ChannelMonitorV2BootstrapProgress(now, coveredFrom time.Time, hasData bool)
 
 type ChannelMonitorV2Service struct {
 	repo     ChannelMonitorV2Repository
+	catalog  CatalogListingSource
 	settings channelMonitorRuntimeReader
 	now      func() time.Time
 }
 
-func NewChannelMonitorV2Service(repo ChannelMonitorV2Repository) *ChannelMonitorV2Service {
-	return &ChannelMonitorV2Service{repo: repo, now: func() time.Time { return time.Now().UTC() }}
+// NewChannelMonitorV2Service catalog 生产上是 *ModelCatalogService：访客读数按它的上架条目出模型。
+func NewChannelMonitorV2Service(repo ChannelMonitorV2Repository, catalog CatalogListingSource) *ChannelMonitorV2Service {
+	return &ChannelMonitorV2Service{repo: repo, catalog: catalog, now: func() time.Time { return time.Now().UTC() }}
+}
+
+// visitorView 给访客读数用的配置副本：模型名单换成上架目录；管理员仍按监控配置里的平台 / 模型名单。
+func (s *ChannelMonitorV2Service) visitorView(ctx context.Context, cfg ChannelMonitorV2Config) ChannelMonitorV2Config {
+	entries := s.catalog.ListListedEntries(ctx)
+	models := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		models = append(models, entry.ModelID)
+	}
+	// 一次读数里同一个请求名会出现在很多段里，解析结果记下来（空串 = 不在名单里）
+	resolved := map[string]string{}
+	cfg.ModelRoster = &ChannelMonitorV2ModelRoster{
+		Models: models,
+		Resolve: func(model string) (string, bool) {
+			id, seen := resolved[model]
+			if !seen {
+				if route, ok := s.catalog.ResolveRoute(ctx, model); ok {
+					id = route.CanonicalModel
+				}
+				resolved[model] = id
+			}
+			return id, id != ""
+		},
+	}
+	return cfg
 }
 
 // SetRuntimeReader wires optional settings for privacy flags (hide throughput).
@@ -485,7 +522,11 @@ func (s *ChannelMonitorV2Service) Snapshot(ctx context.Context, filter ChannelMo
 	if err != nil {
 		return nil, err
 	}
-	snap, err := s.repo.GetSnapshot(ctx, filter, *cfg, admin)
+	view := *cfg
+	if !admin {
+		view = s.visitorView(ctx, view)
+	}
+	snap, err := s.repo.GetSnapshot(ctx, filter, view, admin)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +566,11 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 	if !admin && groupBy.RequiresAdmin() {
 		return nil, infraerrors.Forbidden("channel_monitor_platform_admin_only", "upstream channel breakdown is admin only")
 	}
-	matrix, err := s.repo.GetMatrix(ctx, filter, *cfg, groupBy, admin)
+	view := *cfg
+	if !admin {
+		view = s.visitorView(ctx, view)
+	}
+	matrix, err := s.repo.GetMatrix(ctx, filter, view, groupBy, admin)
 	if err != nil {
 		return nil, err
 	}

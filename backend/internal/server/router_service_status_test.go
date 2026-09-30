@@ -61,13 +61,27 @@ func (serviceStatusMonitorRepoStub) GetMatrix(_ context.Context, _ service.Chann
 	}, nil
 }
 
+// serviceStatusCatalogStub 上架目录只有 stub-model-a。
+type serviceStatusCatalogStub struct{}
+
+func (serviceStatusCatalogStub) ListListedEntries(context.Context) []service.ModelCatalogEntry {
+	return []service.ModelCatalogEntry{{ID: 1, ModelID: "stub-model-a", Status: service.ModelCatalogStatusListed}}
+}
+
+func (serviceStatusCatalogStub) ResolveRoute(_ context.Context, model string) (service.CatalogRoute, bool) {
+	if model != "stub-model-a" {
+		return service.CatalogRoute{}, false
+	}
+	return service.CatalogRoute{EntryID: 1, CanonicalModel: model, RequestedModel: model}, true
+}
+
 // TestUserSiteServiceStatusIsPublic 服务状态页对未登录访客公开（muqian 2026-09-30）：
 // 在用户站真实的路由表上，不带登录态请求 snapshot / matrix 拿到数据；渠道监控的其余读数仍要登录。
 func TestUserSiteServiceStatusIsPublic(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &handler.Handlers{}
 	allocNilPointers(reflect.ValueOf(h).Elem())
-	h.ChannelMonitorV2 = handler.NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(serviceStatusMonitorRepoStub{}))
+	h.ChannelMonitorV2 = handler.NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(serviceStatusMonitorRepoStub{}, serviceStatusCatalogStub{}))
 
 	next := func(c *gin.Context) { c.Next() }
 	unauthorized := func(c *gin.Context) { c.AbortWithStatus(http.StatusUnauthorized) }
