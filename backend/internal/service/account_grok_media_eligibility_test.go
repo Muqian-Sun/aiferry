@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -108,4 +109,32 @@ func TestGrokMediaCapabilityFiltersOnlyGeneration(t *testing.T) {
 	ok, reason := SelectOptions{Capability: OpenAIEndpointCapabilityGrokMediaGeneration}.admits(nil, nil, account)
 	require.False(t, ok)
 	require.Equal(t, "capability_mismatch", reason)
+}
+
+func TestUpdateAccountPreservesGrokBillingSnapshotForUnrelatedEdit(t *testing.T) {
+	accountID := int64(112)
+	billing := &xai.BillingSummary{
+		StatusCode:       http.StatusForbidden,
+		WeeklyStatusCode: http.StatusForbidden,
+	}
+	repo := &inMemoryAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformGrok,
+			Type:     AccountTypeOAuth,
+			Status:   StatusActive,
+			Extra:    map[string]any{grokBillingExtraKey: billing},
+		},
+	}}
+
+	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		Extra: map[string]any{"custom": "value"},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, billing, updated.Extra[grokBillingExtraKey])
+	require.Equal(t, "value", updated.Extra["custom"])
+	eligible, reason := updated.GrokMediaGenerationEligibility()
+	require.False(t, eligible)
+	require.Equal(t, "billing_forbidden", reason)
 }

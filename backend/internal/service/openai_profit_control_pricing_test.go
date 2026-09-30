@@ -3,7 +3,7 @@
 package service
 
 // 请求级定价与利润门回归：请求级 pricingAt 定价上下文、门复用（failover 阈值稳定）、
-// Responses 文本能力利润门、U 使用账号倍率且与探测新鲜度解耦、
+// Responses 文本能力利润门、U 使用账号倍率、
 // 用量记录定价时刻取值。
 
 import (
@@ -19,8 +19,7 @@ import (
 // （媒体/count_tokens/live 等门范围外路径）跳门且防御性装门无法把门加回来。
 func TestProfitControl_RequestPricingContext(t *testing.T) {
 	svc := profitControlTestService(t, 0.5)
-	now := time.Now()
-	expensive := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute)
+	expensive := upstreamCostTestAccount(1)
 	profitControlTestAccountWithRate(expensive, 0.8)
 
 	t.Run("installs gate and pricing instant", func(t *testing.T) {
@@ -75,24 +74,13 @@ func TestProfitControl_GateKeepsPricingAt(t *testing.T) {
 	require.Equal(t, pricingAt, gate.pricingAt)
 }
 
-// U 只取账号倍率：探测快照内容和新鲜度不再直接参与利润判断。
-func TestProfitControl_UsesAccountRateInsteadOfProbeSnapshot(t *testing.T) {
-	gate := &openAIProfitControlGate{threshold: 0.5, pricingAt: time.Now().Add(-12 * time.Hour)}
-	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, gate)
-	account := upstreamCostTestAccount(9, UpstreamBillingProbeStatusOK, 0.1, time.Now().Add(-3*time.Hour), 30*time.Minute)
-	profitControlTestAccountWithRate(account, 0.8)
-	vetoed, reason := openAIProfitControlVetoReason(ctx, account)
-	require.True(t, vetoed)
-	require.Equal(t, openAIProfitFilterReasonThreshold, reason)
-}
-
-// 账号倍率缺失一律视为非法保守拒绝；手工或同步维护了倍率的任意账号类型都按
+// 账号倍率缺失一律视为非法保守拒绝；填了倍率的任意账号类型都按
 // 同一阈值判断（OAuth 与 API Key 无差别）。
 func TestProfitControl_AccountRateSemantics(t *testing.T) {
 	now := time.Now()
 	missing := upstreamCostTestOAuthAccount(2)
 	manualOAuth := profitControlTestAccountWithRate(upstreamCostTestOAuthAccount(3), 0.3)
-	expensive := profitControlTestAccountWithRate(upstreamCostTestAccount(4, UpstreamBillingProbeStatusOK, 0.1, now.Add(-3*time.Hour), 30*time.Minute), 0.8)
+	expensive := profitControlTestAccountWithRate(upstreamCostTestAccount(4), 0.8)
 
 	base := context.WithValue(profitControlTestCtx(1), openAIPricingAtCtxKey{}, now)
 	gate := profitControlTestService(t, 0.5).resolveOpenAIProfitControlGate(base)
@@ -123,7 +111,7 @@ func TestOpenAIUsagePricingAt(t *testing.T) {
 // WithOpenAITurnPricingContext：长连接 turn 边界重新冻结 pricingAt 并按当前
 // 设置重装门（区别于请求级同门复用）。
 func TestProfitControl_TurnPricingContext(t *testing.T) {
-	expensive := upstreamCostTestAccount(3, UpstreamBillingProbeStatusOK, 0.8, time.Now().Add(-time.Minute), 30*time.Minute)
+	expensive := upstreamCostTestAccount(3)
 	profitControlTestAccountWithRate(expensive, 0.8)
 
 	t.Run("refreshes instant and re-resolves gate config", func(t *testing.T) {

@@ -63,7 +63,7 @@ func TestOllamaCloudUsageScheduleRateLimitProbeReturnsWhileProbeRuns(t *testing.
 	fixedNow := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	account := ollamaUsageAccount(1)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	base := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	base := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 	repo := &ollamaCloudProbeGateRepo{ollamaUsageTestRepo: base, entered: make(chan struct{}), release: make(chan struct{})}
@@ -109,7 +109,7 @@ func TestOllamaCloudUsageRateLimitProbeExhaustedReportsReset(t *testing.T) {
 	fixedNow := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	account := ollamaUsageAccount(11)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 	wantReset := ollamaCloudProbeReset(t, fixedNow)
@@ -134,7 +134,7 @@ func TestOllamaCloudUsageRateLimitProbeNotExhaustedNoCallback(t *testing.T) {
 	fixedNow := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	account := ollamaUsageAccount(12)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 	upstream := &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(5, ollamaCloudProbeReset(t, fixedNow).Format(time.RFC3339))}
@@ -161,7 +161,7 @@ func TestOllamaCloudUsageRateLimitProbeSameGroupCoalescesIntoOneFetchPerAccount(
 	second.Platform = PlatformAnthropic
 	second.Credentials = map[string]any{"base_url": "https://www.ollama.com/v1", "api_key": "shared-key"}
 	second.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=shared"
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{first.ID: first, second.ID: second},
 	}}
 	wantReset := ollamaCloudProbeReset(t, fixedNow)
@@ -207,7 +207,7 @@ func TestOllamaCloudUsageRateLimitProbeSkipsMissingCookieAndNonOllamaAccount(t *
 	// 给 nonOllama 一个有效 session，让「非 Ollama 上游」成为它被跳过的唯一原因；
 	// 否则它会和 noCookie 一样因缺 cookie 被跳过，这条断言对上游判定不敏感。
 	nonOllama.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{noCookie.ID: noCookie, nonOllama.ID: nonOllama},
 	}}
 	upstream := &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(100, ollamaCloudProbeReset(t, fixedNow).Format(time.RFC3339))}
@@ -237,7 +237,7 @@ func TestOllamaCloudUsageRateLimitProbeRespectsFailureBackoff(t *testing.T) {
 		NextRefreshAt: backoffUntil,
 		FailureCount:  2,
 	}
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 	upstream := &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(100, ollamaCloudProbeReset(t, fixedNow).Format(time.RFC3339))}
@@ -259,7 +259,7 @@ func TestOllamaCloudUsageRateLimitProbeStopCancelsInFlightAndRejectsNew(t *testi
 	fixedNow := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	account := ollamaUsageAccount(51)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	base := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	base := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 	repo := &ollamaCloudProbeGateRepo{ollamaUsageTestRepo: base, entered: make(chan struct{}), release: make(chan struct{})}
@@ -331,7 +331,7 @@ func TestOllamaCloudUsageRateLimitProbeSlowFetchDoesNotReportExpiredReset(t *tes
 	base := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	account := ollamaUsageAccount(61)
 	account.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
-	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
+	repo := &ollamaUsageTestRepo{inMemoryAccountRepo: &inMemoryAccountRepo{
 		accounts: map[int64]*Account{account.ID: account},
 	}}
 
@@ -384,7 +384,7 @@ func TestOllamaCloudUsageRateLimitProbeSlowFetchDoesNotReportExpiredReset(t *tes
 func TestOllamaCloudUsageRateLimitProbeQueueFullStillMergesExistingAccount(t *testing.T) {
 	base := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	repo := &ollamaCloudProbeGateRepo{ollamaUsageTestRepo: &ollamaUsageTestRepo{
-		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{}},
+		inMemoryAccountRepo: &inMemoryAccountRepo{accounts: map[int64]*Account{}},
 	}, entered: make(chan struct{}), release: make(chan struct{})}
 	repo.gating.Store(true)
 	setGatewayPolicyForTest(t, &ollamaCloudUsageEnabled, false)

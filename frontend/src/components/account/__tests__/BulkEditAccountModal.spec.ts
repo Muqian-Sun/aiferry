@@ -86,18 +86,6 @@ describe('BulkEditAccountModal', () => {
     } as any)
   })
 
-  it('批量修改倍率时提示自动同步账号需要先关闭同步', async () => {
-    const wrapper = mountModal()
-
-    expect(wrapper.find('[data-testid="bulk-rate-sync-warning"]').exists()).toBe(false)
-    await wrapper.get('#bulk-edit-rate-multiplier-enabled').setValue(true)
-
-    expect(wrapper.get('[data-testid="bulk-rate-sync-warning"]').text()).toContain(
-      'admin.accounts.bulkEdit.rateSyncWarning'
-    )
-  })
-
-
   // 去掉白名单后只有改名：Antigravity 自带模型表，同名预设（把表外模型加进来）也保留
   it('antigravity 改名预设包含图片映射并过滤 OpenAI 预设', async () => {
     const wrapper = mountModal()
@@ -131,90 +119,6 @@ describe('BulkEditAccountModal', () => {
     const wrapper = mountModal({ selectedPlatforms: ['grok'], selectedTypes: ['oauth'] })
 
     expect(wrapper.find('#bulk-edit-base-url').exists()).toBe(false)
-  })
-
-  it('OpenAI API Key 批量编辑可统一开启上游倍率自动探测', async () => {
-    const wrapper = mountModal({
-      selectedPlatforms: ['openai'],
-      selectedTypes: ['apikey']
-    })
-
-    await wrapper.get('#bulk-edit-upstream-billing-auto-probe-enabled').setValue(true)
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      upstream_billing_probe_enabled: true
-    })
-  })
-
-  it('非 OpenAI 平台的 API Key 批量编辑同样可开启上游倍率自动探测', async () => {
-    // 探测已放宽到全部 API-key 平台，混合平台选择只要求类型全为 apikey。
-    const wrapper = mountModal({
-      selectedPlatforms: ['grok', 'anthropic'],
-      selectedTypes: ['apikey']
-    })
-
-    await wrapper.get('#bulk-edit-upstream-billing-auto-probe-enabled').setValue(true)
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      upstream_billing_probe_enabled: true
-    })
-  })
-
-  it('OpenAI API Key 批量编辑可统一关闭上游倍率自动探测', async () => {
-    const wrapper = mountModal({
-      selectedPlatforms: ['openai'],
-      selectedTypes: ['apikey']
-    })
-
-    await wrapper.get('#bulk-edit-upstream-billing-auto-probe-enabled').setValue(true)
-    await wrapper.get('[data-testid="bulk-edit-upstream-billing-auto-probe-select"]').setValue('disabled')
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      upstream_billing_probe_enabled: false
-    })
-  })
-
-  it('非 OpenAI API Key 目标不显示上游倍率自动探测批量开关', () => {
-    const wrapper = mountModal({
-      selectedPlatforms: ['openai'],
-      selectedTypes: ['oauth']
-    })
-
-    expect(wrapper.find('#bulk-edit-upstream-billing-auto-probe-enabled').exists()).toBe(false)
-  })
-
-  it('筛选结果批量编辑可统一开启上游倍率自动探测', async () => {
-    const wrapper = mountModal({
-      accountIds: [],
-      selectedPlatforms: [],
-      selectedTypes: [],
-      target: {
-        mode: 'filtered',
-        filters: { platform: 'openai', type: 'apikey', status: 'active' },
-        previewCount: 20,
-        selectedPlatforms: ['openai'],
-        selectedTypes: ['apikey']
-      }
-    })
-
-    await wrapper.get('#bulk-edit-upstream-billing-auto-probe-enabled').setValue(true)
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith({
-      filters: { platform: 'openai', type: 'apikey', status: 'active' },
-      upstream_billing_probe_enabled: true
-    })
   })
 
   it('filtered-results 模式下应提交 filters 而不是 account_ids', async () => {

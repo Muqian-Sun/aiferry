@@ -99,7 +99,6 @@ function mountView() {
         AccountTodayStatsCell: true,
         AccountGroupsCell: true,
         AccountUsageCell: true,
-        UpstreamBillingRateCell: true,
         HelpTooltip: true,
         Icon: true,
         Teleport: true

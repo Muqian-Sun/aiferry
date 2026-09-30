@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 「第三方 key 必须有协议地址」守在仓储层。管理后台编辑账号走
-// UpdateWithAccountBillingSettings，它必须和 Update 一样拦住两种写入：
-// 把已有映射清空，以及把成品号改成第三方 key 却不配地址。
+// 「第三方 key 必须有协议地址」守在仓储层。管理后台编辑账号走 Update，
+// 它必须拦住两种写入：把已有映射清空，以及把成品号改成第三方 key 却不配地址。
 func TestAccountUpdatePathsRejectThirdPartyKeyWithoutEndpoints(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
@@ -24,9 +23,6 @@ func TestAccountUpdatePathsRejectThirdPartyKeyWithoutEndpoints(t *testing.T) {
 		update func(*service.Account) error
 	}{
 		{"Update", func(a *service.Account) error { return repo.Update(ctx, a) }},
-		{"UpdateWithAccountBillingSettings", func(a *service.Account) error {
-			return repo.UpdateWithAccountBillingSettings(ctx, a, nil, nil, nil)
-		}},
 	}
 	for _, path := range paths {
 		t.Run(path.name+"/clear endpoints", func(t *testing.T) {

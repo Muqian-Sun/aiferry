@@ -698,7 +698,7 @@
 
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
-      <!-- 第三方 key 的其余设置：智谱团队版（按识别出的厂商显示）、上游倍率探测 -->
+      <!-- 第三方 key 的其余设置：智谱团队版（按识别出的厂商显示） -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
         <!-- 智谱团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
         <div v-if="keyVendor === 'zhipu' && keyPlanMode === 'coding'">
@@ -728,23 +728,6 @@
             </div>
           </div>
           <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
-        </div>
-
-        <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
-        <div
-          class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-            </p>
-          </div>
-          <Toggle
-            v-model="upstreamBillingAutoProbeEnabled"
-            data-testid="upstream-billing-auto-probe"
-            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
-          />
         </div>
       </div>
 
@@ -1446,7 +1429,6 @@ import {
   findAccessSource
 } from '@/components/account/accessSources'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
 import {
   VENDORS_WITH_CODING_PLAN,
@@ -1584,7 +1566,6 @@ const submitting = ref(false)
 const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('oauth-based') // UI selection for account category
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyValue = ref('')
-const upstreamBillingAutoProbeEnabled = ref(true)
 
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const zhipuOrganization = ref('')
@@ -2076,16 +2057,6 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
         console.error(t('admin.accounts.syncUpstreamModelsFailed'), error)
       }
     }
-    if (
-      payload.type === 'apikey' &&
-      payload.upstream_billing_probe_enabled === true
-    ) {
-      try {
-        await adminAPI.accounts.probeUpstreamBilling(account.id)
-      } catch (error) {
-        console.error(t('admin.accounts.upstreamBilling.probeFailed'), error)
-      }
-    }
     emit('created')
     handleClose()
   } catch (error: any) {
@@ -2116,7 +2087,6 @@ const resetForm = () => {
   zhipuOrganization.value = ''
   zhipuProject.value = ''
   apiKeyValue.value = ''
-  upstreamBillingAutoProbeEnabled.value = true
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
@@ -2351,8 +2321,7 @@ const handleSubmit = async () => {
   await doCreateAccount({
     ...form,
     protocol_endpoints: apiKeyEndpoints,
-    extra: withQuotaExtra(extra),
-    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value
+    extra: withQuotaExtra(extra)
   })
 }
 
@@ -2450,10 +2419,7 @@ const createAccountAndFinish = async (
     concurrency: form.concurrency,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
-    expires_at: form.expires_at,
-    // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
-    // 非 apikey 类型（bedrock/oauth）不传，后端不动作。
-    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined
+    expires_at: form.expires_at
   })
 }
 

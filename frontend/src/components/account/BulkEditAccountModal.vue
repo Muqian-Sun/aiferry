@@ -284,14 +284,6 @@
             aria-labelledby="bulk-edit-rate-multiplier-label"
           />
           <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
-          <p
-            v-if="enableRateMultiplier"
-            class="mt-2 flex items-start gap-1 text-xs text-af-warning"
-            data-testid="bulk-rate-sync-warning"
-          >
-            <Icon name="exclamationTriangle" size="xs" class="mt-0.5 flex-shrink-0" />
-            <span>{{ t('admin.accounts.bulkEdit.rateSyncWarning') }}</span>
-          </p>
         </div>
       </div>
 
@@ -318,45 +310,6 @@
             v-model="status"
             :options="statusOptions"
             aria-labelledby="bulk-edit-status-label"
-          />
-        </div>
-      </div>
-
-      <!-- Upstream billing auto probe (any API-key platform) -->
-      <div v-if="allBillingProbeCapable" class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex-1 pr-4">
-            <label
-              id="bulk-edit-upstream-billing-auto-probe-label"
-              class="input-label mb-0"
-              for="bulk-edit-upstream-billing-auto-probe-enabled"
-            >
-              {{ t('admin.accounts.upstreamBilling.autoProbe') }}
-            </label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-            </p>
-          </div>
-          <input
-            v-model="enableUpstreamBillingAutoProbe"
-            id="bulk-edit-upstream-billing-auto-probe-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-upstream-billing-auto-probe"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-        <div
-          id="bulk-edit-upstream-billing-auto-probe"
-          :class="!enableUpstreamBillingAutoProbe && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-upstream-billing-auto-probe-label"
-        >
-          <Select
-            v-model="upstreamBillingAutoProbeMode"
-            :disabled="!enableUpstreamBillingAutoProbe"
-            data-testid="bulk-edit-upstream-billing-auto-probe-select"
-            :options="upstreamBillingAutoProbeOptions"
-            aria-labelledby="bulk-edit-upstream-billing-auto-probe-label"
           />
         </div>
       </div>
@@ -520,15 +473,6 @@ const targetSelectedPlatforms = computed(() => props.target?.selectedPlatforms ?
 const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.selectedTypes)
 const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 
-// 上游倍率自动探测已放宽到全部 API-key 平台：只要求所选类型全为 apikey，
-// 平台不限（sub2api 上游即可应答 /v1/sub2api/billing）。
-const allBillingProbeCapable = computed(() => {
-  return (
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'apikey')
-  )
-})
-
 // 是否全部为支持请求头覆写的平台/账号类型
 // 所选平台 × 所选类型的全组合均需具备覆写资格（实际选中账号是该组合的子集，
 // 按交叉积判定偏保守但绝不放行不合资格的账号）
@@ -583,7 +527,6 @@ const enableConcurrency = ref(false)
 const enablePriority = ref(false)
 const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
-const enableUpstreamBillingAutoProbe = ref(false)
 const enableRpmLimit = ref(false)
 
 // State - field values
@@ -598,7 +541,6 @@ const concurrency = ref(1)
 const priority = ref(1)
 const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
-const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
 const rpmLimitEnabled = ref(false)
 const bulkBaseRpm = ref<number | null>(null)
 
@@ -606,11 +548,6 @@ const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
 ])
-const upstreamBillingAutoProbeOptions = computed(() => [
-  { value: 'enabled', label: t('common.enabled') },
-  { value: 'disabled', label: t('common.disabled') }
-])
-
 const buildModelMappingObject = (): Record<string, string> | null => {
   return buildModelMappingPayload('mapping', [], modelMappings.value)
 }
@@ -667,10 +604,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     credentialsChanged = true
   }
 
-  if (enableUpstreamBillingAutoProbe.value) {
-    updates.upstream_billing_probe_enabled = upstreamBillingAutoProbeMode.value === 'enabled'
-  }
-
   // RPM limit settings (写入 extra 字段；RPM 策略与粘性缓冲写死在后端)
   if (enableRpmLimit.value) {
     const extra = ensureExtra()
@@ -706,7 +639,6 @@ const handleSubmit = async () => {
     enablePriority.value ||
     enableRateMultiplier.value ||
     enableStatus.value ||
-    enableUpstreamBillingAutoProbe.value ||
     enableRpmLimit.value
 
   if (!hasAnyFieldEnabled) {
@@ -761,13 +693,7 @@ const submitBulkUpdate = async (updates: Record<string, unknown>) => {
       handleClose()
     }
   } catch (error: any) {
-    if (error.reason === 'UPSTREAM_BILLING_RATE_SYNC_BULK_CONFLICT') {
-      console.error(t('admin.accounts.bulkEdit.rateSyncConflict', {
-        count: error.metadata?.count ?? 1
-      }), error)
-    } else {
-      console.error('Error bulk updating accounts:', error)
-    }
+    console.error('Error bulk updating accounts:', error)
   } finally {
     submitting.value = false
   }
@@ -787,7 +713,6 @@ watch(
       enablePriority.value = false
       enableRateMultiplier.value = false
       enableStatus.value = false
-      enableUpstreamBillingAutoProbe.value = false
       enableRpmLimit.value = false
 
       // Reset all values
@@ -800,7 +725,6 @@ watch(
       priority.value = 1
       rateMultiplier.value = 1
       status.value = 'active'
-      upstreamBillingAutoProbeMode.value = 'enabled'
       rpmLimitEnabled.value = false
       bulkBaseRpm.value = null
     }

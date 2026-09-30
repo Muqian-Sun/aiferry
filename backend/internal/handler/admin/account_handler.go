@@ -62,14 +62,8 @@ type AccountHandler struct {
 	rpmCache                service.RPMCache
 	tokenCacheInvalidator   service.TokenCacheInvalidator
 	grokImportProber        grokImportProber
-	upstreamBillingProbe    *service.UpstreamBillingProbeService
 	ollamaCloudUsage        *service.OllamaCloudUsageService
 	cfg                     *config.Config
-}
-
-// SetUpstreamBillingProbeService attaches the optional remote billing probe service.
-func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamBillingProbeService) {
-	h.upstreamBillingProbe = probe
 }
 
 func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
@@ -123,7 +117,6 @@ type CreateAccountRequest struct {
 	Priority       int            `json:"priority"`
 	RateMultiplier *float64       `json:"rate_multiplier"`
 	ExpiresAt      *int64         `json:"expires_at"`
-	ProbeEnabled   *bool          `json:"upstream_billing_probe_enabled"`
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
@@ -131,19 +124,17 @@ type CreateAccountRequest struct {
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name            string         `json:"name"`
-	Notes           *string        `json:"notes"`
-	Type            string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials     map[string]any `json:"credentials"`
-	Extra           map[string]any `json:"extra"`
-	ProxyID         *int64         `json:"proxy_id"`
-	Concurrency     *int           `json:"concurrency"`
-	Priority        *int           `json:"priority"`
-	RateMultiplier  *float64       `json:"rate_multiplier"`
-	Status          string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	ExpiresAt       *int64         `json:"expires_at"`
-	ProbeEnabled    *bool          `json:"upstream_billing_probe_enabled"`
-	RateSyncEnabled *bool          `json:"upstream_billing_rate_sync_enabled"`
+	Name           string         `json:"name"`
+	Notes          *string        `json:"notes"`
+	Type           string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials    map[string]any `json:"credentials"`
+	Extra          map[string]any `json:"extra"`
+	ProxyID        *int64         `json:"proxy_id"`
+	Concurrency    *int           `json:"concurrency"`
+	Priority       *int           `json:"priority"`
+	RateMultiplier *float64       `json:"rate_multiplier"`
+	Status         string         `json:"status" binding:"omitempty,oneof=active inactive error"`
+	ExpiresAt      *int64         `json:"expires_at"`
 	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
 	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
@@ -161,7 +152,6 @@ type BulkUpdateAccountsRequest struct {
 	Schedulable    *bool                     `json:"schedulable"`
 	Credentials    map[string]any            `json:"credentials"`
 	Extra          map[string]any            `json:"extra"`
-	ProbeEnabled   *bool                     `json:"upstream_billing_probe_enabled"`
 }
 
 type BulkUpdateAccountFilters struct {
@@ -522,7 +512,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			Priority:          req.Priority,
 			RateMultiplier:    req.RateMultiplier,
 			ExpiresAt:         req.ExpiresAt,
-			ProbeEnabled:      req.ProbeEnabled,
 			ProtocolEndpoints: req.ProtocolEndpoints,
 		})
 		if execErr != nil {
@@ -633,8 +622,6 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		RateMultiplier:    req.RateMultiplier,
 		Status:            req.Status,
 		ExpiresAt:         req.ExpiresAt,
-		ProbeEnabled:      req.ProbeEnabled,
-		RateSyncEnabled:   req.RateSyncEnabled,
 		ProtocolEndpoints: req.ProtocolEndpoints,
 	})
 	if err != nil {
@@ -1616,8 +1603,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.Status != "" ||
 		req.Schedulable != nil ||
 		len(req.Credentials) > 0 ||
-		len(req.Extra) > 0 ||
-		req.ProbeEnabled != nil
+		len(req.Extra) > 0
 
 	if !hasUpdates {
 		response.BadRequest(c, "No updates provided")
@@ -1636,7 +1622,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Schedulable:    req.Schedulable,
 		Credentials:    req.Credentials,
 		Extra:          req.Extra,
-		ProbeEnabled:   req.ProbeEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

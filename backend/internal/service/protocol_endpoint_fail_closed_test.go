@@ -164,24 +164,3 @@ func TestGeminiForwardWithoutEndpointFailsClosed(t *testing.T) {
 		require.Nil(t, upstream.lastReq)
 	})
 }
-
-// TestUpstreamBillingProbeWithoutEndpointRecordsMissingEndpoint 计费探测不向官方域兜底：
-// 缺地址记为独立失败原因，且不发出任何请求。
-func TestUpstreamBillingProbeWithoutEndpointRecordsMissingEndpoint(t *testing.T) {
-	account := &Account{
-		ID:          4343,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Credentials: map[string]any{"api_key": "sk-third-party"},
-	}
-	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
-	upstream := &httpUpstreamRecorder{}
-	svc := newUpstreamBillingProbeTestService(repo, upstream, &upstreamBillingProbeSettingRepo{})
-
-	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
-
-	require.NoError(t, err)
-	require.Equal(t, "missing_protocol_endpoint", snapshot.LastError)
-	require.Nil(t, upstream.lastReq)
-}

@@ -175,8 +175,6 @@ func keptKeys(t *testing.T, fn string, filter func(map[string]any) map[string]an
 		})
 	}
 	require.True(t, found, fn)
-	// service 常量形式的键（UpstreamBillingProbeExtraKey 等）按值补进候选
-	candidates[service.UpstreamBillingProbeExtraKey] = map[string]any{"status": "ok"} // 探测结果要有 status 才进投影
 	kept := filter(candidates)
 	out := make([]string, 0, len(kept))
 	for k := range kept {

@@ -1,6 +1,6 @@
 <template>
   <!--
-    渠道批量条（A5）：选中行才出现。常用的开 / 关调度、批量编辑直接放；重置状态、刷新令牌、探测倍率、
+    渠道批量条（A5）：选中行才出现。常用的开 / 关调度、批量编辑直接放；重置状态、刷新令牌、
     按筛选结果批量编辑、删除收进「更多」。计数旁可一键扩到全部筛选结果。
   -->
   <BulkBar :count="selectedIds.length" @clear="$emit('clear')">
@@ -39,9 +39,6 @@
       </template>
       <MenuItem icon="refresh" @click="$emit('reset-status')">{{ t('admin.accounts.bulkActions.resetStatus') }}</MenuItem>
       <MenuItem icon="key" @click="$emit('refresh-token')">{{ t('admin.accounts.bulkActions.refreshToken') }}</MenuItem>
-      <MenuItem icon="chart" data-testid="bulk-probe-upstream-billing" @click="$emit('probe-upstream-billing')">
-        {{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}
-      </MenuItem>
       <MenuItem icon="edit" data-test="edit-filtered" @click="$emit('edit-filtered')">
         {{ t('admin.accounts.bulkActions.editFiltered') }}
       </MenuItem>
@@ -73,8 +70,7 @@ defineEmits([
   'select-all-results',
   'toggle-schedulable',
   'reset-status',
-  'refresh-token',
-  'probe-upstream-billing'
+  'refresh-token'
 ])
 
 const { t } = useI18n()

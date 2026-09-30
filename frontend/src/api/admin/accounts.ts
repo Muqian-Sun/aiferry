@@ -20,8 +20,6 @@ import type {
   CodexSessionImportRequest,
   CodexSessionImportResult,
   OpenAICodexPATCreateRequest,
-  UpstreamBillingProbeResult,
-  UpstreamBillingRatesResponse,
   OllamaCloudUsageState,
   ProtocolEndpoints,
   UpstreamProtocol
@@ -66,44 +64,6 @@ export interface AccountListWithEtagResult {
   notModified: boolean
   etag: string | null
   data: PaginatedResponse<AccountListItem> | null
-}
-
-export interface AccountUpstreamBillingRatesWithEtagResult {
-  notModified: boolean
-  etag: string | null
-  data: UpstreamBillingRatesResponse | null
-}
-
-export async function getUpstreamBillingRatesWithEtag(
-  page: number = 1,
-  pageSize: number = 20,
-  filters?: {
-    platform?: string
-    type?: string
-    status?: string
-    search?: string
-    privacy_mode?: string
-    sort_by?: string
-    sort_order?: 'asc' | 'desc'
-  },
-  options?: {
-    signal?: AbortSignal
-    etag?: string | null
-  }
-): Promise<AccountUpstreamBillingRatesWithEtagResult> {
-  const headers: Record<string, string> = {}
-  if (options?.etag) headers['If-None-Match'] = options.etag
-
-  const response = await apiClient.get<UpstreamBillingRatesResponse>('/admin/accounts/upstream-billing-rates', {
-    params: { page, page_size: pageSize, ...filters },
-    headers,
-    signal: options?.signal,
-    validateStatus: (status) => (status >= 200 && status < 300) || status === 304
-  })
-
-  const etagHeader = typeof response.headers?.etag === 'string' ? response.headers.etag : null
-  if (response.status === 304) return { notModified: true, etag: etagHeader, data: null }
-  return { notModified: false, etag: etagHeader, data: response.data }
 }
 
 export async function listWithEtag(
@@ -955,23 +915,6 @@ export async function createSparkShadow(parentId: number, payload: SparkShadowCr
   return data
 }
 
-export async function setUpstreamBillingProbeEnabled(id: number, enabled: boolean): Promise<void> {
-  await apiClient.put(`/admin/accounts/${id}/upstream-billing-probe`, { enabled })
-}
-
-export async function probeUpstreamBilling(id: number): Promise<UpstreamBillingProbeResult> {
-  const { data } = await apiClient.post<UpstreamBillingProbeResult>(`/admin/accounts/${id}/upstream-billing-probe`)
-  return data
-}
-
-export async function probeUpstreamBillingBatch(accountIds: number[]): Promise<UpstreamBillingProbeResult[]> {
-  const { data } = await apiClient.post<{ results: UpstreamBillingProbeResult[] }>(
-    '/admin/accounts/upstream-billing-probe/batch',
-    { account_ids: accountIds }
-  )
-  return data.results
-}
-
 export async function getOllamaCloudUsage(id: number): Promise<OllamaCloudUsageState> {
   const { data } = await apiClient.get<OllamaCloudUsageState>(`/admin/accounts/${id}/ollama-cloud-usage`)
   return data
@@ -997,7 +940,6 @@ export async function refreshOllamaCloudUsage(id: number): Promise<OllamaCloudUs
 export const accountsAPI = {
   list,
   listWithEtag,
-  getUpstreamBillingRatesWithEtag,
   getById,
   create,
   duplicate,
@@ -1042,9 +984,6 @@ export const accountsAPI = {
   refreshOpenAIQuota,
   resetOpenAIQuota,
   createSparkShadow,
-  setUpstreamBillingProbeEnabled,
-  probeUpstreamBilling,
-  probeUpstreamBillingBatch,
   getOllamaCloudUsage,
   saveOllamaCloudUsageSession,
   deleteOllamaCloudUsageSession,
