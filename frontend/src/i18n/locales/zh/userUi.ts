@@ -270,9 +270,9 @@ export default {
       detail: {
         standard: '标准价',
         fast: 'Fast 档',
-        fastHint: '请求 service_tier=priority 且上游按 Fast 处理时',
+        fastHint: '通过 OpenAI 协议请求且带 service_tier=priority 时按此计费',
         flex: 'Flex 档',
-        flexRule: '按标准价 × {multiplier} 计费',
+        flexRule: '通过 OpenAI 协议请求且带 service_tier=flex 时，按标准价 × {multiplier} 计费',
         media: '图片与音频',
         unitPrice: '单价',
         tier: '档位',

@@ -270,9 +270,9 @@ export default {
       detail: {
         standard: 'Standard',
         fast: 'Fast tier',
-        fastHint: 'When the request sets service_tier=priority and the upstream serves it as Fast',
+        fastHint: 'Billed this way when an OpenAI-protocol request sets service_tier=priority',
         flex: 'Flex tier',
-        flexRule: 'Billed at standard price × {multiplier}',
+        flexRule: 'Billed at the standard price × {multiplier} when an OpenAI-protocol request sets service_tier=flex',
         media: 'Image & audio',
         unitPrice: 'Unit price',
         tier: 'Tier',
