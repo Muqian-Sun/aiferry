@@ -13,7 +13,13 @@
     >
       <dt class="truncate text-13 text-af-ink-3">{{ item.label }}</dt>
       <dd class="mt-1.5 flex items-baseline gap-2">
-        <span class="whitespace-nowrap text-2xl font-semibold tracking-[-0.01em] tabular-nums" :class="item.valueClass || 'text-af-ink'">{{ item.value }}</span>
+        <span class="whitespace-nowrap text-2xl font-semibold tracking-[-0.01em] tabular-nums" :class="item.valueClass || 'text-af-ink'">
+          <template v-if="item.countTo != null">
+            <span class="count-up" :style="{ '--count-to': item.countTo }" aria-hidden="true" />
+            <span class="sr-only">{{ item.value }}</span>
+          </template>
+          <template v-else>{{ item.value }}</template>
+        </span>
         <span v-if="item.hint" class="truncate text-xs text-af-ink-3">{{ item.hint }}</span>
         <RouterLink v-if="item.link" :to="item.link.to" class="text-xs font-medium text-af-brand hover:text-af-brand-hover">
           {{ item.link.label }}

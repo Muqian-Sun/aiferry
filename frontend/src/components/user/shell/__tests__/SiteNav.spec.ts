@@ -58,7 +58,11 @@ function mountNav(variant: 'public' | 'console') {
 }
 
 function linkPaths(wrapper: ReturnType<typeof mountNav>) {
-  return wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to') as string)
+  // 控制台里的顶栏页签带浏览记录状态，to 是 { path, state }
+  return wrapper.findAllComponents(RouterLinkStub).map((link) => {
+    const to = link.props('to') as string | { path: string }
+    return typeof to === 'string' ? to : to.path
+  })
 }
 
 beforeEach(() => {

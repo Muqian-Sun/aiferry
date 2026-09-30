@@ -369,18 +369,13 @@ func (r *channelMonitorV2Repository) loadCoverage(ctx context.Context, filter se
 	if wm == nil {
 		wm = &service.ChannelMonitorV2AggregationWatermark{}
 	}
-	bootstrap := service.ChannelMonitorV2BootstrapProgress(time.Now().UTC(), wm.BackfillCursor, wm.HasData)
 	if !wm.HasData || wm.DataThrough.IsZero() || wm.LastSuccessfulAt.IsZero() {
 		return &service.ChannelMonitorV2Coverage{
-			RequestedStart:        filter.Start,
-			RequestedEnd:          filter.End,
-			CoverageStart:         filter.End,
-			DataThrough:           filter.Start,
-			ComputedAt:            time.Time{},
-			AggregationLagSeconds: 0,
-			CoverageComplete:      false,
-			BucketSeconds:         int(filter.Bucket.Seconds()),
-			Bootstrap:             bootstrap,
+			RequestedStart: filter.Start,
+			RequestedEnd:   filter.End,
+			CoverageStart:  filter.End,
+			DataThrough:    filter.Start,
+			BucketSeconds:  int(filter.Bucket.Seconds()),
 		}, nil
 	}
 	coverageStart := filter.Start
@@ -394,39 +389,13 @@ func (r *channelMonitorV2Repository) loadCoverage(ctx context.Context, filter se
 	if !wm.DataThrough.IsZero() && wm.DataThrough.Before(through) {
 		through = wm.DataThrough
 	}
-	computedAt := wm.LastSuccessfulAt
-	lag := int64(0)
-	if !through.IsZero() {
-		lag = int64(time.Since(through).Seconds())
-		if lag < 0 {
-			lag = 0
-		}
-	}
-	// Complete = history depth for this range is filled (backfill reached
-	// filter.Start). Do not require data_through >= filter.End: ParseFilter
-	// aligns End to the next whole bucket (often in the future), so a healthy
-	// minute-level lag would otherwise always show "partial historical coverage".
 	return &service.ChannelMonitorV2Coverage{
-		RequestedStart:        filter.Start,
-		RequestedEnd:          filter.End,
-		CoverageStart:         coverageStart,
-		DataThrough:           through,
-		ComputedAt:            computedAt,
-		AggregationLagSeconds: lag,
-		CoverageComplete:      channelMonitorV2HistoryCoverageComplete(coverageStart, filter.Start),
-		BucketSeconds:         int(filter.Bucket.Seconds()),
-		Bootstrap:             bootstrap,
+		RequestedStart: filter.Start,
+		RequestedEnd:   filter.End,
+		CoverageStart:  coverageStart,
+		DataThrough:    through,
+		BucketSeconds:  int(filter.Bucket.Seconds()),
 	}, nil
-}
-
-// channelMonitorV2HistoryCoverageComplete is true when aggregated history
-// reaches the requested window start. Trailing freshness is reported via
-// data_through / aggregation_lag_seconds, not coverage_complete.
-func channelMonitorV2HistoryCoverageComplete(coverageStart, filterStart time.Time) bool {
-	if coverageStart.IsZero() || filterStart.IsZero() {
-		return false
-	}
-	return !coverageStart.After(filterStart)
 }
 
 func channelMonitorV2FixedBucketSeconds(filter service.ChannelMonitorV2Filter) int {

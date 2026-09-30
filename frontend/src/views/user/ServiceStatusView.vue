@@ -1,18 +1,23 @@
 <template>
   <!--
     服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快、缓存命中多少」。
-    与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）；
+    与模型页一样对未登录访客开放，入口在顶栏（muqian 2026-09-30）：从控制台点进来留在控制台壳（页头由壳画），
+    从首页等公开页进来走公开壳（consoleShell.ts）；
     加载方式也与模型页一样：路由预加载默认时间范围，数据到了再换页（serviceStatusQuery）；
     切换时间范围时旧内容留在原处（变淡），新数据到了再替换，不收成加载占位、不丢滚动位置。
-    ① 整体：一句话结论 + 可用率 / 首字延迟 / 缓存命中率 + 全站趋势（三项切换）
+    ① 整体：可用率 / 首字延迟 / 缓存命中率 + 全站趋势（三项切换）；不写结论句与更新时间（muqian 2026-09-30 删掉）
     ② 各模型 = 上架目录里的模型（muqian 2026-09-30，后端按目录出名单，别名并入本名，没上架的不计）：
        多列格子（一格 = 状态、逐段细色条、可用率、首字延迟、缓存命中率），有问题的排前面，可按状态筛选、搜索；
        这段时间一个请求都没有的模型不占格子，折成一行「另有 N 个模型没有请求」，展开只列名字。
     数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行）。
   -->
-  <SiteShell variant="public">
-    <!-- 页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
-    <div class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+  <SiteShell :variant="shell">
+    <!-- 控制台壳：页头（标题 / 说明取路由）由壳画，时间范围放在页头右侧 -->
+    <template v-if="shell === 'console'" #actions>
+      <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
+    </template>
+    <!-- 公开壳：页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
+    <div v-if="shell === 'public'" class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="service-status-hero">
         <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
           {{ t('userUi.serviceStatus.title') }}
@@ -34,18 +39,6 @@
     <div v-else class="space-y-10 transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading ? 'true' : undefined">
       <!-- ① 整体 -->
       <section class="space-y-6" data-testid="service-status-summary">
-        <div>
-          <p class="flex items-center gap-2.5 text-base font-semibold text-af-ink">
-            <span class="h-2 w-2 shrink-0 rounded-full" :class="HEALTH_DOT[headline.level]" aria-hidden="true" />
-            {{ headline.text }}
-          </p>
-          <p class="mt-1 text-13 text-af-ink-3">
-            {{ updatedText }}
-            <template v-if="backfillPercent != null">
-              · {{ t('userUi.serviceStatus.backfill', { percent: backfillPercent }) }}
-            </template>
-          </p>
-        </div>
         <StatRow :items="statItems" />
         <div>
           <div class="mb-3 flex items-center justify-between gap-4">
@@ -68,11 +61,13 @@
         <p v-if="rows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('userUi.serviceStatus.models.empty') }}</p>
         <template v-else>
           <!-- 与模型页同一种 hairline 分格（不是卡片）：窄屏一列、sm 两列、lg 三列 -->
-          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="service-status-models">
+          <!-- 控制台里有侧栏、内容区窄一截：宽屏（xl）才排 3 列 -->
+          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline" :class="shell === 'console' ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'" data-testid="service-status-models">
             <li
               v-for="row in visibleActive"
               :key="row.model"
-              class="min-w-0 border-b border-af-hairline px-6 py-4 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+              class="min-w-0 border-b border-af-hairline px-6 py-4"
+              :class="shell === 'console' ? 'sm:max-xl:[&:nth-child(2n)]:border-l xl:[&:not(:nth-child(3n+1))]:border-l' : 'sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l'"
               data-testid="service-status-model"
             >
               <div class="flex items-center gap-2.5">
@@ -147,6 +142,7 @@ import { usePreferredReducedMotion, useTransition } from '@vueuse/core'
 import { vReveal } from '@/directives/reveal'
 import type { ServiceHealth, ServiceStatusModels, ServiceStatusRange, ServiceStatusSnapshot } from '@/api/serviceStatus'
 import { SERVICE_STATUS_DEFAULT_RANGE, loadServiceStatus } from './serviceStatusQuery'
+import { useShellVariant } from '@/components/user/shell/consoleShell'
 import { useAppStore } from '@/stores/app'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -167,8 +163,9 @@ import {
   formatLatency
 } from '@/components/user/status/serviceStatus'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const appStore = useAppStore()
+const shell = useShellVariant()
 
 const RANGES: ServiceStatusRange[] = ['90m', '24h', '7d', '30d']
 const LEGEND: ServiceHealth[] = ['healthy', 'warning', 'critical', 'unknown']
@@ -277,17 +274,7 @@ function healthLabel(level: ServiceHealth): string {
   return t(`userUi.serviceStatus.legend.${level}`)
 }
 
-// ---------- 结论与数字 ----------
-const headline = computed<{ level: ServiceHealth; text: string }>(() => {
-  const count = (level: ServiceHealth) => rows.value.filter((row) => row.health.overall === level).length
-  const critical = count('critical')
-  const warning = count('warning')
-  if (critical) return { level: 'critical', text: t('userUi.serviceStatus.headline.critical', { count: critical }) }
-  if (warning) return { level: 'warning', text: t('userUi.serviceStatus.headline.warning', { count: warning }) }
-  if (count('healthy')) return { level: 'healthy', text: t('userUi.serviceStatus.headline.healthy') }
-  return { level: 'unknown', text: t('userUi.serviceStatus.headline.unknown') }
-})
-
+// ---------- 数字 ----------
 // 页首数字从 0 跳到位，与模型页页首数字同一条缓动（style.css 的 .count-up：1.2 秒、cubic-bezier(0.22, 1, 0.36, 1)、
 // 延后 0.15 秒）。模型页是 CSS 整数计数器，这里的数带小数和单位，改用 useTransition 补间后再格式化；
 // 切换时间范围时从旧值过渡到新值；系统开了「减少动态效果」时直接显示
@@ -327,20 +314,6 @@ const statItems = computed<StatItem[]>(() => {
     }
   ]
 })
-
-/** 没有汇总过任何数据时 data_through 等于窗口起点，不写「更新于」 */
-const updatedText = computed(() => {
-  const coverage = snapshot.value?.coverage
-  if (!coverage || Date.parse(coverage.data_through) <= Date.parse(coverage.requested_start)) {
-    return t('userUi.serviceStatus.noDataYet')
-  }
-  const time = new Intl.DateTimeFormat(locale.value || undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(
-    new Date(coverage.data_through)
-  )
-  return t('userUi.serviceStatus.updatedAt', { time })
-})
-
-const backfillPercent = computed(() => snapshot.value?.coverage.backfill_percent ?? null)
 
 // ---------- 整体趋势 ----------
 const trendMetric = ref<ServiceTrendMetric>('availability')

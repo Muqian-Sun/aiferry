@@ -189,8 +189,8 @@ interface NumberCell { key: string; label: string; value: string; title?: string
 const moneyCells = (revenue: number, cost: number): NumberCell[] => {
   const profit = profitOf(revenue, cost)
   return [
-    { key: 'revenue', label: t('common.money.revenue'), title: t('common.money.revenueHint'), value: formatMoney(revenue) },
-    { key: 'cost', label: t('common.money.cost'), title: t('common.money.costHint'), value: formatMoney(cost) },
+    { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(revenue) },
+    { key: 'cost', label: t('common.money.cost'), value: formatMoney(cost) },
     { key: 'profit', label: t('common.money.profit'), title: t('common.money.profitHint'), value: formatMoney(profit), valueClass: profitTextClass(profit) }
   ]
 }

@@ -154,7 +154,6 @@ export default {
         enableRPMLimit: 'Update RPM limit',
         enableRateMultiplier: 'Set a custom user rate',
         rateMultiplierValue: 'User rate: {value}',
-        rateMultiplierHint: 'Sets a custom rate for the selected users: they pay official price × user rate. E.g. 0.1 = 10% of the official price; 0 = free.',
         nonNegativeNumber: 'Enter a non-negative number.',
         unlimited: 'Unlimited',
         nonNegativeInteger: 'Enter a non-negative whole number.',
@@ -220,7 +219,6 @@ export default {
         rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited.',
         newUserDefaultPlaceholder: 'Leave empty to use the new-user default',
         rateMultiplier: 'User rate (× official price)',
-        rateMultiplierHint: 'User pays official price × user rate. E.g. 0.1 = 10% of the official price; 0 = free. Leave empty for the site default 1/15.',
         rateMultiplierDefaultPlaceholder: 'Empty = default 1/15',
         rateMultiplierDefault: 'Default 1/15'
       },

@@ -154,7 +154,6 @@ export default {
         enableRPMLimit: '修改 RPM 限制',
         enableRateMultiplier: '单独设置用户倍率',
         rateMultiplierValue: '用户倍率：{value}',
-        rateMultiplierHint: '给选中的用户单独设：用户实付 = 官方价 × 用户倍率。例：0.1 = 按官方价的一成收；0 = 免费',
         nonNegativeNumber: '请输入非负数。',
         unlimited: '不限制',
         nonNegativeInteger: '请输入非负整数。',
@@ -272,7 +271,6 @@ export default {
         rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制',
         newUserDefaultPlaceholder: '留空按新用户默认值',
         rateMultiplier: '用户倍率（× 官方价）',
-        rateMultiplierHint: '用户实付 = 官方价 × 用户倍率。例：0.1 = 按官方价的一成收；0 = 免费。留空跟全站默认 1/15',
         rateMultiplierDefaultPlaceholder: '留空 = 默认 1/15',
         rateMultiplierDefault: '默认 1/15'
       },

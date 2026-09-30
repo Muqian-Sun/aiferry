@@ -1,7 +1,7 @@
 <template>
   <!--
     渠道状态（muqian 2026-09-30）：管理员按渠道看「能不能用、快不快、缓存命中多少」，与用户站服务状态同一份统计、同一套布局。
-    ① 整体：一句话结论 + 可用率 / 首字延迟 / 缓存命中率 / 请求数 + 全部渠道合计的趋势（三项切换）
+    ① 整体：可用率 / 首字延迟 / 缓存命中率 / 请求数 + 全部渠道合计的趋势（三项切换）；不写结论句与更新时间（同服务状态页）
     ② 各渠道：多列格子（名字、平台、状态、逐段细色条、可用率、首字延迟、缓存命中率、请求数），有问题的排前面，
        点格子进该渠道的编辑页；这段时间没有请求的渠道折成一行。没选到渠道就失败的请求单独一格「没选到渠道」。
     页头右侧：时间范围、按模型（只算请求解析到该上架模型的）、按平台。
@@ -30,18 +30,6 @@
     <div v-else class="space-y-10 transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading ? 'true' : undefined">
       <!-- ① 整体 -->
       <section class="space-y-6" data-testid="channel-status-summary">
-        <div>
-          <p class="flex items-center gap-2.5 text-base font-semibold text-af-ink">
-            <span class="h-2 w-2 shrink-0 rounded-full" :class="HEALTH_DOT[headline.level]" aria-hidden="true" />
-            {{ headline.text }}
-          </p>
-          <p class="mt-1 text-13 text-af-ink-3">
-            {{ updatedText }}
-            <template v-if="data.coverage.backfill_percent != null">
-              · {{ t('userUi.serviceStatus.backfill', { percent: data.coverage.backfill_percent }) }}
-            </template>
-          </p>
-        </div>
         <StatRow :items="statItems" />
         <div>
           <div class="mb-3 flex items-center justify-between gap-4">
@@ -63,12 +51,12 @@
 
         <p v-if="rows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('admin.channelStatus.channels.empty') }}</p>
         <template v-else>
-          <!-- hairline 分格（不是卡片）：窄屏一列、sm 两列、lg 三列 -->
-          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="channel-status-channels">
+          <!-- hairline 分格（不是卡片）：窄屏一列、sm 两列；有侧栏、内容区窄一截，宽屏（xl）才排 3 列 -->
+          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 xl:grid-cols-3" data-testid="channel-status-channels">
             <li
               v-for="row in visibleActive"
               :key="row.account_id"
-              class="min-w-0 border-b border-af-hairline sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+              class="min-w-0 border-b border-af-hairline sm:max-xl:[&:nth-child(2n)]:border-l xl:[&:not(:nth-child(3n+1))]:border-l"
               data-testid="channel-status-channel"
             >
               <component
@@ -179,7 +167,7 @@ import { HEALTH_BAR, HEALTH_DOT, HEALTH_TEXT, fillSlots, formatLatency, formatPe
 import { platformLabel } from '@/utils/platformLabel'
 import { formatNumber } from '@/utils/format'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const RANGES: ServiceStatusRange[] = ['90m', '24h', '7d', '30d']
 const LEGEND: ServiceHealth[] = ['healthy', 'warning', 'critical', 'unknown']
@@ -295,17 +283,7 @@ function healthLabel(level: ServiceHealth): string {
   return t(`userUi.serviceStatus.legend.${level}`)
 }
 
-// ---------- 结论与数字 ----------
-const headline = computed<{ level: ServiceHealth; text: string }>(() => {
-  const count = (level: ServiceHealth) => platformRows.value.filter((row) => row.health.overall === level).length
-  const critical = count('critical')
-  const warning = count('warning')
-  if (critical) return { level: 'critical', text: t('admin.channelStatus.headline.critical', { count: critical }) }
-  if (warning) return { level: 'warning', text: t('admin.channelStatus.headline.warning', { count: warning }) }
-  if (count('healthy')) return { level: 'healthy', text: t('admin.channelStatus.headline.healthy') }
-  return { level: 'unknown', text: t('admin.channelStatus.headline.unknown') }
-})
-
+// ---------- 数字 ----------
 const statItems = computed<StatItem[]>(() => {
   const metrics = data.value?.metrics
   const health = data.value?.health
@@ -331,18 +309,6 @@ const statItems = computed<StatItem[]>(() => {
     },
     { key: 'requests', label: t('admin.channelStatus.stats.requests'), value: formatNumber(metrics?.request_count ?? 0) }
   ]
-})
-
-/** 没有汇总过任何数据时 data_through 等于窗口起点，不写「更新于」 */
-const updatedText = computed(() => {
-  const coverage = data.value?.coverage
-  if (!coverage || Date.parse(coverage.data_through) <= Date.parse(coverage.requested_start)) {
-    return t('userUi.serviceStatus.noDataYet')
-  }
-  const time = new Intl.DateTimeFormat(locale.value || undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(
-    new Date(coverage.data_through)
-  )
-  return t('userUi.serviceStatus.updatedAt', { time })
 })
 
 // ---------- 整体趋势 ----------

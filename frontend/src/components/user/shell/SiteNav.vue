@@ -1,12 +1,12 @@
 <template>
   <!--
     唯一的顶栏：公开站与控制台是同一组页签（产品 / 模型与价格 / 服务状态 / 文档），控制台自己的导航在左侧栏（ConsoleSidebar）。
-    模型与服务状态的入口只在这里（muqian 2026-09-30），侧栏不重复。
-    56px、粘性；底色半透明 + 背景模糊，滚动时内容从下面透过来。控制台宽度与侧栏布局对齐（max-w-console）。
+    模型与服务状态的入口只在这里（muqian 2026-09-30），侧栏不重复；控制台里点它们留在控制台（页签带 CONSOLE_SHELL_STATE）。
+    56px、粘性；底色半透明 + 背景模糊，滚动时内容从下面透过来。控制台不限宽，宽屏时 logo 离左缘 20px，与侧栏图标左缘对齐。
     <lg 时第二行横向滚动：公开站放页签，控制台放侧栏的全部条目（窄屏没有侧栏）；语言 / 主题收进头像菜单。
   -->
   <header class="sticky top-0 z-30 border-b border-af-hairline/70 bg-af-sheet/80 backdrop-blur-md">
-    <div class="mx-auto flex h-topbar items-center gap-8 px-6" :class="variant === 'console' ? 'max-w-console' : 'max-w-site'">
+    <div class="mx-auto flex h-topbar items-center gap-8 px-6" :class="variant === 'console' ? 'w-full lg:pl-5' : 'max-w-site'">
       <RouterLink :to="brandPath" class="flex shrink-0 items-center gap-2.5" data-testid="site-brand">
         <BrandLogo :src="customLogo" :alt="siteName" class="h-7 w-7 text-af-ink" />
         <span class="text-base font-semibold tracking-[-0.01em] text-af-ink">{{ siteName }}</span>
@@ -92,6 +92,7 @@ import NavTabs from './NavTabs.vue'
 import UserMenu from './UserMenu.vue'
 import { CONSOLE_HOME_PATH, buildPublicNav } from './navItems'
 import { useConsoleNav } from './useConsoleNav'
+import { CONSOLE_SHELL_STATE } from './consoleShell'
 
 const props = defineProps<{ variant: 'public' | 'console' }>()
 
@@ -118,7 +119,11 @@ const brandPath = computed(() => (props.variant === 'console' ? CONSOLE_HOME_PAT
 const registrationEnabled = computed(() => Boolean(appStore.cachedPublicSettings?.registration_enabled))
 
 const serviceStatusEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.channelMonitor))
-const tabs = computed(() => buildPublicNav({ t, adminSite, docUrl: docUrl.value, serviceStatusEnabled: serviceStatusEnabled.value }))
+// 控制台里的顶栏页签带上控制台标记：点「模型与价格」「服务状态」留在控制台（consoleShell.ts）
+const tabs = computed(() => {
+  const publicTabs = buildPublicNav({ t, adminSite, docUrl: docUrl.value, serviceStatusEnabled: serviceStatusEnabled.value })
+  return props.variant === 'console' ? publicTabs.map((tab) => (tab.external ? tab : { ...tab, state: CONSOLE_SHELL_STATE })) : publicTabs
+})
 // 窄屏行在 DOM 里排在侧栏前面：新手引导按第一个 [data-tour] 定位，这一行不带锚点，免得桌面端指向隐藏元素。
 // 控制台窄屏没有第一行页签：侧栏条目后面接上顶栏页签，模型 / 服务状态才有入口
 const mobileTabs = computed(() =>

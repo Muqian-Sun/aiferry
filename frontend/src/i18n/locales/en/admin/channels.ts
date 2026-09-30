@@ -6,12 +6,6 @@ export default {
       modelFilter: 'Filter by model',
       platformFilter: 'Filter by platform',
       loadFailed: 'Could not load channel status',
-      headline: {
-        healthy: 'All channels are operating normally',
-        warning: '{count} channel(s) responding unevenly',
-        critical: '{count} channel(s) having problems',
-        unknown: 'Too few requests in this period to tell'
-      },
       stats: { requests: 'Requests' },
       channels: {
         title: 'Channels',

@@ -13,7 +13,7 @@
       </a>
       <RouterLink
         v-else
-        :to="tab.path"
+        :to="tab.state ? { path: tab.path, state: tab.state } : tab.path"
         :class="tabClass(tab.path === activePath)"
         :aria-current="tab.path === activePath ? 'page' : undefined"
         :data-tour="tab.dataTour"

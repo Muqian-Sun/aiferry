@@ -28,11 +28,7 @@ export interface ServiceStatusCoverage {
   requested_start: string
   /** 不含 */
   requested_end: string
-  data_through: string
   bucket_seconds: number
-  coverage_complete: boolean
-  /** 首次启用后补历史数据的进度；补齐后为 null */
-  backfill_percent: number | null
 }
 
 export interface ServiceStatusPoint {

@@ -19,8 +19,8 @@
           </th>
           <th class="pb-2 text-right font-medium">{{ t('admin.dashboard.requests') }}</th>
           <th class="pb-2 text-right font-medium">{{ t('admin.dashboard.tokens') }}</th>
-          <th class="pb-2 text-right font-medium" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
-          <th class="pb-2 text-right font-medium" :title="t('common.money.costHint')">{{ t('common.money.cost') }}</th>
+          <th class="pb-2 text-right font-medium">{{ t('common.money.revenue') }}</th>
+          <th class="pb-2 text-right font-medium">{{ t('common.money.cost') }}</th>
           <th class="pb-2 text-right font-medium" :title="t('common.money.profitHint')">{{ t('common.money.profit') }}</th>
         </tr>
       </thead>

@@ -80,8 +80,8 @@ const items = computed<SummaryItem[]>(() => {
   return [
     { key: 'requests', label: t('admin.usage.summary.requests'), value: num(s.total_requests).toLocaleString(), valueClass: 'text-af-ink' },
     { key: 'tokens', label: t('admin.usage.summary.tokens'), value: formatTokens(num(s.total_tokens)), title: tokenBreakdown, valueClass: 'text-af-ink' },
-    { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(revenue), title: t('common.money.revenueHint'), valueClass: 'text-af-ink' },
-    { key: 'cost', label: t('common.money.cost'), value: formatMoney(cost), title: t('common.money.costHint'), valueClass: 'text-af-ink' },
+    { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(revenue), valueClass: 'text-af-ink' },
+    { key: 'cost', label: t('common.money.cost'), value: formatMoney(cost), valueClass: 'text-af-ink' },
     {
       key: 'profit',
       label: t('common.money.profit'),

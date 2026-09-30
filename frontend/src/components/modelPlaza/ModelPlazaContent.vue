@@ -5,12 +5,13 @@
     格子只放摘要（muqian 2026-09-30 方案 A）：图标 + 名称 + 厂商 · 计费方式 + 一行起价 + 该模型实际有的计费项标签；
     点格子打开详情抽屉（ModelPricingDrawer）按块列全部计费项、别名。
     价格单位只在工具行写一次；格子与抽屉里的价格已按访问者的倍率折算（倍率本身不显示）。
-    不分登录与否都在公开壳里（入口只在顶栏，muqian 2026-09-30），页首自己画——与首页首屏同一套（muqian 2026-09-23）：
+    embedded = 在控制台壳里（从控制台点进来，muqian 2026-09-30）：页头由壳画，这里只补一条数字摘要；
+    否则公开壳，页首自己画——与首页首屏同一套（muqian 2026-09-23）：
     一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
   <div class="space-y-6">
     <!-- 页首收紧（muqian：占的空间过大）：标题 40px、说明一行、数字小一档，整块约 120px 高 -->
-    <div class="grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div v-if="!embedded" class="grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="plaza-hero">
         <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
           {{ t('userUi.models.hero.title') }}<span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
@@ -28,6 +29,10 @@
         </div>
       </dl>
     </div>
+
+    <!-- 控制台形态：页头由壳画，这里补一条数字摘要（上架模型 / 厂商），与其它列表页一致；
+         数字与公开页页首一样进视口时从 0 跳到位（v-reveal 触发 .count-up） -->
+    <StatRow v-if="embedded && catalog.length" v-reveal="200" :items="consoleSummary" data-testid="plaza-console-summary" />
 
     <!-- 管理员配置的全局价格说明（Markdown） -->
     <div v-if="descriptionHtml" class="plaza-description text-sm text-af-ink-2" v-html="descriptionHtml"></div>
@@ -85,7 +90,8 @@
         网格：hairline 分格，不是卡片。竖线只画在同一行里非第一个格子的左边：
         sm–lg 两列（偶数格），lg 起三列（非 3n+1 格）——两条规则按断点互斥，不能互相覆盖。
       -->
-      <ul v-else class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog-grid">
+      <!-- 控制台里有侧栏、内容区窄一截：宽屏（xl）才排 3 列 -->
+      <ul v-else class="-mx-6 grid border-t border-af-hairline" :class="embedded ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'" data-testid="catalog-grid">
         <!--
           整格可点：鼠标点格子任意处打开详情（选中文字时不打开）；键盘 Tab 到模型名按钮，Enter / Space 打开。
           复制按钮单独处理、不冒泡。格子是 flex 列，标签行留一行高，没有标签的格子与有标签的一样高。
@@ -93,7 +99,8 @@
         <li
           v-for="entry in filtered"
           :key="entry.id"
-          class="group flex min-w-0 cursor-pointer flex-col border-b border-af-hairline px-6 py-6 transition-colors hover:bg-af-sunken/60 focus-within:bg-af-sunken/60 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+          class="group flex min-w-0 cursor-pointer flex-col border-b border-af-hairline px-6 py-6 transition-colors hover:bg-af-sunken/60 focus-within:bg-af-sunken/60"
+          :class="embedded ? 'sm:max-xl:[&:nth-child(2n)]:border-l xl:[&:not(:nth-child(3n+1))]:border-l' : 'sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l'"
           data-testid="catalog-cell"
           @click="onCellClick(entry)"
         >
@@ -167,6 +174,8 @@ import SearchInput from '@/components/common/SearchInput.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import VendorIcon from '@/components/common/VendorIcon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import { vReveal } from '@/directives/reveal'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
@@ -189,6 +198,8 @@ const props = defineProps<{
   response: ModelPlazaResponse | null
   loading: boolean
   error: boolean
+  /** 在控制台壳里（不画页首，补数字摘要） */
+  embedded?: boolean
 }>()
 
 const { t } = useI18n()
@@ -232,6 +243,10 @@ const descriptionHtml = computed(() => {
 const catalog = computed(() => buildCatalog(props.response?.models ?? []))
 const vendors = computed(() => catalogVendors(catalog.value))
 /** 页首数字：与首页数字段同一口径（上架模型数 / 厂商数） */
+const consoleSummary = computed<StatItem[]>(() => [
+  { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length), countTo: catalog.value.length },
+  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length), countTo: vendors.value.length }
+])
 const stats = computed(() => [
   { key: 'models', value: catalog.value.length },
   { key: 'vendors', value: vendors.value.length }
