@@ -91,16 +91,6 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		// 模型内置搜索每次调用价（alpha search 用；未配则用内置单价）。
 		modelCatalogPriceField("search_price_per_call"),
 
-		field.Int("long_context_input_threshold").
-			Optional().
-			Nillable().
-			Comment("超过该 context token 数后整次会话换用长上下文价；nil 表示无长上下文阶梯。"),
-		field.Bool("long_context_threshold_inclusive").
-			Default(false).
-			Comment("true = 达到阈值即生效（xAI 口径）；false = 严格大于。"),
-		modelCatalogMultiplierField("long_context_input_multiplier"),
-		modelCatalogMultiplierField("long_context_output_multiplier"),
-
 		modelCatalogMultiplierField("fast_multiplier"),
 		modelCatalogMultiplierField("flex_multiplier"),
 		modelCatalogMultiplierField("max_reasoning_effort_multiplier"),

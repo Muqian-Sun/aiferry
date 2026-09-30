@@ -5,6 +5,9 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 // stubModelCatalogRepo 是内存版目录仓储，用于单测。
@@ -353,4 +356,49 @@ func newResolverWithCatalogCards(bs *BillingService, cards ...PricingCard) *Mode
 	}
 	catalog, _ := newTestModelCatalogService(entries...)
 	return NewModelPricingResolver(catalog, bs)
+}
+
+// newResolverWithSeededEntries 用播种出的目录条目搭解析器：价格数据里的长上下文阶梯经播种换算成按 token 分段，
+// 计费走目录这一条路。用来核对「阶梯换算成分段后」的金额与原来按阶梯倍数算的一致。
+func newResolverWithSeededEntries(bs *BillingService, entries ...ModelCatalogEntry) *ModelPricingResolver {
+	for i := range entries {
+		entries[i].ID = int64(i + 1)
+	}
+	catalog, _ := newTestModelCatalogService(entries...)
+	return NewModelPricingResolver(catalog, bs)
+}
+
+// seededLiteLLMEntry 按价格文件条目播种一条目录条目（与 ModelCatalogService 播种同一函数）。
+func seededLiteLLMEntry(t *testing.T, ps *PricingService, model string) ModelCatalogEntry {
+	t.Helper()
+	pricing := ps.GetModelPricing(model)
+	if pricing == nil {
+		t.Fatalf("price file has no %q", model)
+	}
+	return seedEntryFromLiteLLM(model, pricing)
+}
+
+// costViaCatalog 走目录计费（与网关同一入口）。
+func costViaCatalog(t *testing.T, bs *BillingService, resolver *ModelPricingResolver, model string, tokens UsageTokens, serviceTier string) *CostBreakdown {
+	t.Helper()
+	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
+		Ctx: context.Background(), Model: model, Tokens: tokens, RateMultiplier: 1,
+		ServiceTier: serviceTier, Resolver: resolver,
+	})
+	if err != nil {
+		t.Fatalf("calculate %s: %v", model, err)
+	}
+	return got
+}
+
+// newSeededCatalogEnvFromJSON 用一份价格文件 JSON 搭计费环境，并把 models 按价格文件播种成目录条目（阶梯换算成分段）。
+func newSeededCatalogEnvFromJSON(t *testing.T, body string, models ...string) (*BillingService, *ModelPricingResolver) {
+	t.Helper()
+	ps := newStubPricingServiceFromJSON(t, body)
+	bs := NewBillingService(&config.Config{}, ps)
+	entries := make([]ModelCatalogEntry, 0, len(models))
+	for _, model := range models {
+		entries = append(entries, seededLiteLLMEntry(t, ps, model))
+	}
+	return bs, newResolverWithSeededEntries(bs, entries...)
 }

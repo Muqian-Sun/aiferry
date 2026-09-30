@@ -231,8 +231,8 @@ func TestSeed_TreatsZeroPricesAsUnset(t *testing.T) {
 	require.Nil(t, entry.ImageOutputPrice)
 }
 
-// xAI 的长上下文阈值语义是「达到即进高档」，其余提供商严格大于。
-func TestSeed_MarksInclusiveLongContextThresholdForXAI(t *testing.T) {
+// 价格文件的长上下文阶梯播种成按 token 分段：xAI「达到即进高段」下界取阈值 - 1，其余提供商严格大于、下界就是阈值。
+func TestSeed_LongContextLadderBecomesTokenSegment(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
 		map[string]*LiteLLMModelPricing{
@@ -256,9 +256,32 @@ func TestSeed_MarksInclusiveLongContextThresholdForXAI(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.True(t, entries["grok-4"].LongContextThresholdInclusive)
-	require.False(t, entries["claude-x"].LongContextThresholdInclusive)
-	require.Equal(t, 128000, *entries["grok-4"].LongContextInputThreshold)
+	grok := entries["grok-4"].Intervals
+	require.Len(t, grok, 1)
+	require.Equal(t, 127999, grok[0].MinTokens)
+	require.Nil(t, grok[0].MaxTokens)
+	require.InDelta(t, 6e-6, *grok[0].InputPrice, 1e-15)
+	require.Nil(t, grok[0].OutputPrice, "基础价没配的项分段也不配")
+	claude := entries["claude-x"].Intervals
+	require.Len(t, claude, 1)
+	require.Equal(t, 200000, claude[0].MinTokens)
+}
+
+// 兜底价表的阶梯表（fallbackSeedLadders）每个模型都得在兜底价表里、播种出恰好一个分段；拼错模型名会静默失效，这里 fail-closed。
+func TestFallbackSeedLaddersCoverFallbackModels(t *testing.T) {
+	fallback := NewBillingService(&config.Config{}, nil).SnapshotFallbackPricing()
+	require.NotEmpty(t, fallbackSeedLadders)
+	for name := range fallbackSeedLadders {
+		pricing, ok := fallback[name]
+		require.True(t, ok, "fallbackSeedLadders has %q but the fallback table does not", name)
+		entry := seedEntryFromFallback(name, pricing)
+		require.Len(t, entry.Intervals, 1, name)
+	}
+	astra := seedEntryFromFallback("gpt-6-astra", fallback["gpt-6-astra"]).Intervals[0]
+	require.Equal(t, 272000, astra.MinTokens)
+	require.InDelta(t, 10e-6*2, *astra.InputPrice, 1e-15)
+	require.InDelta(t, 50e-6*1.5, *astra.OutputPrice, 1e-15)
+	require.Equal(t, 199999, seedEntryFromFallback("grok-4.5", fallback["grok-4.5"]).Intervals[0].MinTokens)
 }
 
 // 播种出来的条目是平台默认价卡，不是运营者定价：DeepSeek 官方价强制覆盖与

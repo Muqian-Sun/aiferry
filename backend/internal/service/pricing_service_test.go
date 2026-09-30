@@ -129,12 +129,12 @@ const gpt6AstraCatalogJSON = `{
 	}
 }`
 
-func TestBillingServiceGPT6AstraUsesOfficialPricingAcrossTiersAndLongContext(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, gpt6AstraCatalogJSON))
+// gpt-6-astra 的 above_272k 阶梯播种成分段后走目录计费：272K 整（严格大于才进高段）按基础价，
+// 超过后标准 / Fast / Flex 三档都按高段价（Fast 价按高段价 × 基础的 priority 比例）。
+func TestBillingServiceGPT6AstraUsesOfficialPricingAcrossTiersAndTokenSegment(t *testing.T) {
+	svc, resolver := newSeededCatalogEnvFromJSON(t, gpt6AstraCatalogJSON, "gpt-6-astra")
 	boundaryTokens := UsageTokens{InputTokens: 100_000, CacheCreationTokens: 100_000, CacheReadTokens: 72_000, OutputTokens: 10}
-	boundary, err := svc.CalculateCost("gpt-6-astra", boundaryTokens, 1)
-	require.NoError(t, err)
-	require.False(t, boundary.LongContextBillingApplied)
+	boundary := costViaCatalog(t, svc, resolver, "gpt-6-astra", boundaryTokens, "")
 	require.InDelta(t, 100_000*10e-6, boundary.InputCost, 1e-12)
 	require.InDelta(t, 100_000*12.5e-6, boundary.CacheCreationCost, 1e-12)
 	require.InDelta(t, 72_000*1e-6, boundary.CacheReadCost, 1e-12)
@@ -152,9 +152,7 @@ func TestBillingServiceGPT6AstraUsesOfficialPricingAcrossTiersAndLongContext(t *
 	}
 	for _, tier := range tiers {
 		t.Run(tier.name, func(t *testing.T) {
-			cost, err := svc.CalculateCostWithServiceTier("gpt-6-astra", tokens, 1, tier.serviceTier)
-			require.NoError(t, err)
-			require.True(t, cost.LongContextBillingApplied)
+			cost := costViaCatalog(t, svc, resolver, "gpt-6-astra", tokens, tier.serviceTier)
 			require.InDelta(t, 100_000*10e-6*tier.priceScale*2, cost.InputCost, 1e-12)
 			require.InDelta(t, 100_000*12.5e-6*tier.priceScale*2, cost.CacheCreationCost, 1e-12)
 			require.InDelta(t, 73_000*1e-6*tier.priceScale*2, cost.CacheReadCost, 1e-12)
@@ -183,9 +181,6 @@ func TestGPT6AstraDedicatedFallbacksUseOfficialRates(t *testing.T) {
 			require.InDelta(t, 25e-6, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 			require.InDelta(t, 1e-6, pricing.CacheReadPricePerToken, 1e-12)
 			require.InDelta(t, 2e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
-			require.Equal(t, 272_000, pricing.LongContextInputThreshold)
-			require.InDelta(t, 2.0, pricing.LongContextInputMultiplier, 1e-12)
-			require.InDelta(t, 1.5, pricing.LongContextOutputMultiplier, 1e-12)
 		})
 	}
 }
@@ -231,8 +226,6 @@ func TestBillingService_GPT56CacheWritePricingUsesOfficialMultiplier(t *testing.
 			require.NoError(t, err)
 			require.InDelta(t, tt.input*1.25, pricing.CacheCreationPricePerToken, 1e-12)
 			require.InDelta(t, tt.inputPriority*1.25, pricing.CacheCreationPricePerTokenPriority, 1e-12)
-			// 阶梯由目录数据驱动：条目无 above/long_context 字段时不再由策略强补。
-			require.Zero(t, pricing.LongContextInputThreshold)
 
 			tokens := UsageTokens{InputTokens: 700, OutputTokens: 50, CacheCreationTokens: 200, CacheReadTokens: 100}
 			standard, err := svc.CalculateCostWithServiceTier(tt.model, tokens, 1, "")
@@ -276,7 +269,9 @@ const gpt56LadderCatalogJSON = `{
 		"cache_read_input_token_cost_above_272k_tokens": 4e-08}
 }`
 
-func TestBillingService_GPT56UsesLongContextPricingAcrossModelsAndTiers(t *testing.T) {
+// GPT-5.6 三个型号的 above_272k 阶梯播种成分段后，标准 / priority / flex 三档都按高段价；
+// 缓存写价 = 高段输入价 × 1.25（模型策略在取段价之后补，与原来「基础补 1.25 再乘倍数」一样）。
+func TestBillingService_GPT56UsesTokenSegmentAcrossModelsAndTiers(t *testing.T) {
 	models := []struct {
 		name               string
 		input, cached      float64
@@ -304,13 +299,12 @@ func TestBillingService_GPT56UsesLongContextPricingAcrossModelsAndTiers(t *testi
 	for _, model := range models {
 		for _, tier := range tiers {
 			t.Run(model.name+"/"+tier.name, func(t *testing.T) {
-				svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, gpt56LadderCatalogJSON))
+				svc, resolver := newSeededCatalogEnvFromJSON(t, gpt56LadderCatalogJSON, model.name)
 				serviceTier := ""
 				if tier.name != "standard" {
 					serviceTier = tier.name
 				}
-				cost, err := svc.CalculateCostWithServiceTier(model.name, tokens, 1, serviceTier)
-				require.NoError(t, err)
+				cost := costViaCatalog(t, svc, resolver, model.name, tokens, serviceTier)
 				require.InDelta(t, float64(tokens.InputTokens)*model.input*tier.priceScale*2, cost.InputCost, 1e-12)
 				require.InDelta(t, float64(tokens.CacheCreationTokens)*model.cacheWrite*tier.priceScale*2, cost.CacheCreationCost, 1e-12)
 				require.InDelta(t, float64(tokens.CacheReadTokens)*model.cached*tier.priceScale*2, cost.CacheReadCost, 1e-12)
@@ -320,12 +314,11 @@ func TestBillingService_GPT56UsesLongContextPricingAcrossModelsAndTiers(t *testi
 	}
 }
 
-func TestBillingService_GPT56LongContextBoundaryIsExclusive(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, gpt56LadderCatalogJSON))
+func TestBillingService_GPT56TokenSegmentBoundaryIsExclusive(t *testing.T) {
+	svc, resolver := newSeededCatalogEnvFromJSON(t, gpt56LadderCatalogJSON, "gpt-5.6-sol")
 	tokens := UsageTokens{InputTokens: 100000, CacheCreationTokens: 100000, CacheReadTokens: 72000, OutputTokens: 10}
 
-	cost, err := svc.CalculateCost("gpt-5.6-sol", tokens, 1)
-	require.NoError(t, err)
+	cost := costViaCatalog(t, svc, resolver, "gpt-5.6-sol", tokens, "")
 	require.InDelta(t, 100000*5e-6, cost.InputCost, 1e-12)
 	require.InDelta(t, 100000*6.25e-6, cost.CacheCreationCost, 1e-12)
 	require.InDelta(t, 72000*0.5e-6, cost.CacheReadCost, 1e-12)
@@ -388,9 +381,6 @@ func TestDefaultPricingIncludesOfficialGPT56Rates(t *testing.T) {
 			require.InDelta(t, tt.cachedPriority, pricing.CacheReadPricePerTokenPriority, 1e-12)
 			require.InDelta(t, tt.cacheWritePriority, pricing.CacheCreationPricePerTokenPriority, 1e-12)
 			require.InDelta(t, tt.outputPriority, pricing.OutputPricePerTokenPriority, 1e-12)
-			require.Equal(t, 272000, pricing.LongContextInputThreshold)
-			require.InDelta(t, 2.0, pricing.LongContextInputMultiplier, 1e-12)
-			require.InDelta(t, 1.5, pricing.LongContextOutputMultiplier, 1e-12)
 		})
 	}
 }
@@ -431,8 +421,6 @@ func assertGPT56FallbackPricing(t *testing.T, pricing *ModelPricing, input, cach
 	require.InDelta(t, cached, pricing.CacheReadPricePerToken, 1e-12)
 	require.InDelta(t, cacheWrite, pricing.CacheCreationPricePerToken, 1e-12)
 	require.InDelta(t, output, pricing.OutputPricePerToken, 1e-12)
-	// 静态兜底只兜基础价；阶梯由目录数据（above_272k 折算或显式字段）驱动。
-	require.Zero(t, pricing.LongContextInputThreshold)
 }
 
 func TestParsePricingData_KeepsImageOnlyPricing(t *testing.T) {
@@ -977,17 +965,18 @@ func TestParsePricingData_DerivesLongContextFromAboveTierFields(t *testing.T) {
 	require.Equal(t, 128000, data["multi-threshold"].LongContextInputTokenThreshold, "多阈值取最小")
 }
 
-func TestGetModelPricing_XAIThresholdInclusive(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, `{
+// xAI 的阶梯「达到阈值即进高段」：分段左开右闭，播种出的下界是 199999，恰好 200000 就按高段价。
+func TestSeed_XAIThresholdInclusiveSegment(t *testing.T) {
+	svc, resolver := newSeededCatalogEnvFromJSON(t, `{
 		"grok-4.5": {"litellm_provider": "xai", "mode": "chat",
 			"input_cost_per_token": 2e-06, "output_cost_per_token": 6e-06,
 			"input_cost_per_token_above_200k_tokens": 4e-06,
 			"output_cost_per_token_above_200k_tokens": 1.2e-05}
-	}`))
-	pricing, err := svc.GetModelPricing("grok-4.5")
-	require.NoError(t, err)
-	require.Equal(t, 200000, pricing.LongContextInputThreshold)
-	require.True(t, pricing.LongContextThresholdInclusive, "xAI 阈值语义为达到即进高档")
+	}`, "grok-4.5")
+	at := costViaCatalog(t, svc, resolver, "grok-4.5", UsageTokens{InputTokens: 200000}, "")
+	require.InDelta(t, 200000*4e-6, at.InputCost, 1e-10, "xAI 阈值语义为达到即进高段")
+	below := costViaCatalog(t, svc, resolver, "grok-4.5", UsageTokens{InputTokens: 199999}, "")
+	require.InDelta(t, 199999*2e-6, below.InputCost, 1e-10)
 }
 
 // F3：显式 long_context 字段以"字段存在"为准——显式 0 也能压住 above 折算，关闭阶梯。
@@ -1125,69 +1114,57 @@ func TestDefaultCatalogSnapshot_CacheTierContract(t *testing.T) {
 	}
 }
 
-// F1：显式字段只写了一侧倍率时，缺失侧按 1 计而不是乘 0 免费。
+// F1：显式字段只写了一侧倍率时，缺失侧按 1 计而不是乘 0 免费（播种成分段时同样按 1 换算）。
 func TestCalculateCost_PartialLongContextMultiplierDefaultsToOne(t *testing.T) {
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000, CacheReadTokens: 10000}
 
 	t.Run("only input multiplier", func(t *testing.T) {
-		svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, `{
+		svc, resolver := newSeededCatalogEnvFromJSON(t, `{
 			"partial-in": {"litellm_provider": "openai", "mode": "chat",
 				"input_cost_per_token": 2e-06, "output_cost_per_token": 1e-05,
 				"cache_read_input_token_cost": 2e-07,
 				"long_context_input_token_threshold": 272000,
 				"long_context_input_cost_multiplier": 2.0}
-		}`))
-		cost, err := svc.CalculateCost("partial-in", tokens, 1.0)
-		require.NoError(t, err)
-		require.True(t, cost.LongContextBillingApplied)
+		}`, "partial-in")
+		cost := costViaCatalog(t, svc, resolver, "partial-in", tokens, "")
 		require.InDelta(t, 300000*2e-6*2, cost.InputCost, 1e-10)
 		require.InDelta(t, 1000*1e-5, cost.OutputCost, 1e-10, "缺失的 output 倍率按 1 计，不得为 0")
 		require.InDelta(t, 10000*2e-7*2, cost.CacheReadCost, 1e-10)
 	})
 
 	t.Run("only output multiplier", func(t *testing.T) {
-		svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, `{
+		svc, resolver := newSeededCatalogEnvFromJSON(t, `{
 			"partial-out": {"litellm_provider": "openai", "mode": "chat",
 				"input_cost_per_token": 2e-06, "output_cost_per_token": 1e-05,
 				"cache_read_input_token_cost": 2e-07,
 				"long_context_input_token_threshold": 272000,
 				"long_context_output_cost_multiplier": 1.5}
-		}`))
-		cost, err := svc.CalculateCost("partial-out", tokens, 1.0)
-		require.NoError(t, err)
-		require.True(t, cost.LongContextBillingApplied)
+		}`, "partial-out")
+		cost := costViaCatalog(t, svc, resolver, "partial-out", tokens, "")
 		require.InDelta(t, 300000*2e-6, cost.InputCost, 1e-10, "缺失的 input 倍率按 1 计，不得为 0")
 		require.InDelta(t, 1000*1e-5*1.5, cost.OutputCost, 1e-10)
 		require.InDelta(t, 10000*2e-7, cost.CacheReadCost, 1e-10, "cache_read 跟随 input 倍率，同样按 1 计")
 	})
 }
 
-// 行为声明：目录带 above_200k 的 Claude sonnet 条目同样获得数据驱动的整单阶梯
-// （与 Anthropic 官方 1M 长上下文定价一致），受分组长上下文开关约束。
+// 行为声明：价格文件带 above_200k 的 Claude sonnet 条目播种出 >200K 的分段
+// （与 Anthropic 官方 1M 长上下文定价一致），严格大于才进高段。
 func TestCalculateCost_ClaudeSonnetCatalogLadderIsDataDriven(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, `{
+	svc, resolver := newSeededCatalogEnvFromJSON(t, `{
 		"claude-sonnet-4-5": {"litellm_provider": "anthropic", "mode": "chat",
 			"input_cost_per_token": 3e-06, "output_cost_per_token": 1.5e-05,
 			"cache_read_input_token_cost": 3e-07,
 			"input_cost_per_token_above_200k_tokens": 6e-06,
 			"output_cost_per_token_above_200k_tokens": 2.25e-05,
 			"cache_read_input_token_cost_above_200k_tokens": 6e-07}
-	}`))
-
-	pricing, err := svc.GetModelPricing("claude-sonnet-4-5")
-	require.NoError(t, err)
-	require.Equal(t, 200000, pricing.LongContextInputThreshold)
-	require.False(t, pricing.LongContextThresholdInclusive, "anthropic 为严格大于")
+	}`, "claude-sonnet-4-5")
 
 	over := UsageTokens{InputTokens: 250000, OutputTokens: 1000}
-	cost, err := svc.CalculateCost("claude-sonnet-4-5", over, 1.0)
-	require.NoError(t, err)
-	require.True(t, cost.LongContextBillingApplied)
+	cost := costViaCatalog(t, svc, resolver, "claude-sonnet-4-5", over, "")
 	require.InDelta(t, 250000*3e-6*2, cost.InputCost, 1e-10)
 	require.InDelta(t, 1000*1.5e-5*1.5, cost.OutputCost, 1e-10)
 
 	under := UsageTokens{InputTokens: 200000, OutputTokens: 1000}
-	cost, err = svc.CalculateCost("claude-sonnet-4-5", under, 1.0)
-	require.NoError(t, err)
-	require.False(t, cost.LongContextBillingApplied, "恰好 200000 不进高档（严格大于）")
+	cost = costViaCatalog(t, svc, resolver, "claude-sonnet-4-5", under, "")
+	require.InDelta(t, 200000*3e-6, cost.InputCost, 1e-10, "恰好 200000 不进高段（anthropic 严格大于）")
 }

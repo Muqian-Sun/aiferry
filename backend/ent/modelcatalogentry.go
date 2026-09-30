@@ -68,14 +68,6 @@ type ModelCatalogEntry struct {
 	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
 	// SearchPricePerCall holds the value of the "search_price_per_call" field.
 	SearchPricePerCall *float64 `json:"search_price_per_call,omitempty"`
-	// 超过该 context token 数后整次会话换用长上下文价；nil 表示无长上下文阶梯。
-	LongContextInputThreshold *int `json:"long_context_input_threshold,omitempty"`
-	// true = 达到阈值即生效（xAI 口径）；false = 严格大于。
-	LongContextThresholdInclusive bool `json:"long_context_threshold_inclusive,omitempty"`
-	// LongContextInputMultiplier holds the value of the "long_context_input_multiplier" field.
-	LongContextInputMultiplier *float64 `json:"long_context_input_multiplier,omitempty"`
-	// LongContextOutputMultiplier holds the value of the "long_context_output_multiplier" field.
-	LongContextOutputMultiplier *float64 `json:"long_context_output_multiplier,omitempty"`
 	// FastMultiplier holds the value of the "fast_multiplier" field.
 	FastMultiplier *float64 `json:"fast_multiplier,omitempty"`
 	// FlexMultiplier holds the value of the "flex_multiplier" field.
@@ -148,11 +140,9 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case modelcatalogentry.FieldProtocols:
 			values[i] = new([]byte)
-		case modelcatalogentry.FieldLongContextThresholdInclusive:
-			values[i] = new(sql.NullBool)
-		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldLongContextInputMultiplier, modelcatalogentry.FieldLongContextOutputMultiplier, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case modelcatalogentry.FieldID, modelcatalogentry.FieldLongContextInputThreshold:
+		case modelcatalogentry.FieldID:
 			values[i] = new(sql.NullInt64)
 		case modelcatalogentry.FieldModelID, modelcatalogentry.FieldDisplayName, modelcatalogentry.FieldVendor, modelcatalogentry.FieldBillingMode, modelcatalogentry.FieldStatus, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldNotes:
 			values[i] = new(sql.NullString)
@@ -347,33 +337,6 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				_m.SearchPricePerCall = new(float64)
 				*_m.SearchPricePerCall = value.Float64
 			}
-		case modelcatalogentry.FieldLongContextInputThreshold:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field long_context_input_threshold", values[i])
-			} else if value.Valid {
-				_m.LongContextInputThreshold = new(int)
-				*_m.LongContextInputThreshold = int(value.Int64)
-			}
-		case modelcatalogentry.FieldLongContextThresholdInclusive:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field long_context_threshold_inclusive", values[i])
-			} else if value.Valid {
-				_m.LongContextThresholdInclusive = value.Bool
-			}
-		case modelcatalogentry.FieldLongContextInputMultiplier:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field long_context_input_multiplier", values[i])
-			} else if value.Valid {
-				_m.LongContextInputMultiplier = new(float64)
-				*_m.LongContextInputMultiplier = value.Float64
-			}
-		case modelcatalogentry.FieldLongContextOutputMultiplier:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field long_context_output_multiplier", values[i])
-			} else if value.Valid {
-				_m.LongContextOutputMultiplier = new(float64)
-				*_m.LongContextOutputMultiplier = value.Float64
-			}
 		case modelcatalogentry.FieldFastMultiplier:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field fast_multiplier", values[i])
@@ -562,24 +525,6 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	if v := _m.SearchPricePerCall; v != nil {
 		builder.WriteString("search_price_per_call=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.LongContextInputThreshold; v != nil {
-		builder.WriteString("long_context_input_threshold=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	builder.WriteString("long_context_threshold_inclusive=")
-	builder.WriteString(fmt.Sprintf("%v", _m.LongContextThresholdInclusive))
-	builder.WriteString(", ")
-	if v := _m.LongContextInputMultiplier; v != nil {
-		builder.WriteString("long_context_input_multiplier=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.LongContextOutputMultiplier; v != nil {
-		builder.WriteString("long_context_output_multiplier=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

@@ -1169,7 +1169,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   bedrockCCCompatEnabled.value = false
-  // 长上下文计费开关对任意标签的 key 都生效，按已存值回填；区块可见性另算。
   // 第三方 key 一律回填：地址行可在弹窗里增删，区块是否展示随地址变化
   if (newAccount.type === 'apikey') {
     anthropicAPIKeyAuthScheme.value = extra?.anthropic_apikey_auth_scheme === 'authorization_bearer'

@@ -36,20 +36,17 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	repo, unique := newModelCatalogRepoForTest(t, "repo-crud")
 
 	entry := &service.ModelCatalogEntry{
-		ModelID:                       unique("sonnet"),
-		DisplayName:                   "Sonnet",
-		Vendor:                        "anthropic",
-		Protocols:                     []string{service.ModelCatalogProtocolAnthropic},
-		BillingMode:                   service.BillingModeToken,
-		Status:                        service.ModelCatalogStatusListed,
-		ManagedBy:                     service.ModelCatalogManagedByAdmin,
-		InputPrice:                    float64Value(3e-6),
-		OutputPrice:                   float64Value(15e-6),
-		CacheWrite1hPrice:             float64Value(6e-6),
-		InputPricePriority:            float64Value(6e-6),
-		LongContextInputThreshold:     func() *int { v := 200000; return &v }(),
-		LongContextThresholdInclusive: true,
-		LongContextInputMultiplier:    float64Value(2),
+		ModelID:            unique("sonnet"),
+		DisplayName:        "Sonnet",
+		Vendor:             "anthropic",
+		Protocols:          []string{service.ModelCatalogProtocolAnthropic},
+		BillingMode:        service.BillingModeToken,
+		Status:             service.ModelCatalogStatusListed,
+		ManagedBy:          service.ModelCatalogManagedByAdmin,
+		InputPrice:         float64Value(3e-6),
+		OutputPrice:        float64Value(15e-6),
+		CacheWrite1hPrice:  float64Value(6e-6),
+		InputPricePriority: float64Value(6e-6),
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, MaxTokens: func() *int { v := 100000; return &v }(), InputPrice: float64Value(1e-6), SortOrder: 0},
 			{MinTokens: 100000, InputPrice: float64Value(2e-6), SortOrder: 1},
@@ -73,8 +70,6 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	require.InDelta(t, 3e-6, *loaded.InputPrice, 1e-15)
 	require.InDelta(t, 6e-6, *loaded.CacheWrite1hPrice, 1e-15)
 	require.InDelta(t, 6e-6, *loaded.InputPricePriority, 1e-15)
-	require.Equal(t, 200000, *loaded.LongContextInputThreshold)
-	require.True(t, loaded.LongContextThresholdInclusive)
 	require.Len(t, loaded.Intervals, 2)
 	require.InDelta(t, 1e-6, *loaded.Intervals[0].InputPrice, 1e-15)
 	require.NotNil(t, loaded.TimePricing)
@@ -105,7 +100,6 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	require.InDelta(t, 4e-6, *reloaded.InputPrice, 1e-15)
 	require.Nil(t, reloaded.OutputPrice, "未给值的价格列必须被清空")
 	require.Nil(t, reloaded.CacheWrite1hPrice)
-	require.Nil(t, reloaded.LongContextInputThreshold)
 	require.Empty(t, reloaded.Intervals, "分档整份覆盖")
 	require.Nil(t, reloaded.TimePricing, "分时整份覆盖")
 

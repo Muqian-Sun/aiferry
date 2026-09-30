@@ -138,38 +138,6 @@ describe('admin UsageTable tooltip', () => {
     } as DOMRect)
   })
 
-  it('marks only usage rows that actually applied long-context billing', () => {
-    const wrapper = mount(UsageTable, {
-      props: {
-        data: [
-          {
-            ...baseImageRow,
-            request_id: 'req-long-context-enabled',
-            long_context_billing_applied: true,
-          },
-          {
-            ...baseImageRow,
-            request_id: 'req-long-context-disabled',
-            long_context_billing_applied: false,
-          },
-        ],
-        loading: false,
-        columns: [],
-      },
-      global: {
-        stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
-          Icon: true,
-          Teleport: true,
-        },
-      },
-    })
-
-    expect(wrapper.findAll('[data-testid="long-context-billing-marker"]')).toHaveLength(1)
-    expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
-  })
-
   it('keeps the request type badge and adds a separate badge only for native compaction rows', () => {
     const DataTableStreamStub = {
       props: ['data'],

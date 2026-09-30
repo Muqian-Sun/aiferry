@@ -313,7 +313,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
-		usageLog.LongContextBillingApplied = cost.LongContextBillingApplied
 	}
 	usageLog.RateMultiplier = multiplier
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
@@ -503,13 +502,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			ServiceTier: serviceTier, ReasoningEffort: reasoningEffort, Resolver: s.resolver,
 		})
 	}
-	breakdown, err := s.billingService.calculateCostWithServiceTierPolicy(
-		billingModel,
-		tokens,
-		multiplier,
-		serviceTier,
-		true,
-	)
+	breakdown, err := s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)
 	if err == nil {
 		applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(billingModel, reasoningEffort, nil))
 	}

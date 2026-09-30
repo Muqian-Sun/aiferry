@@ -256,6 +256,8 @@ export default {
         perSecond: 'Per second'
       },
       priceNote: 'Prices shown = official price × your account multiplier; every request is recorded on the usage page.',
+      segmentRange: 'Input tokens',
+      segmentNote: 'Segmented models bill the whole request at the segment its input tokens (input + cache write + cache read) fall into.',
       copyId: 'Copy model ID',
       copied: 'Copied',
       empty: 'No models available',

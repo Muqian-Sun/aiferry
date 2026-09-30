@@ -243,16 +243,15 @@ func TestCalculateCostUnified_ChannelTimePricingDoesNotApplyOutsideMatchingTime(
 
 func TestApplyCostBreakdownMultiplierScalesAllMonetaryFields(t *testing.T) {
 	cost := &CostBreakdown{
-		InputCost:                 1,
-		ImageInputCost:            2,
-		OutputCost:                3,
-		ImageOutputCost:           4,
-		CacheCreationCost:         5,
-		CacheReadCost:             6,
-		TotalCost:                 21,
-		ActualCost:                42,
-		BillingMode:               string(BillingModeToken),
-		LongContextBillingApplied: true,
+		InputCost:         1,
+		ImageInputCost:    2,
+		OutputCost:        3,
+		ImageOutputCost:   4,
+		CacheCreationCost: 5,
+		CacheReadCost:     6,
+		TotalCost:         21,
+		ActualCost:        42,
+		BillingMode:       string(BillingModeToken),
 	}
 
 	applyCostBreakdownMultiplier(cost, 1.5)
@@ -266,7 +265,6 @@ func TestApplyCostBreakdownMultiplierScalesAllMonetaryFields(t *testing.T) {
 	require.InDelta(t, 31.5, cost.TotalCost, 1e-12)
 	require.InDelta(t, 63.0, cost.ActualCost, 1e-12)
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)
-	require.True(t, cost.LongContextBillingApplied)
 }
 
 // TestCalculateCostUnified_RateMultiplierZeroProducesZero 锁定新行为：

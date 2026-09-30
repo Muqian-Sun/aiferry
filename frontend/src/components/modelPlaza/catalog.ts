@@ -2,11 +2,12 @@
  * 模型页的展示契约：每个上架的目录条目一格。
  *
  * 标价来自 /model-plaza 每个条目的 pricing（目录基准价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
- * - token：各项都是 USD / token，这里换算成 USD / 百万 token；
+ * - token：各项都是 USD / token，这里换算成 USD / 百万 token；按 Token 分段的（pricing.intervals 非空）另给各段的价（utils/tokenSegments）；
  * - per_request / image / video：只收 per_request_price 一个单价，单位分别是 次 / 张 / 秒，token 价不参与计费、不展示。
  * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
  */
 import type { PlazaModel, PlazaTimePricing } from '@/api/modelPlaza'
+import { tokenSegments, type TokenSegment, type TokenSegmentPrices } from '@/utils/tokenSegments'
 
 /** token 模式的各项单价，USD / 1M tokens；目录没给的项为 null */
 export interface CatalogPrice {
@@ -32,6 +33,8 @@ export interface CatalogModel {
   price: CatalogPrice | null
   /** 非 token 模式的单价（USD / 次、张、秒）；token 模式或没给时为 null */
   unitPrice: number | null
+  /** 按 Token 分段（第一段 = 上面的基础价），单价 USD / 1M tokens；没分段或非 token 模式为空 */
+  segments: TokenSegment[]
   aliases: string[]
   /** 分时倍率（有时段才带） */
   timePricing: PlazaTimePricing | null
@@ -58,6 +61,30 @@ function priceOf(model: PlazaModel, billingMode: string): CatalogPrice | null {
   return Object.values(price).every((value) => value == null) ? null : price
 }
 
+function segmentsOf(model: PlazaModel, billingMode: string): TokenSegment[] {
+  const p = model.pricing
+  if (!p || billingMode !== 'token') return []
+  const base: TokenSegmentPrices = {
+    input: p.input_price,
+    output: p.output_price,
+    cacheWrite: p.cache_write_price,
+    cacheWrite1h: p.cache_write_1h_price ?? null,
+    cacheRead: p.cache_read_price
+  }
+  return tokenSegments(base, p.intervals).map((segment) => ({ ...segment, prices: scalePrices(segment.prices, PER_MILLION) }))
+}
+
+/** 分段单价整体乘一个系数（换算单位或乘账户倍率）；缺项保持 null */
+export function scalePrices(prices: TokenSegmentPrices, factor: number): TokenSegmentPrices {
+  return {
+    input: prices.input == null ? null : prices.input * factor,
+    output: prices.output == null ? null : prices.output * factor,
+    cacheWrite: prices.cacheWrite == null ? null : prices.cacheWrite * factor,
+    cacheWrite1h: prices.cacheWrite1h == null ? null : prices.cacheWrite1h * factor,
+    cacheRead: prices.cacheRead == null ? null : prices.cacheRead * factor
+  }
+}
+
 export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
   return models
     .map((model): CatalogModel => {
@@ -69,6 +96,7 @@ export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
         billingMode,
         price: priceOf(model, billingMode),
         unitPrice: billingMode === 'token' ? null : (model.pricing?.per_request_price ?? null),
+        segments: segmentsOf(model, billingMode),
         aliases: model.aliases ?? [],
         timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
       }

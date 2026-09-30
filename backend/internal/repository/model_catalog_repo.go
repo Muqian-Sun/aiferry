@@ -605,7 +605,6 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
-		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetNillableInputPrice(entry.InputPrice).
 		SetNillableOutputPrice(entry.OutputPrice).
 		SetNillableCacheWritePrice(entry.CacheWritePrice).
@@ -622,9 +621,6 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetNillableCacheReadPricePriority(entry.CacheReadPricePriority).
 		SetNillablePerRequestPrice(entry.PerRequestPrice).
 		SetNillableSearchPricePerCall(entry.SearchPricePerCall).
-		SetNillableLongContextInputThreshold(entry.LongContextInputThreshold).
-		SetNillableLongContextInputMultiplier(entry.LongContextInputMultiplier).
-		SetNillableLongContextOutputMultiplier(entry.LongContextOutputMultiplier).
 		SetNillableFastMultiplier(entry.FastMultiplier).
 		SetNillableFlexMultiplier(entry.FlexMultiplier).
 		SetNillableMaxReasoningEffortMultiplier(entry.MaxReasoningEffortMultiplier)
@@ -646,7 +642,6 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
-		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetProtocols(entry.Protocols)
 
 	setPrice := func(
@@ -677,17 +672,10 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 	setPrice(builder.SetCacheReadPricePriority, builder.ClearCacheReadPricePriority, entry.CacheReadPricePriority)
 	setPrice(builder.SetPerRequestPrice, builder.ClearPerRequestPrice, entry.PerRequestPrice)
 	setPrice(builder.SetSearchPricePerCall, builder.ClearSearchPricePerCall, entry.SearchPricePerCall)
-	setPrice(builder.SetLongContextInputMultiplier, builder.ClearLongContextInputMultiplier, entry.LongContextInputMultiplier)
-	setPrice(builder.SetLongContextOutputMultiplier, builder.ClearLongContextOutputMultiplier, entry.LongContextOutputMultiplier)
 	setPrice(builder.SetFastMultiplier, builder.ClearFastMultiplier, entry.FastMultiplier)
 	setPrice(builder.SetFlexMultiplier, builder.ClearFlexMultiplier, entry.FlexMultiplier)
 	setPrice(builder.SetMaxReasoningEffortMultiplier, builder.ClearMaxReasoningEffortMultiplier, entry.MaxReasoningEffortMultiplier)
 
-	if entry.LongContextInputThreshold != nil {
-		builder = builder.SetLongContextInputThreshold(*entry.LongContextInputThreshold)
-	} else {
-		builder = builder.ClearLongContextInputThreshold()
-	}
 	if entry.Notes != nil {
 		builder = builder.SetNotes(*entry.Notes)
 	} else {
@@ -728,11 +716,6 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 
 		PerRequestPrice:    row.PerRequestPrice,
 		SearchPricePerCall: row.SearchPricePerCall,
-
-		LongContextInputThreshold:     row.LongContextInputThreshold,
-		LongContextThresholdInclusive: row.LongContextThresholdInclusive,
-		LongContextInputMultiplier:    row.LongContextInputMultiplier,
-		LongContextOutputMultiplier:   row.LongContextOutputMultiplier,
 
 		FastMultiplier:               row.FastMultiplier,
 		FlexMultiplier:               row.FlexMultiplier,

@@ -31,11 +31,6 @@
           />
           <DetailField :label="t('admin.usage.billingMode')" :value="getBillingModeLabel(getDisplayBillingMode(log), t)" />
           <DetailField :label="t('usage.serviceTier')" :value="getUsageServiceTierLabel(log.service_tier, t)" />
-          <DetailField
-            v-if="log.long_context_billing_applied"
-            :label="t('admin.usage.detail.longContext')"
-            :value="t('admin.usage.detail.longContextApplied')"
-          />
         </dl>
       </section>
 

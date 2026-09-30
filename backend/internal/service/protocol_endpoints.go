@@ -220,7 +220,7 @@ func ResolveUpstreamBaseURL(account *Account, resolved string, protocol string, 
 }
 
 // HasOpenAIProtocolEndpoint 报告第三方 key 是否配了 OpenAI 协议族（Chat Completions 或
-// Responses）的地址：OpenAI 协议层面的账号设置（长上下文计费、端点能力）按它露出，不看标签。
+// Responses）的地址：OpenAI 协议层面的账号设置（端点能力等）按它露出，不看标签。
 func (a *Account) HasOpenAIProtocolEndpoint() bool {
 	return a.ProtocolEndpoint(APIProtocolChatCompletions) != "" || a.ProtocolEndpoint(APIProtocolResponses) != ""
 }

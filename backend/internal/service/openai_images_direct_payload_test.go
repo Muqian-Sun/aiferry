@@ -72,7 +72,7 @@ func TestCodexDirectImagesPricingAndUsage(t *testing.T) {
 	require.Equal(t, 200, usage.ImageOutputTokens)
 	tokens := UsageTokens{InputTokens: usage.InputTokens - usage.CacheReadInputTokens, ImageInputTokens: usage.ImageInputTokens - usage.ImageCacheReadTokens, CacheReadTokens: usage.CacheReadInputTokens, ImageCacheReadTokens: usage.ImageCacheReadTokens, OutputTokens: usage.OutputTokens, ImageOutputTokens: usage.ImageOutputTokens}
 	price := &ModelPricing{InputPricePerToken: 5e-6, ImageInputPricePerToken: 8e-6, CacheReadPricePerToken: 1.25e-6, ImageCacheReadPricePerToken: 2e-6, ImageOutputPricePerToken: 30e-6}
-	cost := (&BillingService{}).computeTokenBreakdown(price, tokens, 1, "", false)
+	cost := (&BillingService{}).computeTokenBreakdown(price, tokens, 1, "")
 	require.InDelta(t, 10*5e-6, cost.InputCost, 1e-12)
 	require.InDelta(t, 40*8e-6, cost.ImageInputCost, 1e-12)
 	require.InDelta(t, 10*1.25e-6+40*2e-6, cost.CacheReadCost, 1e-12)

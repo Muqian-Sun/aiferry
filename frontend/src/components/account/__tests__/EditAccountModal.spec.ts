@@ -570,8 +570,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
-  // 长上下文计费开关按协议地址露出，不看标签：kimi 标签 + Chat Completions 地址的 key 能改；
-  // 只配 Anthropic 地址的 openai 标签 key 看不到开关，保存时保留已存值。
   it('loads and submits Grok OAuth model mapping edits', async () => {
     const account = buildGrokOAuthAccount()
     updateAccountMock.mockReset()
