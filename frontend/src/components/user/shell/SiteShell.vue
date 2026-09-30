@@ -6,8 +6,9 @@
   -->
   <div class="flex min-h-screen flex-col bg-af-sheet text-af-ink">
     <SiteNav :variant="variant" />
-    <!-- 控制台不限宽、不居中（muqian 2026-09-30：侧栏左边空白太大）：侧栏贴左（与页边距同为 24px），内容区铺满其余宽度，同管理站 -->
-    <div v-if="variant === 'console'" class="flex w-full flex-1 px-6">
+    <!-- 控制台不限宽、不居中（muqian 2026-09-30：侧栏左边空白太大）：侧栏贴屏幕左缘、内容区铺满其余宽度，同管理站；
+         窄屏没有侧栏，内容仍留 24px 页边距 -->
+    <div v-if="variant === 'console'" class="flex w-full flex-1 pl-6 pr-6 lg:pl-0">
       <ConsoleSidebar class="hidden lg:block" />
       <main class="flex min-w-0 flex-1 flex-col" :class="flush ? '' : 'py-8 lg:pl-10'">
         <PageHeader v-if="!hideHeader" :title="title ?? routeTitle" :description="description ?? routeDescription">
