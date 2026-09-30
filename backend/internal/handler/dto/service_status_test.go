@@ -26,14 +26,6 @@ func TestServiceStatusAvailabilityIsNullWithoutRequests(t *testing.T) {
 	require.InDelta(t, 0, *allFailed.Availability, 1e-9)
 }
 
-// 首次补历史数据时给进度，补齐后为 null。
-func TestServiceStatusCoverageBackfillPercent(t *testing.T) {
-	active := serviceStatusCoverage(service.ChannelMonitorV2Coverage{Bootstrap: &service.ChannelMonitorV2Bootstrap{Active: true, ProgressPercent: 42}})
-	require.NotNil(t, active.BackfillPercent)
-	require.Equal(t, 42, *active.BackfillPercent)
-	require.Nil(t, serviceStatusCoverage(service.ChannelMonitorV2Coverage{}).BackfillPercent)
-}
-
 // 缓存命中率：有输入时给比率，没有输入（分母 0）时为 null，不能显示成 0%。
 func TestServiceStatusCacheHitRate(t *testing.T) {
 	got := serviceStatusMetric(service.ChannelMonitorV2Metric{SuccessRate: 1, CacheRate: 0.86, CacheRateDenominator: 1000})

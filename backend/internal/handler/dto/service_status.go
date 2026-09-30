@@ -31,15 +31,11 @@ type ServiceStatusHealth struct {
 	Cache        string `json:"cache"`
 }
 
-// ServiceStatusCoverage 统计窗口与数据新鲜度。
+// ServiceStatusCoverage 统计窗口：[requested_start, requested_end) 按 bucket_seconds 分段。
 type ServiceStatusCoverage struct {
-	RequestedStart   time.Time `json:"requested_start"`
-	RequestedEnd     time.Time `json:"requested_end"`
-	DataThrough      time.Time `json:"data_through"`
-	BucketSeconds    int       `json:"bucket_seconds"`
-	CoverageComplete bool      `json:"coverage_complete"`
-	// BackfillPercent 首次启用后后台补历史数据的进度；补齐后为 null。
-	BackfillPercent *int `json:"backfill_percent"`
+	RequestedStart time.Time `json:"requested_start"`
+	RequestedEnd   time.Time `json:"requested_end"`
+	BucketSeconds  int       `json:"bucket_seconds"`
 }
 
 type ServiceStatusPoint struct {
@@ -88,18 +84,7 @@ func serviceStatusHealth(h service.ChannelMonitorV2Health) ServiceStatusHealth {
 }
 
 func serviceStatusCoverage(c service.ChannelMonitorV2Coverage) ServiceStatusCoverage {
-	out := ServiceStatusCoverage{
-		RequestedStart:   c.RequestedStart,
-		RequestedEnd:     c.RequestedEnd,
-		DataThrough:      c.DataThrough,
-		BucketSeconds:    c.BucketSeconds,
-		CoverageComplete: c.CoverageComplete,
-	}
-	if c.Bootstrap != nil && c.Bootstrap.Active {
-		percent := c.Bootstrap.ProgressPercent
-		out.BackfillPercent = &percent
-	}
-	return out
+	return ServiceStatusCoverage{RequestedStart: c.RequestedStart, RequestedEnd: c.RequestedEnd, BucketSeconds: c.BucketSeconds}
 }
 
 func serviceStatusPoints(points []service.ChannelMonitorV2TrendPoint) []ServiceStatusPoint {

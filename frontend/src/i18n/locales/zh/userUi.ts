@@ -315,15 +315,6 @@ export default {
       title: '服务状态',
       description: '各模型最近的可用率、首字延迟和缓存命中率，按本站的真实请求统计',
       range: { label: '时间范围', '90m': '90 分钟', '24h': '24 小时', '7d': '7 天', '30d': '30 天' },
-      headline: {
-        healthy: '各模型运行正常',
-        warning: '{count} 个模型响应不稳定',
-        critical: '{count} 个模型出现异常',
-        unknown: '这段时间请求太少，暂不下结论'
-      },
-      updatedAt: '数据更新于 {time}',
-      noDataYet: '还没有统计数据',
-      backfill: '正在补齐历史数据（{percent}%），较长的时间范围暂时不完整',
       stats: { availability: '可用率', ttft: '首字延迟（中位数）', ttftP90: '九成请求在 {value} 内', cache: '缓存命中率' },
       models: {
         title: '各模型',

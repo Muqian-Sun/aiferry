@@ -35,8 +35,8 @@ func monitorV2FixtureCoverage() service.ChannelMonitorV2Coverage {
 	end := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
 	return service.ChannelMonitorV2Coverage{
 		RequestedStart: end.Add(-90 * time.Minute), RequestedEnd: end,
-		CoverageStart: end.Add(-90 * time.Minute), DataThrough: end.Add(-time.Minute), ComputedAt: end,
-		CoverageComplete: true, BucketSeconds: 300,
+		CoverageStart: end.Add(-90 * time.Minute), DataThrough: end.Add(-time.Minute),
+		BucketSeconds: 300,
 	}
 }
 

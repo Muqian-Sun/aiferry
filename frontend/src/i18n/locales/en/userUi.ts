@@ -315,15 +315,6 @@ export default {
       title: 'Service status',
       description: 'Recent availability, time to first token and cache hit rate for each model, measured from real requests on this site',
       range: { label: 'Time range', '90m': '90 min', '24h': '24 hours', '7d': '7 days', '30d': '30 days' },
-      headline: {
-        healthy: 'All models are operating normally',
-        warning: '{count} model(s) responding unevenly',
-        critical: '{count} model(s) having problems',
-        unknown: 'Too few requests in this period to tell'
-      },
-      updatedAt: 'Updated {time}',
-      noDataYet: 'No statistics yet',
-      backfill: 'Filling in history ({percent}%); longer ranges are incomplete for now',
       stats: { availability: 'Availability', ttft: 'Time to first token (median)', ttftP90: '90% within {value}', cache: 'Cache hit rate' },
       models: {
         title: 'Models',

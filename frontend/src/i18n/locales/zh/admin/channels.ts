@@ -6,12 +6,6 @@ export default {
       modelFilter: '按模型筛选',
       platformFilter: '按平台筛选',
       loadFailed: '渠道状态没有加载出来',
-      headline: {
-        healthy: '各渠道运行正常',
-        warning: '{count} 个渠道响应不稳定',
-        critical: '{count} 个渠道出现异常',
-        unknown: '这段时间请求太少，暂不下结论'
-      },
       stats: { requests: '请求数' },
       channels: {
         title: '各渠道',
