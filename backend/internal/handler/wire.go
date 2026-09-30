@@ -41,7 +41,6 @@ func ProvideAdminHandlers(
 	promptAuditHandler *securityaudit.PromptAdminHandler,
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
-	auditLogHandler *admin.AuditLogHandler,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
 ) *AdminHandlers {
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
@@ -76,7 +75,6 @@ func ProvideAdminHandlers(
 		PromptAudit:            promptAuditHandler,
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
-		AuditLog:               auditLogHandler,
 	}
 }
 
@@ -276,7 +274,6 @@ var ProviderSet = wire.NewSet(
 	admin.NewContentModerationHandler,
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
-	admin.NewAuditLogHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

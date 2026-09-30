@@ -50,14 +50,6 @@ func (r *auditCaptureRepository) Insert(_ context.Context, log *service.AuditLog
 	r.logs = append(r.logs, log)
 	return nil
 }
-func (r *auditCaptureRepository) List(context.Context, *service.AuditLogFilter) (*service.AuditLogList, error) {
-	return &service.AuditLogList{}, nil
-}
-func (r *auditCaptureRepository) GetByID(context.Context, int64) (*service.AuditLog, error) {
-	return nil, service.ErrAuditLogNotFound
-}
-func (r *auditCaptureRepository) Count(context.Context) (int64, error) { return 0, nil }
-func (r *auditCaptureRepository) TruncateAll(context.Context) error    { return nil }
 func (r *auditCaptureRepository) DeleteBefore(context.Context, time.Time, int) (int64, error) {
 	return 0, nil
 }

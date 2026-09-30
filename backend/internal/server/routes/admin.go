@@ -111,9 +111,6 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
-
-		// 操作审计日志
-		registerAuditLogRoutes(admin, h, stepUpAuth)
 	}
 }
 
@@ -130,16 +127,6 @@ func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		promptAudit.POST("/events/batch-delete", h.Admin.PromptAudit.BatchDelete)
 		promptAudit.POST("/events/delete-preview", h.Admin.PromptAudit.DeletePreview)
 		promptAudit.POST("/events/delete-by-filter", h.Admin.PromptAudit.DeleteByFilter)
-	}
-}
-
-func registerAuditLogRoutes(admin *gin.RouterGroup, h *handler.Handlers, _ middleware.StepUpAuthMiddleware) {
-	auditLogs := admin.Group("/audit-logs")
-	{
-		auditLogs.GET("", h.Admin.AuditLog.List)
-		auditLogs.GET("/:id", h.Admin.AuditLog.Get)
-		// 清空需现场 TOTP 校验（在 handler 内强制），不复用 step-up sudo 窗口
-		auditLogs.POST("/clear", h.Admin.AuditLog.Clear)
 	}
 }
 
