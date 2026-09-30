@@ -35,14 +35,14 @@ describe('CatalogEntryDiagnosisModal', () => {
     diagnose.mockReset().mockResolvedValue({
       entry_id: 199,
       accounts: [
-        { id: 3, name: 'K1', platform: 'openai', type: 'apikey', vendor: '', status: 'active', priority: 50, schedulable: true, serves: serves(true, true, true, false) },
-        { id: 5, name: 'K4', platform: 'openai', type: 'apikey', vendor: 'openai', status: 'active', priority: null, schedulable: false, blocked_reason: 'rate_limited', serves: serves(true, true, true, false) },
-        { id: 9, name: 'unknown', platform: 'anthropic', type: 'oauth', vendor: 'anthropic', status: 'active', priority: 1, schedulable: false, blocked_reason: 'mystery', serves: serves(false, false, false, false) }
+        { id: 3, name: 'K1', platform: 'openai', type: 'apikey', vendor: '', status: 'active', schedulable: true, serves: serves(true, true, true, false) },
+        { id: 5, name: 'K4', platform: 'openai', type: 'apikey', vendor: 'openai', status: 'active', schedulable: false, blocked_reason: 'rate_limited', serves: serves(true, true, true, false) },
+        { id: 9, name: 'unknown', platform: 'anthropic', type: 'oauth', vendor: 'anthropic', status: 'active', schedulable: false, blocked_reason: 'mystery', serves: serves(false, false, false, false) }
       ]
     })
   })
 
-  it('lists bound resources with priority, schedulability and the four inbound protocols', async () => {
+  it('lists bound resources with schedulability and the four inbound protocols', async () => {
     const wrapper = mountModal()
     await flushPromises()
 
@@ -53,12 +53,10 @@ describe('CatalogEntryDiagnosisModal', () => {
     expect(rows).toHaveLength(3)
 
     expect(rows[0].text()).toContain('K1')
-    expect(rows[0].text()).toContain('50')
     expect(rows[0].find('[data-testid="model-catalog-diagnosis-schedulable"]').exists()).toBe(true)
     expect(rows[0].get('[data-testid="model-catalog-diagnosis-serves-responses"]').attributes('data-serves')).toBe('true')
     expect(rows[0].get('[data-testid="model-catalog-diagnosis-serves-gemini"]').attributes('data-serves')).toBe('false')
 
-    expect(rows[1].text()).toContain('admin.modelCatalog.diagnosis.followAccount')
     expect(rows[1].get('[data-testid="model-catalog-diagnosis-blocked"]').text()).toContain('admin.modelCatalog.diagnosis.reasons.rate_limited')
 
     // 未知原因原样显示，不吞掉。

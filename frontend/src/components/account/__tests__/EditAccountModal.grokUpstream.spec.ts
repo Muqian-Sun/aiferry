@@ -83,7 +83,6 @@ function buildGrokOAuthAccount(
     proxy_id: null,
     concurrency: 1,
     priority: 1,
-    rate_multiplier: 1,
     status: 'active',
     group_ids: [],
     expires_at: null,

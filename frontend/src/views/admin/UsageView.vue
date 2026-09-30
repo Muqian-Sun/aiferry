@@ -376,7 +376,7 @@ const exportToExcel = async () => {
       t('admin.usage.inputTokens'), t('admin.usage.outputTokens'),
       t('admin.usage.cacheReadTokens'), t('admin.usage.cacheCreationTokens'),
       t('common.money.revenue'), t('common.money.cost'), t('common.money.profit'),
-      t('admin.usage.detail.userRate'), t('admin.usage.detail.accountRate'),
+      t('admin.usage.detail.userRate'),
       t('usage.firstToken'), t('usage.duration'),
       t('admin.usage.requestId'), t('admin.usage.upstreamRequestId'), t('usage.userAgent'), t('admin.usage.ipAddress')
     ]
@@ -396,7 +396,7 @@ const exportToExcel = async () => {
           log.inbound_endpoint || '', log.upstream_endpoint || '', requestTypeLabel(log, t),
           log.input_tokens, log.output_tokens, log.cache_read_tokens, log.cache_creation_tokens,
           formatMoneyExact(revenue), formatMoneyExact(cost), formatMoneyExact(profitOf(revenue, cost)),
-          formatMultiplier(log.rate_multiplier ?? 1), formatMultiplier(log.account_rate_multiplier ?? 1),
+          formatMultiplier(log.rate_multiplier ?? 1),
           log.first_token_ms ?? '', log.duration_ms,
           log.request_id || '', log.upstream_request_id || '', log.user_agent || '', log.ip_address || ''
         ]

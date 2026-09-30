@@ -5,23 +5,19 @@ import ModelCatalogView from '../ModelCatalogView.vue'
 import CatalogEntryEditor from '@/components/admin/catalog/CatalogEntryEditor.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
-const { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings, listAccounts, priceLookup, routerPush } = vi.hoisted(() => ({
+const { listEntries, createEntry, updateEntry, deleteEntry, seed, priceLookup, routerPush } = vi.hoisted(() => ({
   priceLookup: vi.fn(),
   routerPush: vi.fn(),
   listEntries: vi.fn(),
   createEntry: vi.fn(),
   updateEntry: vi.fn(),
   deleteEntry: vi.fn(),
-  seed: vi.fn(),
-  getBindings: vi.fn(),
-  updateBindings: vi.fn(),
-  listAccounts: vi.fn()
+  seed: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    modelCatalog: { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings, priceLookup },
-    accounts: { list: listAccounts }
+    modelCatalog: { listEntries, createEntry, updateEntry, deleteEntry, seed, priceLookup }
   }
 }))
 
@@ -108,9 +104,6 @@ beforeEach(() => {
   updateEntry.mockReset().mockResolvedValue(entry())
   deleteEntry.mockReset().mockResolvedValue(undefined)
   seed.mockReset().mockResolvedValue({ inserted: 10, refreshed: 2, skipped_admin: 1, skipped_invalid: 0, failed: 0 })
-  getBindings.mockReset().mockResolvedValue([])
-  updateBindings.mockReset().mockResolvedValue([])
-  listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 500, pages: 0 })
   priceLookup.mockReset().mockResolvedValue(null)
   routerPush.mockReset()
   vi.useRealTimers()
@@ -154,7 +147,7 @@ describe('ModelCatalogView', () => {
     expect(wrapper.find('[data-testid="model-catalog-no-resources"]').exists()).toBe(true)
 
     listEntries.mockResolvedValue([
-      entry({ status: 'listed', bindings: [{ entry_id: 1, account_id: 7, priority: null }, { entry_id: 1, account_id: 8, priority: 3 }] })
+      entry({ status: 'listed', bindings: [{ entry_id: 1, account_id: 7 }, { entry_id: 1, account_id: 8 }] })
     ])
     wrapper = mountView()
     await flushPromises()
@@ -193,66 +186,6 @@ describe('CatalogEntryEditor', () => {
     await flushPromises()
     expect(createEntry).toHaveBeenCalledTimes(1)
     expect(createEntry.mock.calls[0][0]).toMatchObject({ model_id: 'gpt-5', billing_mode: 'token', status: 'listed' })
-    // 新建成功后用返回的 ID 写绑定（空列表也要写，保证条目与绑定同一份来源）。
-    expect(updateBindings).toHaveBeenCalledWith(entry().id, [])
-  })
-
-  // 编辑时先读绑定预填；保存先存条目再整份覆盖绑定，payload 只带 account_id 与 priority。
-  it('loads bindings on edit and saves them after the entry', async () => {
-    getBindings.mockResolvedValue([
-      { entry_id: 1, account_id: 7, priority: 5, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
-    ])
-    listAccounts.mockResolvedValue({
-      items: [
-        { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', status: 'active' },
-        { id: 9, name: 'oauth-b', platform: 'anthropic', type: 'oauth', vendor: 'anthropic', status: 'active' }
-      ],
-      total: 2, page: 1, page_size: 500, pages: 1
-    })
-    const wrapper = mountEditor(entry())
-    await flushPromises()
-    expect(getBindings).toHaveBeenCalledWith(1)
-    // 渠道列表直接列出、勾选即绑定（不再先搜再加）
-    expect(listAccounts).toHaveBeenCalledWith(1, 500, { lite: 'true' })
-    expect((wrapper.get('[data-testid="model-catalog-channel-7"]').element as HTMLInputElement).checked).toBe(true)
-    expect((wrapper.get('[data-testid="model-catalog-channel-9"]').element as HTMLInputElement).checked).toBe(false)
-    await wrapper.get('[data-testid="model-catalog-channel-9"]').setValue(true)
-    expect(wrapper.findAll('[data-testid="model-catalog-binding-priority"]')).toHaveLength(2)
-
-    const calls: string[] = []
-    updateEntry.mockImplementation(async () => { calls.push('entry'); return entry() })
-    updateBindings.mockImplementation(async () => { calls.push('bindings'); return [] })
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(calls).toEqual(['entry', 'bindings'])
-    expect(updateBindings).toHaveBeenCalledWith(1, [
-      { account_id: 7, priority: 5 },
-      { account_id: 9, priority: null }
-    ])
-  })
-
-  it('removing a binding drops it from the saved list', async () => {
-    getBindings.mockResolvedValue([
-      { entry_id: 1, account_id: 7, priority: null, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } },
-      { entry_id: 1, account_id: 8, priority: null, account: { id: 8, name: 'relay-b', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
-    ])
-    const wrapper = mountEditor(entry())
-    await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-channel-7"]').setValue(false)
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(updateBindings).toHaveBeenCalledWith(1, [{ account_id: 8, priority: null }])
-  })
-
-  // 绑定被后端拒绝（资源承接不了该网关族）：弹出后端原因，编辑器保持打开。
-  it('keeps the editor open and shows the reason when bindings are rejected', async () => {
-    updateBindings.mockRejectedValue({ message: 'account 7 has no upstream address usable on the anthropic gateway', error: 'CATALOG_BINDING_UNSERVABLE' })
-    const wrapper = mountEditor(entry())
-    await flushPromises()
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(wrapper.find('#model-catalog-form').exists()).toBe(true)
-    expect(wrapper.emitted('saved')).toBeUndefined()
   })
 
   // 编辑只改表单里露出的字段；Token 分段 / 分时 / 其余价格字段必须按原值写回，不能在保存时丢掉。

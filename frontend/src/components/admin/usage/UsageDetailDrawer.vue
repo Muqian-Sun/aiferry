@@ -2,7 +2,7 @@
   <!--
     用量明细详情抽屉：明细表点行打开。表格只留 7 列，其余都在这里——
     费用构成（收入 / 成本 / 利润，单笔精确金额）、请求（端点、请求 ID、IP、UA…）、Token 明细、耗时。
-    「标准价」不出现：成本、收入都已按各自倍率算好，倍率单列在费用构成下面。
+    「标准价」不出现：成本按渠道上游价、收入按用户倍率都已算好，用户倍率单列在费用构成下面。
   -->
   <DetailDrawer
     :show="!!log"
@@ -24,7 +24,6 @@
         <dl class="mt-4 divide-y divide-af-hairline border-t border-af-hairline">
           <!-- 用户倍率 0 = 免费（库里 NOT NULL DEFAULT 1），不能用 || 把 0 当成没记 -->
           <DetailField :label="t('admin.usage.detail.userRate')" :value="`${formatMultiplier(log.rate_multiplier ?? 1)}x`" />
-          <DetailField :label="t('admin.usage.detail.accountRate')" :value="`${formatMultiplier(log.account_rate_multiplier ?? 1)}x`" />
           <DetailField
             :label="t('admin.usage.billingType')"
             :value="log.billing_type === 1 ? t('admin.usage.billingTypeSubscription') : t('admin.usage.billingTypeBalance')"

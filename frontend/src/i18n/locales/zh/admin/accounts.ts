@@ -23,7 +23,7 @@ export default {
         noProxy: '不走代理',
         neverExpires: '永不过期',
         modelsHint: '模型目录里绑定了这个渠道的模型。点「诊断」看这个模型现在能不能调度到它。',
-        modelsEmptyHint: '在「模型」里给模型绑定这个渠道后，会出现在这里。',
+        modelsEmptyHint: '给模型绑定这个渠道（配好上游价）后，会出现在这里。',
         diagnose: '诊断',
         goToCatalog: '去模型页绑定',
         bannerError: '异常：{reason}',
@@ -157,21 +157,6 @@ export default {
         detected: '按地址识别为 {vendor}',
         relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
       },
-      // 渠道承接的目录模型（渠道表单里直接勾选）
-      probe: {
-        hint: '用填好的地址和 Key 向上游查它支持哪些模型，目录里对得上的会自动勾上',
-        run: '探测模型',
-        running: '探测中…',
-        summary: '上游有 {total} 个模型，{matched} 个在目录里对上了，已按此重新勾选',
-        unmatched: '{count} 个目录里没有：',
-        andMore: ' 等 {count} 个',
-        import: '把这 {count} 个加进目录并勾上',
-        importing: '正在加入目录…',
-        imported: '已加进目录 {count} 个（未上架；上架前到模型页定价）',
-        empty: '上游返回了空的模型列表',
-        failed: '探测失败',
-        importFailed: '加进目录失败'
-      },
       protocolProbe: {
         hint: '用填好的地址和 Key 逐个试四种协议，看上游支持哪些；在结果前面选一个，协议和地址会填进上面',
         run: '探测协议',
@@ -198,34 +183,10 @@ export default {
           no_model: '拿不到模型名，无法用真实请求确认'
         }
       },
-      catalogEntries: {
-        title: '承接的模型',
-        hint: '勾选这个渠道能承接的模型；用户请求这些模型时会调度到它。未上架的模型要在「模型」页上架后才对用户开放。',
-        selected: '已选 {count} 个',
-        clear: '清空',
-        searchPlaceholder: '搜索模型 ID 或名称',
-        listedOnly: '只看已上架',
-        loading: '正在加载模型目录…',
-        loadFailed: '模型目录加载失败',
-        retry: '重试',
-        emptyCatalog: '模型目录还是空的，先到「模型」页添加模型。',
-        noMatch: '没有匹配的模型',
-        otherVendors: '其他',
-        selectAll: '全选',
-        deselectAll: '全不选',
-        unlisted: '未上架',
-        edit: '修改',
-        collapse: '收起',
-        noneSelected: '还没勾模型：建好后这个渠道不承接任何模型，可以之后在编辑页勾。',
-        andMore: '等 {count} 个',
-        bindFailed: '渠道已创建，但承接的模型没保存成功：{message}。请到编辑页重新勾选。',
-        saveFailed: '渠道已保存，但承接的模型没保存成功：{message}。可以再点一次保存重试。',
-        loadBoundFailed: '这个渠道承接的模型没读出来，刷新页面后再改。'
-      },
       // 模型改名（映射只改名，不限定能接哪些模型）
       modelRename: {
         title: '模型改名（可选）',
-        hint: '把请求里的模型名改成上游认的名字，左边是请求的模型，右边是发给上游的模型。只改名，不限定能接哪些模型——那由上面勾选的模型决定。',
+        hint: '把请求里的模型名改成上游认的名字，左边是请求的模型，右边是发给上游的模型。只改名，不限定能接哪些模型——那由这个渠道在模型目录里的承接关系决定。',
         vendorTableHint: '这个上游自带模型表：表里没有的模型要在这里加一条（可以同名）才会承接。'
       },
       deleteAccount: '删除渠道',
@@ -260,7 +221,6 @@ export default {
         platform: '平台',
         notes: '备注',
         priority: '优先级',
-        billingRateMultiplier: '渠道倍率',
         weight: '权重',
         status: '状态',
         schedulable: '调度',
@@ -916,7 +876,6 @@ export default {
       concurrency: '并发数',
       priority: '优先级',
       priorityHint: '优先级越小的渠道优先使用',
-      billingRateMultiplier: '上游刊定价（相对官方价）',
       expiresAt: '过期时间',
       expiresAtHint: '留空表示不过期',
       expiresAtTimezoneHint: '输入按浏览器本地时区（{timezone}）解释。',

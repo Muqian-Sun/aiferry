@@ -197,7 +197,7 @@
       </div>
 
       <!-- Concurrency & Priority -->
-      <div class="grid grid-cols-2 gap-4 border-t border-af-hairline pt-4 lg:grid-cols-3">
+      <div class="grid grid-cols-2 gap-4 border-t border-af-hairline pt-4">
         <div>
           <div class="mb-3 flex items-center justify-between">
             <label
@@ -253,35 +253,6 @@
             class="input"
             :class="!enablePriority && 'cursor-not-allowed opacity-50'"
             aria-labelledby="bulk-edit-priority-label"
-          />
-        </div>
-        <div>
-          <div class="mb-3 flex items-center justify-between">
-            <label
-              id="bulk-edit-rate-multiplier-label"
-              class="input-label mb-0"
-              for="bulk-edit-rate-multiplier-enabled"
-            >
-              {{ t('admin.accounts.billingRateMultiplier') }}
-            </label>
-            <input
-              v-model="enableRateMultiplier"
-              id="bulk-edit-rate-multiplier-enabled"
-              type="checkbox"
-              aria-controls="bulk-edit-rate-multiplier"
-              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-          </div>
-          <input
-            v-model.number="rateMultiplier"
-            id="bulk-edit-rate-multiplier"
-            type="number"
-            min="0"
-            step="0.01"
-            :disabled="!enableRateMultiplier"
-            class="input"
-            :class="!enableRateMultiplier && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-rate-multiplier-label"
           />
         </div>
       </div>
@@ -524,7 +495,6 @@ const enableHeaderOverride = ref(false)
 const enableProxy = ref(false)
 const enableConcurrency = ref(false)
 const enablePriority = ref(false)
-const enableRateMultiplier = ref(false)
 const enableStatus = ref(false)
 const enableRpmLimit = ref(false)
 
@@ -538,7 +508,6 @@ const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const proxyId = ref<number | null>(null)
 const concurrency = ref(1)
 const priority = ref(1)
-const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const rpmLimitEnabled = ref(false)
 const bulkBaseRpm = ref<number | null>(null)
@@ -573,10 +542,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
 
   if (enablePriority.value) {
     updates.priority = priority.value
-  }
-
-  if (enableRateMultiplier.value) {
-    updates.rate_multiplier = rateMultiplier.value
   }
 
   if (enableStatus.value) {
@@ -636,7 +601,6 @@ const handleSubmit = async () => {
     enableProxy.value ||
     enableConcurrency.value ||
     enablePriority.value ||
-    enableRateMultiplier.value ||
     enableStatus.value ||
     enableRpmLimit.value
 
@@ -710,7 +674,6 @@ watch(
       enableProxy.value = false
       enableConcurrency.value = false
       enablePriority.value = false
-      enableRateMultiplier.value = false
       enableStatus.value = false
       enableRpmLimit.value = false
 
@@ -722,7 +685,6 @@ watch(
       proxyId.value = null
       concurrency.value = 1
       priority.value = 1
-      rateMultiplier.value = 1
       status.value = 'active'
       rpmLimitEnabled.value = false
       bulkBaseRpm.value = null

@@ -338,33 +338,7 @@
         </div>
       </div>
 
-      <FormSectionHeading section="models" :title="t('admin.accounts.formPage.sections.models')" />
-
-      <!-- 承接的模型（muqian 2026-09-25 渠道表单里直接绑定）：勾选变了，保存时整份写入绑定 -->
-      <p
-        v-if="catalogEntryIdsLoadFailed"
-        class="text-sm text-af-warning"
-        data-testid="edit-account-catalog-load-failed"
-      >
-        {{ t('admin.accounts.catalogEntries.loadBoundFailed') }}
-      </p>
-      <template v-else-if="catalogEntryIdsLoaded">
-        <!-- 探测模型（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准 -->
-        <UpstreamModelProbe
-          v-if="account.type === 'apikey'"
-          :protocol-endpoints="editProtocolEndpoints"
-          :api-key="editApiKey"
-          :account-id="account.id"
-          :proxy-id="form.proxy_id"
-          @matched="applyProbedEntries"
-          @imported="applyImportedEntries"
-        />
-        <CatalogEntryPicker
-          ref="catalogPickerRef"
-          v-model="selectedCatalogEntryIds"
-          :suggested-platform="account.platform"
-        />
-      </template>
+      <FormSectionHeading v-if="showModelRename" section="models" :title="t('admin.accounts.formPage.sections.models')" />
 
       <!-- 模型改名（可选）：只改名、不限定能接哪些模型，保存时带 model_mapping_rename_only（spark 影子账号除外） -->
       <ModelRenameEditor
@@ -404,17 +378,6 @@
             class="input"
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.billingRateMultiplier') }}</label>
-          <input
-            v-model.number="form.rate_multiplier"
-            type="number"
-            min="0"
-            step="0.001"
-            class="input"
-            data-testid="account-rate-multiplier"
-          />
         </div>
       </div>
 
@@ -755,8 +718,6 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
-import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
-import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
 import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
@@ -957,61 +918,6 @@ const isBedrockAPIKeyMode = computed(() =>
 )
 const modelMappings = ref<ModelMapping[]>([])
 
-// 承接的模型：按渠道读绑定（GET /admin/accounts/:id/catalog-entries），保存时勾选变了才整份写回。
-const selectedCatalogEntryIds = ref<number[]>([])
-const catalogPickerRef = ref<InstanceType<typeof CatalogEntryPicker> | null>(null)
-// 探测到上游模型后按上游支持的重新勾选；一键导入的新条目先重新拉目录再勾
-function applyProbedEntries(entryIds: number[]) {
-  selectedCatalogEntryIds.value = [...entryIds]
-}
-async function applyImportedEntries(entryIds: number[]) {
-  await catalogPickerRef.value?.reload()
-  applyProbedEntries(entryIds)
-}
-const initialCatalogEntryIds = ref<number[]>([])
-const catalogEntryIdsLoaded = ref(false)
-const catalogEntryIdsLoadFailed = ref(false)
-let catalogEntryIdsLoadSeq = 0
-const loadCatalogEntryIds = async (accountID: number) => {
-  const seq = ++catalogEntryIdsLoadSeq
-  catalogEntryIdsLoaded.value = false
-  catalogEntryIdsLoadFailed.value = false
-  try {
-    const ids = await adminAPI.modelCatalog.listAccountEntryIds(accountID)
-    if (seq !== catalogEntryIdsLoadSeq) return
-    initialCatalogEntryIds.value = [...ids]
-    selectedCatalogEntryIds.value = [...ids]
-    catalogEntryIdsLoaded.value = true
-  } catch {
-    if (seq === catalogEntryIdsLoadSeq) catalogEntryIdsLoadFailed.value = true
-  }
-}
-// 换了渠道才重新读；同一渠道保存后回写账号（updated）不重置勾选
-watch(
-  () => props.account?.id,
-  (accountID) => {
-    if (accountID) void loadCatalogEntryIds(accountID)
-  },
-  { immediate: true }
-)
-const sameIdSet = (a: number[], b: number[]) => a.length === b.length && a.every((id) => b.includes(id))
-// 渠道本身已保存；绑定写失败时提示并留在页面，再点保存会重试。
-const persistCatalogEntries = async (accountID: number): Promise<boolean> => {
-  if (!catalogEntryIdsLoaded.value || sameIdSet(selectedCatalogEntryIds.value, initialCatalogEntryIds.value)) {
-    return true
-  }
-  try {
-    const ids = await adminAPI.modelCatalog.replaceAccountEntries(accountID, selectedCatalogEntryIds.value)
-    initialCatalogEntryIds.value = [...ids]
-    selectedCatalogEntryIds.value = [...ids]
-    return true
-  } catch (error: any) {
-    console.error(t('admin.accounts.catalogEntries.saveFailed', {
-      message: error?.response?.data?.message || error?.message || ''
-    }), error)
-    return false
-  }
-}
 // 池模式同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关
 const poolModeEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
@@ -1081,7 +987,6 @@ const form = reactive({
   proxy_id: null as number | null,
   concurrency: 1,
   priority: 1,
-  rate_multiplier: 1,
   status: 'active' as 'active' | 'inactive' | 'error',
   expires_at: null as number | null
 })
@@ -1144,7 +1049,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.proxy_id = newAccount.proxy_id
   form.concurrency = newAccount.concurrency
   form.priority = newAccount.priority
-  form.rate_multiplier = newAccount.rate_multiplier ?? 1
   form.status = (newAccount.status === 'active' || newAccount.status === 'inactive' || newAccount.status === 'error')
     ? newAccount.status
     : 'active'
@@ -1347,9 +1251,8 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
   submitting.value = true
   try {
     const updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
-    const catalogSaved = await persistCatalogEntries(accountID)
     emit('updated', updatedAccount)
-    if (catalogSaved) handleClose()
+    handleClose()
   } catch (error: any) {
     console.error(error.message || t('admin.accounts.failedToUpdate'), error)
   } finally {

@@ -587,26 +587,6 @@
         @select="applyProbedProtocol"
       />
 
-      <!-- 探测模型（muqian 2026-09-29）：第三方 key 填好地址与 key 后向上游要模型名单，对得上的按上游支持的重新勾选 -->
-      <UpstreamModelProbe
-        v-if="form.type === 'apikey'"
-        :protocol-endpoints="protocolEndpoints"
-        :api-key="apiKeyValue"
-        :proxy-id="form.proxy_id"
-        @matched="applyProbedEntries"
-        @imported="applyImportedEntries"
-      />
-
-      <!-- 承接的模型：默认勾上识别出的厂商已上架的对话模型（muqian 2026-09-25），收成一行，点「修改」展开 -->
-      <CatalogEntryPicker
-        ref="catalogPickerRef"
-        v-model="selectedCatalogEntryIds"
-        collapsible
-        :suggested-platform="catalogSuggestedPlatform"
-        @update:model-value="catalogSelectionTouched = true"
-        @loaded="catalogEntries = $event"
-      />
-
       <!-- 更多设置：不点开就按默认值建（muqian 2026-09-25「还是太繁琐」：默认只露必填项） -->
       <div class="border-t border-af-hairline pt-4">
         <button
@@ -815,10 +795,6 @@
             class="input"
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.billingRateMultiplier') }}</label>
-          <input v-model.number="form.rate_multiplier" type="number" min="0" step="0.001" class="input" />
         </div>
       </div>
 
@@ -1411,7 +1387,6 @@ import type {
   UpstreamProtocol
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
@@ -1419,8 +1394,6 @@ import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
-import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
-import UpstreamModelProbe from '@/components/account/UpstreamModelProbe.vue'
 import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import {
@@ -1575,7 +1548,6 @@ const accessSourceId = ref(DEFAULT_ACCESS_SOURCE_ID)
 const accessSource = computed(() => findAccessSource(accessSourceId.value))
 // 第三方 key 不选平台：form.platform 只是表单内部占位，提交时不带，厂商按地址识别（keyVendor）
 const isKeyMode = computed(() => accessSource.value.kind === 'key')
-const selectedCatalogEntryIds = ref<number[]>([])
 // 默认只露必填项，其余在「更多设置」里（muqian 2026-09-25「还是太繁琐，要填的东西太多了」）
 const showMoreSettings = ref(false)
 
@@ -1670,36 +1642,6 @@ function applyKeyAddressPreset(preset: KeyAddressPreset) {
   keyAddressDraft.value = ''
   if (preset.mode === 'payg' || preset.mode === 'coding') keyPlanMode.value = preset.mode
 }
-// 承接的模型：成品号的厂商、或 key 按地址识别出的厂商排在最前；中转没有
-const catalogEntries = ref<ModelCatalogEntry[]>([])
-const catalogSelectionTouched = ref(false)
-const catalogPickerRef = ref<InstanceType<typeof CatalogEntryPicker> | null>(null)
-// 探测到上游模型后按上游支持的重新勾选（算管理员动过，默认勾选不再覆盖）
-function applyProbedEntries(entryIds: number[]) {
-  catalogSelectionTouched.value = true
-  selectedCatalogEntryIds.value = [...entryIds]
-}
-// 一键导入的新条目要先重新拉目录，勾选列表里才看得到
-async function applyImportedEntries(entryIds: number[]) {
-  await catalogPickerRef.value?.reload()
-  applyProbedEntries(entryIds)
-}
-const catalogSuggestedPlatform = computed(() =>
-  isKeyMode.value ? (keyVendor.value ?? undefined) : accessSource.value.platform
-)
-// 承接模型的默认勾选：识别出的厂商（成品号即它的平台）已上架的对话模型；管理员动过就不再改。
-// 生图 / 视频 / 向量走扩展端点，另有承接条件（key 要有 Chat Completions 地址），默认不勾，免得整批绑定被拒
-watch(
-  () => [catalogEntries.value, catalogSuggestedPlatform.value] as const,
-  ([entries, platform]) => {
-    if (catalogSelectionTouched.value) return
-    selectedCatalogEntryIds.value = platform
-      ? entries
-          .filter((entry) => entry.status === 'listed' && entry.vendor_platform === platform && !entry.extension_endpoints)
-          .map((entry) => entry.id)
-      : []
-  }
-)
 async function ensureProtocolDefaults() {
   try {
     protocolDefaults.value = await loadProtocolDefaults()
@@ -1822,7 +1764,6 @@ const form = reactive({
   proxy_id: null as number | null,
   concurrency: 10,
   priority: 1,
-  rate_multiplier: 1,
   expires_at: null as number | null
 })
 
@@ -2013,29 +1954,12 @@ const withRenameOnlyMapping = (credentials: Record<string, unknown>): Record<str
   return out
 }
 
-// 把勾选的目录模型写成这些渠道的绑定。绑定失败不回滚建号，提示到编辑页再勾。
-const bindSelectedCatalogEntries = async (accountIds: number[]) => {
-  const entryIds = [...selectedCatalogEntryIds.value]
-  if (entryIds.length === 0) return
-  for (const accountId of accountIds) {
-    try {
-      await adminAPI.modelCatalog.replaceAccountEntries(accountId, entryIds)
-    } catch (error: any) {
-      console.error(t('admin.accounts.catalogEntries.bindFailed', {
-        message: error?.response?.data?.message || error?.message || ''
-      }), error)
-    }
-  }
-}
-
 // 所有单个建号都走这里：第三方 key 不带平台（后端按地址认厂商，认不出的中转按协议归族），
-// 映射打「只改名」标记，建好后写入承接的模型。
+// 映射打「只改名」标记。
 const createAccountRecord = async (payload: CreateAccountRequest): Promise<Account> => {
   const body: CreateAccountRequest = { ...payload, credentials: withRenameOnlyMapping(payload.credentials) }
   if (body.type === 'apikey') delete body.platform
-  const account = await adminAPI.accounts.create(body)
-  await bindSelectedCatalogEntries([account.id])
-  return account
+  return adminAPI.accounts.create(body)
 }
 
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
@@ -2076,7 +2000,6 @@ const resetForm = () => {
   form.proxy_id = null
   form.concurrency = 10
   form.priority = 1
-  form.rate_multiplier = 1
   form.expires_at = null
   accountCategory.value = 'oauth-based'
   addMethod.value = 'oauth'
@@ -2091,8 +2014,6 @@ const resetForm = () => {
   editQuotaWeeklyLimit.value = null
   modelMappings.value = []
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
-  selectedCatalogEntryIds.value = []
-  catalogSelectionTouched.value = false
   showMoreSettings.value = false
   poolModeEnabled.value = false
   headerOverrideRows.value = []
@@ -2417,7 +2338,6 @@ const createAccountAndFinish = async (
     proxy_id: form.proxy_id,
     concurrency: form.concurrency,
     priority: form.priority,
-    rate_multiplier: form.rate_multiplier,
     expires_at: form.expires_at
   })
 }
@@ -2475,7 +2395,6 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           priority: form.priority,
-          rate_multiplier: form.rate_multiplier,
           expires_at: form.expires_at
         })
         successCount++
@@ -2529,12 +2448,8 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       credentials: withRenameOnlyMapping(credentials),
       concurrency: form.concurrency,
       priority: form.priority,
-      rate_multiplier: form.rate_multiplier,
       expires_at: form.expires_at
     })
-    await bindSelectedCatalogEntries(
-      (result.created ?? []).flatMap((item) => (item.account ? [item.account.id] : []))
-    )
 
     const successCount = result.created?.length || 0
     const failedCount = result.failed?.length || 0
@@ -2624,7 +2539,6 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           priority: form.priority,
-          rate_multiplier: form.rate_multiplier,
           expires_at: form.expires_at
         })
         successCount++
@@ -2699,7 +2613,6 @@ const handleOpenAIExchange = async (authCode: string) => {
         proxy_id: form.proxy_id,
         concurrency: form.concurrency,
         priority: form.priority,
-        rate_multiplier: form.rate_multiplier,
         expires_at: form.expires_at
       })
     }
@@ -2789,7 +2702,6 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
       priority: form.priority,
-      rate_multiplier: form.rate_multiplier,
       expires_at: form.expires_at,
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
       update_existing: true
@@ -2851,7 +2763,6 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
       priority: form.priority,
-      rate_multiplier: form.rate_multiplier,
       expires_at: form.expires_at,
       credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined
     })
@@ -2937,7 +2848,6 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             proxy_id: form.proxy_id,
             concurrency: form.concurrency,
             priority: form.priority,
-            rate_multiplier: form.rate_multiplier,
             expires_at: form.expires_at
           })
         }
@@ -3025,7 +2935,6 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           priority: form.priority,
-          rate_multiplier: form.rate_multiplier,
           expires_at: form.expires_at
         }
         await createAccountRecord(createPayload)
@@ -3296,7 +3205,6 @@ const handleCookieAuth = async (sessionKey: string) => {
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           priority: form.priority,
-          rate_multiplier: form.rate_multiplier,
           expires_at: form.expires_at
         })
 

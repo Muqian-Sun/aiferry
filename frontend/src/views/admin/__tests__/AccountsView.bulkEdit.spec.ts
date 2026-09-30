@@ -70,7 +70,6 @@ const DataTableStub = {
       <div v-for="row in data" :key="row.id">
         <div data-test="select-row"><slot name="cell-select" :row="row" /></div>
         <slot name="cell-created_at" :value="row.created_at" :row="row" />
-        <div data-test="account-rate"><slot name="cell-rate_multiplier" :row="row" /></div>
       </div>
     </div>
   `

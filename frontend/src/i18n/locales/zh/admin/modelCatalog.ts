@@ -53,7 +53,6 @@ export default {
       vendorCustom: '其他（手填）…',
       vendorCustomPlaceholder: '厂商标识，如 anthropic',
       modelIdPlaceholder: '如 claude-sonnet-4-5',
-      channels: '承接的渠道',
       morePrices: '更多价格',
       morePricesFilled: '已填 {count} 项',
       morePricesHint: '图片、音频（以及按 Token 以外计费时的缓存）的单价；留空即未配置。',
@@ -136,20 +135,16 @@ export default {
       timePricing: '分时定价',
       timezone: '时区 {timezone}',
       weekdaysOnly: '仅工作日',
-      bind: '去绑定',
-      priority: '优先级 {value}',
       notSchedulable: '不可调度',
       channelsHint: '这些渠道此刻能不能调度；各入口协议能不能承接，点「诊断」看。',
-      channelsFallback: '渠道状态没取到，下面只列出绑定的渠道。'
+      channelsFallback: '渠道状态没取到，切换一下页签可重试。'
     },
     diagnose: '诊断',
     diagnosis: {
       title: '渠道诊断 · {model}',
       empty: '该模型没有绑定渠道。',
-      followAccount: '跟随渠道',
       columns: {
         account: '渠道',
-        priority: '优先级',
         schedulable: '可调度'
       },
       inbound: {
@@ -231,19 +226,7 @@ export default {
       empty: '未配分档，按标价计。'
     },
     bindings: {
-      title: '承接这个模型的渠道',
-      hint: '勾上的渠道承接这个模型的请求；优先级留空则跟随渠道自身的优先级。',
-      selected: '已选 {count} 个',
-      search: '搜索渠道名称',
-      boundOnly: '只看已选',
-      loading: '正在加载渠道…',
-      loadFailed: '渠道列表加载失败',
-      retry: '重试',
-      noResults: '没有匹配的渠道',
-      noChannels: '还没有渠道，先到「渠道」页添加。',
-      inactive: '已停用',
-      priority: '优先级',
-      priorityFollow: '跟随渠道'
+      title: '承接这个模型的渠道'
     },
     status: {
       listed: '已上架',

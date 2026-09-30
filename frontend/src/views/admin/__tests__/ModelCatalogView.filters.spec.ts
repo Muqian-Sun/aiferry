@@ -4,19 +4,15 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ModelCatalogView from '../ModelCatalogView.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
-const { listEntries, updateEntry, seed, getBindings, updateBindings, listAccounts } = vi.hoisted(() => ({
+const { listEntries, updateEntry, seed } = vi.hoisted(() => ({
   listEntries: vi.fn(),
   updateEntry: vi.fn(),
-  seed: vi.fn(),
-  getBindings: vi.fn(),
-  updateBindings: vi.fn(),
-  listAccounts: vi.fn()
+  seed: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    modelCatalog: { listEntries, createEntry: vi.fn(), updateEntry, deleteEntry: vi.fn(), seed, getBindings, updateBindings },
-    accounts: { list: listAccounts }
+    modelCatalog: { listEntries, createEntry: vi.fn(), updateEntry, deleteEntry: vi.fn(), seed }
   }
 }))
 
@@ -59,7 +55,7 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
   }
 }
 
-const binding = { entry_id: 0, account_id: 9, priority: null }
+const binding = { entry_id: 0, account_id: 9 }
 
 const fixtures = [
   entry({ id: 1, model_id: 'claude-opus-4-6', vendor: 'anthropic', status: 'listed', bindings: [binding] }),
@@ -118,9 +114,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
   beforeEach(() => {
     listEntries.mockReset().mockResolvedValue(fixtures.map((f) => ({ ...f })))
     updateEntry.mockReset().mockImplementation(async (_id: number, body: { model_id: string }) => entry({ model_id: body.model_id }))
-    getBindings.mockReset().mockResolvedValue([])
-    updateBindings.mockReset().mockResolvedValue([])
-    listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
   })
 
   it('summarises total / listed / listed-without-resources and lists only listed entries by default', async () => {
