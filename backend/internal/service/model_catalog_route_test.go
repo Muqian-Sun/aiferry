@@ -69,10 +69,11 @@ func TestModelCatalogService_ResolveRoute(t *testing.T) {
 	require.NotNil(t, route.Entry)
 	require.Equal(t, "anthropic", route.Entry.Vendor)
 
-	route, ok = svc.ResolveRoute(ctx, "sonnet-latest")
-	require.True(t, ok, "alias resolves to the entry")
-	require.Equal(t, "claude-sonnet-4", route.CanonicalModel)
-	require.Equal(t, "sonnet-latest", route.RequestedModel)
+	// 用户只能请求目录模型标识（D4）：别名、大小写变体、claude 的点号写法都不认
+	for _, name := range []string{"sonnet-latest", "Claude-Sonnet-4", "claude.sonnet.4"} {
+		_, ok = svc.ResolveRoute(ctx, name)
+		require.False(t, ok, name)
+	}
 
 	_, ok = svc.ResolveRoute(ctx, "gpt-5.6")
 	require.False(t, ok, "unlisted entry must not be admitted")
@@ -84,9 +85,10 @@ func TestModelCatalogService_ResolveRoute(t *testing.T) {
 	require.Len(t, listed, 1)
 	require.Equal(t, "claude-sonnet-4", listed[0].ModelID)
 
-	require.Equal(t, []string{"claude-sonnet-4", "sonnet-latest"},
+	require.Equal(t, []string{"claude-sonnet-4"},
 		FilterListedModelIDs(ctx, svc, []string{"claude-sonnet-4", "gpt-5.6", "sonnet-latest", "nope"}))
-	require.True(t, IsListedModel(ctx, svc, "sonnet-latest"))
+	require.True(t, IsListedModel(ctx, svc, "claude-sonnet-4"))
+	require.False(t, IsListedModel(ctx, svc, "sonnet-latest"))
 	require.False(t, IsListedModel(ctx, svc, "gpt-5.6"))
 }
 
@@ -236,10 +238,14 @@ func TestResolveCatalogRouteForCandidates(t *testing.T) {
 	svc := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
 	ctx := context.Background()
 
-	route, blocked, ok := ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "sonnet-latest"})
-	require.True(t, ok, "alias and canonical name resolve to the same entry")
+	route, blocked, ok := ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "claude-sonnet-4"})
+	require.True(t, ok, "repeated keys with the same catalog model ID resolve to one entry")
 	require.Empty(t, blocked)
 	require.Equal(t, int64(1), route.EntryID)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "sonnet-latest"})
+	require.False(t, ok, "an alias is not a catalog model ID (D4)")
+	require.Equal(t, "sonnet-latest", blocked)
 
 	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "gpt-5.6"})
 	require.False(t, ok, "candidates resolving to different entries are rejected")

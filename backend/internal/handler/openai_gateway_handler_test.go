@@ -1228,15 +1228,14 @@ func TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn(t *testing.T) {
 		"each turn must be billed with its own request model")
 }
 
-// ctx pool 模式下每个 turn 也走账号 model_mapping：第二 turn 请求 terra 被改写成 sol 发上游，
-// usage_logs.requested_model 仍记客户端模型，计费按改写后的模型（渠道级 billing_model_source 已删）。
+// ctx pool 模式下每个 turn 也走承接关系上的上游名：第二 turn 请求 terra 被改写成 sol 发上游，
+// usage_logs.requested_model 仍记客户端模型，计费按用户请求的目录模型（改名只作用在上游名上，D4）。
 func TestOpenAIResponsesWebSocket_CtxPoolAppliesAccountMappingAndPreservesRequestedModel(t *testing.T) {
 	got := runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
 		firstPayload:  `{"type":"response.create","model":"gpt-5.6-sol","stream":false}`,
 		secondPayload: `{"type":"response.create","model":"gpt-5.6-terra","stream":false}`,
 		ingressMode:   service.OpenAIWSIngressModeCtxPool,
-		accountModelMapping: map[string]any{
-			"gpt-5.6-sol":   "gpt-5.6-sol",
+		accountUpstreamModels: map[string]string{
 			"gpt-5.6-terra": "gpt-5.6-sol",
 		},
 	})
@@ -1254,8 +1253,8 @@ func TestOpenAIResponsesWebSocket_CtxPoolAppliesAccountMappingAndPreservesReques
 	require.Equal(t, "gpt-5.6-terra", got.logs[1].RequestedModel)
 	require.NotNil(t, got.logs[1].UpstreamModel)
 	require.Equal(t, "gpt-5.6-sol", *got.logs[1].UpstreamModel)
-	require.InDelta(t, 40e-6, got.logs[1].TotalCost, 1e-12,
-		"the turn is billed by the account-mapped model actually sent upstream")
+	require.InDelta(t, 16e-6, got.logs[1].TotalCost, 1e-12,
+		"the turn is billed by the requested catalog model, not the renamed upstream model")
 }
 
 func TestOpenAIWSTurnBillingModelPreservesImagePricingModel(t *testing.T) {
@@ -1274,15 +1273,15 @@ func TestOpenAIWSTurnBillingModelPreservesImagePricingModel(t *testing.T) {
 			wantBillingModel: "gpt-image-2",
 		},
 		{
-			name:             "text turn falls back to upstream model",
-			requestedModel:   "public-alias",
+			name:             "text turn is billed by the requested catalog model, not the renamed upstream model",
+			requestedModel:   "gpt-5.6-terra",
 			upstreamModel:    "gpt-5.6-sol",
-			wantBillingModel: "gpt-5.6-sol",
+			wantBillingModel: "gpt-5.6-terra",
 		},
 		{
-			name:             "no upstream model falls back to requested model",
-			requestedModel:   "public-alias",
-			wantBillingModel: "public-alias",
+			name:             "no requested model falls back to upstream model",
+			upstreamModel:    "gpt-5.6-sol",
+			wantBillingModel: "gpt-5.6-sol",
 		},
 	}
 
@@ -1299,10 +1298,11 @@ func TestOpenAIAccountScheduleModelUsesActualOrSharedResolver(t *testing.T) {
 		Platform: service.PlatformOpenAI,
 		Type:     service.AccountTypeOAuth,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"public": "billing"},
 			// 渠道级 compact 专属映射 2026-09-28 P5 删了：残留键不再影响调度模型。
 			"compact_model_mapping": map[string]any{"public": "compact-actual"},
 		},
+		// 承接关系上的上游名
+		CatalogUpstreamModels: map[string]string{"public": "billing"},
 	}
 
 	reported := &service.OpenAIForwardResult{UpstreamModel: "observed-actual"}
@@ -1511,11 +1511,12 @@ type openAIResponsesWSUsageLogCase struct {
 	firstPayload string
 	// midPayload 在首个 turn 完成后发送（如 session.update），上游桩会为它
 	// 回一个 response.completed，客户端按普通事件读取。
-	midPayload          string
-	secondPayload       string
-	userAgent           *string
-	ingressMode         string
-	accountModelMapping map[string]any
+	midPayload    string
+	secondPayload string
+	userAgent     *string
+	ingressMode   string
+	// accountUpstreamModels 承接关系上的上游名（目录模型标识 → 上游模型名）
+	accountUpstreamModels map[string]string
 	// subscription 塞进 ctx 模拟订阅 key 鉴权（套餐模型集测试用）；nil = 余额 key。
 	subscription *service.UserSubscription
 	// firstFrameCloseExpected：首帧即被拒（连接被 1008 关闭），不期待任何响应帧。
@@ -2359,10 +2360,10 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"base_url":      upstreamServer.URL,
-			"model_mapping": tc.accountModelMapping,
+			"api_key":  "sk-test",
+			"base_url": upstreamServer.URL,
 		},
+		CatalogUpstreamModels: tc.accountUpstreamModels,
 		// 第三方 key 的上游地址只认协议映射；Responses WS 走 responses 协议。
 		ProtocolEndpoints: map[string]string{
 			service.APIProtocolResponses:       upstreamServer.URL,
@@ -2395,7 +2396,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		decoy.ID = account.ID + 1
 		decoy.Name = account.Name + "-decoy"
 		decoy.Priority = account.Priority - 1
-		decoy.Credentials = map[string]any{"api_key": "sk-decoy", "base_url": upstreamServer.URL, "model_mapping": tc.accountModelMapping}
+		decoy.Credentials = map[string]any{"api_key": "sk-decoy", "base_url": upstreamServer.URL}
 		accountRepo.decoy = &decoy
 	}
 	usageRepo := &openAIWSUsageHandlerUsageLogRepoStub{created: make(chan *service.UsageLog, turnCount)}

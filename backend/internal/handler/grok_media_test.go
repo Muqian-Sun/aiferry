@@ -110,11 +110,10 @@ func TestGrokMediaRequiredCapability(t *testing.T) {
 func TestGrokMediaScheduleModelUsesNormalizedMappedUpstream(t *testing.T) {
 	account := &service.Account{
 		Platform: service.PlatformGrok,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"grok-imagine-video-1.5": "wrong-raw-model",
-				"grok-imagine-video":     "mapped-video-model",
-			},
+		// 承接关系上的上游名
+		CatalogUpstreamModels: map[string]string{
+			"grok-imagine-video-1.5": "wrong-raw-model",
+			"grok-imagine-video":     "mapped-video-model",
 		},
 	}
 

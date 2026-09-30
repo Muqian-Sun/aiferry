@@ -80,40 +80,6 @@ func setupSyncUpstreamModelsRouter(adminSvc service.AdminService, upstream servi
 	return router
 }
 
-func TestAccountHandlerGetAvailableModels_GrokUsesXAIModels(t *testing.T) {
-	svc := &availableModelsAdminService{
-		stubAdminService: newStubAdminService(),
-		account: service.Account{
-			ID:       44,
-			Name:     "grok-oauth",
-			Platform: service.PlatformGrok,
-			Type:     service.AccountTypeOAuth,
-			Status:   service.StatusActive,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"grok-4.3": "grok-4.3",
-				},
-			},
-		},
-	}
-	router := setupAvailableModelsRouter(svc)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/44/models", nil)
-	router.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var resp struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	require.Len(t, resp.Data, 1)
-	require.Equal(t, "grok-4.3", resp.Data[0].ID)
-}
-
 func TestAccountHandlerGetAvailableModels_GrokDefaultsToXAIModelsWithoutMapping(t *testing.T) {
 	svc := &availableModelsAdminService{
 		stubAdminService: newStubAdminService(),
@@ -160,11 +126,8 @@ func TestAccountHandlerGetAvailableModels_OpenAIOAuthUsesExplicitModelMapping(t 
 			Platform: service.PlatformOpenAI,
 			Type:     service.AccountTypeOAuth,
 			Status:   service.StatusActive,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gpt-5": "gpt-5.1",
-				},
-			},
+			// 承接关系上的上游名：gpt-5 在这个渠道叫 gpt-5.1
+			CatalogUpstreamModels: map[string]string{"gpt-5": "gpt-5.1"},
 		},
 	}
 	router := setupAvailableModelsRouter(svc)
@@ -196,11 +159,8 @@ func TestAccountHandlerGetAvailableModels_OpenAIOAuthLegacyPassthroughKeyUsesExp
 			Platform: service.PlatformOpenAI,
 			Type:     service.AccountTypeOAuth,
 			Status:   service.StatusActive,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{
-					"gpt-5": "gpt-5.1",
-				},
-			},
+			// 承接关系上的上游名：gpt-5 在这个渠道叫 gpt-5.1
+			CatalogUpstreamModels: map[string]string{"gpt-5": "gpt-5.1"},
 			Extra: map[string]any{
 				"openai_passthrough": true,
 			},
@@ -399,59 +359,6 @@ func TestAccountHandlerSyncUpstreamModelsReturnsCapabilityMetadata(t *testing.T)
 	require.True(t, *metadata.Reasoning)
 	require.Equal(t, []string{"low", "high"}, metadata.SupportedReasoningLevels)
 	require.Equal(t, []string{"text", "image"}, metadata.InputModalities)
-}
-
-// Scenario: 创建账号 preview 将具体 mapping 传给 404/405 配置回退。
-func TestAccountHandlerSyncUpstreamModelsPreviewUsesProvidedModelMapping(t *testing.T) {
-	upstream := &syncUpstreamHTTPUpstream{responses: []*http.Response{
-		{
-			StatusCode: http.StatusNotFound,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader(`{"error":"not found"}`)),
-		},
-		{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body: io.NopCloser(strings.NewReader(`{
-				"configured-provider": {
-					"api": "https://provider.example/v1",
-					"models": {
-						"glm-5.3": {
-							"id": "glm-5.3",
-							"reasoning": true,
-							"reasoning_options": [{"type":"effort","values":["low","high"]}],
-							"modalities": {"input":["text"],"output":["text"]},
-							"limit": {"context":1000000,"output":131072}
-						}
-					}
-				}
-			}`)),
-		},
-	}}
-	router := setupSyncUpstreamModelsRouter(newStubAdminService(), upstream)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/admin/accounts/models/sync-upstream-preview",
-		strings.NewReader(`{
-			"platform":"openai",
-			"type":"apikey",
-			"protocol_endpoints":{"chat_completions":"https://provider.example/v1"},
-			"api_key":"key",
-			"model_mapping":{"public-glm":"glm-5.3"}
-		}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp struct {
-		Data service.UpstreamModelCatalog `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	require.Equal(t, []string{"glm-5.3"}, resp.Data.Models)
-	require.Equal(t, []string{"low", "high"}, resp.Data.Metadata["glm-5.3"].SupportedReasoningLevels)
 }
 
 func TestAccountHandlerSyncUpstreamModels_UpstreamErrorDoesNotExposeBody(t *testing.T) {

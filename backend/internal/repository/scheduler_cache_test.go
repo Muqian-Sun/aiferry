@@ -37,13 +37,16 @@ func TestSchedulerMetadataAccountKeepsOpenAISubscriptionIdentity(t *testing.T) {
 	require.Empty(t, metadata.GetCredential("access_token"))
 }
 
-// 命中缓存的账号也要能做目录池的成员判定（accountInSchedulingScope 读 CatalogEntryIDs）。
+// 命中缓存的账号也要能做目录池的成员判定（accountInSchedulingScope 读 CatalogEntryIDs），
+// 以及按承接关系上的上游名判断模型支持（IsModelSupported 读 CatalogUpstreamModels 叠进厂商默认表后的映射）。
 func TestSchedulerMetadataAccountKeepsCatalogEntryIDs(t *testing.T) {
-	account := service.Account{ID: 25, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, CatalogEntryIDs: []int64{7, 9}}
+	account := service.Account{ID: 25, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, CatalogEntryIDs: []int64{7, 9},
+		CatalogUpstreamModels: map[string]string{"gpt-5.5": "gpt-5.5-relay"}}
 
 	metadata := buildSchedulerMetadataAccount(account)
 
 	require.Equal(t, []int64{7, 9}, metadata.CatalogEntryIDs)
+	require.Equal(t, map[string]string{"gpt-5.5": "gpt-5.5-relay"}, metadata.CatalogUpstreamModels)
 }
 
 // 调度器只读 SchedulingState：快照投影必须让命中缓存的账号还原出与 DB 账号相同的状态

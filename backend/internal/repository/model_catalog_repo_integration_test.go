@@ -606,7 +606,7 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 				{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), CacheWritePrice: float64Value(1.5e-7), CacheWrite1hPrice: float64Value(2.4e-7)},
 				{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), CacheReadPrice: float64Value(3e-8)},
 			}},
-		{AccountID: accountB.ID, InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8)},
+		{AccountID: accountB.ID, UpstreamModel: "gpt-relay", InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8)},
 	}))
 	require.Equal(t, before+1, outboxCount(e1.ID), "saving a model enqueues its entry")
 
@@ -627,6 +627,8 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 		{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), CacheReadPrice: float64Value(3e-8), SortOrder: 1},
 	}, b[accountA.ID].Intervals)
 	require.Equal(t, 1.2e-6, b[accountB.ID].OutputPrice)
+	require.Equal(t, "gpt-relay", b[accountB.ID].UpstreamModel)
+	require.Empty(t, b[accountA.ID].UpstreamModel, "empty = same name as the catalog model")
 
 	// 2. 再保存一次只留 B：A 的承接行被删，B 改价。
 	require.NoError(t, repo.SaveEntryPricing(ctx, got, []service.ModelCatalogBinding{
