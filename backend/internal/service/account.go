@@ -517,7 +517,7 @@ func (a *Account) resolveModelMapping(source map[string]string, replacesDefaults
 	for k, v := range source {
 		result[k] = v
 	}
-	if replacesDefaults && a.Vendor() == PlatformAntigravity {
+	if a.Vendor() == PlatformAntigravity {
 		ensureAntigravityDefaultPassthroughs(result, []string{
 			"gemini-3-flash",
 			"gemini-3.1-pro-high",
