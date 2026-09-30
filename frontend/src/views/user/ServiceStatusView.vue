@@ -58,7 +58,7 @@
       <SheetSection :title="t('userUi.serviceStatus.models.title')" :description="t('userUi.serviceStatus.models.description')">
         <template v-if="rows.length > SEARCH_THRESHOLD" #actions>
           <SegmentedControl v-model="healthFilter" :options="filterOptions" :label="t('userUi.serviceStatus.models.filter.label')" />
-          <div class="w-48">
+          <div class="w-full sm:w-48">
             <SearchInput v-model="search" compact :placeholder="t('userUi.serviceStatus.models.search')" />
           </div>
         </template>

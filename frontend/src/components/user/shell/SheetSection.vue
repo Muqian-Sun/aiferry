@@ -6,7 +6,8 @@
         <h2 v-if="title" :id="headingId" class="text-base font-semibold text-af-ink">{{ title }}</h2>
         <p v-if="description" class="mt-0.5 text-13 text-af-ink-3">{{ description }}</p>
       </div>
-      <div v-if="$slots.actions" class="flex shrink-0 items-center gap-2">
+      <!-- 控件放不下一行时（窄屏）在自己的行里折行，不撑出页面 -->
+      <div v-if="$slots.actions" class="flex max-w-full shrink-0 flex-wrap items-center gap-2">
         <slot name="actions" />
       </div>
     </div>
