@@ -11,9 +11,23 @@ type PlazaCatalogModel struct {
 	Vendor      string
 	BillingMode BillingMode
 	// Pricing 目录基准价卡（分档在 Intervals 里）；分时倍率单独给出。
-	Pricing     *PricingCard
+	Pricing *PricingCard
+	// TokenExtras 价卡（PricingCard）不带、但 token 计费会收的项。
+	TokenExtras PlazaTokenExtras
 	TimePricing *TimePricing
 	Aliases     []string
+}
+
+// PlazaTokenExtras 目录条目上价卡没投影的 token 计费项（官方价，USD / token）：
+// Fast 档（service_tier=priority）各项价、图片缓存读、音频输入 / 输出。模型广场要把计费项列全（muqian 2026-09-30）。
+type PlazaTokenExtras struct {
+	InputPricePriority      *float64
+	OutputPricePriority     *float64
+	CacheWritePricePriority *float64
+	CacheReadPricePriority  *float64
+	ImageCacheReadPrice     *float64
+	AudioInputPrice         *float64
+	AudioOutputPrice        *float64
 }
 
 // ModelPlazaService 聚合模型广场数据：上架的目录条目及其基准价。
@@ -43,6 +57,15 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 			Vendor:      entry.Vendor,
 			BillingMode: entry.EffectiveBillingMode(),
 			Pricing:     withDefaultMaxReasoningEffortMultiplier(entry.PricingCard(), entry.ModelID),
+			TokenExtras: PlazaTokenExtras{
+				InputPricePriority:      entry.InputPricePriority,
+				OutputPricePriority:     entry.OutputPricePriority,
+				CacheWritePricePriority: entry.CacheWritePricePriority,
+				CacheReadPricePriority:  entry.CacheReadPricePriority,
+				ImageCacheReadPrice:     entry.ImageCacheReadPrice,
+				AudioInputPrice:         entry.AudioInputPrice,
+				AudioOutputPrice:        entry.AudioOutputPrice,
+			},
 			TimePricing: entry.TimePricing,
 			Aliases:     aliases,
 		})

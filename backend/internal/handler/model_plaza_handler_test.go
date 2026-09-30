@@ -37,9 +37,13 @@ type plazaCatalogStub struct{ listedCatalogStub }
 
 func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCatalogEntry {
 	price := 1e-6
+	priority := 2e-6
+	audio := 3e-6
+	flex := 0.5
 	return []service.ModelCatalogEntry{
 		{ID: 1, ModelID: "claude-sonnet-4", DisplayName: "Sonnet 4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed, InputPrice: &price},
 		{ID: 2, ModelID: "gpt-5.6", DisplayName: "GPT-5.6", Vendor: "openai", Status: service.ModelCatalogStatusListed, InputPrice: &price,
+			InputPricePriority: &priority, AudioInputPrice: &audio, FlexMultiplier: &flex,
 			Aliases:     []service.ModelCatalogAlias{{ID: 10, EntryID: 2, Alias: "gpt-5.6-sol"}},
 			TimePricing: &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
 	}
@@ -86,7 +90,22 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.JSONEq(t, `"openai"`, string(gpt["vendor"]))
 	require.JSONEq(t, `"token"`, string(gpt["billing_mode"]))
 	require.JSONEq(t, `["gpt-5.6-sol"]`, string(gpt["aliases"]))
-	require.Contains(t, string(gpt["pricing"]), `"input_price":0.000001`)
+	var pricing struct {
+		InputPrice         *float64 `json:"input_price"`
+		InputPricePriority *float64 `json:"input_price_priority"`
+		AudioInputPrice    *float64 `json:"audio_input_price"`
+		FlexMultiplier     *float64 `json:"flex_multiplier"`
+	}
+	require.NoError(t, json.Unmarshal(gpt["pricing"], &pricing))
+	require.NotNil(t, pricing.InputPrice)
+	require.InDelta(t, 1e-6, *pricing.InputPrice, 1e-18, "广场接口给目录官方价，展示时再乘访问者倍率")
+	// 计费项列全：Fast 档价、音频价、Flex 倍率都带出来
+	require.NotNil(t, pricing.InputPricePriority)
+	require.InDelta(t, 2e-6, *pricing.InputPricePriority, 1e-18)
+	require.NotNil(t, pricing.AudioInputPrice)
+	require.InDelta(t, 3e-6, *pricing.AudioInputPrice, 1e-18)
+	require.NotNil(t, pricing.FlexMultiplier)
+	require.InDelta(t, 0.5, *pricing.FlexMultiplier, 1e-12)
 	require.JSONEq(t, `{"timezone":"Asia/Shanghai","weekdays_only":true,"periods":[{"start_time":"09:00","end_time":"18:00","multiplier":1.5}]}`, string(gpt["time_pricing"]))
 
 	var sonnet map[string]json.RawMessage
