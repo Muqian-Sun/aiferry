@@ -26,20 +26,6 @@ func TestServiceStatusAvailabilityIsNullWithoutRequests(t *testing.T) {
 	require.InDelta(t, 0, *allFailed.Availability, 1e-9)
 }
 
-// 模型维度的值带平台前缀、同名模型每个平台一条：用户侧只留去重后的模型名。
-func TestServiceStatusDimensionsStripPlatformPrefix(t *testing.T) {
-	got := ServiceStatusDimensionsFromService(&service.ChannelMonitorV2Dimensions{
-		Platforms: []service.ChannelMonitorV2Dimension{{Value: "openai"}},
-		Models: []service.ChannelMonitorV2Dimension{
-			{Value: "openai\x00gpt-5"},
-			{Value: "azure\x00gpt-5"},
-			{Value: "openai\x00__other__"},
-			{Value: "claude-sonnet-4"},
-		},
-	})
-	require.Equal(t, []string{"gpt-5", "__other__", "claude-sonnet-4"}, got.Models)
-}
-
 // 首次补历史数据时给进度，补齐后为 null。
 func TestServiceStatusCoverageBackfillPercent(t *testing.T) {
 	active := serviceStatusCoverage(service.ChannelMonitorV2Coverage{Bootstrap: &service.ChannelMonitorV2Bootstrap{Active: true, ProgressPercent: 42}})

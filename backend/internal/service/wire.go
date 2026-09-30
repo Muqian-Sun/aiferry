@@ -974,12 +974,9 @@ func ProvideChannelMonitorRunner(
 	return r
 }
 
-// ProvideChannelMonitorV2Service wires settings for user-facing privacy flags
-// (e.g. hide RPM/TPM throughput) and the model catalog (visitor reads list listed models).
-func ProvideChannelMonitorV2Service(repo ChannelMonitorV2Repository, settingService *SettingService, catalog *ModelCatalogService) *ChannelMonitorV2Service {
-	svc := NewChannelMonitorV2Service(repo, catalog)
-	svc.SetRuntimeReader(settingService)
-	return svc
+// ProvideChannelMonitorV2Service wires the model catalog (the status page lists listed models).
+func ProvideChannelMonitorV2Service(repo ChannelMonitorV2Repository, catalog *ModelCatalogService) *ChannelMonitorV2Service {
+	return NewChannelMonitorV2Service(repo, catalog)
 }
 
 // ProvideChannelMonitorV2Aggregator starts the passive minute-rollup worker.

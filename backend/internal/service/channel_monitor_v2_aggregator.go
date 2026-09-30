@@ -148,7 +148,7 @@ func (s *ChannelMonitorV2Aggregator) kick() {
 
 func (s *ChannelMonitorV2Aggregator) loop() {
 	for {
-		interval := time.Minute
+		interval := ChannelMonitorV2RefreshIntervalSeconds * time.Second
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		if !s.passiveAggregationAllowed(ctx) {
 			cancel()
@@ -156,18 +156,6 @@ func (s *ChannelMonitorV2Aggregator) loop() {
 				return
 			}
 			continue
-		}
-		if cfg, err := s.repo.GetConfig(ctx); err == nil {
-			if !cfg.Enabled {
-				cancel()
-				if !s.wait(interval) {
-					return
-				}
-				continue
-			}
-			if cfg.RefreshIntervalSeconds > 0 {
-				interval = time.Duration(cfg.RefreshIntervalSeconds) * time.Second
-			}
 		}
 		cancel()
 		s.runOnce()

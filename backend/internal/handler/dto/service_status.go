@@ -1,17 +1,16 @@
 package dto
 
 import (
-	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-// 用户站「服务状态」页（/channel-monitor-v2/* 的普通用户路由）的响应。
+// 用户站「服务状态」页（/channel-monitor-v2/snapshot 与 /matrix，对未登录访客公开）的响应。
 //
 // 只回答「各模型现在能不能用、快不快」，字段一律白名单：
 // 不含平台 / 渠道、上游状态码与错误原文、请求量与 Token 量、RPM / TPM、缓存率、
-// 健康分的阈值与权重、其他用户的任何信息。管理员路由仍返回 service 层的完整结构。
+// 健康分的阈值与权重、任何用户的信息。
 
 // ServiceStatusMetric 一个统计格：可用率与首字延迟。
 type ServiceStatusMetric struct {
@@ -54,12 +53,6 @@ type ServiceStatusSnapshot struct {
 	Trend                  []ServiceStatusPoint  `json:"trend"`
 }
 
-type ServiceStatusModel struct {
-	Model   string              `json:"model"`
-	Metrics ServiceStatusMetric `json:"metrics"`
-	Health  ServiceStatusHealth `json:"health"`
-}
-
 type ServiceStatusModelTrend struct {
 	Model   string               `json:"model"`
 	Metrics ServiceStatusMetric  `json:"metrics"`
@@ -72,25 +65,10 @@ type ServiceStatusList[T any] struct {
 	Items    []T                   `json:"items"`
 }
 
-type ServiceStatusDimensions struct {
-	Models []string `json:"models"`
-}
-
-type ServiceStatusErrorCategory struct {
-	Category string  `json:"category"`
-	Rate     float64 `json:"rate"`
-	Ignored  bool    `json:"ignored"`
-}
-
-// ServiceStatusSelf 当前用户自己的请求统计（排行里的其他用户一律不返回）。
-type ServiceStatusSelf struct {
-	Metrics ServiceStatusMetric `json:"metrics"`
-}
-
 func serviceStatusMetric(m service.ChannelMonitorV2Metric) ServiceStatusMetric {
 	out := ServiceStatusMetric{TTFTP50Ms: m.TTFT.P50Ms, TTFTP90Ms: m.TTFT.P90Ms}
-	// 普通用户拿到的指标已被 service 清掉请求数，只能从比率判断「有没有请求」：
-	// 有请求时成功率与错误率至少一个大于 0（失败全是被忽略的客户端原因且没有成功时也按无数据处理）。
+	// 按比率判断「有没有请求」：有请求时成功率与错误率至少一个大于 0
+	// （失败全是被忽略的客户端原因且没有成功时按无数据处理）。
 	if m.SuccessRate > 0 || m.ErrorRate > 0 {
 		availability := 1 - m.ErrorRate
 		out.Availability = &availability
@@ -130,23 +108,12 @@ func ServiceStatusSnapshotFromService(s *service.ChannelMonitorV2Snapshot) *Serv
 		return nil
 	}
 	return &ServiceStatusSnapshot{
-		RefreshIntervalSeconds: s.Config.RefreshIntervalSeconds,
+		RefreshIntervalSeconds: service.ChannelMonitorV2RefreshIntervalSeconds,
 		Coverage:               serviceStatusCoverage(s.Coverage),
 		Metrics:                serviceStatusMetric(s.Metrics),
 		Health:                 serviceStatusHealth(s.Health),
 		Trend:                  serviceStatusPoints(s.Trend),
 	}
-}
-
-func ServiceStatusModelsFromService(l *service.ChannelMonitorV2List[service.ChannelMonitorV2ModelRow]) *ServiceStatusList[ServiceStatusModel] {
-	if l == nil {
-		return nil
-	}
-	items := make([]ServiceStatusModel, 0, len(l.Items))
-	for _, row := range l.Items {
-		items = append(items, ServiceStatusModel{Model: row.Model, Metrics: serviceStatusMetric(row.Metrics), Health: serviceStatusHealth(row.Health)})
-	}
-	return &ServiceStatusList[ServiceStatusModel]{Coverage: serviceStatusCoverage(l.Coverage), Items: items}
 }
 
 func ServiceStatusMatrixFromService(m *service.ChannelMonitorV2Matrix) *ServiceStatusList[ServiceStatusModelTrend] {
@@ -163,51 +130,4 @@ func ServiceStatusMatrixFromService(m *service.ChannelMonitorV2Matrix) *ServiceS
 		})
 	}
 	return &ServiceStatusList[ServiceStatusModelTrend]{Coverage: serviceStatusCoverage(m.Coverage), Items: items}
-}
-
-// ServiceStatusDimensionsFromService 只留模型名。仓储里模型维度的值是「平台\x00模型」
-// （同名模型在每个平台各一条），这里截掉平台前缀并按原顺序去重。
-func ServiceStatusDimensionsFromService(d *service.ChannelMonitorV2Dimensions) *ServiceStatusDimensions {
-	if d == nil {
-		return nil
-	}
-	models := make([]string, 0, len(d.Models))
-	seen := make(map[string]struct{}, len(d.Models))
-	for _, dim := range d.Models {
-		model := dim.Value
-		if i := strings.IndexByte(model, 0); i >= 0 {
-			model = model[i+1:]
-		}
-		if _, ok := seen[model]; ok || model == "" {
-			continue
-		}
-		seen[model] = struct{}{}
-		models = append(models, model)
-	}
-	return &ServiceStatusDimensions{Models: models}
-}
-
-func ServiceStatusErrorsFromService(l *service.ChannelMonitorV2List[service.ChannelMonitorV2ErrorRow]) *ServiceStatusList[ServiceStatusErrorCategory] {
-	if l == nil {
-		return nil
-	}
-	items := make([]ServiceStatusErrorCategory, 0, len(l.Items))
-	for _, row := range l.Items {
-		items = append(items, ServiceStatusErrorCategory{Category: row.Category, Rate: row.Rate, Ignored: row.Ignored})
-	}
-	return &ServiceStatusList[ServiceStatusErrorCategory]{Coverage: serviceStatusCoverage(l.Coverage), Items: items}
-}
-
-// ServiceStatusSelfFromService 只留当前用户自己那一行（service 已标 IsSelf），不带名次。
-func ServiceStatusSelfFromService(l *service.ChannelMonitorV2List[service.ChannelMonitorV2UserRow]) *ServiceStatusList[ServiceStatusSelf] {
-	if l == nil {
-		return nil
-	}
-	items := make([]ServiceStatusSelf, 0, 1)
-	for _, row := range l.Items {
-		if row.IsSelf {
-			items = append(items, ServiceStatusSelf{Metrics: serviceStatusMetric(row.Metrics)})
-		}
-	}
-	return &ServiceStatusList[ServiceStatusSelf]{Coverage: serviceStatusCoverage(l.Coverage), Items: items}
 }

@@ -16,7 +16,6 @@ func TestChannelMonitorV2DateBinOriginIsUTC(t *testing.T) {
 	for _, query := range []string{
 		channelMonitorV2FixedRollupBoundsSQL,
 		channelMonitorV2MetricsRollupSQL,
-		channelMonitorV2UserMetricsRollupSQL,
 		channelMonitorV2HistogramRollupSQL,
 		channelMonitorV2ErrorRollupSQL,
 	} {
@@ -25,71 +24,34 @@ func TestChannelMonitorV2DateBinOriginIsUTC(t *testing.T) {
 	}
 }
 
-func TestChannelMonitorV2DisplayModelIsPlatformScoped(t *testing.T) {
-	cfg := service.ChannelMonitorV2Config{Platforms: []service.ChannelMonitorV2PlatformConfig{
-		{Platform: "openai", Enabled: true, Models: []string{"shared", "gpt-5"}},
-		{Platform: "grok", Enabled: true, Models: []string{"grok-4"}},
-		// Empty models list must NOT collapse everything into __other__.
-		{Platform: "anthropic", Enabled: true, Models: []string{}},
-	}}
-	require.Equal(t, "shared", channelMonitorV2DisplayModel(cfg, "openai", "shared"))
-	require.Equal(t, service.ChannelMonitorV2OtherModel, channelMonitorV2DisplayModel(cfg, "grok", "shared"))
-	require.Equal(t, "claude-sonnet-4", channelMonitorV2DisplayModel(cfg, "anthropic", "claude-sonnet-4"))
-	// Unconfigured platform still surfaces the real model name.
-	require.Equal(t, "gemini-2.5-pro", channelMonitorV2DisplayModel(cfg, "gemini", "gemini-2.5-pro"))
-	require.True(t, channelMonitorV2ModelSelected(service.ChannelMonitorV2Filter{Models: []string{service.ChannelMonitorV2OtherModel}}, cfg, "grok", "shared"))
-}
-
-// 访客名单（上架目录）与监控的平台配置无关：openai 上配了的 gpt-4o 没上架就不计，
-// 没选到上游（unknown 平台）的上架模型照样算；别名归到本名；SQL 不按平台筛；每个上架模型都有一行。
-func TestChannelMonitorV2VisitorRosterIgnoresPlatformConfig(t *testing.T) {
-	cfg := service.ChannelMonitorV2Config{
-		Platforms: []service.ChannelMonitorV2PlatformConfig{{Platform: "openai", Enabled: true, Models: []string{"gpt-4o", "gpt-5.5"}}},
-		ModelRoster: &service.ChannelMonitorV2ModelRoster{
-			Models: []string{"gpt-5.5", "glm-5.3-flash"},
-			Resolve: func(model string) (string, bool) {
-				switch model {
-				case "gpt-5.5", "glm-5.3-flash":
-					return model, true
-				case "gpt-latest":
-					return "gpt-5.5", true
-				}
-				return "", false
-			},
+// 服务状态按上架名单统计：请求名（含别名）归到名单里的本名，平台不参与；
+// 名单外（没上架的名字、没解析出模型的失败请求）不计；SQL 不按平台筛。
+func TestChannelMonitorV2RosterModelIgnoresPlatform(t *testing.T) {
+	cfg := service.ChannelMonitorV2Config{Roster: service.ChannelMonitorV2ModelRoster{
+		Models: []string{"gpt-5.5", "glm-5.3-flash"},
+		Resolve: func(model string) (string, bool) {
+			switch model {
+			case "gpt-5.5", "glm-5.3-flash":
+				return model, true
+			case "gpt-latest":
+				return "gpt-5.5", true
+			}
+			return "", false
 		},
-	}
-	require.Equal(t, "gpt-5.5", channelMonitorV2DisplayModel(cfg, "openai", "gpt-latest"))
-	require.Equal(t, "glm-5.3-flash", channelMonitorV2DisplayModel(cfg, "unknown", "glm-5.3-flash"))
-	require.Equal(t, service.ChannelMonitorV2OtherModel, channelMonitorV2DisplayModel(cfg, "openai", "gpt-4o"))
+	}}
+	got, ok := channelMonitorV2RosterModel(cfg, " gpt-latest ")
+	require.True(t, ok)
+	require.Equal(t, "gpt-5.5", got)
+	_, ok = channelMonitorV2RosterModel(cfg, "gpt-4o")
+	require.False(t, ok)
+	_, ok = channelMonitorV2RosterModel(cfg, "unknown")
+	require.False(t, ok)
+	_, ok = channelMonitorV2RosterModel(cfg, "  ")
+	require.False(t, ok)
 
-	all := service.ChannelMonitorV2Filter{}
-	require.True(t, channelMonitorV2ModelSelected(all, cfg, "unknown", "glm-5.3-flash"))
-	require.False(t, channelMonitorV2ModelSelected(all, cfg, "openai", "gpt-4o"))
-	require.False(t, channelMonitorV2ModelSelected(all, cfg, "unknown", "unknown"))
-
-	where, args := channelMonitorV2Where(all, cfg, "m")
+	where, args, _ := channelMonitorV2WhereWithRollup(service.ChannelMonitorV2Filter{Bucket: time.Minute}, "m")
 	require.NotContains(t, where, "platform")
-	require.NotContains(t, where, "FALSE")
 	require.Len(t, args, 2)
-
-	accs := seedChannelMonitorV2MatrixAccumulators(all, cfg, service.ChannelMonitorV2GroupByModel)
-	require.Len(t, accs, 2)
-	require.Contains(t, accs, channelMonitorV2MatrixKey{model: "gpt-5.5"})
-	require.Contains(t, accs, channelMonitorV2MatrixKey{model: "glm-5.3-flash"})
-}
-
-func TestChannelMonitorV2MatrixDimensionKey(t *testing.T) {
-	cfg := service.ChannelMonitorV2Config{Platforms: []service.ChannelMonitorV2PlatformConfig{{Platform: "openai", Enabled: true, Models: []string{"gpt-5"}}}}
-	key := channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByPlatformModel, cfg, "openai", "gpt-5")
-	require.Equal(t, channelMonitorV2MatrixKey{platform: "openai", model: "gpt-5"}, key)
-	key = channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByPlatformModel, cfg, "openai", "unlisted")
-	require.Equal(t, channelMonitorV2MatrixKey{platform: "openai", model: service.ChannelMonitorV2OtherModel}, key)
-	key = channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByPlatform, cfg, "openai", "gpt-5")
-	require.Equal(t, channelMonitorV2MatrixKey{platform: "openai"}, key)
-	// model 维度跨平台聚合：键里不带平台，两个平台的同名模型落同一行。
-	key = channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByModel, cfg, "openai", "gpt-5")
-	require.Equal(t, channelMonitorV2MatrixKey{model: "gpt-5"}, key)
-	require.Equal(t, key, channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByModel, cfg, "anthropic", "gpt-5"))
 }
 
 func TestChannelMonitorV2HistogramPercentilesAreMergedFromCounts(t *testing.T) {
@@ -115,14 +77,10 @@ func TestChannelMonitorV2HistogramPercentilesAreMergedFromCounts(t *testing.T) {
 func TestChannelMonitorV2MetricIncludesSuccessRate(t *testing.T) {
 	acc := newMetricAccumulator()
 	acc.success, acc.errors = 80, 20
-	metric := acc.metric(1, false)
+	metric := acc.metric(1)
 	require.Equal(t, int64(100), metric.RequestCount)
 	require.InDelta(t, 0.8, metric.SuccessRate, 0.0001)
 	require.InDelta(t, 0.2, metric.ErrorRate, 0.0001)
-	require.Nil(t, metric.UpstreamAffectedRequests)
-
-	adminMetric := acc.metric(1, true)
-	require.NotNil(t, adminMetric.UpstreamAffectedRequests)
 }
 
 func TestChannelMonitorV2ErrorAggregationCountsFinalUserErrorsOnly(t *testing.T) {
@@ -151,7 +109,7 @@ func TestChannelMonitorV2ErrorAggregationResolvesAccountPlatform(t *testing.T) {
 }
 
 func TestChannelMonitorV2UsageSuccessExcludesCyberBillingRows(t *testing.T) {
-	for _, query := range []string{channelMonitorV2UsageMetricsSQL, channelMonitorV2UserMetricsSQL} {
+	for _, query := range []string{channelMonitorV2UsageMetricsSQL} {
 		require.Contains(t, query, "COALESCE(ul.request_type, 0) NOT IN (4, 6)")
 		require.Contains(t, query, "ul.actual_cost > 0")
 	}
@@ -181,7 +139,6 @@ func TestChannelMonitorV2HistoryCoverageCompleteIgnoresTrailingLag(t *testing.T)
 }
 
 func TestChannelMonitorV2TierRetentionPolicy(t *testing.T) {
-	require.Equal(t, 3*24*time.Hour, channelMonitorV2RetentionUser1m)
 	require.Equal(t, 7*24*time.Hour, channelMonitorV2RetentionMetrics1m)
 	require.Equal(t, 7*24*time.Hour, channelMonitorV2RetentionError1m)
 	require.Equal(t, 7*24*time.Hour, channelMonitorV2RetentionHistogram1m)
@@ -276,67 +233,4 @@ func TestApplyIgnoredErrorsAdjustsRatesKeepsAbsoluteVolume(t *testing.T) {
 	applyIgnoredErrors(&m3, 0)
 	require.InDelta(t, 0.2, m3.ErrorRate, 0.0001)
 	require.InDelta(t, 0.8, m3.SuccessRate, 0.0001)
-}
-
-func TestRedactChannelMonitorV2MetricZerosVolume(t *testing.T) {
-	// Service helper is in service package; covered there. Keep a smoke note that
-	// rates survive a manual zeroing of volume fields used by the UI contract.
-	m := service.ChannelMonitorV2Metric{
-		RequestCount: 100, ErrorRequests: 10, SuccessRequests: 90,
-		TokenCount: 1000, RPM: 5, TPM: 50, ErrorRate: 0.1, SuccessRate: 0.9, CacheRate: 0.4,
-	}
-	// Mimic redact: zero volume only
-	m.RequestCount, m.ErrorRequests, m.SuccessRequests, m.TokenCount = 0, 0, 0, 0
-	require.Equal(t, 0.1, m.ErrorRate)
-	require.Equal(t, 5.0, m.RPM)
-}
-
-func TestChannelMonitorV2CatalogFilterClearsMultiSelectDimensions(t *testing.T) {
-	start := time.Unix(1, 0)
-	end := time.Unix(2, 0)
-	filter := service.ChannelMonitorV2Filter{
-		Start: start, End: end, Bucket: time.Minute,
-		Platforms: []string{"openai"}, Models: []string{"gpt-5"},
-	}
-	catalog := channelMonitorV2CatalogFilter(filter)
-	require.Nil(t, catalog.Platforms)
-	require.Nil(t, catalog.Models)
-	// Time window / coverage-related fields remain.
-	require.Equal(t, start, catalog.Start)
-	require.Equal(t, end, catalog.End)
-	require.Equal(t, time.Minute, catalog.Bucket)
-
-	cfg := service.ChannelMonitorV2Config{
-		Platforms: []service.ChannelMonitorV2PlatformConfig{
-			{Platform: "openai", Enabled: true},
-			{Platform: "grok", Enabled: true},
-		},
-	}
-	catalogWhere, catalogArgs := channelMonitorV2Where(catalog, cfg, "m")
-	_, metricArgs := channelMonitorV2Where(filter, cfg, "m")
-
-	// Catalog WHERE still applies the config scope (enabled platforms).
-	require.Contains(t, catalogWhere, "m.platform = ANY")
-	require.NotContains(t, catalogWhere, "m.group_id")
-	require.Len(t, catalogArgs, 3) // start, end, platforms
-	require.Len(t, metricArgs, 3)
-
-	// Metrics WHERE is narrower once the multi-select platform is applied.
-	require.NotEqual(t, catalogArgs, metricArgs)
-}
-
-// 非管理员的 /models 聚合键不带平台：两个平台上的同名模型落同一行。
-// 管理员保留平台维度。
-func TestChannelMonitorV2ModelStatsKeyHidesPlatformForNonAdmin(t *testing.T) {
-	adminOpenAI := channelMonitorV2ModelStatsKey(true, "openai", "gpt-5")
-	adminAnthropic := channelMonitorV2ModelStatsKey(true, "anthropic", "gpt-5")
-	require.NotEqual(t, adminOpenAI, adminAnthropic)
-	require.Contains(t, adminOpenAI, "openai")
-
-	userOpenAI := channelMonitorV2ModelStatsKey(false, "openai", "gpt-5")
-	userAnthropic := channelMonitorV2ModelStatsKey(false, "anthropic", "gpt-5")
-	require.Equal(t, userOpenAI, userAnthropic)
-	require.NotContains(t, userOpenAI, "openai")
-	require.NotContains(t, userOpenAI, "anthropic")
-	require.NotEqual(t, userOpenAI, channelMonitorV2ModelStatsKey(false, "openai", "claude-sonnet-4-5"))
 }
