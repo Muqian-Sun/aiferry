@@ -64,11 +64,12 @@
       <div>
         <label class="input-label">{{ t('admin.users.form.rateMultiplier') }}</label>
         <input
-          v-model.number="form.rate_multiplier"
+          v-model="form.rate_multiplier"
           type="number"
           min="0"
-          step="0.01"
+          step="any"
           class="input"
+          :placeholder="t('admin.users.form.rateMultiplierDefaultPlaceholder')"
         />
         <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
       </div>
@@ -98,8 +99,8 @@ import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 
-// 余额 / 并发 / RPM 留空 = 按「新用户默认值」，和自助注册一致（之前并发写死 1、RPM 写死 0）
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: 1 })
+// 余额 / 并发 / RPM / 倍率留空 = 按「新用户默认值」，和自助注册一致（倍率默认官方价的 1/15）
+const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: '' })
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -108,8 +109,8 @@ const submit = async () => {
   if (loading.value) return
   loading.value = true
   try {
-    const { balance, concurrency, rpm_limit, ...rest } = { ...form }
-    const payload: typeof rest & { balance?: number; concurrency?: number; rpm_limit?: number } = { ...rest }
+    const { balance, concurrency, rpm_limit, rate_multiplier, ...rest } = { ...form }
+    const payload: typeof rest & { balance?: number; concurrency?: number; rpm_limit?: number; rate_multiplier?: number } = { ...rest }
     const optionalNumber = (raw: string | number) => {
       const text = String(raw).trim()
       return text === '' ? undefined : Number(text)
@@ -117,6 +118,7 @@ const submit = async () => {
     payload.balance = optionalNumber(balance)
     payload.concurrency = optionalNumber(concurrency)
     payload.rpm_limit = optionalNumber(rpm_limit)
+    payload.rate_multiplier = optionalNumber(rate_multiplier)
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.create(payload))
     emit('success'); emit('close')
@@ -136,7 +138,7 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: 1 }) })
+watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: '' }) })
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

@@ -54,9 +54,11 @@ type modelPlazaModel struct {
 }
 
 // modelPlazaResponse 广场页响应：平铺的上架模型列表。
+// 价格一律是目录官方价（USD）；展示价 = 官方价 × 访问者的用户倍率，未登录按 DefaultRateMultiplier（新用户默认倍率）。
 type modelPlazaResponse struct {
-	Description string            `json:"description"`
-	Models      []modelPlazaModel `json:"models"`
+	Description           string            `json:"description"`
+	DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
+	Models                []modelPlazaModel `json:"models"`
 }
 
 // Get 返回模型广场数据。
@@ -70,8 +72,9 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
 		out = append(out, toModelPlazaModelDTO(&models[i]))
 	}
 	response.Success(c, modelPlazaResponse{
-		Description: description,
-		Models:      out,
+		Description:           description,
+		DefaultRateMultiplier: service.NewUserRateMultiplier,
+		Models:                out,
 	})
 }
 
@@ -152,31 +155,22 @@ func toUserPricingIntervals(src []service.PricingInterval) []userPricingInterval
 			MinTokens:            iv.MinTokens,
 			MaxTokens:            iv.MaxTokens,
 			TierLabel:            iv.TierLabel,
-			InputPrice:           salePrice(iv.InputPrice),
-			OutputPrice:          salePrice(iv.OutputPrice),
-			CacheWritePrice:      salePrice(iv.CacheWritePrice),
-			CacheWrite1hPrice:    salePrice(iv.CacheWrite1hPrice),
-			CacheReadPrice:       salePrice(iv.CacheReadPrice),
+			InputPrice:           iv.InputPrice,
+			OutputPrice:          iv.OutputPrice,
+			CacheWritePrice:      iv.CacheWritePrice,
+			CacheWrite1hPrice:    iv.CacheWrite1hPrice,
+			CacheReadPrice:       iv.CacheReadPrice,
 			InputMultiplier:      iv.InputMultiplier,
 			OutputMultiplier:     iv.OutputMultiplier,
 			CacheWriteMultiplier: iv.CacheWriteMultiplier,
 			CacheReadMultiplier:  iv.CacheReadMultiplier,
-			PerRequestPrice:      salePrice(iv.PerRequestPrice),
+			PerRequestPrice:      iv.PerRequestPrice,
 		})
 	}
 	return intervals
 }
 
-// salePrice 目录官方价 → 用户看到的售价（× 全站售价系数）；倍数类字段不经过这里。nil 透传。
-func salePrice(p *float64) *float64 {
-	if p == nil {
-		return nil
-	}
-	v := *p * service.SalePriceRatio
-	return &v
-}
-
-// toUserPricing 将 service 层定价转换为用户 DTO（绝对价按全站售价折算）；入参为 nil 时返回 nil。
+// toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
 func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	if p == nil {
 		return nil
@@ -192,16 +186,16 @@ func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	}
 	return &userSupportedModelPricing{
 		BillingMode:                  billingMode,
-		InputPrice:                   salePrice(p.InputPrice),
-		OutputPrice:                  salePrice(p.OutputPrice),
-		CacheWritePrice:              salePrice(p.CacheWritePrice),
-		CacheWrite1hPrice:            salePrice(p.CacheWrite1hPrice),
-		CacheReadPrice:               salePrice(p.CacheReadPrice),
+		InputPrice:                   p.InputPrice,
+		OutputPrice:                  p.OutputPrice,
+		CacheWritePrice:              p.CacheWritePrice,
+		CacheWrite1hPrice:            p.CacheWrite1hPrice,
+		CacheReadPrice:               p.CacheReadPrice,
 		MaxReasoningEffortMultiplier: p.MaxReasoningEffortMultiplier,
-		ImageInputPrice:              salePrice(p.ImageInputPrice),
-		ImageOutputPrice:             salePrice(p.ImageOutputPrice),
-		PerRequestPrice:              salePrice(p.PerRequestPrice),
-		SearchPricePerCall:           salePrice(p.SearchPricePerCall),
+		ImageInputPrice:              p.ImageInputPrice,
+		ImageOutputPrice:             p.ImageOutputPrice,
+		PerRequestPrice:              p.PerRequestPrice,
+		SearchPricePerCall:           p.SearchPricePerCall,
 		Intervals:                    intervals,
 	}
 }

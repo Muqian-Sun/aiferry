@@ -2032,10 +2032,6 @@ func init() {
 	userDescRpmLimit := userFields[20].Descriptor()
 	// user.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	user.DefaultRpmLimit = userDescRpmLimit.Default.(int)
-	// userDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	userDescRateMultiplier := userFields[21].Descriptor()
-	// user.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
-	user.DefaultRateMultiplier = userDescRateMultiplier.Default.(float64)
 	userattributedefinitionMixin := schema.UserAttributeDefinition{}.Mixin()
 	userattributedefinitionMixinHooks1 := userattributedefinitionMixin[1].Hooks()
 	userattributedefinition.Hooks[0] = userattributedefinitionMixinHooks1[0]

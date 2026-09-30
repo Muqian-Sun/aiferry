@@ -80,6 +80,7 @@ import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
+import { formatMultiplier } from '@/utils/formatters'
 
 const props = defineProps<{
   user: User | null
@@ -126,7 +127,7 @@ const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() |
 // 倍率缺省按 1（接口没给时不显示 0——0 是「免费」的意思）
 const rateMultiplierLabel = computed(() => {
   const value = props.user?.rate_multiplier
-  return Number(value ?? 1).toString()
+  return formatMultiplier(Number(value ?? 1))
 })
 
 const memberSinceLabel = computed(() => {

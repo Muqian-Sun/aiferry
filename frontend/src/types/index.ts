@@ -87,7 +87,8 @@ export interface User {
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
-  rate_multiplier: number // 用户价 = 目录价 × rate_multiplier；0 = 免费
+  rate_multiplier: number // 生效的计费倍率（相对官方价）：用户价 = 官方价 × 它；0 = 免费
+  custom_rate_multiplier?: number | null // 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）
   status: 'active' | 'disabled' // Account status
   balance_notify_enabled: boolean
   balance_notify_threshold: number | null

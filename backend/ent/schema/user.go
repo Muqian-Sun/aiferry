@@ -116,10 +116,13 @@ func (User) Fields() []ent.Field {
 		field.Int("rpm_limit").
 			Default(0),
 
-		// 用户级计费倍率：用户价 = 目录价 × rate_multiplier；0 = 免费。
+		// 用户级计费倍率（相对官方价）：用户价 = 目录官方价 × 倍率；0 = 免费。
+		// NULL = 跟全站默认倍率（service.NewUserRateMultiplier，官方价的 1/15）：绝大多数用户和未登录都是它，
+		// 只有少数用户由管理员单独设（muqian 2026-09-30）。
 		field.Float("rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "numeric(10,4)"}).
-			Default(1),
+			Optional().
+			Nillable(),
 	}
 }
 

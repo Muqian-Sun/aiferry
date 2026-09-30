@@ -97,7 +97,9 @@
             <span class="tabular-nums">{{ limitLabel(user.rpm_limit ?? 0) }}</span>
           </DetailField>
           <DetailField :label="t('admin.users.columns.rateMultiplier')">
-            <span class="tabular-nums">× {{ user.rate_multiplier }}</span>
+            <span class="tabular-nums">
+              <template v-if="user.custom_rate_multiplier == null">{{ t('admin.users.form.rateMultiplierDefault') }} </template>× {{ formatMultiplier(user.rate_multiplier) }}
+            </span>
           </DetailField>
           <DetailField :label="t('admin.users.columns.created')">
             <span class="tabular-nums">{{ formatDateTime(user.created_at) }}</span>
@@ -248,6 +250,7 @@ import { DetailDrawer, DetailField, MenuItem, PopoverMenu } from '@/components/a
 import UserBalanceHistoryPanel from './UserBalanceHistoryPanel.vue'
 import UserApiKeysPanel from './UserApiKeysPanel.vue'
 import { formatAttributeValue } from './attributeValue'
+import { formatMultiplier } from '@/utils/formatters'
 
 const props = withDefaults(
   defineProps<{

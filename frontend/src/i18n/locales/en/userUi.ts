@@ -237,7 +237,8 @@ export default {
       searchHint: 'Search models or aliases (press / to focus)',
       vendorTabsLabel: 'Vendor',
       priceUnit: 'Prices in USD per 1M tokens',
-      yourPriceApplied: 'showing your price (list × {multiplier})',
+      yourPriceApplied: 'showing your price (official × {multiplier})',
+      defaultPriceApplied: 'at the new-user rate (official × {multiplier}, i.e. 1/15)',
       multiplierNote: 'Your account multiplier is {multiplier}.',
       timePricing: 'Time-based',
       weekdaysOnly: 'weekdays only',
@@ -253,7 +254,7 @@ export default {
         perImage: 'Per image',
         perSecond: 'Per second'
       },
-      priceNote: 'Prices are this site\'s catalog list prices. You pay list price × your account multiplier, recorded per request on the usage page.',
+      priceNote: 'Prices shown = official price × your account multiplier; every request is recorded on the usage page.',
       copyId: 'Copy model ID',
       copied: 'Copied',
       empty: 'No models available',

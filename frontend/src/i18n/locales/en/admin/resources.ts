@@ -453,7 +453,7 @@ export default {
       },
       detail: {
         sections: { money: 'Charges', request: 'Request', tokens: 'Tokens', timing: 'Timing' },
-        userRate: 'Sale rate (vs official price)',
+        userRate: 'User rate (vs official price)',
         accountRate: 'Channel rate (vs official price)',
         longContext: 'Long-context billing',
         longContextApplied: 'Billed at long-context prices',

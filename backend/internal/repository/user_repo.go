@@ -150,7 +150,7 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		SetNillableLastLoginAt(userIn.LastLoginAt).
 		SetNillableLastActiveAt(userIn.LastActiveAt).
 		SetRpmLimit(userIn.RPMLimit).
-		SetRateMultiplier(userIn.RateMultiplier).
+		SetNillableRateMultiplier(userIn.RateMultiplier).
 		Save(txCtx)
 	if err != nil {
 		return translatePersistenceError(err, nil, service.ErrEmailExists)
@@ -288,7 +288,12 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User, field
 		updateOp = updateOp.SetRpmLimit(userIn.RPMLimit)
 	}
 	if fields.RateMultiplier {
-		updateOp = updateOp.SetRateMultiplier(userIn.RateMultiplier)
+		// nil = 改回全站默认倍率：清空这一列
+		if userIn.RateMultiplier == nil {
+			updateOp = updateOp.ClearRateMultiplier()
+		} else {
+			updateOp = updateOp.SetRateMultiplier(*userIn.RateMultiplier)
+		}
 	}
 	if fields.Status {
 		updateOp = updateOp.SetStatus(userIn.Status)

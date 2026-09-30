@@ -97,11 +97,9 @@ type DefaultSubscriptionAssigner interface {
 }
 
 type signupGrantPlan struct {
-	Balance     float64
-	Concurrency int
-	// RateMultiplier 新用户的计费倍率，来自 config default.rate_multiplier（≤ 0 时按 1）。
-	RateMultiplier float64
-	Subscriptions  []DefaultSubscriptionSetting
+	Balance       float64
+	Concurrency   int
+	Subscriptions []DefaultSubscriptionSetting
 }
 
 // NewAuthService 创建认证服务实例
@@ -224,14 +222,13 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 
 	// 创建用户
 	user := &User{
-		Email:          email,
-		PasswordHash:   hashedPassword,
-		Role:           RoleUser,
-		Balance:        grantPlan.Balance,
-		Concurrency:    grantPlan.Concurrency,
-		RateMultiplier: grantPlan.RateMultiplier,
-		RPMLimit:       NewUserRPMLimit,
-		Status:         StatusActive,
+		Email:        email,
+		PasswordHash: hashedPassword,
+		Role:         RoleUser,
+		Balance:      grantPlan.Balance,
+		Concurrency:  grantPlan.Concurrency,
+		RPMLimit:     NewUserRPMLimit,
+		Status:       StatusActive,
 	}
 
 	if err := s.createUserAndClaimInvitation(ctx, user, invitationRedeemCode); err != nil {
@@ -542,16 +539,15 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			signupSource := inferLegacySignupSource(email)
 			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
-				Email:          email,
-				Username:       username,
-				PasswordHash:   hashedPassword,
-				Role:           RoleUser,
-				Balance:        grantPlan.Balance,
-				Concurrency:    grantPlan.Concurrency,
-				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       NewUserRPMLimit,
-				Status:         StatusActive,
-				SignupSource:   signupSource,
+				Email:        email,
+				Username:     username,
+				PasswordHash: hashedPassword,
+				Role:         RoleUser,
+				Balance:      grantPlan.Balance,
+				Concurrency:  grantPlan.Concurrency,
+				RPMLimit:     NewUserRPMLimit,
+				Status:       StatusActive,
+				SignupSource: signupSource,
 			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -661,16 +657,15 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			}
 			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
-				Email:          email,
-				Username:       username,
-				PasswordHash:   hashedPassword,
-				Role:           RoleUser,
-				Balance:        grantPlan.Balance,
-				Concurrency:    grantPlan.Concurrency,
-				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       NewUserRPMLimit,
-				Status:         StatusActive,
-				SignupSource:   signupSource,
+				Email:        email,
+				Username:     username,
+				PasswordHash: hashedPassword,
+				Role:         RoleUser,
+				Balance:      grantPlan.Balance,
+				Concurrency:  grantPlan.Concurrency,
+				RPMLimit:     NewUserRPMLimit,
+				Status:       StatusActive,
+				SignupSource: signupSource,
 			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {
@@ -774,13 +769,9 @@ func (s *AuthService) assignSubscriptions(ctx context.Context, userID int64, ite
 // newSignupGrantPlan 新用户注册时的初始值：由代码决定（site_features.go），不分注册来源。
 func (s *AuthService) newSignupGrantPlan() signupGrantPlan {
 	plan := signupGrantPlan{
-		Balance:        NewUserBalance,
-		Concurrency:    NewUserConcurrency,
-		RateMultiplier: 1,
-		Subscriptions:  NewUserDefaultSubscriptions(),
-	}
-	if s != nil && s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
-		plan.RateMultiplier = s.cfg.Default.RateMultiplier
+		Balance:       NewUserBalance,
+		Concurrency:   NewUserConcurrency,
+		Subscriptions: NewUserDefaultSubscriptions(),
 	}
 	return plan
 }

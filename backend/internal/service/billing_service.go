@@ -1879,15 +1879,6 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 
-// CalculateCostWithConfig 使用配置中的默认倍率计算费用
-func (s *BillingService) CalculateCostWithConfig(model string, tokens UsageTokens) (*CostBreakdown, error) {
-	multiplier := s.cfg.Default.RateMultiplier
-	if multiplier <= 0 {
-		multiplier = 1.0
-	}
-	return s.CalculateCost(model, tokens, multiplier)
-}
-
 // ListSupportedModels 列出所有支持的模型（现在总是返回true，因为有模糊匹配）
 func (s *BillingService) ListSupportedModels() []string {
 	models := make([]string, 0)
@@ -1906,21 +1897,6 @@ func (s *BillingService) IsModelSupported(model string) bool {
 		strings.Contains(modelLower, "opus") ||
 		strings.Contains(modelLower, "sonnet") ||
 		strings.Contains(modelLower, "haiku")
-}
-
-// GetEstimatedCost 估算费用（用于前端展示）
-func (s *BillingService) GetEstimatedCost(model string, estimatedInputTokens, estimatedOutputTokens int) (float64, error) {
-	tokens := UsageTokens{
-		InputTokens:  estimatedInputTokens,
-		OutputTokens: estimatedOutputTokens,
-	}
-
-	breakdown, err := s.CalculateCostWithConfig(model, tokens)
-	if err != nil {
-		return 0, err
-	}
-
-	return breakdown.ActualCost, nil
 }
 
 const (

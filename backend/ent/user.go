@@ -66,7 +66,7 @@ type User struct {
 	// RpmLimit holds the value of the "rpm_limit" field.
 	RpmLimit int `json:"rpm_limit,omitempty"`
 	// RateMultiplier holds the value of the "rate_multiplier" field.
-	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
+	RateMultiplier *float64 `json:"rate_multiplier,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -380,7 +380,8 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field rate_multiplier", values[i])
 			} else if value.Valid {
-				_m.RateMultiplier = value.Float64
+				_m.RateMultiplier = new(float64)
+				*_m.RateMultiplier = value.Float64
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -552,8 +553,10 @@ func (_m *User) String() string {
 	builder.WriteString("rpm_limit=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RpmLimit))
 	builder.WriteString(", ")
-	builder.WriteString("rate_multiplier=")
-	builder.WriteString(fmt.Sprintf("%v", _m.RateMultiplier))
+	if v := _m.RateMultiplier; v != nil {
+		builder.WriteString("rate_multiplier=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -67,12 +67,15 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	var envelope struct {
 		Data struct {
-			Description string            `json:"description"`
-			Models      []json.RawMessage `json:"models"`
+			Description           string            `json:"description"`
+			DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
+			Models                []json.RawMessage `json:"models"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
 	require.Equal(t, service.ModelPlazaDescription, envelope.Data.Description)
+	// 接口给官方价 + 新用户默认倍率（官方价的 1/15），未登录的展示价 = 官方价 × 它
+	require.InDelta(t, 1.0/15, envelope.Data.DefaultRateMultiplier, 1e-15)
 	require.Len(t, envelope.Data.Models, 2)
 	require.NotContains(t, w.Body.String(), `"groups"`, "the plaza is flat: no groups")
 
@@ -83,12 +86,7 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.JSONEq(t, `"openai"`, string(gpt["vendor"]))
 	require.JSONEq(t, `"token"`, string(gpt["billing_mode"]))
 	require.JSONEq(t, `["gpt-5.6-sol"]`, string(gpt["aliases"]))
-	var pricing struct {
-		InputPrice *float64 `json:"input_price"`
-	}
-	require.NoError(t, json.Unmarshal(gpt["pricing"], &pricing))
-	require.NotNil(t, pricing.InputPrice)
-	require.InDelta(t, 1e-6/15, *pricing.InputPrice, 1e-18, "广场展示售价 = 目录官方价 × 全站售价系数（1/15）")
+	require.Contains(t, string(gpt["pricing"]), `"input_price":0.000001`)
 	require.JSONEq(t, `{"timezone":"Asia/Shanghai","weekdays_only":true,"periods":[{"start_time":"09:00","end_time":"18:00","multiplier":1.5}]}`, string(gpt["time_pricing"]))
 
 	var sonnet map[string]json.RawMessage

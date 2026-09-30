@@ -49,8 +49,9 @@ type User struct {
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），计数键 rpm:u:{userID}:{min}。
 	RPMLimit int
 
-	// RateMultiplier 用户级计费倍率：用户价 = 目录价 × RateMultiplier；0 = 免费。
-	RateMultiplier float64
+	// RateMultiplier 管理员单独给这个用户设的计费倍率（相对官方价）；nil = 跟全站默认（NewUserRateMultiplier）。
+	// 计费一律经 UserRateMultiplier 取生效值，不要直接读这个字段。
+	RateMultiplier *float64
 
 	APIKeys       []APIKey
 	Subscriptions []UserSubscription

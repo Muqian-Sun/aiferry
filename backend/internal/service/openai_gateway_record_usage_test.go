@@ -80,7 +80,7 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
 	// 与 WS cyber / 正常请求口径一致（不再是 tokens=0 免费行）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:       &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: userRateForEffective(1.1)}},
+		APIKey:       &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: customRate(1.1)}},
 		Account:      &Account{ID: 3},
 		RequestID:    "rid-cyber-stream",
 		Model:        "gpt-5.1",
@@ -112,7 +112,7 @@ func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
 
 	// 非流式直接拒：上游未报 token，mark token 为 0 → cost 自然为 0，仍写一条 cyber 行（可见）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:    &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: userRateForEffective(1.1)}},
+		APIKey:    &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: customRate(1.1)}},
 		Account:   &Account{ID: 3},
 		RequestID: "rid-cyber-400",
 		Model:     "gpt-5.1",
@@ -132,10 +132,10 @@ func TestRecordCyberPolicyUsageLog_SkipsWhenIncomplete(t *testing.T) {
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	acct := &Account{ID: 3}
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                                                                         // APIKey nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"})                                                 // User nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: userRateForEffective(1.1)}}, Model: "gpt-5"}) // Account nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: userRateForEffective(1.1)}}, Account: acct})  // Model 空
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                                                               // APIKey nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"})                                       // User nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: customRate(1.1)}}, Model: "gpt-5"}) // Account nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: customRate(1.1)}}, Account: acct})  // Model 空
 	require.Equal(t, 0, usageRepo.calls, "APIKey/User/Account 缺失或 Model 空时跳过，不记不扣费")
 }
 
@@ -202,7 +202,6 @@ func (s *openAIRecordUsageAPIKeyQuotaStub) UpdateRateLimitUsage(ctx context.Cont
 
 func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *OpenAIGatewayService {
 	cfg := &config.Config{}
-	cfg.Default.RateMultiplier = 1.1
 	svc := NewOpenAIGatewayService(
 		nil,
 		usageRepo,
@@ -270,7 +269,7 @@ func TestOpenAIGatewayServiceRecordUsage_ZeroUsageStillWritesUsageLog(t *testing
 			Duration:  time.Second,
 		},
 		APIKey:        &APIKey{ID: 1000, Quota: 100},
-		User:          &User{ID: 2000, RateMultiplier: userRateForEffective(1)},
+		User:          &User{ID: 2000, RateMultiplier: customRate(1)},
 		Account:       &Account{ID: 3000, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
 	})
@@ -323,7 +322,7 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 			Duration: time.Second,
 		},
 		APIKey:        &APIKey{ID: 1002, Quota: 100},
-		User:          &User{ID: 2002, RateMultiplier: userRateForEffective(1)},
+		User:          &User{ID: 2002, RateMultiplier: customRate(1)},
 		Account:       &Account{ID: 3002, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
 	})
@@ -375,7 +374,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserRateMultiplier(t *testing.T) {
 		APIKey: &APIKey{
 			ID: 1001,
 		},
-		User:    &User{ID: 2001, RateMultiplier: userRateForEffective(userRate)},
+		User:    &User{ID: 2001, RateMultiplier: customRate(userRate)},
 		Account: &Account{ID: 3001},
 	})
 
@@ -410,7 +409,7 @@ func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) 
 		APIKey: &APIKey{
 			ID: 1002,
 		},
-		User:             &User{ID: 2002, RateMultiplier: userRateForEffective(1)},
+		User:             &User{ID: 2002, RateMultiplier: customRate(1)},
 		Account:          &Account{ID: 3002},
 		InboundEndpoint:  " /v1/chat/completions ",
 		UpstreamEndpoint: " /v1/responses ",
@@ -442,7 +441,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateUsageLogSkipsBilling(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1004},
-		User:    &User{ID: 2004, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2004, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3004},
 	})
 
@@ -475,7 +474,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateBillingKeySkipsBillingWithRepo
 			ID:    10045,
 			Quota: 100,
 		},
-		User:          &User{ID: 20045, RateMultiplier: userRateForEffective(1.1)},
+		User:          &User{ID: 20045, RateMultiplier: customRate(1.1)},
 		Account:       &Account{ID: 30045},
 		APIKeyService: quotaSvc,
 	})
@@ -503,7 +502,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsWhenUsageLogCreateReturnsError(t *
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 10041},
-		User:    &User{ID: 20041, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20041, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30041},
 	})
 
@@ -534,7 +533,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t 
 			ID:    10043,
 			Quota: 100,
 		},
-		User:          &User{ID: 20043, RateMultiplier: userRateForEffective(1.1)},
+		User:          &User{ID: 20043, RateMultiplier: customRate(1.1)},
 		Account:       &Account{ID: 30043},
 		APIKeyService: quotaSvc,
 	})
@@ -568,7 +567,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T
 			ID:    10042,
 			Quota: 100,
 		},
-		User:          &User{ID: 20042, RateMultiplier: userRateForEffective(1.1)},
+		User:          &User{ID: 20042, RateMultiplier: customRate(1.1)},
 		Account:       &Account{ID: 30042},
 		APIKeyService: quotaSvc,
 	})
@@ -601,7 +600,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingRepoUsesDetachedContext(t *testi
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10046},
-		User:    &User{ID: 20046, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20046, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30046},
 	})
 
@@ -629,7 +628,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloa
 			Duration: time.Second,
 		},
 		APIKey:             &APIKey{ID: 501, Quota: 100},
-		User:               &User{ID: 601, RateMultiplier: userRateForEffective(1.1)},
+		User:               &User{ID: 601, RateMultiplier: customRate(1.1)},
 		Account:            &Account{ID: 701},
 		RequestPayloadHash: payloadHash,
 	})
@@ -657,7 +656,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesFallbackRequestIDForBillingAndUsage
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10047},
-		User:    &User{ID: 20047, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20047, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30047},
 	})
 
@@ -687,7 +686,7 @@ func TestOpenAIGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamReque
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10049},
-		User:    &User{ID: 20049, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20049, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30049},
 	})
 
@@ -718,7 +717,7 @@ func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClien
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10050},
-		User:    &User{ID: 20050, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20050, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30050},
 	})
 
@@ -747,7 +746,7 @@ func TestOpenAIGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10050},
-		User:    &User{ID: 20050, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20050, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30050},
 	})
 
@@ -777,7 +776,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10048},
-		User:    &User{ID: 20048, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20048, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30048},
 	})
 
@@ -812,7 +811,7 @@ func TestOpenAIGatewayServiceRecordUsage_UpdatesAPIKeyQuotaWhenConfigured(t *tes
 			ID:    1005,
 			Quota: 100,
 		},
-		User:          &User{ID: 2005, RateMultiplier: userRateForEffective(1.1)},
+		User:          &User{ID: 2005, RateMultiplier: customRate(1.1)},
 		Account:       &Account{ID: 3005},
 		APIKeyService: quotaSvc,
 	})
@@ -842,7 +841,7 @@ func TestOpenAIGatewayServiceRecordUsage_ClampsActualInputTokensToZero(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1006},
-		User:    &User{ID: 2006, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2006, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3006},
 	})
 
@@ -877,7 +876,7 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1056},
-		User:    &User{ID: 2056, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2056, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3056},
 	})
 
@@ -908,7 +907,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *t
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 1031},
-		User:    &User{ID: 2031, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2031, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3031, Platform: PlatformGrok, Type: AccountTypeOAuth},
 	})
 	require.NoError(t, err)
@@ -934,7 +933,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *t
 			Duration:    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1015},
-		User:    &User{ID: 2015, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2015, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3015},
 	})
 
@@ -965,7 +964,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierFlexHalvesCost(t *testing.T)
 			Duration:    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1016},
-		User:    &User{ID: 2016, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2016, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3016},
 	})
 
@@ -1046,7 +1045,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesRequestedModelAndUpstreamModelMetad
 			FirstTokenMs: func() *int { v := 120; return &v }(),
 		},
 		APIKey:    &APIKey{ID: 10},
-		User:      &User{ID: 20, RateMultiplier: userRateForEffective(1.2)},
+		User:      &User{ID: 20, RateMultiplier: customRate(1.2)},
 		Account:   &Account{ID: 30},
 		UserAgent: "codex-cli/1.0",
 		IPAddress: "127.0.0.1",
@@ -1092,7 +1091,7 @@ func TestOpenAIGatewayServiceRecordUsage_PersistsRequestedReasoningEffort(t *tes
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30},
 	})
 
@@ -1122,7 +1121,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *
 			Duration: time.Second,
 		},
 		APIKey:         &APIKey{ID: 10},
-		User:           &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:           &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account:        &Account{ID: 30},
 		RequestedModel: "gpt-5.6-sol",
 	})
@@ -1150,7 +1149,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstrea
 			Duration:      time.Second,
 		},
 		APIKey:         &APIKey{ID: 10},
-		User:           &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:           &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account:        &Account{ID: 30},
 		RequestedModel: "gpt-5.6-sol",
 	})
@@ -1187,7 +1186,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsMappedRequestsUsingRequestedModel(
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30},
 	})
 
@@ -1224,7 +1223,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelMappedDoesNotOverrideBillingMode
 			Duration:      time.Second,
 		},
 		APIKey:         &APIKey{ID: 10},
-		User:           &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:           &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account:        &Account{ID: 30},
 		RequestedModel: "glm",
 	})
@@ -1262,7 +1261,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponsesMappedBillingModelBillsMappedM
 			Duration:      time.Second,
 		},
 		APIKey:         &APIKey{ID: 10},
-		User:           &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:           &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account:        &Account{ID: 30},
 		RequestedModel: "gpt-5.4",
 	})
@@ -1298,7 +1297,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsCompactOpenAIModelAlias(t *testing
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30},
 	})
 
@@ -1335,7 +1334,7 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToUpstreamModelWhenPrimaryUnpr
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30},
 	})
 
@@ -1360,7 +1359,7 @@ func TestOpenAIGatewayServiceRecordUsage_UnpricedTokenModelFallsBackToZeroCostUs
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 20, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 30},
 	})
 
@@ -1391,7 +1390,7 @@ func TestOpenAIGatewayServiceRecordUsage_SubscriptionBillingSetsSubscriptionFiel
 			Duration:  time.Second,
 		},
 		APIKey:       &APIKey{ID: 100},
-		User:         &User{ID: 200, RateMultiplier: userRateForEffective(1)},
+		User:         &User{ID: 200, RateMultiplier: customRate(1)},
 		Account:      &Account{ID: 300},
 		Subscription: subscription,
 	})
@@ -1420,7 +1419,7 @@ func TestOpenAIGatewayServiceRecordUsage_SimpleModeSkipsBillingAfterPersist(t *t
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 1000},
-		User:    &User{ID: 2000, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2000, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3000},
 	})
 
@@ -1446,7 +1445,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 			Duration:   time.Second,
 		},
 		APIKey:  &APIKey{ID: 1007},
-		User:    &User{ID: 2007, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2007, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3007},
 	})
 
@@ -1475,7 +1474,7 @@ func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndP
 		APIKey: &APIKey{
 			ID: 11201,
 		},
-		User:    &User{ID: 21201, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 21201, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 31201},
 	})
 
@@ -1514,7 +1513,7 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 		APIKey: &APIKey{
 			ID: 11202,
 		},
-		User:    &User{ID: 21202, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 21202, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 31202},
 	})
 
@@ -1557,7 +1556,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTo
 		APIKey: &APIKey{
 			ID: 1008,
 		},
-		User:    &User{ID: 2008, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 2008, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 3008},
 	})
 
@@ -1590,7 +1589,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 		APIKey: &APIKey{
 			ID: 10121,
 		},
-		User:    &User{ID: 20121, RateMultiplier: userRateForEffective(0.15)},
+		User:    &User{ID: 20121, RateMultiplier: customRate(0.15)},
 		Account: &Account{ID: 30121},
 	})
 
@@ -1625,7 +1624,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.
 		APIKey: &APIKey{
 			ID: 10125,
 		},
-		User:    &User{ID: 20125, RateMultiplier: userRateForEffective(0.2)},
+		User:    &User{ID: 20125, RateMultiplier: customRate(0.2)},
 		Account: &Account{ID: 30125},
 	})
 
@@ -1659,7 +1658,7 @@ func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 		APIKey: &APIKey{
 			ID: 10126,
 		},
-		User:    &User{ID: 20126, RateMultiplier: userRateForEffective(0.25)},
+		User:    &User{ID: 20126, RateMultiplier: customRate(0.25)},
 		Account: &Account{ID: 30126, Platform: PlatformGrok},
 	})
 
@@ -1700,7 +1699,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesSeededImagineEntry(t *test
 		APIKey: &APIKey{
 			ID: 101261,
 		},
-		User:    &User{ID: 201261, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 201261, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 301261, Platform: PlatformGrok},
 	})
 
@@ -1741,7 +1740,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoWithTokenChannelPricingKeepsVi
 		APIKey: &APIKey{
 			ID: 10132,
 		},
-		User:    &User{ID: 20132, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 20132, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 30132, Platform: PlatformGrok},
 	})
 
@@ -1774,7 +1773,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 		APIKey: &APIKey{
 			ID: 10123,
 		},
-		User:    &User{ID: 20123, RateMultiplier: userRateForEffective(0.15)},
+		User:    &User{ID: 20123, RateMultiplier: customRate(0.15)},
 		Account: &Account{ID: 30123},
 	})
 
@@ -1887,7 +1886,7 @@ func TestRecordUsageKeepsCompactionSemanticFlagOrthogonalToTransport(t *testing.
 			Usage:    OpenAIUsage{InputTokens: 100, OutputTokens: 10},
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 21, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 21, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 22},
 	}))
 
@@ -1912,7 +1911,7 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 			Usage:    OpenAIUsage{InputTokens: 100, OutputTokens: 0},
 		},
 		APIKey:  &APIKey{ID: 2},
-		User:    &User{ID: 1, RateMultiplier: userRateForEffective(1)},
+		User:    &User{ID: 1, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 3},
 	}
 	require.NoError(t, svc.RecordUsage(context.Background(), in))
@@ -1972,7 +1971,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 			Duration:                    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1017},
-		User:    &User{ID: 2017, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2017, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3017, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 
@@ -2008,7 +2007,7 @@ func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsFastBilling(t *tes
 					Duration:                    time.Second,
 				},
 				APIKey:  &APIKey{ID: 1019},
-				User:    &User{ID: 2019, RateMultiplier: userRateForEffective(1.1)},
+				User:    &User{ID: 2019, RateMultiplier: customRate(1.1)},
 				Account: &Account{ID: 3019, Platform: PlatformOpenAI, Type: accountType},
 			})
 
@@ -2049,7 +2048,7 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 			Duration:                    time.Second,
 		},
 		APIKey: &APIKey{ID: 1020},
-		User:   &User{ID: 2020, RateMultiplier: userRateForEffective(1.1)},
+		User:   &User{ID: 2020, RateMultiplier: customRate(1.1)},
 		Account: &Account{
 			ID: 3020, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			ParentAccountID:   &parentID,
@@ -2084,7 +2083,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 			Duration:                    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1018},
-		User:    &User{ID: 2018, RateMultiplier: userRateForEffective(1.1)},
+		User:    &User{ID: 2018, RateMultiplier: customRate(1.1)},
 		Account: &Account{ID: 3018, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 

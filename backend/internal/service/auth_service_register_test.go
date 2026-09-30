@@ -385,6 +385,8 @@ func TestAuthService_Register_Success(t *testing.T) {
 	require.Equal(t, StatusActive, user.Status)
 	require.Equal(t, NewUserBalance, user.Balance)
 	require.Equal(t, NewUserConcurrency, user.Concurrency)
+	require.Nil(t, user.RateMultiplier, "新用户不单独设倍率，跟全站默认")
+	require.InDelta(t, 1.0/15, UserRateMultiplier(user), 1e-15, "全站默认倍率 = 官方价的 1/15")
 	require.Len(t, repo.created, 1)
 	require.True(t, user.CheckPassword("password"))
 }

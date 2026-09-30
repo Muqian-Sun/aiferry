@@ -121,7 +121,7 @@ func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
 		err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 			Result:  &ForwardResult{RequestID: "usage-state-gw", Model: "claude-sonnet-4-5", Usage: ClaudeUsage{InputTokens: 100, OutputTokens: 50}, Duration: time.Second},
 			APIKey:  &APIKey{ID: 1},
-			User:    &User{ID: 2, RateMultiplier: 1},
+			User:    &User{ID: 2, RateMultiplier: customRate(1)},
 			Account: account(),
 		})
 		require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result:  &OpenAIForwardResult{RequestID: "usage-state-oa", Model: "gpt-5.1", Usage: OpenAIUsage{InputTokens: 100, OutputTokens: 50}, Duration: time.Second},
 			APIKey:  &APIKey{ID: 1},
-			User:    &User{ID: 2, RateMultiplier: 1},
+			User:    &User{ID: 2, RateMultiplier: customRate(1)},
 			Account: account(),
 		})
 		require.NoError(t, err)

@@ -271,7 +271,9 @@ export default {
         rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制',
         newUserDefaultPlaceholder: '留空按新用户默认值',
         rateMultiplier: '计费倍率',
-        rateMultiplierHint: '用户实付 = 官方价 × 1/15 × 倍率；0 为免费'
+        rateMultiplierHint: '用户实付 = 官方价 × 倍率；只给少数用户单独设，0 为免费',
+        rateMultiplierDefaultPlaceholder: '留空跟全站默认（官方价的 1/15）',
+        rateMultiplierDefault: '默认'
       },
       adjustBalance: '调整余额',
       adjustConcurrency: '调整并发数',

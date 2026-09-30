@@ -1,7 +1,7 @@
 /**
  * Model Plaza API（公开端点，对所有人开放，没有开关）。
- * 平铺的上架模型目录：每个条目带目录标价（USD / token）、计费模式、分时倍率与别名。
- * 用户价 = 标价 × 用户倍率（`User.rate_multiplier`），倍率不在这个接口里。
+ * 平铺的上架模型目录：每个条目带目录官方价（USD / token）、计费模式、分时倍率与别名。
+ * 展示价 = 官方价 × 用户倍率（`User.rate_multiplier`）；未登录按 `default_rate_multiplier`（新用户默认倍率，官方价的 1/15）。
  */
 
 import { apiClient } from './client'
@@ -75,6 +75,8 @@ export interface PlazaModel {
 export interface ModelPlazaResponse {
   /** 管理员配置的全局价格说明（Markdown）。 */
   description: string
+  /** 新用户默认倍率（相对官方价，= 1/15）：未登录时展示价 = 官方价 × 它。 */
+  default_rate_multiplier: number
   models: PlazaModel[]
 }
 

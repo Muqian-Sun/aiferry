@@ -32,7 +32,7 @@ func (r *keyBillingRouteAPIKeyRepo) GetByKeyForAuth(_ context.Context, key strin
 
 func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, string) {
 	gin.SetMode(gin.TestMode)
-	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: 0.75}
+	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: customRate(0.75)}
 	apiKey := &service.APIKey{
 		ID:     100,
 		UserID: user.ID,
@@ -114,7 +114,7 @@ func TestGatewayRoutesKeyBillingInfoEndToEnd(t *testing.T) {
 		var body map[string]any
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 		require.Equal(t, "sub2api.key_billing", body["object"])
-		require.InDelta(t, 0.75/15, body["effective_rate_multiplier"], 1e-12, "相对官方价的生效倍率 = 用户倍率 × 全站售价系数")
+		require.Equal(t, 0.75, body["effective_rate_multiplier"])
 	})
 
 	t.Run("simple mode", func(t *testing.T) {

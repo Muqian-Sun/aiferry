@@ -5,7 +5,7 @@ export default {
       revenue: 'Revenue',
       cost: 'Cost',
       profit: 'Profit',
-      revenueHint: 'Charged to users: official price × 1/15 × user rate',
+      revenueHint: 'Charged to users: official price × user rate',
       costHint: 'Paid to upstream channels: official price × channel rate (upstream list price relative to official)',
       profitHint: 'Revenue − cost'
     },

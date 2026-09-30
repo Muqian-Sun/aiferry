@@ -238,6 +238,7 @@ export default {
       vendorTabsLabel: '厂商',
       priceUnit: '价格单位：美元 / 百万 Token',
       yourPriceApplied: '已按你的账户倍率 ×{multiplier} 折算',
+      defaultPriceApplied: '已按新用户默认倍率 ×{multiplier}（官方价的 1/15）折算',
       multiplierNote: '你的账户倍率是 {multiplier}。',
       timePricing: '分时',
       weekdaysOnly: '仅工作日',
@@ -253,7 +254,7 @@ export default {
         perImage: '每张',
         perSecond: '每秒'
       },
-      priceNote: '价格为本站目录标价。你的实付 = 标价 × 账户倍率，逐条记录在用量页。',
+      priceNote: '展示价 = 官方价 × 账户倍率，实付逐条记录在用量页。',
       copyId: '复制模型 ID',
       copied: '已复制',
       empty: '暂无可用模型',

@@ -450,6 +450,12 @@ func (_u *UserUpdate) AddRateMultiplier(v float64) *UserUpdate {
 	return _u
 }
 
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (_u *UserUpdate) ClearRateMultiplier() *UserUpdate {
+	_u.mutation.ClearRateMultiplier()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdate) AddAPIKeyIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1014,6 +1020,9 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(user.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.RateMultiplierCleared() {
+		_spec.ClearField(user.FieldRateMultiplier, field.TypeFloat64)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1898,6 +1907,12 @@ func (_u *UserUpdateOne) AddRateMultiplier(v float64) *UserUpdateOne {
 	return _u
 }
 
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (_u *UserUpdateOne) ClearRateMultiplier() *UserUpdateOne {
+	_u.mutation.ClearRateMultiplier()
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdateOne) AddAPIKeyIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2492,6 +2507,9 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(user.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.RateMultiplierCleared() {
+		_spec.ClearField(user.FieldRateMultiplier, field.TypeFloat64)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

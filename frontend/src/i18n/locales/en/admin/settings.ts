@@ -37,7 +37,7 @@ export default {
       },
       profitControl: {
         title: 'Minimum margin',
-        description: 'Channels that cannot reach the margin are not scheduled: resources whose rate multiplier exceeds 1/15 × user multiplier × (1 − minimum margin) are left out (both relative to the official price). One site-wide setting, applies to every resource; 0 turns it off.',
+        description: 'Channels that cannot reach the margin are not scheduled: resources whose rate multiplier exceeds user multiplier × (1 − minimum margin) are left out (both relative to the official price). One site-wide setting, applies to every resource; 0 turns it off.',
         minMargin: 'Minimum margin (fraction, 0.30 = 30%)',
         hint: '0 turns it off; at most 0.99.'
       },

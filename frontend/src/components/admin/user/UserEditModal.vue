@@ -69,11 +69,13 @@
       <div>
         <label class="input-label">{{ t('admin.users.form.rateMultiplier') }}</label>
         <input
-          v-model.number="form.rate_multiplier"
+          v-model="form.rate_multiplier"
           type="number"
           min="0"
-          step="0.01"
+          step="any"
           class="input"
+          :placeholder="t('admin.users.form.rateMultiplierDefaultPlaceholder')"
+          data-testid="user-rate-multiplier"
         />
         <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
       </div>
@@ -123,13 +125,14 @@ const form = reactive({
   role: 'user' as AdminUser['role'],
   concurrency: 1,
   rpm_limit: 0,
-  rate_multiplier: 1,
+  // 单独设的倍率；留空 = 跟全站默认（官方价的 1/15）
+  rate_multiplier: '' as string | number,
   customAttributes: {} as UserAttributeValuesMap
 })
 
 watch(() => props.user, (u) => {
   if (u) {
-    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', role: u.role || 'user', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, rate_multiplier: u.rate_multiplier ?? 1, customAttributes: {} })
+    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', role: u.role || 'user', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, rate_multiplier: u.custom_rate_multiplier ?? '', customAttributes: {} })
     passwordCopied.value = false
   }
 }, { immediate: true })
@@ -160,7 +163,11 @@ const handleUpdateUser = async () => {
   const userId = props.user.id
   submitting.value = true
   try {
-    const data: any = { email: form.email, username: form.username, notes: form.notes, role: form.role, concurrency: form.concurrency, rpm_limit: form.rpm_limit, rate_multiplier: form.rate_multiplier }
+    const data: any = { email: form.email, username: form.username, notes: form.notes, role: form.role, concurrency: form.concurrency, rpm_limit: form.rpm_limit }
+    // 倍率留空 = 改回全站默认；填了就单独设
+    const customRate = String(form.rate_multiplier).trim()
+    if (customRate === '') data.use_default_rate_multiplier = true
+    else data.rate_multiplier = Number(customRate)
     if (form.password.trim()) data.password = form.password.trim()
     // 提升为管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.update(userId, data))

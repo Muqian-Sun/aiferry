@@ -31,8 +31,10 @@ type User struct {
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
-	// RateMultiplier 用户级计费倍率：用户价 = 目录价 × RateMultiplier；0 = 免费。
+	// RateMultiplier 生效的计费倍率（相对官方价）：用户价 = 目录官方价 × 它；0 = 免费。
 	RateMultiplier float64 `json:"rate_multiplier"`
+	// CustomRateMultiplier 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）。
+	CustomRateMultiplier *float64 `json:"custom_rate_multiplier"`
 
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`

@@ -29,7 +29,7 @@ func profitControlTestSettingService(t *testing.T, minMargin float64) *SettingSe
 // gatewayProfitTestContext 模拟认证后的请求上下文：D 取用户倍率（这里用夹具分组的数当用户倍率，
 // 分组倍率本身不再参与）。
 func gatewayProfitTestContext() context.Context {
-	ctx := WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: userRateForEffective(gatewayProfitTestUserRate)})
+	ctx := WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: customRate(gatewayProfitTestUserRate)})
 	ctx, _ = WithGatewayTokenRequestPricing(ctx)
 	return ctx
 }

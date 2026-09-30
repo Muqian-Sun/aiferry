@@ -1,6 +1,6 @@
 export default {
   modelCatalog: {
-    description: 'Official model prices and aliases. The user site sells at 1/15 of the official price (times the user rate); channel cost = official price × channel rate.',
+    description: 'Official model prices and aliases. Users pay official price × user rate (1/15 by default for new users); channel cost = official price × channel rate.',
     search: 'Search by model id, display name, vendor or alias',
     create: 'New model',
     noMatch: 'No entries match',

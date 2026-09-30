@@ -1645,10 +1645,9 @@ func (c *Config) validateCaptchaConfig() error {
 }
 
 type DefaultConfig struct {
-	AdminEmail     string  `mapstructure:"admin_email"`
-	AdminPassword  string  `mapstructure:"admin_password"`
-	APIKeyPrefix   string  `mapstructure:"api_key_prefix"`
-	RateMultiplier float64 `mapstructure:"rate_multiplier"`
+	AdminEmail    string `mapstructure:"admin_email"`
+	AdminPassword string `mapstructure:"admin_password"`
+	APIKeyPrefix  string `mapstructure:"api_key_prefix"`
 }
 
 type RateLimitConfig struct {
@@ -2181,7 +2180,6 @@ func setDefaults() {
 	viper.SetDefault("default.admin_email", "")
 	viper.SetDefault("default.admin_password", "")
 	viper.SetDefault("default.api_key_prefix", "sk-")
-	viper.SetDefault("default.rate_multiplier", 1.0)
 
 	// RateLimit
 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)

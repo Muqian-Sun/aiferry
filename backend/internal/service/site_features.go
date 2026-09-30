@@ -79,6 +79,10 @@ const (
 	NewUserBalance = 0.0
 	// NewUserRPMLimit 新用户默认每分钟请求数上限，0 = 不限。
 	NewUserRPMLimit = 0
+	// NewUserRateMultiplier 全站默认计费倍率：官方价的十五分之一（muqian 2026-09-29 / 30）。
+	// 用户倍率直接相对官方价：实付 = 目录官方价 × 用户倍率。没单独设倍率的用户（绝大多数）都按它，
+	// 未登录时模型广场的展示价也按它；只有少数用户由管理员单独设（users.rate_multiplier 非空）。
+	NewUserRateMultiplier = 1.0 / 15
 )
 
 // newUserDefaultSubscriptions 新用户（自助注册、后台新建）自动赠送的订阅：写死为空（2026-09-26 定）。
@@ -115,10 +119,3 @@ func TablePageSizeOptions() []int { return []int{10, 20, 50, 100} }
 
 // 以下站点功能前端不再展示（方案定：删），值固定为空：站点副标题、自定义首页内容、简洁首页、
 // 隐藏 CCS 导入按钮、自定义菜单、自定义端点。功能代码保留，公开设置里对应字段恒为空值。
-
-// 全站售价（muqian 2026-09-29：「我们的定价统一为官方价格的十五分之一」）。
-//
-// 模型目录存的是官方价；用户实付 = 官方价 × SalePriceRatio × 用户倍率，在 UserRateMultiplier 这一个口子里乘上，
-// 计费、利润门、用量记录（rate_multiplier 记的是生效倍率）、下游计费查询都走同一口径；模型广场展示的价格也按它折算。
-// 渠道成本 = 官方价 × 渠道倍率（渠道倍率 = 上游刊定价相对官方价的折扣，管理员手填），不经过这个系数。
-const SalePriceRatio = 1.0 / 15

@@ -622,10 +622,6 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
-	if _, ok := _c.mutation.RateMultiplier(); !ok {
-		v := user.DefaultRateMultiplier
-		_c.mutation.SetRateMultiplier(v)
-	}
 	return nil
 }
 
@@ -714,9 +710,6 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "User.rpm_limit"`)}
-	}
-	if _, ok := _c.mutation.RateMultiplier(); !ok {
-		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "User.rate_multiplier"`)}
 	}
 	return nil
 }
@@ -843,7 +836,7 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(user.FieldRateMultiplier, field.TypeFloat64, value)
-		_node.RateMultiplier = value
+		_node.RateMultiplier = &value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1423,6 +1416,12 @@ func (u *UserUpsert) AddRateMultiplier(v float64) *UserUpsert {
 	return u
 }
 
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (u *UserUpsert) ClearRateMultiplier() *UserUpsert {
+	u.SetNull(user.FieldRateMultiplier)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1892,6 +1891,13 @@ func (u *UserUpsertOne) AddRateMultiplier(v float64) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateRateMultiplier() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (u *UserUpsertOne) ClearRateMultiplier() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearRateMultiplier()
 	})
 }
 
@@ -2530,6 +2536,13 @@ func (u *UserUpsertBulk) AddRateMultiplier(v float64) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateRateMultiplier() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (u *UserUpsertBulk) ClearRateMultiplier() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearRateMultiplier()
 	})
 }
 

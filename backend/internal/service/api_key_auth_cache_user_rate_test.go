@@ -12,7 +12,7 @@ import (
 func TestAPIKeyAuthSnapshot_KeepsUserRateMultiplier(t *testing.T) {
 	apiKey := &APIKey{
 		ID: 83, UserID: 41, Key: "sk-user-rate-roundtrip", Status: StatusActive,
-		User: &User{ID: 41, Status: StatusActive, RateMultiplier: 0.5},
+		User: &User{ID: 41, Status: StatusActive, RateMultiplier: customRate(0.5)},
 	}
 	svc := &APIKeyService{}
 
@@ -25,5 +25,5 @@ func TestAPIKeyAuthSnapshot_KeepsUserRateMultiplier(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, used)
 	require.NotNil(t, materialized.User)
-	require.Equal(t, 0.5, materialized.User.RateMultiplier)
+	require.Equal(t, 0.5, *materialized.User.RateMultiplier)
 }
