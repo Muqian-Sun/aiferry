@@ -8,9 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// channelMonitorV2RepoStub 记下最近一次读数收到的配置（看上架名单带没带上）。
+// channelMonitorV2RepoStub 记下最近一次读数收到的配置（看上架名单带没带上）与渠道读数的模型筛选。
 type channelMonitorV2RepoStub struct {
-	cfg ChannelMonitorV2Config
+	cfg   ChannelMonitorV2Config
+	model string
 }
 
 func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, cfg ChannelMonitorV2Config) (*ChannelMonitorV2Snapshot, error) {
@@ -20,6 +21,10 @@ func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonit
 func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, cfg ChannelMonitorV2Config) (*ChannelMonitorV2Matrix, error) {
 	s.cfg = cfg
 	return &ChannelMonitorV2Matrix{}, nil
+}
+func (s *channelMonitorV2RepoStub) GetChannels(_ context.Context, _ ChannelMonitorV2Filter, cfg ChannelMonitorV2Config, model string) (*ChannelMonitorV2Channels, error) {
+	s.cfg, s.model = cfg, model
+	return &ChannelMonitorV2Channels{}, nil
 }
 func (s *channelMonitorV2RepoStub) GetAggregationWatermark(context.Context) (*ChannelMonitorV2AggregationWatermark, error) {
 	return &ChannelMonitorV2AggregationWatermark{}, nil
@@ -298,4 +303,21 @@ func TestChannelMonitorV2ConfigValues(t *testing.T) {
 	for _, category := range channelMonitorV2Config.IgnoredErrorCategories {
 		require.Contains(t, ChannelMonitorV2ErrorCategories, category)
 	}
+}
+
+// 管理站渠道状态：带上架名单与模型筛选读数，回填上架模型给筛选；没上架的模型名拒绝，不去查库。
+func TestChannelMonitorV2ChannelsFilterByListedModel(t *testing.T) {
+	repo := &channelMonitorV2RepoStub{}
+	svc := NewChannelMonitorV2Service(repo, channelMonitorV2CatalogStub{ids: []string{"gpt-5.5", "grok-4.6"}})
+
+	result, err := svc.Channels(context.Background(), ChannelMonitorV2Filter{}, " grok-4.6 ")
+	require.NoError(t, err)
+	require.Equal(t, "grok-4.6", repo.model)
+	require.Equal(t, []string{"gpt-5.5", "grok-4.6"}, repo.cfg.Roster.Models)
+	require.Equal(t, []string{"gpt-5.5", "grok-4.6"}, result.Models)
+
+	repo.model = "untouched"
+	_, err = svc.Channels(context.Background(), ChannelMonitorV2Filter{}, "claude-opus-4")
+	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidModel)
+	require.Equal(t, "untouched", repo.model, "没上架的模型不查库")
 }

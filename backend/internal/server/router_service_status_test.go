@@ -26,7 +26,7 @@ func (serviceStatusSettingRepoStub) Get(context.Context, string) (*service.Setti
 	return nil, service.ErrSettingNotFound
 }
 func (serviceStatusSettingRepoStub) GetValue(context.Context, string) (string, error) { return "", nil }
-func (serviceStatusSettingRepoStub) Set(context.Context, string, string) error      { return nil }
+func (serviceStatusSettingRepoStub) Set(context.Context, string, string) error        { return nil }
 func (serviceStatusSettingRepoStub) GetMultiple(context.Context, []string) (map[string]string, error) {
 	return map[string]string{}, nil
 }
@@ -56,11 +56,17 @@ func (serviceStatusMonitorRepoStub) GetMatrix(_ context.Context, _ service.Chann
 	return &service.ChannelMonitorV2Matrix{Coverage: serviceStatusStubCoverage(), Items: items}, nil
 }
 
+func (serviceStatusMonitorRepoStub) GetChannels(context.Context, service.ChannelMonitorV2Filter, service.ChannelMonitorV2Config, string) (*service.ChannelMonitorV2Channels, error) {
+	return &service.ChannelMonitorV2Channels{}, nil
+}
+
 func (serviceStatusMonitorRepoStub) GetAggregationWatermark(context.Context) (*service.ChannelMonitorV2AggregationWatermark, error) {
 	return &service.ChannelMonitorV2AggregationWatermark{}, nil
 }
 
-func (serviceStatusMonitorRepoStub) RecomputeRange(context.Context, time.Time, time.Time) error { return nil }
+func (serviceStatusMonitorRepoStub) RecomputeRange(context.Context, time.Time, time.Time) error {
+	return nil
+}
 
 // serviceStatusCatalogStub 上架目录只有 stub-model-a。
 type serviceStatusCatalogStub struct{}

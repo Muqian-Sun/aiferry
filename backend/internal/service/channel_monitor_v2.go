@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -14,7 +15,10 @@ const (
 	ChannelMonitorV2RefreshIntervalSeconds = 60
 )
 
-var ErrChannelMonitorV2InvalidRange = errors.New("invalid channel monitor v2 range")
+var (
+	ErrChannelMonitorV2InvalidRange = errors.New("invalid channel monitor v2 range")
+	ErrChannelMonitorV2InvalidModel = errors.New("invalid channel monitor v2 model")
+)
 
 // ChannelMonitorV2Config 渠道健康（用户站「服务状态」）一次读数用的配置。
 // 汇总与评分写在代码里（muqian 2026-09-30），管理站不再有配置页，见 channelMonitorV2Config；
@@ -230,10 +234,30 @@ type ChannelMonitorV2Matrix struct {
 	Items    []ChannelMonitorV2MatrixRow
 }
 
+// ChannelMonitorV2ChannelRow 管理站渠道状态的一行：一个渠道。AccountID 0 = 没选到渠道就失败的请求。
+type ChannelMonitorV2ChannelRow struct {
+	AccountID                    int64
+	Name, Platform, Type, Status string
+	Deleted                      bool
+	Metrics                      ChannelMonitorV2Metric
+	Health                       ChannelMonitorV2Health
+	Buckets                      []ChannelMonitorV2TrendPoint
+}
+
+// ChannelMonitorV2Channels 管理站渠道状态（muqian 2026-09-30）：全部渠道合计的数字与趋势 + 每个渠道一行；
+// Models 是上架模型，给按模型筛选用。
+type ChannelMonitorV2Channels struct {
+	ChannelMonitorV2Snapshot
+	Items  []ChannelMonitorV2ChannelRow
+	Models []string
+}
+
 type ChannelMonitorV2Repository interface {
 	GetSnapshot(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config) (*ChannelMonitorV2Snapshot, error)
 	// GetMatrix 逐模型（名单里每个模型一行）的总量与逐段数据。
 	GetMatrix(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config) (*ChannelMonitorV2Matrix, error)
+	// GetChannels 全部流量按渠道聚合；model 非空时只算请求名解析到这个上架模型的。
+	GetChannels(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, model string) (*ChannelMonitorV2Channels, error)
 	// GetAggregationWatermark loads durable backfill / coverage cursors for the
 	// passive aggregator (and bootstrap progress). Missing row → zero value, nil error.
 	GetAggregationWatermark(ctx context.Context) (*ChannelMonitorV2AggregationWatermark, error)
@@ -303,7 +327,8 @@ func ChannelMonitorV2BootstrapProgress(now, coveredFrom time.Time, hasData bool)
 	}
 }
 
-// ChannelMonitorV2Service 用户站「服务状态」的读数：全站快照与逐模型矩阵，对未登录访客公开。
+// ChannelMonitorV2Service 用户站「服务状态」的读数（全站快照与逐模型矩阵，对未登录访客公开）
+// 与管理站「渠道状态」的读数（按渠道）。
 type ChannelMonitorV2Service struct {
 	repo    ChannelMonitorV2Repository
 	catalog CatalogListingSource
@@ -373,6 +398,21 @@ func (s *ChannelMonitorV2Service) Snapshot(ctx context.Context, filter ChannelMo
 
 func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMonitorV2Filter) (*ChannelMonitorV2Matrix, error) {
 	return s.repo.GetMatrix(ctx, filter, s.readConfig(ctx))
+}
+
+// Channels 管理站渠道状态：全部流量按渠道聚合（不只上架模型），model 非空时只算请求名解析到这个上架模型的。
+func (s *ChannelMonitorV2Service) Channels(ctx context.Context, filter ChannelMonitorV2Filter, model string) (*ChannelMonitorV2Channels, error) {
+	cfg := s.readConfig(ctx)
+	model = strings.TrimSpace(model)
+	if model != "" && !slices.Contains(cfg.Roster.Models, model) {
+		return nil, fmt.Errorf("%w: %s", ErrChannelMonitorV2InvalidModel, model)
+	}
+	result, err := s.repo.GetChannels(ctx, filter, cfg, model)
+	if err != nil {
+		return nil, err
+	}
+	result.Models = cfg.Roster.Models
+	return result, nil
 }
 
 func ChannelMonitorV2HealthFor(metrics ChannelMonitorV2Metric) ChannelMonitorV2Health {

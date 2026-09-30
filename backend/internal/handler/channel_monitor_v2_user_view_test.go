@@ -68,6 +68,17 @@ func (monitorV2FixtureRepo) GetMatrix(context.Context, service.ChannelMonitorV2F
 	}, nil
 }
 
+func (monitorV2FixtureRepo) GetChannels(context.Context, service.ChannelMonitorV2Filter, service.ChannelMonitorV2Config, string) (*service.ChannelMonitorV2Channels, error) {
+	m := monitorV2FixtureMetric()
+	return &service.ChannelMonitorV2Channels{
+		ChannelMonitorV2Snapshot: service.ChannelMonitorV2Snapshot{Coverage: monitorV2FixtureCoverage(), Metrics: m, Health: service.ChannelMonitorV2HealthFor(m)},
+		Items: []service.ChannelMonitorV2ChannelRow{
+			{AccountID: 3, Name: "fenno · Chat", Platform: "openai", Type: "apikey", Status: "active", Metrics: m, Health: service.ChannelMonitorV2HealthFor(m), Buckets: []service.ChannelMonitorV2TrendPoint{monitorV2FixturePoint()}},
+			{AccountID: 0, Metrics: m, Health: service.ChannelMonitorV2HealthFor(m)},
+		},
+	}, nil
+}
+
 func (monitorV2FixtureRepo) GetAggregationWatermark(context.Context) (*service.ChannelMonitorV2AggregationWatermark, error) {
 	return &service.ChannelMonitorV2AggregationWatermark{}, nil
 }
@@ -191,4 +202,25 @@ func TestServiceStatusRejectsUnknownRange(t *testing.T) {
 		code, body := serveMonitorV2(t, handle, "/channel-monitor-v2/snapshot?range=15d")
 		require.Equal(t, http.StatusBadRequest, code, body)
 	}
+}
+
+// 管理站渠道状态：管理员能看请求数与渠道身份；上架模型给筛选；没上架的模型名直接 400。
+func TestAdminChannelStatusPayload(t *testing.T) {
+	h := newMonitorV2FixtureHandler()
+	code, body := serveMonitorV2(t, h.AdminChannels, "/admin/channel-status?range=24h")
+	require.Equal(t, http.StatusOK, code, body)
+	data := jsonObject(t, decodeMonitorV2Data(t, body))
+	require.EqualValues(t, 100, jsonObject(t, data["metrics"])["request_count"])
+	require.Equal(t, []any{"gpt-5"}, data["models"])
+	items := jsonArray(t, data["items"])
+	require.Len(t, items, 2)
+	channel := jsonObject(t, items[0])
+	require.EqualValues(t, 3, channel["account_id"])
+	require.Equal(t, "fenno · Chat", channel["name"])
+	require.Equal(t, "openai", channel["platform"])
+	require.InDelta(t, 0.9, jsonObject(t, channel["metrics"])["cache_hit_rate"], 1e-9)
+	require.Len(t, channel["buckets"], 1)
+
+	code, body = serveMonitorV2(t, h.AdminChannels, "/admin/channel-status?range=24h&model=not-listed")
+	require.Equal(t, http.StatusBadRequest, code, body)
 }

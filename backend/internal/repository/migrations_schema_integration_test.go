@@ -215,16 +215,17 @@ WHERE ns.nspname = 'public'
 		require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public."+table+"')").Scan(&regclass))
 		require.False(t, regclass.Valid, "表 %s 应随迁移 258 删掉", table)
 	}
-	// channel_monitor_v2 的主键去掉 group_id（迁移 252）、延迟分布再去掉 user_id（迁移 258）后重建：
+	// channel_monitor_v2 的主键去掉 group_id（迁移 252）、延迟分布再去掉 user_id（迁移 258）、
+	// 六张表都加渠道维度 account_id（迁移 259）后重建：
 	// 列组合写错的话 channel_monitor_v2_aggregation 的 UPSERT 会在运行时报
 	// "no unique or exclusion constraint matching the ON CONFLICT specification"。
 	for _, pk := range []struct{ table, cols string }{
-		{"channel_monitor_v2_metrics_1m", "bucket_start, platform, model"},
-		{"channel_monitor_v2_metrics_rollup", "bucket_seconds, bucket_start, platform, model"},
-		{"channel_monitor_v2_error_metrics_1m", "bucket_start, platform, model, error_category, taxonomy_version"},
-		{"channel_monitor_v2_error_metrics_rollup", "bucket_seconds, bucket_start, platform, model, error_category, taxonomy_version"},
-		{"channel_monitor_v2_latency_histograms_1m", "bucket_start, platform, model, metric, upper_bound_ms"},
-		{"channel_monitor_v2_latency_histograms_rollup", "bucket_seconds, bucket_start, platform, model, metric, upper_bound_ms"},
+		{"channel_monitor_v2_metrics_1m", "bucket_start, platform, model, account_id"},
+		{"channel_monitor_v2_metrics_rollup", "bucket_seconds, bucket_start, platform, model, account_id"},
+		{"channel_monitor_v2_error_metrics_1m", "bucket_start, platform, model, account_id, error_category, taxonomy_version"},
+		{"channel_monitor_v2_error_metrics_rollup", "bucket_seconds, bucket_start, platform, model, account_id, error_category, taxonomy_version"},
+		{"channel_monitor_v2_latency_histograms_1m", "bucket_start, platform, model, account_id, metric, upper_bound_ms"},
+		{"channel_monitor_v2_latency_histograms_rollup", "bucket_seconds, bucket_start, platform, model, account_id, metric, upper_bound_ms"},
 	} {
 		var cols sql.NullString
 		require.NoError(t, tx.QueryRowContext(context.Background(), `
@@ -233,7 +234,7 @@ WHERE ns.nspname = 'public'
 			JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON TRUE
 			JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
 			WHERE c.conrelid = $1::regclass AND c.contype = 'p'`, pk.table).Scan(&cols))
-		require.True(t, cols.Valid, "表 %s 应有主键（迁移 252 / 258 重建）", pk.table)
+		require.True(t, cols.Valid, "表 %s 应有主键（迁移 252 / 258 / 259 重建）", pk.table)
 		require.Equal(t, pk.cols, cols.String, "表 %s 的主键列组合", pk.table)
 	}
 
