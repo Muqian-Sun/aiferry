@@ -180,6 +180,7 @@ export default {
     subscriptions: '订阅',
     accounts: '渠道',
     proxies: '代理',
+    pricing: '价格',
     redeemCodes: '兑换码',
     ops: '运维',
     settings: '设置',

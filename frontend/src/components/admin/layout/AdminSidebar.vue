@@ -24,6 +24,7 @@ import {
   ChartIcon,
   CogIcon,
   CreditCardIcon,
+  CurrencyIcon,
   DashboardIcon,
   GlobeIcon,
   OrderIcon,
@@ -75,6 +76,8 @@ const sections = computed((): NavSection[] => {
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
         { path: '/channels/status', label: t('nav.channelStatus'), icon: SignalIcon },
         { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
+        // 官方价与上游价都在价格页改，给模型加渠道就是承接
+        { path: '/pricing', label: t('nav.pricing'), icon: CurrencyIcon },
         { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
       ],
     },

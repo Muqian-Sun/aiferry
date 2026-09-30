@@ -180,6 +180,7 @@ export default {
     subscriptions: 'Subscription',
     accounts: 'Channels',
     proxies: 'Proxies',
+    pricing: 'Pricing',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',
     settings: 'Settings',

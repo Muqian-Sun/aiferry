@@ -1,0 +1,88 @@
+export default {
+  pricing: {
+    description: 'Official prices and each channel’s upstream price. Adding a channel to a model makes that channel serve the model.',
+    views: {
+      model: 'By model',
+      channel: 'By channel'
+    },
+    searchModels: 'Search models or channels',
+    searchChannels: 'Search channels or models',
+    filters: {
+      vendor: 'Vendor',
+      status: 'Listing',
+      focus: 'Show only',
+      problems: 'With problems',
+      unsaved: 'Unsaved'
+    },
+    basis: 'Prices are $ / 1M tokens. Margin uses the default sale price (official × {rate}); minimum margin {margin} — the profit gate skips bindings below it.',
+    basisGateOff: 'Prices are $ / 1M tokens. Margin uses the default sale price (official × {rate}); the profit gate is off.',
+    unsavedBlocks: '{count} unsaved',
+    empty: 'No models or channels match',
+    loadFailed: 'Failed to load prices',
+    reload: 'Reload',
+    columns: {
+      channel: 'Channel',
+      model: 'Model',
+      input_price: 'Input',
+      output_price: 'Output',
+      cache_read_price: 'Cache read',
+      cache_write_price: 'Cache write 5m',
+      cache_write_1h_price: 'Cache write 1h',
+      segments: 'Segments',
+      margin: 'Margin',
+      status: 'Status',
+      actions: 'Actions'
+    },
+    official: 'Official',
+    officialHint: 'Sale price = official × user rate (default {rate})',
+    officialRef: 'Official {price}',
+    officialUnset: 'No official',
+    officialReadOnly: 'Official prices are for reference here; switch to “By model” to edit them.',
+    required: 'Required',
+    newRow: 'New',
+    noChannels: 'No channel serves this model yet. Use “Add channel” and fill in its upstream price.',
+    noModels: 'This channel serves no models yet. Use “Add model” and fill in the upstream price.',
+    noVendor: 'No vendor',
+    status: {
+      listed: 'Listed',
+      unlisted: 'Unlisted'
+    },
+    channelCount: '{count} channels',
+    modelCount: '{count} models',
+    priority: 'Priority {priority}',
+    segmentsNone: 'None',
+    segmentsCount: '{count} segments',
+    segmentAbove: 'Above',
+    segmentInherit: 'Same as 1st',
+    segmentAdd: 'Add segment',
+    segmentHint: 'The segment is picked by the request’s input tokens (input + cache write + cache read) and applies to the whole request. The row above is segment 1; blank prices fall back to segment 1.',
+    remove: 'Remove',
+    addChannel: 'Add channel',
+    addModel: 'Add model',
+    searchModel: 'Search models',
+    noMatch: 'Nothing to add',
+    copyFromSibling: 'Copy prices from same upstream',
+    fillFromPriceFile: 'Fill official price from price file',
+    priceFileMissing: 'The price file has no per-token price for this model',
+    marginAfterSave: 'After save',
+    gateSkips: 'Profit gate skips',
+    channelState: {
+      ok: 'Schedulable',
+      paused: 'Not schedulable now',
+      disabled: 'Disabled',
+      missing: 'Channel missing'
+    },
+    changes: '{count} changes',
+    undo: 'Undo',
+    saving: 'Saving…',
+    listSeparator: ', ',
+    issueSeparator: '; ',
+    issues: {
+      missing: '{fields} missing',
+      segment: 'segment {index}: {error}'
+    },
+    discardTitle: 'Discard unsaved changes?',
+    discardMessage: '{count} blocks have unsaved changes; continuing discards them.',
+    discard: 'Discard'
+  }
+}
