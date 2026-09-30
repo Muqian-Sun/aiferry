@@ -141,6 +141,19 @@ export const adminRoutes: RouteRecordRaw[] = [
       descriptionKey: 'admin.accounts.description'
     }
   },
+  // 渠道状态（muqian 2026-09-30）：按渠道看可用率 / 首字延迟 / 缓存命中率，数据与用户站服务状态同源
+  {
+    path: '/channels/status',
+    name: 'AdminChannelStatus',
+    component: () => import('@/views/admin/ChannelStatusView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Channel Status',
+      titleKey: 'nav.channelStatus',
+      descriptionKey: 'admin.channelStatus.description'
+    }
+  },
   // 新建 / 编辑渠道整页（A5-c）；侧栏按前缀匹配，/accounts/* 仍点亮「渠道」
   {
     path: '/accounts/new',

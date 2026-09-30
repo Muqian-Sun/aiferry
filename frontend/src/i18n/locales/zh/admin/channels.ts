@@ -1,4 +1,34 @@
 export default {
+    channelStatus: {
+      description: '按渠道看最近的可用率、首字延迟、缓存命中率与请求数，与用户站服务状态同一份统计',
+      allModels: '全部模型',
+      allPlatforms: '全部平台',
+      modelFilter: '按模型筛选',
+      platformFilter: '按平台筛选',
+      loadFailed: '渠道状态没有加载出来',
+      headline: {
+        healthy: '各渠道运行正常',
+        warning: '{count} 个渠道响应不稳定',
+        critical: '{count} 个渠道出现异常',
+        unknown: '这段时间请求太少，暂不下结论'
+      },
+      stats: { requests: '请求数' },
+      channels: {
+        title: '各渠道',
+        description: '有问题的排在前面；点渠道进编辑页。色条从左到右是时间，一格是一段，悬停看那一段的数字',
+        search: '搜索渠道',
+        empty: '还没有渠道',
+        noMatch: '没有匹配的渠道',
+        idle: '另有 {count} 个渠道这段时间没有请求',
+        showIdle: '展开',
+        hideIdle: '收起',
+        unrouted: '没选到渠道',
+        unroutedHint: '请求没分到任何渠道就失败了（如没有可用渠道）',
+        deleted: '已删除',
+        requests: '请求',
+        filter: { label: '按状态筛选', all: '全部', issues: '有问题 {count}', healthy: '正常 {count}' }
+      }
+    },
 
 
     riskControl: {

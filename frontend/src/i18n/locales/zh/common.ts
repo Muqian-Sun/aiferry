@@ -178,6 +178,7 @@ export default {
     accountSecurity: '账号安全',
     users: '用户',
     channels: '渠道',
+    channelStatus: '渠道状态',
     subscriptions: '订阅',
     accounts: '渠道',
     proxies: '代理',

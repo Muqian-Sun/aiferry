@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ func NewChannelMonitorV2Repository(db *sql.DB) service.ChannelMonitorV2Repositor
 
 type channelMonitorV2Fact struct {
 	BucketStart, Model                             string
+	AccountID                                      int64
 	Success, Errors                                int64
 	Input, Output, CacheCreation, CacheRead        int64
 	TTFTSum, TTFTCount, DurationSum, DurationCount int64
@@ -29,8 +31,16 @@ type channelMonitorV2Fact struct {
 
 type channelMonitorV2Histogram struct {
 	BucketStart, Model, Metric string
+	AccountID                  int64
 	UpperBound                 int64
 	Count                      int64
+}
+
+// channelMonitorV2Ignored 被忽略类别的错误数（不计入错误率），与事实同一套段对齐。
+type channelMonitorV2Ignored struct {
+	BucketStart, Model string
+	AccountID          int64
+	Count              int64
 }
 
 // channelMonitorV2RosterModel 请求名归到名单里的哪个模型；名单外（没上架的名字、没解析出模型的失败请求）不计。
@@ -42,81 +52,67 @@ func channelMonitorV2RosterModel(cfg service.ChannelMonitorV2Config, model strin
 	return cfg.Roster.Resolve(model)
 }
 
-func (r *channelMonitorV2Repository) GetSnapshot(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config) (*service.ChannelMonitorV2Snapshot, error) {
-	coverage, err := r.loadCoverage(ctx, filter)
-	if err != nil {
-		return nil, err
+// channelMonitorV2Group 一组（一个模型 / 一个渠道 / 整体）的累加：总量 + 逐段 + 被忽略的错误数。
+// 百分位由原始直方图现算（跨平台、跨别名、跨渠道的样本进同一个累加器），不是把已算好的分位数再平均。
+type channelMonitorV2Group struct {
+	total          *metricAccumulator
+	buckets        map[string]*metricAccumulator
+	ignoredTotal   int64
+	ignoredBuckets map[string]int64
+}
+
+func newChannelMonitorV2Group() *channelMonitorV2Group {
+	return &channelMonitorV2Group{total: newMetricAccumulator(), buckets: map[string]*metricAccumulator{}, ignoredBuckets: map[string]int64{}}
+}
+
+func (g *channelMonitorV2Group) bucket(start string) *metricAccumulator {
+	acc := g.buckets[start]
+	if acc == nil {
+		acc = newMetricAccumulator()
+		g.buckets[start] = acc
 	}
-	effectiveFilter := channelMonitorV2CommonCoverageFilter(filter, *coverage)
-	facts, err := r.loadFacts(ctx, effectiveFilter)
-	if err != nil {
-		return nil, err
-	}
-	histograms, err := r.loadHistograms(ctx, effectiveFilter)
-	if err != nil {
-		return nil, err
-	}
-	byBucket := map[string]*metricAccumulator{}
-	total := newMetricAccumulator()
-	for _, fact := range facts {
-		if _, ok := channelMonitorV2RosterModel(cfg, fact.Model); !ok {
-			continue
-		}
-		acc := byBucket[fact.BucketStart]
-		if acc == nil {
-			acc = newMetricAccumulator()
-			byBucket[fact.BucketStart] = acc
-		}
-		acc.addFact(fact)
-		total.addFact(fact)
-	}
-	for _, hist := range histograms {
-		if _, ok := channelMonitorV2RosterModel(cfg, hist.Model); !ok {
-			continue
-		}
-		if acc := byBucket[hist.BucketStart]; acc != nil {
-			acc.addHistogram(hist)
-		}
-		total.addHistogram(hist)
-	}
-	// Category-level ignored errors adjust error_rate without dropping volume.
-	ignored, err := r.loadIgnoredErrorCounts(ctx, effectiveFilter, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("load ignored error counts: %w", err)
-	}
-	ignoredByBucket := map[string]int64{}
-	var ignoredTotal int64
-	for _, buckets := range ignored {
-		for bucket, count := range buckets {
-			ignoredByBucket[bucket] += count
-			ignoredTotal += count
-		}
-	}
-	metrics := total.metric(channelMonitorV2CoveredMinutes(filter, *coverage))
-	applyIgnoredErrors(&metrics, ignoredTotal)
-	result := &service.ChannelMonitorV2Snapshot{Coverage: *coverage, Metrics: metrics, Health: service.ChannelMonitorV2HealthForWithThresholds(metrics, cfg.HealthThresholds), Trend: []service.ChannelMonitorV2TrendPoint{}}
-	keys := make([]string, 0, len(byBucket))
-	for key := range byBucket {
+	return acc
+}
+
+// result 总量与逐段（按段起点排序）的指标和档位；被忽略的错误只改错误率、不减量。
+func (g *channelMonitorV2Group) result(minutes, bucketMinutes float64, thresholds service.ChannelMonitorV2HealthThresholds) (service.ChannelMonitorV2Metric, service.ChannelMonitorV2Health, []service.ChannelMonitorV2TrendPoint) {
+	metrics := g.total.metric(minutes)
+	applyIgnoredErrors(&metrics, g.ignoredTotal)
+	keys := make([]string, 0, len(g.buckets))
+	for key := range g.buckets {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+	points := make([]service.ChannelMonitorV2TrendPoint, 0, len(keys))
 	for _, key := range keys {
-		bucket, _ := time.Parse(time.RFC3339Nano, key)
-		m := byBucket[key].metric(filter.Bucket.Minutes())
-		applyIgnoredErrors(&m, ignoredByBucket[key])
-		result.Trend = append(result.Trend, service.ChannelMonitorV2TrendPoint{BucketStart: bucket, Metrics: m, Health: service.ChannelMonitorV2HealthForWithThresholds(m, cfg.HealthThresholds)})
+		start, err := time.Parse(time.RFC3339Nano, key)
+		if err != nil {
+			continue
+		}
+		m := g.buckets[key].metric(bucketMinutes)
+		applyIgnoredErrors(&m, g.ignoredBuckets[key])
+		points = append(points, service.ChannelMonitorV2TrendPoint{BucketStart: start, Metrics: m, Health: service.ChannelMonitorV2HealthForWithThresholds(m, thresholds)})
 	}
-	return result, nil
+	return metrics, service.ChannelMonitorV2HealthForWithThresholds(metrics, thresholds), points
 }
 
-type channelMonitorV2MatrixAccumulator struct {
-	total   *metricAccumulator
-	buckets map[string]*metricAccumulator
+// channelMonitorV2Reading 一次读数：时间窗覆盖、整体、按键分组。
+type channelMonitorV2Reading struct {
+	coverage service.ChannelMonitorV2Coverage
+	minutes  float64
+	overall  *channelMonitorV2Group
+	groups   map[string]*channelMonitorV2Group
 }
 
-// GetMatrix 名单里每个模型一行（没有请求也在）：总量 + 逐段。
-// 百分位由原始直方图现算（同一模型跨平台、跨别名的样本进同一个累加器），不是把已算好的分位数再平均。
-func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config) (*service.ChannelMonitorV2Matrix, error) {
+// read 读一个时间窗的事实、延迟分布与被忽略的错误，按 keyOf（请求名、渠道）分组；
+// keyOf 返回 false 的行整体也不计。seed 里的键没有请求也有一组。
+func (r *channelMonitorV2Repository) read(
+	ctx context.Context,
+	filter service.ChannelMonitorV2Filter,
+	cfg service.ChannelMonitorV2Config,
+	seed []string,
+	keyOf func(model string, accountID int64) (string, bool),
+) (*channelMonitorV2Reading, error) {
 	coverage, err := r.loadCoverage(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -130,69 +126,155 @@ func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter servi
 	if err != nil {
 		return nil, err
 	}
+	ignored, err := r.loadIgnoredErrors(ctx, effectiveFilter, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("load ignored error counts: %w", err)
+	}
 
-	accs := make(map[string]*channelMonitorV2MatrixAccumulator, len(cfg.Roster.Models))
-	for _, model := range cfg.Roster.Models {
-		accs[model] = &channelMonitorV2MatrixAccumulator{total: newMetricAccumulator(), buckets: make(map[string]*metricAccumulator)}
+	reading := &channelMonitorV2Reading{coverage: *coverage, minutes: channelMonitorV2CoveredMinutes(filter, *coverage), overall: newChannelMonitorV2Group(), groups: map[string]*channelMonitorV2Group{}}
+	for _, key := range seed {
+		reading.groups[key] = newChannelMonitorV2Group()
+	}
+	groupOf := func(model string, accountID int64) *channelMonitorV2Group {
+		key, ok := keyOf(model, accountID)
+		if !ok {
+			return nil
+		}
+		g := reading.groups[key]
+		if g == nil {
+			g = newChannelMonitorV2Group()
+			reading.groups[key] = g
+		}
+		return g
 	}
 	for _, fact := range facts {
-		model, ok := channelMonitorV2RosterModel(cfg, fact.Model)
-		acc := accs[model]
-		if !ok || acc == nil {
+		g := groupOf(fact.Model, fact.AccountID)
+		if g == nil {
 			continue
 		}
-		bucket := acc.buckets[fact.BucketStart]
-		if bucket == nil {
-			bucket = newMetricAccumulator()
-			acc.buckets[fact.BucketStart] = bucket
+		for _, target := range []*channelMonitorV2Group{g, reading.overall} {
+			target.total.addFact(fact)
+			target.bucket(fact.BucketStart).addFact(fact)
 		}
-		acc.total.addFact(fact)
-		bucket.addFact(fact)
 	}
 	for _, histogram := range histograms {
-		model, ok := channelMonitorV2RosterModel(cfg, histogram.Model)
-		acc := accs[model]
-		if !ok || acc == nil {
+		g := groupOf(histogram.Model, histogram.AccountID)
+		if g == nil {
 			continue
 		}
-		acc.total.addHistogram(histogram)
-		if bucket := acc.buckets[histogram.BucketStart]; bucket != nil {
-			bucket.addHistogram(histogram)
-		}
-	}
-
-	ignored, err := r.loadIgnoredErrorCounts(ctx, effectiveFilter, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("load ignored error counts by model: %w", err)
-	}
-	result := &service.ChannelMonitorV2Matrix{Coverage: *coverage, Items: make([]service.ChannelMonitorV2MatrixRow, 0, len(accs))}
-	minutes := channelMonitorV2CoveredMinutes(filter, *coverage)
-	for model, acc := range accs {
-		var ignoredTotal int64
-		for _, count := range ignored[model] {
-			ignoredTotal += count
-		}
-		metrics := acc.total.metric(minutes)
-		applyIgnoredErrors(&metrics, ignoredTotal)
-		row := service.ChannelMonitorV2MatrixRow{Model: model, Metrics: metrics, Health: service.ChannelMonitorV2HealthForWithThresholds(metrics, cfg.HealthThresholds), Buckets: []service.ChannelMonitorV2TrendPoint{}}
-		bucketKeys := make([]string, 0, len(acc.buckets))
-		for bucket := range acc.buckets {
-			bucketKeys = append(bucketKeys, bucket)
-		}
-		sort.Strings(bucketKeys)
-		for _, bucketKey := range bucketKeys {
-			bucketStart, parseErr := time.Parse(time.RFC3339Nano, bucketKey)
-			if parseErr != nil {
-				continue
+		for _, target := range []*channelMonitorV2Group{g, reading.overall} {
+			target.total.addHistogram(histogram)
+			// 只进已有请求的段：没有事实的段不凭延迟分布单独出一段
+			if acc := target.buckets[histogram.BucketStart]; acc != nil {
+				acc.addHistogram(histogram)
 			}
-			bucketMetrics := acc.buckets[bucketKey].metric(filter.Bucket.Minutes())
-			applyIgnoredErrors(&bucketMetrics, ignored[model][bucketKey])
-			row.Buckets = append(row.Buckets, service.ChannelMonitorV2TrendPoint{BucketStart: bucketStart, Metrics: bucketMetrics, Health: service.ChannelMonitorV2HealthForWithThresholds(bucketMetrics, cfg.HealthThresholds)})
 		}
-		result.Items = append(result.Items, row)
+	}
+	for _, row := range ignored {
+		g := groupOf(row.Model, row.AccountID)
+		if g == nil {
+			continue
+		}
+		for _, target := range []*channelMonitorV2Group{g, reading.overall} {
+			target.ignoredTotal += row.Count
+			target.ignoredBuckets[row.BucketStart] += row.Count
+		}
+	}
+	return reading, nil
+}
+
+func (r *channelMonitorV2Repository) GetSnapshot(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config) (*service.ChannelMonitorV2Snapshot, error) {
+	reading, err := r.read(ctx, filter, cfg, nil, func(model string, _ int64) (string, bool) {
+		return channelMonitorV2RosterModel(cfg, model)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return channelMonitorV2Snapshot(reading, filter, cfg), nil
+}
+
+func channelMonitorV2Snapshot(reading *channelMonitorV2Reading, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config) *service.ChannelMonitorV2Snapshot {
+	metrics, health, trend := reading.overall.result(reading.minutes, filter.Bucket.Minutes(), cfg.HealthThresholds)
+	return &service.ChannelMonitorV2Snapshot{Coverage: reading.coverage, Metrics: metrics, Health: health, Trend: trend}
+}
+
+// GetMatrix 名单里每个模型一行（没有请求也在）：总量 + 逐段。
+func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config) (*service.ChannelMonitorV2Matrix, error) {
+	reading, err := r.read(ctx, filter, cfg, cfg.Roster.Models, func(model string, _ int64) (string, bool) {
+		return channelMonitorV2RosterModel(cfg, model)
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &service.ChannelMonitorV2Matrix{Coverage: reading.coverage, Items: make([]service.ChannelMonitorV2MatrixRow, 0, len(reading.groups))}
+	for model, g := range reading.groups {
+		metrics, health, buckets := g.result(reading.minutes, filter.Bucket.Minutes(), cfg.HealthThresholds)
+		result.Items = append(result.Items, service.ChannelMonitorV2MatrixRow{Model: model, Metrics: metrics, Health: health, Buckets: buckets})
 	}
 	sort.Slice(result.Items, func(i, j int) bool { return result.Items[i].Model < result.Items[j].Model })
 	return result, nil
+}
+
+// GetChannels 管理站渠道状态：全部流量按渠道聚合（0 = 没选到渠道就失败的请求），model 非空时只算请求名
+// 解析到这个上架模型的。没删的渠道没有请求也有一行；已删的渠道只在有请求时出现。
+func (r *channelMonitorV2Repository) GetChannels(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config, model string) (*service.ChannelMonitorV2Channels, error) {
+	accounts, err := r.loadChannelAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load channel accounts: %w", err)
+	}
+	seed := make([]string, 0, len(accounts))
+	for id, account := range accounts {
+		if !account.Deleted {
+			seed = append(seed, strconv.FormatInt(id, 10))
+		}
+	}
+	reading, err := r.read(ctx, filter, cfg, seed, func(raw string, accountID int64) (string, bool) {
+		if model != "" {
+			if resolved, ok := channelMonitorV2RosterModel(cfg, raw); !ok || resolved != model {
+				return "", false
+			}
+		}
+		return strconv.FormatInt(accountID, 10), true
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &service.ChannelMonitorV2Channels{ChannelMonitorV2Snapshot: *channelMonitorV2Snapshot(reading, filter, cfg), Items: make([]service.ChannelMonitorV2ChannelRow, 0, len(reading.groups))}
+	for key, g := range reading.groups {
+		id, _ := strconv.ParseInt(key, 10, 64)
+		metrics, health, buckets := g.result(reading.minutes, filter.Bucket.Minutes(), cfg.HealthThresholds)
+		row := service.ChannelMonitorV2ChannelRow{AccountID: id, Metrics: metrics, Health: health, Buckets: buckets}
+		if account, ok := accounts[id]; ok {
+			row.Name, row.Platform, row.Type, row.Status, row.Deleted = account.Name, account.Platform, account.Type, account.Status, account.Deleted
+		}
+		result.Items = append(result.Items, row)
+	}
+	sort.Slice(result.Items, func(i, j int) bool { return result.Items[i].AccountID < result.Items[j].AccountID })
+	return result, nil
+}
+
+type channelMonitorV2Account struct {
+	Name, Platform, Type, Status string
+	Deleted                      bool
+}
+
+// loadChannelAccounts 全部渠道（含已删的：历史请求还挂在它们名下）的名字、平台、类型与状态。
+func (r *channelMonitorV2Repository) loadChannelAccounts(ctx context.Context) (map[int64]channelMonitorV2Account, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, platform, type, status, deleted_at IS NOT NULL FROM accounts`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[int64]channelMonitorV2Account{}
+	for rows.Next() {
+		var id int64
+		var account channelMonitorV2Account
+		if err := rows.Scan(&id, &account.Name, &account.Platform, &account.Type, &account.Status, &account.Deleted); err != nil {
+			return nil, err
+		}
+		out[id] = account
+	}
+	return out, rows.Err()
 }
 
 // channelMonitorV2BucketQuery 按段汇总的 SELECT 前缀与参数：固定粒度走 rollup 表的 bucket_start，
@@ -210,7 +292,7 @@ func channelMonitorV2BucketQuery(filter service.ChannelMonitorV2Filter, alias st
 
 func (r *channelMonitorV2Repository) loadFacts(ctx context.Context, filter service.ChannelMonitorV2Filter) ([]channelMonitorV2Fact, error) {
 	bucketExpr, where, args := channelMonitorV2BucketQuery(filter, "m")
-	query := `SELECT ` + bucketExpr + `,m.model,SUM(m.success_requests),SUM(m.error_requests),SUM(m.input_tokens),SUM(m.output_tokens),SUM(m.cache_creation_tokens),SUM(m.cache_read_tokens),SUM(m.ttft_sum_ms),SUM(m.ttft_count),SUM(m.duration_sum_ms),SUM(m.duration_count) FROM ` + channelMonitorV2MetricsTable(filter) + ` m ` + where + ` GROUP BY 1,2`
+	query := `SELECT ` + bucketExpr + `,m.model,m.account_id,SUM(m.success_requests),SUM(m.error_requests),SUM(m.input_tokens),SUM(m.output_tokens),SUM(m.cache_creation_tokens),SUM(m.cache_read_tokens),SUM(m.ttft_sum_ms),SUM(m.ttft_count),SUM(m.duration_sum_ms),SUM(m.duration_count) FROM ` + channelMonitorV2MetricsTable(filter) + ` m ` + where + ` GROUP BY 1,2,3`
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -220,7 +302,7 @@ func (r *channelMonitorV2Repository) loadFacts(ctx context.Context, filter servi
 	for rows.Next() {
 		var bucket time.Time
 		var f channelMonitorV2Fact
-		if err := rows.Scan(&bucket, &f.Model, &f.Success, &f.Errors, &f.Input, &f.Output, &f.CacheCreation, &f.CacheRead, &f.TTFTSum, &f.TTFTCount, &f.DurationSum, &f.DurationCount); err != nil {
+		if err := rows.Scan(&bucket, &f.Model, &f.AccountID, &f.Success, &f.Errors, &f.Input, &f.Output, &f.CacheCreation, &f.CacheRead, &f.TTFTSum, &f.TTFTCount, &f.DurationSum, &f.DurationCount); err != nil {
 			return nil, err
 		}
 		f.BucketStart = bucket.UTC().Format(time.RFC3339Nano)
@@ -231,7 +313,7 @@ func (r *channelMonitorV2Repository) loadFacts(ctx context.Context, filter servi
 
 func (r *channelMonitorV2Repository) loadHistograms(ctx context.Context, filter service.ChannelMonitorV2Filter) ([]channelMonitorV2Histogram, error) {
 	bucketExpr, where, args := channelMonitorV2BucketQuery(filter, "h")
-	rows, err := r.db.QueryContext(ctx, `SELECT `+bucketExpr+`,h.model,h.metric,h.upper_bound_ms,SUM(h.sample_count) FROM `+channelMonitorV2HistogramTable(filter)+` h `+where+` GROUP BY 1,2,3,4`, args...)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+bucketExpr+`,h.model,h.account_id,h.metric,h.upper_bound_ms,SUM(h.sample_count) FROM `+channelMonitorV2HistogramTable(filter)+` h `+where+` GROUP BY 1,2,3,4,5`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +322,7 @@ func (r *channelMonitorV2Repository) loadHistograms(ctx context.Context, filter 
 	for rows.Next() {
 		var bucket time.Time
 		var h channelMonitorV2Histogram
-		if err := rows.Scan(&bucket, &h.Model, &h.Metric, &h.UpperBound, &h.Count); err != nil {
+		if err := rows.Scan(&bucket, &h.Model, &h.AccountID, &h.Metric, &h.UpperBound, &h.Count); err != nil {
 			return nil, err
 		}
 		h.BucketStart = bucket.UTC().Format(time.RFC3339Nano)
@@ -532,14 +614,13 @@ func applyIgnoredErrors(m *service.ChannelMonitorV2Metric, ignoredCount int64) {
 	}
 }
 
-// loadIgnoredErrorCounts 名单里各模型各段被忽略类别的错误数（模型 → 段 → 数），
-// 段与 loadFacts 同一套对齐。
-func (r *channelMonitorV2Repository) loadIgnoredErrorCounts(
+// loadIgnoredErrors 各段、各请求名、各渠道被忽略类别的错误数，段与 loadFacts 同一套对齐。
+func (r *channelMonitorV2Repository) loadIgnoredErrors(
 	ctx context.Context,
 	filter service.ChannelMonitorV2Filter,
 	cfg service.ChannelMonitorV2Config,
-) (map[string]map[string]int64, error) {
-	out := map[string]map[string]int64{}
+) ([]channelMonitorV2Ignored, error) {
+	out := []channelMonitorV2Ignored{}
 	if len(cfg.IgnoredErrorCategories) == 0 {
 		return out, nil
 	}
@@ -548,10 +629,10 @@ func (r *channelMonitorV2Repository) loadIgnoredErrorCounts(
 	catIdx := len(args) - 1
 	taxIdx := len(args)
 	query := fmt.Sprintf(
-		`SELECT %s, e.model, SUM(e.error_requests)
+		`SELECT %s, e.model, e.account_id, SUM(e.error_requests)
 		 FROM `+channelMonitorV2ErrorMetricsTable(filter)+` e %s
 		 AND e.error_category = ANY($%d) AND e.taxonomy_version = $%d
-		 GROUP BY 1, 2`,
+		 GROUP BY 1, 2, 3`,
 		bucketExpr, where, catIdx, taxIdx,
 	)
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -561,19 +642,12 @@ func (r *channelMonitorV2Repository) loadIgnoredErrorCounts(
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var bucket time.Time
-		var raw string
-		var count int64
-		if err := rows.Scan(&bucket, &raw, &count); err != nil {
+		var row channelMonitorV2Ignored
+		if err := rows.Scan(&bucket, &row.Model, &row.AccountID, &row.Count); err != nil {
 			return out, err
 		}
-		model, ok := channelMonitorV2RosterModel(cfg, raw)
-		if !ok {
-			continue
-		}
-		if out[model] == nil {
-			out[model] = map[string]int64{}
-		}
-		out[model][bucket.UTC().Format(time.RFC3339Nano)] += count
+		row.BucketStart = bucket.UTC().Format(time.RFC3339Nano)
+		out = append(out, row)
 	}
 	return out, rows.Err()
 }

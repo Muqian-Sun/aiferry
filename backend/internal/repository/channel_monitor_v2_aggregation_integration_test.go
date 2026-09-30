@@ -151,4 +151,30 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	require.NoError(t, err)
 	require.Equal(t, int64(2), snapshot.Metrics.RequestCount, "名单外的 gpt-5.5 不计入整体")
 	require.Len(t, snapshot.Trend, 1)
+
+	// 管理站渠道状态：按渠道（account_id）聚合全部流量（不只上架模型），带渠道身份；按模型筛选只算解析到它的请求
+	channelRow := func(channels *service.ChannelMonitorV2Channels) service.ChannelMonitorV2ChannelRow {
+		for _, row := range channels.Items {
+			if row.AccountID == accountID {
+				return row
+			}
+		}
+		t.Fatalf("渠道 %d 不在渠道状态里", accountID)
+		return service.ChannelMonitorV2ChannelRow{}
+	}
+	channels, err := repo.GetChannels(ctx, filter, cfg, "")
+	require.NoError(t, err)
+	all := channelRow(channels)
+	require.Equal(t, "cmv2-acc", all.Name)
+	require.Equal(t, "anthropic", all.Platform)
+	require.Equal(t, int64(3), all.Metrics.RequestCount, "渠道状态统计全部流量，含没上架的 gpt-5.5")
+	require.Equal(t, int64(3), channels.Metrics.RequestCount)
+	require.Len(t, all.Buckets, 1)
+
+	channels, err = repo.GetChannels(ctx, filter, cfg, "claude-fable-5")
+	require.NoError(t, err)
+	fable := channelRow(channels)
+	require.Equal(t, int64(2), fable.Metrics.RequestCount)
+	require.Equal(t, int64(2), fable.Metrics.TTFT.SampleCount)
+	require.Equal(t, int64(2), channels.Metrics.RequestCount)
 }

@@ -32,7 +32,7 @@
 
 ## 管理站（`apps/admin/routes.ts`）
 
-`/dashboard` `/ops` `/users` `/accounts`（渠道）`/model-catalog` `/subscriptions` `/orders/plans` `/orders` `/orders/dashboard` `/announcements` `/proxies` `/risk-control` `/prompt-audit` `/usage` `/settings` `/profile`，以及 `/setup` `/login`。全部要求管理员角色；非管理员进管理站、管理员进用户站都会被守卫踢回登录页。
+`/dashboard` `/ops` `/users` `/accounts`（渠道）`/channels/status`（渠道状态）`/model-catalog` `/subscriptions` `/orders/plans` `/orders` `/orders/dashboard` `/announcements` `/proxies` `/risk-control` `/prompt-audit` `/usage` `/settings` `/profile`，以及 `/setup` `/login`。全部要求管理员角色；非管理员进管理站、管理员进用户站都会被守卫踢回登录页。
 
 ## 守卫要点
 
