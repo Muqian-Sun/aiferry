@@ -603,6 +603,14 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
 	}
+
+	// 价格页：官方价与上游价，按模型 / 按渠道整块保存。
+	pricing := admin.Group("/pricing")
+	{
+		pricing.GET("", h.Admin.ModelCatalog.PricingOverview)
+		pricing.PUT("/models/:id", h.Admin.ModelCatalog.SavePricingModel)
+		pricing.PUT("/channels/:id", h.Admin.ModelCatalog.SavePricingChannel)
+	}
 }
 
 func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingService *service.SettingService) {

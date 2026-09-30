@@ -232,7 +232,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestResultRepository := repository.NewScheduledTestResultRepository(db)
 	scheduledTestService := service.ProvideScheduledTestService(scheduledTestPlanRepository, scheduledTestResultRepository)
 	scheduledTestHandler := admin.NewScheduledTestHandler(scheduledTestService)
-	modelCatalogHandler := admin.NewModelCatalogHandler(modelCatalogService, adminService)
+	modelCatalogHandler := admin.NewModelCatalogHandler(modelCatalogService, adminService, settingService)
 	channelMonitorHandler := admin.NewChannelMonitorHandler(channelMonitorService)
 	channelMonitorRequestTemplateRepository := repository.NewChannelMonitorRequestTemplateRepository(client, db)
 	channelMonitorRequestTemplateService := service.NewChannelMonitorRequestTemplateService(channelMonitorRequestTemplateRepository)

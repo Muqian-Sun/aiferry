@@ -541,3 +541,137 @@ func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
 	require.Len(t, again.Intervals, 3)
 	require.Len(t, again.Aliases, 1)
 }
+
+// 价格页的两种整块保存：
+//   - SaveEntryPricing：同一事务里改官方价、整份覆盖分段与承接关系（删掉不在列表里的渠道），提交后投递这个条目；
+//   - ReplaceAccountBindings：整份覆盖一个渠道的承接关系，别的渠道不动，提交后按「原有 ∪ 新」的条目投递；
+//   - 事务里任何一行写失败，整块回滚（条目价格、别的承接行都不变）。
+func TestModelCatalogRepository_SavePricing(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-pricing")
+	client := testEntClient(t)
+
+	newEntry := func(name string) *service.ModelCatalogEntry {
+		entry := &service.ModelCatalogEntry{
+			ModelID: unique(name), Vendor: "openai", BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(5e-6), OutputPrice: float64Value(3e-5),
+			Intervals: []service.PricingInterval{{MinTokens: 272000, InputPrice: float64Value(1e-5)}},
+		}
+		require.NoError(t, repo.CreateEntry(ctx, entry))
+		t.Cleanup(func() {
+			_, _ = integrationDB.ExecContext(context.Background(),
+				"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+				service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID))
+		})
+		return entry
+	}
+	e1 := newEntry("gpt")
+	e2 := newEntry("gpt-mini")
+
+	accountA := mustCreateAccount(t, client, &service.Account{Name: unique("a"), Priority: 10})
+	accountB := mustCreateAccount(t, client, &service.Account{Name: unique("b"), Priority: 20})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
+	})
+
+	outboxCount := func(entryID int64) int {
+		var n int
+		require.NoError(t, integrationDB.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entryID)).Scan(&n))
+		return n
+	}
+	bindingsOf := func(entryID int64) map[int64]service.ModelCatalogBinding {
+		list, err := repo.ListBindingsByEntry(ctx, entryID)
+		require.NoError(t, err)
+		out := make(map[int64]service.ModelCatalogBinding, len(list))
+		for _, b := range list {
+			out[b.AccountID] = b
+		}
+		return out
+	}
+	segmentEnd := 272000
+
+	// 1. 按模型保存：官方价、分段、两条承接关系一起写。
+	before := outboxCount(e1.ID)
+	updated := e1.Clone()
+	updated.InputPrice = float64Value(4e-6)
+	updated.CacheReadPrice = float64Value(4e-7)
+	updated.ManagedBy = service.ModelCatalogManagedByAdmin
+	updated.Intervals = []service.PricingInterval{{MinTokens: 200000, InputPrice: float64Value(8e-6), SortOrder: 0}}
+	require.NoError(t, repo.SaveEntryPricing(ctx, updated, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, InputPrice: 1.2e-7, OutputPrice: 9e-7, CacheReadPrice: float64Value(1.2e-8),
+			Intervals: []service.PricingInterval{
+				{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7)},
+				{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6)},
+			}},
+		{AccountID: accountB.ID, InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8)},
+	}))
+	require.Equal(t, before+1, outboxCount(e1.ID), "saving a model enqueues its entry")
+
+	got, err := repo.GetEntryByID(ctx, e1.ID)
+	require.NoError(t, err)
+	require.Equal(t, float64Value(4e-6), got.InputPrice)
+	require.Equal(t, float64Value(3e-5), got.OutputPrice, "untouched official price kept")
+	require.Equal(t, float64Value(4e-7), got.CacheReadPrice)
+	require.Equal(t, service.ModelCatalogManagedByAdmin, got.ManagedBy)
+	require.Len(t, got.Intervals, 1, "official segments replaced")
+	require.Equal(t, 200000, got.Intervals[0].MinTokens)
+	b := bindingsOf(e1.ID)
+	require.Len(t, b, 2)
+	require.Equal(t, 1.2e-7, b[accountA.ID].InputPrice)
+	require.Equal(t, float64Value(1.2e-8), b[accountA.ID].CacheReadPrice)
+	require.Equal(t, []service.PricingInterval{
+		{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), SortOrder: 0},
+		{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), SortOrder: 1},
+	}, b[accountA.ID].Intervals)
+	require.Equal(t, 1.2e-6, b[accountB.ID].OutputPrice)
+
+	// 2. 再保存一次只留 B：A 的承接行被删，B 改价。
+	require.NoError(t, repo.SaveEntryPricing(ctx, got, []service.ModelCatalogBinding{
+		{AccountID: accountB.ID, InputPrice: 2.5e-7, OutputPrice: 1.5e-6, CacheReadPrice: float64Value(2.5e-8)},
+	}))
+	b = bindingsOf(e1.ID)
+	require.Len(t, b, 1, "bindings not in the list are removed")
+	require.Equal(t, 2.5e-7, b[accountB.ID].InputPrice)
+
+	// 3. 按渠道保存：B 改成只承接 e2；e1 上 B 的行被删，别的渠道不动。
+	require.NoError(t, repo.SaveEntryPricing(ctx, got, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, InputPrice: 1e-7, OutputPrice: 8e-7, CacheReadPrice: float64Value(1e-8)},
+		{AccountID: accountB.ID, InputPrice: 2.5e-7, OutputPrice: 1.5e-6, CacheReadPrice: float64Value(2.5e-8)},
+	}))
+	beforeE1, beforeE2 := outboxCount(e1.ID), outboxCount(e2.ID)
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, accountB.ID, []service.ModelCatalogBinding{
+		{EntryID: e2.ID, InputPrice: 5e-8, OutputPrice: 3e-7},
+	}))
+	b = bindingsOf(e1.ID)
+	require.Len(t, b, 1)
+	require.Contains(t, b, accountA.ID, "other channels' bindings untouched")
+	b2 := bindingsOf(e2.ID)
+	require.Len(t, b2, 1)
+	require.Equal(t, 5e-8, b2[accountB.ID].InputPrice)
+	require.Equal(t, beforeE1+1, outboxCount(e1.ID), "entry the channel left is enqueued")
+	require.Equal(t, beforeE2+1, outboxCount(e2.ID), "entry the channel joined is enqueued")
+
+	// 4. 事务回滚：第二行指向不存在的条目，整块不生效。
+	err = repo.ReplaceAccountBindings(ctx, accountB.ID, []service.ModelCatalogBinding{
+		{EntryID: e1.ID, InputPrice: 1e-7, OutputPrice: 1e-6},
+		{EntryID: 1 << 40, InputPrice: 1e-7, OutputPrice: 1e-6},
+	})
+	require.Error(t, err)
+	require.Len(t, bindingsOf(e1.ID), 1, "rolled back: B not added to e1")
+	require.Len(t, bindingsOf(e2.ID), 1, "rolled back: B still on e2")
+
+	// 5. 事务回滚：承接行指向不存在的渠道，条目改价也不生效。
+	broken := got.Clone()
+	broken.InputPrice = float64Value(9e-6)
+	err = repo.SaveEntryPricing(ctx, broken, []service.ModelCatalogBinding{
+		{AccountID: 1 << 40, InputPrice: 1e-7, OutputPrice: 1e-6},
+	})
+	require.Error(t, err)
+	got, err = repo.GetEntryByID(ctx, e1.ID)
+	require.NoError(t, err)
+	require.Equal(t, float64Value(4e-6), got.InputPrice, "rolled back: official price unchanged")
+	require.Len(t, got.Bindings, 1, "rolled back: bindings unchanged")
+}

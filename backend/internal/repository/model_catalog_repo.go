@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"slices"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
@@ -12,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -185,6 +187,104 @@ func (r *modelCatalogRepository) ListBindingsByEntry(ctx context.Context, entryI
 		bindings = append(bindings, modelCatalogBindingToService(row))
 	}
 	return bindings, nil
+}
+
+// SaveEntryPricing 价格页按模型保存：更新条目（官方价与分段）并整份覆盖它的承接关系，同一事务；
+// 提交后通知调度重建这个条目的桶。
+func (r *modelCatalogRepository) SaveEntryPricing(ctx context.Context, entry *service.ModelCatalogEntry, bindings []service.ModelCatalogBinding) error {
+	if entry == nil {
+		return service.ErrModelCatalogEntryNotFound
+	}
+	err := r.withTx(ctx, func(tx *dbent.Tx) error {
+		updated, err := applyCatalogEntryUpdate(tx.ModelCatalogEntry.UpdateOneID(entry.ID), entry).Save(ctx)
+		if err != nil {
+			return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, service.ErrModelCatalogEntryExists)
+		}
+		entry.CreatedAt = updated.CreatedAt
+		entry.UpdatedAt = updated.UpdatedAt
+		if err := replaceCatalogChildren(ctx, tx, entry); err != nil {
+			return err
+		}
+		if _, err := tx.ModelCatalogBinding.Delete().Where(modelcatalogbinding.EntryIDEQ(entry.ID)).Exec(ctx); err != nil {
+			return err
+		}
+		for _, binding := range bindings {
+			if err := createCatalogBinding(ctx, tx, entry.ID, binding.AccountID, binding); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return r.enqueueCatalogBindingsChanged(ctx, entry.ID)
+}
+
+// ReplaceAccountBindings 价格页按渠道保存：整份覆盖渠道的承接关系（删掉不在列表里的、改价、新增），
+// 同一事务；提交后按受影响的条目（原有 ∪ 新）通知调度。
+func (r *modelCatalogRepository) ReplaceAccountBindings(ctx context.Context, accountID int64, bindings []service.ModelCatalogBinding) error {
+	affected := make(map[int64]struct{})
+	err := r.withTx(ctx, func(tx *dbent.Tx) error {
+		existing, err := tx.ModelCatalogBinding.Query().Where(modelcatalogbinding.AccountIDEQ(accountID)).All(ctx)
+		if err != nil {
+			return err
+		}
+		for _, row := range existing {
+			affected[row.EntryID] = struct{}{}
+		}
+		if _, err := tx.ModelCatalogBinding.Delete().Where(modelcatalogbinding.AccountIDEQ(accountID)).Exec(ctx); err != nil {
+			return err
+		}
+		for _, binding := range bindings {
+			if err := createCatalogBinding(ctx, tx, binding.EntryID, accountID, binding); err != nil {
+				return err
+			}
+			affected[binding.EntryID] = struct{}{}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	entryIDs := make([]int64, 0, len(affected))
+	for id := range affected {
+		entryIDs = append(entryIDs, id)
+	}
+	slices.Sort(entryIDs)
+	for _, id := range entryIDs {
+		if err := r.enqueueCatalogBindingsChanged(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createCatalogBinding 写一条承接关系（带上游价）；上游分段存成 domain.PriceSegment 的 JSONB 数组，按传入顺序。
+func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID int64, binding service.ModelCatalogBinding) error {
+	segments := make([]domain.PriceSegment, 0, len(binding.Intervals))
+	for _, iv := range binding.Intervals {
+		segments = append(segments, domain.PriceSegment{
+			MinTokens:         iv.MinTokens,
+			MaxTokens:         iv.MaxTokens,
+			InputPrice:        iv.InputPrice,
+			OutputPrice:       iv.OutputPrice,
+			CacheWritePrice:   iv.CacheWritePrice,
+			CacheWrite1hPrice: iv.CacheWrite1hPrice,
+			CacheReadPrice:    iv.CacheReadPrice,
+		})
+	}
+	_, err := tx.ModelCatalogBinding.Create().
+		SetEntryID(entryID).
+		SetAccountID(accountID).
+		SetInputPrice(binding.InputPrice).
+		SetOutputPrice(binding.OutputPrice).
+		SetNillableCacheWritePrice(binding.CacheWritePrice).
+		SetNillableCacheWrite1hPrice(binding.CacheWrite1hPrice).
+		SetNillableCacheReadPrice(binding.CacheReadPrice).
+		SetPriceIntervals(segments).
+		Save(ctx)
+	return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
 }
 
 func (r *modelCatalogRepository) enqueueCatalogBindingsChanged(ctx context.Context, entryID int64) error {

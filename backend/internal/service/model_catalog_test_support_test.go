@@ -59,6 +59,45 @@ func (r *stubModelCatalogRepo) ListBindingsByEntry(_ context.Context, entryID in
 	return append([]ModelCatalogBinding(nil), r.bindings[entryID]...), nil
 }
 
+// SaveEntryPricing 与真仓储同口径：更新条目并整份覆盖它的承接关系。
+func (r *stubModelCatalogRepo) SaveEntryPricing(_ context.Context, entry *ModelCatalogEntry, bindings []ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.entries {
+		if r.entries[i].ID == entry.ID {
+			r.entries[i] = *entry.Clone()
+			if r.bindings == nil {
+				r.bindings = map[int64][]ModelCatalogBinding{}
+			}
+			r.bindings[entry.ID] = append([]ModelCatalogBinding(nil), bindings...)
+			return nil
+		}
+	}
+	return ErrModelCatalogEntryNotFound
+}
+
+// ReplaceAccountBindings 与真仓储同口径：整份覆盖渠道的承接关系。
+func (r *stubModelCatalogRepo) ReplaceAccountBindings(_ context.Context, accountID int64, bindings []ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bindings == nil {
+		r.bindings = map[int64][]ModelCatalogBinding{}
+	}
+	for entryID, list := range r.bindings {
+		kept := list[:0:0]
+		for _, b := range list {
+			if b.AccountID != accountID {
+				kept = append(kept, b)
+			}
+		}
+		r.bindings[entryID] = kept
+	}
+	for _, b := range bindings {
+		r.bindings[b.EntryID] = append(r.bindings[b.EntryID], b)
+	}
+	return nil
+}
+
 func (r *stubModelCatalogRepo) GetEntryByID(_ context.Context, id int64) (*ModelCatalogEntry, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
