@@ -138,6 +138,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { usePreferredReducedMotion, useTransition } from '@vueuse/core'
 import type { ServiceHealth, ServiceStatusModels, ServiceStatusRange, ServiceStatusSnapshot } from '@/api/serviceStatus'
 import { SERVICE_STATUS_DEFAULT_RANGE, loadServiceStatus } from './serviceStatusQuery'
 import { useAppStore } from '@/stores/app'
@@ -282,6 +283,20 @@ const headline = computed<{ level: ServiceHealth; text: string }>(() => {
   return { level: 'unknown', text: t('userUi.serviceStatus.headline.unknown') }
 })
 
+// 页首数字从 0 跳到位，与模型页页首数字同一条缓动（style.css 的 .count-up：1.2 秒、cubic-bezier(0.22, 1, 0.36, 1)、
+// 延后 0.15 秒）。模型页是 CSS 整数计数器，这里的数带小数和单位，改用 useTransition 补间后再格式化；
+// 切换时间范围时从旧值过渡到新值；系统开了「减少动态效果」时直接显示
+const reducedMotion = usePreferredReducedMotion()
+function useCountUp(value: () => number | null | undefined) {
+  return useTransition(
+    computed(() => value() ?? 0),
+    { duration: 1200, delay: 150, transition: [0.22, 1, 0.36, 1], disabled: computed(() => reducedMotion.value === 'reduce') }
+  )
+}
+const availabilityCount = useCountUp(() => snapshot.value?.metrics.availability)
+const ttftCount = useCountUp(() => snapshot.value?.metrics.ttft_p50_ms)
+const cacheCount = useCountUp(() => snapshot.value?.metrics.cache_hit_rate)
+
 const statItems = computed<StatItem[]>(() => {
   const metrics = snapshot.value?.metrics
   const health = snapshot.value?.health
@@ -289,20 +304,20 @@ const statItems = computed<StatItem[]>(() => {
     {
       key: 'availability',
       label: t('userUi.serviceStatus.stats.availability'),
-      value: formatPercent(metrics?.availability),
+      value: metrics?.availability == null ? formatPercent(null) : formatPercent(availabilityCount.value),
       valueClass: health ? HEALTH_TEXT[health.availability] : undefined
     },
     {
       key: 'ttft',
       label: t('userUi.serviceStatus.stats.ttft'),
-      value: formatLatency(metrics?.ttft_p50_ms),
+      value: metrics?.ttft_p50_ms == null ? formatLatency(null) : formatLatency(ttftCount.value),
       hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined,
       valueClass: health ? HEALTH_TEXT[health.ttft] : undefined
     },
     {
       key: 'cache',
       label: t('userUi.serviceStatus.stats.cache'),
-      value: formatPercent(metrics?.cache_hit_rate),
+      value: metrics?.cache_hit_rate == null ? formatPercent(null) : formatPercent(cacheCount.value),
       valueClass: health ? HEALTH_TEXT[health.cache] : undefined
     }
   ]
