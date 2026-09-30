@@ -153,7 +153,6 @@ export default {
     },
     overview: 'Overview',
     models: 'Models',
-    channelHealth: 'Channel health',
     orders: 'Orders',
     review: 'Review',
     featureOff: 'Off',

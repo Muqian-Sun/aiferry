@@ -153,7 +153,6 @@ export default {
     },
     overview: '概览',
     models: '模型',
-    channelHealth: '渠道健康',
     orders: '订单',
     review: '审查',
     featureOff: '未开启',

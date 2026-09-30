@@ -30,7 +30,6 @@ import {
   PriceTagIcon,
   ServerIcon,
   ShieldIcon,
-  SignalIcon,
   UsersIcon
 } from '@/components/layout/sidebar/navIcons'
 
@@ -41,13 +40,12 @@ const adminSettingsStore = useAdminSettingsStore()
 
 const siteVersion = computed(() => appStore.siteVersion)
 
-const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 // Admin-only flags (not in public settings)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 
-// 设置里有开关的功能（风控）没开时入口变灰；由代码 / 部署配置决定的功能（支付、运维、渠道监控）关着时入口直接不出现
+// 设置里有开关的功能（风控）没开时入口变灰；由代码 / 部署配置决定的功能（支付、运维）关着时入口直接不出现
 // （applyFeatureFlags）；简易模式再收起 hideInSimpleMode 的项。
 function visibleItems(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
@@ -75,7 +73,6 @@ const sections = computed((): NavSection[] => {
         // 渠道 = 资源（成品号 / 第三方 key）；模型决定上架与标价
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
         { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
-        { path: '/channels/monitor', label: t('nav.channelHealth'), icon: SignalIcon, presentWhen: flagChannelMonitor },
         { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
       ],
     },

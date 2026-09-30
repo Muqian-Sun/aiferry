@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/service"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,7 +84,6 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 		}
 		for _, table := range []string{
 			"channel_monitor_v2_metrics_1m", "channel_monitor_v2_metrics_rollup",
-			"channel_monitor_v2_user_metrics_1m", "channel_monitor_v2_user_metrics_rollup",
 			"channel_monitor_v2_error_metrics_1m", "channel_monitor_v2_error_metrics_rollup",
 			"channel_monitor_v2_latency_histograms_1m", "channel_monitor_v2_latency_histograms_rollup",
 		} {
@@ -107,9 +108,11 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	}
 
 	require.NoError(t, repo.RecomputeRange(ctx, start, end), "首次聚合")
-	firstMetrics, firstUser := countRows("channel_monitor_v2_metrics_1m"), countRows("channel_monitor_v2_user_metrics_1m")
+	firstMetrics, firstHistograms := countRows("channel_monitor_v2_metrics_1m"), countRows("channel_monitor_v2_latency_histograms_1m")
 	require.Equal(t, 2, firstMetrics, "两个模型各一行")
-	require.Equal(t, 2, firstUser, "两个用户各一行")
+	// 延迟分布只有全站一份（迁移 258 去掉了按用户的副本）：
+	// claude-fable-5 首字 100 / 200 落 100、250 两档，耗时 900 / 1100 落 1000、2000 两档；gpt-5.5 各一档
+	require.Equal(t, 6, firstHistograms, "每个模型每个指标每档一行")
 	require.Equal(t, 3, sumSuccess("channel_monitor_v2_metrics_1m"), "三条成功请求")
 	// rollup 的 bucket_start 按 bucket_seconds 对齐，可能落在 [start,end) 之外，
 	// 所以不按窗口断言行数；这三张 rollup 表的 UPSERT 能否匹配重建后的主键，
@@ -123,6 +126,29 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	// 再跑一次：窗口重写 + UPSERT 都要幂等，行数与数值不变。
 	require.NoError(t, repo.RecomputeRange(ctx, start, end), "重复聚合必须幂等")
 	require.Equal(t, firstMetrics, countRows("channel_monitor_v2_metrics_1m"))
-	require.Equal(t, firstUser, countRows("channel_monitor_v2_user_metrics_1m"))
+	require.Equal(t, firstHistograms, countRows("channel_monitor_v2_latency_histograms_1m"))
 	require.Equal(t, 3, sumSuccess("channel_monitor_v2_metrics_1m"), "成功数不得翻倍")
+
+	// 读数：只统计名单里的模型（gpt-5.5 不在名单），百分位由全站那份延迟分布现算。
+	// 段长 1 分钟不是固定粒度，走 1m 表 + date_bin 这条查询路径。
+	cfg := service.ChannelMonitorV2Config{Roster: service.ChannelMonitorV2ModelRoster{
+		Models:  []string{"claude-fable-5"},
+		Resolve: func(model string) (string, bool) { return model, model == "claude-fable-5" },
+	}}
+	filter := service.ChannelMonitorV2Filter{Start: start, End: end, Bucket: time.Minute}
+	matrix, err := repo.GetMatrix(ctx, filter, cfg)
+	require.NoError(t, err)
+	require.Len(t, matrix.Items, 1)
+	row := matrix.Items[0]
+	require.Equal(t, "claude-fable-5", row.Model)
+	require.Equal(t, int64(2), row.Metrics.RequestCount)
+	require.Equal(t, int64(2), row.Metrics.TTFT.SampleCount)
+	require.NotNil(t, row.Metrics.TTFT.P50Ms)
+	require.Equal(t, int64(100), *row.Metrics.TTFT.P50Ms, "首字 100 / 200 落 100、250 两档，P50 取 100 档")
+	require.Len(t, row.Buckets, 1)
+
+	snapshot, err := repo.GetSnapshot(ctx, filter, cfg)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), snapshot.Metrics.RequestCount, "名单外的 gpt-5.5 不计入整体")
+	require.Len(t, snapshot.Trend, 1)
 }

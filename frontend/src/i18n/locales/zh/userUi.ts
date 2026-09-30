@@ -341,7 +341,6 @@ export default {
       legend: { healthy: '正常', warning: '不稳定', critical: '异常', unknown: '请求太少' },
       slot: { detail: '{time}　可用率 {availability} · 首字延迟 {ttft}', fewRequests: '（请求较少，不评状态）', noRequests: '{time}　没有请求' },
       trend: { title: '整体趋势', empty: '这段时间还没有数据' },
-      disabled: { title: '服务状态暂未开放', description: '本站暂时没有开放这个页面' },
       loadFailed: '服务状态没有加载出来',
       footnote: '数据来自本站的真实请求。首字延迟是从发出请求到收到第一段输出的时间。'
     }

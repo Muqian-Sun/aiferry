@@ -4,73 +4,66 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
-
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 const (
-	ChannelMonitorV2OtherModel      = "__other__"
 	ChannelMonitorV2TaxonomyVersion = 1
+	// ChannelMonitorV2RefreshIntervalSeconds 聚合任务的汇总频率，也是服务状态页的自动刷新间隔。
+	ChannelMonitorV2RefreshIntervalSeconds = 60
 )
 
-var (
-	ErrChannelMonitorV2InvalidRange   = errors.New("invalid channel monitor v2 range")
-	ErrChannelMonitorV2InvalidGroupBy = errors.New("invalid channel monitor v2 group_by")
-	ErrChannelMonitorV2InvalidConfig  = errors.New("invalid channel monitor v2 config")
-	ErrChannelMonitorV2ConfigConflict = errors.New("channel monitor v2 config was modified")
-)
+var ErrChannelMonitorV2InvalidRange = errors.New("invalid channel monitor v2 range")
 
-type ChannelMonitorV2GroupBy string
-
-const (
-	// ChannelMonitorV2GroupByModel 跨平台按模型聚合：非管理员唯一可用的维度，
-	// 也是其默认值——用户只看「每个模型可不可用」，看不到具体上游渠道。
-	ChannelMonitorV2GroupByModel ChannelMonitorV2GroupBy = "model"
-	// 下面两个带平台维度，只有管理员能用。
-	ChannelMonitorV2GroupByPlatform      ChannelMonitorV2GroupBy = "platform"
-	ChannelMonitorV2GroupByPlatformModel ChannelMonitorV2GroupBy = "platform_model"
-)
-
-// RequiresAdmin 报告该维度是否暴露上游渠道（平台），只有管理员可用。
-func (g ChannelMonitorV2GroupBy) RequiresAdmin() bool {
-	return g == ChannelMonitorV2GroupByPlatform || g == ChannelMonitorV2GroupByPlatformModel
-}
-
-type ChannelMonitorV2PlatformConfig struct {
-	Platform string   `json:"platform"`
-	Enabled  bool     `json:"enabled"`
-	Models   []string `json:"models"`
-}
-
+// ChannelMonitorV2Config 渠道健康（用户站「服务状态」）一次读数用的配置。
+// 汇总与评分写在代码里（muqian 2026-09-30），管理站不再有配置页，见 channelMonitorV2Config；
+// 模型名单每次读数由服务按上架目录填入。
 type ChannelMonitorV2Config struct {
-	Version                int                              `json:"version"`
-	Enabled                bool                             `json:"enabled"`
-	RefreshIntervalSeconds int                              `json:"refresh_interval_seconds"`
-	Platforms              []ChannelMonitorV2PlatformConfig `json:"platforms"`
-	HealthThresholds       ChannelMonitorV2HealthThresholds `json:"health_thresholds"`
-	// IgnoredErrorCategories are excluded from error_rate / health scoring.
-	// They still appear in the error breakdown with ignored=true (greyed in UI).
-	// Unknown categories always roll into "other" via the taxonomy classifier.
-	IgnoredErrorCategories []string  `json:"ignored_error_categories"`
-	UpdatedAt              time.Time `json:"updated_at"`
-	UpdatedBy              *int64    `json:"updated_by,omitempty"`
-	// ModelRoster 只在访客读数时由服务按上架目录填入，不入库，见 ChannelMonitorV2ModelRoster。
-	ModelRoster *ChannelMonitorV2ModelRoster `json:"-"`
+	HealthThresholds ChannelMonitorV2HealthThresholds
+	// IgnoredErrorCategories 不计入错误率与健康评分的错误类别（多是调用方自己的问题）。
+	IgnoredErrorCategories []string
+	Roster                 ChannelMonitorV2ModelRoster
 }
 
-// ChannelMonitorV2ModelRoster 访客（用户站服务状态页）的模型名单 = 上架目录（muqian 2026-09-30）。
-// 设置后只统计名单里的模型：请求名（含别名）经 Resolve 归到条目本名，名单外的流量不计；
-// 也不按上游平台筛——访客看的是这个模型好不好用，与哪个上游在服务、平台开没开监控无关。
+// channelMonitorV2Config 取原配置表在全新安装时实际生效的值（迁移 198 / 203 / 205），行为不变：
+// 首字延迟目标 3 秒、8 秒不稳定、20 秒异常；错误率 5% 不稳定、20% 异常；满 50 个请求才评状态；
+// 缓存命中率不参与评分（阈值 0 / 0）。忽略的错误类别去掉了分类里已不存在的 group_access。
+var channelMonitorV2Config = ChannelMonitorV2Config{
+	HealthThresholds: ChannelMonitorV2HealthThresholds{
+		MinimumSample:     50,
+		WarningErrorRate:  0.05,
+		CriticalErrorRate: 0.20,
+		TargetTTFTMs:      3000,
+		WarningTTFTMs:     8000,
+		CriticalTTFTMs:    20000,
+		WarningCacheRate:  0,
+		CriticalCacheRate: 0,
+		ErrorWeight:       0.60,
+		TTFTWeight:        0.20,
+		CacheWeight:       0.20,
+	},
+	IgnoredErrorCategories: []string{
+		"authentication",
+		"client_cancelled",
+		"content_policy",
+		"context_limit",
+		"model_unsupported",
+		"not_found",
+		"quota_or_balance",
+	},
+}
+
+// ChannelMonitorV2ModelRoster 服务状态的模型名单 = 上架目录（muqian 2026-09-30）。
+// 只统计名单里的模型：请求名（含别名）经 Resolve 归到条目本名，名单外的流量不计；
+// 也不按上游平台筛——访客看的是这个模型好不好用，与哪个上游在服务无关。
 type ChannelMonitorV2ModelRoster struct {
 	Models  []string
 	Resolve func(model string) (string, bool)
 }
 
 // ChannelMonitorV2ErrorCategories is the ordered, versioned taxonomy used by the
-// classifier and admin settings UI. Unmatched errors become "other".
+// classifier. Unmatched errors become "other".
 var ChannelMonitorV2ErrorCategories = []string{
 	"content_policy",
 	"authentication",
@@ -91,12 +84,10 @@ var ChannelMonitorV2ErrorCategories = []string{
 }
 
 type ChannelMonitorV2Filter struct {
-	Range     string
-	Platforms []string
-	Models    []string
-	Start     time.Time
-	End       time.Time
-	Bucket    time.Duration
+	Range  string
+	Start  time.Time
+	End    time.Time
+	Bucket time.Duration
 }
 
 type ChannelMonitorV2Metric struct {
@@ -220,93 +211,28 @@ type ChannelMonitorV2TrendPoint struct {
 }
 
 type ChannelMonitorV2Snapshot struct {
-	Config   ChannelMonitorV2Config       `json:"config"`
-	Coverage ChannelMonitorV2Coverage     `json:"coverage"`
-	Metrics  ChannelMonitorV2Metric       `json:"metrics"`
-	Health   ChannelMonitorV2Health       `json:"health"`
-	Trend    []ChannelMonitorV2TrendPoint `json:"trend"`
-}
-
-type ChannelMonitorV2Dimension struct {
-	Value        string `json:"value"`
-	Label        string `json:"label"`
-	Platform     string `json:"platform,omitempty"`
-	RequestCount int64  `json:"request_count"`
-}
-
-type ChannelMonitorV2Dimensions struct {
-	Platforms []ChannelMonitorV2Dimension `json:"platforms"`
-	Models    []ChannelMonitorV2Dimension `json:"models"`
-}
-
-type ChannelMonitorV2ModelRow struct {
-	Platform string                 `json:"platform"`
-	Model    string                 `json:"model"`
-	Metrics  ChannelMonitorV2Metric `json:"metrics"`
-	Health   ChannelMonitorV2Health `json:"health"`
+	Coverage ChannelMonitorV2Coverage
+	Metrics  ChannelMonitorV2Metric
+	Health   ChannelMonitorV2Health
+	Trend    []ChannelMonitorV2TrendPoint
 }
 
 type ChannelMonitorV2MatrixRow struct {
-	Platform string                       `json:"platform,omitempty"`
-	Model    string                       `json:"model,omitempty"`
-	Metrics  ChannelMonitorV2Metric       `json:"metrics"`
-	Health   ChannelMonitorV2Health       `json:"health"`
-	Buckets  []ChannelMonitorV2TrendPoint `json:"buckets"`
+	Model   string
+	Metrics ChannelMonitorV2Metric
+	Health  ChannelMonitorV2Health
+	Buckets []ChannelMonitorV2TrendPoint
 }
 
 type ChannelMonitorV2Matrix struct {
-	GroupBy  ChannelMonitorV2GroupBy     `json:"group_by"`
-	Coverage ChannelMonitorV2Coverage    `json:"coverage"`
-	Items    []ChannelMonitorV2MatrixRow `json:"items"`
-}
-
-type ChannelMonitorV2ErrorRow struct {
-	Category string                        `json:"category"`
-	Count    int64                         `json:"count"`
-	Rate     float64                       `json:"rate"`
-	Details  []ChannelMonitorV2ErrorDetail `json:"details,omitempty"`
-	// Ignored is true when this category is excluded from error_rate scoring
-	// via config.ignored_error_categories. Still shown in breakdown (UI greys it).
-	Ignored bool `json:"ignored"`
-}
-
-type ChannelMonitorV2ErrorDetail struct {
-	Platform           string `json:"platform,omitempty"`
-	Model              string `json:"model,omitempty"`
-	ErrorType          string `json:"error_type,omitempty"`
-	StatusCode         int    `json:"status_code,omitempty"`
-	UpstreamStatusCode int    `json:"upstream_status_code,omitempty"`
-	Message            string `json:"message,omitempty"`
-	Count              int64  `json:"count"`
-}
-
-type ChannelMonitorV2UserRow struct {
-	UserID       *int64                 `json:"user_id,omitempty"`
-	Rank         int                    `json:"rank"`
-	Email        string                 `json:"email,omitempty"`
-	Username     string                 `json:"username,omitempty"`
-	DisplayLabel string                 `json:"display_label"`
-	IsSelf       bool                   `json:"is_self"`
-	CanDrilldown bool                   `json:"can_drilldown"`
-	Metrics      ChannelMonitorV2Metric `json:"metrics"`
-}
-
-type ChannelMonitorV2List[T any] struct {
-	Coverage ChannelMonitorV2Coverage `json:"coverage"`
-	Items    []T                      `json:"items"`
+	Coverage ChannelMonitorV2Coverage
+	Items    []ChannelMonitorV2MatrixRow
 }
 
 type ChannelMonitorV2Repository interface {
-	GetConfig(ctx context.Context) (*ChannelMonitorV2Config, error)
-	UpdateConfig(ctx context.Context, config ChannelMonitorV2Config, expectedVersion int) (*ChannelMonitorV2Config, error)
-	GetDimensions(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config) (*ChannelMonitorV2Dimensions, error)
-	GetSnapshot(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, includeAdmin bool) (*ChannelMonitorV2Snapshot, error)
-	GetModels(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, includeAdmin bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error)
-	GetMatrix(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, includeAdmin bool) (*ChannelMonitorV2Matrix, error)
-	// GetErrors loads category rates. When includeAdmin is false, implementations
-	// must omit error Details (no ops_error_logs sample scan) for privacy.
-	GetErrors(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, includeAdmin bool) (*ChannelMonitorV2List[ChannelMonitorV2ErrorRow], error)
-	GetUsers(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config, includeAdmin bool) (*ChannelMonitorV2List[ChannelMonitorV2UserRow], error)
+	GetSnapshot(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config) (*ChannelMonitorV2Snapshot, error)
+	// GetMatrix 逐模型（名单里每个模型一行）的总量与逐段数据。
+	GetMatrix(ctx context.Context, filter ChannelMonitorV2Filter, config ChannelMonitorV2Config) (*ChannelMonitorV2Matrix, error)
 	// GetAggregationWatermark loads durable backfill / coverage cursors for the
 	// passive aggregator (and bootstrap progress). Missing row → zero value, nil error.
 	GetAggregationWatermark(ctx context.Context) (*ChannelMonitorV2AggregationWatermark, error)
@@ -376,20 +302,20 @@ func ChannelMonitorV2BootstrapProgress(now, coveredFrom time.Time, hasData bool)
 	}
 }
 
+// ChannelMonitorV2Service 用户站「服务状态」的读数：全站快照与逐模型矩阵，对未登录访客公开。
 type ChannelMonitorV2Service struct {
-	repo     ChannelMonitorV2Repository
-	catalog  CatalogListingSource
-	settings channelMonitorRuntimeReader
-	now      func() time.Time
+	repo    ChannelMonitorV2Repository
+	catalog CatalogListingSource
+	now     func() time.Time
 }
 
-// NewChannelMonitorV2Service catalog 生产上是 *ModelCatalogService：访客读数按它的上架条目出模型。
+// NewChannelMonitorV2Service catalog 生产上是 *ModelCatalogService：模型名单按它的上架条目出。
 func NewChannelMonitorV2Service(repo ChannelMonitorV2Repository, catalog CatalogListingSource) *ChannelMonitorV2Service {
 	return &ChannelMonitorV2Service{repo: repo, catalog: catalog, now: func() time.Time { return time.Now().UTC() }}
 }
 
-// visitorView 给访客读数用的配置副本：模型名单换成上架目录；管理员仍按监控配置里的平台 / 模型名单。
-func (s *ChannelMonitorV2Service) visitorView(ctx context.Context, cfg ChannelMonitorV2Config) ChannelMonitorV2Config {
+// readConfig 一次读数用的配置：代码里的评分配置 + 上架目录名单。
+func (s *ChannelMonitorV2Service) readConfig(ctx context.Context) ChannelMonitorV2Config {
 	entries := s.catalog.ListListedEntries(ctx)
 	models := make([]string, 0, len(entries))
 	for _, entry := range entries {
@@ -397,7 +323,8 @@ func (s *ChannelMonitorV2Service) visitorView(ctx context.Context, cfg ChannelMo
 	}
 	// 一次读数里同一个请求名会出现在很多段里，解析结果记下来（空串 = 不在名单里）
 	resolved := map[string]string{}
-	cfg.ModelRoster = &ChannelMonitorV2ModelRoster{
+	cfg := channelMonitorV2Config
+	cfg.Roster = ChannelMonitorV2ModelRoster{
 		Models: models,
 		Resolve: func(model string) (string, bool) {
 			id, seen := resolved[model]
@@ -413,62 +340,7 @@ func (s *ChannelMonitorV2Service) visitorView(ctx context.Context, cfg ChannelMo
 	return cfg
 }
 
-// SetRuntimeReader wires optional settings for privacy flags (hide throughput).
-func (s *ChannelMonitorV2Service) SetRuntimeReader(r channelMonitorRuntimeReader) {
-	if s == nil {
-		return
-	}
-	s.settings = r
-}
-
-func (s *ChannelMonitorV2Service) hideThroughputForViewer(ctx context.Context, admin bool) bool {
-	if admin {
-		return false
-	}
-	// Privacy is fail-closed: an absent or unavailable settings reader must not
-	// expose fleet-scale rates to ordinary users.
-	if s == nil || s.settings == nil {
-		return true
-	}
-	return s.settings.GetChannelMonitorRuntime(ctx).HideThroughput
-}
-
-func (s *ChannelMonitorV2Service) hideUserRankingForViewer(ctx context.Context, admin bool) bool {
-	if admin {
-		return false
-	}
-	// Missing reader keeps the current ranking tab visible. Unlike throughput,
-	// ranking is already public and must stay on until an operator turns it off.
-	if s == nil || s.settings == nil {
-		return false
-	}
-	return s.settings.GetChannelMonitorRuntime(ctx).HideUserRanking
-}
-
-func (s *ChannelMonitorV2Service) GetConfig(ctx context.Context) (*ChannelMonitorV2Config, error) {
-	return s.repo.GetConfig(ctx)
-}
-
-func (s *ChannelMonitorV2Service) getEnabledConfig(ctx context.Context) (*ChannelMonitorV2Config, error) {
-	cfg, err := s.repo.GetConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if cfg == nil || !cfg.Enabled {
-		return nil, ErrChannelMonitorDisabled
-	}
-	return cfg, nil
-}
-
-func (s *ChannelMonitorV2Service) UpdateConfig(ctx context.Context, cfg ChannelMonitorV2Config, expectedVersion int, actorID int64) (*ChannelMonitorV2Config, error) {
-	if err := normalizeChannelMonitorV2Config(&cfg); err != nil {
-		return nil, err
-	}
-	cfg.UpdatedBy = &actorID
-	return s.repo.UpdateConfig(ctx, cfg, expectedVersion)
-}
-
-func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string, platforms, models []string) (ChannelMonitorV2Filter, error) {
+func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string) (ChannelMonitorV2Filter, error) {
 	now := s.now().UTC()
 	var window, bucket time.Duration
 	switch strings.TrimSpace(rangeValue) {
@@ -491,466 +363,22 @@ func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string, platforms, mode
 		end = now.Truncate(bucket).Add(bucket)
 		start = end.Add(-window)
 	}
-	return ChannelMonitorV2Filter{
-		Range: rangeValue, Platforms: normalizeStringSet(platforms), Models: normalizeStringSet(models),
-		Start: start, End: end, Bucket: bucket,
-	}, nil
+	return ChannelMonitorV2Filter{Range: rangeValue, Start: start, End: end, Bucket: bucket}, nil
 }
 
-func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2Dimensions, error) {
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	dims, err := s.repo.GetDimensions(ctx, filter, *cfg)
-	if err != nil {
-		return nil, err
-	}
-	// 用户路由在 handler 层再换成只含模型名的白名单结构（dto.ServiceStatusDimensions）。
-	if !admin && dims != nil {
-		// 上游渠道（平台）只对管理员可见：清掉平台清单与模型上的平台标注。
-		dims.Platforms = []ChannelMonitorV2Dimension{}
-		for i := range dims.Models {
-			dims.Models[i].Platform = ""
-		}
-	}
-	return dims, nil
+func (s *ChannelMonitorV2Service) Snapshot(ctx context.Context, filter ChannelMonitorV2Filter) (*ChannelMonitorV2Snapshot, error) {
+	return s.repo.GetSnapshot(ctx, filter, s.readConfig(ctx))
 }
 
-func (s *ChannelMonitorV2Service) Snapshot(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2Snapshot, error) {
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	view := *cfg
-	if !admin {
-		view = s.visitorView(ctx, view)
-	}
-	snap, err := s.repo.GetSnapshot(ctx, filter, view, admin)
-	if err != nil {
-		return nil, err
-	}
-	if !admin && snap != nil {
-		redactChannelMonitorV2Snapshot(snap, s.hideThroughputForViewer(ctx, admin))
-	}
-	return snap, nil
-}
-
-func (s *ChannelMonitorV2Service) Models(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	list, err := s.repo.GetModels(ctx, filter, *cfg, admin)
-	if err != nil {
-		return nil, err
-	}
-	if !admin && list != nil {
-		hideTP := s.hideThroughputForViewer(ctx, admin)
-		for i := range list.Items {
-			redactChannelMonitorV2Metric(&list.Items[i].Metrics, hideTP)
-		}
-	}
-	return list, nil
-}
-
-func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMonitorV2Filter, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
-	if !groupBy.Valid() {
-		return nil, fmt.Errorf("%w: %s", ErrChannelMonitorV2InvalidGroupBy, groupBy)
-	}
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// 功能开关先判，再判身份：功能关着时对任何人都是 CHANNEL_MONITOR_DISABLED。
-	if !admin && groupBy.RequiresAdmin() {
-		return nil, infraerrors.Forbidden("channel_monitor_platform_admin_only", "upstream channel breakdown is admin only")
-	}
-	view := *cfg
-	if !admin {
-		view = s.visitorView(ctx, view)
-	}
-	matrix, err := s.repo.GetMatrix(ctx, filter, view, groupBy, admin)
-	if err != nil {
-		return nil, err
-	}
-	if !admin && matrix != nil {
-		hideTP := s.hideThroughputForViewer(ctx, admin)
-		for i := range matrix.Items {
-			redactChannelMonitorV2Metric(&matrix.Items[i].Metrics, hideTP)
-			for j := range matrix.Items[i].Buckets {
-				redactChannelMonitorV2Metric(&matrix.Items[i].Buckets[j].Metrics, hideTP)
-			}
-		}
-	}
-	return matrix, nil
-}
-
-// ParseChannelMonitorV2GroupBy 解析维度；空值按调用方身份取默认：
-// 管理员默认 platform_model（保留原有的渠道视角），普通用户默认 model。
-func ParseChannelMonitorV2GroupBy(value string, admin bool) (ChannelMonitorV2GroupBy, error) {
-	groupBy := ChannelMonitorV2GroupBy(strings.TrimSpace(value))
-	if groupBy == "" {
-		if admin {
-			return ChannelMonitorV2GroupByPlatformModel, nil
-		}
-		return ChannelMonitorV2GroupByModel, nil
-	}
-	if !groupBy.Valid() {
-		return "", fmt.Errorf("%w: %s", ErrChannelMonitorV2InvalidGroupBy, value)
-	}
-	return groupBy, nil
-}
-
-func (g ChannelMonitorV2GroupBy) Valid() bool {
-	switch g {
-	case ChannelMonitorV2GroupByModel, ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *ChannelMonitorV2Service) Errors(ctx context.Context, filter ChannelMonitorV2Filter) (*ChannelMonitorV2List[ChannelMonitorV2ErrorRow], error) {
-	return s.ErrorsForViewer(ctx, filter, false)
-}
-
-// ErrorsForViewer returns the error breakdown.
-// Non-admin callers receive category rates + ignored flags only: absolute Count
-// is zeroed and Details (upstream messages / status codes / volume) are omitted.
-func (s *ChannelMonitorV2Service) ErrorsForViewer(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ErrorRow], error) {
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	list, err := s.repo.GetErrors(ctx, filter, *cfg, admin)
-	if err != nil {
-		return nil, err
-	}
-	if !admin && list != nil {
-		for i := range list.Items {
-			list.Items[i].Count = 0
-			list.Items[i].Details = nil
-		}
-	}
-	return list, nil
-}
-
-func redactChannelMonitorV2Snapshot(snap *ChannelMonitorV2Snapshot, hideThroughput bool) {
-	if snap == nil {
-		return
-	}
-	redactChannelMonitorV2Metric(&snap.Metrics, hideThroughput)
-	for i := range snap.Trend {
-		redactChannelMonitorV2Metric(&snap.Trend[i].Metrics, hideThroughput)
-	}
-	// Public snapshot only needs display thresholds + refresh cadence, not
-	// operational allow-lists (model inventories, ignored categories).
-	redactChannelMonitorV2PublicConfig(&snap.Config)
-}
-
-// redactChannelMonitorV2PublicConfig strips operator-policy fields from config
-// embedded in user-facing snapshots. Full config remains on admin /config.
-func redactChannelMonitorV2PublicConfig(cfg *ChannelMonitorV2Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.IgnoredErrorCategories = nil
-	cfg.UpdatedBy = nil
-	for i := range cfg.Platforms {
-		cfg.Platforms[i].Models = nil
-	}
-}
-
-// redactChannelMonitorV2Metric zeros absolute volume counters while keeping rates
-// (error_rate, success_rate, cache_rate) and latency percentiles.
-// When hideThroughput is true, also zeros RPM/TPM so users cannot reverse-estimate
-// fleet scale from rate × window length.
-func redactChannelMonitorV2Metric(m *ChannelMonitorV2Metric, hideThroughput bool) {
-	if m == nil {
-		return
-	}
-	m.SuccessRequests = 0
-	m.ErrorRequests = 0
-	m.RequestCount = 0
-	m.InputTokens = 0
-	m.OutputTokens = 0
-	m.CacheCreationTokens = 0
-	m.CacheReadTokens = 0
-	m.TokenCount = 0
-	m.CacheRateNumerator = 0
-	m.CacheRateDenominator = 0
-	// Latency sample_count is also a volume signal.
-	m.TTFT.SampleCount = 0
-	m.Duration.SampleCount = 0
-	m.UpstreamAffectedRequests = nil
-	m.UpstreamAttemptCount = nil
-	if hideThroughput {
-		m.RPM = 0
-		m.TPM = 0
-	}
-}
-
-func (s *ChannelMonitorV2Service) Users(ctx context.Context, filter ChannelMonitorV2Filter, viewerID int64, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2UserRow], error) {
-	cfg, err := s.getEnabledConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if s.hideUserRankingForViewer(ctx, admin) {
-		return &ChannelMonitorV2List[ChannelMonitorV2UserRow]{Items: []ChannelMonitorV2UserRow{}}, nil
-	}
-	result, err := s.repo.GetUsers(ctx, filter, *cfg, admin)
-	if err != nil {
-		return nil, err
-	}
-	if result == nil {
-		result = &ChannelMonitorV2List[ChannelMonitorV2UserRow]{}
-	}
-	selfIndex := -1
-	for i := range result.Items {
-		result.Items[i].Rank = i + 1
-		if result.Items[i].UserID != nil && *result.Items[i].UserID == viewerID {
-			selfIndex = i
-			result.Items[i].IsSelf = true
-		}
-	}
-	// Viewer with no traffic in this window is still shown (and highlighted) so
-	// ranking always answers "where am I?" — not only when already in the top list.
-	if selfIndex < 0 && viewerID > 0 {
-		id := viewerID
-		selfRow := ChannelMonitorV2UserRow{
-			UserID:       &id,
-			Rank:         0, // unranked / no traffic in window
-			IsSelf:       true,
-			CanDrilldown: true,
-			DisplayLabel: "Me",
-			Metrics:      ChannelMonitorV2Metric{},
-		}
-		result.Items = append(result.Items, selfRow)
-		selfIndex = len(result.Items) - 1
-	}
-	result.Items = channelMonitorV2TopUsersWithSelf(result.Items, selfIndex, 10)
-	hideTP := s.hideThroughputForViewer(ctx, admin)
-	if admin {
-		// Keep identity for admin; still mark self for UI highlight.
-		for i := range result.Items {
-			if result.Items[i].UserID != nil && *result.Items[i].UserID == viewerID {
-				result.Items[i].IsSelf = true
-				if result.Items[i].DisplayLabel == "" || result.Items[i].DisplayLabel == "Me" {
-					// Prefer real label when available from repo.
-					if result.Items[i].Username != "" {
-						result.Items[i].DisplayLabel = result.Items[i].Username
-					} else if result.Items[i].Email != "" {
-						result.Items[i].DisplayLabel = result.Items[i].Email
-					} else {
-						result.Items[i].DisplayLabel = "Me"
-					}
-				}
-			}
-		}
-		return result, nil
-	}
-	for i := range result.Items {
-		redactChannelMonitorV2Metric(&result.Items[i].Metrics, hideTP)
-	}
-	for i := range result.Items {
-		row := &result.Items[i]
-		if row.UserID != nil && *row.UserID == viewerID {
-			row.IsSelf, row.CanDrilldown, row.DisplayLabel = true, true, "Me"
-			continue
-		}
-		row.UserID, row.Email, row.Username, row.CanDrilldown = nil, "", "", false
-		row.DisplayLabel = fmt.Sprintf("Other user #%d", i+1)
-	}
-	return result, nil
-}
-
-func channelMonitorV2TopUsersWithSelf(items []ChannelMonitorV2UserRow, selfIndex int, limit int) []ChannelMonitorV2UserRow {
-	if limit <= 0 {
-		return items
-	}
-	if len(items) <= limit {
-		return items
-	}
-	out := append([]ChannelMonitorV2UserRow(nil), items[:limit]...)
-	if selfIndex >= limit && selfIndex < len(items) {
-		out = append(out, items[selfIndex])
-	}
-	return out
-}
-
-func normalizeChannelMonitorV2Config(cfg *ChannelMonitorV2Config) error {
-	if cfg.RefreshIntervalSeconds == 0 {
-		cfg.RefreshIntervalSeconds = 300
-	}
-	if cfg.RefreshIntervalSeconds != 60 && cfg.RefreshIntervalSeconds != 300 {
-		return fmt.Errorf("%w: refresh_interval_seconds must be 60 or 300", ErrChannelMonitorV2InvalidConfig)
-	}
-	cfg.IgnoredErrorCategories = normalizeChannelMonitorV2IgnoredCategories(cfg.IgnoredErrorCategories)
-	cfg.HealthThresholds = NormalizeChannelMonitorV2HealthThresholds(cfg.HealthThresholds)
-	seen := make(map[string]struct{}, len(cfg.Platforms))
-	for i := range cfg.Platforms {
-		p := &cfg.Platforms[i]
-		p.Platform = strings.ToLower(strings.TrimSpace(p.Platform))
-		if p.Platform == "" {
-			return fmt.Errorf("%w: empty platform", ErrChannelMonitorV2InvalidConfig)
-		}
-		if _, ok := seen[p.Platform]; ok {
-			return fmt.Errorf("%w: duplicate platform %s", ErrChannelMonitorV2InvalidConfig, p.Platform)
-		}
-		seen[p.Platform] = struct{}{}
-		p.Models = normalizeStringSet(p.Models)
-	}
-	sort.Slice(cfg.Platforms, func(i, j int) bool { return cfg.Platforms[i].Platform < cfg.Platforms[j].Platform })
-	return nil
-}
-
-// DefaultChannelMonitorV2IgnoredErrorCategories are factory defaults for
-// ignored_error_categories: excluded from error_rate / health scoring only.
-// Operators can clear or extend via admin config.
-var DefaultChannelMonitorV2IgnoredErrorCategories = []string{
-	"authentication",
-	"client_cancelled",
-	"content_policy",
-	"context_limit",
-	"model_unsupported",
-	"not_found",
-	"quota_or_balance",
-}
-
-func DefaultChannelMonitorV2HealthThresholds() ChannelMonitorV2HealthThresholds {
-	return ChannelMonitorV2HealthThresholds{
-		MinimumSample:     50,
-		WarningErrorRate:  0.05,
-		CriticalErrorRate: 0.20,
-		TargetTTFTMs:      3000,
-		WarningTTFTMs:     3000,
-		CriticalTTFTMs:    10000,
-		// A zero/zero cache threshold means cache misses do not affect health
-		// until an operator explicitly configures cache scoring.
-		WarningCacheRate:  0,
-		CriticalCacheRate: 0,
-		ErrorWeight:       0.60,
-		TTFTWeight:        0.20,
-		CacheWeight:       0.20,
-	}
-}
-
-func NormalizeChannelMonitorV2HealthThresholds(in ChannelMonitorV2HealthThresholds) ChannelMonitorV2HealthThresholds {
-	def := DefaultChannelMonitorV2HealthThresholds()
-	if in.MinimumSample <= 0 {
-		in.MinimumSample = def.MinimumSample
-	}
-	if in.MinimumSample < 1 {
-		in.MinimumSample = 1
-	}
-	if in.MinimumSample > 10000 {
-		in.MinimumSample = 10000
-	}
-	if in.WarningErrorRate <= 0 {
-		in.WarningErrorRate = def.WarningErrorRate
-	}
-	if in.CriticalErrorRate <= 0 {
-		in.CriticalErrorRate = def.CriticalErrorRate
-	}
-	if in.CriticalErrorRate < in.WarningErrorRate {
-		in.CriticalErrorRate = in.WarningErrorRate
-	}
-	if in.TargetTTFTMs <= 0 {
-		in.TargetTTFTMs = def.TargetTTFTMs
-	}
-	if in.WarningTTFTMs <= 0 {
-		in.WarningTTFTMs = def.WarningTTFTMs
-	}
-	if in.WarningTTFTMs < in.TargetTTFTMs {
-		in.WarningTTFTMs = in.TargetTTFTMs + 1
-	}
-	if in.CriticalTTFTMs <= 0 {
-		in.CriticalTTFTMs = def.CriticalTTFTMs
-	}
-	if in.CriticalTTFTMs < in.WarningTTFTMs {
-		in.CriticalTTFTMs = in.WarningTTFTMs
-	}
-	if in.WarningCacheRate < 0 {
-		in.WarningCacheRate = 0
-	}
-	if in.CriticalCacheRate < 0 {
-		in.CriticalCacheRate = 0
-	}
-	if in.WarningCacheRate > 1 {
-		in.WarningCacheRate = 1
-	}
-	if in.CriticalCacheRate > 1 {
-		in.CriticalCacheRate = 1
-	}
-	if in.CriticalCacheRate > in.WarningCacheRate {
-		in.CriticalCacheRate = in.WarningCacheRate
-	}
-	if in.ErrorWeight <= 0 && in.TTFTWeight <= 0 && in.CacheWeight <= 0 {
-		in.ErrorWeight, in.TTFTWeight, in.CacheWeight = def.ErrorWeight, def.TTFTWeight, def.CacheWeight
-	}
-	return in
-}
-
-func normalizeChannelMonitorV2IgnoredCategories(values []string) []string {
-	allowed := make(map[string]struct{}, len(ChannelMonitorV2ErrorCategories))
-	for _, c := range ChannelMonitorV2ErrorCategories {
-		allowed[c] = struct{}{}
-	}
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			continue
-		}
-		if _, ok := allowed[value]; !ok {
-			// Unknown labels are dropped so a typo cannot silently create a new category.
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// ChannelMonitorV2IgnoredCategorySet returns a set for O(1) membership checks.
-func ChannelMonitorV2IgnoredCategorySet(cfg ChannelMonitorV2Config) map[string]struct{} {
-	set := make(map[string]struct{}, len(cfg.IgnoredErrorCategories))
-	for _, c := range cfg.IgnoredErrorCategories {
-		set[c] = struct{}{}
-	}
-	return set
-}
-
-func normalizeStringSet(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	sort.Strings(out)
-	return out
+func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMonitorV2Filter) (*ChannelMonitorV2Matrix, error) {
+	return s.repo.GetMatrix(ctx, filter, s.readConfig(ctx))
 }
 
 func ChannelMonitorV2HealthFor(metrics ChannelMonitorV2Metric) ChannelMonitorV2Health {
-	return ChannelMonitorV2HealthForWithThresholds(metrics, DefaultChannelMonitorV2HealthThresholds())
+	return ChannelMonitorV2HealthForWithThresholds(metrics, channelMonitorV2Config.HealthThresholds)
 }
 
 func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thresholds ChannelMonitorV2HealthThresholds) ChannelMonitorV2Health {
-	thresholds = NormalizeChannelMonitorV2HealthThresholds(thresholds)
 	result := ChannelMonitorV2Health{
 		Overall: "unknown", ErrorRate: "unknown", TTFT: "unknown", Cache: "unknown",
 		MinimumSample: thresholds.MinimumSample, Thresholds: thresholds,

@@ -35,9 +35,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
 
   type SettingsForm = Omit<
     SystemSettings,
-    // A6-4：这几项挪到了功能页（渠道健康 / 审查），设置页不再读写
-    | "channel_monitor_hide_throughput"
-    | "channel_monitor_hide_user_ranking"
+    // A6-4：这两项挪到了审查页，设置页不再读写
     | "cyber_session_block_enabled"
     | "cyber_session_block_ttl_seconds"
     // 只读：取部署配置 OPS_ENABLED，侧栏据它显示运维入口，设置页不读写

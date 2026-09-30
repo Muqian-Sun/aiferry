@@ -341,7 +341,6 @@ export default {
       legend: { healthy: 'Normal', warning: 'Unstable', critical: 'Problems', unknown: 'Too few requests' },
       slot: { detail: '{time}  Availability {availability} · First token {ttft}', fewRequests: ' (too few requests to rate)', noRequests: '{time}  No requests' },
       trend: { title: 'Overall trend', empty: 'No data for this period yet' },
-      disabled: { title: 'Service status is not available', description: 'This page is turned off on this site for now' },
       loadFailed: 'Could not load service status',
       footnote: 'Measured from real requests on this site. Time to first token is the time from sending a request to receiving the first output.'
     }
