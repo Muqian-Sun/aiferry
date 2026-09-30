@@ -5,6 +5,8 @@ package service
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/stretchr/testify/require"
 )
@@ -113,4 +115,24 @@ func TestSparkShadowModelList_StaysTheModelSet(t *testing.T) {
 		require.Equal(t, "grok-4.5", shadow.GetMappedModel("my-grok"))
 		require.False(t, shadow.IsModelSupported(defaultModel), "影子号的模型列表替换默认表")
 	})
+}
+
+// 叠加时只按目录标识精确覆盖：Antigravity 普通号有一条无关的上游名，默认表里其余条目（如
+// gemini-3.1-pro-high → gemini-pro-agent）原样生效，不被「整份替换默认表」时才用的补全改掉。
+func TestCatalogUpstreamModels_AntigravityKeepsDefaultTargets(t *testing.T) {
+	account := &Account{
+		Platform:              PlatformAntigravity,
+		Type:                  AccountTypeOAuth,
+		Credentials:           map[string]any{"access_token": "token"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "claude-sonnet-4-6"},
+	}
+	require.Equal(t, "claude-sonnet-4-6", account.GetMappedModel("claude-sonnet-4-5"))
+	for model, target := range map[string]string{
+		"gemini-3.1-pro-high": domain.DefaultAntigravityModelMapping["gemini-3.1-pro-high"],
+		"claude-haiku-4-5":    domain.DefaultAntigravityModelMapping["claude-haiku-4-5"],
+	} {
+		require.NotEmpty(t, target, model)
+		require.Equal(t, target, account.GetMappedModel(model), model)
+	}
+	require.Equal(t, "gemini-pro-agent", account.GetMappedModel("gemini-3.1-pro-high"), "vendor table target unchanged")
 }

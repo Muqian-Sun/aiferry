@@ -427,17 +427,17 @@ func TestAccountGetMappedModel(t *testing.T) {
 	}
 }
 
+// 别名补全只作用于整份替换默认表的列表（影子号那条路径）；普通号的上游名按目录标识精确叠加、原样生效。
 func TestAccountGetModelMapping_AntigravityNormalizesGemini31ProAliases(t *testing.T) {
 	t.Parallel()
 
-	account := &Account{
-		Platform: PlatformAntigravity,
-		CatalogUpstreamModels: map[string]string{
+	account := newMappingTestAccount(PlatformAntigravity, map[string]any{
+		"model_mapping": map[string]any{
 			domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
 			"gemini-3.1-pro-high":                   "gemini-3.1-pro-high",
 			"gemini-3.1-pro-preview":                "gemini-3.1-pro-high",
 		},
-	}
+	}, nil, true)
 
 	mapping := account.GetModelMapping()
 

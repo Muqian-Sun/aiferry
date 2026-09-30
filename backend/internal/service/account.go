@@ -501,11 +501,23 @@ func (a *Account) resolveModelMapping(source map[string]string, replacesDefaults
 	if len(source) == 0 {
 		return defaults
 	}
+	if !replacesDefaults && len(defaults) > 0 {
+		// 叠加：承接关系上的上游名按目录标识精确覆盖默认表的同名键，默认表其余条目原样保留
+		// （不做下面那套补全：补全是给「整份替换默认表」的列表用的，叠加时会改掉默认表里的目标）。
+		merged := make(map[string]string, len(defaults)+len(source))
+		for k, v := range defaults {
+			merged[k] = v
+		}
+		for k, v := range source {
+			merged[k] = v
+		}
+		return merged
+	}
 	result := make(map[string]string, len(source))
 	for k, v := range source {
 		result[k] = v
 	}
-	if a.Vendor() == PlatformAntigravity {
+	if replacesDefaults && a.Vendor() == PlatformAntigravity {
 		ensureAntigravityDefaultPassthroughs(result, []string{
 			"gemini-3-flash",
 			"gemini-3.1-pro-high",
@@ -528,17 +540,7 @@ func (a *Account) resolveModelMapping(source map[string]string, replacesDefaults
 		})
 		applyAntigravityGemini31ProAliases(result)
 	}
-	if replacesDefaults || len(defaults) == 0 {
-		return result
-	}
-	merged := make(map[string]string, len(defaults)+len(result))
-	for k, v := range defaults {
-		merged[k] = v
-	}
-	for k, v := range result {
-		merged[k] = v
-	}
-	return merged
+	return result
 }
 
 // stringValues 取出映射里的字符串值（非字符串的值丢掉）。
