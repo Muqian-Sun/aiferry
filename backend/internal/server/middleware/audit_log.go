@@ -20,7 +20,6 @@ const (
 	auditCtxKeyAction     = "audit_action"
 	auditCtxKeyActorID    = "audit_actor_id"
 	auditCtxKeyActorEmail = "audit_actor_email"
-	auditCtxKeySkip       = "audit_skip"
 	auditCtxKeyExtra      = "audit_extra"
 	// ContextKeyAuthEmail 认证中间件写入的用户邮箱（审计用）。
 	ContextKeyAuthEmail = "auth_email"
@@ -193,10 +192,6 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 
 		start := time.Now()
 		c.Next()
-
-		if c.GetBool(auditCtxKeySkip) {
-			return
-		}
 
 		status := c.Writer.Status()
 		// token 刷新成功属于高频常规操作，只记录失败（潜在攻击信号）。
