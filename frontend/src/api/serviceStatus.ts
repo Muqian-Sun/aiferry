@@ -58,9 +58,6 @@ export interface ServiceStatusModels {
   items: ServiceStatusModel[]
 }
 
-/** 名单外的模型合成一行，后端用这个值 */
-export const OTHER_MODELS = '__other__'
-
 /** 功能被站长关掉时接口返回的原因码 */
 export const SERVICE_STATUS_DISABLED_REASON = 'CHANNEL_MONITOR_DISABLED'
 

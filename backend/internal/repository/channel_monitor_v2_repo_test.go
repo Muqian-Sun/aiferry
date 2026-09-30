@@ -40,6 +40,44 @@ func TestChannelMonitorV2DisplayModelIsPlatformScoped(t *testing.T) {
 	require.True(t, channelMonitorV2ModelSelected(service.ChannelMonitorV2Filter{Models: []string{service.ChannelMonitorV2OtherModel}}, cfg, "grok", "shared"))
 }
 
+// 访客名单（上架目录）与监控的平台配置无关：openai 上配了的 gpt-4o 没上架就不计，
+// 没选到上游（unknown 平台）的上架模型照样算；别名归到本名；SQL 不按平台筛；每个上架模型都有一行。
+func TestChannelMonitorV2VisitorRosterIgnoresPlatformConfig(t *testing.T) {
+	cfg := service.ChannelMonitorV2Config{
+		Platforms: []service.ChannelMonitorV2PlatformConfig{{Platform: "openai", Enabled: true, Models: []string{"gpt-4o", "gpt-5.5"}}},
+		ModelRoster: &service.ChannelMonitorV2ModelRoster{
+			Models: []string{"gpt-5.5", "glm-5.3-flash"},
+			Resolve: func(model string) (string, bool) {
+				switch model {
+				case "gpt-5.5", "glm-5.3-flash":
+					return model, true
+				case "gpt-latest":
+					return "gpt-5.5", true
+				}
+				return "", false
+			},
+		},
+	}
+	require.Equal(t, "gpt-5.5", channelMonitorV2DisplayModel(cfg, "openai", "gpt-latest"))
+	require.Equal(t, "glm-5.3-flash", channelMonitorV2DisplayModel(cfg, "unknown", "glm-5.3-flash"))
+	require.Equal(t, service.ChannelMonitorV2OtherModel, channelMonitorV2DisplayModel(cfg, "openai", "gpt-4o"))
+
+	all := service.ChannelMonitorV2Filter{}
+	require.True(t, channelMonitorV2ModelSelected(all, cfg, "unknown", "glm-5.3-flash"))
+	require.False(t, channelMonitorV2ModelSelected(all, cfg, "openai", "gpt-4o"))
+	require.False(t, channelMonitorV2ModelSelected(all, cfg, "unknown", "unknown"))
+
+	where, args := channelMonitorV2Where(all, cfg, "m")
+	require.NotContains(t, where, "platform")
+	require.NotContains(t, where, "FALSE")
+	require.Len(t, args, 2)
+
+	accs := seedChannelMonitorV2MatrixAccumulators(all, cfg, service.ChannelMonitorV2GroupByModel)
+	require.Len(t, accs, 2)
+	require.Contains(t, accs, channelMonitorV2MatrixKey{model: "gpt-5.5"})
+	require.Contains(t, accs, channelMonitorV2MatrixKey{model: "glm-5.3-flash"})
+}
+
 func TestChannelMonitorV2MatrixDimensionKey(t *testing.T) {
 	cfg := service.ChannelMonitorV2Config{Platforms: []service.ChannelMonitorV2PlatformConfig{{Platform: "openai", Enabled: true, Models: []string{"gpt-5"}}}}
 	key := channelMonitorV2MatrixDimensionKey(service.ChannelMonitorV2GroupByPlatformModel, cfg, "openai", "gpt-5")

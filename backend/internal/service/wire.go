@@ -975,9 +975,9 @@ func ProvideChannelMonitorRunner(
 }
 
 // ProvideChannelMonitorV2Service wires settings for user-facing privacy flags
-// (e.g. hide RPM/TPM throughput).
-func ProvideChannelMonitorV2Service(repo ChannelMonitorV2Repository, settingService *SettingService) *ChannelMonitorV2Service {
-	svc := NewChannelMonitorV2Service(repo)
+// (e.g. hide RPM/TPM throughput) and the model catalog (visitor reads list listed models).
+func ProvideChannelMonitorV2Service(repo ChannelMonitorV2Repository, settingService *SettingService, catalog *ModelCatalogService) *ChannelMonitorV2Service {
+	svc := NewChannelMonitorV2Service(repo, catalog)
 	svc.SetRuntimeReader(settingService)
 	return svc
 }

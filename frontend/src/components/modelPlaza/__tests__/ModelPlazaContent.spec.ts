@@ -47,7 +47,7 @@ const response: ModelPlazaResponse = {
   ]
 }
 
-function mountContent(props: Partial<{ response: ModelPlazaResponse | null; loading: boolean; error: boolean; embedded: boolean }> = {}) {
+function mountContent(props: Partial<{ response: ModelPlazaResponse | null; loading: boolean; error: boolean }> = {}) {
   return mount(ModelPlazaContent, {
     props: { response, loading: false, error: false, ...props },
     global: { stubs: { Icon: true, Select: true, SearchInput: true } }
@@ -138,9 +138,8 @@ describe('ModelPlazaContent', () => {
     expect(copyToClipboard).toHaveBeenCalledWith('gpt-5.5')
   })
 
-  it('draws its own title only in the public form', () => {
-    expect(mountContent({ embedded: false }).find('h1').exists()).toBe(true)
-    expect(mountContent({ embedded: true }).find('h1').exists()).toBe(false)
+  it('always draws its own title (the page always sits in the public shell)', () => {
+    expect(mountContent().find('h1').exists()).toBe(true)
   })
 
   it('has loading, error and empty states', () => {

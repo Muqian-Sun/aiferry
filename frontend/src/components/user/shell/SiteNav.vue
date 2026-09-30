@@ -1,6 +1,7 @@
 <template>
   <!--
-    唯一的顶栏：公开站与控制台是同一组页签（产品 / 模型与价格 / 文档），控制台自己的导航在左侧栏（ConsoleSidebar）。
+    唯一的顶栏：公开站与控制台是同一组页签（产品 / 模型与价格 / 服务状态 / 文档），控制台自己的导航在左侧栏（ConsoleSidebar）。
+    模型与服务状态的入口只在这里（muqian 2026-09-30），侧栏不重复。
     56px、粘性；底色半透明 + 背景模糊，滚动时内容从下面透过来。控制台宽度与侧栏布局对齐（max-w-console）。
     <lg 时第二行横向滚动：公开站放页签，控制台放侧栏的全部条目（窄屏没有侧栏）；语言 / 主题收进头像菜单。
   -->
@@ -63,7 +64,7 @@
       </div>
     </div>
 
-    <!-- 小屏：第二行横向滚动（控制台 = 侧栏全部条目，公开站 = 页签） -->
+    <!-- 小屏：第二行横向滚动（控制台 = 侧栏全部条目 + 顶栏页签，公开站 = 页签） -->
     <div v-if="mobileTabs.length" class="border-t border-af-hairline lg:hidden">
       <div class="mx-auto h-11 max-w-site overflow-x-auto px-3 scrollbar-hide">
         <NavTabs :tabs="mobileTabs" />
@@ -81,6 +82,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import { sanitizeUrl } from '@/utils/url'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
+import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import BrandLogo from '@/components/common/BrandLogo.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -115,9 +117,13 @@ const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url
 const brandPath = computed(() => (props.variant === 'console' ? CONSOLE_HOME_PATH : '/home'))
 const registrationEnabled = computed(() => Boolean(appStore.cachedPublicSettings?.registration_enabled))
 
-const tabs = computed(() => buildPublicNav({ t, adminSite, docUrl: docUrl.value }))
-// 窄屏行在 DOM 里排在侧栏前面：新手引导按第一个 [data-tour] 定位，这一行不带锚点，免得桌面端指向隐藏元素
+const serviceStatusEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.channelMonitor))
+const tabs = computed(() => buildPublicNav({ t, adminSite, docUrl: docUrl.value, serviceStatusEnabled: serviceStatusEnabled.value }))
+// 窄屏行在 DOM 里排在侧栏前面：新手引导按第一个 [data-tour] 定位，这一行不带锚点，免得桌面端指向隐藏元素。
+// 控制台窄屏没有第一行页签：侧栏条目后面接上顶栏页签，模型 / 服务状态才有入口
 const mobileTabs = computed(() =>
-  props.variant === 'console' ? consoleItems.value.map(({ dataTour: _tour, icon: _icon, ...item }) => item) : tabs.value
+  props.variant === 'console'
+    ? [...consoleItems.value.map(({ dataTour: _tour, icon: _icon, ...item }) => item), ...tabs.value]
+    : tabs.value
 )
 </script>

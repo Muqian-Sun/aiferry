@@ -34,7 +34,7 @@ func TestChannelMonitorV2MatrixHandlerRejectsInvalidGroupBy(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/channel-monitor-v2/matrix?group_by=invalid", nil)
-	h := NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(nil))
+	h := NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(nil, nil))
 	h.Matrix(c)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
@@ -42,7 +42,7 @@ func TestChannelMonitorV2MatrixHandlerRejectsInvalidGroupBy(t *testing.T) {
 // 上游渠道只对管理员可见：普通用户传的 platform 筛选被丢弃，不报错也不生效。
 func TestChannelMonitorV2ParseFilterDropsPlatformForOrdinaryUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(nil))
+	h := NewChannelMonitorV2Handler(service.NewChannelMonitorV2Service(nil, nil))
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

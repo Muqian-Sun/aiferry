@@ -81,7 +81,7 @@ describe('SiteNav console', () => {
     const wrapper = mountNav('console')
     const paths = new Set(linkPaths(wrapper))
     expect([...paths]).toEqual(
-      expect.arrayContaining(['/home', '/model-plaza', '/dashboard', '/keys', '/usage', '/billing/recharge', '/profile'])
+      expect.arrayContaining(['/home', '/model-plaza', '/status', '/dashboard', '/keys', '/usage', '/billing/recharge', '/profile'])
     )
     expect(paths.has('/purchase')).toBe(false)
     expect(paths.has('/accounts')).toBe(false)
@@ -104,7 +104,7 @@ describe('SiteNav console', () => {
   it('backend mode renders no console items', () => {
     appStore.backendModeEnabled = true
     const wrapper = mountNav('console')
-    expect(linkPaths(wrapper).filter((path) => !['/dashboard', '/home', '/model-plaza'].includes(path))).toEqual([])
+    expect(linkPaths(wrapper).filter((path) => !['/dashboard', '/home', '/model-plaza', '/status'].includes(path))).toEqual([])
   })
 
   it('lists admin-configured custom pages with the other console items on narrow screens', () => {
