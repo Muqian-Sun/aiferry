@@ -1,9 +1,10 @@
 <template>
   <!--
     模型页：厂商页签（彩色图标 + 计数）→ 工具（计费 / 搜索 / 价格单位，与页签同一行）→ 网格。
-    只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名；
-    按 Token 分段的模型把计费项换成一张小分段表（muqian 2026-09-29）。
-    价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子里直接显示折算后的你的价格，工具行注明倍率。
+    只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片）。
+    格子只放摘要（muqian 2026-09-30 方案 A）：图标 + 名称 + 厂商 · 计费方式 + 一行起价 + 该模型实际有的计费项标签；
+    点格子打开详情抽屉（ModelPricingDrawer）按块列全部计费项、别名。
+    价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子与抽屉里直接显示折算后的你的价格，工具行注明倍率。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
     一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
@@ -73,8 +74,8 @@
           </div>
           <p class="text-13 text-af-ink-3" data-testid="price-unit">
             {{ t('userUi.models.priceUnit') }}
-            <span class="text-af-ink" data-testid="your-price-note">
-              · {{ t(isAuthenticated ? 'userUi.models.yourPriceApplied' : 'userUi.models.defaultPriceApplied', { multiplier: multiplierLabel }) }}
+            <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
+              · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
             </span>
           </p>
         </div>
@@ -91,23 +92,37 @@
         sm–lg 两列（偶数格），lg 起三列（非 3n+1 格）——两条规则按断点互斥，不能互相覆盖。
       -->
       <ul v-else class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog-grid">
+        <!--
+          整格可点：鼠标点格子任意处打开详情（选中文字时不打开）；键盘 Tab 到模型名按钮，Enter / Space 打开。
+          复制按钮单独处理、不冒泡。格子是 flex 列，标签行留一行高，没有标签的格子与有标签的一样高。
+        -->
         <li
           v-for="entry in filtered"
           :key="entry.id"
-          class="group min-w-0 border-b border-af-hairline px-6 py-6 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+          class="group flex min-w-0 cursor-pointer flex-col border-b border-af-hairline px-6 py-6 transition-colors hover:bg-af-sunken/60 focus-within:bg-af-sunken/60 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
           data-testid="catalog-cell"
+          @click="onCellClick(entry)"
         >
           <div class="flex items-start gap-3">
             <VendorIcon :vendor="entry.vendor" :size="20" colored class="mt-0.5" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <span class="truncate font-mono font-medium text-af-ink">{{ entry.id }}</span>
                 <button
                   type="button"
-                  class="rounded p-1 text-af-ink-4 opacity-0 transition-opacity hover:text-af-ink focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                  class="min-w-0 truncate rounded-sm text-left font-mono font-medium text-af-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand/40"
+                  aria-haspopup="dialog"
+                  :title="t('userUi.models.openDetail')"
+                  data-testid="catalog-cell-open"
+                >
+                  {{ entry.id }}
+                </button>
+                <button
+                  type="button"
+                  class="shrink-0 rounded p-1 text-af-ink-4 opacity-0 transition-opacity hover:text-af-ink focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   :aria-label="t('userUi.models.copyId')"
                   :title="copiedId === entry.id ? t('userUi.models.copied') : t('userUi.models.copyId')"
-                  @click="copyId(entry.id)"
+                  data-testid="copy-model-id"
+                  @click.stop="copyId(entry.id)"
                 >
                   <Icon :name="copiedId === entry.id ? 'check' : 'copy'" size="xs" />
                 </button>
@@ -117,39 +132,23 @@
               </p>
             </div>
           </div>
-          <!--
-            按 Token 分段的模型：一段一行（≤272K / >272K），列输入 / 输出，有缓存读就带上，代替下面的两列计费项。
-            行距比两列计费项略紧（24px 对 28px），两三段的格子与普通格子高度差不多。
-          -->
-          <table v-if="entry.segments.length" class="mt-5 w-full text-13 tabular-nums" data-testid="price-segments">
-            <thead>
-              <tr class="text-af-ink-4">
-                <th class="pb-0.5 text-left font-normal" :title="t('userUi.models.segmentNote')">{{ t('userUi.models.segmentRange') }}</th>
-                <th v-for="key in segmentColumns(entry)" :key="key" class="pb-0.5 pl-3 text-right font-normal">
-                  {{ t(`userUi.models.prices.${key}`) }}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="segment in segmentRows(entry)" :key="segment.min" data-testid="price-segment">
-                <td class="whitespace-nowrap py-0.5 text-af-ink-3">{{ formatSegmentRange(segment) }}</td>
-                <td v-for="key in segmentColumns(entry)" :key="key" class="whitespace-nowrap py-0.5 pl-3 text-right font-medium text-af-ink">
-                  {{ formatPrice(segment.prices[key]) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <!-- 计费项：两列对齐，名在左、价在右；单位见工具行 -->
-          <dl v-else class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums">
-            <div v-for="item in priceItems(entry)" :key="item.key" class="flex items-baseline justify-between gap-3">
-              <dt class="text-af-ink-4">{{ item.label }}</dt>
-              <dd class="font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</dd>
-            </div>
-          </dl>
-          <div v-if="entry.aliases.length || entry.timePricing" class="mt-4 flex flex-wrap gap-1.5">
-            <span v-for="alias in entry.aliases" :key="alias" class="badge badge-gray font-mono">{{ alias }}</span>
-            <span v-if="entry.timePricing" class="badge badge-gray" :title="timePricingText(entry)" data-testid="time-pricing-badge">
-              {{ t('userUi.models.timePricing') }}
+          <!-- 起价：token 模式输入 / 输出（分段模型是第一段），其余模式一个单价；单位见工具行 -->
+          <p class="mt-5 truncate text-13 tabular-nums" data-testid="price-summary">
+            <template v-for="(item, index) in summaryItems(entry)" :key="item.key">
+              <span v-if="index > 0" class="px-1.5 text-af-ink-4" aria-hidden="true">·</span>
+              <span class="text-af-ink-4">{{ item.label }}</span>
+              <span class="ml-1.5 font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</span>
+            </template>
+          </p>
+          <div class="mt-3 flex min-h-[22px] flex-wrap gap-1.5" data-testid="price-tags">
+            <span
+              v-for="tag in cellTags(entry)"
+              :key="tag.key"
+              class="badge badge-gray"
+              :title="tag.title"
+              :data-testid="tag.key === 'timePricing' ? 'time-pricing-badge' : `tag-${tag.key}`"
+            >
+              {{ tag.label }}
             </span>
           </div>
         </li>
@@ -157,10 +156,17 @@
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
         {{ t('userUi.models.priceNote') }}
-        <template v-if="hasSegments"> {{ t('userUi.models.segmentNote') }}</template>
-        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: multiplierLabel }) }}</template>
+        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: userMultiplier }) }}</template>
       </p>
     </div>
+
+    <ModelPricingDrawer
+      :entry="detailEntry"
+      :scale="priceScale"
+      :authenticated="isAuthenticated"
+      :multiplier="userMultiplier"
+      @close="detailId = null"
+    />
   </div>
 </template>
 
@@ -182,8 +188,7 @@ import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
-import { formatMultiplier } from '@/utils/formatters'
-import { formatSegmentRange, type TokenSegment } from '@/utils/tokenSegments'
+import ModelPricingDrawer from './ModelPricingDrawer.vue'
 import {
   applyMultiplier,
   buildCatalog,
@@ -193,10 +198,8 @@ import {
   filterCatalog,
   formatCatalogPrice as formatPrice,
   formatTimePricing,
-  scalePrices,
   vendorLabel,
-  type CatalogModel,
-  type CatalogPriceKey
+  type CatalogModel
 } from './catalog'
 
 const props = defineProps<{
@@ -275,60 +278,70 @@ watch(billingModeOptions, (options) => {
   if (!options.some((option) => option.value === selectedBillingMode.value)) selectedBillingMode.value = 'all'
 })
 
-// 展示价 = 官方价 × 倍率：登录按账户倍率，未登录按接口给的新用户默认倍率（官方价的 1/15）
+// 你的价格：登录且账户倍率 ≠ 1 时格子与抽屉都显示折算后的价格；倍率 = 1 时标价即实付，只在脚注说明
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const userMultiplier = computed(() =>
-  isAuthenticated.value
-    ? Number(authStore.user?.rate_multiplier ?? props.response?.default_rate_multiplier ?? 1)
-    : Number(props.response?.default_rate_multiplier ?? 1)
-)
-const multiplierLabel = computed(() => formatMultiplier(userMultiplier.value))
+const userMultiplier = computed(() => Number(authStore.user?.rate_multiplier ?? 1))
+const showUserPrice = computed(() => isAuthenticated.value && userMultiplier.value !== 1)
+const priceScale = computed(() => (showUserPrice.value ? userMultiplier.value : 1))
 const consoleSummary = computed<StatItem[]>(() => [
   { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
   { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) },
-  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${multiplierLabel.value}` }
+  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${userMultiplier.value}` }
 ])
-/**
- * 一个格子要列的计费项（口径 = 后端实际收费项）：
- * token 模式固定列输入 / 输出 / 缓存写入 / 缓存读取（没定价的显示破折号），1 小时缓存写入与图片输入输出只在定了价时列；
- * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。倍率 ≠ 1 时列的是折算后的价格。
- */
-const TOKEN_PRICE_ITEMS: ReadonlyArray<{ key: CatalogPriceKey; always: boolean }> = [
-  { key: 'input', always: true },
-  { key: 'output', always: true },
-  { key: 'cacheWrite', always: true },
-  { key: 'cacheRead', always: true },
-  { key: 'cacheWrite1h', always: false },
-  { key: 'imageInput', always: false },
-  { key: 'imageOutput', always: false }
-]
-const UNIT_PRICE_LABEL: Record<string, string> = { per_request: 'perRequest', image: 'perImage', video: 'perSecond' }
 
-function priceItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
-  const scale = userMultiplier.value
+/**
+ * 格子里的起价：token 模式列输入 / 输出（基础价 = 分段模型的第一段，没定价的显示破折号）；
+ * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。倍率 ≠ 1 时是折算后的价格。
+ */
+function summaryItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
+  const scale = priceScale.value
   if (entry.billingMode !== 'token') {
-    const labelKey = UNIT_PRICE_LABEL[entry.billingMode]
-    return [{ key: 'unit', label: t(`userUi.models.prices.${labelKey}`), value: entry.unitPrice == null ? null : entry.unitPrice * scale }]
+    const label =
+      entry.billingMode === 'image'
+        ? t('userUi.models.prices.perImage')
+        : entry.billingMode === 'video'
+          ? t('userUi.models.prices.perSecond')
+          : t('userUi.models.prices.perRequest')
+    return [{ key: 'unit', label, value: entry.unitPrice == null ? null : entry.unitPrice * scale }]
   }
   const price = applyMultiplier(entry.price, scale)
-  return TOKEN_PRICE_ITEMS.filter(({ key, always }) => always || price?.[key] != null).map(({ key }) => ({
-    key,
-    label: t(`userUi.models.prices.${key}`),
-    value: price?.[key] ?? null
-  }))
+  return [
+    { key: 'input', label: t('userUi.models.prices.input'), value: price?.input ?? null },
+    { key: 'output', label: t('userUi.models.prices.output'), value: price?.output ?? null }
+  ]
 }
-/** 分段表的列：输入 / 输出始终列，缓存读有一段定了价才列（缓存写与图片价不进分段表） */
-function segmentColumns(entry: CatalogModel): Array<'input' | 'output' | 'cacheRead'> {
-  return entry.segments.some((segment) => segment.prices.cacheRead != null) ? ['input', 'output', 'cacheRead'] : ['input', 'output']
-}
-function segmentRows(entry: CatalogModel): TokenSegment[] {
-  return entry.segments.map((segment) => ({ ...segment, prices: scalePrices(segment.prices, userMultiplier.value) }))
-}
-/** 当前列表里有分段计价的模型时，脚注补一句分段怎么计 */
-const hasSegments = computed(() => filtered.value.some((entry) => entry.segments.length > 0))
 
-function timePricingText(entry: CatalogModel): string {
-  return entry.timePricing ? formatTimePricing(entry.timePricing, t('userUi.models.weekdaysOnly')) : ''
+/** 格子下方的标签：只列该模型实际有的计费项，全部内容在详情抽屉里 */
+function cellTags(entry: CatalogModel): Array<{ key: string; label: string; title?: string }> {
+  const tags: Array<{ key: string; label: string; title?: string }> = []
+  const price = entry.price
+  if (entry.rows.length > 1) tags.push({ key: 'segments', label: t('userUi.models.tags.segments', { count: entry.rows.length }) })
+  if (entry.tiers.length) tags.push({ key: 'tiers', label: t('userUi.models.tags.tiers', { count: entry.tiers.length }) })
+  if (price?.cacheWrite1h != null) tags.push({ key: 'cache1h', label: t('userUi.models.tags.cache1h') })
+  if (entry.fastRows) tags.push({ key: 'fast', label: t('userUi.models.tags.fast') })
+  if (entry.flexMultiplier != null) tags.push({ key: 'flex', label: t('userUi.models.tags.flex') })
+  if (price && (price.imageInput != null || price.imageOutput != null || price.imageCacheRead != null)) {
+    tags.push({ key: 'image', label: t('userUi.models.tags.image') })
+  }
+  if (price && (price.audioInput != null || price.audioOutput != null)) tags.push({ key: 'audio', label: t('userUi.models.tags.audio') })
+  if (entry.searchPerThousand != null) tags.push({ key: 'search', label: t('userUi.models.tags.search') })
+  if (entry.timePricing) {
+    tags.push({
+      key: 'timePricing',
+      label: t('userUi.models.tags.timePricing'),
+      title: formatTimePricing(entry.timePricing, t('userUi.models.weekdaysOnly'))
+    })
+  }
+  return tags
+}
+
+// 详情抽屉：记模型 id，目录刷新后仍指向同一条（下架了就自动关掉）
+const detailId = ref<string | null>(null)
+const detailEntry = computed(() => (detailId.value ? (catalog.value.find((entry) => entry.id === detailId.value) ?? null) : null))
+function onCellClick(entry: CatalogModel) {
+  // 拖选格子里的文字（比如模型名）时不打开
+  if (window.getSelection()?.toString()) return
+  detailId.value = entry.id
 }
 
 function tabClass(active: boolean): string {
