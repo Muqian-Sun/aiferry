@@ -313,7 +313,7 @@ export default {
     },
     serviceStatus: {
       title: 'Service status',
-      description: 'Recent availability and time to first token for each model, measured from real requests on this site',
+      description: 'Recent availability, time to first token and cache hit rate for each model, measured from real requests on this site',
       range: { label: 'Time range', '90m': '90 min', '24h': '24 hours', '7d': '7 days', '30d': '30 days' },
       headline: {
         healthy: 'All models are operating normally',

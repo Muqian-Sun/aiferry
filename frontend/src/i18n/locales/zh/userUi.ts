@@ -313,7 +313,7 @@ export default {
     },
     serviceStatus: {
       title: '服务状态',
-      description: '各模型最近的可用率和首字延迟，按本站的真实请求统计',
+      description: '各模型最近的可用率、首字延迟和缓存命中率，按本站的真实请求统计',
       range: { label: '时间范围', '90m': '90 分钟', '24h': '24 小时', '7d': '7 天', '30d': '30 天' },
       headline: {
         healthy: '各模型运行正常',
