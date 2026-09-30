@@ -338,29 +338,6 @@
         </div>
       </div>
 
-      <FormSectionHeading v-if="showModelRename" section="models" :title="t('admin.accounts.formPage.sections.models')" />
-
-      <!-- 模型改名（可选）：只改名、不限定能接哪些模型，保存时带 model_mapping_rename_only（spark 影子账号除外） -->
-      <ModelRenameEditor
-        v-if="showModelRename"
-        v-model="modelMappings"
-        data-testid="edit-model-rename"
-        class="border-t border-af-hairline pt-4"
-        :presets="renamePresets"
-        :extends-vendor-table="extendsVendorTable"
-      >
-        <template v-if="account.platform === 'antigravity'" #actions>
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            :disabled="isSyncingAntigravityUpstream || !account?.id"
-            @click="syncAntigravityUpstreamModels"
-          >
-            {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
-          </button>
-        </template>
-      </ModelRenameEditor>
-
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -719,7 +696,6 @@ import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
-import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
@@ -764,11 +740,6 @@ import {
 } from '@/utils/format'
 import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
-import {
-  PLATFORMS_WITH_VENDOR_MODEL_TABLE,
-  buildModelMappingObject,
-  renamePresetsFor
-} from '@/composables/useModelWhitelist'
 
 interface Props {
   show: boolean
@@ -793,12 +764,6 @@ const handleOllamaCloudUsageUpdated = (state: OllamaCloudUsageState) => {
   if (props.account) emit('updated', { ...props.account, ollama_cloud_usage: state })
 }
 
-
-// Model mapping type
-interface ModelMapping {
-  from: string
-  to: string
-}
 
 // State
 const submitting = ref(false)
@@ -916,7 +881,6 @@ const isBedrockAPIKeyMode = computed(() =>
   props.account?.type === 'bedrock' &&
   (props.account?.credentials as Record<string, unknown>)?.auth_mode === 'apikey'
 )
-const modelMappings = ref<ModelMapping[]>([])
 
 // 池模式同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关
 const poolModeEnabled = ref(false)
@@ -930,7 +894,6 @@ const interceptWarmupRequests = ref(false)
 const autoResetCreditEnabled = ref(false)
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
-const isSyncingAntigravityUpstream = ref(false)
 
 
 // Quota control state (Anthropic OAuth/SetupToken only)
@@ -948,8 +911,9 @@ const bedrockCCCompatEnabled = ref(false)
 const anthropicKeySettingsVisible = computed(
   () => props.account?.type === 'apikey' && hasAnthropicEndpoint(editProtocolEndpoints.value)
 )
-// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；「地址与协议」「模型与映射」只在分区里有区块时才出标题，
+// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；「地址与协议」只在分区里有区块时才出标题，
 // 条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
+// 「模型与映射」分区最后只剩模型改名，2026-10-01 改名挪到价格页（每条承接关系的上游模型名），分区一起删了。
 const showEndpointSection = computed(() => {
   const account = props.account
   if (!account) return false
@@ -959,28 +923,11 @@ const showEndpointSection = computed(() => {
     anthropicKeySettingsVisible.value
   )
 })
-// 模型改名：沿用原来有模型映射的类型（第三方 key、OpenAI / Grok 成品号、Vertex、Bedrock、Antigravity）
-const showModelRename = computed(() => {
-  const account = props.account
-  if (!account) return false
-  return (
-    account.type === 'apikey' ||
-    ((account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth') ||
-    ((account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account') ||
-    account.type === 'bedrock' ||
-    account.platform === 'antigravity'
-  )
-})
 
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
 
-// 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
-const renamePresets = computed(() =>
-  renamePresetsFor(props.account?.type === 'bedrock' ? 'bedrock' : (props.account?.platform || 'anthropic'))
-)
-const extendsVendorTable = computed(() => PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(props.account?.platform ?? ''))
 const form = reactive({
   name: '',
   notes: '',
@@ -1010,30 +957,6 @@ const expiresAtInput = computed({
 })
 
 // Watchers
-// 映射整份按改名行展示：旧白名单留下的同名项也在——对承接没影响，但 Antigravity / xAI 这类自带模型表的
-// 上游靠它扩表、批量生图也按映射列模型，不能静默丢掉，管理员可以自己删。
-const loadModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) => {
-  modelMappings.value = Object.entries(rawMapping ?? {}).flatMap(([from, to]) =>
-    typeof to === 'string' && from.trim() && to.trim() ? [{ from: from.trim(), to: to.trim() }] : []
-  )
-}
-
-// 写映射并打「只改名」标记（muqian 2026-09-25 去掉白名单）。spark 影子账号的映射是系统维护的模型集合，
-// 后端也只放行 model_mapping 一个键，不打标记。
-const writeRenameMapping = (credentials: Record<string, unknown>) => {
-  const modelMapping = buildModelMappingObject('mapping', [], modelMappings.value)
-  if (modelMapping) {
-    credentials.model_mapping = modelMapping
-  } else {
-    delete credentials.model_mapping
-  }
-  if (modelMapping && !isSparkShadow.value) {
-    credentials.model_mapping_rename_only = true
-  } else {
-    delete credentials.model_mapping_rename_only
-  }
-}
-
 const syncFormFromAccount = (newAccount: Account | null) => {
   if (!newAccount) {
     return
@@ -1115,8 +1038,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     // 智谱团队版 Coding Plan：回填组织/项目 ID（厂商按地址识别，是不是智谱看 keyVendor）
     editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
     editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
-    // Load model mappings and detect mode
-    loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
 
     // Load pool mode（同渠道重试次数与状态码写死在后端，这里只有开关）
     poolModeEnabled.value = credentials.pool_mode === true
@@ -1138,37 +1059,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaLimit.value = typeof bedrockExtra.quota_limit === 'number' ? bedrockExtra.quota_limit : null
     editQuotaDailyLimit.value = typeof bedrockExtra.quota_daily_limit === 'number' ? bedrockExtra.quota_daily_limit : null
     editQuotaWeeklyLimit.value = typeof bedrockExtra.quota_weekly_limit === 'number' ? bedrockExtra.quota_weekly_limit : null
-
-    // Load model mappings for bedrock
-    loadModelRestrictionFromMapping(bedrockCreds.model_mapping as Record<string, unknown> | undefined)
   } else if ((newAccount.platform === 'gemini' || newAccount.platform === 'anthropic') && newAccount.type === 'service_account' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
     editVertexLocation.value = (credentials.location as string) || (credentials.vertex_location as string) || 'us-central1'
-
-    // Load model mappings for service_account
-    loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
   } else {
-    // Load model mappings for OpenAI/Grok OAuth accounts
-    if ((newAccount.platform === 'openai' || newAccount.platform === 'grok') && newAccount.credentials) {
-      const oauthCredentials = newAccount.credentials as Record<string, unknown>
-      loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
-    } else if (newAccount.platform === 'antigravity') {
-      const agCredentials = (newAccount.credentials as Record<string, unknown> | undefined) ?? {}
-      const rawWhitelist = agCredentials.model_whitelist
-      if (agCredentials.model_mapping && typeof agCredentials.model_mapping === 'object') {
-        loadModelRestrictionFromMapping(agCredentials.model_mapping as Record<string, unknown>)
-      } else if (Array.isArray(rawWhitelist)) {
-        // 旧数据：model_whitelist 转成同名改名行，保存时迁到 model_mapping
-        modelMappings.value = rawWhitelist
-          .map((value) => String(value).trim())
-          .filter((value) => value.length > 0)
-          .map((model) => ({ from: model, to: model }))
-      } else {
-        modelMappings.value = []
-      }
-    } else {
-      modelMappings.value = []
-    }
     poolModeEnabled.value = false
   }
   editApiKey.value = ''
@@ -1186,27 +1080,6 @@ watch(
   },
   { immediate: true }
 )
-
-const syncAntigravityUpstreamModels = async () => {
-  if (!props.account?.id || isSyncingAntigravityUpstream.value) return
-
-  isSyncingAntigravityUpstream.value = true
-  try {
-    const result = await adminAPI.accounts.syncUpstreamModels(props.account.id)
-    const upstreamModels = result.models.map((model) => model.trim()).filter(Boolean)
-    for (const model of upstreamModels) {
-      const exists = modelMappings.value.some((mapping) => mapping.from === model)
-      if (!exists) {
-        modelMappings.value = [...modelMappings.value, { from: model, to: model }]
-      }
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
-    console.error(t('admin.accounts.syncUpstreamModelsError', { message }), error)
-  } finally {
-    isSyncingAntigravityUpstream.value = false
-  }
-}
 
 // Load quota control settings from account (Anthropic OAuth/SetupToken only)
 function loadQuotaControlSettings(account: Account) {
@@ -1287,8 +1160,6 @@ const handleSubmit = async () => {
       }
       updatePayload.protocol_endpoints = apiKeyEndpoints
       const currentCredentials = (props.account.credentials as Record<string, unknown>) || {}
-
-      // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
       // 计费方式与新建同一规则：按地址识别出厂商才写 account_mode（决定额度/余额探测），地址指向中转就去掉。
       // 官方域名表没拉到时认不出厂商，保留已存的值，免得一次保存把套餐清掉。
@@ -1323,9 +1194,6 @@ const handleSubmit = async () => {
         console.error(t('admin.accounts.apiKeyIsRequired'))
         return
       }
-
-      // Add model mapping if configured
-      writeRenameMapping(newCredentials)
 
       // 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只写开关
       if (poolModeEnabled.value) {
@@ -1370,8 +1238,6 @@ const handleSubmit = async () => {
       newCredentials.location = editVertexLocation.value.trim()
       newCredentials.tier_id = 'vertex'
 
-      writeRenameMapping(newCredentials)
-
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
 
       updatePayload.credentials = newCredentials
@@ -1399,8 +1265,6 @@ const handleSubmit = async () => {
         }
       }
 
-      writeRenameMapping(newCredentials)
-
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
 
       updatePayload.credentials = newCredentials
@@ -1410,18 +1274,6 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-
-      updatePayload.credentials = newCredentials
-    }
-
-    // OpenAI/Grok OAuth: persist model mapping to credentials
-    if ((props.account.platform === 'openai' || props.account.platform === 'grok') && props.account.type === 'oauth') {
-      const currentCredentials = isSparkShadow.value
-        ? {}
-        : (updatePayload.credentials as Record<string, unknown>) ||
-          ((props.account.credentials as Record<string, unknown>) || {})
-      const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      writeRenameMapping(newCredentials)
 
       updatePayload.credentials = newCredentials
     }
@@ -1443,21 +1295,25 @@ const handleSubmit = async () => {
       updatePayload.credentials = newCredentials
     }
 
-    // Antigravity: persist model mapping to credentials (applies to all antigravity types)
-    // Antigravity 只支持映射模式
-    if (props.account.platform === 'antigravity') {
+    // Antigravity 成品号：兜底 project ID
+    if (props.account.platform === 'antigravity' && props.account.type === 'oauth') {
       const currentCredentials = (updatePayload.credentials as Record<string, unknown>) ||
         ((props.account.credentials as Record<string, unknown>) || {})
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      if (props.account.type === 'oauth') {
-        applyAntigravityProjectID(newCredentials, antigravityProjectId.value, 'edit')
-      }
-
-      // 移除旧字段；改名叠在 Antigravity 默认表之上（后端合并）
-      delete newCredentials.model_whitelist
-      writeRenameMapping(newCredentials)
-
+      applyAntigravityProjectID(newCredentials, antigravityProjectId.value, 'edit')
       updatePayload.credentials = newCredentials
+    }
+
+    // 渠道上的模型改名已删（2026-10-01，改名在价格页每条承接关系的上游模型名里设）：后端拒收这两个键，
+    // 上面从账号已存凭据复制来的旧值不能带回去。
+    // spark 影子号的 model_mapping 是系统维护的模型列表，表单不改它：影子号只要带了 credentials，
+    // 后端就按它整份替换，所以干脆不带。
+    if (isSparkShadow.value) {
+      delete updatePayload.credentials
+    } else {
+      const credentials = updatePayload.credentials as Record<string, unknown>
+      delete credentials.model_mapping
+      delete credentials.model_mapping_rename_only
     }
 
     // 超量只属于 Antigravity 成品号；第三方 key 不写这个键

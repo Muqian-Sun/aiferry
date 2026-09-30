@@ -86,34 +86,6 @@ describe('BulkEditAccountModal', () => {
     } as any)
   })
 
-  // 去掉白名单后只有改名：Antigravity 自带模型表，同名预设（把表外模型加进来）也保留
-  it('antigravity 改名预设包含图片映射并过滤 OpenAI 预设', async () => {
-    const wrapper = mountModal()
-
-    expect(wrapper.text()).toContain('3.1-Flash-Image透传')
-    expect(wrapper.text()).toContain('3-Pro-Image→3.1')
-    expect(wrapper.text()).not.toContain('GPT-5.3 Codex Spark')
-  })
-
-  it('仅勾选模型改名且不填时，提交空 model_mapping 覆盖各账号的映射，并带只改名标记', async () => {
-    const wrapper = mountModal({
-      selectedPlatforms: ['anthropic'],
-      selectedTypes: ['apikey']
-    })
-
-    await wrapper.get('#bulk-edit-model-restriction-enabled').setValue(true)
-    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledTimes(1)
-    expect(adminAPI.accounts.bulkUpdate).toHaveBeenCalledWith([1, 2], {
-      credentials: {
-        model_mapping: {},
-        model_mapping_rename_only: true
-      }
-    })
-  })
-
   it('不再提供批量修改 Base URL 的入口', () => {
     // 成品号只走官方地址，第三方 key 的地址只在协议映射里（批量更新不改映射）
     const wrapper = mountModal({ selectedPlatforms: ['grok'], selectedTypes: ['oauth'] })

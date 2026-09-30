@@ -115,7 +115,6 @@ export default {
         sections: {
           basics: '基本',
           endpoint: '地址与协议',
-          models: '模型与映射',
           limits: '额度',
           advanced: '高级'
         }
@@ -182,12 +181,6 @@ export default {
           network_error: '连不上上游',
           no_model: '拿不到模型名，无法用真实请求确认'
         }
-      },
-      // 模型改名（映射只改名，不限定能接哪些模型）
-      modelRename: {
-        title: '模型改名（可选）',
-        hint: '把请求里的模型名改成上游认的名字，左边是请求的模型，右边是发给上游的模型。只改名，不限定能接哪些模型——那由这个渠道在模型目录里的承接关系决定。',
-        vendorTableHint: '这个上游自带模型表：表里没有的模型要在这里加一条（可以同名）才会承接。'
       },
       deleteAccount: '删除渠道',
       searchAccounts: '搜索渠道名称',
@@ -763,12 +756,7 @@ export default {
         bedrockCCCompatDesc:
           '转发前清理 Claude Code 专有请求字段并过滤上游不支持的 anthropic-beta，适用于按 Bedrock Anthropic 方言接入的上游。',
       },
-      requestModel: '请求模型',
-      actualModel: '实际模型',
-      addMapping: '添加映射',
       mappingExists: '模型 {model} 的映射已存在',
-      wildcardOnlyAtEnd: '通配符 * 只能放在末尾',
-      targetNoWildcard: '目标模型不能包含通配符 *',
       searchModels: '搜索模型...',
       noMatchingModels: '没有匹配的模型',
       fillRelatedModels: '同步最新支持模型',

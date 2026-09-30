@@ -766,18 +766,6 @@
         </div>
       </div>
 
-      <FormSectionHeading v-if="showModelRename" section="models" :title="t('admin.accounts.formPage.sections.models')" />
-
-      <!-- 模型改名（可选）：只改名，不限定能接哪些模型（那由上面的勾选决定），提交时带 model_mapping_rename_only -->
-      <ModelRenameEditor
-        v-if="showModelRename"
-        v-model="modelMappings"
-        data-testid="create-model-rename"
-        class="border-t border-af-hairline pt-4"
-        :presets="renamePresets"
-        :extends-vendor-table="extendsVendorTable"
-      />
-
       <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -1361,11 +1349,6 @@
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import {
-  PLATFORMS_WITH_VENDOR_MODEL_TABLE,
-  buildModelMappingObject,
-  renamePresetsFor
-} from '@/composables/useModelWhitelist'
 import { adminAPI } from '@/api/admin'
 import {
   useAccountOAuth,
@@ -1395,7 +1378,6 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
-import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import {
   DEFAULT_ACCESS_SOURCE_ID,
   findAccessSource
@@ -1525,12 +1507,6 @@ const currentOAuthError = computed(() => {
 
 // Refs
 const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
-
-// Model mapping type
-interface ModelMapping {
-  from: string
-  to: string
-}
 
 // State
 const step = ref(1)
@@ -1663,9 +1639,6 @@ function validatedProtocolEndpoints(): ProtocolEndpoints | null {
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
-// 模型改名（可选）：只改名、不兼任白名单，写入时带 model_mapping_rename_only（见 withRenameOnlyMapping）
-const modelMappings = ref<ModelMapping[]>([])
-const buildRenameMapping = () => buildModelMappingObject('mapping', [], modelMappings.value)
 // 池模式同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关
 const poolModeEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
@@ -1747,14 +1720,6 @@ const geminiHelpLinks = {
   countryChange: 'https://policies.google.com/country-association-form'
 }
 
-// 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
-const renamePresets = computed(() => {
-  if (isKeyMode.value) return keyVendor.value ? renamePresetsFor(keyVendor.value) : []
-  return renamePresetsFor(accountCategory.value === 'bedrock' ? 'bedrock' : form.platform)
-})
-const extendsVendorTable = computed(() =>
-  PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(isKeyMode.value ? (keyVendor.value ?? '') : form.platform)
-)
 const form = reactive({
   name: '',
   notes: '',
@@ -1782,20 +1747,13 @@ const anthropicKeySettingsVisible = computed(
   () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
 )
 
-// 表单分区（A5-c）：「基本」「模型与映射」「额度」「高级」总有字段（承接的模型所有接入方式都有）；
+// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；
 // 「地址与协议」只在分区里有区块时才出标题，条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
 // OpenAI 的透传 / WS mode / 摊平 / 端点能力 / 生图转 base64 区块 2026-09-28 P5 删了（写进后端代码）。
+// 「模型与映射」分区最后只剩模型改名，2026-10-01 改名挪到价格页（每条承接关系的上游模型名），分区一起删了。
 const showEndpointSection = computed(() =>
   form.type === 'apikey' ||
   anthropicKeySettingsVisible.value
-)
-// 模型改名：沿用原来有模型映射的接入方式（第三方 key、Bedrock、Antigravity、OpenAI / Grok 成品号）
-// 「更多设置」里的模型分区只剩改名（Compact 区块 2026-09-28 P5 删了）
-const showModelRename = computed(() =>
-  form.platform === 'antigravity' ||
-  form.type === 'apikey' ||
-  (form.platform === 'anthropic' && accountCategory.value === 'bedrock') ||
-  ((form.platform === 'openai' || form.platform === 'grok') && isOAuthFlow.value)
 )
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
@@ -1871,8 +1829,6 @@ watch(
 watch(
   () => form.platform,
   (newPlatform) => {
-    // 改名是按平台的模型名写的，换平台清空（Antigravity 的默认表由后端叠加，不再预填）
-    modelMappings.value = []
     if (newPlatform === 'antigravity') {
       accountCategory.value = 'oauth-based'
     } else {
@@ -1946,18 +1902,9 @@ const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | '
 }
 
 
-// 映射只改名（muqian 2026-09-25 去掉白名单）：写了 model_mapping 就一并打标记，渠道承接哪些模型看目录绑定。
-const withRenameOnlyMapping = (credentials: Record<string, unknown>): Record<string, unknown> => {
-  const out = { ...credentials }
-  if (out.model_mapping) out.model_mapping_rename_only = true
-  else delete out.model_mapping_rename_only
-  return out
-}
-
-// 所有单个建号都走这里：第三方 key 不带平台（后端按地址认厂商，认不出的中转按协议归族），
-// 映射打「只改名」标记。
+// 所有单个建号都走这里：第三方 key 不带平台（后端按地址认厂商，认不出的中转按协议归族）。
 const createAccountRecord = async (payload: CreateAccountRequest): Promise<Account> => {
-  const body: CreateAccountRequest = { ...payload, credentials: withRenameOnlyMapping(payload.credentials) }
+  const body: CreateAccountRequest = { ...payload }
   if (body.type === 'apikey') delete body.platform
   return adminAPI.accounts.create(body)
 }
@@ -1965,21 +1912,7 @@ const createAccountRecord = async (payload: CreateAccountRequest): Promise<Accou
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
-    const account = await createAccountRecord(payload)
-    const modelMapping = payload.credentials.model_mapping
-    const hasConcreteMappedTarget = payload.type === 'apikey' &&
-      typeof modelMapping === 'object' &&
-      modelMapping !== null &&
-      Object.values(modelMapping).some((target) =>
-        typeof target === 'string' && target.trim() !== '' && !target.includes('*')
-      )
-    if (hasConcreteMappedTarget) {
-      try {
-        await adminAPI.accounts.syncUpstreamModels(account.id)
-      } catch (error) {
-        console.error(t('admin.accounts.syncUpstreamModelsFailed'), error)
-      }
-    }
+    await createAccountRecord(payload)
     emit('created')
     handleClose()
   } catch (error: any) {
@@ -2012,7 +1945,6 @@ const resetForm = () => {
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
-  modelMappings.value = []
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
   showMoreSettings.value = false
   poolModeEnabled.value = false
@@ -2156,12 +2088,6 @@ const handleSubmit = async () => {
       credentials.aws_force_global = 'true'
     }
 
-    // Model mapping
-    const modelMapping = buildRenameMapping()
-    if (modelMapping) {
-      credentials.model_mapping = modelMapping
-    }
-
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
     await createAccountAndFinish('anthropic', 'bedrock' as AccountType, credentials)
@@ -2215,12 +2141,6 @@ const handleSubmit = async () => {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()
       if (zhipuProject.value.trim()) credentials.zhipu_project = zhipuProject.value.trim()
     }
-  }
-
-  // Add model mapping if configured
-  const modelMapping = buildRenameMapping()
-  if (modelMapping) {
-    credentials.model_mapping = modelMapping
   }
 
   // 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只写开关
@@ -2319,14 +2239,6 @@ const createAccountAndFinish = async (
   if (type === 'apikey' || type === 'bedrock') {
     finalExtra = withQuotaExtra(finalExtra)
   }
-  if (platform === 'grok') {
-    const modelMapping = buildRenameMapping()
-    if (modelMapping) {
-      credentials.model_mapping = modelMapping
-    } else {
-      delete credentials.model_mapping
-    }
-  }
   await doCreateAccount({
     name: form.name,
     notes: form.notes,
@@ -2380,11 +2292,6 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
         const extra = grokOAuth.buildExtraInfo(tokenInfo)
         const accountName = refreshTokens.length > 1 ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}` : (form.name || tokenInfo.email || 'Grok OAuth Account')
 
-        const modelMapping = buildRenameMapping()
-        if (modelMapping) {
-          credentials.model_mapping = modelMapping
-        }
-
         await createAccountRecord({
           name: accountName,
           notes: form.notes,
@@ -2434,10 +2341,6 @@ const handleGrokImportSSO = async (ssoInput: string) => {
 
   const credentials: Record<string, unknown> = {}
   applyGrokOAuthUpstreamConfig(credentials)
-  const modelMapping = buildRenameMapping()
-  if (modelMapping) {
-    credentials.model_mapping = modelMapping
-  }
 
   try {
     const result = await adminAPI.grok.createFromSSO({
@@ -2445,7 +2348,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       name: form.name || undefined,
       notes: form.notes || undefined,
       proxy_id: form.proxy_id,
-      credentials: withRenameOnlyMapping(credentials),
+      credentials,
       concurrency: form.concurrency,
       priority: form.priority,
       expires_at: form.expires_at
@@ -2524,11 +2427,6 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
             ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}`
             : form.name || tokenInfo.email || 'Grok OAuth Account'
 
-        const modelMapping = buildRenameMapping()
-        if (modelMapping) {
-          credentials.model_mapping = modelMapping
-        }
-
         await createAccountRecord({
           name: accountName,
           notes: form.notes,
@@ -2592,16 +2490,6 @@ const handleOpenAIExchange = async (authCode: string) => {
     const extra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
     const shouldCreateOpenAI = form.platform === 'openai'
 
-    // Add model mapping for OpenAI OAuth accounts
-    if (shouldCreateOpenAI) {
-      const modelMapping = buildRenameMapping()
-      if (modelMapping) {
-        credentials.model_mapping = modelMapping
-      }
-    }
-
-    // 应用临时不可调度配置
-
     if (shouldCreateOpenAI) {
       await createAccountRecord({
         name: form.name,
@@ -2630,16 +2518,6 @@ const handleOpenAIExchange = async (authCode: string) => {
 // OpenAI 手动 RT 批量验证和创建
 // OpenAI Mobile RT client_id
 const OPENAI_MOBILE_RT_CLIENT_ID = 'app_LlGpXReQgckcGGUo2JrYvtJK'
-
-const buildOpenAICodexImportCredentialExtras = (): Record<string, unknown> | null => {
-  const credentials: Record<string, unknown> = {}
-  const modelMapping = buildRenameMapping()
-  if (modelMapping) {
-    credentials.model_mapping = modelMapping
-  }
-
-  return credentials
-}
 
 const formatCodexImportMessages = (messages?: CodexSessionImportMessage[]) => {
   return (messages || [])
@@ -2686,11 +2564,6 @@ const handleOpenAIImportCodexSession = async (content: string) => {
     return
   }
 
-  const credentialExtras = buildOpenAICodexImportCredentialExtras()
-  if (credentialExtras === null) {
-    return
-  }
-
   oauthClient.loading.value = true
   oauthClient.error.value = ''
 
@@ -2703,7 +2576,6 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       concurrency: form.concurrency,
       priority: form.priority,
       expires_at: form.expires_at,
-      credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined,
       update_existing: true
     })
 
@@ -2747,11 +2619,6 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
     return
   }
 
-  const credentialExtras = buildOpenAICodexImportCredentialExtras()
-  if (credentialExtras === null) {
-    return
-  }
-
   oauthClient.loading.value = true
   oauthClient.error.value = ''
 
@@ -2763,8 +2630,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
       priority: form.priority,
-      expires_at: form.expires_at,
-      credential_extras: Object.keys(credentialExtras).length > 0 ? credentialExtras : undefined
+      expires_at: form.expires_at
     })
 
     emit('created')
@@ -2824,14 +2690,6 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
           credentials.client_id = clientId
         }
         const extra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-
-        // Add model mapping for OpenAI OAuth accounts
-        if (shouldCreateOpenAI) {
-          const modelMapping = buildRenameMapping()
-          if (modelMapping) {
-            credentials.model_mapping = modelMapping
-          }
-        }
 
         // Generate account name; fallback to email if name is empty (ent schema requires NotEmpty)
         const baseName = form.name || tokenInfo.email || 'OpenAI OAuth Account'
@@ -3025,11 +2883,6 @@ const handleAntigravityExchange = async (authCode: string) => {
 		const credentials = antigravityOAuth.buildCredentials(tokenInfo)
 		applyAntigravityProjectID(credentials, antigravityProjectId.value, 'create')
 		applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-		// 改名叠在 Antigravity 默认表之上（后端合并），不填就是默认表
-		const antigravityModelMapping = buildRenameMapping()
-		if (antigravityModelMapping) {
-			credentials.model_mapping = antigravityModelMapping
-		}
 		const extra = buildAntigravityExtra()
 		await createAccountAndFinish('antigravity', 'oauth', credentials, extra)
   } catch (error: any) {

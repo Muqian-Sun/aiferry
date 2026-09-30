@@ -4,14 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createAccountMock,
-  syncUpstreamModelsMock,
   importCodexSessionMock,
   createOpenAICodexPATMock,
   authIsSimpleMode,
   getProtocolDefaultsMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
-  syncUpstreamModelsMock: vi.fn(),
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
   authIsSimpleMode: { value: true },
@@ -34,7 +32,6 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
       create: createAccountMock,
-      syncUpstreamModels: syncUpstreamModelsMock,
       checkMixedChannelRisk: vi.fn().mockResolvedValue({ has_risk: false }),
       importCodexSession: importCodexSessionMock,
       createOpenAICodexPAT: createOpenAICodexPATMock,
@@ -247,7 +244,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'openai', type: 'apikey' })
-    syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
     importCodexSessionMock.mockReset().mockResolvedValue({
       created: 1,
       updated: 0,
@@ -299,25 +295,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
     expect(createAccountMock.mock.calls[0]?.[0]?.expires_at).toBe(new Date('2030-04-15T09:20:00').getTime() / 1000)
     wrapper.unmount()
-  })
-
-  it('runs formal capability sync after creating an account with explicit mappings', async () => {
-    const wrapper = mountModal()
-    await selectKey(wrapper, KEY.relayResponses)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('Mapped account')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="model-rename-add"]').trigger('click')
-    await wrapper.get('[data-testid="model-rename-from-0"]').setValue('public-glm')
-    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('glm-5.3')
-    await wrapper.get('form#create-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping).toEqual({
-      'public-glm': 'glm-5.3'
-    })
-    // 映射只改名（2026-09-25 去掉白名单）：写映射时一并打标记
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping_rename_only).toBe(true)
-    expect(syncUpstreamModelsMock).toHaveBeenCalledWith(42)
   })
 
   it('submits OpenCode Zen default protocol rules with adaptive endpoints', async () => {
@@ -578,7 +555,6 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
-    syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
   })
 
   async function fillKeyBasics(wrapper: ReturnType<typeof mountModal>, name: string) {
