@@ -282,7 +282,8 @@
           </template>
 
           <template #cell-rate_multiplier="{ row }">
-            <span class="tabular-nums text-af-ink-2">× {{ row.rate_multiplier }}</span>
+            <span v-if="row.custom_rate_multiplier != null" class="tabular-nums text-af-ink">× {{ formatMultiplier(row.rate_multiplier) }}</span>
+            <span v-else class="tabular-nums text-af-ink-3">{{ t('admin.users.form.rateMultiplierDefault') }} × {{ formatMultiplier(row.rate_multiplier) }}</span>
           </template>
 
           <template #cell-status="{ value }">
@@ -436,6 +437,7 @@ import BulkEditUserModal from '@/components/admin/user/BulkEditUserModal.vue'
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserDetailDrawer from '@/components/admin/user/UserDetailDrawer.vue'
 import { formatAttributeValue } from '@/components/admin/user/attributeValue'
+import { formatMultiplier } from '@/utils/formatters'
 
 // 自定义属性定义与本页用户的属性值（放在最前：列定义和排序恢复都要读它）
 const attributeDefinitions = ref<UserAttributeDefinition[]>([])

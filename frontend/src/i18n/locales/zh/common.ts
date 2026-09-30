@@ -5,8 +5,8 @@ export default {
       revenue: '收入',
       cost: '成本',
       profit: '利润',
-      revenueHint: '向用户收的钱：标价 × 用户倍率',
-      costHint: '付给上游渠道的钱：标价 × 渠道成本倍率',
+      revenueHint: '向用户收的钱：官方价 × 用户倍率',
+      costHint: '付给上游渠道的钱：官方价 × 渠道倍率（上游刊定价相对官方价）',
       profitHint: '收入 − 成本'
     },
     labelSeparator: '：',

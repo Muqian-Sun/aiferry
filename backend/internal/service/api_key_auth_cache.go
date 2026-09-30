@@ -47,8 +47,8 @@ type APIKeyAuthUserSnapshot struct {
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制）；用于 billing_cache_service.checkRPM 兜底判断。
 	RPMLimit int `json:"rpm_limit"`
-	// RateMultiplier 用户级计费倍率；缓存命中的请求也按它计费，漏了就会按 0 免费。
-	RateMultiplier float64 `json:"rate_multiplier"`
+	// RateMultiplier 单独设的用户倍率（nil = 跟全站默认）；缓存命中的请求也按它计费，漏了就会按默认倍率算。
+	RateMultiplier *float64 `json:"rate_multiplier"`
 }
 
 // APIKeyAuthCacheEntry 缓存条目，支持负缓存

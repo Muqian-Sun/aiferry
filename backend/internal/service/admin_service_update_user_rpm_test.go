@@ -70,7 +70,7 @@ func TestAdminService_UpdateUser_NoInvalidateWhenRPMLimitUnchanged(t *testing.T)
 
 // 认证快照里带着用户倍率：改倍率不失效缓存，缓存命中的请求会在一个 L2 TTL 内继续按旧倍率计费。
 func TestAdminService_UpdateUser_InvalidatesAuthCacheOnRateMultiplierChange(t *testing.T) {
-	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", RateMultiplier: 2}}
+	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", RateMultiplier: customRate(2)}}
 	repo := &rpmUserRepoStub{userRepoStub: base}
 	invalidator := &authCacheInvalidatorStub{}
 	svc := &adminServiceImpl{
@@ -82,6 +82,6 @@ func TestAdminService_UpdateUser_InvalidatesAuthCacheOnRateMultiplierChange(t *t
 	zero := 0.0
 	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{RateMultiplier: &zero})
 	require.NoError(t, err)
-	require.Equal(t, 0.0, updated.RateMultiplier)
+	require.Equal(t, 0.0, *updated.RateMultiplier)
 	require.Equal(t, []int64{42}, invalidator.userIDs, "改倍率必须失效 API Key 认证缓存")
 }

@@ -1430,6 +1430,16 @@ func RateMultiplierLTE(v float64) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldRateMultiplier, v))
 }
 
+// RateMultiplierIsNil applies the IsNil predicate on the "rate_multiplier" field.
+func RateMultiplierIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldRateMultiplier))
+}
+
+// RateMultiplierNotNil applies the NotNil predicate on the "rate_multiplier" field.
+func RateMultiplierNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldRateMultiplier))
+}
+
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.
 func HasAPIKeys() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

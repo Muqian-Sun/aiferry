@@ -105,7 +105,7 @@ type CreateUserInput struct {
 	// Concurrency / RPMLimit 为 nil 时取「新用户默认值」，与自助注册一致。
 	Concurrency *int
 	RPMLimit    *int
-	// RateMultiplier 用户级计费倍率；nil 表示默认 1。
+	// RateMultiplier 单独给这个用户设的计费倍率（相对官方价）；nil = 跟全站默认。
 	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
@@ -121,8 +121,10 @@ type UpdateUserInput struct {
 	Concurrency *int     // 使用指针区分"未提供"和"设置为0"
 	RPMLimit    *int     // 使用指针区分"未提供"和"设置为0"
 	Status      string
-	// RateMultiplier 用户级计费倍率（>= 0，0 = 免费）；指针区分"未提供"和"设置为0"。
+	// RateMultiplier 单独设计费倍率（>= 0，0 = 免费）；指针区分"未提供"和"设置为0"。
 	RateMultiplier *float64
+	// UseDefaultRateMultiplier 改回全站默认倍率（清掉单独设的值）；与 RateMultiplier 同时给时以它为准。
+	UseDefaultRateMultiplier bool
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
 }

@@ -253,8 +253,6 @@ var (
 	DefaultTotalRecharged float64
 	// DefaultRpmLimit holds the default value on creation for the "rpm_limit" field.
 	DefaultRpmLimit int
-	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
-	DefaultRateMultiplier float64
 )
 
 // OrderOption defines the ordering options for the User queries.

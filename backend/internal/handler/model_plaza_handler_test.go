@@ -67,12 +67,15 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	var envelope struct {
 		Data struct {
-			Description string            `json:"description"`
-			Models      []json.RawMessage `json:"models"`
+			Description           string            `json:"description"`
+			DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
+			Models                []json.RawMessage `json:"models"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
 	require.Equal(t, service.ModelPlazaDescription, envelope.Data.Description)
+	// 接口给官方价 + 新用户默认倍率（官方价的 1/15），未登录的展示价 = 官方价 × 它
+	require.InDelta(t, 1.0/15, envelope.Data.DefaultRateMultiplier, 1e-15)
 	require.Len(t, envelope.Data.Models, 2)
 	require.NotContains(t, w.Body.String(), `"groups"`, "the plaza is flat: no groups")
 

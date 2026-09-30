@@ -74,7 +74,9 @@ type UpdateUserRequest struct {
 	Concurrency    *int     `json:"concurrency"`
 	RPMLimit       *int     `json:"rpm_limit"`
 	RateMultiplier *float64 `json:"rate_multiplier"`
-	Status         string   `json:"status" binding:"omitempty,oneof=active disabled"`
+	// UseDefaultRateMultiplier 改回全站默认倍率（清掉单独设的值）。
+	UseDefaultRateMultiplier bool   `json:"use_default_rate_multiplier"`
+	Status                   string `json:"status" binding:"omitempty,oneof=active disabled"`
 }
 
 // UpdateBalanceRequest represents balance update request
@@ -334,6 +336,8 @@ func (h *UserHandler) Update(c *gin.Context) {
 		RateMultiplier: req.RateMultiplier,
 		Status:         req.Status,
 		ActorAdminID:   getAdminIDFromContext(c),
+
+		UseDefaultRateMultiplier: req.UseDefaultRateMultiplier,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

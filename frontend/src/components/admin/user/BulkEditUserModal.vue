@@ -79,7 +79,7 @@
             v-model="rateMultiplierValue"
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             class="input"
             data-test="rate-multiplier-input"
           />

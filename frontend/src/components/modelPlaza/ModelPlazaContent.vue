@@ -72,8 +72,8 @@
           </div>
           <p class="text-13 text-af-ink-3" data-testid="price-unit">
             {{ t('userUi.models.priceUnit') }}
-            <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
-              · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
+            <span class="text-af-ink" data-testid="your-price-note">
+              · {{ t(isAuthenticated ? 'userUi.models.yourPriceApplied' : 'userUi.models.defaultPriceApplied', { multiplier: multiplierLabel }) }}
             </span>
           </p>
         </div>
@@ -134,7 +134,7 @@
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
         {{ t('userUi.models.priceNote') }}
-        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: userMultiplier }) }}</template>
+        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: multiplierLabel }) }}</template>
       </p>
     </div>
   </div>
@@ -158,6 +158,7 @@ import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
+import { formatMultiplier } from '@/utils/formatters'
 import {
   applyMultiplier,
   buildCatalog,
@@ -248,14 +249,18 @@ watch(billingModeOptions, (options) => {
   if (!options.some((option) => option.value === selectedBillingMode.value)) selectedBillingMode.value = 'all'
 })
 
-// 你的价格：登录且账户倍率 ≠ 1 才多一组列；倍率 = 1 时标价即实付，只在脚注说明
+// 展示价 = 官方价 × 倍率：登录按账户倍率，未登录按接口给的新用户默认倍率（官方价的 1/15）
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const userMultiplier = computed(() => Number(authStore.user?.rate_multiplier ?? 1))
-const showUserPrice = computed(() => isAuthenticated.value && userMultiplier.value !== 1)
+const userMultiplier = computed(() =>
+  isAuthenticated.value
+    ? Number(authStore.user?.rate_multiplier ?? props.response?.default_rate_multiplier ?? 1)
+    : Number(props.response?.default_rate_multiplier ?? 1)
+)
+const multiplierLabel = computed(() => formatMultiplier(userMultiplier.value))
 const consoleSummary = computed<StatItem[]>(() => [
   { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
   { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) },
-  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${userMultiplier.value}` }
+  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${multiplierLabel.value}` }
 ])
 /**
  * 一个格子要列的计费项（口径 = 后端实际收费项）：
@@ -274,7 +279,7 @@ const TOKEN_PRICE_ITEMS: ReadonlyArray<{ key: CatalogPriceKey; always: boolean }
 const UNIT_PRICE_LABEL: Record<string, string> = { per_request: 'perRequest', image: 'perImage', video: 'perSecond' }
 
 function priceItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
-  const scale = showUserPrice.value ? userMultiplier.value : 1
+  const scale = userMultiplier.value
   if (entry.billingMode !== 'token') {
     const labelKey = UNIT_PRICE_LABEL[entry.billingMode]
     return [{ key: 'unit', label: t(`userUi.models.prices.${labelKey}`), value: entry.unitPrice == null ? null : entry.unitPrice * scale }]

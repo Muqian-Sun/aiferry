@@ -1,6 +1,6 @@
 export default {
   modelCatalog: {
-    description: '平台模型的标价与别名；收入、成本都按标价乘倍率算。',
+    description: '平台模型的官方价与别名。用户实付 = 官方价 × 用户倍率（新用户默认 1/15）；渠道成本 = 官方价 × 渠道倍率。',
     search: '搜索模型标识、展示名、厂商或别名',
     create: '新建模型',
     edit: '编辑模型',

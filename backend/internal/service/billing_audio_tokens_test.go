@@ -57,7 +57,7 @@ func recordAudioUsageForTest(t *testing.T, withAudioPrices bool, usage OpenAIUsa
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 11501},
-		User:    &User{ID: 21501, RateMultiplier: 1},
+		User:    &User{ID: 21501, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 31501},
 	})
 	require.NoError(t, err)

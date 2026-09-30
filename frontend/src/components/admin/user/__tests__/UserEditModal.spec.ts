@@ -94,7 +94,7 @@ describe('UserEditModal rate multiplier', () => {
     const wrapper = mount(UserEditModal, {
       props: {
         show: true,
-        user: { id: 7, email: 'user@example.test', username: 'user', notes: '', role: 'user', concurrency: 1, rpm_limit: 0, rate_multiplier: 0.5 } as never
+        user: { id: 7, email: 'user@example.test', username: 'user', notes: '', role: 'user', concurrency: 1, rpm_limit: 0, rate_multiplier: 0.5, custom_rate_multiplier: 0.5 } as never
       },
       global: {
         stubs: {
@@ -107,7 +107,7 @@ describe('UserEditModal rate multiplier', () => {
       }
     })
 
-    const input = wrapper.get('input[step="0.01"]')
+    const input = wrapper.get('[data-testid="user-rate-multiplier"]')
     expect((input.element as HTMLInputElement).value).toBe('0.5')
     await input.setValue('2')
     await wrapper.get('form').trigger('submit')

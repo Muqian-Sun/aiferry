@@ -48577,7 +48577,7 @@ func (m *UserMutation) RateMultiplier() (r float64, exists bool) {
 // OldRateMultiplier returns the old "rate_multiplier" field's value of the User entity.
 // If the User object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UserMutation) OldRateMultiplier(ctx context.Context) (v float64, err error) {
+func (m *UserMutation) OldRateMultiplier(ctx context.Context) (v *float64, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldRateMultiplier is only allowed on UpdateOne operations")
 	}
@@ -48609,10 +48609,24 @@ func (m *UserMutation) AddedRateMultiplier() (r float64, exists bool) {
 	return *v, true
 }
 
+// ClearRateMultiplier clears the value of the "rate_multiplier" field.
+func (m *UserMutation) ClearRateMultiplier() {
+	m.rate_multiplier = nil
+	m.addrate_multiplier = nil
+	m.clearedFields[user.FieldRateMultiplier] = struct{}{}
+}
+
+// RateMultiplierCleared returns if the "rate_multiplier" field was cleared in this mutation.
+func (m *UserMutation) RateMultiplierCleared() bool {
+	_, ok := m.clearedFields[user.FieldRateMultiplier]
+	return ok
+}
+
 // ResetRateMultiplier resets all changes to the "rate_multiplier" field.
 func (m *UserMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+	delete(m.clearedFields, user.FieldRateMultiplier)
 }
 
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
@@ -49701,6 +49715,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldBalanceNotifyThreshold) {
 		fields = append(fields, user.FieldBalanceNotifyThreshold)
 	}
+	if m.FieldCleared(user.FieldRateMultiplier) {
+		fields = append(fields, user.FieldRateMultiplier)
+	}
 	return fields
 }
 
@@ -49732,6 +49749,9 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldBalanceNotifyThreshold:
 		m.ClearBalanceNotifyThreshold()
+		return nil
+	case user.FieldRateMultiplier:
+		m.ClearRateMultiplier()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)

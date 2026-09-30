@@ -54,9 +54,11 @@ type modelPlazaModel struct {
 }
 
 // modelPlazaResponse 广场页响应：平铺的上架模型列表。
+// 价格一律是目录官方价（USD）；展示价 = 官方价 × 访问者的用户倍率，未登录按 DefaultRateMultiplier（新用户默认倍率）。
 type modelPlazaResponse struct {
-	Description string            `json:"description"`
-	Models      []modelPlazaModel `json:"models"`
+	Description           string            `json:"description"`
+	DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
+	Models                []modelPlazaModel `json:"models"`
 }
 
 // Get 返回模型广场数据。
@@ -70,8 +72,9 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
 		out = append(out, toModelPlazaModelDTO(&models[i]))
 	}
 	response.Success(c, modelPlazaResponse{
-		Description: description,
-		Models:      out,
+		Description:           description,
+		DefaultRateMultiplier: service.NewUserRateMultiplier,
+		Models:                out,
 	})
 }
 

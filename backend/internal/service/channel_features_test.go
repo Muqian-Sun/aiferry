@@ -64,7 +64,7 @@ func TestChannelFeatures_RecordUsageTakesUpstreamRequestIDFromFixedHeaders(t *te
 				UpstreamHeaders: headers,
 			},
 			APIKey:  &APIKey{ID: 4301},
-			User:    &User{ID: 4401, RateMultiplier: 1.1},
+			User:    &User{ID: 4401, RateMultiplier: customRate(1.1)},
 			Account: &Account{ID: 4501, Platform: PlatformAnthropic, Type: AccountTypeAPIKey},
 		})
 
@@ -90,7 +90,7 @@ func TestChannelFeatures_RecordUsageTakesUpstreamRequestIDFromFixedHeaders(t *te
 				UpstreamHeaders: headers,
 			},
 			APIKey:  &APIKey{ID: 4302},
-			User:    &User{ID: 4402, RateMultiplier: 1.1},
+			User:    &User{ID: 4402, RateMultiplier: customRate(1.1)},
 			Account: &Account{ID: 4502, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
 		})
 

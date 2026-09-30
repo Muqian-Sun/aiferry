@@ -219,7 +219,9 @@ export default {
         rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited.',
         newUserDefaultPlaceholder: 'Leave empty to use the new-user default',
         rateMultiplier: 'Rate multiplier',
-        rateMultiplierHint: 'User price = catalog price × multiplier; 0 means free.'
+        rateMultiplierHint: 'User pays official price × multiplier; set it only for the few users who differ, 0 means free.',
+        rateMultiplierDefaultPlaceholder: 'Leave empty to follow the site default (1/15 of official)',
+        rateMultiplierDefault: 'Default'
       },
       columns: {
         user: 'User',

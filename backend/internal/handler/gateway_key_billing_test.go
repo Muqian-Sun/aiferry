@@ -28,7 +28,7 @@ func newKeyBillingContext(apiKey *service.APIKey) (*gin.Context, *httptest.Respo
 func TestGatewayHandlerKeyBillingInfoUsesUserMultiplier(t *testing.T) {
 	c, w := newKeyBillingContext(&service.APIKey{
 		UserID: 11,
-		User:   &service.User{ID: 11, RateMultiplier: 0.8},
+		User:   &service.User{ID: 11, RateMultiplier: customRate(0.8)},
 	})
 	(&GatewayHandler{}).KeyBillingInfo(c)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -47,7 +47,7 @@ func TestGatewayHandlerKeyBillingInfoUsesUserMultiplier(t *testing.T) {
 	require.Nil(t, got.AppliedPeakMultiplier)
 	require.NotContains(t, w.Body.String(), `"peak_start"`)
 
-	c, w = newKeyBillingContext(&service.APIKey{UserID: 12, User: &service.User{ID: 12, RateMultiplier: 1.5}})
+	c, w = newKeyBillingContext(&service.APIKey{UserID: 12, User: &service.User{ID: 12, RateMultiplier: customRate(1.5)}})
 	(&GatewayHandler{}).KeyBillingInfo(c)
 	require.Equal(t, http.StatusOK, w.Code, "ungrouped keys still report their multiplier")
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))

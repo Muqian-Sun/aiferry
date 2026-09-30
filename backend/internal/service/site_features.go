@@ -79,6 +79,10 @@ const (
 	NewUserBalance = 0.0
 	// NewUserRPMLimit 新用户默认每分钟请求数上限，0 = 不限。
 	NewUserRPMLimit = 0
+	// NewUserRateMultiplier 全站默认计费倍率：官方价的十五分之一（muqian 2026-09-29 / 30）。
+	// 用户倍率直接相对官方价：实付 = 目录官方价 × 用户倍率。没单独设倍率的用户（绝大多数）都按它，
+	// 未登录时模型广场的展示价也按它；只有少数用户由管理员单独设（users.rate_multiplier 非空）。
+	NewUserRateMultiplier = 1.0 / 15
 )
 
 // newUserDefaultSubscriptions 新用户（自助注册、后台新建）自动赠送的订阅：写死为空（2026-09-26 定）。
