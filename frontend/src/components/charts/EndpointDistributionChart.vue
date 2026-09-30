@@ -22,8 +22,8 @@
               <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
-              <th class="pb-2 text-right" :title="t('common.money.costHint')">{{ t('common.money.cost') }}</th>
+              <th class="pb-2 text-right">{{ t('common.money.revenue') }}</th>
+              <th class="pb-2 text-right">{{ t('common.money.cost') }}</th>
               <th class="pb-2 text-right" :title="t('common.money.profitHint')">{{ t('common.money.profit') }}</th>
             </tr>
           </thead>

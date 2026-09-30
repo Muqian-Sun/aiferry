@@ -71,7 +71,6 @@
           class="input"
           :placeholder="t('admin.users.form.rateMultiplierDefaultPlaceholder')"
         />
-        <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
       </div>
     </form>
     <template #footer>

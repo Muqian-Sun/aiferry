@@ -415,7 +415,6 @@
             class="input"
             data-testid="account-rate-multiplier"
           />
-          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
         </div>
       </div>
 

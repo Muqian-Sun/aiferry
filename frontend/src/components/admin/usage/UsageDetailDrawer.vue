@@ -178,8 +178,8 @@ const moneyItems = computed(() => {
   const cost = rowAccountCost(log)
   const profit = profitOf(revenue, cost)
   return [
-    { key: 'revenue', label: t('common.money.revenue'), hint: t('common.money.revenueHint'), value: revenue, valueClass: 'text-af-ink' },
-    { key: 'cost', label: t('common.money.cost'), hint: t('common.money.costHint'), value: cost, valueClass: 'text-af-ink' },
+    { key: 'revenue', label: t('common.money.revenue'), value: revenue, valueClass: 'text-af-ink' },
+    { key: 'cost', label: t('common.money.cost'), value: cost, valueClass: 'text-af-ink' },
     { key: 'profit', label: t('common.money.profit'), hint: t('common.money.profitHint'), value: profit, valueClass: profitTextClass(profit) || 'text-af-ink' }
   ]
 })

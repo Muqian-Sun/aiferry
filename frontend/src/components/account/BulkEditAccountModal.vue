@@ -283,7 +283,6 @@
             :class="!enableRateMultiplier && 'cursor-not-allowed opacity-50'"
             aria-labelledby="bulk-edit-rate-multiplier-label"
           />
-          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
         </div>
       </div>
 

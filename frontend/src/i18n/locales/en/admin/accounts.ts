@@ -800,7 +800,6 @@ export default {
       priority: 'Priority',
       priorityHint: 'Lower value accounts are used first',
       billingRateMultiplier: 'Upstream list price (vs official)',
-      billingRateMultiplierHint: 'Upstream price ÷ official price, e.g. 0.05 if upstream charges 5% of official; channel cost = official price × this value',
       expiresAt: 'Expires At',
       expiresAtHint: 'Leave empty for no expiration',
       expiresAtTimezoneHint: 'Input is interpreted in your browser time zone ({timezone}).',

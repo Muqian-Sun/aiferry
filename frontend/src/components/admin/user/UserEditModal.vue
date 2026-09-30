@@ -77,7 +77,6 @@
           :placeholder="t('admin.users.form.rateMultiplierDefaultPlaceholder')"
           data-testid="user-rate-multiplier"
         />
-        <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
       </div>
       <UserAttributeForm v-model="form.customAttributes" :user-id="user?.id" />
     </form>

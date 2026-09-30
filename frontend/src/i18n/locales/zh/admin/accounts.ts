@@ -917,7 +917,6 @@ export default {
       priority: '优先级',
       priorityHint: '优先级越小的渠道优先使用',
       billingRateMultiplier: '上游刊定价（相对官方价）',
-      billingRateMultiplierHint: '上游价 ÷ 官方价，如上游按官方价的 5% 收费填 0.05；渠道成本 = 官方价 × 该值',
       expiresAt: '过期时间',
       expiresAtHint: '留空表示不过期',
       expiresAtTimezoneHint: '输入按浏览器本地时区（{timezone}）解释。',
