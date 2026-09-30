@@ -2853,3 +2853,29 @@ func TestHandleCompatErrorResponseCyberPolicyEarlyReturn(t *testing.T) {
 	require.NotContains(t, gotMsg, "Upstream request failed")
 	require.NotNil(t, GetOpsCyberPolicy(c))
 }
+
+// 内容兜底的粘性会话按 API Key 分开（2026-09-29 真实上游 E2E：bob 被粘到 alice 刚用过的渠道）；
+// 显式会话标识按原值，跨 key 不变（Codex guardian 父线程亲和、WS 会话都按原值对齐）。
+func TestOpenAIGatewayService_GenerateSessionHash_ContentFallbackScopedByAPIKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &OpenAIGatewayService{}
+	hashFor := func(apiKeyID int64, header string, body []byte) string {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		if apiKeyID > 0 {
+			c.Set("api_key", &APIKey{ID: apiKeyID})
+		}
+		if header != "" {
+			c.Request.Header.Set("session_id", header)
+		}
+		return svc.GenerateSessionHash(c, body)
+	}
+	body := []byte(`{"model":"gpt-5.5","input":"Reply with the single word OK."}`)
+
+	alice := hashFor(1, "", body)
+	require.NotEmpty(t, alice)
+	require.Equal(t, alice, hashFor(1, "", body), "同一个 key 的同一段内容仍是同一个会话")
+	require.NotEqual(t, alice, hashFor(2, "", body), "不同 key 的相同内容不能共享粘性")
+
+	require.Equal(t, hashFor(1, "sess-shared", body), hashFor(2, "sess-shared", body), "显式会话标识按原值，不按 key 分开")
+}

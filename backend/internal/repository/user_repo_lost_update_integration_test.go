@@ -131,6 +131,23 @@ func (s *UserRepoSuite) TestAdjustBalance_RefusesNegativeResult() {
 	s.Require().InDelta(3, got.Balance, 1e-9, "refused adjustment must not write")
 }
 
+// 透支成负数后，加款先抵欠款：充一笔不够还清的钱也要写进去，不能整笔拒掉（muqian 2026-09-29）。
+func (s *UserRepoSuite) TestAdjustBalance_AddAlwaysAppliesOnOverdraft() {
+	user := s.mustCreateUser(&service.User{Email: "adjust-balance-overdraft@example.com", Balance: -0.5})
+
+	change, err := s.repo.AdjustBalance(s.ctx, user.ID, 0.2)
+	s.Require().NoError(err, "partial top-up must reduce the debt")
+	s.Require().InDelta(-0.5, change.Old, 1e-9)
+	s.Require().InDelta(-0.3, change.New, 1e-9)
+
+	_, err = s.repo.AdjustBalance(s.ctx, user.ID, -0.1)
+	s.Require().ErrorIs(err, service.ErrBalanceNegative, "subtracting from a debt stays refused")
+
+	change, err = s.repo.AdjustBalance(s.ctx, user.ID, 1)
+	s.Require().NoError(err)
+	s.Require().InDelta(0.7, change.New, 1e-9)
+}
+
 func (s *UserRepoSuite) TestAdjustBalance_UserNotFound() {
 	_, err := s.repo.AdjustBalance(s.ctx, 99999999, 1)
 	s.Require().ErrorIs(err, service.ErrUserNotFound)

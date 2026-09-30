@@ -163,7 +163,7 @@ func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, body []byte) 
 
 	sessionID := explicitOpenAIRequestSessionID(c, body)
 	if sessionID == "" && len(body) > 0 {
-		sessionID = deriveOpenAIContentSessionSeed(body)
+		sessionID = scopeOpenAIContentSessionSeed(getAPIKeyIDFromContext(c), deriveOpenAIContentSessionSeed(body))
 	}
 	if sessionID == "" {
 		return ""
@@ -176,6 +176,20 @@ func (s *OpenAIGatewayService) GenerateSessionHash(c *gin.Context, body []byte) 
 	currentHash, legacyHash := deriveOpenAISessionHashes(sessionID)
 	attachOpenAILegacySessionHashToGin(c, legacyHash)
 	return currentHash
+}
+
+// scopeOpenAIContentSessionSeed 内容兜底的粘性种子按 API Key 分开。只看内容时，不同用户发同样的开场
+// （同一段系统提示 + 同一句话）会算出同一个会话、共享粘性绑定，把别人的调度结果带过来（2026-09-29
+// 真实上游 E2E 实测：bob 被粘到 alice 刚用过的低优先级渠道）。与 Messages 路径同口径
+// （GatewayService.GenerateSessionHash 的兜底混入 APIKeyID）。
+//
+// 显式会话标识（session_id / conversation_id / prompt_cache_key 等）是客户端生成的，不在这里改：
+// Codex guardian 按父线程 ID 派生的亲和哈希、WS 按会话 ID 派生的哈希都要和它按原值对得上。
+func scopeOpenAIContentSessionSeed(apiKeyID int64, seed string) string {
+	if seed == "" {
+		return ""
+	}
+	return "content:k" + strconv.FormatInt(apiKeyID, 10) + ":" + seed
 }
 
 // grokStickyAffinitySeed scopes sticky routing by model without changing the

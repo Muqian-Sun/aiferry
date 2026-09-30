@@ -17,6 +17,8 @@ func TestIncludeIndependentReasoningTokens(t *testing.T) {
 		{name: "total already complete", input: 10, output: 20, total: 30, reason: 5, want: 20},
 		{name: "inconsistent undershoot", input: 10, output: 20, total: 25, reason: 5, want: 20},
 		{name: "zero reasoning", input: 10, output: 20, total: 35, reason: 0, want: 20},
+		{name: "reasoning exceeds output, total leaves it out", input: 214, output: 1, total: 215, reason: 59, want: 60},
+		{name: "reasoning exceeds output, total absent", input: 10, output: 1, total: 0, reason: 50, want: 51},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
