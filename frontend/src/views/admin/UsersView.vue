@@ -282,8 +282,8 @@
           </template>
 
           <template #cell-rate_multiplier="{ row }">
-            <span v-if="row.custom_rate_multiplier != null" class="tabular-nums text-af-ink">× {{ formatMultiplier(row.rate_multiplier) }}</span>
-            <span v-else class="tabular-nums text-af-ink-3">{{ t('admin.users.form.rateMultiplierDefault') }} × {{ formatMultiplier(row.rate_multiplier) }}</span>
+            <span v-if="row.custom_rate_multiplier != null" class="tabular-nums text-af-ink">{{ formatMultiplier(row.rate_multiplier) }}</span>
+            <span v-else class="text-af-ink-3">{{ t('admin.users.form.rateMultiplierDefault') }}</span>
           </template>
 
           <template #cell-status="{ value }">

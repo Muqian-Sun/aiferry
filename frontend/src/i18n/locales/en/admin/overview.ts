@@ -145,15 +145,16 @@ export default {
       },
       // Bulk-edits concurrency, RPM and rate multiplier (not the subscription dollar limits)
       bulkLimits: {
-        button: 'Set concurrency / RPM / rate',
-        title: 'Set concurrency, RPM and rate multiplier',
+        button: 'Set concurrency / RPM / user rate',
+        title: 'Set concurrency, RPM and user rate',
         selectedCount: '{count} users selected',
         selectionLimit: 'Select no more than {max} users at a time.',
         selectUser: 'Select {email}',
         enableConcurrency: 'Update concurrency',
         enableRPMLimit: 'Update RPM limit',
-        enableRateMultiplier: 'Update rate multiplier',
-        rateMultiplierValue: 'Rate multiplier: {value}',
+        enableRateMultiplier: 'Set a custom user rate',
+        rateMultiplierValue: 'User rate: {value}',
+        rateMultiplierHint: 'Sets a custom rate for the selected users: they pay official price × user rate. E.g. 0.1 = 10% of the official price; 0 = free.',
         nonNegativeNumber: 'Enter a non-negative number.',
         unlimited: 'Unlimited',
         nonNegativeInteger: 'Enter a non-negative whole number.',
@@ -218,10 +219,10 @@ export default {
         rpmLimitPlaceholder: '0 = unlimited',
         rpmLimitHint: 'Max requests per minute for this user; 0 = unlimited.',
         newUserDefaultPlaceholder: 'Leave empty to use the new-user default',
-        rateMultiplier: 'Rate multiplier',
-        rateMultiplierHint: 'User pays official price × multiplier; set it only for the few users who differ, 0 means free.',
-        rateMultiplierDefaultPlaceholder: 'Leave empty to follow the site default (1/15 of official)',
-        rateMultiplierDefault: 'Default'
+        rateMultiplier: 'User rate (× official price)',
+        rateMultiplierHint: 'User pays official price × user rate. E.g. 0.1 = 10% of the official price; 0 = free. Leave empty for the site default 1/15.',
+        rateMultiplierDefaultPlaceholder: 'Empty = default 1/15',
+        rateMultiplierDefault: 'Default 1/15'
       },
       columns: {
         user: 'User',
@@ -234,7 +235,7 @@ export default {
         // Revenue (actual_cost)
         usage: 'Spend (last 30 days)',
         concurrency: 'Concurrency',
-        rateMultiplier: 'Rate multiplier',
+        rateMultiplier: 'User rate (× official price)',
         status: 'Status',
         // Keys follow the fields: last_used_at = last API call ("active" means this on this page); last_active_at = console sign-in / visit
         lastUsed: 'Last active',

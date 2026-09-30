@@ -238,9 +238,6 @@ export default {
       searchHint: '搜索模型、别名（按 / 聚焦）',
       vendorTabsLabel: '厂商',
       priceUnit: '价格单位：美元 / 百万 Token',
-      yourPriceApplied: '已按你的账户倍率 ×{multiplier} 折算',
-      defaultPriceApplied: '已按新用户默认倍率 ×{multiplier}（官方价的 1/15）折算',
-      multiplierNote: '你的账户倍率是 {multiplier}。',
       weekdaysOnly: '仅工作日',
       openDetail: '查看全部计费项',
       prices: {
@@ -298,7 +295,7 @@ export default {
         unitPerSecond: '美元 / 秒',
         noPricing: '目录里还没有这个模型的价格。'
       },
-      priceNote: '展示价 = 官方价 × 账户倍率，实付逐条记录在用量页。',
+      priceNote: '每次请求的实际扣费逐条记录在用量页。',
       segmentRange: '输入 Token',
       segmentNote: '分段计价的模型按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求都按那一段的价格计费。',
       copyId: '复制模型 ID',

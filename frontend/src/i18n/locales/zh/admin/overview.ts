@@ -143,17 +143,18 @@ export default {
         loadFailed: '加载失败',
         retry: '重试'
       },
-      // 批量改的是并发数、RPM、计费倍率，不叫「限额」（限额是订阅的日 / 周 / 月美元额度）
+      // 批量改的是并发数、RPM、用户倍率，不叫「限额」（限额是订阅的日 / 周 / 月美元额度）
       bulkLimits: {
-        button: '设置并发 / RPM / 倍率',
-        title: '批量设置并发、RPM 与计费倍率',
+        button: '设置并发 / RPM / 用户倍率',
+        title: '批量设置并发、RPM 与用户倍率',
         selectedCount: '已选择 {count} 个用户',
         selectionLimit: '一次最多选择 {max} 个用户。',
         selectUser: '选择 {email}',
         enableConcurrency: '修改并发数',
         enableRPMLimit: '修改 RPM 限制',
-        enableRateMultiplier: '修改计费倍率',
-        rateMultiplierValue: '计费倍率：{value}',
+        enableRateMultiplier: '单独设置用户倍率',
+        rateMultiplierValue: '用户倍率：{value}',
+        rateMultiplierHint: '给选中的用户单独设：用户实付 = 官方价 × 用户倍率。例：0.1 = 按官方价的一成收；0 = 免费',
         nonNegativeNumber: '请输入非负数。',
         unlimited: '不限制',
         nonNegativeInteger: '请输入非负整数。',
@@ -207,7 +208,7 @@ export default {
         // 收入口径（actual_cost）
         usage: '近 30 天消费',
         concurrency: '并发数',
-        rateMultiplier: '计费倍率',
+        rateMultiplier: '用户倍率（× 官方价）',
         status: '状态',
         // 键名跟字段走：last_used_at = 最近一次调用 API（这页「活跃」只指这个）；last_active_at = 登录 / 打开控制台
         lastUsed: '最近活跃',
@@ -270,10 +271,10 @@ export default {
         rpmLimitPlaceholder: '0 表示不限制',
         rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制',
         newUserDefaultPlaceholder: '留空按新用户默认值',
-        rateMultiplier: '计费倍率',
-        rateMultiplierHint: '用户实付 = 官方价 × 倍率；只给少数用户单独设，0 为免费',
-        rateMultiplierDefaultPlaceholder: '留空跟全站默认（官方价的 1/15）',
-        rateMultiplierDefault: '默认'
+        rateMultiplier: '用户倍率（× 官方价）',
+        rateMultiplierHint: '用户实付 = 官方价 × 用户倍率。例：0.1 = 按官方价的一成收；0 = 免费。留空跟全站默认 1/15',
+        rateMultiplierDefaultPlaceholder: '留空 = 默认 1/15',
+        rateMultiplierDefault: '默认 1/15'
       },
       adjustBalance: '调整余额',
       adjustConcurrency: '调整并发数',
