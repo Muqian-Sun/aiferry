@@ -75,8 +75,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	clientStream := anthropicReq.Stream // client's original stream preference
 
 	// 2. Model mapping
-	billingModel := resolveOpenAIForwardModel(account, normalizedModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := normalizedModel
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, normalizedModel))
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	apiKeyID := getAPIKeyIDFromContext(c)
 	anthropicDigestChain := ""

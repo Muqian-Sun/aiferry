@@ -281,6 +281,23 @@ func (snapshot *modelCatalogSnapshot) lookupNormalized(key string) *ModelCatalog
 	return nil
 }
 
+// lookupExactModelID 按模型标识逐字查条目（只去首尾空白），不认别名与大小写变体。
+func (s *ModelCatalogService) lookupExactModelID(ctx context.Context, model string) *ModelCatalogEntry {
+	if s == nil {
+		return nil
+	}
+	snapshot := s.loadSnapshot(ctx)
+	if snapshot == nil {
+		return nil
+	}
+	literal := strings.TrimSpace(model)
+	entry, ok := snapshot.byModelID[NormalizeModelCatalogKey(literal)]
+	if !ok || entry.ModelID != literal {
+		return nil
+	}
+	return entry
+}
+
 // LookupPricingEntry 按模型名查目录条目：先精确模型标识，再精确别名，
 // 最后按最长前缀匹配通配别名。全部未命中时再用 OpenAI/Codex 的归一化基名重试一次
 // （与渠道定价此前的 lookupChannelPricingNormalized 同口径，见 issue #5256）。

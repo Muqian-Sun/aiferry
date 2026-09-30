@@ -431,16 +431,11 @@ func ResolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedMode
 }
 
 // resolveOpenAIForwardMappedModels is the shared account mapping chain for
-// Forward callers. billingModel retains the ordinary mapping used for usage
-// accounting, while upstreamModel is the model the scheduler has admitted.
+// Forward callers. billingModel 是用户请求的目录模型（计费一律按它）；upstreamModel 是发给上游的名字
+// （承接关系上的上游名 + 上游归一），调度准入的也是它。
 func resolveOpenAIForwardMappedModels(account *Account, requestedModel string) (billingModel, upstreamModel string) {
 	requestedModel = strings.TrimSpace(requestedModel)
-	if account != nil {
-		billingModel = strings.TrimSpace(account.GetMappedModel(requestedModel))
-	}
-	if billingModel == "" {
-		billingModel = requestedModel
-	}
+	billingModel = requestedModel
 	upstreamModel = resolveOpenAIAccountUpstreamModelForRequest(account, requestedModel)
 	if strings.TrimSpace(upstreamModel) == "" {
 		upstreamModel = billingModel

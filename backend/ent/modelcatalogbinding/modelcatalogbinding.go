@@ -27,6 +27,8 @@ const (
 	FieldCacheWrite1hPrice = "cache_write_1h_price"
 	// FieldCacheReadPrice holds the string denoting the cache_read_price field in the database.
 	FieldCacheReadPrice = "cache_read_price"
+	// FieldUpstreamModel holds the string denoting the upstream_model field in the database.
+	FieldUpstreamModel = "upstream_model"
 	// FieldPriceIntervals holds the string denoting the price_intervals field in the database.
 	FieldPriceIntervals = "price_intervals"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -68,6 +70,7 @@ var Columns = []string{
 	FieldCacheWritePrice,
 	FieldCacheWrite1hPrice,
 	FieldCacheReadPrice,
+	FieldUpstreamModel,
 	FieldPriceIntervals,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -84,6 +87,10 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultUpstreamModel holds the default value on creation for the "upstream_model" field.
+	DefaultUpstreamModel string
+	// UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
+	UpstreamModelValidator func(string) error
 	// DefaultPriceIntervals holds the default value on creation for the "price_intervals" field.
 	DefaultPriceIntervals []domain.PriceSegment
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -130,6 +137,11 @@ func ByCacheWrite1hPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByCacheReadPrice orders the results by the cache_read_price field.
 func ByCacheReadPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheReadPrice, opts...).ToFunc()
+}
+
+// ByUpstreamModel orders the results by the upstream_model field.
+func ByUpstreamModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamModel, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

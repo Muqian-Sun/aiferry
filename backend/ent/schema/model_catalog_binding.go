@@ -17,6 +17,7 @@ import (
 // ModelCatalogBinding 是目录条目与资源（账号）的绑定（承接关系）：条目上架后由这些账号承接请求。
 // 每条承接关系带这个渠道给这个模型的上游价：渠道成本 = 用量 × 上游价。输入 / 输出必填，
 // 官方价有的缓存项由服务层要求必填；可按 Token 分段（price_intervals）。
+// upstream_model 是转发时这个渠道认的模型名（目录标识 → 上游名只转换这一次）。
 type ModelCatalogBinding struct {
 	ent.Schema
 }
@@ -49,6 +50,10 @@ func (ModelCatalogBinding) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,12)"}),
+		// upstream_model 这个渠道给这个模型用的上游模型名，空串 = 与目录标识同名（按目录模型精确对应，不支持通配）。
+		field.String("upstream_model").
+			MaxLen(255).
+			Default(""),
 		field.JSON("price_intervals", []domain.PriceSegment{}).
 			Default([]domain.PriceSegment{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),

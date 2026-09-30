@@ -277,6 +277,7 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 	_, err := tx.ModelCatalogBinding.Create().
 		SetEntryID(entryID).
 		SetAccountID(accountID).
+		SetUpstreamModel(binding.UpstreamModel).
 		SetInputPrice(binding.InputPrice).
 		SetOutputPrice(binding.OutputPrice).
 		SetNillableCacheWritePrice(binding.CacheWritePrice).
@@ -707,6 +708,7 @@ func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelC
 	binding := service.ModelCatalogBinding{
 		EntryID:           row.EntryID,
 		AccountID:         row.AccountID,
+		UpstreamModel:     row.UpstreamModel,
 		InputPrice:        row.InputPrice,
 		OutputPrice:       row.OutputPrice,
 		CacheWritePrice:   row.CacheWritePrice,

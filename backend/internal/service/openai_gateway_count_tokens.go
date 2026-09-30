@@ -136,8 +136,9 @@ func prepareNativeOpenAIInputTokensCountRequest(body []byte, account *Account) (
 	if originalModel == "" {
 		return nil, fmt.Errorf("parse responses input_tokens request: model is required")
 	}
-	billingModel := resolveOpenAIForwardModel(account, originalModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := originalModel
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel))
 	req.Model = upstreamModel
 	return &openAIInputTokensCountPrepared{
 		Request:         req,
@@ -420,8 +421,9 @@ func prepareOpenAIInputTokensCountRequest(
 	originalModel := anthropicReq.Model
 	applyOpenAICompatModelNormalization(&anthropicReq)
 	normalizedModel := anthropicReq.Model
-	billingModel := resolveOpenAIForwardModel(account, normalizedModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := normalizedModel
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, normalizedModel))
 
 	responsesReq, err := apicompat.AnthropicToResponses(&anthropicReq)
 	if err != nil {

@@ -56,8 +56,9 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 		return nil, fmt.Errorf("convert anthropic to chat completions: %w", err)
 	}
 
-	billingModel := resolveOpenAIForwardModel(account, anthropicReq.Model)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := anthropicReq.Model
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, anthropicReq.Model))
 	chatReq.Model = upstreamModel
 	chatReq.ReasoningEffort = openAICompatAnthropicReasoningEffort(&anthropicReq, upstreamModel, chatReq.ReasoningEffort)
 	chatReq.Stream = clientStream

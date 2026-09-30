@@ -327,10 +327,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if instructionsEmpty && account.UsesOpenAICodexProtocol() && !compatMessagesBridge {
 		markPatchSet("instructions", defaultCodexSynthInstructions(upstreamModel))
 	}
-	if billingModel != requestedModel {
-		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Model mapping applied: %s -> %s (account: %s, isCodexCLI: %v)", requestedModel, billingModel, account.Name, isCodexCLI)
-	}
-	reqModel = billingModel
 	if upstreamModel != requestedModel {
 		markPatchSet("model", upstreamModel)
 	}
@@ -909,7 +905,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
-	// 国产模型默认 effort 补充：此处 reqModel 已被 mapping 重写为 billingModel。
+	// 国产模型默认 effort 补充：按用户请求的目录模型判定。
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, reqModel)
 	reasoningEffortValue := ""
 	if reasoningEffort != nil {

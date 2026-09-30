@@ -59,6 +59,10 @@ type Account struct {
 	Proxy *Proxy
 	// CatalogEntryIDs 账号被哪些目录条目绑定为资源（调度按条目建桶，账号变更时按它找桶）。
 	CatalogEntryIDs []int64
+	// CatalogUpstreamModels 这个渠道承接的目录模型标识 → 上游模型名，只含改了名的（同名的不在表里）。
+	// 由账号仓储按承接关系装载：用户只能请求目录标识，转发时目录标识 → 上游名只转换这一次（D4）。
+	// 管理员在渠道上配的「模型改名」（credentials.model_mapping）已删，改名只认这里。
+	CatalogUpstreamModels map[string]string
 
 	// model_mapping 热路径缓存（非持久化字段）
 	modelMappingCache               map[string]string
@@ -70,8 +74,8 @@ type Account struct {
 	// modelMappingCacheVendor 记录解析时的厂商：厂商默认映射按 Vendor 启用，而 Vendor
 	// 由协议地址决定，地址变了（管理端改号后复用同一对象）缓存必须失效。
 	modelMappingCacheVendor string
-	// modelMappingCacheRenameOnly 记录解析时的「只改名」标记：有默认表的厂商在标记下会叠加默认表。
-	modelMappingCacheRenameOnly bool
+	// modelMappingCacheShadow 记录解析时是不是影子号：影子号读自己的模型列表，其余读承接关系上的上游名。
+	modelMappingCacheShadow bool
 
 	// header_overrides 热路径缓存（非持久化字段，同 model_mapping 缓存先例）
 	headerOverrideCache               map[string]string
@@ -412,53 +416,63 @@ func stringMappingFromRaw(raw any) map[string]string {
 	}
 }
 
+// GetModelMapping 返回账号的有效模型映射（请求模型名 → 发给上游的模型名）：
+//   - 普通渠道：承接关系上的上游模型名（CatalogUpstreamModels）叠在厂商默认表之上，不兼任白名单；
+//   - spark 影子号：系统维护的 credentials.model_mapping，是「只接 spark」的模型集合，替换默认表。
 func (a *Account) GetModelMapping() map[string]string {
 	vendor := a.Vendor()
+	shadow := a.IsShadow()
 	credentialsPtr := mapPtr(a.Credentials)
-	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
-	rawPtr := mapPtr(rawMapping)
-	rawLen := len(rawMapping)
-	rawSig := uint64(0)
-	rawSigReady := false
+	var rawMapping map[string]any
+	var sourcePtr uintptr
+	var sourceLen int
+	if shadow {
+		rawMapping, _ = a.Credentials["model_mapping"].(map[string]any)
+		sourcePtr, sourceLen = mapPtr(rawMapping), len(rawMapping)
+	} else {
+		sourcePtr, sourceLen = stringMapPtr(a.CatalogUpstreamModels), len(a.CatalogUpstreamModels)
+	}
+	signature := func() uint64 {
+		if shadow {
+			return modelMappingSignature(rawMapping)
+		}
+		return stringMappingSignature(a.CatalogUpstreamModels)
+	}
+	sig := uint64(0)
+	sigReady := false
 
-	renameOnly := a.ModelMappingRenameOnly()
 	if a.modelMappingCacheReady &&
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
-		a.modelMappingCacheRawPtr == rawPtr &&
-		a.modelMappingCacheRawLen == rawLen &&
+		a.modelMappingCacheRawPtr == sourcePtr &&
+		a.modelMappingCacheRawLen == sourceLen &&
 		a.modelMappingCacheVendor == vendor &&
-		a.modelMappingCacheRenameOnly == renameOnly {
-		rawSig = modelMappingSignature(rawMapping)
-		rawSigReady = true
-		if a.modelMappingCacheRawSig == rawSig {
+		a.modelMappingCacheShadow == shadow {
+		sig = signature()
+		sigReady = true
+		if a.modelMappingCacheRawSig == sig {
 			return a.modelMappingCache
 		}
 	}
 
-	mapping := a.resolveModelMapping(rawMapping)
-	if !rawSigReady {
-		rawSig = modelMappingSignature(rawMapping)
+	var mapping map[string]string
+	if shadow {
+		mapping = a.resolveModelMapping(stringValues(rawMapping), true)
+	} else {
+		mapping = a.resolveModelMapping(a.CatalogUpstreamModels, false)
+	}
+	if !sigReady {
+		sig = signature()
 	}
 
 	a.modelMappingCache = mapping
 	a.modelMappingCacheReady = true
 	a.modelMappingCacheCredentialsPtr = credentialsPtr
-	a.modelMappingCacheRawPtr = rawPtr
-	a.modelMappingCacheRawLen = rawLen
-	a.modelMappingCacheRawSig = rawSig
+	a.modelMappingCacheRawPtr = sourcePtr
+	a.modelMappingCacheRawLen = sourceLen
+	a.modelMappingCacheRawSig = sig
 	a.modelMappingCacheVendor = vendor
-	a.modelMappingCacheRenameOnly = renameOnly
+	a.modelMappingCacheShadow = shadow
 	return mapping
-}
-
-// ModelMappingRenameOnly 渠道的模型映射是否只做改名（管理端新表单写入 credentials.model_mapping_rename_only）。
-// 有标记时映射不兼任白名单，见 IsModelSupported；系统生成的映射（spark 影子等）不带标记，仍是模型集合。
-func (a *Account) ModelMappingRenameOnly() bool {
-	if a == nil || a.Credentials == nil {
-		return false
-	}
-	v, _ := a.Credentials["model_mapping_rename_only"].(bool)
-	return v
 }
 
 // vendorDefaultModelMapping 厂商自带的默认映射表，它同时是这个上游能接的模型集合
@@ -478,94 +492,86 @@ func (a *Account) vendorDefaultModelMapping() map[string]string {
 
 // resolveModelMapping 解析账号的有效模型映射。
 //
-// 厂商默认映射（Antigravity 默认表、xAI 模型目录）按 Vendor 启用，不看平台标签：
-// 第三方 key 的标签只用于展示，指向中转的 key 空映射即「允许所有」，不能被套上
-// 某个厂商的模型白名单与别名改写。成品号的 Vendor 就是平台，行为不变。
-func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]string {
-	vendor := a.Vendor()
-	if a.Credentials == nil {
-		// Antigravity 平台使用默认映射
-		if vendor == PlatformAntigravity {
-			return domain.DefaultAntigravityModelMapping
-		}
-		if vendor == PlatformGrok {
-			return xai.DefaultModelMapping()
-		}
-		// Bedrock 默认映射由 forwardBedrock 统一处理（需配合 region prefix 调整）
-		return nil
+// 厂商默认映射（Google One 保守默认、Antigravity 默认表、xAI 模型目录）按 Vendor 启用，不看平台标签：
+// 第三方 key 的标签只用于展示，指向中转的 key 没有默认表。source 为空时就是默认表。
+// replacesDefaults=true（影子号的模型列表）时 source 替换默认表；否则 source 叠在默认表之上（改名 / 补充），
+// 只改一个模型的名不应让默认表里的其它模型都不可用。
+func (a *Account) resolveModelMapping(source map[string]string, replacesDefaults bool) map[string]string {
+	defaults := a.vendorDefaultModelMapping()
+	if len(source) == 0 {
+		return defaults
 	}
-	if len(rawMapping) == 0 {
-		if a.IsGeminiGoogleOne() {
-			return geminicli.GoogleOneModelMapping()
-		}
-		// Antigravity 平台使用默认映射
-		if vendor == PlatformAntigravity {
-			return domain.DefaultAntigravityModelMapping
-		}
-		if vendor == PlatformGrok {
-			return xai.DefaultModelMapping()
-		}
-		return nil
+	result := make(map[string]string, len(source))
+	for k, v := range source {
+		result[k] = v
 	}
-
-	result := make(map[string]string)
-	for k, v := range rawMapping {
-		if s, ok := v.(string); ok {
-			result[k] = s
-		}
+	if a.Vendor() == PlatformAntigravity {
+		ensureAntigravityDefaultPassthroughs(result, []string{
+			"gemini-3-flash",
+			"gemini-3.1-pro-high",
+			"gemini-3.1-pro-low",
+			"gemini-3.6-flash",
+			"gemini-3.6-flash-high",
+			"gemini-3.6-flash-low",
+			"gemini-3.6-flash-medium",
+			"gemini-3.6-flash-tiered",
+			"gemini-3.7-flash",
+			"gemini-3.7-flash-high",
+			"gemini-3.7-flash-low",
+			"gemini-3.7-flash-medium",
+			"gemini-3.7-flash-tiered",
+			"gemini-3.8-flash",
+			"gemini-3.8-flash-high",
+			"gemini-3.8-flash-low",
+			"gemini-3.8-flash-medium",
+			"gemini-3.8-flash-tiered",
+		})
+		applyAntigravityGemini31ProAliases(result)
 	}
-	if len(result) > 0 {
-		if vendor == PlatformAntigravity {
-			ensureAntigravityDefaultPassthroughs(result, []string{
-				"gemini-3-flash",
-				"gemini-3.1-pro-high",
-				"gemini-3.1-pro-low",
-				"gemini-3.6-flash",
-				"gemini-3.6-flash-high",
-				"gemini-3.6-flash-low",
-				"gemini-3.6-flash-medium",
-				"gemini-3.6-flash-tiered",
-				"gemini-3.7-flash",
-				"gemini-3.7-flash-high",
-				"gemini-3.7-flash-low",
-				"gemini-3.7-flash-medium",
-				"gemini-3.7-flash-tiered",
-				"gemini-3.8-flash",
-				"gemini-3.8-flash-high",
-				"gemini-3.8-flash-low",
-				"gemini-3.8-flash-medium",
-				"gemini-3.8-flash-tiered",
-			})
-			applyAntigravityGemini31ProAliases(result)
-		}
-		// 只改名的映射叠在厂商默认表之上（改名 / 补充），不替换默认表：
-		// 只配一条改名不应让默认表里的其它模型都不可用。
-		if a.ModelMappingRenameOnly() {
-			if defaults := a.vendorDefaultModelMapping(); len(defaults) > 0 {
-				merged := make(map[string]string, len(defaults)+len(result))
-				for k, v := range defaults {
-					merged[k] = v
-				}
-				for k, v := range result {
-					merged[k] = v
-				}
-				return merged
-			}
-		}
+	if replacesDefaults || len(defaults) == 0 {
 		return result
 	}
+	merged := make(map[string]string, len(defaults)+len(result))
+	for k, v := range defaults {
+		merged[k] = v
+	}
+	for k, v := range result {
+		merged[k] = v
+	}
+	return merged
+}
 
-	// Antigravity 平台使用默认映射
-	if a.IsGeminiGoogleOne() {
-		return geminicli.GoogleOneModelMapping()
+// stringValues 取出映射里的字符串值（非字符串的值丢掉）。
+func stringValues(raw map[string]any) map[string]string {
+	if len(raw) == 0 {
+		return nil
 	}
-	if vendor == PlatformAntigravity {
-		return domain.DefaultAntigravityModelMapping
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		if s, ok := v.(string); ok {
+			out[k] = s
+		}
 	}
-	if vendor == PlatformGrok {
-		return xai.DefaultModelMapping()
+	return out
+}
+
+func stringMapPtr(m map[string]string) uintptr {
+	if m == nil {
+		return 0
 	}
-	return nil
+	return reflect.ValueOf(m).Pointer()
+}
+
+// stringMappingSignature 与 modelMappingSignature 同口径，给 map[string]string 用。
+func stringMappingSignature(mapping map[string]string) uint64 {
+	if len(mapping) == 0 {
+		return 0
+	}
+	raw := make(map[string]any, len(mapping))
+	for k, v := range mapping {
+		raw[k] = v
+	}
+	return modelMappingSignature(raw)
 }
 
 func mapPtr(m map[string]any) uintptr {
@@ -749,9 +755,9 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	if normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized) {
 		return true
 	}
-	// 只改名的映射（管理端新表单，2026-09-25）不兼任白名单：渠道承接哪些模型由目录绑定决定，
-	// 没命中映射的按无映射的规则判定。厂商默认表已叠进映射，默认表仍是模型集合。
-	if a.ModelMappingRenameOnly() && len(a.vendorDefaultModelMapping()) == 0 {
+	// 承接关系上的上游名只改名、不兼任白名单：渠道承接哪些模型由目录绑定决定，没命中映射的按无映射的
+	// 规则判定。厂商默认表已叠进映射，默认表仍是模型集合；影子号的模型列表是模型集合。
+	if !a.IsShadow() && len(a.vendorDefaultModelMapping()) == 0 {
 		if a.IsOpenAIOAuth() {
 			return isOpenAIOAuthServableModel(requestedModel)
 		}

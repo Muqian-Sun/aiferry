@@ -453,7 +453,6 @@ func grokSSOImportCredentials(built map[string]any, reqCredentials map[string]an
 	// Only merge operator config from the request — never free-form secrets
 	// (password / sso_token / cookie / etc.) into stored credentials.
 	allowedReqKeys := map[string]struct{}{
-		"model_mapping":   {},
 		"header_override": {}, "header_overrides": {},
 		"custom_headers": {},
 	}

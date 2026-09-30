@@ -33,6 +33,8 @@ type ModelCatalogBinding struct {
 	CacheWrite1hPrice *float64 `json:"cache_write_1h_price,omitempty"`
 	// CacheReadPrice holds the value of the "cache_read_price" field.
 	CacheReadPrice *float64 `json:"cache_read_price,omitempty"`
+	// UpstreamModel holds the value of the "upstream_model" field.
+	UpstreamModel string `json:"upstream_model,omitempty"`
 	// PriceIntervals holds the value of the "price_intervals" field.
 	PriceIntervals []domain.PriceSegment `json:"price_intervals,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -89,6 +91,8 @@ func (*ModelCatalogBinding) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogbinding.FieldEntryID, modelcatalogbinding.FieldAccountID:
 			values[i] = new(sql.NullInt64)
+		case modelcatalogbinding.FieldUpstreamModel:
+			values[i] = new(sql.NullString)
 		case modelcatalogbinding.FieldCreatedAt, modelcatalogbinding.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
@@ -150,6 +154,12 @@ func (_m *ModelCatalogBinding) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.CacheReadPrice = new(float64)
 				*_m.CacheReadPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldUpstreamModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field upstream_model", values[i])
+			} else if value.Valid {
+				_m.UpstreamModel = value.String
 			}
 		case modelcatalogbinding.FieldPriceIntervals:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -242,6 +252,9 @@ func (_m *ModelCatalogBinding) String() string {
 		builder.WriteString("cache_read_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("upstream_model=")
+	builder.WriteString(_m.UpstreamModel)
 	builder.WriteString(", ")
 	builder.WriteString("price_intervals=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PriceIntervals))

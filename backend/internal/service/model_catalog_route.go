@@ -104,10 +104,11 @@ func RequestVendorPlatform(ctx context.Context) (string, bool) {
 	return "", false
 }
 
-// ResolveRoute 准入用：模型名（精确 / 别名 / 通配别名 / Codex 归一化）命中 listed 条目
-// 才返回 true。
+// ResolveRoute 准入用：模型名必须就是一条 listed 条目的模型标识（逐字相同，只去首尾空白）才返回 true。
+// 用户只能请求目录里的模型标识，别名、通配别名、大小写变体、Codex 归一化都不认（muqian 2026-10-01，D4）：
+// 转发时只做一次「目录标识 → 这个渠道的上游模型名」的转换。
 func (s *ModelCatalogService) ResolveRoute(ctx context.Context, model string) (CatalogRoute, bool) {
-	entry := s.LookupPricingEntry(ctx, model)
+	entry := s.lookupExactModelID(ctx, model)
 	if entry == nil || entry.Status != ModelCatalogStatusListed {
 		return CatalogRoute{}, false
 	}
