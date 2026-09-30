@@ -68,10 +68,10 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_APIKeyUsesResponsesI
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"base_url":      "http://upstream.example",
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
+			"api_key":  "sk-test",
+			"base_url": "http://upstream.example",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example",
 		},
@@ -323,36 +323,36 @@ func TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI(t *testing.T) {
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
-	// 出站模型由账号 credentials.model_mapping 决定（唯一的映射来源）。
+	// 出站模型由承接关系上的上游名（CatalogUpstreamModels）决定。
 	cases := []struct {
-		name          string
-		anthropicBody []byte
-		modelMapping  map[string]any
+		name           string
+		anthropicBody  []byte
+		upstreamModels map[string]string
 	}{
 		{
-			name:          "simple user text",
-			modelMapping:  map[string]any{"claude-sonnet-4-5": "gpt-5"},
-			anthropicBody: []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello world from sub2api"}]}`),
+			name:           "simple user text",
+			upstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5"},
+			anthropicBody:  []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello world from sub2api"}]}`),
 		},
 		{
-			name:          "system plus tool",
-			modelMapping:  map[string]any{"claude-sonnet-4-5": "gpt-5"},
-			anthropicBody: []byte(`{"model":"claude-sonnet-4-5","system":"You are helpful.","messages":[{"role":"user","content":"find weather in shanghai"}],"tools":[{"name":"lookup_weather","description":"Look up current weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}`),
+			name:           "system plus tool",
+			upstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5"},
+			anthropicBody:  []byte(`{"model":"claude-sonnet-4-5","system":"You are helpful.","messages":[{"role":"user","content":"find weather in shanghai"}],"tools":[{"name":"lookup_weather","description":"Look up current weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}`),
 		},
 		{
-			name:          "multi turn text",
-			modelMapping:  map[string]any{"claude-opus-4-1": "gpt-4.1"},
-			anthropicBody: []byte(`{"model":"claude-opus-4-1","messages":[{"role":"user","content":"summarize this repo"},{"role":"assistant","content":"which repo?"},{"role":"user","content":"sub2api"}]}`),
+			name:           "multi turn text",
+			upstreamModels: map[string]string{"claude-opus-4-1": "gpt-4.1"},
+			anthropicBody:  []byte(`{"model":"claude-opus-4-1","messages":[{"role":"user","content":"summarize this repo"},{"role":"assistant","content":"which repo?"},{"role":"user","content":"sub2api"}]}`),
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			account := &Account{
-				Platform:          PlatformOpenAI,
-				Type:              AccountTypeAPIKey,
-				Credentials:       map[string]any{"model_mapping": tc.modelMapping},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				Platform:              PlatformOpenAI,
+				Type:                  AccountTypeAPIKey,
+				CatalogUpstreamModels: tc.upstreamModels,
+				ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 			prepared, err := prepareOpenAIInputTokensCountRequest(tc.anthropicBody, account)
 			require.NoError(t, err)

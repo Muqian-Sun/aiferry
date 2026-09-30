@@ -29,35 +29,35 @@ func TestOpenAIGatewayService_Forward_FailoverReparsesCachedBodyForNextAccount(t
 	tests := []struct {
 		name          string
 		requestModel  string
-		firstMapping  map[string]any
-		secondMapping map[string]any
+		firstMapping  map[string]string
+		secondMapping map[string]string
 		wantFirst     string
 		wantSecond    string
 	}{
 		{
 			name:          "both accounts have mapping",
-			firstMapping:  map[string]any{"alias-model": "base-model-a"},
-			secondMapping: map[string]any{"alias-model": "base-model-b"},
+			firstMapping:  map[string]string{"alias-model": "base-model-a"},
+			secondMapping: map[string]string{"alias-model": "base-model-b"},
 			wantFirst:     "base-model-a",
 			wantSecond:    "base-model-b",
 		},
 		{
 			name:         "first account has mapping second account has none",
 			requestModel: "gpt-5.4-high",
-			firstMapping: map[string]any{"gpt-5.4-high": "gpt-5.4"},
+			firstMapping: map[string]string{"gpt-5.4-high": "gpt-5.4"},
 			wantFirst:    "gpt-5.4",
 			wantSecond:   "gpt-5.4",
 		},
 		{
 			name:          "first account has no mapping second account has mapping",
-			secondMapping: map[string]any{"alias-model": "base-model-b"},
+			secondMapping: map[string]string{"alias-model": "base-model-b"},
 			wantFirst:     "alias-model",
 			wantSecond:    "base-model-b",
 		},
 		{
 			name:          "legacy context cache is ignored when mappings differ",
-			firstMapping:  map[string]any{"alias-model": "base-model-a"},
-			secondMapping: map[string]any{"alias-model": "base-model-b"},
+			firstMapping:  map[string]string{"alias-model": "base-model-a"},
+			secondMapping: map[string]string{"alias-model": "base-model-b"},
 			wantFirst:     "base-model-a",
 			wantSecond:    "base-model-b",
 		},
@@ -144,19 +144,16 @@ func TestGetOpenAIRequestBodyMap_IgnoresLegacyContextCache(t *testing.T) {
 	require.Equal(t, false, got["stream"])
 }
 
-func openAIFailoverCachedBodyTestAccount(id int64, name string, mapping map[string]any) *Account {
-	credentials := map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"}
-	if mapping != nil {
-		credentials["model_mapping"] = mapping
-	}
+func openAIFailoverCachedBodyTestAccount(id int64, name string, upstreamModels map[string]string) *Account {
 	return &Account{
-		ID:          id,
-		Name:        name,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeOAuth,
-		Concurrency: 1,
-		Credentials: credentials,
-		Status:      StatusActive,
-		Schedulable: true,
+		ID:                    id,
+		Name:                  name,
+		Platform:              PlatformOpenAI,
+		Type:                  AccountTypeOAuth,
+		Concurrency:           1,
+		Credentials:           map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+		CatalogUpstreamModels: upstreamModels,
+		Status:                StatusActive,
+		Schedulable:           true,
 	}
 }

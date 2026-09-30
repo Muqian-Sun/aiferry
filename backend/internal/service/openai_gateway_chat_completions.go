@@ -543,7 +543,8 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 		logOpenAISuccessMissingUsage(c.Request.Context(), c, account, resp, &usage, "response.completed", false)
 	}
 
-	if requiresBillableGrokChatUsage(account, billingModel, upstreamModel, finalResponse.Model) && !hasBillableGrokChatUsage(usage) {
+	// 只看实际发往上游的模型与上游回报的模型（计费用的目录模型名以 grok- 开头不代表上游是 Grok）
+	if requiresBillableGrokChatUsage(account, upstreamModel, finalResponse.Model) && !hasBillableGrokChatUsage(usage) {
 		upstreamRequestID := firstNonEmpty(requestID, resp.Header.Get("xai-request-id"))
 		return nil, newGrokMissingUsageFailoverError(c, account, upstreamRequestID)
 	}

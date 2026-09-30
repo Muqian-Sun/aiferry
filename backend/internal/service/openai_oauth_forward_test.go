@@ -398,9 +398,9 @@ func TestOpenAIGatewayService_Forward_MissingInstructionsUsesMappedModelTemplate
 		Credentials: map[string]any{
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
-			"model_mapping":      map[string]any{"astra-public": "gpt-6-astra"},
 		},
-		Status: StatusActive, Schedulable: true,
+		CatalogUpstreamModels: map[string]string{"astra-public": "gpt-6-astra"},
+		Status:                StatusActive, Schedulable: true,
 	}
 
 	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"astra-public","stream":true,"store":true,"input":[{"type":"text","text":"hi"}]}`))
@@ -413,7 +413,7 @@ func TestOpenAIGatewayService_Forward_MissingInstructionsUsesMappedModelTemplate
 }
 
 // OpenAI 自动透传 2026-09-28 P5 写死关、透传分支已删：不管库里残留 openai_passthrough /
-// openai_oauth_passthrough 是什么值，OAuth 请求都走常规转换——套账号模型映射、强制
+// openai_oauth_passthrough 是什么值，OAuth 请求都走常规转换——套承接关系上的上游名、强制
 // store=false + stream=true（改之前透传账号原样转发请求体，也不套 model_mapping）。
 func TestOpenAIGatewayService_OAuthLegacyPassthroughKeysUseStandardTransform(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -456,11 +456,11 @@ func TestOpenAIGatewayService_OAuthLegacyPassthroughKeysUseStandardTransform(t *
 				Credentials: map[string]any{
 					"access_token":       "oauth-token",
 					"chatgpt_account_id": "chatgpt-acc",
-					"model_mapping":      map[string]any{"gpt-5.2": "gpt-5.4"},
 				},
-				Extra:       tc.extra,
-				Status:      StatusActive,
-				Schedulable: true,
+				CatalogUpstreamModels: map[string]string{"gpt-5.2": "gpt-5.4"},
+				Extra:                 tc.extra,
+				Status:                StatusActive,
+				Schedulable:           true,
 			}
 			require.True(t, account.IsModelSupported("gpt-5.2"))
 

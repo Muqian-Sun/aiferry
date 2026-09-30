@@ -97,7 +97,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsPreservesFinalModelReasoningEffo
 				)),
 			}}
 			account := forceChatMessagesFallbackAccount()
-			account.Credentials["model_mapping"] = map[string]any{tt.model: tt.mapped}
+			account.CatalogUpstreamModels = map[string]string{tt.model: tt.mapped}
 
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			result, err := svc.ForwardAsAnthropic(context.Background(), c, account, []byte(body), "")

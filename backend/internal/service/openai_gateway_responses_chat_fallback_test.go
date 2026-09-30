@@ -89,7 +89,7 @@ func TestForwardResponses_ForceChatCompletionsOmitsNoneReasoningEffort(t *testin
 	require.Nil(t, result.ReasoningEffort)
 }
 
-// 库里残留的 openai_passthrough / compact_model_mapping（2026-09-28 P5 都删了）不影响 chat 回退：照常套账号映射。
+// 库里残留的 openai_passthrough / compact_model_mapping（2026-09-28 P5 都删了）不影响 chat 回退：照常套承接关系上的上游名。
 func TestForwardResponses_LegacyPassthroughAndCompactKeysOnChatFallbackUseAccountMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -114,7 +114,7 @@ func TestForwardResponses_LegacyPassthroughAndCompactKeysOnChatFallbackUseAccoun
 				httpUpstream: upstream,
 			}
 			account := rawChatCompletionsTestAccount()
-			account.Credentials["model_mapping"] = map[string]any{
+			account.CatalogUpstreamModels = map[string]string{
 				"gpt-5.4-channel": "gpt-5.4-account",
 			}
 			account.Credentials["compact_model_mapping"] = map[string]any{

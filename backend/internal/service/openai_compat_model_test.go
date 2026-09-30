@@ -159,17 +159,18 @@ func TestForwardAsAnthropic_UsesExactFableMessagesDispatchModel(t *testing.T) {
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-fable-5": "gpt-5.6-sol"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-fable-5": "gpt-5.6-sol"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "claude-fable-5", result.Model)
-	require.Equal(t, "gpt-5.6-sol", result.BillingModel)
+	// 计费按用户请求的目录模型，改名只作用在发给上游的名字上
+	require.Equal(t, "claude-fable-5", result.BillingModel)
 	require.Equal(t, "gpt-5.6-sol", result.UpstreamModel)
 	require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.NotContains(t, string(upstream.lastBody), "claude-fable-5")
@@ -211,9 +212,6 @@ func TestForwardAsAnthropic_NormalizesRoutingAndEffortForGpt54XHigh(t *testing.T
 		Credentials: map[string]any{
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
-			"model_mapping": map[string]any{
-				"gpt-5.4": "gpt-5.4",
-			},
 		},
 	}
 
@@ -319,10 +317,10 @@ func rawGPT56ResponsesAPIKeyAccount(requestedModel, mappedModel string) *Account
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"base_url":      "https://api.example.com/v1",
-			"model_mapping": map[string]any{requestedModel: mappedModel},
+			"api_key":  "sk-test",
+			"base_url": "https://api.example.com/v1",
 		},
+		CatalogUpstreamModels: map[string]string{requestedModel: mappedModel},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolResponses:       "https://api.example.com/v1",
 			APIProtocolChatCompletions: "https://api.example.com/v1",
@@ -341,8 +339,8 @@ func rawGPT56ResponsesOAuthAccount(requestedModel, mappedModel string) *Account 
 		Credentials: map[string]any{
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
-			"model_mapping":      map[string]any{requestedModel: mappedModel},
 		},
+		CatalogUpstreamModels: map[string]string{requestedModel: mappedModel},
 	}
 }
 
@@ -385,19 +383,17 @@ func TestForwardAsAnthropic_MappedClaudeModelAcceptsChatUsageShape(t *testing.T)
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
-			"model_mapping": map[string]any{
-				"claude-opus-4-7": "gpt-5.5",
-				"gpt-5.5":         "gpt-5.5",
-			},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-opus-4-7": "gpt-5.5"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "claude-opus-4-7", result.Model)
-	require.Equal(t, "gpt-5.5", result.BillingModel)
+	// 计费按用户请求的目录模型，改名只作用在发给上游的名字上
+	require.Equal(t, "claude-opus-4-7", result.BillingModel)
 	require.Equal(t, "gpt-5.5", result.UpstreamModel)
 	require.Equal(t, 31, result.Usage.InputTokens)
 	require.Equal(t, 9, result.Usage.OutputTokens)
@@ -438,11 +434,11 @@ func TestForwardAsAnthropic_InjectsPromptCacheKeyForAPIKeyMessagesDispatch(t *te
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "stable-cache-key")
@@ -486,11 +482,11 @@ func TestForwardAsAnthropic_AutoDerivesPromptCacheKeyWhenMessagesDispatchHasNoSe
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
@@ -519,7 +515,7 @@ func TestForwardAsAnthropic_GPT6AstraPromptCacheIdentityStableAcrossAppendedTurn
 				httpUpstream: upstream,
 				cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 			}
-			// 模型映射挂在账号 credentials.model_mapping 上（唯一的映射来源）。
+			// 改名挂在承接关系上的上游名（CatalogUpstreamModels）上。
 			account := &Account{
 				ID:          6615,
 				Name:        "openai-apikey",
@@ -527,11 +523,11 @@ func TestForwardAsAnthropic_GPT6AstraPromptCacheIdentityStableAcrossAppendedTurn
 				Type:        AccountTypeAPIKey,
 				Concurrency: 1,
 				Credentials: map[string]any{
-					"api_key":       "sk-test",
-					"base_url":      "https://api.openai.com/v1",
-					"model_mapping": map[string]any{"claude-sonnet-4-5": mappedModel},
+					"api_key":  "sk-test",
+					"base_url": "https://api.openai.com/v1",
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+				CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": mappedModel},
+				ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 			}
 
 			bodies := [][]byte{
@@ -645,7 +641,7 @@ func TestForwardAsAnthropic_TrimsFullReplayOnlyForCodexCompatModels(t *testing.T
 			httpUpstream: upstream,
 			cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 		}
-		// 模型映射挂在账号 credentials.model_mapping 上（唯一的映射来源）。
+		// 改名挂在承接关系上的上游名（CatalogUpstreamModels）上。
 		account := &Account{
 			ID:          1,
 			Name:        "openai-apikey",
@@ -653,11 +649,11 @@ func TestForwardAsAnthropic_TrimsFullReplayOnlyForCodexCompatModels(t *testing.T
 			Type:        AccountTypeAPIKey,
 			Concurrency: 1,
 			Credentials: map[string]any{
-				"api_key":       "sk-test",
-				"base_url":      "https://api.openai.com/v1",
-				"model_mapping": map[string]any{"claude-sonnet-4-5": mappedModel},
+				"api_key":  "sk-test",
+				"base_url": "https://api.openai.com/v1",
 			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+			CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": mappedModel},
+			ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 		}
 
 		result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
@@ -705,10 +701,10 @@ func TestForwardAsAnthropic_OAuthCompatKeepsFullReplayForCacheGrowth(t *testing.
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.4"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.4"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
@@ -738,11 +734,11 @@ func TestForwardAsAnthropic_AttachesPreviousResponseIDForCompatContinuation(t *t
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":false}`)
@@ -792,11 +788,11 @@ func TestForwardAsAnthropic_PreviousResponseIDKeepsMultiToolCallContext(t *testi
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"inspect files"}],"stream":false}`)
@@ -849,11 +845,11 @@ func TestForwardAsAnthropic_ReplaysFullToolHistoryWhenPreviousResponseUnavailabl
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
@@ -916,7 +912,7 @@ func TestForwardAsAnthropic_PreviousResponseUnavailableRetryFailureDoesNotLoop(t
 		httpUpstream: upstream,
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
-	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1", "model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"}}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
+	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1"}, CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
 	rec := httptest.NewRecorder()
@@ -945,11 +941,11 @@ func TestForwardAsAnthropic_DisablesAPIKeyContinuationWhenUpstreamRequiresWebSoc
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.5"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.5"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_http_unsupported")
@@ -1018,11 +1014,11 @@ func TestForwardAsAnthropic_APIKeyMetadataSessionSurvivesChangingCacheControlAnc
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-haiku-4-5-20251001": "gpt-5.4-mini"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-haiku-4-5-20251001": "gpt-5.4-mini"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstRec := httptest.NewRecorder()
@@ -1112,10 +1108,10 @@ func TestForwardAsAnthropic_ReusesOAuthCodexTurnState(t *testing.T) {
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.4"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.4"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":false}`)
@@ -1219,10 +1215,10 @@ func TestForwardAsAnthropic_OAuthDigestFallbackReusesTurnStateWithoutExplicitKey
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.4"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.4"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":false}`)
@@ -1278,10 +1274,10 @@ func TestForwardAsAnthropic_OAuthMetadataSessionSurvivesDigestPrefixRewrite(t *t
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.5"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.5"},
 	}
 	metadata := `{"user_id":"{\"device_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"account_uuid\":\"\",\"session_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"}"}`
 
@@ -1336,10 +1332,10 @@ func TestForwardAsAnthropic_OAuthMetadataSessionSurvivesChangingCacheControlAnch
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.5"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.5"},
 	}
 	metadata := `{"user_id":"{\"device_id\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"account_uuid\":\"\",\"session_id\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\"}"}`
 
@@ -1428,10 +1424,10 @@ func TestForwardAsAnthropic_OAuthAddsClaudeCodeTodoGuardForCompatModel(t *testin
 		Type:        AccountTypeOAuth,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.5"},
 			"access_token":       "oauth-token",
 			"chatgpt_account_id": "chatgpt-acc",
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.5"},
 	}
 
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"system":"project instructions","messages":[{"role":"user","content":"review files"}],"stream":false}`)
@@ -1503,11 +1499,11 @@ func TestForwardAsAnthropic_StoresStreamingResponseIDWithoutUsage(t *testing.T) 
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
-			"api_key":       "sk-test",
-			"base_url":      "https://api.openai.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.3-codex"},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":true}`)

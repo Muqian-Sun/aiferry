@@ -161,7 +161,7 @@ func TestForwardAsChatCompletions_OpenAICompatibleRawUsageGuard(t *testing.T) {
 		name             string
 		model            string
 		upstreamResponse string
-		modelMapping     map[string]any
+		upstreamModels   map[string]string
 		wantGuarded      bool
 	}{
 		{
@@ -186,7 +186,7 @@ func TestForwardAsChatCompletions_OpenAICompatibleRawUsageGuard(t *testing.T) {
 			name:             "Grok alias mapped to non-Grok remains unchanged",
 			model:            "grok-alias",
 			upstreamResponse: `{"id":"resp_mapped","object":"chat.completion","model":"gpt-5.4","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`,
-			modelMapping:     map[string]any{"grok-alias": "gpt-5.4"},
+			upstreamModels:   map[string]string{"grok-alias": "gpt-5.4"},
 			wantGuarded:      false,
 		},
 		{
@@ -219,9 +219,7 @@ func TestForwardAsChatCompletions_OpenAICompatibleRawUsageGuard(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			account := rawChatCompletionsTestAccount()
 			account.Name = "openai-compatible"
-			if tt.modelMapping != nil {
-				account.Credentials["model_mapping"] = tt.modelMapping
-			}
+			account.CatalogUpstreamModels = tt.upstreamModels
 
 			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
@@ -262,7 +260,7 @@ func TestForwardAsRawChatCompletions_PreservesMappedGPT56MaxEffort(t *testing.T)
 		httpUpstream: upstream,
 	}
 	account := rawChatCompletionsTestAccount()
-	account.Credentials["model_mapping"] = map[string]any{"sol": "gpt-5.6-sol"}
+	account.CatalogUpstreamModels = map[string]string{"sol": "gpt-5.6-sol"}
 
 	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 
