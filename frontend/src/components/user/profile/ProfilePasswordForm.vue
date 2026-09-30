@@ -96,7 +96,7 @@ const handleChangePassword = async () => {
     return
   }
 
-  if (form.value.new_password.length < 8) {
+  if (form.value.new_password.length < 6) {
     errorMessage.value = t('profile.passwordTooShort')
     return
   }

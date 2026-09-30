@@ -58,8 +58,8 @@
         <section class="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p class="text-13 text-af-ink-3">{{ t('admin.users.columns.balance') }}</p>
-            <p class="mt-1 text-3xl font-semibold tracking-[-0.01em] tabular-nums text-af-ink" data-testid="user-drawer-balance">
-              {{ formatMoney(user.balance) }}
+            <p class="mt-1 text-3xl font-semibold tracking-[-0.01em] tabular-nums" :class="balanceTextClass(user.balance)" data-testid="user-drawer-balance">
+              {{ formatBalance(user.balance) }}
             </p>
             <p v-if="user.frozen_balance" class="mt-1 text-xs tabular-nums text-af-ink-3">
               {{ t('admin.users.detail.frozen', { amount: formatMoney(user.frozen_balance) }) }}
@@ -237,7 +237,7 @@ import { adminAPI } from '@/api/admin'
 import type { AdminUsageStatsResponse } from '@/api/admin/usage'
 import type { AdminUser, UserAttributeDefinition, UserSubscription } from '@/types'
 import { formatCompactNumber, formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
-import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
+import { balanceTextClass, formatBalance, formatMoney, profitOf, profitTextClass } from '@/utils/money'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'

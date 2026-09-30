@@ -1,14 +1,15 @@
 <template>
-  <!-- 余额以文字呈现、点击去充值；有冻结金额时 hover 展开明细 -->
+  <!-- 余额以文字呈现、点击去充值；有冻结金额时 hover 展开明细。
+       余额为负是透支的欠款（允许一次请求透支，充值先抵欠款、补上才能再用，muqian 2026-09-29）：写「欠费」+ 金额并标红 -->
   <div class="group relative">
     <RouterLink
       to="/billing/recharge"
       class="flex h-8 items-center gap-1.5 rounded-md px-2 text-13 font-medium text-af-ink tabular-nums transition-colors hover:bg-af-sunken"
-      :aria-label="`${t('userUi.topbar.balance')} ${formatMoney(available)}`"
+      :aria-label="`${balanceLabel} ${formatMoney(Math.abs(available))}`"
       data-testid="balance-link"
     >
-      <span class="text-af-ink-3">{{ t('userUi.topbar.balance') }}</span>
-      <span>{{ formatMoney(available) }}</span>
+      <span class="text-af-ink-3">{{ balanceLabel }}</span>
+      <span :class="{ 'text-af-danger': inDebt }" data-testid="balance-amount">{{ formatMoney(inDebt ? -available : available) }}</span>
       <span v-if="frozen > 0" class="text-af-warning" data-testid="balance-frozen">
         {{ t('userUi.topbar.frozen') }} {{ formatMoney(frozen) }}
       </span>
@@ -47,6 +48,8 @@ const authStore = useAuthStore()
 
 const available = computed(() => Number(authStore.user?.balance || 0))
 const frozen = computed(() => Number(authStore.user?.frozen_balance || 0))
+const inDebt = computed(() => available.value < 0)
+const balanceLabel = computed(() => (inDebt.value ? t('userUi.topbar.debt') : t('userUi.topbar.balance')))
 
 const formatMoney = (value: number) => formatCurrency(Number.isFinite(value) ? value : 0)
 </script>

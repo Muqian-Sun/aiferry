@@ -89,10 +89,11 @@ func validateEmail(email string) bool {
 	return err == nil && len(email) <= 254
 }
 
-// validatePassword checks password strength
+// validatePassword checks password length. 全站密码下限统一 6 位（注册、改密码、管理员建用户都是 6，
+// muqian 2026-09-29「改成一样」）。
 func validatePassword(password string) error {
-	if len(password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
+	if len(password) < 6 {
+		return fmt.Errorf("password must be at least 6 characters")
 	}
 	if len(password) > 128 {
 		return fmt.Errorf("password must be at most 128 characters")

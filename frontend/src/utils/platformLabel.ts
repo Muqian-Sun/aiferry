@@ -17,7 +17,7 @@ export function platformLabel(p: string): string {
     case 'gemini': return 'Gemini'
     case 'grok': return 'Grok'
     case 'kimi': return 'Kimi'
-    case 'zhipu': return 'Zhipu GLM'
+    case 'zhipu': return 'Zhipu AI'
     case 'deepseek': return 'DeepSeek'
     case 'minimax': return 'MiniMax'
     case 'opencode_go': return 'OpenCode'

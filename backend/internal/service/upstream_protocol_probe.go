@@ -16,9 +16,9 @@ import (
 // 建渠道时的「探测协议」（2026-09-29 muqian 定）：对管理员填的同一个基础地址，逐个试四个上游协议，
 // 列出支持 / 不支持 / 不确定，管理员在结果旁边的选择框里挑一个（一个 key 只承接一个协议）。
 //
-// 先发不带模型的空请求看状态码（不花钱）：端点存在的上游会做参数校验回 400 / 422，不存在的回 404 / 405
-// 或落到网页；拿不准的（401 / 403 / 429 / 5xx / 网络错误 / 2xx 但内容不像这个协议）再用上游模型列表里挑的模型
-// 发一次最小的真实请求确认。
+// 先发不带模型的空请求看状态码（不花钱）：不存在的端点回 404 / 405 或落到网页，直接判不支持；
+// 其余拿不准的（400 / 422 参数校验、401 / 403 / 429 / 5xx / 网络错误 / 2xx 但内容不像这个协议）
+// 再用上游模型列表里挑的模型发一次最小的真实请求确认。
 
 // ProtocolProbeStatus 一个协议的探测结论。
 type ProtocolProbeStatus string
@@ -38,6 +38,7 @@ const (
 	ProtocolProbeReasonNotFound        ProtocolProbeReason = "not_found"        // 404 / 405 / 501
 	ProtocolProbeReasonNotAPI          ProtocolProbeReason = "not_api"          // 回的不是 JSON（多半是网页）
 	ProtocolProbeReasonUnexpectedBody  ProtocolProbeReason = "unexpected_body"  // 2xx JSON 但不像这个协议的响应（兜底的健康检查之类）
+	ProtocolProbeReasonRealRejected    ProtocolProbeReason = "real_rejected"    // 最小的真实请求被回 400 / 422：端点在，但这个 key / 模型走不通
 	ProtocolProbeReasonAuthRejected    ProtocolProbeReason = "auth_rejected"    // 401 / 403
 	ProtocolProbeReasonRateLimited     ProtocolProbeReason = "rate_limited"     // 429
 	ProtocolProbeReasonUpstreamError   ProtocolProbeReason = "upstream_error"   // 5xx 与其他状态码
@@ -136,6 +137,10 @@ func protocolProbeBaseURL(protocol string, base string) string {
 }
 
 // sendProtocolProbe 发一次探测请求并分类。model 为空发空请求，否则发最小的真实请求。
+//
+// 400 / 422 不直接算支持：空请求被参数校验拦下只说明端点多半存在，但有的上游路由在、这个 key 却用不了
+// （2026-09-29 真实上游 fenno：Gemini 路由对非 Gemini 分组的 key 一律回 400「API key group platform is not
+// gemini」），所以归为不确定、再用真实请求确认；真实请求（带模型、格式完整）还被回 400 / 422 就是走不通。
 func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Account, apiKey, protocol, base, model string) (ProtocolProbeStatus, ProtocolProbeReason, int) {
 	ctx, cancel := context.WithTimeout(ctx, protocolProbeTimeout)
 	defer cancel()
@@ -152,6 +157,12 @@ func (s *AccountTestService) sendProtocolProbe(ctx context.Context, account *Acc
 	status, reason := classifyProtocolProbeResponse(resp.StatusCode, resp.Header.Get("Content-Type"), body)
 	if status == ProtocolProbeSupported && reason == ProtocolProbeReasonAccepted && !protocolProbeBodyMatches(protocol, model != "", body) {
 		status, reason = ProtocolProbeUnknown, ProtocolProbeReasonUnexpectedBody
+	}
+	if reason == ProtocolProbeReasonValidationError {
+		status = ProtocolProbeUnknown
+		if model != "" {
+			reason = ProtocolProbeReasonRealRejected
+		}
 	}
 	return status, reason, resp.StatusCode
 }

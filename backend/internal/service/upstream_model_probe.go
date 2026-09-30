@@ -52,7 +52,8 @@ func (s *ModelCatalogService) MatchUpstreamModels(ctx context.Context, upstream 
 }
 
 // ImportUpstreamModels 把目录里还没有的上游模型建成条目：未上架；内置价格表查得到就带上价格与厂商，
-// 查不到只有模型名（上架前要去模型页定价）。已有的（按模型名或别名对上）不重复建，原样返回。
+// 查不到只有模型名（上架前要去模型页定价）；厂商仍为空的按模型族补（modelFamilyVendors）。
+// 已有的（按模型名或别名对上）不重复建，原样返回。
 // 返回的条目与 ids 一一对应（去重后），调用方据此把它们绑到渠道。
 func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []string) ([]ModelCatalogEntry, error) {
 	entries, err := s.ListEntries(ctx)
@@ -79,6 +80,9 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 		entry, found := s.LookupPriceFileEntry(id)
 		if !found {
 			entry = ModelCatalogEntry{}
+		}
+		if entry.Vendor == "" {
+			entry.Vendor = modelFamilyVendor(id)
 		}
 		entry.ID = 0
 		entry.ModelID = id

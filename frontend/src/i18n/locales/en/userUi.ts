@@ -29,6 +29,7 @@ export default {
     },
     topbar: {
       balance: 'Balance',
+      debt: 'Owed',
       available: 'Available',
       frozen: 'Frozen',
       total: 'Total',
@@ -218,7 +219,7 @@ export default {
         overview: 'Account',
         overviewDesc: 'Sign-in identity, balance and rate multiplier',
         usernameDesc: 'Your email is shown when this is empty',
-        passwordDesc: 'Used for email sign-in, at least 8 characters'
+        passwordDesc: 'Used for email sign-in, at least 6 characters'
       }
     },
     summary: {

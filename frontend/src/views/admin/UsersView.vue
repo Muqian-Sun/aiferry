@@ -223,11 +223,12 @@
           <template #cell-balance="{ value, row }">
             <button
               type="button"
-              class="font-medium tabular-nums text-af-ink underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
+              class="font-medium tabular-nums underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
+              :class="balanceTextClass(value)"
               :title="t('admin.users.balanceHistoryTip')"
               @click.stop="openDrawer(row, 'balance')"
             >
-              {{ formatMoney(value) }}
+              {{ formatBalance(value) }}
             </button>
           </template>
 
@@ -404,7 +405,7 @@ import { useI18n } from 'vue-i18n'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
-import { formatMoney } from '@/utils/money'
+import { balanceTextClass, formatBalance } from '@/utils/money'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 

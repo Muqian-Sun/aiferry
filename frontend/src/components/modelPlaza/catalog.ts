@@ -126,18 +126,19 @@ export function catalogVendors(entries: CatalogModel[]): string[] {
   return [...new Set(entries.map((entry) => entry.vendor).filter(Boolean))].sort()
 }
 
+// 厂商一律显示公司名，不写产品名（muqian 2026-09-29：「用公司名称」）
 const VENDOR_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
-  gemini: 'Gemini',
+  gemini: 'Google',
   google: 'Google',
   xai: 'xAI',
   deepseek: 'DeepSeek',
-  moonshot: 'Moonshot',
+  moonshot: 'Moonshot AI',
   minimax: 'MiniMax',
-  zhipu: 'Zhipu GLM',
+  zhipu: 'Zhipu AI',
   volcengine: 'Volcengine',
-  bedrock: 'Bedrock',
+  bedrock: 'AWS',
   // 目录播种带进来的 litellm 供应商名：展示按品牌，归一化留给播种
   'vertex_ai-language-models': 'Google',
   'vertex_ai-embedding-models': 'Google',

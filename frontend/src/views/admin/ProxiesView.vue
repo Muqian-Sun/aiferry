@@ -965,7 +965,7 @@ const qualityTargetLabel = (target: string) => {
     case 'kimi':
       return 'Kimi'
     case 'zhipu':
-      return 'Zhipu GLM'
+      return 'Zhipu AI'
     case 'deepseek':
       return 'DeepSeek'
     case 'minimax':

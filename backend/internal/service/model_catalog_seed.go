@@ -245,9 +245,42 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 // liteLLMModeImageGeneration 是价格文件里生图模型的 mode 值。
 const liteLLMModeImageGeneration = "image_generation"
 
+// modelFamilyVendors 按模型族给新建条目标厂商：兜底价表（BillingService.fallbackPrices，我们自己维护的已知模型）
+// 播种时、以及从上游导入价格文件查不到厂商的模型时用。价格文件里的条目厂商来自 litellm_provider；这两处没有这一项，
+// 建出来厂商为空，用户站模型页就归不到任何厂商、也没有图标（2026-09-29 E2E：播种的 grok-4.5 / 4.6、glm、claude-fable、
+// gemini-3.x 等 42 条；导入的 deepseek-v4.1-flash、glm-5.3-flash）。只在建条目时写进厂商字段、管理员可改，
+// 不是运行时按模型名猜厂商（CatalogVendorPlatform 仍只看条目厂商）。值与价格文件同口径（provider 串）。
+var modelFamilyVendors = []struct{ prefix, vendor string }{
+	{"claude-", "anthropic"},
+	{"gpt-", "openai"},
+	{"codex-", "openai"},
+	{"gemini-", "gemini"},
+	{"grok-", "xai"},
+	{"glm-", "zhipu"},
+	{"deepseek-", "deepseek"},
+	{"kimi-", "moonshot"},
+	{"minimax-", "minimax"},
+	{"doubao-", "volcengine"},
+}
+
+// modelFamilyVendor 上游模型名可能带组织前缀（deepseek-ai/deepseek-v4），按最后一段认模型族。
+func modelFamilyVendor(name string) string {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	if i := strings.LastIndex(lower, "/"); i >= 0 {
+		lower = lower[i+1:]
+	}
+	for _, v := range modelFamilyVendors {
+		if strings.HasPrefix(lower, v.prefix) {
+			return v.vendor
+		}
+	}
+	return ""
+}
+
 func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry {
 	entry := ModelCatalogEntry{
 		ModelID:     name,
+		Vendor:      modelFamilyVendor(name),
 		BillingMode: BillingModeToken,
 		Status:      ModelCatalogStatusUnlisted,
 		ManagedBy:   ModelCatalogManagedBySeed,

@@ -154,7 +154,17 @@ func TestProbeUpstreamProtocols_ReturnsPerProtocolResultsWithSavedKey(t *testing
 		ProtocolEndpoints: map[string]string{"chat_completions": "https://old.example.com/v1"},
 	}}
 	upstream := &protocolProbeUpstream{respond: func(req *http.Request) *http.Response {
-		if strings.HasSuffix(req.URL.Path, "/v1/chat/completions") {
+		switch {
+		case req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/v1/models"):
+			return modelsListResponse(http.StatusOK, `{"data":[{"id":"gpt-5.5"}]}`)
+		case strings.HasSuffix(req.URL.Path, "/v1/chat/completions"):
+			// 空请求被参数校验拦下（400），带模型的真实请求才成功
+			if req.Body != nil {
+				raw, _ := io.ReadAll(req.Body)
+				if strings.Contains(string(raw), `"model"`) {
+					return modelsListResponse(http.StatusOK, `{"choices":[]}`)
+				}
+			}
 			return modelsListResponse(http.StatusBadRequest, `{"error":{"message":"model is required"}}`)
 		}
 		return modelsListResponse(http.StatusNotFound, `{"error":"not found"}`)
@@ -179,7 +189,7 @@ func TestProbeUpstreamProtocols_ReturnsPerProtocolResultsWithSavedKey(t *testing
 	require.Equal(t, service.ProtocolProbeUnsupported, byProtocol["anthropic"].Status)
 	require.Equal(t, "https://new.example.com", byProtocol["gemini"].BaseURL)
 
-	require.Len(t, upstream.requests, 4)
+	require.Len(t, upstream.requests, 6, "4 个协议的空请求 + 模型列表 + Chat 的真实确认")
 	for _, req := range upstream.requests {
 		require.Equal(t, "new.example.com", req.URL.Host, "地址以表单为准")
 		require.Contains(t, req.Header.Get("Authorization")+req.Header.Get("x-goog-api-key"), "sk-saved", "用存着的 key")

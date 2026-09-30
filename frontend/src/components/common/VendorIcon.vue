@@ -1,6 +1,7 @@
 <template>
   <!--
-    厂商图标：按目录 vendor 取 lobehub 路径；colored 时用厂商品牌色，否则 currentColor。没有图标的厂商不渲染。
+    厂商图标：按目录 vendor 取 lobehub 路径；colored 时用厂商品牌色，否则 currentColor。
+    传了 model 时，厂商为空或是托管平台（bedrock、volcengine 这类没有自己图标的）就按模型名认；两样都认不出不渲染。
     深色模式下品牌色本身就是黑 / 近黑的（OpenAI、xAI 这类单色标）在深底上看不见，改用 currentColor（跟文字色走）。
   -->
   <svg
@@ -21,9 +22,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
-import { iconData, vendorIconKey } from './modelIconData'
+import { iconData, modelIconKey, vendorIconKey } from './modelIconData'
 
-const props = withDefaults(defineProps<{ vendor: string; size?: number; colored?: boolean }>(), { size: 18, colored: false })
+const props = withDefaults(defineProps<{ vendor: string; model?: string; size?: number; colored?: boolean }>(), {
+  model: '',
+  size: 18,
+  colored: false
+})
 
 /** WCAG 2.x 1.4.11 非文字内容的最低对比度 */
 const MIN_GRAPHIC_CONTRAST = 3
@@ -31,7 +36,7 @@ const MIN_GRAPHIC_CONTRAST = 3
 const { isDark } = useTheme()
 
 const icon = computed(() => {
-  const key = vendorIconKey(props.vendor)
+  const key = vendorIconKey(props.vendor) ?? (props.model ? modelIconKey(props.model) : null)
   return key ? iconData[key] : null
 })
 

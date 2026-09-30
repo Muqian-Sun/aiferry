@@ -27,11 +27,11 @@ vi.mock('vue-i18n', async (importOriginal) => {
           'profile.currentPassword': 'Current Password',
           'profile.newPassword': 'New Password',
           'profile.confirmNewPassword': 'Confirm New Password',
-          'profile.passwordHint': 'Password must be at least 8 characters long',
+          'profile.passwordHint': 'Password must be at least 6 characters long',
           'profile.changingPassword': 'Changing...',
           'profile.changePasswordButton': 'Change Password',
           'profile.passwordsNotMatch': 'New passwords do not match',
-          'profile.passwordTooShort': 'Password must be at least 8 characters long',
+          'profile.passwordTooShort': 'Password must be at least 6 characters long',
           'profile.passwordChangeSuccess': 'Password changed successfully',
           'profile.passwordChangeFailed': 'Failed to change password'
         }

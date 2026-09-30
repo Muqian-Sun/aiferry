@@ -210,6 +210,7 @@ func enqueueOpsErrorLog(ops *service.OpsService, entry *service.OpsInsertErrorLo
 	if ops == nil || entry == nil {
 		return
 	}
+	clearOpsUpstreamEndpointWithoutUpstream(entry)
 	entry.UserAgent = normalizeOpsPersistentUserAgent(entry.UserAgent)
 	if entry.ErrorBody != "" {
 		originalBody := entry.ErrorBody
@@ -1717,6 +1718,15 @@ func applyOpsUpstreamErrorEvents(entry *service.OpsInsertErrorLogInput, events [
 	}
 	if detail := strings.TrimSpace(last.Detail); detail != "" {
 		entry.UpstreamErrorDetail = &detail
+	}
+}
+
+// clearOpsUpstreamEndpointWithoutUpstream 请求没到上游（没选到渠道、没有上游状态码、没有上游尝试）时不写上游端点：
+// GetUpstreamEndpoint 在没有实际端点时按入站端点推一个，余额不足、利润门全排除这类在调度前就被拒的请求
+// 也会显示「上游：/v1/responses」，读起来像是发到了上游（2026-09-29 E2E）。
+func clearOpsUpstreamEndpointWithoutUpstream(entry *service.OpsInsertErrorLogInput) {
+	if entry.AccountID == nil && entry.UpstreamStatusCode == nil && len(entry.UpstreamErrors) == 0 {
+		entry.UpstreamEndpoint = ""
 	}
 }
 
