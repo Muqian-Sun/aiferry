@@ -96,8 +96,8 @@ export function createSiteGuard(options: SiteGuardOptions) {
         next(homePath)
         return
       }
-      // 模型广场对所有人开放；Backend mode 下用户站的普通用户照旧被挡回登录页
-      if (to.path === '/model-plaza' && backendModeBlocksUsers && authStore.isAuthenticated) {
+      // 模型广场与服务状态对所有人开放；Backend mode 下用户站的普通用户照旧被挡回登录页
+      if ((to.path === '/model-plaza' || to.path === '/status') && backendModeBlocksUsers && authStore.isAuthenticated) {
         next('/login')
         return
       }

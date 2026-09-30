@@ -13,7 +13,6 @@ const base = {
   backendMode: false,
   batchImageEnabled: false,
   accountSecurityEnabled: true,
-  serviceStatusEnabled: false,
   billingItems: billing,
   balanceNotifyEnabled: false,
   customItems: [] as CustomMenuItem[]
@@ -28,7 +27,7 @@ const shape = (sections: ConsoleNavSection[]) => sections.map((section) => [sect
 describe('buildConsoleNav', () => {
   it('groups the sidebar into main / billing / account for a standard user, landing on the overview', () => {
     expect(shape(buildConsoleNav(base))).toEqual([
-      ['main', ['/dashboard', '/keys', '/usage', '/model-plaza']],
+      ['main', ['/dashboard', '/keys', '/usage']],
       ['billing', ['/billing/recharge', '/billing/redeem']],
       ['account', ['/profile', '/profile/security']]
     ])
@@ -39,7 +38,7 @@ describe('buildConsoleNav', () => {
     expect(main.items.find((item) => item.path === '/keys')?.dataTour).toBe('sidebar-my-keys')
   })
 
-  it('simple mode hides billing, models and batch images', () => {
+  it('simple mode hides billing and batch images', () => {
     expect(shape(buildConsoleNav({ ...base, simpleMode: true, batchImageEnabled: true }))).toEqual([
       ['main', ['/dashboard', '/keys', '/usage']],
       ['account', ['/profile', '/profile/security']]
@@ -72,18 +71,18 @@ describe('buildConsoleNav', () => {
 })
 
 describe('buildPublicNav', () => {
-  it('lists product, pricing and docs for the user site', () => {
-    const tabs = buildPublicNav({ t, adminSite: false, docUrl: 'https://docs.example' })
-    expect(tabs.map((tab) => tab.path)).toEqual(['/home', '/model-plaza', 'https://docs.example'])
-    expect(tabs[2].external).toBe(true)
+  it('lists product, pricing, status and docs for the user site', () => {
+    const tabs = buildPublicNav({ t, adminSite: false, docUrl: 'https://docs.example', serviceStatusEnabled: true })
+    expect(tabs.map((tab) => tab.path)).toEqual(['/home', '/model-plaza', '/status', 'https://docs.example'])
+    expect(tabs[3].external).toBe(true)
   })
 
   it('always lists pricing and drops docs only when unset', () => {
-    expect(buildPublicNav({ t, adminSite: false, docUrl: '' }).map((tab) => tab.path)).toEqual(['/home', '/model-plaza'])
+    expect(buildPublicNav({ t, adminSite: false, docUrl: '', serviceStatusEnabled: false }).map((tab) => tab.path)).toEqual(['/home', '/model-plaza'])
   })
 
   it('renders nothing on the admin site', () => {
-    expect(buildPublicNav({ t, adminSite: true, docUrl: 'x' })).toEqual([])
+    expect(buildPublicNav({ t, adminSite: true, docUrl: 'x', serviceStatusEnabled: true })).toEqual([])
   })
 })
 

@@ -365,12 +365,13 @@ export const userRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    // 服务状态（原「渠道监控」/monitor，站长 2026-09-26 改名并放进侧栏）：各模型的可用率与首字延迟
+    // 服务状态（原「渠道监控」/monitor，站长 2026-09-26 改名）：各模型的可用率与首字延迟。
+    // 与模型页一样对未登录访客开放，入口在顶栏（muqian 2026-09-30）
     path: '/status',
     name: 'ServiceStatus',
     component: () => import('@/views/user/ServiceStatusView.vue'),
     meta: {
-      requiresAuth: true,
+      requiresAuth: false,
       requiresAdmin: false,
       title: 'Service Status',
       titleKey: 'userUi.serviceStatus.title',
