@@ -123,7 +123,9 @@ type userSupportedModelPricing struct {
 	ImageInputPrice              *float64 `json:"image_input_price"`
 	ImageOutputPrice             *float64 `json:"image_output_price"`
 	PerRequestPrice              *float64 `json:"per_request_price"`
-	SearchPricePerCall           *float64 `json:"search_price_per_call,omitempty"`
+	// SearchPricePerCall 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有；ToolSearchPricePerCall grok 搜索工具每次价。
+	SearchPricePerCall     *float64 `json:"search_price_per_call,omitempty"`
+	ToolSearchPricePerCall *float64 `json:"tool_search_price_per_call,omitempty"`
 	// Fast 档（service_tier=priority）各项价；没配的项 Fast 不加价、按标准价计。FastMultiplier 非空时整单按标准价 × 它。
 	InputPricePriority      *float64 `json:"input_price_priority"`
 	OutputPricePriority     *float64 `json:"output_price_priority"`
@@ -206,7 +208,8 @@ func toUserPricing(p *service.PricingCard, extras service.PlazaTokenExtras) *use
 		ImageInputPrice:              p.ImageInputPrice,
 		ImageOutputPrice:             p.ImageOutputPrice,
 		PerRequestPrice:              p.PerRequestPrice,
-		SearchPricePerCall:           p.SearchPricePerCall,
+		SearchPricePerCall:           extras.WebSearchPricePerCall,
+		ToolSearchPricePerCall:       extras.ToolSearchPricePerCall,
 		InputPricePriority:           extras.InputPricePriority,
 		OutputPricePriority:          extras.OutputPricePriority,
 		CacheWritePricePriority:      extras.CacheWritePricePriority,

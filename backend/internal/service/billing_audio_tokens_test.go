@@ -103,11 +103,13 @@ func TestOpenAIRecordUsage_AudioInputOnlyCountsUncachedTokens(t *testing.T) {
 
 func TestComputeTokenBreakdown_AudioCostsAreFoldedIntoInputAndOutput(t *testing.T) {
 	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}}
+	flex := 0.5
 	pricing := &ModelPricing{
 		InputPricePerToken:       audioTestInputPrice,
 		OutputPricePerToken:      audioTestOutputPrice,
 		AudioInputPricePerToken:  audioTestAudioInput,
 		AudioOutputPricePerToken: audioTestAudioOutput,
+		FlexMultiplier:           &flex,
 	}
 	bd := bs.computeTokenBreakdown(pricing, UsageTokens{
 		InputTokens: 1000, OutputTokens: 500, AudioInputTokens: 400, AudioOutputTokens: 200,

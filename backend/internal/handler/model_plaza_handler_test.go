@@ -106,6 +106,13 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.InDelta(t, 3e-6, *pricing.AudioInputPrice, 1e-18)
 	require.NotNil(t, pricing.FlexMultiplier)
 	require.InDelta(t, 0.5, *pricing.FlexMultiplier, 1e-12)
+
+	// 搜索价只给走得到的：OpenAI 模型没配就按内置 $0.01 / 次（/alpha/search），Anthropic 模型不给
+	require.Contains(t, string(gpt["pricing"]), `"search_price_per_call":0.01`)
+	var sonnetPricing map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(envelope.Data.Models[0], &sonnetPricing))
+	require.NotContains(t, string(sonnetPricing["pricing"]), "search_price_per_call")
+	require.NotContains(t, string(sonnetPricing["pricing"]), "tool_search_price_per_call")
 	require.JSONEq(t, `{"timezone":"Asia/Shanghai","weekdays_only":true,"periods":[{"start_time":"09:00","end_time":"18:00","multiplier":1.5}]}`, string(gpt["time_pricing"]))
 
 	var sonnet map[string]json.RawMessage

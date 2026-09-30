@@ -28,6 +28,27 @@ type PlazaTokenExtras struct {
 	ImageCacheReadPrice     *float64
 	AudioInputPrice         *float64
 	AudioOutputPrice        *float64
+	// WebSearchPricePerCall 联网搜索（/alpha/search，只走 OpenAI / Codex 账号）每次的实际计费价：
+	// 条目配了用条目的，没配按内置单价；非 OpenAI 模型走不到这个入口，为 nil。
+	WebSearchPricePerCall *float64
+	// ToolSearchPricePerCall grok 渠道的搜索工具调用（web_search / x_search）每次的内置价；非 grok 模型为 nil。
+	ToolSearchPricePerCall *float64
+}
+
+// plazaSearchPrices 这个模型实际会收的搜索费（官方价）：只给走得到的那一种，走不到的不给，免得广场列出永远不收的价。
+func plazaSearchPrices(entry *ModelCatalogEntry) (webPerCall, toolPerCall *float64) {
+	switch CatalogVendorPlatform(entry) {
+	case PlatformOpenAI:
+		price := defaultWebSearchPricePerCall
+		if entry.SearchPricePerCall != nil && *entry.SearchPricePerCall >= 0 {
+			price = *entry.SearchPricePerCall
+		}
+		return &price, nil
+	case PlatformGrok:
+		price := defaultSearchPricePer1k / 1000
+		return nil, &price
+	}
+	return nil, nil
 }
 
 // ModelPlazaService 聚合模型广场数据：上架的目录条目及其基准价。
@@ -47,6 +68,7 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 	models := make([]PlazaCatalogModel, 0, len(entries))
 	for i := range entries {
 		entry := &entries[i]
+		webSearch, toolSearch := plazaSearchPrices(entry)
 		aliases := make([]string, 0, len(entry.Aliases))
 		for _, alias := range entry.Aliases {
 			aliases = append(aliases, alias.Alias)
@@ -65,6 +87,8 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 				ImageCacheReadPrice:     entry.ImageCacheReadPrice,
 				AudioInputPrice:         entry.AudioInputPrice,
 				AudioOutputPrice:        entry.AudioOutputPrice,
+				WebSearchPricePerCall:   webSearch,
+				ToolSearchPricePerCall:  toolSearch,
 			},
 			TimePricing: entry.TimePricing,
 			Aliases:     aliases,
