@@ -46,14 +46,8 @@ export interface ModelCatalogEntry {
   /** 音频 Token 单价：较新的后端才有；旧后端不返回这两个字段 */
   audio_input_price?: number | null
   audio_output_price?: number | null
-  input_price_priority: number | null
-  output_price_priority: number | null
-  cache_write_price_priority: number | null
-  cache_read_price_priority: number | null
   per_request_price: number | null
   search_price_per_call: number | null
-  fast_multiplier: number | null
-  flex_multiplier: number | null
   max_reasoning_effort_multiplier: number | null
   notes?: string
   intervals: PricingInterval[]
@@ -126,14 +120,8 @@ export interface ModelCatalogEntryRequest {
   /** 只在有值时发送：旧后端不认识这两个字段，会直接忽略 */
   audio_input_price?: number | null
   audio_output_price?: number | null
-  input_price_priority?: number | null
-  output_price_priority?: number | null
-  cache_write_price_priority?: number | null
-  cache_read_price_priority?: number | null
   per_request_price?: number | null
   search_price_per_call?: number | null
-  fast_multiplier?: number | null
-  flex_multiplier?: number | null
   max_reasoning_effort_multiplier?: number | null
   notes?: string | null
   intervals?: PricingInterval[]

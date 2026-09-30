@@ -112,10 +112,6 @@ export default {
         audioInput: 'Audio input',
         audioOutput: 'Audio output',
         // Service tier: the priority tier is the Fast tier (same name as the user site's service tier), not the scheduling priority
-        inputPriority: 'Fast tier · input',
-        outputPriority: 'Fast tier · output',
-        cacheWritePriority: 'Fast tier · cache write',
-        cacheReadPriority: 'Fast tier · cache read',
         perRequest: 'Per request',
         per: {
           per_request: '{price} / request',
@@ -124,8 +120,6 @@ export default {
         },
         searchPerCall: 'Built-in search',
         listPrice: 'List price',
-        fast: 'Fast tier multiplier',
-        flex: 'Flex tier multiplier',
         maxReasoning: 'Max reasoning multiplier'
       },
       segments: 'Token segments',

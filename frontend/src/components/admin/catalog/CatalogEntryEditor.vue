@@ -3,7 +3,7 @@
     目录条目表单（muqian 2026-09-25 改成独立页 /model-catalog/new、/model-catalog/:id/edit，分区导航在左）：
     基本（模型 ID 输入后按价格文件自动带出厂商 / 计费 / 价格）/ 价格（按每百万 Token 填）/ 承接的渠道（直接勾选）。
     按 Token 计费的「按 Token 分段」（muqian 2026-09-29）：上面的价格就是第一段，这里只加「超过 N Token」之后的各段。
-    保存是整条覆盖：表单从条目整条投影（entryToRequest），没露出的字段（Fast 档价、倍率、分时…）原样写回。
+    保存是整条覆盖：表单从条目整条投影（entryToRequest），没露出的字段（最高推理倍率、分时…）原样写回。
     保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定；绑定被拒时条目已保存，弹出后端原因、表单保持打开。
   -->
   <FormPageShell :show="true" :title="title">

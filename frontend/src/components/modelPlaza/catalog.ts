@@ -3,7 +3,7 @@
  *
  * 标价来自 /model-plaza 每个条目的 pricing（目录售价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
  * - token：各项都是 USD / token，这里换算成 USD / 百万 token；按 Token 分段的（pricing.intervals 非空）每段一行（utils/tokenSegments），
- *   另有 Fast / Flex 档、图片与音频单价、联网搜索按次价、最高推理档倍率；
+ *   另有图片与音频单价、联网搜索按次价、最高推理档倍率；
  * - per_request / image / video：收 per_request_price 一个单价（单位分别是 次 / 张 / 秒），带 tier_label 的区间是按档位的单价；
  *   token 价不参与计费、不展示。
  * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
@@ -28,7 +28,7 @@ export interface CatalogPrice {
 
 export type CatalogPriceKey = keyof CatalogPrice
 
-/** 分段表里的项（随分段变价、Fast 档会加价的文本 Token 价），也是表格的列序 */
+/** 分段表里的项（随分段变价的文本 Token 价），也是表格的列序 */
 export const TOKEN_ROW_KEYS = ['input', 'output', 'cacheWrite', 'cacheWrite1h', 'cacheRead'] as const satisfies ReadonlyArray<keyof TokenSegmentPrices>
 export type TokenRowKey = (typeof TOKEN_ROW_KEYS)[number]
 
@@ -55,10 +55,6 @@ export interface CatalogModel {
    * 非 token 模式或文本 Token 价全缺时为空。多于一行即「按 Token 分段」。
    */
   rows: TokenSegment[]
-  /** Fast 档的各行（与 rows 一一对应）；没配 Fast 时为 null */
-  fastRows: TokenSegment[] | null
-  /** Flex 档倍率；不单列 Flex 档时为 null */
-  flexMultiplier: number | null
   /** 联网搜索（/alpha/search），USD / 千次；这个模型走不到时为 null */
   searchPerThousand: number | null
   /** 搜索工具（grok 的 web / X 搜索），USD / 千次；非 grok 模型为 null */
@@ -72,8 +68,6 @@ export interface CatalogModel {
 
 const PER_MILLION = 1_000_000
 const PER_THOUSAND = 1_000
-/** 没配 flex_multiplier 时后端按 0.5 计（billing_service serviceTierCostMultiplier） */
-const DEFAULT_FLEX_MULTIPLIER = 0.5
 
 function perMillion(value: number | null | undefined): number | null {
   return value == null ? null : value * PER_MILLION
@@ -110,38 +104,6 @@ function rowsOf(p: UserSupportedModelPricing): TokenSegment[] {
   return rows.map((row) => ({ ...row, prices: scalePrices(row.prices, PER_MILLION) }))
 }
 
-/** 有 Fast 档：配了 fast_multiplier，或任一项 priority 单价 > 0（后端 usePriorityServiceTierPricing 的判据） */
-function hasFast(p: UserSupportedModelPricing): boolean {
-  if (p.fast_multiplier != null) return true
-  return [p.input_price_priority, p.output_price_priority, p.cache_write_price_priority, p.cache_read_price_priority].some(
-    (value) => value != null && value > 0
-  )
-}
-
-/**
- * Fast 档每项相对本段标准价的系数（与后端 computeTokenBreakdown 同口径）：
- * 配了 fast_multiplier 时所有项都乘它；否则某项基础 priority 价与基础标准价都 > 0 时乘两者之比（分段按同比例），
- * 其余项（含没有 priority 字段的 1 小时缓存写）Fast 不加价。
- */
-function fastFactors(p: UserSupportedModelPricing): Record<TokenRowKey, number> {
-  const fast = p.fast_multiplier
-  if (fast != null) return { input: fast, output: fast, cacheWrite: fast, cacheWrite1h: fast, cacheRead: fast }
-  const ratio = (standard: number | null | undefined, priority: number | null | undefined) =>
-    standard != null && standard > 0 && priority != null && priority > 0 ? priority / standard : 1
-  return {
-    input: ratio(p.input_price, p.input_price_priority),
-    output: ratio(p.output_price, p.output_price_priority),
-    cacheWrite: ratio(p.cache_write_price, p.cache_write_price_priority),
-    cacheWrite1h: 1,
-    cacheRead: ratio(p.cache_read_price, p.cache_read_price_priority)
-  }
-}
-
-function fastRowsOf(p: UserSupportedModelPricing, rows: TokenSegment[]): TokenSegment[] | null {
-  if (!hasFast(p) || rows.length === 0) return null
-  const factors = fastFactors(p)
-  return rows.map((row) => ({ ...row, prices: mapPrices(row.prices, (key, value) => value * factors[key]) }))
-}
 
 function tiersOf(p: UserSupportedModelPricing): CatalogTier[] {
   return (p.intervals ?? [])
@@ -175,7 +137,6 @@ function catalogModel(model: PlazaModel): CatalogModel {
   const p = model.pricing
   const token = billingMode === 'token'
   const rows = p && token ? rowsOf(p) : []
-  const fastRows = p && token ? fastRowsOf(p, rows) : null
   return {
     id: model.model_id,
     displayName: model.display_name || model.model_id,
@@ -185,8 +146,6 @@ function catalogModel(model: PlazaModel): CatalogModel {
     unitPrice: token ? null : (p?.per_request_price ?? null),
     tiers: p && !token ? tiersOf(p) : [],
     rows,
-    fastRows,
-    flexMultiplier: p && token && (p.flex_multiplier != null || hasFast(p)) ? (p.flex_multiplier ?? DEFAULT_FLEX_MULTIPLIER) : null,
     searchPerThousand: p?.search_price_per_call == null ? null : p.search_price_per_call * PER_THOUSAND,
     toolSearchPerThousand: p?.tool_search_price_per_call == null ? null : p.tool_search_price_per_call * PER_THOUSAND,
     maxReasoningMultiplier: p?.max_reasoning_effort_multiplier ?? null,

@@ -112,10 +112,6 @@ export default {
         audioInput: '音频输入',
         audioOutput: '音频输出',
         // 服务档位：priority 档与 Fast 同一档（与用户站「服务档位」同名），别写成「优先级」——渠道页签的「优先级」是调度优先级
-        inputPriority: 'Fast 档 · 输入',
-        outputPriority: 'Fast 档 · 输出',
-        cacheWritePriority: 'Fast 档 · 缓存写入',
-        cacheReadPriority: 'Fast 档 · 缓存读取',
         perRequest: '按次',
         per: {
           per_request: '{price} / 次',
@@ -124,8 +120,6 @@ export default {
         },
         searchPerCall: '内置搜索',
         listPrice: '标价',
-        fast: 'Fast 档倍率',
-        flex: 'Flex 档倍率',
         maxReasoning: '最高推理倍率'
       },
       segments: '按 Token 分段',
