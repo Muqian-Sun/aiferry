@@ -83,7 +83,7 @@
             class="input"
             data-test="rate-multiplier-input"
           />
-          <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
+          <p class="input-hint">{{ t('admin.users.bulkLimits.rateMultiplierHint') }}</p>
         </div>
       </div>
 

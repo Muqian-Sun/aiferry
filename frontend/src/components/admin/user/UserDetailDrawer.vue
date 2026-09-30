@@ -97,9 +97,8 @@
             <span class="tabular-nums">{{ limitLabel(user.rpm_limit ?? 0) }}</span>
           </DetailField>
           <DetailField :label="t('admin.users.columns.rateMultiplier')">
-            <span class="tabular-nums">
-              <template v-if="user.custom_rate_multiplier == null">{{ t('admin.users.form.rateMultiplierDefault') }} </template>× {{ formatMultiplier(user.rate_multiplier) }}
-            </span>
+            <span v-if="user.custom_rate_multiplier != null" class="tabular-nums">{{ formatMultiplier(user.rate_multiplier) }}</span>
+            <span v-else class="text-af-ink-3">{{ t('admin.users.form.rateMultiplierDefault') }}</span>
           </DetailField>
           <DetailField :label="t('admin.users.columns.created')">
             <span class="tabular-nums">{{ formatDateTime(user.created_at) }}</span>

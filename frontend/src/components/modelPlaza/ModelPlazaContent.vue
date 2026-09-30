@@ -74,7 +74,6 @@
           </div>
           <p class="text-13 text-af-ink-3" data-testid="price-unit">
             {{ t('userUi.models.priceUnit') }}
-            <span class="text-af-ink" data-testid="your-price-note">· {{ scaleNote }}</span>
           </p>
         </div>
       </div>
@@ -149,14 +148,12 @@
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
         {{ t('userUi.models.priceNote') }}
-        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: multiplierLabel }) }}</template>
       </p>
     </div>
 
     <ModelPricingDrawer
       :entry="detailEntry"
       :scale="priceScale"
-      :scale-note="scaleNote"
       @close="detailId = null"
     />
   </div>
@@ -180,7 +177,6 @@ import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
-import { formatMultiplier } from '@/utils/formatters'
 import ModelPricingDrawer from './ModelPricingDrawer.vue'
 import {
   applyMultiplier,
@@ -270,20 +266,16 @@ watch(billingModeOptions, (options) => {
   if (!options.some((option) => option.value === selectedBillingMode.value)) selectedBillingMode.value = 'all'
 })
 
-// 展示价 = 官方价 × 倍率：登录按账户（生效）倍率，未登录按接口给的全站默认倍率（官方价的 1/15）
+// 展示价 = 官方价 × 倍率：登录按账户（生效）倍率，未登录按接口给的全站默认倍率。
+// 倍率与官方价只用来算，不在页面上给用户看（muqian 2026-09-30）
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const defaultMultiplier = computed(() => Number(props.response?.default_rate_multiplier ?? 1))
 const priceScale = computed(() =>
   isAuthenticated.value ? Number(authStore.user?.rate_multiplier ?? defaultMultiplier.value) : defaultMultiplier.value
 )
-const multiplierLabel = computed(() => formatMultiplier(priceScale.value))
-const scaleNote = computed(() =>
-  t(isAuthenticated.value ? 'userUi.models.yourPriceApplied' : 'userUi.models.defaultPriceApplied', { multiplier: multiplierLabel.value })
-)
 const consoleSummary = computed<StatItem[]>(() => [
   { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
-  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) },
-  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${multiplierLabel.value}` }
+  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) }
 ])
 
 /**

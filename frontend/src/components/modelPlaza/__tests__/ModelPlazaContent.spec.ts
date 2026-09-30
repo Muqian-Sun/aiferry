@@ -79,8 +79,8 @@ describe('ModelPlazaContent', () => {
     expect(detail?.textContent).toContain('$2.5')
     expect(detail?.textContent).toContain('gpt-5.5-sol')
     expect(wrapper.get('[data-testid="price-unit"]').text()).toContain('userUi.models.priceUnit')
-    // 未登录按新用户默认倍率折算（这份夹具没给 default_rate_multiplier，按 1）
-    expect(wrapper.get('[data-testid="your-price-note"]').text()).toContain('userUi.models.defaultPriceApplied')
+    // 倍率与官方价只用来算，不给用户看
+    expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
     // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格
     expect(wrapper.get('[data-testid="catalog-cell"]').classes().join(' ')).not.toMatch(/rounded|shadow/)
     wrapper.unmount()
@@ -112,11 +112,9 @@ describe('ModelPlazaContent', () => {
     authState.isAuthenticated = true
     authState.user = { rate_multiplier: 2 }
     const wrapper = mountContent()
-    expect(wrapper.get('[data-testid="your-price-note"]').text()).toContain('userUi.models.yourPriceApplied')
-    expect(wrapper.get('[data-testid="your-price-note"]').text()).toContain('"multiplier":"2.00"')
     const gpt = wrapper.findAll('[data-testid="catalog-cell"]')[1]
     expect(gpt.get('[data-testid="price-input"]').text()).toBe('$20.00')
-    expect(wrapper.text()).toContain('userUi.models.multiplierNote')
+    expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
   })
 
   it('hints time-priced models in the cell footer (the periods are in the drawer)', () => {

@@ -174,7 +174,6 @@ export default {
         requests: 'Requests',
         tokens: 'Tokens',
         actualCost: 'Billed',
-        standardCost: 'Official price',
         cacheHitRate: 'Cache hit rate',
         avgLatency: 'Avg latency',
         failures: 'Failed requests',
@@ -217,7 +216,7 @@ export default {
       notificationsOff: 'Balance alerts are not enabled on this site',
       rows: {
         overview: 'Account',
-        overviewDesc: 'Sign-in identity, balance and rate multiplier',
+        overviewDesc: 'Sign-in identity, balance and concurrency',
         usernameDesc: 'Your email is shown when this is empty',
         passwordDesc: 'Used for email sign-in, at least 6 characters'
       }
@@ -238,9 +237,6 @@ export default {
       searchHint: 'Search models or aliases (press / to focus)',
       vendorTabsLabel: 'Vendor',
       priceUnit: 'Prices in USD per 1M tokens',
-      yourPriceApplied: 'showing your price (official × {multiplier})',
-      defaultPriceApplied: 'at the new-user rate (official × {multiplier}, i.e. 1/15)',
-      multiplierNote: 'Your account multiplier is {multiplier}.',
       weekdaysOnly: 'weekdays only',
       openDetail: 'See every billed item',
       prices: {
@@ -298,7 +294,7 @@ export default {
         unitPerSecond: 'USD / second',
         noPricing: 'The catalog has no price for this model yet.'
       },
-      priceNote: 'Prices shown = official price × your account multiplier; every request is recorded on the usage page.',
+      priceNote: 'Every request and its charge is recorded on the usage page.',
       segmentRange: 'Input tokens',
       segmentNote: 'Segmented models bill the whole request at the segment its input tokens (input + cache write + cache read) fall into.',
       copyId: 'Copy model ID',

@@ -185,8 +185,6 @@ const props = defineProps<{
   entry: CatalogModel | null
   /** 价格乘的系数：接口给的是官方价，展示价 = 官方价 × 访问者倍率（登录用账户倍率，未登录用全站默认 1/15） */
   scale: number
-  /** 脚注里「价格按哪个倍率折算」那句，和工具行同一句 */
-  scaleNote: string
 }>()
 
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -293,11 +291,6 @@ const timePricingScope = computed(() => {
   return timePricing.weekdays_only ? `${timePricing.timezone} · ${t('userUi.models.weekdaysOnly')}` : timePricing.timezone
 })
 
-/** 脚注：分段规则（有分段）、价格按哪个倍率折算（父组件给的同一句） */
-const footnote = computed(() => {
-  const parts: string[] = []
-  if (segmented.value) parts.push(t('userUi.models.segmentNote'))
-  parts.push(props.scaleNote)
-  return parts.join(' ')
-})
+/** 脚注：分段规则（有分段时） */
+const footnote = computed(() => (segmented.value ? t('userUi.models.segmentNote') : ''))
 </script>
