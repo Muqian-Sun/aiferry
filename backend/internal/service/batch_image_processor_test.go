@@ -416,7 +416,6 @@ func (r *fakeBatchImageRepository) CreateBatchImageJob(_ context.Context, params
 		HoldID:                  params.HoldID,
 		BaseUnitPrice:           params.BaseUnitPrice,
 		GroupRateMultiplier:     params.GroupRateMultiplier,
-		AccountRateMultiplier:   params.AccountRateMultiplier,
 		BatchDiscountMultiplier: params.BatchDiscountMultiplier,
 		HoldMultiplier:          params.HoldMultiplier,
 		BillableUnitPrice:       params.BillableUnitPrice,

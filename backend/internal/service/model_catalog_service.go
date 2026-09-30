@@ -28,13 +28,8 @@ type ModelCatalogRepository interface {
 	// 已存在且 managed_by = 'seed' 则刷新价格，managed_by = 'admin' 则整条跳过。
 	InsertOrRefreshSeedEntries(ctx context.Context, entries []ModelCatalogEntry) (ModelCatalogSeedResult, error)
 
+	// ListBindingsByEntry 返回条目的承接关系（带上游价）。承接关系的写入在价格页接口里。
 	ListBindingsByEntry(ctx context.Context, entryID int64) ([]ModelCatalogBinding, error)
-	// ReplaceBindings 用整份列表覆盖条目的绑定，并向调度 outbox 投递 catalog_bindings_changed。
-	ReplaceBindings(ctx context.Context, entryID int64, bindings []ModelCatalogBinding) error
-	ListEntryIDsByAccount(ctx context.Context, accountID int64) ([]int64, error)
-	// ReplaceAccountBindings 用整份条目列表覆盖账号被绑定的条目（保留的绑定优先级不变），
-	// 并按受影响的条目向调度 outbox 投递 catalog_bindings_changed。
-	ReplaceAccountBindings(ctx context.Context, accountID int64, entryIDs []int64) error
 }
 
 // ModelCatalogCachePubSub 在多实例之间广播目录缓存失效。

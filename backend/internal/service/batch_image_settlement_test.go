@@ -167,7 +167,6 @@ func TestBatchImageSettlementService_UsesSubmittedPricingSnapshot(t *testing.T) 
 	job.PricingSnapshotVersion = 1
 	job.BaseUnitPrice = 0.25
 	job.GroupRateMultiplier = 1
-	job.AccountRateMultiplier = 1
 	job.BatchDiscountMultiplier = 1
 	job.HoldMultiplier = 1.1
 	job.BillableUnitPrice = 0.25

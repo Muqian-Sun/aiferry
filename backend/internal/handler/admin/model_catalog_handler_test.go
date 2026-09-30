@@ -9,8 +9,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"sort"
-	"strings"
 	"sync"
 	"testing"
 
@@ -167,53 +165,6 @@ func (r *catalogRepoStub) ListBindingsByEntry(_ context.Context, entryID int64) 
 	return append([]service.ModelCatalogBinding(nil), r.bindings[entryID]...), nil
 }
 
-func (r *catalogRepoStub) ReplaceBindings(_ context.Context, entryID int64, bindings []service.ModelCatalogBinding) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.bindings == nil {
-		r.bindings = make(map[int64][]service.ModelCatalogBinding)
-	}
-	r.bindings[entryID] = append([]service.ModelCatalogBinding(nil), bindings...)
-	return nil
-}
-
-func (r *catalogRepoStub) ListEntryIDsByAccount(_ context.Context, accountID int64) ([]int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var ids []int64
-	for entryID, bindings := range r.bindings {
-		for _, binding := range bindings {
-			if binding.AccountID == accountID {
-				ids = append(ids, entryID)
-				break
-			}
-		}
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	return ids, nil
-}
-
-func (r *catalogRepoStub) ReplaceAccountBindings(_ context.Context, accountID int64, entryIDs []int64) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.bindings == nil {
-		r.bindings = make(map[int64][]service.ModelCatalogBinding)
-	}
-	for entryID, bindings := range r.bindings {
-		kept := bindings[:0:0]
-		for _, binding := range bindings {
-			if binding.AccountID != accountID {
-				kept = append(kept, binding)
-			}
-		}
-		r.bindings[entryID] = kept
-	}
-	for _, entryID := range entryIDs {
-		r.bindings[entryID] = append(r.bindings[entryID], service.ModelCatalogBinding{EntryID: entryID, AccountID: accountID})
-	}
-	return nil
-}
-
 // catalogAccountsStub 按 ID 取账号；不在表里的账号视为不存在。
 type catalogAccountsStub map[int64]*service.Account
 
@@ -242,15 +193,12 @@ func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
 	r.PUT("/entries/:id", h.UpdateEntry)
 	r.DELETE("/entries/:id", h.DeleteEntry)
 	r.GET("/entries/:id/bindings", h.ListBindings)
-	r.PUT("/entries/:id/bindings", h.ReplaceBindings)
 	r.GET("/entries/:id/diagnosis", h.Diagnose)
 	r.POST("/aliases", h.CreateAlias)
 	r.PUT("/aliases/:id", h.UpdateAlias)
 	r.DELETE("/aliases/:id", h.DeleteAlias)
 	r.POST("/seed", h.Seed)
 	r.GET("/price-lookup", h.PriceLookup)
-	r.GET("/accounts/:id/catalog-entries", h.ListAccountEntries)
-	r.PUT("/accounts/:id/catalog-entries", h.ReplaceAccountEntries)
 	return r
 }
 
@@ -493,18 +441,41 @@ func TestModelCatalogHandler_SeedError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
+// 承接关系只读：写入走价格页接口（下一个 PR），这里只验列表带出上游价与账号摘要、不再有绑定优先级。
 func TestModelCatalogHandler_Bindings(t *testing.T) {
 	price := 3e-6
-	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
-		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken,
-		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
-	}}}
+	repo := &catalogRepoStub{
+		entries: []service.ModelCatalogEntry{
+			{
+				ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken,
+				Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+			},
+			{
+				ID: 4, ModelID: "claude-opus-4", Vendor: "anthropic", BillingMode: service.BillingModeToken,
+				Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+			},
+			{
+				ID: 5, ModelID: "claude-haiku-4", Vendor: "anthropic", BillingMode: service.BillingModeToken,
+				Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+			},
+		},
+		bindings: map[int64][]service.ModelCatalogBinding{
+			3: {
+				{
+					EntryID: 3, AccountID: 2, InputPrice: 2e-6, OutputPrice: 8e-6,
+					CacheWritePrice: catalogPrice(2.5e-6), CacheWrite1hPrice: catalogPrice(4e-6), CacheReadPrice: catalogPrice(2e-7),
+					Intervals: []service.PricingInterval{{MinTokens: 200000, InputPrice: catalogPrice(4e-6), OutputPrice: catalogPrice(1.6e-5)}},
+				},
+				{EntryID: 3, AccountID: 1, InputPrice: 1e-6, OutputPrice: 5e-6},
+			},
+			// 账号 99 不存在：列表取不到账号摘要时整体报 404，不静默丢行。
+			5: {{EntryID: 5, AccountID: 99, InputPrice: 1e-6, OutputPrice: 5e-6}},
+		},
+	}
 	accounts := catalogAccountsStub{
 		1: {ID: 1, Name: "oauth-a", Type: service.AccountTypeOAuth, Platform: service.PlatformAnthropic, Status: service.StatusActive},
 		2: {ID: 2, Name: "relay-key", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive,
 			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}},
-		// 没配任何上游地址的 key：注册表里没有它能承接的入站协议。
-		3: {ID: 3, Name: "no-address", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive},
 	}
 	router := newCatalogRouter(newCatalogHandlerWithAccounts(repo, accounts))
 
@@ -518,65 +489,67 @@ func TestModelCatalogHandler_Bindings(t *testing.T) {
 		return out
 	}
 
-	t.Run("empty at first", func(t *testing.T) {
+	t.Run("entry without bindings", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/bindings", nil))
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/4/bindings", nil))
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Empty(t, decodeBindings(t, rec))
 	})
 
-	t.Run("replace returns bindings with account summaries", func(t *testing.T) {
-		body := `{"bindings":[{"account_id":2,"priority":5},{"account_id":1}]}`
+	t.Run("lists upstream prices with account summaries", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(body)))
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/bindings", nil))
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.NotContains(t, rec.Body.String(), "priority", "binding priority is gone")
 		got := decodeBindings(t, rec)
 		require.Len(t, got, 2)
+
 		require.Equal(t, int64(2), got[0].AccountID)
-		require.Equal(t, 5, *got[0].Priority)
+		require.Equal(t, 2e-6, got[0].InputPrice)
+		require.Equal(t, 8e-6, got[0].OutputPrice)
+		require.Equal(t, catalogPrice(2.5e-6), got[0].CacheWritePrice)
+		require.Equal(t, catalogPrice(4e-6), got[0].CacheWrite1hPrice)
+		require.Equal(t, catalogPrice(2e-7), got[0].CacheReadPrice)
+		require.Len(t, got[0].Intervals, 1)
+		require.Equal(t, 200000, got[0].Intervals[0].MinTokens)
+		require.Equal(t, catalogPrice(1.6e-5), got[0].Intervals[0].OutputPrice)
 		require.Equal(t, "relay-key", got[0].Account.Name)
 		require.Equal(t, "", got[0].Account.Vendor, "generic relay has no official vendor")
+
 		require.Equal(t, int64(1), got[1].AccountID)
-		require.Nil(t, got[1].Priority)
+		require.Equal(t, 1e-6, got[1].InputPrice)
+		require.Nil(t, got[1].CacheReadPrice)
 		require.Equal(t, service.PlatformAnthropic, got[1].Account.Vendor)
+		require.Contains(t, rec.Body.String(), `"intervals":[]`, "no intervals encodes as an empty list, not null")
 
 		rec = httptest.NewRecorder()
 		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3", nil))
 		require.Contains(t, rec.Body.String(), `"bindings":[`, "entry payload carries bindings for the list column")
 	})
 
-	t.Run("unservable account is rejected as a whole", func(t *testing.T) {
-		body := `{"bindings":[{"account_id":1},{"account_id":3}]}`
+	t.Run("unknown entry and unknown account", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(body)))
-		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
-		require.Contains(t, rec.Body.String(), "CATALOG_BINDING_UNSERVABLE")
-		rec = httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/bindings", nil))
-		require.Len(t, decodeBindings(t, rec), 2, "previous bindings are untouched")
-	})
-
-	t.Run("unknown account and entry", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"account_id":99}]}`)))
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/42/bindings", nil))
 		require.Equal(t, http.StatusNotFound, rec.Code)
 		rec = httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/42/bindings", bytes.NewBufferString(`{"bindings":[]}`)))
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/5/bindings", nil))
 		require.Equal(t, http.StatusNotFound, rec.Code)
-		rec = httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"priority":1}]}`)))
-		require.Equal(t, http.StatusBadRequest, rec.Code, "account_id is required")
 	})
-
 }
 
 func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	price := 3e-6
-	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
-		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic",
-		BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed,
-		ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
-	}}}
+	repo := &catalogRepoStub{
+		entries: []service.ModelCatalogEntry{{
+			ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic",
+			BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed,
+			ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+		}},
+		bindings: map[int64][]service.ModelCatalogBinding{3: {
+			{EntryID: 3, AccountID: 1, InputPrice: 1e-6, OutputPrice: 5e-6},
+			{EntryID: 3, AccountID: 2, InputPrice: 1e-6, OutputPrice: 5e-6},
+		}},
+	}
 	accounts := catalogAccountsStub{
 		1: {ID: 1, Name: "chat-only", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive, Schedulable: true,
 			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://cc.example.com"}},
@@ -584,14 +557,10 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	}
 	router := newCatalogRouter(newCatalogHandlerWithAccounts(repo, accounts))
 
-	priority := 4
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"account_id":1,"priority":4},{"account_id":2}]}`)))
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/diagnosis", nil))
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "priority", "binding priority is gone")
 	envelope := decodeCatalogResponse(t, rec)
 	raw, err := json.Marshal(envelope.Data)
 	require.NoError(t, err)
@@ -601,7 +570,6 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	require.Len(t, got.Accounts, 2)
 
 	require.Equal(t, "chat-only", got.Accounts[0].Name)
-	require.Equal(t, &priority, got.Accounts[0].Priority)
 	require.True(t, got.Accounts[0].Schedulable)
 	require.Empty(t, got.Accounts[0].BlockedReason)
 	require.Equal(t, map[string]bool{
@@ -619,47 +587,6 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 }
 
 func catalogPrice(v float64) *float64 { return &v }
-
-// 渠道表单里直接勾选承接的模型（2026-09-25）：按渠道读写整份条目列表，校验走服务层。
-func TestModelCatalogHandler_AccountCatalogEntries(t *testing.T) {
-	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: catalogPrice(1e-6)},
-		{ID: 2, ModelID: "claude-opus-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: catalogPrice(1e-6)},
-	}}
-	h := newCatalogHandlerWithAccounts(repo, catalogAccountsStub{
-		5: {ID: 5, Type: service.AccountTypeAPIKey, Platform: service.PlatformAnthropic, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}},
-		6: {ID: 6, Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI},
-	})
-	router := newCatalogRouter(h)
-	entryIDs := func(rec *httptest.ResponseRecorder) []int64 {
-		envelope := decodeCatalogResponse(t, rec)
-		raw, err := json.Marshal(envelope.Data)
-		require.NoError(t, err)
-		var body struct {
-			EntryIDs []int64 `json:"entry_ids"`
-		}
-		require.NoError(t, json.Unmarshal(raw, &body))
-		return body.EntryIDs
-	}
-
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/accounts/5/catalog-entries", strings.NewReader(`{"entry_ids":[2,1]}`)))
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, []int64{1, 2}, entryIDs(rec))
-
-	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/accounts/5/catalog-entries", nil))
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, []int64{1, 2}, entryIDs(rec))
-
-	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/accounts/6/catalog-entries", strings.NewReader(`{"entry_ids":[1]}`)))
-	require.Equal(t, http.StatusBadRequest, rec.Code, "没配地址的 key 承接不了")
-
-	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/accounts/99/catalog-entries", nil))
-	require.Equal(t, http.StatusNotFound, rec.Code)
-}
 
 // 「添加模型」按模型 ID 带价：没有价格服务时恒为 found=false；缺 model_id 报 400。
 func TestModelCatalogHandler_PriceLookup(t *testing.T) {

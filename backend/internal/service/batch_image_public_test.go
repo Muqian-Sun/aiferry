@@ -88,7 +88,6 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.Equal(t, 1, job.PricingSnapshotVersion)
 		require.InDelta(t, 0.25, job.BaseUnitPrice, 1e-12)
 		require.InDelta(t, 1.0, job.GroupRateMultiplier, 1e-12)
-		require.InDelta(t, 1.0, job.AccountRateMultiplier, 1e-12)
 		require.InDelta(t, 1.0, job.BatchDiscountMultiplier, 1e-12, "批量生图按目录价，不打折（D5a）")
 		require.InDelta(t, 1.0, job.HoldMultiplier, 1e-12, "预扣全额（D5a）")
 		require.InDelta(t, 0.25, job.BillableUnitPrice, 1e-12)
@@ -96,26 +95,22 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.Equal(t, "batch-session-123", batchImageDerefString(job.SessionID))
 	})
 
-	t.Run("combines user rate and account rate at catalog price", func(t *testing.T) {
+	t.Run("applies user rate at catalog price", func(t *testing.T) {
 		svc, repo, _, _ := newTestBatchImagePublicService(true)
-		accountMultiplier := 1.25
-		accountRepo := svc.AccountRepo.(*publicBatchImageAccountRepo)
-		accountRepo.accounts[0].RateMultiplier = &accountMultiplier
 
-		// 用户价 = 目录价 × 用户倍率 × 账号倍率；没有分组折扣 / 预扣倍率
+		// 用户价 = 目录价 × 用户倍率（渠道倍率 2026-09-30 已删）；没有分组折扣 / 预扣倍率
 		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, RateMultiplier: 0.5}, validBatchImageSubmitRequest(), "")
 		require.NoError(t, err)
-		require.InDelta(t, 0.3125, got.EstimatedCost, 1e-12)
+		require.InDelta(t, 0.25, got.EstimatedCost, 1e-12)
 
 		job := repo.jobs[got.ID]
 		require.InDelta(t, 0.25, job.BaseUnitPrice, 1e-12)
 		require.InDelta(t, 0.5, job.GroupRateMultiplier, 1e-12)
-		require.InDelta(t, 1.25, job.AccountRateMultiplier, 1e-12)
 		require.InDelta(t, 1.0, job.BatchDiscountMultiplier, 1e-12)
 		require.InDelta(t, 1.0, job.HoldMultiplier, 1e-12)
-		require.InDelta(t, 0.15625, job.BillableUnitPrice, 1e-12)
-		require.InDelta(t, 0.15625, job.HoldUnitPrice, 1e-12)
-		require.InDelta(t, 0.3125, *job.HoldAmount, 1e-12)
+		require.InDelta(t, 0.125, job.BillableUnitPrice, 1e-12)
+		require.InDelta(t, 0.125, job.HoldUnitPrice, 1e-12)
+		require.InDelta(t, 0.25, *job.HoldAmount, 1e-12)
 	})
 
 	t.Run("pricing missing rejects before provider submit", func(t *testing.T) {

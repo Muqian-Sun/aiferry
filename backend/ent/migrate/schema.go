@@ -110,7 +110,6 @@ var (
 		{Name: "concurrency", Type: field.TypeInt, Default: 3},
 		{Name: "load_factor", Type: field.TypeInt, Nullable: true},
 		{Name: "priority", Type: field.TypeInt, Default: 50},
-		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "error_message", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "last_used_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -137,13 +136,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[31]},
+				Columns:    []*schema.Column{AccountsColumns[30]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "accounts_accounts_children",
-				Columns:    []*schema.Column{AccountsColumns[32]},
+				Columns:    []*schema.Column{AccountsColumns[31]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -162,12 +161,12 @@ var (
 			{
 				Name:    "account_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[16]},
+				Columns: []*schema.Column{AccountsColumns[15]},
 			},
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[31]},
+				Columns: []*schema.Column{AccountsColumns[30]},
 			},
 			{
 				Name:    "account_priority",
@@ -177,27 +176,27 @@ var (
 			{
 				Name:    "account_last_used_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[18]},
+				Columns: []*schema.Column{AccountsColumns[17]},
 			},
 			{
 				Name:    "account_schedulable",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[21]},
+				Columns: []*schema.Column{AccountsColumns[20]},
 			},
 			{
 				Name:    "account_rate_limited_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[22]},
+				Columns: []*schema.Column{AccountsColumns[21]},
 			},
 			{
 				Name:    "account_rate_limit_reset_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[23]},
+				Columns: []*schema.Column{AccountsColumns[22]},
 			},
 			{
 				Name:    "account_overload_until",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[24]},
+				Columns: []*schema.Column{AccountsColumns[23]},
 			},
 			{
 				Name:    "account_platform_priority",
@@ -207,7 +206,7 @@ var (
 			{
 				Name:    "account_priority_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[14], AccountsColumns[16]},
+				Columns: []*schema.Column{AccountsColumns[14], AccountsColumns[15]},
 			},
 			{
 				Name:    "account_deleted_at",
@@ -217,7 +216,7 @@ var (
 			{
 				Name:    "account_parent_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[32]},
+				Columns: []*schema.Column{AccountsColumns[31]},
 			},
 		},
 	}
@@ -910,8 +909,14 @@ var (
 	}
 	// ModelCatalogBindingsColumns holds the columns for the "model_catalog_bindings" table.
 	ModelCatalogBindingsColumns = []*schema.Column{
-		{Name: "priority", Type: field.TypeInt, Nullable: true},
+		{Name: "input_price", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "output_price", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "cache_write_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "cache_write_1h_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "cache_read_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "price_intervals", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "entry_id", Type: field.TypeInt64},
 		{Name: "account_id", Type: field.TypeInt64},
 	}
@@ -919,17 +924,17 @@ var (
 	ModelCatalogBindingsTable = &schema.Table{
 		Name:       "model_catalog_bindings",
 		Columns:    ModelCatalogBindingsColumns,
-		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[2], ModelCatalogBindingsColumns[3]},
+		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[8], ModelCatalogBindingsColumns[9]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "model_catalog_bindings_model_catalog_entries_entry",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[2]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[8]},
 				RefColumns: []*schema.Column{ModelCatalogEntriesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "model_catalog_bindings_accounts_account",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[3]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[9]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -938,7 +943,7 @@ var (
 			{
 				Name:    "modelcatalogbinding_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogBindingsColumns[3]},
+				Columns: []*schema.Column{ModelCatalogBindingsColumns[9]},
 			},
 		},
 	}
@@ -1559,7 +1564,7 @@ var (
 		{Name: "total_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
 		{Name: "actual_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
 		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
-		{Name: "account_rate_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "account_cost", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
 		{Name: "billing_type", Type: field.TypeInt8, Default: 0},
 		{Name: "stream", Type: field.TypeBool, Default: false},
 		{Name: "duration_ms", Type: field.TypeInt, Nullable: true},

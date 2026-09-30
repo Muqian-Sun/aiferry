@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 const (
@@ -16,10 +17,22 @@ const (
 	FieldEntryID = "entry_id"
 	// FieldAccountID holds the string denoting the account_id field in the database.
 	FieldAccountID = "account_id"
-	// FieldPriority holds the string denoting the priority field in the database.
-	FieldPriority = "priority"
+	// FieldInputPrice holds the string denoting the input_price field in the database.
+	FieldInputPrice = "input_price"
+	// FieldOutputPrice holds the string denoting the output_price field in the database.
+	FieldOutputPrice = "output_price"
+	// FieldCacheWritePrice holds the string denoting the cache_write_price field in the database.
+	FieldCacheWritePrice = "cache_write_price"
+	// FieldCacheWrite1hPrice holds the string denoting the cache_write_1h_price field in the database.
+	FieldCacheWrite1hPrice = "cache_write_1h_price"
+	// FieldCacheReadPrice holds the string denoting the cache_read_price field in the database.
+	FieldCacheReadPrice = "cache_read_price"
+	// FieldPriceIntervals holds the string denoting the price_intervals field in the database.
+	FieldPriceIntervals = "price_intervals"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updated_at"
 	// EdgeEntry holds the string denoting the entry edge name in mutations.
 	EdgeEntry = "entry"
 	// EdgeAccount holds the string denoting the account edge name in mutations.
@@ -50,8 +63,14 @@ const (
 var Columns = []string{
 	FieldEntryID,
 	FieldAccountID,
-	FieldPriority,
+	FieldInputPrice,
+	FieldOutputPrice,
+	FieldCacheWritePrice,
+	FieldCacheWrite1hPrice,
+	FieldCacheReadPrice,
+	FieldPriceIntervals,
 	FieldCreatedAt,
+	FieldUpdatedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -65,8 +84,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultPriceIntervals holds the default value on creation for the "price_intervals" field.
+	DefaultPriceIntervals []domain.PriceSegment
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
+	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
+	UpdateDefaultUpdatedAt func() time.Time
 )
 
 // OrderOption defines the ordering options for the ModelCatalogBinding queries.
@@ -82,14 +107,39 @@ func ByAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAccountID, opts...).ToFunc()
 }
 
-// ByPriority orders the results by the priority field.
-func ByPriority(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPriority, opts...).ToFunc()
+// ByInputPrice orders the results by the input_price field.
+func ByInputPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInputPrice, opts...).ToFunc()
+}
+
+// ByOutputPrice orders the results by the output_price field.
+func ByOutputPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOutputPrice, opts...).ToFunc()
+}
+
+// ByCacheWritePrice orders the results by the cache_write_price field.
+func ByCacheWritePrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheWritePrice, opts...).ToFunc()
+}
+
+// ByCacheWrite1hPrice orders the results by the cache_write_1h_price field.
+func ByCacheWrite1hPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheWrite1hPrice, opts...).ToFunc()
+}
+
+// ByCacheReadPrice orders the results by the cache_read_price field.
+func ByCacheReadPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheReadPrice, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByUpdatedAt orders the results by the updated_at field.
+func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
 // ByEntryField orders the results by entry field.

@@ -90,7 +90,7 @@ type TrendDataPoint struct {
 	TotalTokens         int64   `json:"total_tokens"`
 	Cost                float64 `json:"cost"`        // 标价（token × 目录单价，未乘任何倍率）
 	ActualCost          float64 `json:"actual_cost"` // 收入（标价 × 用户倍率）
-	// 渠道成本（标价 × 渠道成本倍率），管理站概览的利润趋势用。用户站接口不能带出去，
+	// 渠道成本（Σ account_cost：用量 × 承接关系上的上游价），管理站概览的利润趋势用。用户站接口不能带出去，
 	// 见 handler.userTrendFromUsageStats。
 	AccountCost float64 `json:"account_cost"`
 }
@@ -114,7 +114,7 @@ type ModelStat struct {
 	TotalTokens         int64   `json:"total_tokens"`
 	Cost                float64 `json:"cost"`         // 标价（token × 目录单价，未乘任何倍率）
 	ActualCost          float64 `json:"actual_cost"`  // 收入（标价 × 用户倍率）；按渠道统计时也是这个口径
-	AccountCost         float64 `json:"account_cost"` // 渠道成本（标价 × 渠道成本倍率）
+	AccountCost         float64 `json:"account_cost"` // 渠道成本（Σ account_cost：用量 × 上游价）
 }
 
 // EndpointStat represents usage statistics for a single request endpoint.
@@ -124,7 +124,7 @@ type EndpointStat struct {
 	TotalTokens int64   `json:"total_tokens"`
 	Cost        float64 `json:"cost"`         // 标价（token × 目录单价，未乘任何倍率）
 	ActualCost  float64 `json:"actual_cost"`  // 收入（标价 × 用户倍率，向用户扣的钱）；按渠道统计时也是这个口径
-	AccountCost float64 `json:"account_cost"` // 渠道成本（标价 × 渠道成本倍率）
+	AccountCost float64 `json:"account_cost"` // 渠道成本（Σ account_cost：用量 × 上游价）
 }
 
 // UserUsageTrendPoint represents user usage trend data point
@@ -137,7 +137,7 @@ type UserUsageTrendPoint struct {
 	Tokens      int64   `json:"tokens"`
 	Cost        float64 `json:"cost"`         // 标准计费
 	ActualCost  float64 `json:"actual_cost"`  // 实际扣除（平台收入）
-	AccountCost float64 `json:"account_cost"` // 渠道成本（total_cost × 渠道倍率），与模型统计同口径
+	AccountCost float64 `json:"account_cost"` // 渠道成本（Σ account_cost：用量 × 上游价），与模型统计同口径
 }
 
 // UserBreakdownItem represents per-user usage breakdown within a dimension (group, model, endpoint).
@@ -312,7 +312,7 @@ type AccountUsageHistory struct {
 	Requests    int64   `json:"requests"`
 	Tokens      int64   `json:"tokens"`
 	ActualCost  float64 `json:"actual_cost"`  // 收入：Σ actual_cost（标价 × 用户倍率，向用户收的钱）
-	AccountCost float64 `json:"account_cost"` // 渠道成本：Σ total_cost × 渠道成本倍率
+	AccountCost float64 `json:"account_cost"` // 渠道成本：Σ account_cost（用量 × 承接关系上的上游价）
 }
 
 // AccountUsageSummary 是渠道在统计区间内的汇总；金额口径同 AccountUsageHistory。

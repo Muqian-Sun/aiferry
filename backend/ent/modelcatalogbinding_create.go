@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogBindingCreate is the builder for creating a ModelCatalogBinding entity.
@@ -36,17 +37,63 @@ func (_c *ModelCatalogBindingCreate) SetAccountID(v int64) *ModelCatalogBindingC
 	return _c
 }
 
-// SetPriority sets the "priority" field.
-func (_c *ModelCatalogBindingCreate) SetPriority(v int) *ModelCatalogBindingCreate {
-	_c.mutation.SetPriority(v)
+// SetInputPrice sets the "input_price" field.
+func (_c *ModelCatalogBindingCreate) SetInputPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetInputPrice(v)
 	return _c
 }
 
-// SetNillablePriority sets the "priority" field if the given value is not nil.
-func (_c *ModelCatalogBindingCreate) SetNillablePriority(v *int) *ModelCatalogBindingCreate {
+// SetOutputPrice sets the "output_price" field.
+func (_c *ModelCatalogBindingCreate) SetOutputPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetOutputPrice(v)
+	return _c
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (_c *ModelCatalogBindingCreate) SetCacheWritePrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetCacheWritePrice(v)
+	return _c
+}
+
+// SetNillableCacheWritePrice sets the "cache_write_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableCacheWritePrice(v *float64) *ModelCatalogBindingCreate {
 	if v != nil {
-		_c.SetPriority(*v)
+		_c.SetCacheWritePrice(*v)
 	}
+	return _c
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (_c *ModelCatalogBindingCreate) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetCacheWrite1hPrice(v)
+	return _c
+}
+
+// SetNillableCacheWrite1hPrice sets the "cache_write_1h_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableCacheWrite1hPrice(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetCacheWrite1hPrice(*v)
+	}
+	return _c
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (_c *ModelCatalogBindingCreate) SetCacheReadPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetCacheReadPrice(v)
+	return _c
+}
+
+// SetNillableCacheReadPrice sets the "cache_read_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableCacheReadPrice(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetCacheReadPrice(*v)
+	}
+	return _c
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (_c *ModelCatalogBindingCreate) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingCreate {
+	_c.mutation.SetPriceIntervals(v)
 	return _c
 }
 
@@ -60,6 +107,20 @@ func (_c *ModelCatalogBindingCreate) SetCreatedAt(v time.Time) *ModelCatalogBind
 func (_c *ModelCatalogBindingCreate) SetNillableCreatedAt(v *time.Time) *ModelCatalogBindingCreate {
 	if v != nil {
 		_c.SetCreatedAt(*v)
+	}
+	return _c
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_c *ModelCatalogBindingCreate) SetUpdatedAt(v time.Time) *ModelCatalogBindingCreate {
+	_c.mutation.SetUpdatedAt(v)
+	return _c
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableUpdatedAt(v *time.Time) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetUpdatedAt(*v)
 	}
 	return _c
 }
@@ -109,9 +170,17 @@ func (_c *ModelCatalogBindingCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *ModelCatalogBindingCreate) defaults() {
+	if _, ok := _c.mutation.PriceIntervals(); !ok {
+		v := modelcatalogbinding.DefaultPriceIntervals
+		_c.mutation.SetPriceIntervals(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := modelcatalogbinding.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
+	}
+	if _, ok := _c.mutation.UpdatedAt(); !ok {
+		v := modelcatalogbinding.DefaultUpdatedAt()
+		_c.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -123,8 +192,20 @@ func (_c *ModelCatalogBindingCreate) check() error {
 	if _, ok := _c.mutation.AccountID(); !ok {
 		return &ValidationError{Name: "account_id", err: errors.New(`ent: missing required field "ModelCatalogBinding.account_id"`)}
 	}
+	if _, ok := _c.mutation.InputPrice(); !ok {
+		return &ValidationError{Name: "input_price", err: errors.New(`ent: missing required field "ModelCatalogBinding.input_price"`)}
+	}
+	if _, ok := _c.mutation.OutputPrice(); !ok {
+		return &ValidationError{Name: "output_price", err: errors.New(`ent: missing required field "ModelCatalogBinding.output_price"`)}
+	}
+	if _, ok := _c.mutation.PriceIntervals(); !ok {
+		return &ValidationError{Name: "price_intervals", err: errors.New(`ent: missing required field "ModelCatalogBinding.price_intervals"`)}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "ModelCatalogBinding.created_at"`)}
+	}
+	if _, ok := _c.mutation.UpdatedAt(); !ok {
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "ModelCatalogBinding.updated_at"`)}
 	}
 	if len(_c.mutation.EntryIDs()) == 0 {
 		return &ValidationError{Name: "entry", err: errors.New(`ent: missing required edge "ModelCatalogBinding.entry"`)}
@@ -155,13 +236,37 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 		_spec = sqlgraph.NewCreateSpec(modelcatalogbinding.Table, nil)
 	)
 	_spec.OnConflict = _c.conflict
-	if value, ok := _c.mutation.Priority(); ok {
-		_spec.SetField(modelcatalogbinding.FieldPriority, field.TypeInt, value)
-		_node.Priority = &value
+	if value, ok := _c.mutation.InputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldInputPrice, field.TypeFloat64, value)
+		_node.InputPrice = value
+	}
+	if value, ok := _c.mutation.OutputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldOutputPrice, field.TypeFloat64, value)
+		_node.OutputPrice = value
+	}
+	if value, ok := _c.mutation.CacheWritePrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64, value)
+		_node.CacheWritePrice = &value
+	}
+	if value, ok := _c.mutation.CacheWrite1hPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64, value)
+		_node.CacheWrite1hPrice = &value
+	}
+	if value, ok := _c.mutation.CacheReadPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
+		_node.CacheReadPrice = &value
+	}
+	if value, ok := _c.mutation.PriceIntervals(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
+		_node.PriceIntervals = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(modelcatalogbinding.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if value, ok := _c.mutation.UpdatedAt(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
 	}
 	if nodes := _c.mutation.EntryIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -273,27 +378,135 @@ func (u *ModelCatalogBindingUpsert) UpdateAccountID() *ModelCatalogBindingUpsert
 	return u
 }
 
-// SetPriority sets the "priority" field.
-func (u *ModelCatalogBindingUpsert) SetPriority(v int) *ModelCatalogBindingUpsert {
-	u.Set(modelcatalogbinding.FieldPriority, v)
+// SetInputPrice sets the "input_price" field.
+func (u *ModelCatalogBindingUpsert) SetInputPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldInputPrice, v)
 	return u
 }
 
-// UpdatePriority sets the "priority" field to the value that was provided on create.
-func (u *ModelCatalogBindingUpsert) UpdatePriority() *ModelCatalogBindingUpsert {
-	u.SetExcluded(modelcatalogbinding.FieldPriority)
+// UpdateInputPrice sets the "input_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateInputPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldInputPrice)
 	return u
 }
 
-// AddPriority adds v to the "priority" field.
-func (u *ModelCatalogBindingUpsert) AddPriority(v int) *ModelCatalogBindingUpsert {
-	u.Add(modelcatalogbinding.FieldPriority, v)
+// AddInputPrice adds v to the "input_price" field.
+func (u *ModelCatalogBindingUpsert) AddInputPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldInputPrice, v)
 	return u
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (u *ModelCatalogBindingUpsert) ClearPriority() *ModelCatalogBindingUpsert {
-	u.SetNull(modelcatalogbinding.FieldPriority)
+// SetOutputPrice sets the "output_price" field.
+func (u *ModelCatalogBindingUpsert) SetOutputPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldOutputPrice, v)
+	return u
+}
+
+// UpdateOutputPrice sets the "output_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateOutputPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldOutputPrice)
+	return u
+}
+
+// AddOutputPrice adds v to the "output_price" field.
+func (u *ModelCatalogBindingUpsert) AddOutputPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldOutputPrice, v)
+	return u
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsert) SetCacheWritePrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldCacheWritePrice, v)
+	return u
+}
+
+// UpdateCacheWritePrice sets the "cache_write_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateCacheWritePrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldCacheWritePrice)
+	return u
+}
+
+// AddCacheWritePrice adds v to the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsert) AddCacheWritePrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldCacheWritePrice, v)
+	return u
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsert) ClearCacheWritePrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldCacheWritePrice)
+	return u
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsert) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldCacheWrite1hPrice, v)
+	return u
+}
+
+// UpdateCacheWrite1hPrice sets the "cache_write_1h_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateCacheWrite1hPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldCacheWrite1hPrice)
+	return u
+}
+
+// AddCacheWrite1hPrice adds v to the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsert) AddCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldCacheWrite1hPrice, v)
+	return u
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsert) ClearCacheWrite1hPrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldCacheWrite1hPrice)
+	return u
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsert) SetCacheReadPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldCacheReadPrice, v)
+	return u
+}
+
+// UpdateCacheReadPrice sets the "cache_read_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateCacheReadPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldCacheReadPrice)
+	return u
+}
+
+// AddCacheReadPrice adds v to the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsert) AddCacheReadPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldCacheReadPrice, v)
+	return u
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsert) ClearCacheReadPrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldCacheReadPrice)
+	return u
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (u *ModelCatalogBindingUpsert) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldPriceIntervals, v)
+	return u
+}
+
+// UpdatePriceIntervals sets the "price_intervals" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdatePriceIntervals() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldPriceIntervals)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ModelCatalogBindingUpsert) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateUpdatedAt() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldUpdatedAt)
 	return u
 }
 
@@ -370,31 +583,157 @@ func (u *ModelCatalogBindingUpsertOne) UpdateAccountID() *ModelCatalogBindingUps
 	})
 }
 
-// SetPriority sets the "priority" field.
-func (u *ModelCatalogBindingUpsertOne) SetPriority(v int) *ModelCatalogBindingUpsertOne {
+// SetInputPrice sets the "input_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetInputPrice(v float64) *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.SetPriority(v)
+		s.SetInputPrice(v)
 	})
 }
 
-// AddPriority adds v to the "priority" field.
-func (u *ModelCatalogBindingUpsertOne) AddPriority(v int) *ModelCatalogBindingUpsertOne {
+// AddInputPrice adds v to the "input_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddInputPrice(v float64) *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.AddPriority(v)
+		s.AddInputPrice(v)
 	})
 }
 
-// UpdatePriority sets the "priority" field to the value that was provided on create.
-func (u *ModelCatalogBindingUpsertOne) UpdatePriority() *ModelCatalogBindingUpsertOne {
+// UpdateInputPrice sets the "input_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateInputPrice() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.UpdatePriority()
+		s.UpdateInputPrice()
 	})
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (u *ModelCatalogBindingUpsertOne) ClearPriority() *ModelCatalogBindingUpsertOne {
+// SetOutputPrice sets the "output_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetOutputPrice(v float64) *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.ClearPriority()
+		s.SetOutputPrice(v)
+	})
+}
+
+// AddOutputPrice adds v to the "output_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddOutputPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddOutputPrice(v)
+	})
+}
+
+// UpdateOutputPrice sets the "output_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateOutputPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateOutputPrice()
+	})
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetCacheWritePrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheWritePrice(v)
+	})
+}
+
+// AddCacheWritePrice adds v to the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddCacheWritePrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheWritePrice(v)
+	})
+}
+
+// UpdateCacheWritePrice sets the "cache_write_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateCacheWritePrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheWritePrice()
+	})
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearCacheWritePrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheWritePrice()
+	})
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheWrite1hPrice(v)
+	})
+}
+
+// AddCacheWrite1hPrice adds v to the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheWrite1hPrice(v)
+	})
+}
+
+// UpdateCacheWrite1hPrice sets the "cache_write_1h_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateCacheWrite1hPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheWrite1hPrice()
+	})
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearCacheWrite1hPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheWrite1hPrice()
+	})
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetCacheReadPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheReadPrice(v)
+	})
+}
+
+// AddCacheReadPrice adds v to the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddCacheReadPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheReadPrice(v)
+	})
+}
+
+// UpdateCacheReadPrice sets the "cache_read_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateCacheReadPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheReadPrice()
+	})
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearCacheReadPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheReadPrice()
+	})
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (u *ModelCatalogBindingUpsertOne) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetPriceIntervals(v)
+	})
+}
+
+// UpdatePriceIntervals sets the "price_intervals" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdatePriceIntervals() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdatePriceIntervals()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ModelCatalogBindingUpsertOne) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateUpdatedAt() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateUpdatedAt()
 	})
 }
 
@@ -614,31 +953,157 @@ func (u *ModelCatalogBindingUpsertBulk) UpdateAccountID() *ModelCatalogBindingUp
 	})
 }
 
-// SetPriority sets the "priority" field.
-func (u *ModelCatalogBindingUpsertBulk) SetPriority(v int) *ModelCatalogBindingUpsertBulk {
+// SetInputPrice sets the "input_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetInputPrice(v float64) *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.SetPriority(v)
+		s.SetInputPrice(v)
 	})
 }
 
-// AddPriority adds v to the "priority" field.
-func (u *ModelCatalogBindingUpsertBulk) AddPriority(v int) *ModelCatalogBindingUpsertBulk {
+// AddInputPrice adds v to the "input_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddInputPrice(v float64) *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.AddPriority(v)
+		s.AddInputPrice(v)
 	})
 }
 
-// UpdatePriority sets the "priority" field to the value that was provided on create.
-func (u *ModelCatalogBindingUpsertBulk) UpdatePriority() *ModelCatalogBindingUpsertBulk {
+// UpdateInputPrice sets the "input_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateInputPrice() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.UpdatePriority()
+		s.UpdateInputPrice()
 	})
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (u *ModelCatalogBindingUpsertBulk) ClearPriority() *ModelCatalogBindingUpsertBulk {
+// SetOutputPrice sets the "output_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetOutputPrice(v float64) *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
-		s.ClearPriority()
+		s.SetOutputPrice(v)
+	})
+}
+
+// AddOutputPrice adds v to the "output_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddOutputPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddOutputPrice(v)
+	})
+}
+
+// UpdateOutputPrice sets the "output_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateOutputPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateOutputPrice()
+	})
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetCacheWritePrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheWritePrice(v)
+	})
+}
+
+// AddCacheWritePrice adds v to the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddCacheWritePrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheWritePrice(v)
+	})
+}
+
+// UpdateCacheWritePrice sets the "cache_write_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateCacheWritePrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheWritePrice()
+	})
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearCacheWritePrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheWritePrice()
+	})
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheWrite1hPrice(v)
+	})
+}
+
+// AddCacheWrite1hPrice adds v to the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddCacheWrite1hPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheWrite1hPrice(v)
+	})
+}
+
+// UpdateCacheWrite1hPrice sets the "cache_write_1h_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateCacheWrite1hPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheWrite1hPrice()
+	})
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearCacheWrite1hPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheWrite1hPrice()
+	})
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetCacheReadPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetCacheReadPrice(v)
+	})
+}
+
+// AddCacheReadPrice adds v to the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddCacheReadPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddCacheReadPrice(v)
+	})
+}
+
+// UpdateCacheReadPrice sets the "cache_read_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateCacheReadPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateCacheReadPrice()
+	})
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearCacheReadPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearCacheReadPrice()
+	})
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (u *ModelCatalogBindingUpsertBulk) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetPriceIntervals(v)
+	})
+}
+
+// UpdatePriceIntervals sets the "price_intervals" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdatePriceIntervals() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdatePriceIntervals()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ModelCatalogBindingUpsertBulk) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateUpdatedAt() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateUpdatedAt()
 	})
 }
 

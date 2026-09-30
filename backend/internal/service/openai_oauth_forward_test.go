@@ -400,7 +400,7 @@ func TestOpenAIGatewayService_Forward_MissingInstructionsUsesMappedModelTemplate
 			"chatgpt_account_id": "chatgpt-acc",
 			"model_mapping":      map[string]any{"astra-public": "gpt-6-astra"},
 		},
-		Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+		Status: StatusActive, Schedulable: true,
 	}
 
 	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"astra-public","stream":true,"store":true,"input":[{"type":"text","text":"hi"}]}`))
@@ -458,10 +458,9 @@ func TestOpenAIGatewayService_OAuthLegacyPassthroughKeysUseStandardTransform(t *
 					"chatgpt_account_id": "chatgpt-acc",
 					"model_mapping":      map[string]any{"gpt-5.2": "gpt-5.4"},
 				},
-				Extra:          tc.extra,
-				Status:         StatusActive,
-				Schedulable:    true,
-				RateMultiplier: f64p(1),
+				Extra:       tc.extra,
+				Status:      StatusActive,
+				Schedulable: true,
 			}
 			require.True(t, account.IsModelSupported("gpt-5.2"))
 
@@ -496,7 +495,7 @@ func TestOpenAIGatewayService_OAuthLegacy_GroupForceStillHonorsGlobalFilter(t *t
 		ID: 123, Name: "acc", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
 		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
 		Extra:       map[string]any{},
-		Status:      StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+		Status:      StatusActive, Schedulable: true,
 	}
 	ctx := context.Background()
 
@@ -535,16 +534,15 @@ func TestOpenAIGatewayService_OAuthLegacy_UpstreamRequestIgnoresClientCancel(t *
 		httpUpstream: upstream,
 	}
 	account := &Account{
-		ID:             123,
-		Name:           "acc",
-		Platform:       PlatformOpenAI,
-		Type:           AccountTypeOAuth,
-		Concurrency:    1,
-		Credentials:    map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
-		Extra:          map[string]any{},
-		Status:         StatusActive,
-		Schedulable:    true,
-		RateMultiplier: f64p(1),
+		ID:          123,
+		Name:        "acc",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
+		Extra:       map[string]any{},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 
 	result, err := svc.Forward(reqCtx, c, account, originalBody)
@@ -578,16 +576,15 @@ func TestOpenAIGatewayService_OAuthLegacy_CompositeCodexUAUsesCodexOriginator(t 
 	}
 
 	account := &Account{
-		ID:             123,
-		Name:           "acc",
-		Platform:       PlatformOpenAI,
-		Type:           AccountTypeOAuth,
-		Concurrency:    1,
-		Credentials:    map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
-		Extra:          map[string]any{},
-		Status:         StatusActive,
-		Schedulable:    true,
-		RateMultiplier: f64p(1),
+		ID:          123,
+		Name:        "acc",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
+		Extra:       map[string]any{},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 
 	_, err := svc.Forward(context.Background(), c, account, inputBody)

@@ -4,8 +4,6 @@ package service
 
 import (
 	"context"
-	"math"
-
 	"testing"
 	"time"
 
@@ -38,9 +36,21 @@ func upstreamCostTestOAuthAccount(id int64) *Account {
 	return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 }
 
-func profitControlTestAccountWithRate(account *Account, rate float64) *Account {
-	account.RateMultiplier = &rate
-	return account
+// profitTestEntryID 利润门用例的目录条目：官方价输入 1、输出 2（$ / 百万 Token）。
+const profitTestEntryID int64 = 9001
+
+// profitTestPrices 登记「渠道 → 上游成本比」：withRoute 把它们挂成目录路由里这个条目的承接关系，
+// 上游价 = 比值 × 官方价，所以利润门算出的上游成本比（bindingCostRatio）就是登记的比值。
+// 路由在 withRoute 时定型，之后再登记的比值要重新 withRoute 才生效。
+type profitTestPrices map[int64]float64
+
+func (p profitTestPrices) withRoute(ctx context.Context) context.Context {
+	in, out := 1e-6, 2e-6
+	entry := &ModelCatalogEntry{ID: profitTestEntryID, ModelID: "profit-test-model", Status: ModelCatalogStatusListed, InputPrice: &in, OutputPrice: &out}
+	for id, rate := range p {
+		entry.Bindings = append(entry.Bindings, ModelCatalogBinding{EntryID: entry.ID, AccountID: id, InputPrice: rate * in, OutputPrice: rate * out})
+	}
+	return WithCatalogRoute(ctx, CatalogRoute{EntryID: entry.ID, CanonicalModel: entry.ModelID, RequestedModel: entry.ModelID, Entry: entry})
 }
 
 func TestResolveOpenAIProfitControlGate(t *testing.T) {
@@ -81,8 +91,8 @@ func TestResolveOpenAIProfitControlGate(t *testing.T) {
 
 func TestOpenAIProfitControlVetoReason(t *testing.T) {
 	now := time.Now()
-	gateCtx := func(threshold float64) context.Context {
-		return context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
+	gateCtx := func(threshold float64, prices profitTestPrices) context.Context {
+		return context.WithValue(prices.withRoute(context.Background()), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
 			threshold: threshold,
 			pricingAt: now,
 		})
@@ -94,59 +104,51 @@ func TestOpenAIProfitControlVetoReason(t *testing.T) {
 		require.Empty(t, reason)
 	})
 
-	t.Run("fresh rate below threshold admits", func(t *testing.T) {
-		account := profitControlTestAccountWithRate(upstreamCostTestAccount(1), 0.5)
-		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7), account)
+	t.Run("cost ratio below threshold admits", func(t *testing.T) {
+		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{1: 0.5}), upstreamCostTestAccount(1))
 		require.False(t, vetoed)
 	})
 
-	t.Run("rate exactly at threshold admits via epsilon", func(t *testing.T) {
-		account := profitControlTestAccountWithRate(upstreamCostTestAccount(1), 0.7)
-		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7), account)
+	t.Run("cost ratio exactly at threshold admits via epsilon", func(t *testing.T) {
+		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{1: 0.7}), upstreamCostTestAccount(1))
 		require.False(t, vetoed)
 	})
 
-	t.Run("rate within float noise above threshold admits", func(t *testing.T) {
-		account := profitControlTestAccountWithRate(upstreamCostTestAccount(1), 0.7+1e-12)
-		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7), account)
+	t.Run("cost ratio within float noise above threshold admits", func(t *testing.T) {
+		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{1: 0.7 + 1e-12}), upstreamCostTestAccount(1))
 		require.False(t, vetoed)
 	})
 
-	t.Run("rate above threshold is vetoed", func(t *testing.T) {
-		account := profitControlTestAccountWithRate(upstreamCostTestAccount(1), 0.8)
-		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7), account)
+	t.Run("cost ratio above threshold is vetoed", func(t *testing.T) {
+		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{1: 0.8}), upstreamCostTestAccount(1))
 		require.True(t, vetoed)
 		require.Equal(t, openAIProfitFilterReasonThreshold, reason)
 	})
 
 	t.Run("zero threshold only admits free upstream", func(t *testing.T) {
-		free := profitControlTestAccountWithRate(upstreamCostTestAccount(1), 0)
-		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0), free)
+		prices := profitTestPrices{1: 0, 2: 0.01}
+		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0, prices), upstreamCostTestAccount(1))
 		require.False(t, vetoed)
-		paid := profitControlTestAccountWithRate(upstreamCostTestAccount(2), 0.01)
-		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0), paid)
+		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0, prices), upstreamCostTestAccount(2))
 		require.True(t, vetoed)
 		require.Equal(t, openAIProfitFilterReasonThreshold, reason)
 	})
 
-	t.Run("missing account rate is invalid", func(t *testing.T) {
-		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7), upstreamCostTestOAuthAccount(1))
+	t.Run("channel without upstream price for the model is vetoed", func(t *testing.T) {
+		vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{2: 0.1}), upstreamCostTestAccount(1))
 		require.True(t, vetoed)
-		require.Equal(t, openAIProfitFilterReasonInvalidAccountRate, reason)
+		require.Equal(t, openAIProfitFilterReasonMissingUpstreamPrice, reason)
 	})
 
-	t.Run("oauth account with manual rate is priceable", func(t *testing.T) {
-		account := profitControlTestAccountWithRate(upstreamCostTestOAuthAccount(1), 0.2)
-		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7), account)
+	t.Run("oauth account is priced by its binding like a key", func(t *testing.T) {
+		vetoed, _ := openAIProfitControlVetoReason(gateCtx(0.7, profitTestPrices{1: 0.2}), upstreamCostTestOAuthAccount(1))
 		require.False(t, vetoed)
 	})
 
-	t.Run("negative and non-finite rates are invalid", func(t *testing.T) {
-		for _, rate := range []float64{-1, math.NaN(), math.Inf(1)} {
-			account := profitControlTestAccountWithRate(upstreamCostTestOAuthAccount(1), rate)
-			vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7), account)
-			require.True(t, vetoed)
-			require.Equal(t, openAIProfitFilterReasonInvalidAccountRate, reason)
-		}
+	t.Run("request without catalog route is not gated", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{threshold: 0.7, pricingAt: now})
+		vetoed, reason := openAIProfitControlVetoReason(ctx, upstreamCostTestAccount(1))
+		require.False(t, vetoed)
+		require.Empty(t, reason)
 	})
 }

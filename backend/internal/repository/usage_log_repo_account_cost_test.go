@@ -11,7 +11,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
 
-// 只按渠道统计时，actual_cost 仍是收入（向用户扣的钱），渠道成本走 account_cost。
+// 只按渠道统计时，actual_cost 仍是收入（向用户扣的钱），渠道成本是逐行落的 usage_logs.account_cost 之和。
 // 原来这三处在仅按 account_id 聚合时把 actual_cost 换成渠道成本，管理站渠道抽屉里「实际」和「成本」因此一模一样。
 
 func TestUsageLogRepositoryAccountOnlyModelStatsKeepRevenue(t *testing.T) {
@@ -20,7 +20,7 @@ func TestUsageLogRepositoryAccountOnlyModelStatsKeepRevenue(t *testing.T) {
 	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
-	mock.ExpectQuery(`(?s)COALESCE\(SUM\(actual_cost\), 0\) as actual_cost,\s+COALESCE\(SUM\(total_cost \* COALESCE\(account_rate_multiplier, 1\)\), 0\) as account_cost.*AND account_id = \$3`).
+	mock.ExpectQuery(`(?s)COALESCE\(SUM\(actual_cost\), 0\) as actual_cost,\s+COALESCE\(SUM\(account_cost\), 0\) as account_cost.*AND account_id = \$3`).
 		WithArgs(start, end, int64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"model", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens",
@@ -41,7 +41,7 @@ func TestUsageLogRepositoryAccountOnlyEndpointStatsCarryCost(t *testing.T) {
 	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
-	mock.ExpectQuery(`(?s)COALESCE\(SUM\(actual_cost\), 0\) as actual_cost,\s+COALESCE\(SUM\(total_cost \* COALESCE\(account_rate_multiplier, 1\)\), 0\) as account_cost\s+FROM usage_logs.*AND account_id = \$3`).
+	mock.ExpectQuery(`(?s)COALESCE\(SUM\(actual_cost\), 0\) as actual_cost,\s+COALESCE\(SUM\(account_cost\), 0\) as account_cost\s+FROM usage_logs.*AND account_id = \$3`).
 		WithArgs(start, end, int64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{"endpoint", "requests", "total_tokens", "cost", "actual_cost", "account_cost"}).
 			AddRow("/v1/messages", int64(3), int64(30), 1.0, 1.5, 0.6))
@@ -58,7 +58,7 @@ func TestUsageLogRepositoryAccountOnlyUsageStatsEndpointsKeepRevenue(t *testing.
 	db, mock := newSQLMock(t)
 	repo := &usageLogRepository{sql: db}
 
-	mock.ExpectQuery(`(?s)FROM usage_logs\s+WHERE account_id = \$1.*GROUP BY GROUPING SETS`).
+	mock.ExpectQuery(`(?s)actual_cost,\s+account_cost,\s+duration_ms\s+FROM usage_logs\s+WHERE account_id = \$1.*COALESCE\(SUM\(account_cost\), 0\) AS account_cost.*GROUP BY GROUPING SETS`).
 		WithArgs(int64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"inbound_grouped", "upstream_grouped", "inbound_endpoint", "upstream_endpoint",

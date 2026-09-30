@@ -111,12 +111,21 @@ type ModelCatalogEntry struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// ModelCatalogBinding 把一个资源（账号）绑到目录条目上：条目上架后由这些账号承接请求。
+// ModelCatalogBinding 是承接关系：一个渠道（账号）承接一个目录条目，带这个渠道给这个模型的上游价
+// （USD / token）。渠道成本 = 用量 × 上游价，算法与官方价相同（分段、缓存 5 分钟 / 1 小时、最高推理倍率）。
+// 输入 / 输出必填；官方价有的缓存项上游价也必须填（ValidateAgainst）；Intervals 是按 Token 分段的上游价，
+// 只用绝对价。
 type ModelCatalogBinding struct {
-	EntryID   int64     `json:"entry_id"`
-	AccountID int64     `json:"account_id"`
-	Priority  *int      `json:"priority,omitempty"` // nil = 用 accounts.priority
-	CreatedAt time.Time `json:"created_at"`
+	EntryID           int64             `json:"entry_id"`
+	AccountID         int64             `json:"account_id"`
+	InputPrice        float64           `json:"input_price"`
+	OutputPrice       float64           `json:"output_price"`
+	CacheWritePrice   *float64          `json:"cache_write_price"`
+	CacheWrite1hPrice *float64          `json:"cache_write_1h_price"`
+	CacheReadPrice    *float64          `json:"cache_read_price"`
+	Intervals         []PricingInterval `json:"intervals"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
 // NormalizeModelCatalogKey 返回查表用的规范化模型名。

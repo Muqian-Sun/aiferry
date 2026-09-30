@@ -32,6 +32,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 		OutputTokens:   20,
 		TotalCost:      1,
 		ActualCost:     1,
+		AccountCost:    0.42,
 		BillingType:    service.BillingTypeBalance,
 		RequestType:    service.RequestTypeWSV2,
 		Stream:         false,
@@ -68,7 +69,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
-			log.AccountRateMultiplier,
+			0.42, // account_cost
 			log.BillingType,
 			int16(service.RequestTypeWSV2),
 			true,
@@ -157,7 +158,7 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
-			log.AccountRateMultiplier,
+			0.0, // account_cost：没算出渠道成本时落 0（列 NOT NULL DEFAULT 0）
 			log.BillingType,
 			int16(service.RequestTypeSync),
 			false,
@@ -821,7 +822,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.0, 0.0, 0.0, 0.0, 0.8, 0.8,
 			1.0,
-			sql.NullFloat64{},
+			0.0, // account_cost
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),
 			false,
@@ -874,28 +875,28 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{Valid: true, String: "req-1"},
 			"gpt-5", // model
 			sql.NullString{Valid: true, String: "gpt-5"}, // requested_model
-			sql.NullString{},  // upstream_model
-			sql.NullString{},  // upstream_response_model
-			sql.NullBool{},    // upstream_model_mismatch
-			sql.NullInt64{},   // subscription_id
-			1,                 // input_tokens
-			2,                 // output_tokens
-			3,                 // cache_creation_tokens
-			4,                 // cache_read_tokens
-			5,                 // cache_creation_5m_tokens
-			6,                 // cache_creation_1h_tokens
-			0,                 // image_output_tokens
-			0.0,               // image_output_cost
-			0,                 // image_input_tokens
-			0.0,               // image_input_cost
-			0.1,               // input_cost
-			0.2,               // output_cost
-			0.3,               // cache_creation_cost
-			0.4,               // cache_read_cost
-			1.0,               // total_cost
-			0.9,               // actual_cost
-			1.0,               // rate_multiplier
-			sql.NullFloat64{}, // account_rate_multiplier
+			sql.NullString{}, // upstream_model
+			sql.NullString{}, // upstream_response_model
+			sql.NullBool{},   // upstream_model_mismatch
+			sql.NullInt64{},  // subscription_id
+			1,                // input_tokens
+			2,                // output_tokens
+			3,                // cache_creation_tokens
+			4,                // cache_read_tokens
+			5,                // cache_creation_5m_tokens
+			6,                // cache_creation_1h_tokens
+			0,                // image_output_tokens
+			0.0,              // image_output_cost
+			0,                // image_input_tokens
+			0.0,              // image_input_cost
+			0.1,              // input_cost
+			0.2,              // output_cost
+			0.3,              // cache_creation_cost
+			0.4,              // cache_read_cost
+			1.0,              // total_cost
+			0.9,              // actual_cost
+			1.0,              // rate_multiplier
+			0.35,             // account_cost
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeWSV2),
 			false, // legacy stream
@@ -926,6 +927,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			now,
 		}})
 		require.NoError(t, err)
+		require.Equal(t, 0.35, log.AccountCost)
 		require.NotNil(t, log.ServiceTier)
 		require.Equal(t, "priority", *log.ServiceTier)
 		require.Equal(t, service.RequestTypeWSV2, log.RequestType)
@@ -952,7 +954,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
-			sql.NullFloat64{},
+			0.0, // account_cost
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeUnknown),
 			true,
@@ -1010,7 +1012,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
-			sql.NullFloat64{},
+			0.0, // account_cost
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),
 			false,

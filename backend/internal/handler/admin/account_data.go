@@ -57,17 +57,16 @@ type DataProxy struct {
 // 影子的独立调度配置(priority/并发/分组/status 管理员可单独调)亦不在本备份范围,属已知局限
 // (外审第6轮裁决:保持排除 + 前端警告,而非升级格式做完整往返)。
 type DataAccount struct {
-	Name           string         `json:"name"`
-	Notes          *string        `json:"notes,omitempty"`
-	Platform       string         `json:"platform"`
-	Type           string         `json:"type"`
-	Credentials    map[string]any `json:"credentials"`
-	Extra          map[string]any `json:"extra,omitempty"`
-	ProxyKey       *string        `json:"proxy_key,omitempty"`
-	Concurrency    int            `json:"concurrency"`
-	Priority       int            `json:"priority"`
-	RateMultiplier *float64       `json:"rate_multiplier,omitempty"`
-	ExpiresAt      *int64         `json:"expires_at,omitempty"`
+	Name        string         `json:"name"`
+	Notes       *string        `json:"notes,omitempty"`
+	Platform    string         `json:"platform"`
+	Type        string         `json:"type"`
+	Credentials map[string]any `json:"credentials"`
+	Extra       map[string]any `json:"extra,omitempty"`
+	ProxyKey    *string        `json:"proxy_key,omitempty"`
+	Concurrency int            `json:"concurrency"`
+	Priority    int            `json:"priority"`
+	ExpiresAt   *int64         `json:"expires_at,omitempty"`
 }
 
 type DataImportRequest struct {
@@ -197,17 +196,16 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			expiresAt = &v
 		}
 		dataAccounts = append(dataAccounts, DataAccount{
-			Name:           acc.Name,
-			Notes:          acc.Notes,
-			Platform:       acc.Platform,
-			Type:           acc.Type,
-			Credentials:    acc.Credentials,
-			Extra:          acc.Extra,
-			ProxyKey:       proxyKey,
-			Concurrency:    acc.Concurrency,
-			Priority:       acc.Priority,
-			RateMultiplier: acc.RateMultiplier,
-			ExpiresAt:      expiresAt,
+			Name:        acc.Name,
+			Notes:       acc.Notes,
+			Platform:    acc.Platform,
+			Type:        acc.Type,
+			Credentials: acc.Credentials,
+			Extra:       acc.Extra,
+			ProxyKey:    proxyKey,
+			Concurrency: acc.Concurrency,
+			Priority:    acc.Priority,
+			ExpiresAt:   expiresAt,
 		})
 	}
 
@@ -426,17 +424,16 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 		enrichCredentialsFromIDToken(&item)
 
 		accountInput := &service.CreateAccountInput{
-			Name:           item.Name,
-			Notes:          item.Notes,
-			Platform:       item.Platform,
-			Type:           item.Type,
-			Credentials:    item.Credentials,
-			Extra:          item.Extra,
-			ProxyID:        proxyID,
-			Concurrency:    item.Concurrency,
-			Priority:       item.Priority,
-			RateMultiplier: item.RateMultiplier,
-			ExpiresAt:      item.ExpiresAt,
+			Name:        item.Name,
+			Notes:       item.Notes,
+			Platform:    item.Platform,
+			Type:        item.Type,
+			Credentials: item.Credentials,
+			Extra:       item.Extra,
+			ProxyID:     proxyID,
+			Concurrency: item.Concurrency,
+			Priority:    item.Priority,
+			ExpiresAt:   item.ExpiresAt,
 		}
 
 		created, err := h.adminService.CreateAccount(ctx, accountInput)
@@ -672,9 +669,6 @@ func validateDataAccount(item DataAccount) error {
 	case service.AccountTypeOAuth, service.AccountTypeSetupToken, service.AccountTypeAPIKey:
 	default:
 		return fmt.Errorf("account type is invalid: %s", item.Type)
-	}
-	if item.RateMultiplier != nil && *item.RateMultiplier < 0 {
-		return errors.New("rate_multiplier must be >= 0")
 	}
 	if item.Concurrency < 0 {
 		return errors.New("concurrency must be >= 0")

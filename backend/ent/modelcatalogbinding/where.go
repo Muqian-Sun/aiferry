@@ -20,14 +20,39 @@ func AccountID(v int64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldAccountID, v))
 }
 
-// Priority applies equality check predicate on the "priority" field. It's identical to PriorityEQ.
-func Priority(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldPriority, v))
+// InputPrice applies equality check predicate on the "input_price" field. It's identical to InputPriceEQ.
+func InputPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldInputPrice, v))
+}
+
+// OutputPrice applies equality check predicate on the "output_price" field. It's identical to OutputPriceEQ.
+func OutputPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldOutputPrice, v))
+}
+
+// CacheWritePrice applies equality check predicate on the "cache_write_price" field. It's identical to CacheWritePriceEQ.
+func CacheWritePrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheWritePrice, v))
+}
+
+// CacheWrite1hPrice applies equality check predicate on the "cache_write_1h_price" field. It's identical to CacheWrite1hPriceEQ.
+func CacheWrite1hPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheWrite1hPrice, v))
+}
+
+// CacheReadPrice applies equality check predicate on the "cache_read_price" field. It's identical to CacheReadPriceEQ.
+func CacheReadPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheReadPrice, v))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCreatedAt, v))
+}
+
+// UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
+func UpdatedAt(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
 // EntryIDEQ applies the EQ predicate on the "entry_id" field.
@@ -70,54 +95,234 @@ func AccountIDNotIn(vs ...int64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldAccountID, vs...))
 }
 
-// PriorityEQ applies the EQ predicate on the "priority" field.
-func PriorityEQ(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldPriority, v))
+// InputPriceEQ applies the EQ predicate on the "input_price" field.
+func InputPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldInputPrice, v))
 }
 
-// PriorityNEQ applies the NEQ predicate on the "priority" field.
-func PriorityNEQ(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldPriority, v))
+// InputPriceNEQ applies the NEQ predicate on the "input_price" field.
+func InputPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldInputPrice, v))
 }
 
-// PriorityIn applies the In predicate on the "priority" field.
-func PriorityIn(vs ...int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldIn(FieldPriority, vs...))
+// InputPriceIn applies the In predicate on the "input_price" field.
+func InputPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldInputPrice, vs...))
 }
 
-// PriorityNotIn applies the NotIn predicate on the "priority" field.
-func PriorityNotIn(vs ...int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldPriority, vs...))
+// InputPriceNotIn applies the NotIn predicate on the "input_price" field.
+func InputPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldInputPrice, vs...))
 }
 
-// PriorityGT applies the GT predicate on the "priority" field.
-func PriorityGT(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldGT(FieldPriority, v))
+// InputPriceGT applies the GT predicate on the "input_price" field.
+func InputPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldInputPrice, v))
 }
 
-// PriorityGTE applies the GTE predicate on the "priority" field.
-func PriorityGTE(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldPriority, v))
+// InputPriceGTE applies the GTE predicate on the "input_price" field.
+func InputPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldInputPrice, v))
 }
 
-// PriorityLT applies the LT predicate on the "priority" field.
-func PriorityLT(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldLT(FieldPriority, v))
+// InputPriceLT applies the LT predicate on the "input_price" field.
+func InputPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldInputPrice, v))
 }
 
-// PriorityLTE applies the LTE predicate on the "priority" field.
-func PriorityLTE(v int) predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldPriority, v))
+// InputPriceLTE applies the LTE predicate on the "input_price" field.
+func InputPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldInputPrice, v))
 }
 
-// PriorityIsNil applies the IsNil predicate on the "priority" field.
-func PriorityIsNil() predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldPriority))
+// OutputPriceEQ applies the EQ predicate on the "output_price" field.
+func OutputPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldOutputPrice, v))
 }
 
-// PriorityNotNil applies the NotNil predicate on the "priority" field.
-func PriorityNotNil() predicate.ModelCatalogBinding {
-	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldPriority))
+// OutputPriceNEQ applies the NEQ predicate on the "output_price" field.
+func OutputPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldOutputPrice, v))
+}
+
+// OutputPriceIn applies the In predicate on the "output_price" field.
+func OutputPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldOutputPrice, vs...))
+}
+
+// OutputPriceNotIn applies the NotIn predicate on the "output_price" field.
+func OutputPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldOutputPrice, vs...))
+}
+
+// OutputPriceGT applies the GT predicate on the "output_price" field.
+func OutputPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldOutputPrice, v))
+}
+
+// OutputPriceGTE applies the GTE predicate on the "output_price" field.
+func OutputPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldOutputPrice, v))
+}
+
+// OutputPriceLT applies the LT predicate on the "output_price" field.
+func OutputPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldOutputPrice, v))
+}
+
+// OutputPriceLTE applies the LTE predicate on the "output_price" field.
+func OutputPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldOutputPrice, v))
+}
+
+// CacheWritePriceEQ applies the EQ predicate on the "cache_write_price" field.
+func CacheWritePriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceNEQ applies the NEQ predicate on the "cache_write_price" field.
+func CacheWritePriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceIn applies the In predicate on the "cache_write_price" field.
+func CacheWritePriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldCacheWritePrice, vs...))
+}
+
+// CacheWritePriceNotIn applies the NotIn predicate on the "cache_write_price" field.
+func CacheWritePriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldCacheWritePrice, vs...))
+}
+
+// CacheWritePriceGT applies the GT predicate on the "cache_write_price" field.
+func CacheWritePriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceGTE applies the GTE predicate on the "cache_write_price" field.
+func CacheWritePriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceLT applies the LT predicate on the "cache_write_price" field.
+func CacheWritePriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceLTE applies the LTE predicate on the "cache_write_price" field.
+func CacheWritePriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldCacheWritePrice, v))
+}
+
+// CacheWritePriceIsNil applies the IsNil predicate on the "cache_write_price" field.
+func CacheWritePriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldCacheWritePrice))
+}
+
+// CacheWritePriceNotNil applies the NotNil predicate on the "cache_write_price" field.
+func CacheWritePriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldCacheWritePrice))
+}
+
+// CacheWrite1hPriceEQ applies the EQ predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceNEQ applies the NEQ predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceIn applies the In predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldCacheWrite1hPrice, vs...))
+}
+
+// CacheWrite1hPriceNotIn applies the NotIn predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldCacheWrite1hPrice, vs...))
+}
+
+// CacheWrite1hPriceGT applies the GT predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceGTE applies the GTE predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceLT applies the LT predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceLTE applies the LTE predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldCacheWrite1hPrice, v))
+}
+
+// CacheWrite1hPriceIsNil applies the IsNil predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldCacheWrite1hPrice))
+}
+
+// CacheWrite1hPriceNotNil applies the NotNil predicate on the "cache_write_1h_price" field.
+func CacheWrite1hPriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldCacheWrite1hPrice))
+}
+
+// CacheReadPriceEQ applies the EQ predicate on the "cache_read_price" field.
+func CacheReadPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceNEQ applies the NEQ predicate on the "cache_read_price" field.
+func CacheReadPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceIn applies the In predicate on the "cache_read_price" field.
+func CacheReadPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldCacheReadPrice, vs...))
+}
+
+// CacheReadPriceNotIn applies the NotIn predicate on the "cache_read_price" field.
+func CacheReadPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldCacheReadPrice, vs...))
+}
+
+// CacheReadPriceGT applies the GT predicate on the "cache_read_price" field.
+func CacheReadPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceGTE applies the GTE predicate on the "cache_read_price" field.
+func CacheReadPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceLT applies the LT predicate on the "cache_read_price" field.
+func CacheReadPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceLTE applies the LTE predicate on the "cache_read_price" field.
+func CacheReadPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldCacheReadPrice, v))
+}
+
+// CacheReadPriceIsNil applies the IsNil predicate on the "cache_read_price" field.
+func CacheReadPriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldCacheReadPrice))
+}
+
+// CacheReadPriceNotNil applies the NotNil predicate on the "cache_read_price" field.
+func CacheReadPriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldCacheReadPrice))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -158,6 +363,46 @@ func CreatedAtLT(v time.Time) predicate.ModelCatalogBinding {
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
 func CreatedAtLTE(v time.Time) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldCreatedAt, v))
+}
+
+// UpdatedAtEQ applies the EQ predicate on the "updated_at" field.
+func UpdatedAtEQ(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpdatedAt, v))
+}
+
+// UpdatedAtNEQ applies the NEQ predicate on the "updated_at" field.
+func UpdatedAtNEQ(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldUpdatedAt, v))
+}
+
+// UpdatedAtIn applies the In predicate on the "updated_at" field.
+func UpdatedAtIn(vs ...time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldUpdatedAt, vs...))
+}
+
+// UpdatedAtNotIn applies the NotIn predicate on the "updated_at" field.
+func UpdatedAtNotIn(vs ...time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldUpdatedAt, vs...))
+}
+
+// UpdatedAtGT applies the GT predicate on the "updated_at" field.
+func UpdatedAtGT(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldUpdatedAt, v))
+}
+
+// UpdatedAtGTE applies the GTE predicate on the "updated_at" field.
+func UpdatedAtGTE(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldUpdatedAt, v))
+}
+
+// UpdatedAtLT applies the LT predicate on the "updated_at" field.
+func UpdatedAtLT(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldUpdatedAt, v))
+}
+
+// UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
+func UpdatedAtLTE(v time.Time) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
 // HasEntry applies the HasEdge predicate on the "entry" edge.

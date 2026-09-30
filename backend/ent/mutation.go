@@ -2301,8 +2301,6 @@ type AccountMutation struct {
 	addload_factor              *int
 	priority                    *int
 	addpriority                 *int
-	rate_multiplier             *float64
-	addrate_multiplier          *float64
 	status                      *string
 	error_message               *string
 	last_used_at                *time.Time
@@ -3120,62 +3118,6 @@ func (m *AccountMutation) AddedPriority() (r int, exists bool) {
 func (m *AccountMutation) ResetPriority() {
 	m.priority = nil
 	m.addpriority = nil
-}
-
-// SetRateMultiplier sets the "rate_multiplier" field.
-func (m *AccountMutation) SetRateMultiplier(f float64) {
-	m.rate_multiplier = &f
-	m.addrate_multiplier = nil
-}
-
-// RateMultiplier returns the value of the "rate_multiplier" field in the mutation.
-func (m *AccountMutation) RateMultiplier() (r float64, exists bool) {
-	v := m.rate_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRateMultiplier returns the old "rate_multiplier" field's value of the Account entity.
-// If the Account object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *AccountMutation) OldRateMultiplier(ctx context.Context) (v float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRateMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRateMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRateMultiplier: %w", err)
-	}
-	return oldValue.RateMultiplier, nil
-}
-
-// AddRateMultiplier adds f to the "rate_multiplier" field.
-func (m *AccountMutation) AddRateMultiplier(f float64) {
-	if m.addrate_multiplier != nil {
-		*m.addrate_multiplier += f
-	} else {
-		m.addrate_multiplier = &f
-	}
-}
-
-// AddedRateMultiplier returns the value that was added to the "rate_multiplier" field in this mutation.
-func (m *AccountMutation) AddedRateMultiplier() (r float64, exists bool) {
-	v := m.addrate_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetRateMultiplier resets all changes to the "rate_multiplier" field.
-func (m *AccountMutation) ResetRateMultiplier() {
-	m.rate_multiplier = nil
-	m.addrate_multiplier = nil
 }
 
 // SetStatus sets the "status" field.
@@ -4173,7 +4115,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 32)
+	fields := make([]string, 0, 31)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4218,9 +4160,6 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.priority != nil {
 		fields = append(fields, account.FieldPriority)
-	}
-	if m.rate_multiplier != nil {
-		fields = append(fields, account.FieldRateMultiplier)
 	}
 	if m.status != nil {
 		fields = append(fields, account.FieldStatus)
@@ -4308,8 +4247,6 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.LoadFactor()
 	case account.FieldPriority:
 		return m.Priority()
-	case account.FieldRateMultiplier:
-		return m.RateMultiplier()
 	case account.FieldStatus:
 		return m.Status()
 	case account.FieldErrorMessage:
@@ -4381,8 +4318,6 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldLoadFactor(ctx)
 	case account.FieldPriority:
 		return m.OldPriority(ctx)
-	case account.FieldRateMultiplier:
-		return m.OldRateMultiplier(ctx)
 	case account.FieldStatus:
 		return m.OldStatus(ctx)
 	case account.FieldErrorMessage:
@@ -4529,13 +4464,6 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetPriority(v)
 		return nil
-	case account.FieldRateMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRateMultiplier(v)
-		return nil
 	case account.FieldStatus:
 		v, ok := value.(string)
 		if !ok {
@@ -4668,9 +4596,6 @@ func (m *AccountMutation) AddedFields() []string {
 	if m.addpriority != nil {
 		fields = append(fields, account.FieldPriority)
 	}
-	if m.addrate_multiplier != nil {
-		fields = append(fields, account.FieldRateMultiplier)
-	}
 	return fields
 }
 
@@ -4687,8 +4612,6 @@ func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedLoadFactor()
 	case account.FieldPriority:
 		return m.AddedPriority()
-	case account.FieldRateMultiplier:
-		return m.AddedRateMultiplier()
 	}
 	return nil, false
 }
@@ -4725,13 +4648,6 @@ func (m *AccountMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPriority(v)
-		return nil
-	case account.FieldRateMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddRateMultiplier(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Account numeric field %s", name)
@@ -4909,9 +4825,6 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldPriority:
 		m.ResetPriority()
-		return nil
-	case account.FieldRateMultiplier:
-		m.ResetRateMultiplier()
 		return nil
 	case account.FieldStatus:
 		m.ResetStatus()
@@ -22951,19 +22864,30 @@ func (m *ModelCatalogAliasMutation) ResetEdge(name string) error {
 // ModelCatalogBindingMutation represents an operation that mutates the ModelCatalogBinding nodes in the graph.
 type ModelCatalogBindingMutation struct {
 	config
-	op             Op
-	typ            string
-	priority       *int
-	addpriority    *int
-	created_at     *time.Time
-	clearedFields  map[string]struct{}
-	entry          *int64
-	clearedentry   bool
-	account        *int64
-	clearedaccount bool
-	done           bool
-	oldValue       func(context.Context) (*ModelCatalogBinding, error)
-	predicates     []predicate.ModelCatalogBinding
+	op                      Op
+	typ                     string
+	input_price             *float64
+	addinput_price          *float64
+	output_price            *float64
+	addoutput_price         *float64
+	cache_write_price       *float64
+	addcache_write_price    *float64
+	cache_write_1h_price    *float64
+	addcache_write_1h_price *float64
+	cache_read_price        *float64
+	addcache_read_price     *float64
+	price_intervals         *[]domain.PriceSegment
+	appendprice_intervals   []domain.PriceSegment
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	entry                   *int64
+	clearedentry            bool
+	account                 *int64
+	clearedaccount          bool
+	done                    bool
+	oldValue                func(context.Context) (*ModelCatalogBinding, error)
+	predicates              []predicate.ModelCatalogBinding
 }
 
 var _ ent.Mutation = (*ModelCatalogBindingMutation)(nil)
@@ -23042,57 +22966,275 @@ func (m *ModelCatalogBindingMutation) ResetAccountID() {
 	m.account = nil
 }
 
-// SetPriority sets the "priority" field.
-func (m *ModelCatalogBindingMutation) SetPriority(i int) {
-	m.priority = &i
-	m.addpriority = nil
+// SetInputPrice sets the "input_price" field.
+func (m *ModelCatalogBindingMutation) SetInputPrice(f float64) {
+	m.input_price = &f
+	m.addinput_price = nil
 }
 
-// Priority returns the value of the "priority" field in the mutation.
-func (m *ModelCatalogBindingMutation) Priority() (r int, exists bool) {
-	v := m.priority
+// InputPrice returns the value of the "input_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) InputPrice() (r float64, exists bool) {
+	v := m.input_price
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// AddPriority adds i to the "priority" field.
-func (m *ModelCatalogBindingMutation) AddPriority(i int) {
-	if m.addpriority != nil {
-		*m.addpriority += i
+// AddInputPrice adds f to the "input_price" field.
+func (m *ModelCatalogBindingMutation) AddInputPrice(f float64) {
+	if m.addinput_price != nil {
+		*m.addinput_price += f
 	} else {
-		m.addpriority = &i
+		m.addinput_price = &f
 	}
 }
 
-// AddedPriority returns the value that was added to the "priority" field in this mutation.
-func (m *ModelCatalogBindingMutation) AddedPriority() (r int, exists bool) {
-	v := m.addpriority
+// AddedInputPrice returns the value that was added to the "input_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedInputPrice() (r float64, exists bool) {
+	v := m.addinput_price
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (m *ModelCatalogBindingMutation) ClearPriority() {
-	m.priority = nil
-	m.addpriority = nil
-	m.clearedFields[modelcatalogbinding.FieldPriority] = struct{}{}
+// ResetInputPrice resets all changes to the "input_price" field.
+func (m *ModelCatalogBindingMutation) ResetInputPrice() {
+	m.input_price = nil
+	m.addinput_price = nil
 }
 
-// PriorityCleared returns if the "priority" field was cleared in this mutation.
-func (m *ModelCatalogBindingMutation) PriorityCleared() bool {
-	_, ok := m.clearedFields[modelcatalogbinding.FieldPriority]
+// SetOutputPrice sets the "output_price" field.
+func (m *ModelCatalogBindingMutation) SetOutputPrice(f float64) {
+	m.output_price = &f
+	m.addoutput_price = nil
+}
+
+// OutputPrice returns the value of the "output_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) OutputPrice() (r float64, exists bool) {
+	v := m.output_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddOutputPrice adds f to the "output_price" field.
+func (m *ModelCatalogBindingMutation) AddOutputPrice(f float64) {
+	if m.addoutput_price != nil {
+		*m.addoutput_price += f
+	} else {
+		m.addoutput_price = &f
+	}
+}
+
+// AddedOutputPrice returns the value that was added to the "output_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedOutputPrice() (r float64, exists bool) {
+	v := m.addoutput_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputPrice resets all changes to the "output_price" field.
+func (m *ModelCatalogBindingMutation) ResetOutputPrice() {
+	m.output_price = nil
+	m.addoutput_price = nil
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (m *ModelCatalogBindingMutation) SetCacheWritePrice(f float64) {
+	m.cache_write_price = &f
+	m.addcache_write_price = nil
+}
+
+// CacheWritePrice returns the value of the "cache_write_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) CacheWritePrice() (r float64, exists bool) {
+	v := m.cache_write_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddCacheWritePrice adds f to the "cache_write_price" field.
+func (m *ModelCatalogBindingMutation) AddCacheWritePrice(f float64) {
+	if m.addcache_write_price != nil {
+		*m.addcache_write_price += f
+	} else {
+		m.addcache_write_price = &f
+	}
+}
+
+// AddedCacheWritePrice returns the value that was added to the "cache_write_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedCacheWritePrice() (r float64, exists bool) {
+	v := m.addcache_write_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (m *ModelCatalogBindingMutation) ClearCacheWritePrice() {
+	m.cache_write_price = nil
+	m.addcache_write_price = nil
+	m.clearedFields[modelcatalogbinding.FieldCacheWritePrice] = struct{}{}
+}
+
+// CacheWritePriceCleared returns if the "cache_write_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) CacheWritePriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldCacheWritePrice]
 	return ok
 }
 
-// ResetPriority resets all changes to the "priority" field.
-func (m *ModelCatalogBindingMutation) ResetPriority() {
-	m.priority = nil
-	m.addpriority = nil
-	delete(m.clearedFields, modelcatalogbinding.FieldPriority)
+// ResetCacheWritePrice resets all changes to the "cache_write_price" field.
+func (m *ModelCatalogBindingMutation) ResetCacheWritePrice() {
+	m.cache_write_price = nil
+	m.addcache_write_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldCacheWritePrice)
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (m *ModelCatalogBindingMutation) SetCacheWrite1hPrice(f float64) {
+	m.cache_write_1h_price = &f
+	m.addcache_write_1h_price = nil
+}
+
+// CacheWrite1hPrice returns the value of the "cache_write_1h_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) CacheWrite1hPrice() (r float64, exists bool) {
+	v := m.cache_write_1h_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddCacheWrite1hPrice adds f to the "cache_write_1h_price" field.
+func (m *ModelCatalogBindingMutation) AddCacheWrite1hPrice(f float64) {
+	if m.addcache_write_1h_price != nil {
+		*m.addcache_write_1h_price += f
+	} else {
+		m.addcache_write_1h_price = &f
+	}
+}
+
+// AddedCacheWrite1hPrice returns the value that was added to the "cache_write_1h_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedCacheWrite1hPrice() (r float64, exists bool) {
+	v := m.addcache_write_1h_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (m *ModelCatalogBindingMutation) ClearCacheWrite1hPrice() {
+	m.cache_write_1h_price = nil
+	m.addcache_write_1h_price = nil
+	m.clearedFields[modelcatalogbinding.FieldCacheWrite1hPrice] = struct{}{}
+}
+
+// CacheWrite1hPriceCleared returns if the "cache_write_1h_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) CacheWrite1hPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldCacheWrite1hPrice]
+	return ok
+}
+
+// ResetCacheWrite1hPrice resets all changes to the "cache_write_1h_price" field.
+func (m *ModelCatalogBindingMutation) ResetCacheWrite1hPrice() {
+	m.cache_write_1h_price = nil
+	m.addcache_write_1h_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldCacheWrite1hPrice)
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (m *ModelCatalogBindingMutation) SetCacheReadPrice(f float64) {
+	m.cache_read_price = &f
+	m.addcache_read_price = nil
+}
+
+// CacheReadPrice returns the value of the "cache_read_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) CacheReadPrice() (r float64, exists bool) {
+	v := m.cache_read_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddCacheReadPrice adds f to the "cache_read_price" field.
+func (m *ModelCatalogBindingMutation) AddCacheReadPrice(f float64) {
+	if m.addcache_read_price != nil {
+		*m.addcache_read_price += f
+	} else {
+		m.addcache_read_price = &f
+	}
+}
+
+// AddedCacheReadPrice returns the value that was added to the "cache_read_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedCacheReadPrice() (r float64, exists bool) {
+	v := m.addcache_read_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (m *ModelCatalogBindingMutation) ClearCacheReadPrice() {
+	m.cache_read_price = nil
+	m.addcache_read_price = nil
+	m.clearedFields[modelcatalogbinding.FieldCacheReadPrice] = struct{}{}
+}
+
+// CacheReadPriceCleared returns if the "cache_read_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) CacheReadPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldCacheReadPrice]
+	return ok
+}
+
+// ResetCacheReadPrice resets all changes to the "cache_read_price" field.
+func (m *ModelCatalogBindingMutation) ResetCacheReadPrice() {
+	m.cache_read_price = nil
+	m.addcache_read_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldCacheReadPrice)
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (m *ModelCatalogBindingMutation) SetPriceIntervals(ds []domain.PriceSegment) {
+	m.price_intervals = &ds
+	m.appendprice_intervals = nil
+}
+
+// PriceIntervals returns the value of the "price_intervals" field in the mutation.
+func (m *ModelCatalogBindingMutation) PriceIntervals() (r []domain.PriceSegment, exists bool) {
+	v := m.price_intervals
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AppendPriceIntervals adds ds to the "price_intervals" field.
+func (m *ModelCatalogBindingMutation) AppendPriceIntervals(ds []domain.PriceSegment) {
+	m.appendprice_intervals = append(m.appendprice_intervals, ds...)
+}
+
+// AppendedPriceIntervals returns the list of values that were appended to the "price_intervals" field in this mutation.
+func (m *ModelCatalogBindingMutation) AppendedPriceIntervals() ([]domain.PriceSegment, bool) {
+	if len(m.appendprice_intervals) == 0 {
+		return nil, false
+	}
+	return m.appendprice_intervals, true
+}
+
+// ResetPriceIntervals resets all changes to the "price_intervals" field.
+func (m *ModelCatalogBindingMutation) ResetPriceIntervals() {
+	m.price_intervals = nil
+	m.appendprice_intervals = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -23112,6 +23254,25 @@ func (m *ModelCatalogBindingMutation) CreatedAt() (r time.Time, exists bool) {
 // ResetCreatedAt resets all changes to the "created_at" field.
 func (m *ModelCatalogBindingMutation) ResetCreatedAt() {
 	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ModelCatalogBindingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ModelCatalogBindingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ModelCatalogBindingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
 }
 
 // ClearEntry clears the "entry" edge to the ModelCatalogEntry entity.
@@ -23202,18 +23363,36 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 10)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
 	if m.account != nil {
 		fields = append(fields, modelcatalogbinding.FieldAccountID)
 	}
-	if m.priority != nil {
-		fields = append(fields, modelcatalogbinding.FieldPriority)
+	if m.input_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldInputPrice)
+	}
+	if m.output_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldOutputPrice)
+	}
+	if m.cache_write_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheWritePrice)
+	}
+	if m.cache_write_1h_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheWrite1hPrice)
+	}
+	if m.cache_read_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
+	}
+	if m.price_intervals != nil {
+		fields = append(fields, modelcatalogbinding.FieldPriceIntervals)
 	}
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogbinding.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, modelcatalogbinding.FieldUpdatedAt)
 	}
 	return fields
 }
@@ -23227,10 +23406,22 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.EntryID()
 	case modelcatalogbinding.FieldAccountID:
 		return m.AccountID()
-	case modelcatalogbinding.FieldPriority:
-		return m.Priority()
+	case modelcatalogbinding.FieldInputPrice:
+		return m.InputPrice()
+	case modelcatalogbinding.FieldOutputPrice:
+		return m.OutputPrice()
+	case modelcatalogbinding.FieldCacheWritePrice:
+		return m.CacheWritePrice()
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		return m.CacheWrite1hPrice()
+	case modelcatalogbinding.FieldCacheReadPrice:
+		return m.CacheReadPrice()
+	case modelcatalogbinding.FieldPriceIntervals:
+		return m.PriceIntervals()
 	case modelcatalogbinding.FieldCreatedAt:
 		return m.CreatedAt()
+	case modelcatalogbinding.FieldUpdatedAt:
+		return m.UpdatedAt()
 	}
 	return nil, false
 }
@@ -23261,12 +23452,47 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetAccountID(v)
 		return nil
-	case modelcatalogbinding.FieldPriority:
-		v, ok := value.(int)
+	case modelcatalogbinding.FieldInputPrice:
+		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetPriority(v)
+		m.SetInputPrice(v)
+		return nil
+	case modelcatalogbinding.FieldOutputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputPrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheWritePrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheWritePrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheWrite1hPrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheReadPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadPrice(v)
+		return nil
+	case modelcatalogbinding.FieldPriceIntervals:
+		v, ok := value.([]domain.PriceSegment)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPriceIntervals(v)
 		return nil
 	case modelcatalogbinding.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -23274,6 +23500,13 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCreatedAt(v)
+		return nil
+	case modelcatalogbinding.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding field %s", name)
@@ -23283,8 +23516,20 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 // this mutation.
 func (m *ModelCatalogBindingMutation) AddedFields() []string {
 	var fields []string
-	if m.addpriority != nil {
-		fields = append(fields, modelcatalogbinding.FieldPriority)
+	if m.addinput_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldInputPrice)
+	}
+	if m.addoutput_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldOutputPrice)
+	}
+	if m.addcache_write_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheWritePrice)
+	}
+	if m.addcache_write_1h_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheWrite1hPrice)
+	}
+	if m.addcache_read_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
 	}
 	return fields
 }
@@ -23294,8 +23539,16 @@ func (m *ModelCatalogBindingMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
-	case modelcatalogbinding.FieldPriority:
-		return m.AddedPriority()
+	case modelcatalogbinding.FieldInputPrice:
+		return m.AddedInputPrice()
+	case modelcatalogbinding.FieldOutputPrice:
+		return m.AddedOutputPrice()
+	case modelcatalogbinding.FieldCacheWritePrice:
+		return m.AddedCacheWritePrice()
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		return m.AddedCacheWrite1hPrice()
+	case modelcatalogbinding.FieldCacheReadPrice:
+		return m.AddedCacheReadPrice()
 	}
 	return nil, false
 }
@@ -23305,12 +23558,40 @@ func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) 
 // type.
 func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) error {
 	switch name {
-	case modelcatalogbinding.FieldPriority:
-		v, ok := value.(int)
+	case modelcatalogbinding.FieldInputPrice:
+		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.AddPriority(v)
+		m.AddInputPrice(v)
+		return nil
+	case modelcatalogbinding.FieldOutputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputPrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheWritePrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheWritePrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheWrite1hPrice(v)
+		return nil
+	case modelcatalogbinding.FieldCacheReadPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheReadPrice(v)
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding numeric field %s", name)
@@ -23320,8 +23601,14 @@ func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) err
 // mutation.
 func (m *ModelCatalogBindingMutation) ClearedFields() []string {
 	var fields []string
-	if m.FieldCleared(modelcatalogbinding.FieldPriority) {
-		fields = append(fields, modelcatalogbinding.FieldPriority)
+	if m.FieldCleared(modelcatalogbinding.FieldCacheWritePrice) {
+		fields = append(fields, modelcatalogbinding.FieldCacheWritePrice)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldCacheWrite1hPrice) {
+		fields = append(fields, modelcatalogbinding.FieldCacheWrite1hPrice)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldCacheReadPrice) {
+		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
 	}
 	return fields
 }
@@ -23337,8 +23624,14 @@ func (m *ModelCatalogBindingMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *ModelCatalogBindingMutation) ClearField(name string) error {
 	switch name {
-	case modelcatalogbinding.FieldPriority:
-		m.ClearPriority()
+	case modelcatalogbinding.FieldCacheWritePrice:
+		m.ClearCacheWritePrice()
+		return nil
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		m.ClearCacheWrite1hPrice()
+		return nil
+	case modelcatalogbinding.FieldCacheReadPrice:
+		m.ClearCacheReadPrice()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding nullable field %s", name)
@@ -23354,11 +23647,29 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 	case modelcatalogbinding.FieldAccountID:
 		m.ResetAccountID()
 		return nil
-	case modelcatalogbinding.FieldPriority:
-		m.ResetPriority()
+	case modelcatalogbinding.FieldInputPrice:
+		m.ResetInputPrice()
+		return nil
+	case modelcatalogbinding.FieldOutputPrice:
+		m.ResetOutputPrice()
+		return nil
+	case modelcatalogbinding.FieldCacheWritePrice:
+		m.ResetCacheWritePrice()
+		return nil
+	case modelcatalogbinding.FieldCacheWrite1hPrice:
+		m.ResetCacheWrite1hPrice()
+		return nil
+	case modelcatalogbinding.FieldCacheReadPrice:
+		m.ResetCacheReadPrice()
+		return nil
+	case modelcatalogbinding.FieldPriceIntervals:
+		m.ResetPriceIntervals()
 		return nil
 	case modelcatalogbinding.FieldCreatedAt:
 		m.ResetCreatedAt()
+		return nil
+	case modelcatalogbinding.FieldUpdatedAt:
+		m.ResetUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding field %s", name)
@@ -42548,8 +42859,8 @@ type UsageLogMutation struct {
 	addactual_cost              *float64
 	rate_multiplier             *float64
 	addrate_multiplier          *float64
-	account_rate_multiplier     *float64
-	addaccount_rate_multiplier  *float64
+	account_cost                *float64
+	addaccount_cost             *float64
 	billing_type                *int8
 	addbilling_type             *int8
 	stream                      *bool
@@ -43887,74 +44198,60 @@ func (m *UsageLogMutation) ResetRateMultiplier() {
 	m.addrate_multiplier = nil
 }
 
-// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
-func (m *UsageLogMutation) SetAccountRateMultiplier(f float64) {
-	m.account_rate_multiplier = &f
-	m.addaccount_rate_multiplier = nil
+// SetAccountCost sets the "account_cost" field.
+func (m *UsageLogMutation) SetAccountCost(f float64) {
+	m.account_cost = &f
+	m.addaccount_cost = nil
 }
 
-// AccountRateMultiplier returns the value of the "account_rate_multiplier" field in the mutation.
-func (m *UsageLogMutation) AccountRateMultiplier() (r float64, exists bool) {
-	v := m.account_rate_multiplier
+// AccountCost returns the value of the "account_cost" field in the mutation.
+func (m *UsageLogMutation) AccountCost() (r float64, exists bool) {
+	v := m.account_cost
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldAccountRateMultiplier returns the old "account_rate_multiplier" field's value of the UsageLog entity.
+// OldAccountCost returns the old "account_cost" field's value of the UsageLog entity.
 // If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UsageLogMutation) OldAccountRateMultiplier(ctx context.Context) (v *float64, err error) {
+func (m *UsageLogMutation) OldAccountCost(ctx context.Context) (v float64, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldAccountRateMultiplier is only allowed on UpdateOne operations")
+		return v, errors.New("OldAccountCost is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldAccountRateMultiplier requires an ID field in the mutation")
+		return v, errors.New("OldAccountCost requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldAccountRateMultiplier: %w", err)
+		return v, fmt.Errorf("querying old value for OldAccountCost: %w", err)
 	}
-	return oldValue.AccountRateMultiplier, nil
+	return oldValue.AccountCost, nil
 }
 
-// AddAccountRateMultiplier adds f to the "account_rate_multiplier" field.
-func (m *UsageLogMutation) AddAccountRateMultiplier(f float64) {
-	if m.addaccount_rate_multiplier != nil {
-		*m.addaccount_rate_multiplier += f
+// AddAccountCost adds f to the "account_cost" field.
+func (m *UsageLogMutation) AddAccountCost(f float64) {
+	if m.addaccount_cost != nil {
+		*m.addaccount_cost += f
 	} else {
-		m.addaccount_rate_multiplier = &f
+		m.addaccount_cost = &f
 	}
 }
 
-// AddedAccountRateMultiplier returns the value that was added to the "account_rate_multiplier" field in this mutation.
-func (m *UsageLogMutation) AddedAccountRateMultiplier() (r float64, exists bool) {
-	v := m.addaccount_rate_multiplier
+// AddedAccountCost returns the value that was added to the "account_cost" field in this mutation.
+func (m *UsageLogMutation) AddedAccountCost() (r float64, exists bool) {
+	v := m.addaccount_cost
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
-func (m *UsageLogMutation) ClearAccountRateMultiplier() {
-	m.account_rate_multiplier = nil
-	m.addaccount_rate_multiplier = nil
-	m.clearedFields[usagelog.FieldAccountRateMultiplier] = struct{}{}
-}
-
-// AccountRateMultiplierCleared returns if the "account_rate_multiplier" field was cleared in this mutation.
-func (m *UsageLogMutation) AccountRateMultiplierCleared() bool {
-	_, ok := m.clearedFields[usagelog.FieldAccountRateMultiplier]
-	return ok
-}
-
-// ResetAccountRateMultiplier resets all changes to the "account_rate_multiplier" field.
-func (m *UsageLogMutation) ResetAccountRateMultiplier() {
-	m.account_rate_multiplier = nil
-	m.addaccount_rate_multiplier = nil
-	delete(m.clearedFields, usagelog.FieldAccountRateMultiplier)
+// ResetAccountCost resets all changes to the "account_cost" field.
+func (m *UsageLogMutation) ResetAccountCost() {
+	m.account_cost = nil
+	m.addaccount_cost = nil
 }
 
 // SetBillingType sets the "billing_type" field.
@@ -45050,8 +45347,8 @@ func (m *UsageLogMutation) Fields() []string {
 	if m.rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
 	}
-	if m.account_rate_multiplier != nil {
-		fields = append(fields, usagelog.FieldAccountRateMultiplier)
+	if m.account_cost != nil {
+		fields = append(fields, usagelog.FieldAccountCost)
 	}
 	if m.billing_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
@@ -45160,8 +45457,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.RateMultiplier()
-	case usagelog.FieldAccountRateMultiplier:
-		return m.AccountRateMultiplier()
+	case usagelog.FieldAccountCost:
+		return m.AccountCost()
 	case usagelog.FieldBillingType:
 		return m.BillingType()
 	case usagelog.FieldStream:
@@ -45253,8 +45550,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldActualCost(ctx)
 	case usagelog.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
-	case usagelog.FieldAccountRateMultiplier:
-		return m.OldAccountRateMultiplier(ctx)
+	case usagelog.FieldAccountCost:
+		return m.OldAccountCost(ctx)
 	case usagelog.FieldBillingType:
 		return m.OldBillingType(ctx)
 	case usagelog.FieldStream:
@@ -45466,12 +45763,12 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRateMultiplier(v)
 		return nil
-	case usagelog.FieldAccountRateMultiplier:
+	case usagelog.FieldAccountCost:
 		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetAccountRateMultiplier(v)
+		m.SetAccountCost(v)
 		return nil
 	case usagelog.FieldBillingType:
 		v, ok := value.(int8)
@@ -45639,8 +45936,8 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
 	}
-	if m.addaccount_rate_multiplier != nil {
-		fields = append(fields, usagelog.FieldAccountRateMultiplier)
+	if m.addaccount_cost != nil {
+		fields = append(fields, usagelog.FieldAccountCost)
 	}
 	if m.addbilling_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
@@ -45694,8 +45991,8 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
-	case usagelog.FieldAccountRateMultiplier:
-		return m.AddedAccountRateMultiplier()
+	case usagelog.FieldAccountCost:
+		return m.AddedAccountCost()
 	case usagelog.FieldBillingType:
 		return m.AddedBillingType()
 	case usagelog.FieldDurationMs:
@@ -45808,12 +46105,12 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddRateMultiplier(v)
 		return nil
-	case usagelog.FieldAccountRateMultiplier:
+	case usagelog.FieldAccountCost:
 		v, ok := value.(float64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.AddAccountRateMultiplier(v)
+		m.AddAccountCost(v)
 		return nil
 	case usagelog.FieldBillingType:
 		v, ok := value.(int8)
@@ -45883,9 +46180,6 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
-	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
-		fields = append(fields, usagelog.FieldAccountRateMultiplier)
-	}
 	if m.FieldCleared(usagelog.FieldDurationMs) {
 		fields = append(fields, usagelog.FieldDurationMs)
 	}
@@ -45950,9 +46244,6 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
-		return nil
-	case usagelog.FieldAccountRateMultiplier:
-		m.ClearAccountRateMultiplier()
 		return nil
 	case usagelog.FieldDurationMs:
 		m.ClearDurationMs()
@@ -46067,8 +46358,8 @@ func (m *UsageLogMutation) ResetField(name string) error {
 	case usagelog.FieldRateMultiplier:
 		m.ResetRateMultiplier()
 		return nil
-	case usagelog.FieldAccountRateMultiplier:
-		m.ResetAccountRateMultiplier()
+	case usagelog.FieldAccountCost:
+		m.ResetAccountCost()
 		return nil
 	case usagelog.FieldBillingType:
 		m.ResetBillingType()

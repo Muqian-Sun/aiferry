@@ -13,9 +13,9 @@ package service
 //     与 RecordUsage 完全同源，一个请求不会中途变价。
 //   - profit_min_margin（最低毛利率）是全站一档的后台设置，也是唯一的开关：
 //     填 0 = 不装门。
-//   - U（上游成本倍率）取 accounts.rate_multiplier。倍率可以由运营者手工维护，
-//     也可以由上游倍率探测同步写回；利润门不再耦合探测协议、新鲜度或账号类型。
-//     0 是合法的免费上游倍率；nil、负数、NaN、Inf 属于非法数据并保守拒绝。
+//   - U（上游成本比）= 这个渠道给这个模型的上游价 ÷ 官方价，逐项、逐段取最高的一个
+//     （bindingCostRatio；D3，muqian 2026-09-30）。模型取本请求的目录路由；找不到这个渠道的
+//     承接关系（没有上游价）时保守拒绝。
 //
 // 装门点（gate 随 ctx 传播，请求内复用，覆盖等待/重试/failover/抢槽后终检）：
 //   - handler 各文本入口经 WithOpenAIRequestPricingContext 在请求开始统一装门并
@@ -71,8 +71,8 @@ const (
 
 	// 进入 openAISelectionFilterStats 的排除原因，全排除时出现在
 	// "no available accounts" 的内部统计摘要里（与 quota_auto_pause 等同通道）。
-	openAIProfitFilterReasonThreshold          = "profit_threshold"
-	openAIProfitFilterReasonInvalidAccountRate = "profit_invalid_account_rate"
+	openAIProfitFilterReasonThreshold            = "profit_threshold"
+	openAIProfitFilterReasonMissingUpstreamPrice = "profit_missing_upstream_price"
 
 	// profitControlActivityLogInterval 是按分组采样输出累计计数的最小间隔。
 	profitControlActivityLogInterval = 5 * time.Minute
@@ -109,7 +109,7 @@ func profitControlOverThreshold(upstream, threshold float64) bool {
 // openAIProfitControlGate 是一个请求的利润准入门。除 pricingAt 外全部为预计算
 // 标量：候选过滤热路径上每账号只做一次快照解码与一次浮点比较。
 type openAIProfitControlGate struct {
-	// threshold = D(pricingAt) × (1 − min_margin)，账号倍率必须 <= 它。
+	// threshold = D(pricingAt) × (1 − min_margin)，上游成本比必须 <= 它。
 	// min_margin 是全站一档的全局设置；同一请求的 failover 重入复用同一个门。
 	threshold float64
 	// pricingAt 是本请求的统一定价时刻（D 侧）。
@@ -246,14 +246,16 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 	if gate == nil || account == nil {
 		return false, ""
 	}
-	if account.RateMultiplier == nil ||
-		math.IsNaN(*account.RateMultiplier) ||
-		math.IsInf(*account.RateMultiplier, 0) ||
-		*account.RateMultiplier < 0 {
-		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonInvalidAccountRate)
-		return true, openAIProfitFilterReasonInvalidAccountRate
+	// 门只装在目录路由的 token 请求上；没有路由就没有可比的官方价，不拦。
+	route, ok := CatalogRouteFromContext(ctx)
+	if !ok || route.Entry == nil {
+		return false, ""
 	}
-	upstream := *account.RateMultiplier
+	upstream, ok := bindingCostRatio(route.Entry, route.Entry.BindingFor(account.ID))
+	if !ok {
+		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonMissingUpstreamPrice)
+		return true, openAIProfitFilterReasonMissingUpstreamPrice
+	}
 	if profitControlOverThreshold(upstream, gate.threshold) {
 		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonThreshold)
 		return true, openAIProfitFilterReasonThreshold
@@ -270,8 +272,8 @@ func OpenAIProfitControlVeto(ctx context.Context, account *Account) (bool, strin
 
 // ProfitControlVetoLatest performs the handler-side terminal check after a
 // concurrency slot is actually acquired. The latest cached account replaces
-// the selection snapshot when available, so a probe/manual rate change during
-// wait time cannot pass on a stale pointer.
+// the selection snapshot when available; the upstream cost ratio comes from the
+// request's catalog route (see openAIProfitControlVetoReason).
 func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, selected *Account) (*Account, bool, string) {
 	if s == nil {
 		return selected, false, ""
@@ -288,7 +290,7 @@ func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, sele
 type openAIProfitControlStats struct {
 	installs         atomic.Int64
 	vetoThreshold    atomic.Int64
-	vetoInvalidRate  atomic.Int64
+	vetoMissingPrice atomic.Int64
 	refreshFailures  atomic.Int64
 	lastLogUnixMilli atomic.Int64
 }
@@ -308,8 +310,8 @@ func (o *openAIProfitControlObserver) recordVeto(threshold float64, reason strin
 	switch reason {
 	case openAIProfitFilterReasonThreshold:
 		o.stats.vetoThreshold.Add(1)
-	case openAIProfitFilterReasonInvalidAccountRate:
-		o.stats.vetoInvalidRate.Add(1)
+	case openAIProfitFilterReasonMissingUpstreamPrice:
+		o.stats.vetoMissingPrice.Add(1)
 	}
 	o.maybeLog(threshold)
 }
@@ -335,7 +337,7 @@ func (o *openAIProfitControlObserver) maybeLog(threshold float64) {
 		"threshold", threshold,
 		"installs_total", s.installs.Load(),
 		"veto_threshold_total", s.vetoThreshold.Load(),
-		"veto_invalid_account_rate_total", s.vetoInvalidRate.Load(),
+		"veto_missing_upstream_price_total", s.vetoMissingPrice.Load(),
 		"refresh_failure_total", s.refreshFailures.Load(),
 	)
 }

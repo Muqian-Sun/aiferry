@@ -185,7 +185,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.Model,
 	)
 	billingModels = s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, billingModels)
-	cost, err = s.calculateOpenAIRecordUsageCost(
+	var tokenPath bool
+	cost, tokenPath, err = s.calculateOpenAIRecordUsageCost(
 		ctx,
 		result,
 		apiKey,
@@ -216,9 +217,15 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		billingType = BillingTypeSubscription
 	}
 
+	// 渠道成本 = token 用量 × 这个渠道给这个模型的上游价（媒体用量与算不出用户价的请求记 0）
+	accountCost := 0.0
+	if tokenPath && err == nil {
+		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, billingModels,
+			tokens, pricingAt, optionalStringValue(result.ReasoningEffort))
+	}
+
 	// Create usage log
 	durationMs := int(result.Duration.Milliseconds())
-	accountRateMultiplier := account.BillingRateMultiplier()
 	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
 	if result.OpenAIWSMode {
 		if upstreamRequestID := strings.TrimSpace(result.RequestID); upstreamRequestID != "" {
@@ -310,7 +317,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.ActualCost = cost.ActualCost
 	}
 	usageLog.RateMultiplier = multiplier
-	usageLog.AccountRateMultiplier = &accountRateMultiplier
+	usageLog.AccountCost = accountCost
 	usageLog.BillingType = billingType
 	usageLog.Stream = result.Stream
 	if input.CyberBlocked {
@@ -362,15 +369,15 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	billingErr := func() error {
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-			Cost:                  cost,
-			User:                  user,
-			APIKey:                apiKey,
-			Account:               account,
-			Subscription:          subscription,
-			RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-			IsSubscriptionBill:    isSubscriptionBilling,
-			AccountRateMultiplier: accountRateMultiplier,
-			APIKeyService:         input.APIKeyService,
+			Cost:               cost,
+			User:               user,
+			APIKey:             apiKey,
+			Account:            account,
+			Subscription:       subscription,
+			RequestPayloadHash: resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+			IsSubscriptionBill: isSubscriptionBilling,
+			AccountCost:        accountCost,
+			APIKeyService:      input.APIKeyService,
 		}, s.billingDeps(), s.usageBillingRepo)
 		return err
 	}()
@@ -395,15 +402,15 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	multiplier float64,
 	tokens UsageTokens,
 	pricingAt time.Time,
-) (*CostBreakdown, error) {
+) (cost *CostBreakdown, tokenPath bool, err error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	// 媒体用量（alpha search / 音频 / 视频 / 图片）按目录条目计价；图片落在 token 模式条目
 	// （gpt-image-*）时回到下面的 token 路径。图片 / 视频倍率与 token 倍率是同一个数。
 	if cost, handled, err := s.billingService.CalculateMediaCost(ctx, s.resolver, billingModel, mediaUsageFromOpenAIForwardResult(result), multiplier); handled {
 		if err != nil {
-			return nil, fmt.Errorf("calculate OpenAI media usage cost failed for %s: %w", billingModel, err)
+			return nil, false, fmt.Errorf("calculate OpenAI media usage cost failed for %s: %w", billingModel, err)
 		}
-		return cost, nil
+		return cost, false, nil
 	}
 
 	// Token path (optional search surcharge is additive — never replaces token cost).
@@ -444,11 +451,11 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 			if lastErr == nil {
 				lastErr = fmt.Errorf("%w: no non-empty billing model candidates", ErrModelPricingUnavailable)
 			}
-			return nil, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
+			return nil, true, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
 		}
 		// Search-only (no model / pure tool path): allow search billing alone.
 		if searchCost != nil {
-			return searchCost, nil
+			return searchCost, true, nil
 		}
 		// 空候选按「无价可循」处理并携带 ErrModelPricingUnavailable：上层据此走
 		// 零成本+告警落账，而不是丢弃整条 usage 记录。CN 账号的 claude-* 候选被
@@ -456,15 +463,15 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if lastErr == nil {
 			lastErr = fmt.Errorf("%w: openai usage billing model is empty", ErrModelPricingUnavailable)
 		}
-		return nil, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
+		return nil, true, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
 	}
 	if searchCost == nil || (searchCost.TotalCost == 0 && searchCost.ActualCost == 0) {
-		return tokenCost, nil
+		return tokenCost, true, nil
 	}
 	// Additive: tokens + search surcharge.
 	tokenCost.TotalCost += searchCost.TotalCost
 	tokenCost.ActualCost += searchCost.ActualCost
-	return tokenCost, nil
+	return tokenCost, true, nil
 }
 
 func isUsagePricingUnavailableError(err error) bool {

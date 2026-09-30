@@ -3,6 +3,7 @@ package admin
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -12,7 +13,7 @@ import (
 // ModelCatalogHandler 处理模型目录的管理端请求。
 type ModelCatalogHandler struct {
 	service *service.ModelCatalogService
-	// accounts 绑定资源时按 ID 取账号做承接校验与展示；生产上是 AdminService。
+	// accounts 承接关系列表与诊断里按 ID 取账号做展示；生产上是 AdminService。
 	accounts service.CatalogBindingAccountSource
 }
 
@@ -87,23 +88,19 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 	}
 }
 
-// ModelCatalogBindingRequest 是条目绑定资源的整份覆盖请求体。
-type ModelCatalogBindingRequest struct {
-	Bindings []ModelCatalogBindingItem `json:"bindings" binding:"dive"`
-}
-
-// ModelCatalogBindingItem 一条绑定：账号 ID 与可选的绑定优先级（空 = 跟随账号）。
-type ModelCatalogBindingItem struct {
-	AccountID int64 `json:"account_id" binding:"required"`
-	Priority  *int  `json:"priority"`
-}
-
-// ModelCatalogBindingResponse 绑定及其账号摘要。
+// ModelCatalogBindingResponse 承接关系（渠道给这个模型的上游价，USD / token）及其账号摘要。
 type ModelCatalogBindingResponse struct {
-	EntryID   int64                              `json:"entry_id"`
-	AccountID int64                              `json:"account_id"`
-	Priority  *int                               `json:"priority"`
-	Account   *ModelCatalogBindingAccountSummary `json:"account,omitempty"`
+	EntryID           int64                              `json:"entry_id"`
+	AccountID         int64                              `json:"account_id"`
+	InputPrice        float64                            `json:"input_price"`
+	OutputPrice       float64                            `json:"output_price"`
+	CacheWritePrice   *float64                           `json:"cache_write_price"`
+	CacheWrite1hPrice *float64                           `json:"cache_write_1h_price"`
+	CacheReadPrice    *float64                           `json:"cache_read_price"`
+	Intervals         []service.PricingInterval          `json:"intervals"`
+	CreatedAt         time.Time                          `json:"created_at"`
+	UpdatedAt         time.Time                          `json:"updated_at"`
+	Account           *ModelCatalogBindingAccountSummary `json:"account,omitempty"`
 }
 
 // ModelCatalogBindingAccountSummary 绑定列表里展示账号用的摘要。
@@ -119,7 +116,6 @@ type ModelCatalogBindingAccountSummary struct {
 // ModelCatalogDiagnosisItem 诊断一条绑定：账号此刻能不能被调度、在条目网关族上能承接哪些入站协议。
 type ModelCatalogDiagnosisItem struct {
 	ModelCatalogBindingAccountSummary
-	Priority *int `json:"priority"`
 	// Schedulable 账号此刻能否进入调度；BlockedReason 不能时的第一个原因
 	// （disabled / unschedulable / expired / overloaded / rate_limited / temp_unschedulable / quota_exceeded）。
 	Schedulable   bool   `json:"schedulable"`
@@ -236,7 +232,7 @@ func (h *ModelCatalogHandler) DeleteEntry(c *gin.Context) {
 	response.Success(c, gin.H{"message": "Model catalog entry deleted successfully"})
 }
 
-// ListBindings 返回条目绑定的资源及账号摘要。
+// ListBindings 返回条目的承接关系（上游价）及账号摘要。
 // GET /api/v1/admin/model-catalog/entries/:id/bindings
 func (h *ModelCatalogHandler) ListBindings(c *gin.Context) {
 	id, ok := parseModelCatalogID(c, "Invalid model catalog entry ID")
@@ -250,7 +246,22 @@ func (h *ModelCatalogHandler) ListBindings(c *gin.Context) {
 	}
 	out := make([]ModelCatalogBindingResponse, 0, len(bindings))
 	for _, binding := range bindings {
-		item := ModelCatalogBindingResponse{EntryID: binding.EntryID, AccountID: binding.AccountID, Priority: binding.Priority}
+		intervals := binding.Intervals
+		if intervals == nil {
+			intervals = []service.PricingInterval{}
+		}
+		item := ModelCatalogBindingResponse{
+			EntryID:           binding.EntryID,
+			AccountID:         binding.AccountID,
+			InputPrice:        binding.InputPrice,
+			OutputPrice:       binding.OutputPrice,
+			CacheWritePrice:   binding.CacheWritePrice,
+			CacheWrite1hPrice: binding.CacheWrite1hPrice,
+			CacheReadPrice:    binding.CacheReadPrice,
+			Intervals:         intervals,
+			CreatedAt:         binding.CreatedAt,
+			UpdatedAt:         binding.UpdatedAt,
+		}
 		account, err := h.accounts.GetAccount(c.Request.Context(), binding.AccountID)
 		if err != nil {
 			response.ErrorFrom(c, err)
@@ -263,29 +274,6 @@ func (h *ModelCatalogHandler) ListBindings(c *gin.Context) {
 		out = append(out, item)
 	}
 	response.Success(c, out)
-}
-
-// ReplaceBindings 用整份列表覆盖条目绑定的资源。
-// PUT /api/v1/admin/model-catalog/entries/:id/bindings
-func (h *ModelCatalogHandler) ReplaceBindings(c *gin.Context) {
-	id, ok := parseModelCatalogID(c, "Invalid model catalog entry ID")
-	if !ok {
-		return
-	}
-	var req ModelCatalogBindingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
-	for _, item := range req.Bindings {
-		bindings = append(bindings, service.ModelCatalogBinding{EntryID: id, AccountID: item.AccountID, Priority: item.Priority})
-	}
-	if err := h.service.ReplaceBindings(c.Request.Context(), id, bindings, h.accounts); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	h.ListBindings(c)
 }
 
 // PriceLookup 按模型 ID 从价格文件带出建议条目（厂商、计费方式、价格），给「添加模型」自动填。
@@ -302,45 +290,6 @@ func (h *ModelCatalogHandler) PriceLookup(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"found": true, "entry": entry})
-}
-
-// AccountCatalogEntriesRequest 渠道承接的目录条目（整份列表）。
-type AccountCatalogEntriesRequest struct {
-	EntryIDs []int64 `json:"entry_ids"`
-}
-
-// ListAccountEntries 返回渠道被哪些目录条目绑定。
-// GET /api/v1/admin/accounts/:id/catalog-entries
-func (h *ModelCatalogHandler) ListAccountEntries(c *gin.Context) {
-	id, ok := parseModelCatalogID(c, "Invalid account ID")
-	if !ok {
-		return
-	}
-	ids, err := h.service.ListAccountEntryIDs(c.Request.Context(), id, h.accounts)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, gin.H{"entry_ids": ids})
-}
-
-// ReplaceAccountEntries 用整份条目列表覆盖渠道承接的目录模型（渠道表单里直接勾选）。
-// PUT /api/v1/admin/accounts/:id/catalog-entries
-func (h *ModelCatalogHandler) ReplaceAccountEntries(c *gin.Context) {
-	id, ok := parseModelCatalogID(c, "Invalid account ID")
-	if !ok {
-		return
-	}
-	var req AccountCatalogEntriesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	if err := h.service.ReplaceAccountBindings(c.Request.Context(), id, req.EntryIDs, h.accounts); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	h.ListAccountEntries(c)
 }
 
 // Diagnose 逐个说明条目绑定的资源此刻能不能承接请求：可调度与否、原因、能承接哪些入站协议。
@@ -368,7 +317,6 @@ func (h *ModelCatalogHandler) Diagnose(c *gin.Context) {
 				ID: account.ID, Name: account.Name, Platform: account.Platform, Type: account.Type,
 				Vendor: account.Vendor(), Status: account.Status,
 			},
-			Priority:      binding.Priority,
 			Schedulable:   reason == "",
 			BlockedReason: reason,
 			Serves:        service.CatalogBindingServes(account),

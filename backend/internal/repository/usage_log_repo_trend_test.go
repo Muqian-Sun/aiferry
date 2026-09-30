@@ -12,7 +12,7 @@ import (
 )
 
 // 管理站概览的「利润」趋势要每个时间桶的渠道成本：三条趋势查询（明细表、小时预聚合、天预聚合）
-// 和按用户的趋势共用 scanTrendRows，都得把 account_cost 带出来。
+// 和按用户的趋势共用 scanTrendRows，都得把 account_cost 带出来。明细表直接累加逐行落的 usage_logs.account_cost。
 func TestUsageLogRepositoryTrendCarriesAccountCost(t *testing.T) {
 	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
@@ -29,7 +29,7 @@ func TestUsageLogRepositoryTrendCarriesAccountCost(t *testing.T) {
 	}{
 		{
 			name:  "usage_logs with filter",
-			query: `(?s)SUM\(total_cost \* COALESCE\(account_rate_multiplier, 1\)\), 0\) as account_cost\s+FROM usage_logs\s+WHERE created_at`,
+			query: `(?s)COALESCE\(SUM\(account_cost\), 0\) as account_cost\s+FROM usage_logs\s+WHERE created_at`,
 			args:  []driver.Value{start, end, int64(7)},
 			load: func(repo *usageLogRepository) ([]TrendDataPoint, error) {
 				return repo.GetUsageTrendWithUsageFilters(context.Background(), start, end, "day", usagestats.UsageLogFilters{UserID: 7})
@@ -53,7 +53,7 @@ func TestUsageLogRepositoryTrendCarriesAccountCost(t *testing.T) {
 		},
 		{
 			name:  "by user id",
-			query: `(?s)SUM\(total_cost \* COALESCE\(account_rate_multiplier, 1\)\), 0\) as account_cost\s+FROM usage_logs\s+WHERE user_id = \$1`,
+			query: `(?s)COALESCE\(SUM\(account_cost\), 0\) as account_cost\s+FROM usage_logs\s+WHERE user_id = \$1`,
 			args:  []driver.Value{int64(7), start, end},
 			load: func(repo *usageLogRepository) ([]TrendDataPoint, error) {
 				return repo.GetUserUsageTrendByUserID(context.Background(), 7, start, end, "day")

@@ -56,7 +56,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	notes := "keep this note"
 	proxyID := int64(17)
 	originalProxyID := int64(11)
-	rateMultiplier := 1.25
 	expiresAt := time.Date(2027, time.March, 4, 5, 6, 7, 0, time.UTC)
 	rateLimitedAt := time.Now().Add(-time.Minute)
 	rateLimitResetAt := time.Now().Add(time.Hour)
@@ -74,7 +73,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 		ProxyFallbackOriginID: &originalProxyID,
 		Concurrency:           6,
 		Priority:              40,
-		RateMultiplier:        &rateMultiplier,
 		Status:                StatusError,
 		Schedulable:           true,
 		ErrorMessage:          "upstream unavailable",
@@ -132,7 +130,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.True(t, source.ExpiresAt.Equal(*duplicate.ExpiresAt))
 	require.Equal(t, source.Notes, duplicate.Notes)
 	require.Equal(t, source.ProxyFallbackOriginID, duplicate.ProxyID)
-	require.Equal(t, source.RateMultiplier, duplicate.RateMultiplier)
 
 	require.Equal(t, StatusActive, duplicate.Status)
 	require.False(t, duplicate.Schedulable)

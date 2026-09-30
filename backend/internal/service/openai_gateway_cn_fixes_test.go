@@ -51,7 +51,7 @@ func TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable(t *t
 	svc := &OpenAIGatewayService{}
 	apiKey := &APIKey{}
 
-	_, err := svc.calculateOpenAIRecordUsageCost(
+	_, _, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), nil, apiKey, nil,
 		1.0, UsageTokens{InputTokens: 100}, time.Time{},
 	)

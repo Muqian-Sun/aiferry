@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogBinding is the model entity for the ModelCatalogBinding schema.
@@ -21,10 +23,22 @@ type ModelCatalogBinding struct {
 	EntryID int64 `json:"entry_id,omitempty"`
 	// AccountID holds the value of the "account_id" field.
 	AccountID int64 `json:"account_id,omitempty"`
-	// Priority holds the value of the "priority" field.
-	Priority *int `json:"priority,omitempty"`
+	// InputPrice holds the value of the "input_price" field.
+	InputPrice float64 `json:"input_price,omitempty"`
+	// OutputPrice holds the value of the "output_price" field.
+	OutputPrice float64 `json:"output_price,omitempty"`
+	// CacheWritePrice holds the value of the "cache_write_price" field.
+	CacheWritePrice *float64 `json:"cache_write_price,omitempty"`
+	// CacheWrite1hPrice holds the value of the "cache_write_1h_price" field.
+	CacheWrite1hPrice *float64 `json:"cache_write_1h_price,omitempty"`
+	// CacheReadPrice holds the value of the "cache_read_price" field.
+	CacheReadPrice *float64 `json:"cache_read_price,omitempty"`
+	// PriceIntervals holds the value of the "price_intervals" field.
+	PriceIntervals []domain.PriceSegment `json:"price_intervals,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
+	// UpdatedAt holds the value of the "updated_at" field.
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ModelCatalogBindingQuery when eager-loading is set.
 	Edges        ModelCatalogBindingEdges `json:"edges"`
@@ -69,9 +83,13 @@ func (*ModelCatalogBinding) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case modelcatalogbinding.FieldEntryID, modelcatalogbinding.FieldAccountID, modelcatalogbinding.FieldPriority:
+		case modelcatalogbinding.FieldPriceIntervals:
+			values[i] = new([]byte)
+		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice:
+			values[i] = new(sql.NullFloat64)
+		case modelcatalogbinding.FieldEntryID, modelcatalogbinding.FieldAccountID:
 			values[i] = new(sql.NullInt64)
-		case modelcatalogbinding.FieldCreatedAt:
+		case modelcatalogbinding.FieldCreatedAt, modelcatalogbinding.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -100,18 +118,58 @@ func (_m *ModelCatalogBinding) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.AccountID = value.Int64
 			}
-		case modelcatalogbinding.FieldPriority:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field priority", values[i])
+		case modelcatalogbinding.FieldInputPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field input_price", values[i])
 			} else if value.Valid {
-				_m.Priority = new(int)
-				*_m.Priority = int(value.Int64)
+				_m.InputPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldOutputPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field output_price", values[i])
+			} else if value.Valid {
+				_m.OutputPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldCacheWritePrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_write_price", values[i])
+			} else if value.Valid {
+				_m.CacheWritePrice = new(float64)
+				*_m.CacheWritePrice = value.Float64
+			}
+		case modelcatalogbinding.FieldCacheWrite1hPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_write_1h_price", values[i])
+			} else if value.Valid {
+				_m.CacheWrite1hPrice = new(float64)
+				*_m.CacheWrite1hPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldCacheReadPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_read_price", values[i])
+			} else if value.Valid {
+				_m.CacheReadPrice = new(float64)
+				*_m.CacheReadPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldPriceIntervals:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field price_intervals", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.PriceIntervals); err != nil {
+					return fmt.Errorf("unmarshal field price_intervals: %w", err)
+				}
 			}
 		case modelcatalogbinding.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
+			}
+		case modelcatalogbinding.FieldUpdatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
+			} else if value.Valid {
+				_m.UpdatedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -164,13 +222,35 @@ func (_m *ModelCatalogBinding) String() string {
 	builder.WriteString("account_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AccountID))
 	builder.WriteString(", ")
-	if v := _m.Priority; v != nil {
-		builder.WriteString("priority=")
+	builder.WriteString("input_price=")
+	builder.WriteString(fmt.Sprintf("%v", _m.InputPrice))
+	builder.WriteString(", ")
+	builder.WriteString("output_price=")
+	builder.WriteString(fmt.Sprintf("%v", _m.OutputPrice))
+	builder.WriteString(", ")
+	if v := _m.CacheWritePrice; v != nil {
+		builder.WriteString("cache_write_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
+	if v := _m.CacheWrite1hPrice; v != nil {
+		builder.WriteString("cache_write_1h_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.CacheReadPrice; v != nil {
+		builder.WriteString("cache_read_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("price_intervals=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PriceIntervals))
+	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("updated_at=")
+	builder.WriteString(_m.UpdatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

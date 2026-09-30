@@ -322,16 +322,16 @@ func (_c *UsageLogCreate) SetNillableRateMultiplier(v *float64) *UsageLogCreate 
 	return _c
 }
 
-// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
-func (_c *UsageLogCreate) SetAccountRateMultiplier(v float64) *UsageLogCreate {
-	_c.mutation.SetAccountRateMultiplier(v)
+// SetAccountCost sets the "account_cost" field.
+func (_c *UsageLogCreate) SetAccountCost(v float64) *UsageLogCreate {
+	_c.mutation.SetAccountCost(v)
 	return _c
 }
 
-// SetNillableAccountRateMultiplier sets the "account_rate_multiplier" field if the given value is not nil.
-func (_c *UsageLogCreate) SetNillableAccountRateMultiplier(v *float64) *UsageLogCreate {
+// SetNillableAccountCost sets the "account_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAccountCost(v *float64) *UsageLogCreate {
 	if v != nil {
-		_c.SetAccountRateMultiplier(*v)
+		_c.SetAccountCost(*v)
 	}
 	return _c
 }
@@ -673,6 +673,10 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.AccountCost(); !ok {
+		v := usagelog.DefaultAccountCost
+		_c.mutation.SetAccountCost(v)
+	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		v := usagelog.DefaultBillingType
 		_c.mutation.SetBillingType(v)
@@ -784,6 +788,9 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "UsageLog.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.AccountCost(); !ok {
+		return &ValidationError{Name: "account_cost", err: errors.New(`ent: missing required field "UsageLog.account_cost"`)}
 	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		return &ValidationError{Name: "billing_type", err: errors.New(`ent: missing required field "UsageLog.billing_type"`)}
@@ -954,9 +961,9 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_spec.SetField(usagelog.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
 	}
-	if value, ok := _c.mutation.AccountRateMultiplier(); ok {
-		_spec.SetField(usagelog.FieldAccountRateMultiplier, field.TypeFloat64, value)
-		_node.AccountRateMultiplier = &value
+	if value, ok := _c.mutation.AccountCost(); ok {
+		_spec.SetField(usagelog.FieldAccountCost, field.TypeFloat64, value)
+		_node.AccountCost = value
 	}
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
@@ -1548,27 +1555,21 @@ func (u *UsageLogUpsert) AddRateMultiplier(v float64) *UsageLogUpsert {
 	return u
 }
 
-// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
-func (u *UsageLogUpsert) SetAccountRateMultiplier(v float64) *UsageLogUpsert {
-	u.Set(usagelog.FieldAccountRateMultiplier, v)
+// SetAccountCost sets the "account_cost" field.
+func (u *UsageLogUpsert) SetAccountCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldAccountCost, v)
 	return u
 }
 
-// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
-func (u *UsageLogUpsert) UpdateAccountRateMultiplier() *UsageLogUpsert {
-	u.SetExcluded(usagelog.FieldAccountRateMultiplier)
+// UpdateAccountCost sets the "account_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateAccountCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldAccountCost)
 	return u
 }
 
-// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
-func (u *UsageLogUpsert) AddAccountRateMultiplier(v float64) *UsageLogUpsert {
-	u.Add(usagelog.FieldAccountRateMultiplier, v)
-	return u
-}
-
-// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
-func (u *UsageLogUpsert) ClearAccountRateMultiplier() *UsageLogUpsert {
-	u.SetNull(usagelog.FieldAccountRateMultiplier)
+// AddAccountCost adds v to the "account_cost" field.
+func (u *UsageLogUpsert) AddAccountCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldAccountCost, v)
 	return u
 }
 
@@ -2380,31 +2381,24 @@ func (u *UsageLogUpsertOne) UpdateRateMultiplier() *UsageLogUpsertOne {
 	})
 }
 
-// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
-func (u *UsageLogUpsertOne) SetAccountRateMultiplier(v float64) *UsageLogUpsertOne {
+// SetAccountCost sets the "account_cost" field.
+func (u *UsageLogUpsertOne) SetAccountCost(v float64) *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.SetAccountRateMultiplier(v)
+		s.SetAccountCost(v)
 	})
 }
 
-// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
-func (u *UsageLogUpsertOne) AddAccountRateMultiplier(v float64) *UsageLogUpsertOne {
+// AddAccountCost adds v to the "account_cost" field.
+func (u *UsageLogUpsertOne) AddAccountCost(v float64) *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.AddAccountRateMultiplier(v)
+		s.AddAccountCost(v)
 	})
 }
 
-// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
-func (u *UsageLogUpsertOne) UpdateAccountRateMultiplier() *UsageLogUpsertOne {
+// UpdateAccountCost sets the "account_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateAccountCost() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateAccountRateMultiplier()
-	})
-}
-
-// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
-func (u *UsageLogUpsertOne) ClearAccountRateMultiplier() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearAccountRateMultiplier()
+		s.UpdateAccountCost()
 	})
 }
 
@@ -3431,31 +3425,24 @@ func (u *UsageLogUpsertBulk) UpdateRateMultiplier() *UsageLogUpsertBulk {
 	})
 }
 
-// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
-func (u *UsageLogUpsertBulk) SetAccountRateMultiplier(v float64) *UsageLogUpsertBulk {
+// SetAccountCost sets the "account_cost" field.
+func (u *UsageLogUpsertBulk) SetAccountCost(v float64) *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.SetAccountRateMultiplier(v)
+		s.SetAccountCost(v)
 	})
 }
 
-// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
-func (u *UsageLogUpsertBulk) AddAccountRateMultiplier(v float64) *UsageLogUpsertBulk {
+// AddAccountCost adds v to the "account_cost" field.
+func (u *UsageLogUpsertBulk) AddAccountCost(v float64) *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.AddAccountRateMultiplier(v)
+		s.AddAccountCost(v)
 	})
 }
 
-// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
-func (u *UsageLogUpsertBulk) UpdateAccountRateMultiplier() *UsageLogUpsertBulk {
+// UpdateAccountCost sets the "account_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateAccountCost() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateAccountRateMultiplier()
-	})
-}
-
-// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
-func (u *UsageLogUpsertBulk) ClearAccountRateMultiplier() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearAccountRateMultiplier()
+		s.UpdateAccountCost()
 	})
 }
 

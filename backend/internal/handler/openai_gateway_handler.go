@@ -846,8 +846,8 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		return nil, openAISlotAcquireFailed
 	}
 	if fastAcquired {
-		// 分组利润控制：快速抢槽成功后终检。选号与抢槽之间账号
-		// 倍率可能刷新，越线则释放槽位交由调用方排除重选，不绑定粘连。
+		// 利润门：快速抢槽成功后按本请求的上游成本比终检（覆盖没经候选过滤的快速路径），
+		// 越线则释放槽位交由调用方排除重选，不绑定粘连。
 		latest, vetoed, reason := h.gatewayService.Scheduler().GatewayProfitControlVetoLatest(ctx, account)
 		if vetoed {
 			if fastReleaseFunc != nil {
@@ -902,8 +902,8 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 
 	// Slot acquired: no longer waiting in queue.
 	releaseWait()
-	// 分组利润控制：WaitPlan 排队成功后终检。排队期间账号倍率
-	// 可能上调，越线则释放槽位交由调用方排除重选，不绑定粘连。
+	// 利润门：WaitPlan 排队成功后按本请求的上游成本比终检，
+	// 越线则释放槽位交由调用方排除重选，不绑定粘连。
 	latest, vetoed, reason := h.gatewayService.Scheduler().GatewayProfitControlVetoLatest(ctx, account)
 	if vetoed {
 		if accountReleaseFunc != nil {
@@ -1321,7 +1321,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		admissionCtx := service.ContextWithSelectionProfitGate(ctx, selection)
 		accountReleaseFunc := selection.ReleaseFunc
 		if selection.Acquired {
-			// 调度器已抢槽路径同样终检：选号与抢槽之间账号倍率可能刷新。
+			// 调度器已抢槽路径同样终检（按本请求的上游成本比）。
 			latest, vetoed, reason := sched.GatewayProfitControlVetoLatest(admissionCtx, account)
 			if vetoed {
 				if accountReleaseFunc != nil {
@@ -1508,7 +1508,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if cyberBlockedThisConn {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)
 				}
-				// 长连接跨峰谷/倍率刷新防护：每个 turn 按当前时刻重装门并复核
+				// 长连接跨峰谷/设置刷新防护：每个 turn 按当前时刻重装门并复核
 				// 当前账号，越线即要求客户端重连重选（连接绑定单一上游账号，
 				// 无法中途换号）。本 turn 的准入与计费共用同一 pricingAt。
 				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(ctx)
