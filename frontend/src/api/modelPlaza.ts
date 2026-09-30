@@ -27,7 +27,7 @@ export interface UserPricingInterval {
 /**
  * 用户侧最小形态的目录标价（/model-plaza 的 pricing）。
  * 单价都是目录官方价，USD / token（按次模式的 per_request_price 是 USD / 次、张、秒，搜索价是 USD / 次）；展示时乘访问者倍率；
- * 倍率类字段（fast / flex / max_reasoning_effort）是纯倍数。
+ * 倍率类字段（max_reasoning_effort）是纯倍数。
  */
 export interface UserSupportedModelPricing {
   billing_mode: BillingMode
@@ -36,15 +36,6 @@ export interface UserSupportedModelPricing {
   cache_write_price: number | null
   cache_write_1h_price?: number | null
   cache_read_price: number | null
-  /** service_tier=priority（Fast）时的单价；只有与标准价分开定价的项才有 */
-  input_price_priority?: number | null
-  output_price_priority?: number | null
-  cache_write_price_priority?: number | null
-  cache_read_price_priority?: number | null
-  /** Fast 档整单倍率；给了就优先于上面的 priority 单价 */
-  fast_multiplier?: number | null
-  /** Flex 档整单倍率；没给按 0.5 */
-  flex_multiplier?: number | null
   max_reasoning_effort_multiplier?: number | null
   image_input_price: number | null
   image_output_price: number | null

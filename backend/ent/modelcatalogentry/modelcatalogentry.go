@@ -52,22 +52,10 @@ const (
 	FieldAudioInputPrice = "audio_input_price"
 	// FieldAudioOutputPrice holds the string denoting the audio_output_price field in the database.
 	FieldAudioOutputPrice = "audio_output_price"
-	// FieldInputPricePriority holds the string denoting the input_price_priority field in the database.
-	FieldInputPricePriority = "input_price_priority"
-	// FieldOutputPricePriority holds the string denoting the output_price_priority field in the database.
-	FieldOutputPricePriority = "output_price_priority"
-	// FieldCacheWritePricePriority holds the string denoting the cache_write_price_priority field in the database.
-	FieldCacheWritePricePriority = "cache_write_price_priority"
-	// FieldCacheReadPricePriority holds the string denoting the cache_read_price_priority field in the database.
-	FieldCacheReadPricePriority = "cache_read_price_priority"
 	// FieldPerRequestPrice holds the string denoting the per_request_price field in the database.
 	FieldPerRequestPrice = "per_request_price"
 	// FieldSearchPricePerCall holds the string denoting the search_price_per_call field in the database.
 	FieldSearchPricePerCall = "search_price_per_call"
-	// FieldFastMultiplier holds the string denoting the fast_multiplier field in the database.
-	FieldFastMultiplier = "fast_multiplier"
-	// FieldFlexMultiplier holds the string denoting the flex_multiplier field in the database.
-	FieldFlexMultiplier = "flex_multiplier"
 	// FieldMaxReasoningEffortMultiplier holds the string denoting the max_reasoning_effort_multiplier field in the database.
 	FieldMaxReasoningEffortMultiplier = "max_reasoning_effort_multiplier"
 	// FieldNotes holds the string denoting the notes field in the database.
@@ -130,14 +118,8 @@ var Columns = []string{
 	FieldImageCacheReadPrice,
 	FieldAudioInputPrice,
 	FieldAudioOutputPrice,
-	FieldInputPricePriority,
-	FieldOutputPricePriority,
-	FieldCacheWritePricePriority,
-	FieldCacheReadPricePriority,
 	FieldPerRequestPrice,
 	FieldSearchPricePerCall,
-	FieldFastMultiplier,
-	FieldFlexMultiplier,
 	FieldMaxReasoningEffortMultiplier,
 	FieldNotes,
 }
@@ -290,26 +272,6 @@ func ByAudioOutputPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAudioOutputPrice, opts...).ToFunc()
 }
 
-// ByInputPricePriority orders the results by the input_price_priority field.
-func ByInputPricePriority(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldInputPricePriority, opts...).ToFunc()
-}
-
-// ByOutputPricePriority orders the results by the output_price_priority field.
-func ByOutputPricePriority(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldOutputPricePriority, opts...).ToFunc()
-}
-
-// ByCacheWritePricePriority orders the results by the cache_write_price_priority field.
-func ByCacheWritePricePriority(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCacheWritePricePriority, opts...).ToFunc()
-}
-
-// ByCacheReadPricePriority orders the results by the cache_read_price_priority field.
-func ByCacheReadPricePriority(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCacheReadPricePriority, opts...).ToFunc()
-}
-
 // ByPerRequestPrice orders the results by the per_request_price field.
 func ByPerRequestPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPerRequestPrice, opts...).ToFunc()
@@ -318,16 +280,6 @@ func ByPerRequestPrice(opts ...sql.OrderTermOption) OrderOption {
 // BySearchPricePerCall orders the results by the search_price_per_call field.
 func BySearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSearchPricePerCall, opts...).ToFunc()
-}
-
-// ByFastMultiplier orders the results by the fast_multiplier field.
-func ByFastMultiplier(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldFastMultiplier, opts...).ToFunc()
-}
-
-// ByFlexMultiplier orders the results by the flex_multiplier field.
-func ByFlexMultiplier(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldFlexMultiplier, opts...).ToFunc()
 }
 
 // ByMaxReasoningEffortMultiplier orders the results by the max_reasoning_effort_multiplier field.

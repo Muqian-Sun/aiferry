@@ -185,10 +185,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.Model,
 	)
 	billingModels = s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, billingModels)
-	serviceTier := ""
-	if result.ServiceTier != nil {
-		serviceTier = strings.TrimSpace(*result.ServiceTier)
-	}
 	cost, err = s.calculateOpenAIRecordUsageCost(
 		ctx,
 		result,
@@ -196,7 +192,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		billingModels,
 		multiplier,
 		tokens,
-		serviceTier,
 		pricingAt,
 	)
 	if err != nil {
@@ -399,7 +394,6 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	billingModels []string,
 	multiplier float64,
 	tokens UsageTokens,
-	serviceTier string,
 	pricingAt time.Time,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
@@ -428,7 +422,6 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 				multiplier,
 				pricingAt,
 				tokens,
-				serviceTier,
 				optionalStringValue(result.ReasoningEffort),
 			)
 			if err == nil {
@@ -492,17 +485,16 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	multiplier float64,
 	pricingAt time.Time,
 	tokens UsageTokens,
-	serviceTier string,
 	reasoningEffort string,
 ) (*CostBreakdown, error) {
 	if s.resolver != nil {
 		return s.billingService.CalculateCostUnified(CostInput{
 			Ctx: ctx, Model: billingModel,
 			Tokens: tokens, RequestCount: 1, RateMultiplier: multiplier, PricingAt: pricingAt,
-			ServiceTier: serviceTier, ReasoningEffort: reasoningEffort, Resolver: s.resolver,
+			ReasoningEffort: reasoningEffort, Resolver: s.resolver,
 		})
 	}
-	breakdown, err := s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)
+	breakdown, err := s.billingService.CalculateCost(billingModel, tokens, multiplier)
 	if err == nil {
 		applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(billingModel, reasoningEffort, nil))
 	}

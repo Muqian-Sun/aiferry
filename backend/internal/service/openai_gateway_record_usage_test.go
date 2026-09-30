@@ -917,7 +917,8 @@ func TestOpenAIGatewayServiceRecordUsage_GrokTokenSegmentApplies(t *testing.T) {
 	require.InDelta(t, baseOutput*2, usageRepo.lastLog.OutputCost, 1e-10)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *testing.T) {
+// priority 档照常记进用量日志，但按标准价计费（上游不提供 Fast 档价）。
+func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityRecordedAtStandardPrice(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
@@ -945,36 +946,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *t
 
 	baseCost, calcErr := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, calcErr)
-	require.InDelta(t, baseCost.TotalCost*2, usageRepo.lastLog.TotalCost, 1e-10)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_ServiceTierFlexHalvesCost(t *testing.T) {
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
-	serviceTier := "flex"
-	usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50, CacheReadInputTokens: 20}
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID:   "resp_service_tier_flex",
-			ServiceTier: &serviceTier,
-			Usage:       usage,
-			Model:       "gpt-5.4",
-			Duration:    time.Second,
-		},
-		APIKey:  &APIKey{ID: 1016},
-		User:    &User{ID: 2016, RateMultiplier: customRate(1.1)},
-		Account: &Account{ID: 3016},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-
-	baseCost, calcErr := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{InputTokens: 80, OutputTokens: 50, CacheReadTokens: 20}, 1.0)
-	require.NoError(t, calcErr)
-	require.InDelta(t, baseCost.TotalCost*0.5, usageRepo.lastLog.TotalCost, 1e-10)
+	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
 
 func TestNormalizeOpenAIServiceTier(t *testing.T) {
@@ -1986,7 +1958,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10, "a request served at default must not pay the priority price")
 }
 
-func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsFastBilling(t *testing.T) {
+func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsPriorityTier(t *testing.T) {
 	for _, accountType := range []string{AccountTypeOAuth, AccountTypeSetupToken} {
 		t.Run(accountType, func(t *testing.T) {
 			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
@@ -2017,9 +1989,9 @@ func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsFastBilling(t *tes
 			require.NotNil(t, usageRepo.lastLog.ServiceTier)
 			require.Equal(t, "priority", *usageRepo.lastLog.ServiceTier)
 
-			fastCost, calcErr := svc.billingService.CalculateCostWithServiceTier("gpt-5.6-sol", tokens, 1.0, "priority")
+			standardCost, calcErr := svc.billingService.CalculateCost("gpt-5.6-sol", tokens, 1.0)
 			require.NoError(t, calcErr)
-			require.InDelta(t, fastCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
+			require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 		})
 	}
 }
@@ -2063,9 +2035,9 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 	require.NotNil(t, usageRepo.lastLog.ServiceTier)
 	require.Equal(t, "priority", *usageRepo.lastLog.ServiceTier)
 
-	fastCost, calcErr := svc.billingService.CalculateCostWithServiceTier("gpt-5.6-sol", tokens, 1.0, "priority")
+	standardCost, calcErr := svc.billingService.CalculateCost("gpt-5.6-sol", tokens, 1.0)
 	require.NoError(t, calcErr)
-	require.InDelta(t, fastCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
+	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamResponse(t *testing.T) {

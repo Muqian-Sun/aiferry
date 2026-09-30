@@ -1,7 +1,7 @@
 <template>
   <!--
     模型计费详情（muqian 2026-09-30 方案 A）：网格格子只放摘要，点格子在这里按块列全部计费项。
-    token 模式：标准价（分段 × 项的表）→ Fast 档 → Flex 档 → 图片与音频 → 工具 → 其他（最高推理档 / 分时 / 别名）；
+    token 模式：标准价（分段 × 项的表）→ 图片与音频 → 工具 → 其他（最高推理档 / 分时 / 别名）；
     按次 / 图片 / 视频模式：单价（有档位列档位表）→ 工具 → 其他。
     只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；价格 = 官方价 × 访问者倍率（scale）。
   -->
@@ -14,8 +14,8 @@
   >
     <div v-if="entry" class="divide-y divide-af-hairline" data-testid="model-pricing-detail">
       <!--
-        标准价 / Fast 档：同一套列（该模型实际有的项），分段模型一段一行。
-        固定表格布局让两张表的列对齐；给最小宽度，窄屏时表格在容器里横向滚动而不是挤压数字。
+        标准价：该模型实际有的项，分段模型一段一行。
+        给最小宽度，窄屏时表格在容器里横向滚动而不是挤压数字。
       -->
       <section
         v-for="block in tokenBlocks"
@@ -58,13 +58,6 @@
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section v-if="entry.flexMultiplier != null" class="py-6 first:pt-0" data-testid="pricing-block-flex">
-        <div class="mb-3 flex items-baseline justify-between gap-4">
-          <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.flex') }}</h3>
-        </div>
-        <p class="text-13 text-af-ink-2">{{ t('userUi.models.detail.flexRule', { multiplier: entry.flexMultiplier }) }}</p>
       </section>
 
       <section v-if="mediaItems.length" class="py-6 first:pt-0" data-testid="pricing-block-media">
@@ -217,16 +210,10 @@ const columns = computed<Array<{ key: TokenRowKey; label: string; ttl: string }>
  */
 const tableMinWidth = computed(() => `${(segmented.value ? 5.5 : 0) + columns.value.length * 3.875}rem`)
 
-const tokenBlocks = computed<Array<{ key: 'standard' | 'fast'; title: string; hint: string; rows: TokenSegment[] }>>(() => {
+const tokenBlocks = computed<Array<{ key: 'standard'; title: string; hint: string; rows: TokenSegment[] }>>(() => {
   const entry = props.entry
   if (!entry || entry.rows.length === 0) return []
-  const blocks: Array<{ key: 'standard' | 'fast'; title: string; hint: string; rows: TokenSegment[] }> = [
-    { key: 'standard', title: t('userUi.models.detail.standard'), hint: '', rows: scaleRows(entry.rows, props.scale) }
-  ]
-  if (entry.fastRows) {
-    blocks.push({ key: 'fast', title: t('userUi.models.detail.fast'), hint: t('userUi.models.detail.fastHint'), rows: scaleRows(entry.fastRows, props.scale) })
-  }
-  return blocks
+  return [{ key: 'standard', title: t('userUi.models.detail.standard'), hint: '', rows: scaleRows(entry.rows, props.scale) }]
 })
 
 const mediaItems = computed(() => {

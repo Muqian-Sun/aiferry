@@ -12,7 +12,6 @@ type TokenCostRequest struct {
 	Tokens          UsageTokens
 	RateMultiplier  float64
 	PricingAt       time.Time
-	ServiceTier     string
 	ReasoningEffort string
 	Resolver        *ModelPricingResolver
 	// Resolved 为调用方预先解析的定价（Resolver.Resolve 的结果），nil 表示未解析。
@@ -40,7 +39,6 @@ func (s *BillingService) tokenCostInput(req TokenCostRequest, resolved *Resolved
 		RequestCount:    1,
 		RateMultiplier:  req.RateMultiplier,
 		PricingAt:       req.PricingAt,
-		ServiceTier:     req.ServiceTier,
 		ReasoningEffort: req.ReasoningEffort,
 		Resolver:        req.Resolver,
 		Resolved:        resolved,

@@ -50,7 +50,7 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
 	// 目录没有该条目：alpha search 按内置单价 0.01 × 用户倍率。
 	apiKey := &APIKey{ID: 1}
 	result := &OpenAIForwardResult{Model: "gpt-5.6-sol", UpstreamModel: "gpt-5.6-sol", WebSearchCalls: 1}
-	cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 2.0, UsageTokens{}, "", time.Time{})
+	cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 2.0, UsageTokens{}, time.Time{})
 	require.NoError(t, err)
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 	require.InDelta(t, 0.01, cost.TotalCost, 1e-12)
@@ -65,14 +65,14 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
 		InputPrice:         &inputPrice,
 		SearchPricePerCall: &searchPrice,
 	})
-	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{}, "", time.Time{})
+	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{}, time.Time{})
 	require.NoError(t, err)
 	require.InDelta(t, 0.005, cost.TotalCost, 1e-12)
 	require.InDelta(t, 0.005, cost.ActualCost, 1e-12)
 
 	// WebSearchCalls = 0 时不得走按次分支：回落到 token 路径按条目 token 价计。
 	result.WebSearchCalls = 0
-	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{InputTokens: 10}, "", time.Time{})
+	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{InputTokens: 10}, time.Time{})
 	require.NoError(t, err)
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)
 	require.InDelta(t, 10*inputPrice, cost.TotalCost, 1e-12)

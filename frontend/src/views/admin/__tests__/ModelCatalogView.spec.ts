@@ -62,14 +62,8 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     image_input_price: null,
     image_output_price: null,
     image_cache_read_price: null,
-    input_price_priority: null,
-    output_price_priority: null,
-    cache_write_price_priority: null,
-    cache_read_price_priority: null,
     per_request_price: null,
     search_price_per_call: null,
-    fast_multiplier: null,
-    flex_multiplier: null,
     max_reasoning_effort_multiplier: null,
     intervals: [],
     aliases: [],
@@ -267,8 +261,7 @@ describe('CatalogEntryEditor', () => {
       cache_read_price: 1.5,
       cache_write_1h_price: 2.5,
       image_output_price: 4,
-      input_price_priority: 30,
-      fast_multiplier: 2,
+      max_reasoning_effort_multiplier: 3,
       intervals: [
         { min_tokens: 200000, max_tokens: null, tier_label: '', input_price: 0.000006, output_price: 0.0000225, cache_write_price: null, cache_write_1h_price: null, cache_read_price: null, input_multiplier: null, output_multiplier: null, cache_write_multiplier: null, cache_read_multiplier: null, per_request_price: null, sort_order: 0 }
       ],
@@ -290,8 +283,7 @@ describe('CatalogEntryEditor', () => {
       cache_read_price: 1.5,
       cache_write_1h_price: 2.5,
       image_output_price: 4,
-      input_price_priority: 30,
-      fast_multiplier: 2,
+      max_reasoning_effort_multiplier: 3,
       intervals: existing.intervals,
       time_pricing: existing.time_pricing
     })
@@ -336,7 +328,7 @@ describe('CatalogEntryEditor', () => {
       entry({
         cache_read_price: 1.5,
         audio_input_price: 0.00004,
-        fast_multiplier: 2,
+        max_reasoning_effort_multiplier: 3,
         intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
         time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [] }
       })
@@ -349,7 +341,7 @@ describe('CatalogEntryEditor', () => {
     await flushPromises()
 
     const sent = createEntry.mock.calls[0][0]
-    expect(sent).toMatchObject({ model_id: 'gpt-5', cache_read_price: null, fast_multiplier: null, intervals: [], time_pricing: null })
+    expect(sent).toMatchObject({ model_id: 'gpt-5', cache_read_price: null, max_reasoning_effort_multiplier: null, intervals: [], time_pricing: null })
     expect(sent).not.toHaveProperty('audio_input_price')
   })
 

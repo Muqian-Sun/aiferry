@@ -111,11 +111,6 @@ export default {
         imageCacheRead: '图片缓存读取',
         audioInput: '音频输入',
         audioOutput: '音频输出',
-        // 服务档位：priority 档与 Fast 同一档（与用户站「服务档位」同名），别写成「优先级」——渠道页签的「优先级」是调度优先级
-        inputPriority: 'Fast 档 · 输入',
-        outputPriority: 'Fast 档 · 输出',
-        cacheWritePriority: 'Fast 档 · 缓存写入',
-        cacheReadPriority: 'Fast 档 · 缓存读取',
         perRequest: '按次',
         per: {
           per_request: '{price} / 次',
@@ -124,8 +119,6 @@ export default {
         },
         searchPerCall: '内置搜索',
         listPrice: '标价',
-        fast: 'Fast 档倍率',
-        flex: 'Flex 档倍率',
         maxReasoning: '最高推理倍率'
       },
       segments: '按 Token 分段',
@@ -181,7 +174,7 @@ export default {
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
-    fullReplaceHint: '保存是整条覆盖。本页没列出的项（分时定价、Fast 档价、各档倍率、按次模式的分档）按原值写回；按 Token 分段与图片 / 视频分档在上方编辑。',
+    fullReplaceHint: '保存是整条覆盖。本页没列出的项（分时定价、最高推理倍率、按次模式的分档）按原值写回；按 Token 分段与图片 / 视频分档在上方编辑。',
     listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
     noResources: '无渠道',
     fields: {

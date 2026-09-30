@@ -274,62 +274,6 @@ func (_c *ModelCatalogEntryCreate) SetNillableAudioOutputPrice(v *float64) *Mode
 	return _c
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (_c *ModelCatalogEntryCreate) SetInputPricePriority(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetInputPricePriority(v)
-	return _c
-}
-
-// SetNillableInputPricePriority sets the "input_price_priority" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableInputPricePriority(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetInputPricePriority(*v)
-	}
-	return _c
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (_c *ModelCatalogEntryCreate) SetOutputPricePriority(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetOutputPricePriority(v)
-	return _c
-}
-
-// SetNillableOutputPricePriority sets the "output_price_priority" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableOutputPricePriority(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetOutputPricePriority(*v)
-	}
-	return _c
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (_c *ModelCatalogEntryCreate) SetCacheWritePricePriority(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetCacheWritePricePriority(v)
-	return _c
-}
-
-// SetNillableCacheWritePricePriority sets the "cache_write_price_priority" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableCacheWritePricePriority(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetCacheWritePricePriority(*v)
-	}
-	return _c
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (_c *ModelCatalogEntryCreate) SetCacheReadPricePriority(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetCacheReadPricePriority(v)
-	return _c
-}
-
-// SetNillableCacheReadPricePriority sets the "cache_read_price_priority" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableCacheReadPricePriority(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetCacheReadPricePriority(*v)
-	}
-	return _c
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (_c *ModelCatalogEntryCreate) SetPerRequestPrice(v float64) *ModelCatalogEntryCreate {
 	_c.mutation.SetPerRequestPrice(v)
@@ -354,34 +298,6 @@ func (_c *ModelCatalogEntryCreate) SetSearchPricePerCall(v float64) *ModelCatalo
 func (_c *ModelCatalogEntryCreate) SetNillableSearchPricePerCall(v *float64) *ModelCatalogEntryCreate {
 	if v != nil {
 		_c.SetSearchPricePerCall(*v)
-	}
-	return _c
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (_c *ModelCatalogEntryCreate) SetFastMultiplier(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetFastMultiplier(v)
-	return _c
-}
-
-// SetNillableFastMultiplier sets the "fast_multiplier" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableFastMultiplier(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetFastMultiplier(*v)
-	}
-	return _c
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (_c *ModelCatalogEntryCreate) SetFlexMultiplier(v float64) *ModelCatalogEntryCreate {
-	_c.mutation.SetFlexMultiplier(v)
-	return _c
-}
-
-// SetNillableFlexMultiplier sets the "flex_multiplier" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableFlexMultiplier(v *float64) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetFlexMultiplier(*v)
 	}
 	return _c
 }
@@ -668,22 +584,6 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 		_spec.SetField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
 		_node.AudioOutputPrice = &value
 	}
-	if value, ok := _c.mutation.InputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
-		_node.InputPricePriority = &value
-	}
-	if value, ok := _c.mutation.OutputPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldOutputPricePriority, field.TypeFloat64, value)
-		_node.OutputPricePriority = &value
-	}
-	if value, ok := _c.mutation.CacheWritePricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheWritePricePriority, field.TypeFloat64, value)
-		_node.CacheWritePricePriority = &value
-	}
-	if value, ok := _c.mutation.CacheReadPricePriority(); ok {
-		_spec.SetField(modelcatalogentry.FieldCacheReadPricePriority, field.TypeFloat64, value)
-		_node.CacheReadPricePriority = &value
-	}
 	if value, ok := _c.mutation.PerRequestPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64, value)
 		_node.PerRequestPrice = &value
@@ -691,14 +591,6 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.SearchPricePerCall(); ok {
 		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
 		_node.SearchPricePerCall = &value
-	}
-	if value, ok := _c.mutation.FastMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFastMultiplier, field.TypeFloat64, value)
-		_node.FastMultiplier = &value
-	}
-	if value, ok := _c.mutation.FlexMultiplier(); ok {
-		_spec.SetField(modelcatalogentry.FieldFlexMultiplier, field.TypeFloat64, value)
-		_node.FlexMultiplier = &value
 	}
 	if value, ok := _c.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
@@ -1138,102 +1030,6 @@ func (u *ModelCatalogEntryUpsert) ClearAudioOutputPrice() *ModelCatalogEntryUpse
 	return u
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsert) SetInputPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldInputPricePriority, v)
-	return u
-}
-
-// UpdateInputPricePriority sets the "input_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateInputPricePriority() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldInputPricePriority)
-	return u
-}
-
-// AddInputPricePriority adds v to the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsert) AddInputPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldInputPricePriority, v)
-	return u
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsert) ClearInputPricePriority() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldInputPricePriority)
-	return u
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsert) SetOutputPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldOutputPricePriority, v)
-	return u
-}
-
-// UpdateOutputPricePriority sets the "output_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateOutputPricePriority() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldOutputPricePriority)
-	return u
-}
-
-// AddOutputPricePriority adds v to the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsert) AddOutputPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldOutputPricePriority, v)
-	return u
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsert) ClearOutputPricePriority() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldOutputPricePriority)
-	return u
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsert) SetCacheWritePricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldCacheWritePricePriority, v)
-	return u
-}
-
-// UpdateCacheWritePricePriority sets the "cache_write_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateCacheWritePricePriority() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldCacheWritePricePriority)
-	return u
-}
-
-// AddCacheWritePricePriority adds v to the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsert) AddCacheWritePricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldCacheWritePricePriority, v)
-	return u
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsert) ClearCacheWritePricePriority() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldCacheWritePricePriority)
-	return u
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsert) SetCacheReadPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldCacheReadPricePriority, v)
-	return u
-}
-
-// UpdateCacheReadPricePriority sets the "cache_read_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateCacheReadPricePriority() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldCacheReadPricePriority)
-	return u
-}
-
-// AddCacheReadPricePriority adds v to the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsert) AddCacheReadPricePriority(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldCacheReadPricePriority, v)
-	return u
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsert) ClearCacheReadPricePriority() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldCacheReadPricePriority)
-	return u
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (u *ModelCatalogEntryUpsert) SetPerRequestPrice(v float64) *ModelCatalogEntryUpsert {
 	u.Set(modelcatalogentry.FieldPerRequestPrice, v)
@@ -1279,54 +1075,6 @@ func (u *ModelCatalogEntryUpsert) AddSearchPricePerCall(v float64) *ModelCatalog
 // ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
 func (u *ModelCatalogEntryUpsert) ClearSearchPricePerCall() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldSearchPricePerCall)
-	return u
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsert) SetFastMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldFastMultiplier, v)
-	return u
-}
-
-// UpdateFastMultiplier sets the "fast_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateFastMultiplier() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldFastMultiplier)
-	return u
-}
-
-// AddFastMultiplier adds v to the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsert) AddFastMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldFastMultiplier, v)
-	return u
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsert) ClearFastMultiplier() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldFastMultiplier)
-	return u
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsert) SetFlexMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldFlexMultiplier, v)
-	return u
-}
-
-// UpdateFlexMultiplier sets the "flex_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateFlexMultiplier() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldFlexMultiplier)
-	return u
-}
-
-// AddFlexMultiplier adds v to the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsert) AddFlexMultiplier(v float64) *ModelCatalogEntryUpsert {
-	u.Add(modelcatalogentry.FieldFlexMultiplier, v)
-	return u
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsert) ClearFlexMultiplier() *ModelCatalogEntryUpsert {
-	u.SetNull(modelcatalogentry.FieldFlexMultiplier)
 	return u
 }
 
@@ -1816,118 +1564,6 @@ func (u *ModelCatalogEntryUpsertOne) ClearAudioOutputPrice() *ModelCatalogEntryU
 	})
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) SetInputPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetInputPricePriority(v)
-	})
-}
-
-// AddInputPricePriority adds v to the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) AddInputPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddInputPricePriority(v)
-	})
-}
-
-// UpdateInputPricePriority sets the "input_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateInputPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateInputPricePriority()
-	})
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) ClearInputPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearInputPricePriority()
-	})
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) SetOutputPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetOutputPricePriority(v)
-	})
-}
-
-// AddOutputPricePriority adds v to the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) AddOutputPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddOutputPricePriority(v)
-	})
-}
-
-// UpdateOutputPricePriority sets the "output_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateOutputPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateOutputPricePriority()
-	})
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) ClearOutputPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearOutputPricePriority()
-	})
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) SetCacheWritePricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetCacheWritePricePriority(v)
-	})
-}
-
-// AddCacheWritePricePriority adds v to the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) AddCacheWritePricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddCacheWritePricePriority(v)
-	})
-}
-
-// UpdateCacheWritePricePriority sets the "cache_write_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateCacheWritePricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateCacheWritePricePriority()
-	})
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) ClearCacheWritePricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearCacheWritePricePriority()
-	})
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) SetCacheReadPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetCacheReadPricePriority(v)
-	})
-}
-
-// AddCacheReadPricePriority adds v to the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) AddCacheReadPricePriority(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddCacheReadPricePriority(v)
-	})
-}
-
-// UpdateCacheReadPricePriority sets the "cache_read_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateCacheReadPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateCacheReadPricePriority()
-	})
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertOne) ClearCacheReadPricePriority() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearCacheReadPricePriority()
-	})
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (u *ModelCatalogEntryUpsertOne) SetPerRequestPrice(v float64) *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
@@ -1981,62 +1617,6 @@ func (u *ModelCatalogEntryUpsertOne) UpdateSearchPricePerCall() *ModelCatalogEnt
 func (u *ModelCatalogEntryUpsertOne) ClearSearchPricePerCall() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
-	})
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) SetFastMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetFastMultiplier(v)
-	})
-}
-
-// AddFastMultiplier adds v to the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) AddFastMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddFastMultiplier(v)
-	})
-}
-
-// UpdateFastMultiplier sets the "fast_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateFastMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateFastMultiplier()
-	})
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) ClearFastMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearFastMultiplier()
-	})
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) SetFlexMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetFlexMultiplier(v)
-	})
-}
-
-// AddFlexMultiplier adds v to the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) AddFlexMultiplier(v float64) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddFlexMultiplier(v)
-	})
-}
-
-// UpdateFlexMultiplier sets the "flex_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateFlexMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateFlexMultiplier()
-	})
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertOne) ClearFlexMultiplier() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearFlexMultiplier()
 	})
 }
 
@@ -2699,118 +2279,6 @@ func (u *ModelCatalogEntryUpsertBulk) ClearAudioOutputPrice() *ModelCatalogEntry
 	})
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) SetInputPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetInputPricePriority(v)
-	})
-}
-
-// AddInputPricePriority adds v to the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) AddInputPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddInputPricePriority(v)
-	})
-}
-
-// UpdateInputPricePriority sets the "input_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateInputPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateInputPricePriority()
-	})
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearInputPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearInputPricePriority()
-	})
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) SetOutputPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetOutputPricePriority(v)
-	})
-}
-
-// AddOutputPricePriority adds v to the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) AddOutputPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddOutputPricePriority(v)
-	})
-}
-
-// UpdateOutputPricePriority sets the "output_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateOutputPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateOutputPricePriority()
-	})
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearOutputPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearOutputPricePriority()
-	})
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) SetCacheWritePricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetCacheWritePricePriority(v)
-	})
-}
-
-// AddCacheWritePricePriority adds v to the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) AddCacheWritePricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddCacheWritePricePriority(v)
-	})
-}
-
-// UpdateCacheWritePricePriority sets the "cache_write_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateCacheWritePricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateCacheWritePricePriority()
-	})
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearCacheWritePricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearCacheWritePricePriority()
-	})
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) SetCacheReadPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetCacheReadPricePriority(v)
-	})
-}
-
-// AddCacheReadPricePriority adds v to the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) AddCacheReadPricePriority(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddCacheReadPricePriority(v)
-	})
-}
-
-// UpdateCacheReadPricePriority sets the "cache_read_price_priority" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateCacheReadPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateCacheReadPricePriority()
-	})
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearCacheReadPricePriority() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearCacheReadPricePriority()
-	})
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (u *ModelCatalogEntryUpsertBulk) SetPerRequestPrice(v float64) *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
@@ -2864,62 +2332,6 @@ func (u *ModelCatalogEntryUpsertBulk) UpdateSearchPricePerCall() *ModelCatalogEn
 func (u *ModelCatalogEntryUpsertBulk) ClearSearchPricePerCall() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
-	})
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) SetFastMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetFastMultiplier(v)
-	})
-}
-
-// AddFastMultiplier adds v to the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) AddFastMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddFastMultiplier(v)
-	})
-}
-
-// UpdateFastMultiplier sets the "fast_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateFastMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateFastMultiplier()
-	})
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearFastMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearFastMultiplier()
-	})
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) SetFlexMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetFlexMultiplier(v)
-	})
-}
-
-// AddFlexMultiplier adds v to the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) AddFlexMultiplier(v float64) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.AddFlexMultiplier(v)
-	})
-}
-
-// UpdateFlexMultiplier sets the "flex_multiplier" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateFlexMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateFlexMultiplier()
-	})
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (u *ModelCatalogEntryUpsertBulk) ClearFlexMultiplier() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.ClearFlexMultiplier()
 	})
 }
 

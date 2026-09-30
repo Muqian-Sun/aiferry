@@ -19,15 +19,11 @@ type PlazaCatalogModel struct {
 }
 
 // PlazaTokenExtras 目录条目上价卡没投影的 token 计费项（官方价，USD / token）：
-// Fast 档（service_tier=priority）各项价、图片缓存读、音频输入 / 输出。模型广场要把计费项列全（muqian 2026-09-30）。
+// 图片缓存读、音频输入 / 输出。模型广场要把计费项列全（muqian 2026-09-30）。
 type PlazaTokenExtras struct {
-	InputPricePriority      *float64
-	OutputPricePriority     *float64
-	CacheWritePricePriority *float64
-	CacheReadPricePriority  *float64
-	ImageCacheReadPrice     *float64
-	AudioInputPrice         *float64
-	AudioOutputPrice        *float64
+	ImageCacheReadPrice *float64
+	AudioInputPrice     *float64
+	AudioOutputPrice    *float64
 	// WebSearchPricePerCall 联网搜索（/alpha/search，只走 OpenAI / Codex 账号）每次的实际计费价：
 	// 条目配了用条目的，没配按内置单价；非 OpenAI 模型走不到这个入口，为 nil。
 	WebSearchPricePerCall *float64
@@ -80,15 +76,11 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 			BillingMode: entry.EffectiveBillingMode(),
 			Pricing:     withDefaultMaxReasoningEffortMultiplier(entry.PricingCard(), entry.ModelID),
 			TokenExtras: PlazaTokenExtras{
-				InputPricePriority:      entry.InputPricePriority,
-				OutputPricePriority:     entry.OutputPricePriority,
-				CacheWritePricePriority: entry.CacheWritePricePriority,
-				CacheReadPricePriority:  entry.CacheReadPricePriority,
-				ImageCacheReadPrice:     entry.ImageCacheReadPrice,
-				AudioInputPrice:         entry.AudioInputPrice,
-				AudioOutputPrice:        entry.AudioOutputPrice,
-				WebSearchPricePerCall:   webSearch,
-				ToolSearchPricePerCall:  toolSearch,
+				ImageCacheReadPrice:    entry.ImageCacheReadPrice,
+				AudioInputPrice:        entry.AudioInputPrice,
+				AudioOutputPrice:       entry.AudioOutputPrice,
+				WebSearchPricePerCall:  webSearch,
+				ToolSearchPricePerCall: toolSearch,
 			},
 			TimePricing: entry.TimePricing,
 			Aliases:     aliases,

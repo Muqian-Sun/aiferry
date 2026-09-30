@@ -148,8 +148,8 @@ func normalizeObservedOpenAIServiceTier(raw string) string {
 	}
 }
 
-// normalizeObservedAnthropicSpeed maps Anthropic usage.speed onto the billing
-// vocabulary: "fast" is the billable fast-mode tier, "standard" the base rate.
+// normalizeObservedAnthropicSpeed maps Anthropic usage.speed onto the recorded
+// tier vocabulary: "fast" is the fast-mode tier, "standard" the base rate.
 func normalizeObservedAnthropicSpeed(raw string) string {
 	switch value := strings.ToLower(strings.TrimSpace(raw)); value {
 	case "fast", "standard":

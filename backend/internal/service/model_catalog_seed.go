@@ -208,11 +208,6 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		ImageCacheReadPrice: positivePrice(pricing.CacheReadInputImageTokenCost),
 		AudioInputPrice:     positivePrice(pricing.InputCostPerAudioToken),
 		AudioOutputPrice:    positivePrice(pricing.OutputCostPerAudioToken),
-
-		InputPricePriority:      positivePrice(pricing.InputCostPerTokenPriority),
-		OutputPricePriority:     positivePrice(pricing.OutputCostPerTokenPriority),
-		CacheWritePricePriority: positivePrice(pricing.CacheCreationInputTokenCostPriority),
-		CacheReadPricePriority:  positivePrice(pricing.CacheReadInputTokenCostPriority),
 	}
 	// 5m/1h 分档只在 1h 价严格高于 5m 价时成立，与 getModelPricingAt 同口径：
 	// 价格文件写反时不分档，避免把 1h 缓存按更低的价算。
@@ -292,13 +287,6 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		AudioInputPrice:     positivePrice(pricing.AudioInputPricePerToken),
 		AudioOutputPrice:    positivePrice(pricing.AudioOutputPricePerToken),
 
-		InputPricePriority:      positivePrice(pricing.InputPricePerTokenPriority),
-		OutputPricePriority:     positivePrice(pricing.OutputPricePerTokenPriority),
-		CacheWritePricePriority: positivePrice(pricing.CacheCreationPricePerTokenPriority),
-		CacheReadPricePriority:  positivePrice(pricing.CacheReadPricePerTokenPriority),
-
-		FastMultiplier:               clonePricePtr(pricing.FastMultiplier),
-		FlexMultiplier:               clonePricePtr(pricing.FlexMultiplier),
 		MaxReasoningEffortMultiplier: clonePricePtr(pricing.MaxReasoningEffortMultiplier),
 	}
 	if pricing.SupportsCacheBreakdown &&

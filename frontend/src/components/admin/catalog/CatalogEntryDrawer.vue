@@ -301,10 +301,6 @@ type PriceField =
   | 'image_cache_read_price'
   | 'audio_input_price'
   | 'audio_output_price'
-  | 'input_price_priority'
-  | 'output_price_priority'
-  | 'cache_write_price_priority'
-  | 'cache_read_price_priority'
 
 /** 按 Token 计费时列出的单价（$ / 百万 Token）：输入 / 输出始终列出（没配就是「—」），其余配了才列 */
 const TOKEN_PRICES: { key: string; labelKey: string; field: PriceField; always?: boolean }[] = [
@@ -317,11 +313,7 @@ const TOKEN_PRICES: { key: string; labelKey: string; field: PriceField; always?:
   { key: 'image_output', labelKey: 'imageOutput', field: 'image_output_price' },
   { key: 'image_cache_read', labelKey: 'imageCacheRead', field: 'image_cache_read_price' },
   { key: 'audio_input', labelKey: 'audioInput', field: 'audio_input_price' },
-  { key: 'audio_output', labelKey: 'audioOutput', field: 'audio_output_price' },
-  { key: 'input_priority', labelKey: 'inputPriority', field: 'input_price_priority' },
-  { key: 'output_priority', labelKey: 'outputPriority', field: 'output_price_priority' },
-  { key: 'cache_write_priority', labelKey: 'cacheWritePriority', field: 'cache_write_price_priority' },
-  { key: 'cache_read_priority', labelKey: 'cacheReadPriority', field: 'cache_read_price_priority' }
+  { key: 'audio_output', labelKey: 'audioOutput', field: 'audio_output_price' }
 ]
 
 /** 按 Token 分段（含第一段 = 基础价）；不是按 Token 计费或没分段时为空 */
@@ -409,8 +401,6 @@ const priceRows = computed<Row[]>(() => {
   const multiplier = (key: string, labelKey: string, value: number | null | undefined) => {
     if (value != null) push(key, t(`admin.modelCatalog.drawer.price.${labelKey}`), `× ${value}`)
   }
-  multiplier('fast', 'fast', entry.fast_multiplier)
-  multiplier('flex', 'flex', entry.flex_multiplier)
   multiplier('max_reasoning', 'maxReasoning', entry.max_reasoning_effort_multiplier)
   return rows
 })

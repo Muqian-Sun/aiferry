@@ -5,13 +5,16 @@ import (
 	"strings"
 )
 
+// 档位只记在用量记录上、不影响计费：Fast / Flex 计价 2026-09-30 已删（muqian「上游都没有这个东西」），
+// 下面沿用的 "billing" 命名指的是记录下来的档位。
+//
 // ServiceTierBillingResolution describes how the billable service tier of one
 // request was settled between the tier the client asked for and the tier the
 // upstream reports having used.
 type ServiceTierBillingResolution struct {
 	Requested  string // tier carried by the request sent upstream ("" when none)
 	Observed   string // tier declared by the upstream response ("" when none)
-	Billing    string // tier used for billing and the usage log
+	Billing    string // tier recorded on the usage log
 	Downgraded bool   // Billing is cheaper than Requested
 }
 

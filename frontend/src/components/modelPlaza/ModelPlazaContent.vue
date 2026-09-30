@@ -135,7 +135,7 @@
           </div>
           <!--
             格子只列基础计费项（muqian 2026-09-30「格子里面只写基础的输入输出、缓存读写」）：两列对齐，名在左、价在右，
-            没定价的显示破折号；分段模型列第一段。分段价、Fast / Flex、1 小时缓存、图片音频、搜索、分时等都在抽屉里，
+            没定价的显示破折号；分段模型列第一段。分段价、1 小时缓存、图片音频、搜索、分时等都在抽屉里，
             格子底部一行灰字提示还有哪些。按次 / 图片 / 视频模式只有一个单价。单位见工具行。
           -->
           <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums" data-testid="price-summary">
@@ -313,8 +313,6 @@ function cellExtras(entry: CatalogModel): string[] {
   if (entry.rows.length > 1) extras.push(t('userUi.models.tags.segments', { count: entry.rows.length }))
   if (entry.tiers.length) extras.push(t('userUi.models.tags.tiers', { count: entry.tiers.length }))
   if (price?.cacheWrite1h != null) extras.push(t('userUi.models.tags.cache1h'))
-  if (entry.fastRows) extras.push(t('userUi.models.tags.fast'))
-  if (entry.flexMultiplier != null) extras.push(t('userUi.models.tags.flex'))
   if (price && (price.imageInput != null || price.imageOutput != null || price.imageCacheRead != null)) {
     extras.push(t('userUi.models.tags.image'))
   }

@@ -56,22 +56,10 @@ type ModelCatalogEntry struct {
 	AudioInputPrice *float64 `json:"audio_input_price,omitempty"`
 	// AudioOutputPrice holds the value of the "audio_output_price" field.
 	AudioOutputPrice *float64 `json:"audio_output_price,omitempty"`
-	// InputPricePriority holds the value of the "input_price_priority" field.
-	InputPricePriority *float64 `json:"input_price_priority,omitempty"`
-	// OutputPricePriority holds the value of the "output_price_priority" field.
-	OutputPricePriority *float64 `json:"output_price_priority,omitempty"`
-	// CacheWritePricePriority holds the value of the "cache_write_price_priority" field.
-	CacheWritePricePriority *float64 `json:"cache_write_price_priority,omitempty"`
-	// CacheReadPricePriority holds the value of the "cache_read_price_priority" field.
-	CacheReadPricePriority *float64 `json:"cache_read_price_priority,omitempty"`
 	// PerRequestPrice holds the value of the "per_request_price" field.
 	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
 	// SearchPricePerCall holds the value of the "search_price_per_call" field.
 	SearchPricePerCall *float64 `json:"search_price_per_call,omitempty"`
-	// FastMultiplier holds the value of the "fast_multiplier" field.
-	FastMultiplier *float64 `json:"fast_multiplier,omitempty"`
-	// FlexMultiplier holds the value of the "flex_multiplier" field.
-	FlexMultiplier *float64 `json:"flex_multiplier,omitempty"`
 	// MaxReasoningEffortMultiplier holds the value of the "max_reasoning_effort_multiplier" field.
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
 	// Notes holds the value of the "notes" field.
@@ -140,7 +128,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case modelcatalogentry.FieldProtocols:
 			values[i] = new([]byte)
-		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID:
 			values[i] = new(sql.NullInt64)
@@ -295,34 +283,6 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				_m.AudioOutputPrice = new(float64)
 				*_m.AudioOutputPrice = value.Float64
 			}
-		case modelcatalogentry.FieldInputPricePriority:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field input_price_priority", values[i])
-			} else if value.Valid {
-				_m.InputPricePriority = new(float64)
-				*_m.InputPricePriority = value.Float64
-			}
-		case modelcatalogentry.FieldOutputPricePriority:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field output_price_priority", values[i])
-			} else if value.Valid {
-				_m.OutputPricePriority = new(float64)
-				*_m.OutputPricePriority = value.Float64
-			}
-		case modelcatalogentry.FieldCacheWritePricePriority:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field cache_write_price_priority", values[i])
-			} else if value.Valid {
-				_m.CacheWritePricePriority = new(float64)
-				*_m.CacheWritePricePriority = value.Float64
-			}
-		case modelcatalogentry.FieldCacheReadPricePriority:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field cache_read_price_priority", values[i])
-			} else if value.Valid {
-				_m.CacheReadPricePriority = new(float64)
-				*_m.CacheReadPricePriority = value.Float64
-			}
 		case modelcatalogentry.FieldPerRequestPrice:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field per_request_price", values[i])
@@ -336,20 +296,6 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 			} else if value.Valid {
 				_m.SearchPricePerCall = new(float64)
 				*_m.SearchPricePerCall = value.Float64
-			}
-		case modelcatalogentry.FieldFastMultiplier:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field fast_multiplier", values[i])
-			} else if value.Valid {
-				_m.FastMultiplier = new(float64)
-				*_m.FastMultiplier = value.Float64
-			}
-		case modelcatalogentry.FieldFlexMultiplier:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field flex_multiplier", values[i])
-			} else if value.Valid {
-				_m.FlexMultiplier = new(float64)
-				*_m.FlexMultiplier = value.Float64
 			}
 		case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -498,26 +444,6 @@ func (_m *ModelCatalogEntry) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
-	if v := _m.InputPricePriority; v != nil {
-		builder.WriteString("input_price_priority=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.OutputPricePriority; v != nil {
-		builder.WriteString("output_price_priority=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.CacheWritePricePriority; v != nil {
-		builder.WriteString("cache_write_price_priority=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.CacheReadPricePriority; v != nil {
-		builder.WriteString("cache_read_price_priority=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
 	if v := _m.PerRequestPrice; v != nil {
 		builder.WriteString("per_request_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
@@ -525,16 +451,6 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	if v := _m.SearchPricePerCall; v != nil {
 		builder.WriteString("search_price_per_call=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.FastMultiplier; v != nil {
-		builder.WriteString("fast_multiplier=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.FlexMultiplier; v != nil {
-		builder.WriteString("flex_multiplier=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

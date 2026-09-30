@@ -291,7 +291,7 @@ func TestCalculateCost_OpenAIGPT54TokenSegmentAppliesToWholeRequest(t *testing.T
 		OutputTokens: 4000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens)
 
 	expectedInput := float64(tokens.InputTokens) * 2.5e-6 * 2.0
 	expectedOutput := float64(tokens.OutputTokens) * 15e-6 * 1.5
@@ -309,7 +309,7 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 		OutputTokens: 4000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.5-pro", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.5-pro", tokens)
 
 	expectedInput := float64(tokens.InputTokens) * 30e-6 * 2.0
 	expectedOutput := float64(tokens.OutputTokens) * 180e-6 * 1.5
@@ -328,8 +328,6 @@ func TestFallbackPricing_OpenAIGPT55UsesOfficialPrices(t *testing.T) {
 	require.InDelta(t, 30e-6, pricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerToken, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreationPricePerToken, 1e-12)
-	require.InDelta(t, 12.5e-6, pricing.InputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 75e-6, pricing.OutputPricePerTokenPriority, 1e-12)
 }
 
 func TestFallbackPricing_OpenAIGPT55ProUsesOfficialPrices(t *testing.T) {
@@ -341,8 +339,6 @@ func TestFallbackPricing_OpenAIGPT55ProUsesOfficialPrices(t *testing.T) {
 	require.InDelta(t, 180e-6, pricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 30e-6, pricing.CacheReadPricePerToken, 1e-12)
 	require.InDelta(t, 30e-6, pricing.CacheCreationPricePerToken, 1e-12)
-	require.Zero(t, pricing.InputPricePerTokenPriority)
-	require.Zero(t, pricing.OutputPricePerTokenPriority)
 }
 
 // 回归测试 #2293：落在高段时 cache_read 也按高段价（= 基础价 × 输入倍数 2）；播种时换算进分段的 cache_read_price。
@@ -356,7 +352,7 @@ func TestCalculateCost_OpenAIGPT54TokenSegmentAppliesToCacheRead(t *testing.T) {
 		OutputTokens:    1000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens)
 
 	expectedInput := float64(tokens.InputTokens) * 2.5e-6 * 2.0
 	expectedOutput := float64(tokens.OutputTokens) * 15e-6 * 1.5
@@ -383,7 +379,7 @@ func TestCalculateCost_OpenAIGPT54BelowSegmentKeepsCacheReadAtBasePrice(t *testi
 		OutputTokens:    1000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens)
 
 	expectedCacheRead := float64(tokens.CacheReadTokens) * 0.25e-6
 	require.InDelta(t, expectedCacheRead, cost.CacheReadCost, 1e-10,
@@ -402,7 +398,7 @@ func TestCalculateCost_OpenAIGPT54TokenSegmentAppliesToCacheCreation(t *testing.
 		OutputTokens:        1000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens)
 
 	// gpt-5.4: 基础缓存写 2.5e-6，高段 = × 2
 	expectedCacheCreation := float64(tokens.CacheCreationTokens) * 2.5e-6 * 2.0
@@ -422,7 +418,7 @@ func TestCalculateCost_OpenAIGPT54BelowSegmentKeepsCacheCreationAtBasePrice(t *t
 		OutputTokens:        1000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "gpt-5.4", tokens)
 
 	expectedCacheCreation := float64(tokens.CacheCreationTokens) * 2.5e-6
 	require.InDelta(t, expectedCacheCreation, cost.CacheCreationCost, 1e-10,
@@ -456,7 +452,7 @@ func TestCalculateCost_TokenSegmentAppliesToCacheCreation5mAnd1h(t *testing.T) {
 		OutputTokens:          1000,
 	}
 
-	cost := costViaCatalog(t, bs, resolver, "claude-sonnet-4", tokens, "")
+	cost := costViaCatalog(t, bs, resolver, "claude-sonnet-4", tokens)
 
 	expected5m := float64(tokens.CacheCreation5mTokens) * 4e-6 * 2.0
 	expected1h := float64(tokens.CacheCreation1hTokens) * 5e-6 * 2.0
@@ -951,7 +947,7 @@ func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 		ImageOutputTokens: 439,
 	}
 
-	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0, "")
+	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0)
 
 	wantTextInput := float64(19) * 5e-6     // 0.000095
 	wantImageInput := float64(352) * 8e-6   // 0.002816
@@ -1057,7 +1053,7 @@ func TestCalculateCostUnified_GrokFallbackLadderSeedsInclusiveSegment(t *testing
 	entry := seedEntryFromFallback("grok-4.5", svc.SnapshotFallbackPricing()["grok-4.5"])
 	resolver := newResolverWithSeededEntries(svc, entry)
 	calc := func(input int) *CostBreakdown {
-		return costViaCatalog(t, svc, resolver, "grok-4.5", UsageTokens{InputTokens: input, OutputTokens: 1000}, "")
+		return costViaCatalog(t, svc, resolver, "grok-4.5", UsageTokens{InputTokens: input, OutputTokens: 1000})
 	}
 
 	below := calc(199_999)
@@ -1321,130 +1317,6 @@ func TestCalculateCost_LargeTokenCount(t *testing.T) {
 	require.False(t, math.IsInf(cost.TotalCost, 0))
 }
 
-func TestServiceTierCostMultiplier(t *testing.T) {
-	require.InDelta(t, 2.0, serviceTierCostMultiplier("priority"), 1e-12)
-	require.InDelta(t, 2.0, serviceTierCostMultiplier(" Priority "), 1e-12)
-	require.InDelta(t, 2.0, serviceTierCostMultiplier("ultrafast"), 1e-12)
-	require.InDelta(t, 0.5, serviceTierCostMultiplier("flex"), 1e-12)
-	require.InDelta(t, 1.0, serviceTierCostMultiplier(""), 1e-12)
-	require.InDelta(t, 1.0, serviceTierCostMultiplier("default"), 1e-12)
-}
-
-func TestCalculateCostWithServiceTier_OpenAIPriorityUsesPriorityPricing(t *testing.T) {
-	svc := newTestBillingService()
-	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheReadTokens: 20}
-
-	baseCost, err := svc.CalculateCost("gpt-5.1-codex", tokens, 1.0)
-	require.NoError(t, err)
-
-	priorityCost, err := svc.CalculateCostWithServiceTier("gpt-5.1-codex", tokens, 1.0, "priority")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost*2, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*2, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*2, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*2, priorityCost.TotalCost, 1e-10)
-}
-
-func TestCalculateCostWithServiceTier_FlexAppliesHalfMultiplier(t *testing.T) {
-	svc := newTestBillingService()
-	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
-
-	baseCost, err := svc.CalculateCost("gpt-5.4", tokens, 1.0)
-	require.NoError(t, err)
-
-	flexCost, err := svc.CalculateCostWithServiceTier("gpt-5.4", tokens, 1.0, "flex")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost*0.5, flexCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*0.5, flexCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost*0.5, flexCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*0.5, flexCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*0.5, flexCost.TotalCost, 1e-10)
-}
-
-// 没配 Fast 价也没配 Fast 倍率的模型，priority 请求按标准价收（muqian 2026-09-30「没配 Fast / Flex 的模型一律按标准价收」）。
-func TestCalculateCostWithServiceTier_Gpt54MiniPriorityWithoutFastConfigBillsStandard(t *testing.T) {
-	svc := newTestBillingService()
-	tokens := UsageTokens{InputTokens: 120, OutputTokens: 30, CacheCreationTokens: 12, CacheReadTokens: 8}
-
-	baseCost, err := svc.CalculateCost("gpt-5.4-mini", tokens, 1.0)
-	require.NoError(t, err)
-
-	priorityCost, err := svc.CalculateCostWithServiceTier("gpt-5.4-mini", tokens, 1.0, "priority")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
-}
-
-// 没配 Fast / Flex 的模型，flex 请求按标准价收。
-func TestCalculateCostWithServiceTier_Gpt54NanoFlexWithoutTierConfigBillsStandard(t *testing.T) {
-	svc := newTestBillingService()
-	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
-
-	baseCost, err := svc.CalculateCost("gpt-5.4-nano", tokens, 1.0)
-	require.NoError(t, err)
-
-	flexCost, err := svc.CalculateCostWithServiceTier("gpt-5.4-nano", tokens, 1.0, "flex")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost, flexCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost, flexCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost, flexCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost, flexCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost, flexCost.TotalCost, 1e-10)
-}
-
-func TestCalculateCostWithServiceTier_ClaudePriorityWithoutFastConfigBillsStandard(t *testing.T) {
-	svc := newTestBillingService()
-	tokens := UsageTokens{InputTokens: 120, OutputTokens: 30, CacheCreationTokens: 12, CacheReadTokens: 8}
-
-	baseCost, err := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
-	require.NoError(t, err)
-
-	priorityCost, err := svc.CalculateCostWithServiceTier("claude-sonnet-4", tokens, 1.0, "priority")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
-}
-
-func TestBillingServiceGetModelPricing_UsesDynamicPriorityFields(t *testing.T) {
-	pricingSvc := &PricingService{
-		pricingData: map[string]*LiteLLMModelPricing{
-			"gpt-5.4": {
-				InputCostPerToken:               2.5e-6,
-				InputCostPerTokenPriority:       5e-6,
-				OutputCostPerToken:              15e-6,
-				OutputCostPerTokenPriority:      30e-6,
-				CacheCreationInputTokenCost:     2.5e-6,
-				CacheReadInputTokenCost:         0.25e-6,
-				CacheReadInputTokenCostPriority: 0.5e-6,
-				LongContextInputTokenThreshold:  272000,
-				LongContextInputCostMultiplier:  2.0,
-				LongContextOutputCostMultiplier: 1.5,
-			},
-		},
-	}
-	svc := NewBillingService(&config.Config{}, pricingSvc)
-
-	pricing, err := svc.GetModelPricing("gpt-5.4")
-	require.NoError(t, err)
-	require.InDelta(t, 2.5e-6, pricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 5e-6, pricing.InputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 15e-6, pricing.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 30e-6, pricing.OutputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 0.25e-6, pricing.CacheReadPricePerToken, 1e-12)
-	require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerTokenPriority, 1e-12)
-}
-
 func TestBillingServiceGetModelPricing_OpenAIFallbackGpt52Variants(t *testing.T) {
 	svc := newTestBillingService()
 
@@ -1452,85 +1324,24 @@ func TestBillingServiceGetModelPricing_OpenAIFallbackGpt52Variants(t *testing.T)
 	require.NoError(t, err)
 	require.NotNil(t, gpt52)
 	require.InDelta(t, 1.75e-6, gpt52.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.5e-6, gpt52.InputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 14e-6, gpt52.OutputPricePerToken, 1e-12)
 
 	gpt52Codex, err := svc.GetModelPricing("gpt-5.2-codex")
 	require.NoError(t, err)
 	require.NotNil(t, gpt52Codex)
 	require.InDelta(t, 1.75e-6, gpt52Codex.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.5e-6, gpt52Codex.InputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 28e-6, gpt52Codex.OutputPricePerTokenPriority, 1e-12)
-}
-
-// 档位倍率只对配了档位的模型生效：没配的 priority 按标准价；配了 Fast / Flex 倍率的按倍率。
-func TestCalculateCostWithServiceTier_TierMultipliersOnlyWhenConfigured(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, &PricingService{
-		pricingData: map[string]*LiteLLMModelPricing{
-			"custom-no-priority": {
-				InputCostPerToken:           1e-6,
-				OutputCostPerToken:          2e-6,
-				CacheCreationInputTokenCost: 0.5e-6,
-				CacheReadInputTokenCost:     0.25e-6,
-			},
-		},
-	})
-	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
-
-	baseCost, err := svc.CalculateCost("custom-no-priority", tokens, 1.0)
-	require.NoError(t, err)
-
-	priorityCost, err := svc.CalculateCostWithServiceTier("custom-no-priority", tokens, 1.0, "priority")
-	require.NoError(t, err)
-
-	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
-
-	// 配了 Fast 倍率：priority 整单 × 它；只配 Fast 倍率也算支持档位，flex 按官方默认 ×0.5
-	fast := 3.0
-	withFast := &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 2e-6, FastMultiplier: &fast}
-	standard := svc.computeTokenBreakdown(withFast, tokens, 1, "")
-	require.InDelta(t, standard.TotalCost*3, svc.computeTokenBreakdown(withFast, tokens, 1, "priority").TotalCost, 1e-12)
-	require.InDelta(t, standard.TotalCost*0.5, svc.computeTokenBreakdown(withFast, tokens, 1, "flex").TotalCost, 1e-12)
-	// 只配了 Flex 倍率：flex 按它，priority 不加价
-	flex := 0.4
-	withFlex := &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 2e-6, FlexMultiplier: &flex}
-	require.InDelta(t, standard.TotalCost*0.4, svc.computeTokenBreakdown(withFlex, tokens, 1, "flex").TotalCost, 1e-12)
-	require.InDelta(t, standard.TotalCost, svc.computeTokenBreakdown(withFlex, tokens, 1, "priority").TotalCost, 1e-12)
-}
-
-func TestGetModelPricing_OpenAIGpt52FallbacksExposePriorityPrices(t *testing.T) {
-	svc := newTestBillingService()
-
-	gpt52, err := svc.GetModelPricing("gpt-5.2")
-	require.NoError(t, err)
-	require.InDelta(t, 1.75e-6, gpt52.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.5e-6, gpt52.InputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 14e-6, gpt52.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 28e-6, gpt52.OutputPricePerTokenPriority, 1e-12)
-
-	gpt52Codex, err := svc.GetModelPricing("gpt-5.2-codex")
-	require.NoError(t, err)
-	require.InDelta(t, 1.75e-6, gpt52Codex.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.5e-6, gpt52Codex.InputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 14e-6, gpt52Codex.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 28e-6, gpt52Codex.OutputPricePerTokenPriority, 1e-12)
 }
 
-func TestGetModelPricing_MapsDynamicPriorityFieldsIntoBillingPricing(t *testing.T) {
+func TestGetModelPricing_MapsDynamicFieldsIntoBillingPricing(t *testing.T) {
 	svc := NewBillingService(&config.Config{}, &PricingService{
 		pricingData: map[string]*LiteLLMModelPricing{
 			"dynamic-tier-model": {
 				InputCostPerToken:                   1e-6,
-				InputCostPerTokenPriority:           2e-6,
 				OutputCostPerToken:                  3e-6,
-				OutputCostPerTokenPriority:          6e-6,
 				CacheCreationInputTokenCost:         4e-6,
 				CacheCreationInputTokenCostAbove1hr: 5e-6,
 				CacheReadInputTokenCost:             7e-7,
-				CacheReadInputTokenCostPriority:     8e-7,
 				LongContextInputTokenThreshold:      999,
 				LongContextInputCostMultiplier:      1.5,
 				LongContextOutputCostMultiplier:     1.25,
@@ -1541,14 +1352,11 @@ func TestGetModelPricing_MapsDynamicPriorityFieldsIntoBillingPricing(t *testing.
 	pricing, err := svc.GetModelPricing("dynamic-tier-model")
 	require.NoError(t, err)
 	require.InDelta(t, 1e-6, pricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 2e-6, pricing.InputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 3e-6, pricing.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 6e-6, pricing.OutputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 4e-6, pricing.CacheCreation5mPrice, 1e-12)
 	require.InDelta(t, 5e-6, pricing.CacheCreation1hPrice, 1e-12)
 	require.True(t, pricing.SupportsCacheBreakdown)
 	require.InDelta(t, 7e-7, pricing.CacheReadPricePerToken, 1e-12)
-	require.InDelta(t, 8e-7, pricing.CacheReadPricePerTokenPriority, 1e-12)
 }
 
 // ---------------------------------------------------------------------------
@@ -1580,10 +1388,8 @@ func TestGetModelPricingWithChannel_OverrideInputPriceOnly(t *testing.T) {
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
 	require.NoError(t, err)
 
-	// InputPrice overridden. claude-sonnet-4 has no catalog priority price, so
-	// the priority slot is zeroed and serviceTierCostMultiplier owns the surcharge.
+	// InputPrice overridden
 	require.InDelta(t, 99e-6, pricing.InputPricePerToken, 1e-12)
-	require.Zero(t, pricing.InputPricePerTokenPriority)
 
 	// OutputPrice unchanged (claude-sonnet-4 fallback = 15e-6)
 	require.InDelta(t, 15e-6, pricing.OutputPricePerToken, 1e-12)
@@ -1598,9 +1404,8 @@ func TestGetModelPricingWithChannel_OverrideOutputPriceOnly(t *testing.T) {
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
 	require.NoError(t, err)
 
-	// OutputPrice overridden; no catalog priority price to scale, so the slot is zeroed.
+	// OutputPrice overridden
 	require.InDelta(t, 88e-6, pricing.OutputPricePerToken, 1e-12)
-	require.Zero(t, pricing.OutputPricePerTokenPriority)
 
 	// InputPrice unchanged (claude-sonnet-4 fallback = 3e-6)
 	require.InDelta(t, 3e-6, pricing.InputPricePerToken, 1e-12)
@@ -1626,12 +1431,6 @@ func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 	require.InDelta(t, 5e-6, pricing.CacheCreation1hPrice, 1e-12)
 	require.InDelta(t, 1e-6, pricing.CacheReadPricePerToken, 1e-12)
 	require.InDelta(t, 50e-6, pricing.ImageOutputPricePerToken, 1e-12)
-
-	// claude-sonnet-4 carries no catalog Fast/Priority tier, so every priority
-	// slot stays zero and computeTokenBreakdown falls back to the 2x default.
-	require.Zero(t, pricing.InputPricePerTokenPriority)
-	require.Zero(t, pricing.OutputPricePerTokenPriority)
-	require.Zero(t, pricing.CacheReadPricePerTokenPriority)
 }
 
 func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) {
@@ -1677,38 +1476,6 @@ func TestGetModelPricing_Fable51FallbackPricing(t *testing.T) {
 	require.Equal(t, 3.0, *pricing.MaxReasoningEffortMultiplier)
 }
 
-func TestGetModelPricingWithChannel_CacheReadPriceAffectsPriority(t *testing.T) {
-	svc := newTestBillingService()
-
-	chPricing := &PricingCard{
-		CacheReadPrice: testPtrFloat64(2e-6),
-	}
-	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
-	require.NoError(t, err)
-
-	// CacheReadPrice sets the standard slot; the priority slot is zeroed because
-	// claude-sonnet-4 has no catalog tier ratio to preserve.
-	require.InDelta(t, 2e-6, pricing.CacheReadPricePerToken, 1e-12)
-	require.Zero(t, pricing.CacheReadPricePerTokenPriority)
-}
-
-// 目录带 tier 价时，渠道覆盖必须按目录比例换算 priority 价，而不是归零。
-func TestGetModelPricingWithChannel_PreservesCatalogPriorityRatio(t *testing.T) {
-	svc := newTestBillingService()
-
-	// gpt-5.4 目录价：input 2.5/5（2x），output 15/30（2x）。
-	pricing, err := svc.GetModelPricingWithChannel("gpt-5.4", &PricingCard{
-		InputPrice:  testPtrFloat64(4e-6),
-		OutputPrice: testPtrFloat64(30e-6),
-	})
-	require.NoError(t, err)
-
-	require.InDelta(t, 4e-6, pricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 8e-6, pricing.InputPricePerTokenPriority, 1e-12)
-	require.InDelta(t, 30e-6, pricing.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 60e-6, pricing.OutputPricePerTokenPriority, 1e-12)
-}
-
 func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 	svc := newTestBillingService()
 
@@ -1750,7 +1517,7 @@ func TestComputeTokenBreakdown_ExplicitZeroImagePrice_NoFallback(t *testing.T) {
 		OutputTokens:      200,
 		ImageOutputTokens: 50,
 	}
-	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, "")
+	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0)
 
 	// ImageOutputTokens should NOT fall back to outputPrice
 	require.Equal(t, 0.0, bd.ImageOutputCost)
@@ -1772,7 +1539,7 @@ func TestComputeTokenBreakdown_NonExplicitZeroImagePrice_FallsBackToOutput(t *te
 		OutputTokens:      200,
 		ImageOutputTokens: 50,
 	}
-	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0, "")
+	bd := svc.computeTokenBreakdown(pricing, tokens, 1.0)
 
 	// Should fall back to outputPrice since not explicit
 	require.InDelta(t, 50*15e-6, bd.ImageOutputCost, 1e-12)

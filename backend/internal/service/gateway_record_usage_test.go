@@ -580,8 +580,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 }
 
 // newGatewayRecordUsageServiceWithResolverForTest mirrors production wiring for
-// token billing: a pricing resolver plus a grouped API key select the unified
-// billing path, which is the only one that honours the service tier.
+// token billing: a pricing resolver selects the unified billing path.
 func newGatewayRecordUsageServiceWithResolverForTest(usageRepo UsageLogRepository) (*GatewayService, *APIKey) {
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
@@ -615,13 +614,11 @@ func TestGatewayServiceRecordUsage_FastSpeedDowngradedByUpstreamResponse(t *test
 	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
 	standardCost, err := svc.billingService.CalculateCost("claude-opus-5", tokens, 1.0)
 	require.NoError(t, err)
-	fastCost, err := svc.billingService.CalculateCostWithServiceTier("claude-opus-5", tokens, 1.0, "fast")
-	require.NoError(t, err)
-	require.Greater(t, fastCost.TotalCost, standardCost.TotalCost, "fast mode must carry a premium for the test to be meaningful")
 	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
 
-func TestGatewayServiceRecordUsage_FastSpeedHonouredKeepsPremium(t *testing.T) {
+// Fast 档照常记进用量日志，但按标准价计费（上游不提供 Fast 档价）。
+func TestGatewayServiceRecordUsage_FastSpeedHonouredRecordedAtStandardPrice(t *testing.T) {
 	usageRepo := &openAIRecordUsageBestEffortLogRepoStub{}
 	svc, apiKey := newGatewayRecordUsageServiceWithResolverForTest(usageRepo)
 
@@ -644,9 +641,9 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredKeepsPremium(t *testing.T) {
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, "fast", *usageRepo.lastLog.ServiceTier)
 
-	fastCost, err := svc.billingService.CalculateCostWithServiceTier("claude-opus-5", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0, "fast")
+	standardCost, err := svc.billingService.CalculateCost("claude-opus-5", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, err)
-	require.InDelta(t, fastCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
+	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
 
 // 只有本文件（unit tag）用；放在无 tag 的文件里默认构建会被 lint 判未使用。

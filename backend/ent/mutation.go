@@ -23492,22 +23492,10 @@ type ModelCatalogEntryMutation struct {
 	addaudio_input_price               *float64
 	audio_output_price                 *float64
 	addaudio_output_price              *float64
-	input_price_priority               *float64
-	addinput_price_priority            *float64
-	output_price_priority              *float64
-	addoutput_price_priority           *float64
-	cache_write_price_priority         *float64
-	addcache_write_price_priority      *float64
-	cache_read_price_priority          *float64
-	addcache_read_price_priority       *float64
 	per_request_price                  *float64
 	addper_request_price               *float64
 	search_price_per_call              *float64
 	addsearch_price_per_call           *float64
-	fast_multiplier                    *float64
-	addfast_multiplier                 *float64
-	flex_multiplier                    *float64
-	addflex_multiplier                 *float64
 	max_reasoning_effort_multiplier    *float64
 	addmax_reasoning_effort_multiplier *float64
 	notes                              *string
@@ -24674,286 +24662,6 @@ func (m *ModelCatalogEntryMutation) ResetAudioOutputPrice() {
 	delete(m.clearedFields, modelcatalogentry.FieldAudioOutputPrice)
 }
 
-// SetInputPricePriority sets the "input_price_priority" field.
-func (m *ModelCatalogEntryMutation) SetInputPricePriority(f float64) {
-	m.input_price_priority = &f
-	m.addinput_price_priority = nil
-}
-
-// InputPricePriority returns the value of the "input_price_priority" field in the mutation.
-func (m *ModelCatalogEntryMutation) InputPricePriority() (r float64, exists bool) {
-	v := m.input_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldInputPricePriority returns the old "input_price_priority" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldInputPricePriority(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldInputPricePriority is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldInputPricePriority requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldInputPricePriority: %w", err)
-	}
-	return oldValue.InputPricePriority, nil
-}
-
-// AddInputPricePriority adds f to the "input_price_priority" field.
-func (m *ModelCatalogEntryMutation) AddInputPricePriority(f float64) {
-	if m.addinput_price_priority != nil {
-		*m.addinput_price_priority += f
-	} else {
-		m.addinput_price_priority = &f
-	}
-}
-
-// AddedInputPricePriority returns the value that was added to the "input_price_priority" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedInputPricePriority() (r float64, exists bool) {
-	v := m.addinput_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearInputPricePriority clears the value of the "input_price_priority" field.
-func (m *ModelCatalogEntryMutation) ClearInputPricePriority() {
-	m.input_price_priority = nil
-	m.addinput_price_priority = nil
-	m.clearedFields[modelcatalogentry.FieldInputPricePriority] = struct{}{}
-}
-
-// InputPricePriorityCleared returns if the "input_price_priority" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) InputPricePriorityCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldInputPricePriority]
-	return ok
-}
-
-// ResetInputPricePriority resets all changes to the "input_price_priority" field.
-func (m *ModelCatalogEntryMutation) ResetInputPricePriority() {
-	m.input_price_priority = nil
-	m.addinput_price_priority = nil
-	delete(m.clearedFields, modelcatalogentry.FieldInputPricePriority)
-}
-
-// SetOutputPricePriority sets the "output_price_priority" field.
-func (m *ModelCatalogEntryMutation) SetOutputPricePriority(f float64) {
-	m.output_price_priority = &f
-	m.addoutput_price_priority = nil
-}
-
-// OutputPricePriority returns the value of the "output_price_priority" field in the mutation.
-func (m *ModelCatalogEntryMutation) OutputPricePriority() (r float64, exists bool) {
-	v := m.output_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldOutputPricePriority returns the old "output_price_priority" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldOutputPricePriority(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldOutputPricePriority is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldOutputPricePriority requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldOutputPricePriority: %w", err)
-	}
-	return oldValue.OutputPricePriority, nil
-}
-
-// AddOutputPricePriority adds f to the "output_price_priority" field.
-func (m *ModelCatalogEntryMutation) AddOutputPricePriority(f float64) {
-	if m.addoutput_price_priority != nil {
-		*m.addoutput_price_priority += f
-	} else {
-		m.addoutput_price_priority = &f
-	}
-}
-
-// AddedOutputPricePriority returns the value that was added to the "output_price_priority" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedOutputPricePriority() (r float64, exists bool) {
-	v := m.addoutput_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearOutputPricePriority clears the value of the "output_price_priority" field.
-func (m *ModelCatalogEntryMutation) ClearOutputPricePriority() {
-	m.output_price_priority = nil
-	m.addoutput_price_priority = nil
-	m.clearedFields[modelcatalogentry.FieldOutputPricePriority] = struct{}{}
-}
-
-// OutputPricePriorityCleared returns if the "output_price_priority" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) OutputPricePriorityCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldOutputPricePriority]
-	return ok
-}
-
-// ResetOutputPricePriority resets all changes to the "output_price_priority" field.
-func (m *ModelCatalogEntryMutation) ResetOutputPricePriority() {
-	m.output_price_priority = nil
-	m.addoutput_price_priority = nil
-	delete(m.clearedFields, modelcatalogentry.FieldOutputPricePriority)
-}
-
-// SetCacheWritePricePriority sets the "cache_write_price_priority" field.
-func (m *ModelCatalogEntryMutation) SetCacheWritePricePriority(f float64) {
-	m.cache_write_price_priority = &f
-	m.addcache_write_price_priority = nil
-}
-
-// CacheWritePricePriority returns the value of the "cache_write_price_priority" field in the mutation.
-func (m *ModelCatalogEntryMutation) CacheWritePricePriority() (r float64, exists bool) {
-	v := m.cache_write_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCacheWritePricePriority returns the old "cache_write_price_priority" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldCacheWritePricePriority(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCacheWritePricePriority is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCacheWritePricePriority requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCacheWritePricePriority: %w", err)
-	}
-	return oldValue.CacheWritePricePriority, nil
-}
-
-// AddCacheWritePricePriority adds f to the "cache_write_price_priority" field.
-func (m *ModelCatalogEntryMutation) AddCacheWritePricePriority(f float64) {
-	if m.addcache_write_price_priority != nil {
-		*m.addcache_write_price_priority += f
-	} else {
-		m.addcache_write_price_priority = &f
-	}
-}
-
-// AddedCacheWritePricePriority returns the value that was added to the "cache_write_price_priority" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedCacheWritePricePriority() (r float64, exists bool) {
-	v := m.addcache_write_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearCacheWritePricePriority clears the value of the "cache_write_price_priority" field.
-func (m *ModelCatalogEntryMutation) ClearCacheWritePricePriority() {
-	m.cache_write_price_priority = nil
-	m.addcache_write_price_priority = nil
-	m.clearedFields[modelcatalogentry.FieldCacheWritePricePriority] = struct{}{}
-}
-
-// CacheWritePricePriorityCleared returns if the "cache_write_price_priority" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) CacheWritePricePriorityCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldCacheWritePricePriority]
-	return ok
-}
-
-// ResetCacheWritePricePriority resets all changes to the "cache_write_price_priority" field.
-func (m *ModelCatalogEntryMutation) ResetCacheWritePricePriority() {
-	m.cache_write_price_priority = nil
-	m.addcache_write_price_priority = nil
-	delete(m.clearedFields, modelcatalogentry.FieldCacheWritePricePriority)
-}
-
-// SetCacheReadPricePriority sets the "cache_read_price_priority" field.
-func (m *ModelCatalogEntryMutation) SetCacheReadPricePriority(f float64) {
-	m.cache_read_price_priority = &f
-	m.addcache_read_price_priority = nil
-}
-
-// CacheReadPricePriority returns the value of the "cache_read_price_priority" field in the mutation.
-func (m *ModelCatalogEntryMutation) CacheReadPricePriority() (r float64, exists bool) {
-	v := m.cache_read_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCacheReadPricePriority returns the old "cache_read_price_priority" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldCacheReadPricePriority(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCacheReadPricePriority is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCacheReadPricePriority requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCacheReadPricePriority: %w", err)
-	}
-	return oldValue.CacheReadPricePriority, nil
-}
-
-// AddCacheReadPricePriority adds f to the "cache_read_price_priority" field.
-func (m *ModelCatalogEntryMutation) AddCacheReadPricePriority(f float64) {
-	if m.addcache_read_price_priority != nil {
-		*m.addcache_read_price_priority += f
-	} else {
-		m.addcache_read_price_priority = &f
-	}
-}
-
-// AddedCacheReadPricePriority returns the value that was added to the "cache_read_price_priority" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedCacheReadPricePriority() (r float64, exists bool) {
-	v := m.addcache_read_price_priority
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearCacheReadPricePriority clears the value of the "cache_read_price_priority" field.
-func (m *ModelCatalogEntryMutation) ClearCacheReadPricePriority() {
-	m.cache_read_price_priority = nil
-	m.addcache_read_price_priority = nil
-	m.clearedFields[modelcatalogentry.FieldCacheReadPricePriority] = struct{}{}
-}
-
-// CacheReadPricePriorityCleared returns if the "cache_read_price_priority" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) CacheReadPricePriorityCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldCacheReadPricePriority]
-	return ok
-}
-
-// ResetCacheReadPricePriority resets all changes to the "cache_read_price_priority" field.
-func (m *ModelCatalogEntryMutation) ResetCacheReadPricePriority() {
-	m.cache_read_price_priority = nil
-	m.addcache_read_price_priority = nil
-	delete(m.clearedFields, modelcatalogentry.FieldCacheReadPricePriority)
-}
-
 // SetPerRequestPrice sets the "per_request_price" field.
 func (m *ModelCatalogEntryMutation) SetPerRequestPrice(f float64) {
 	m.per_request_price = &f
@@ -25092,146 +24800,6 @@ func (m *ModelCatalogEntryMutation) ResetSearchPricePerCall() {
 	m.search_price_per_call = nil
 	m.addsearch_price_per_call = nil
 	delete(m.clearedFields, modelcatalogentry.FieldSearchPricePerCall)
-}
-
-// SetFastMultiplier sets the "fast_multiplier" field.
-func (m *ModelCatalogEntryMutation) SetFastMultiplier(f float64) {
-	m.fast_multiplier = &f
-	m.addfast_multiplier = nil
-}
-
-// FastMultiplier returns the value of the "fast_multiplier" field in the mutation.
-func (m *ModelCatalogEntryMutation) FastMultiplier() (r float64, exists bool) {
-	v := m.fast_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldFastMultiplier returns the old "fast_multiplier" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldFastMultiplier(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldFastMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldFastMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldFastMultiplier: %w", err)
-	}
-	return oldValue.FastMultiplier, nil
-}
-
-// AddFastMultiplier adds f to the "fast_multiplier" field.
-func (m *ModelCatalogEntryMutation) AddFastMultiplier(f float64) {
-	if m.addfast_multiplier != nil {
-		*m.addfast_multiplier += f
-	} else {
-		m.addfast_multiplier = &f
-	}
-}
-
-// AddedFastMultiplier returns the value that was added to the "fast_multiplier" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedFastMultiplier() (r float64, exists bool) {
-	v := m.addfast_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearFastMultiplier clears the value of the "fast_multiplier" field.
-func (m *ModelCatalogEntryMutation) ClearFastMultiplier() {
-	m.fast_multiplier = nil
-	m.addfast_multiplier = nil
-	m.clearedFields[modelcatalogentry.FieldFastMultiplier] = struct{}{}
-}
-
-// FastMultiplierCleared returns if the "fast_multiplier" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) FastMultiplierCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldFastMultiplier]
-	return ok
-}
-
-// ResetFastMultiplier resets all changes to the "fast_multiplier" field.
-func (m *ModelCatalogEntryMutation) ResetFastMultiplier() {
-	m.fast_multiplier = nil
-	m.addfast_multiplier = nil
-	delete(m.clearedFields, modelcatalogentry.FieldFastMultiplier)
-}
-
-// SetFlexMultiplier sets the "flex_multiplier" field.
-func (m *ModelCatalogEntryMutation) SetFlexMultiplier(f float64) {
-	m.flex_multiplier = &f
-	m.addflex_multiplier = nil
-}
-
-// FlexMultiplier returns the value of the "flex_multiplier" field in the mutation.
-func (m *ModelCatalogEntryMutation) FlexMultiplier() (r float64, exists bool) {
-	v := m.flex_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldFlexMultiplier returns the old "flex_multiplier" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldFlexMultiplier(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldFlexMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldFlexMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldFlexMultiplier: %w", err)
-	}
-	return oldValue.FlexMultiplier, nil
-}
-
-// AddFlexMultiplier adds f to the "flex_multiplier" field.
-func (m *ModelCatalogEntryMutation) AddFlexMultiplier(f float64) {
-	if m.addflex_multiplier != nil {
-		*m.addflex_multiplier += f
-	} else {
-		m.addflex_multiplier = &f
-	}
-}
-
-// AddedFlexMultiplier returns the value that was added to the "flex_multiplier" field in this mutation.
-func (m *ModelCatalogEntryMutation) AddedFlexMultiplier() (r float64, exists bool) {
-	v := m.addflex_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearFlexMultiplier clears the value of the "flex_multiplier" field.
-func (m *ModelCatalogEntryMutation) ClearFlexMultiplier() {
-	m.flex_multiplier = nil
-	m.addflex_multiplier = nil
-	m.clearedFields[modelcatalogentry.FieldFlexMultiplier] = struct{}{}
-}
-
-// FlexMultiplierCleared returns if the "flex_multiplier" field was cleared in this mutation.
-func (m *ModelCatalogEntryMutation) FlexMultiplierCleared() bool {
-	_, ok := m.clearedFields[modelcatalogentry.FieldFlexMultiplier]
-	return ok
-}
-
-// ResetFlexMultiplier resets all changes to the "flex_multiplier" field.
-func (m *ModelCatalogEntryMutation) ResetFlexMultiplier() {
-	m.flex_multiplier = nil
-	m.addflex_multiplier = nil
-	delete(m.clearedFields, modelcatalogentry.FieldFlexMultiplier)
 }
 
 // SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
@@ -25495,7 +25063,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 23)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -25553,29 +25121,11 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	if m.audio_output_price != nil {
 		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
 	}
-	if m.input_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
-	}
-	if m.output_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldOutputPricePriority)
-	}
-	if m.cache_write_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldCacheWritePricePriority)
-	}
-	if m.cache_read_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldCacheReadPricePriority)
-	}
 	if m.per_request_price != nil {
 		fields = append(fields, modelcatalogentry.FieldPerRequestPrice)
 	}
 	if m.search_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
-	}
-	if m.fast_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
-	}
-	if m.flex_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldFlexMultiplier)
 	}
 	if m.max_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
@@ -25629,22 +25179,10 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.AudioInputPrice()
 	case modelcatalogentry.FieldAudioOutputPrice:
 		return m.AudioOutputPrice()
-	case modelcatalogentry.FieldInputPricePriority:
-		return m.InputPricePriority()
-	case modelcatalogentry.FieldOutputPricePriority:
-		return m.OutputPricePriority()
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		return m.CacheWritePricePriority()
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		return m.CacheReadPricePriority()
 	case modelcatalogentry.FieldPerRequestPrice:
 		return m.PerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.SearchPricePerCall()
-	case modelcatalogentry.FieldFastMultiplier:
-		return m.FastMultiplier()
-	case modelcatalogentry.FieldFlexMultiplier:
-		return m.FlexMultiplier()
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.MaxReasoningEffortMultiplier()
 	case modelcatalogentry.FieldNotes:
@@ -25696,22 +25234,10 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldAudioInputPrice(ctx)
 	case modelcatalogentry.FieldAudioOutputPrice:
 		return m.OldAudioOutputPrice(ctx)
-	case modelcatalogentry.FieldInputPricePriority:
-		return m.OldInputPricePriority(ctx)
-	case modelcatalogentry.FieldOutputPricePriority:
-		return m.OldOutputPricePriority(ctx)
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		return m.OldCacheWritePricePriority(ctx)
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		return m.OldCacheReadPricePriority(ctx)
 	case modelcatalogentry.FieldPerRequestPrice:
 		return m.OldPerRequestPrice(ctx)
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.OldSearchPricePerCall(ctx)
-	case modelcatalogentry.FieldFastMultiplier:
-		return m.OldFastMultiplier(ctx)
-	case modelcatalogentry.FieldFlexMultiplier:
-		return m.OldFlexMultiplier(ctx)
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.OldMaxReasoningEffortMultiplier(ctx)
 	case modelcatalogentry.FieldNotes:
@@ -25858,34 +25384,6 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetAudioOutputPrice(v)
 		return nil
-	case modelcatalogentry.FieldInputPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetInputPricePriority(v)
-		return nil
-	case modelcatalogentry.FieldOutputPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetOutputPricePriority(v)
-		return nil
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCacheWritePricePriority(v)
-		return nil
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCacheReadPricePriority(v)
-		return nil
 	case modelcatalogentry.FieldPerRequestPrice:
 		v, ok := value.(float64)
 		if !ok {
@@ -25899,20 +25397,6 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSearchPricePerCall(v)
-		return nil
-	case modelcatalogentry.FieldFastMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetFastMultiplier(v)
-		return nil
-	case modelcatalogentry.FieldFlexMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetFlexMultiplier(v)
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		v, ok := value.(float64)
@@ -25966,29 +25450,11 @@ func (m *ModelCatalogEntryMutation) AddedFields() []string {
 	if m.addaudio_output_price != nil {
 		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
 	}
-	if m.addinput_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
-	}
-	if m.addoutput_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldOutputPricePriority)
-	}
-	if m.addcache_write_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldCacheWritePricePriority)
-	}
-	if m.addcache_read_price_priority != nil {
-		fields = append(fields, modelcatalogentry.FieldCacheReadPricePriority)
-	}
 	if m.addper_request_price != nil {
 		fields = append(fields, modelcatalogentry.FieldPerRequestPrice)
 	}
 	if m.addsearch_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
-	}
-	if m.addfast_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
-	}
-	if m.addflex_multiplier != nil {
-		fields = append(fields, modelcatalogentry.FieldFlexMultiplier)
 	}
 	if m.addmax_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
@@ -26021,22 +25487,10 @@ func (m *ModelCatalogEntryMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedAudioInputPrice()
 	case modelcatalogentry.FieldAudioOutputPrice:
 		return m.AddedAudioOutputPrice()
-	case modelcatalogentry.FieldInputPricePriority:
-		return m.AddedInputPricePriority()
-	case modelcatalogentry.FieldOutputPricePriority:
-		return m.AddedOutputPricePriority()
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		return m.AddedCacheWritePricePriority()
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		return m.AddedCacheReadPricePriority()
 	case modelcatalogentry.FieldPerRequestPrice:
 		return m.AddedPerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.AddedSearchPricePerCall()
-	case modelcatalogentry.FieldFastMultiplier:
-		return m.AddedFastMultiplier()
-	case modelcatalogentry.FieldFlexMultiplier:
-		return m.AddedFlexMultiplier()
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.AddedMaxReasoningEffortMultiplier()
 	}
@@ -26118,34 +25572,6 @@ func (m *ModelCatalogEntryMutation) AddField(name string, value ent.Value) error
 		}
 		m.AddAudioOutputPrice(v)
 		return nil
-	case modelcatalogentry.FieldInputPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddInputPricePriority(v)
-		return nil
-	case modelcatalogentry.FieldOutputPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddOutputPricePriority(v)
-		return nil
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddCacheWritePricePriority(v)
-		return nil
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddCacheReadPricePriority(v)
-		return nil
 	case modelcatalogentry.FieldPerRequestPrice:
 		v, ok := value.(float64)
 		if !ok {
@@ -26159,20 +25585,6 @@ func (m *ModelCatalogEntryMutation) AddField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddSearchPricePerCall(v)
-		return nil
-	case modelcatalogentry.FieldFastMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddFastMultiplier(v)
-		return nil
-	case modelcatalogentry.FieldFlexMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddFlexMultiplier(v)
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		v, ok := value.(float64)
@@ -26222,29 +25634,11 @@ func (m *ModelCatalogEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogentry.FieldAudioOutputPrice) {
 		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
 	}
-	if m.FieldCleared(modelcatalogentry.FieldInputPricePriority) {
-		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldOutputPricePriority) {
-		fields = append(fields, modelcatalogentry.FieldOutputPricePriority)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldCacheWritePricePriority) {
-		fields = append(fields, modelcatalogentry.FieldCacheWritePricePriority)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldCacheReadPricePriority) {
-		fields = append(fields, modelcatalogentry.FieldCacheReadPricePriority)
-	}
 	if m.FieldCleared(modelcatalogentry.FieldPerRequestPrice) {
 		fields = append(fields, modelcatalogentry.FieldPerRequestPrice)
 	}
 	if m.FieldCleared(modelcatalogentry.FieldSearchPricePerCall) {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldFastMultiplier) {
-		fields = append(fields, modelcatalogentry.FieldFastMultiplier)
-	}
-	if m.FieldCleared(modelcatalogentry.FieldFlexMultiplier) {
-		fields = append(fields, modelcatalogentry.FieldFlexMultiplier)
 	}
 	if m.FieldCleared(modelcatalogentry.FieldMaxReasoningEffortMultiplier) {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
@@ -26299,29 +25693,11 @@ func (m *ModelCatalogEntryMutation) ClearField(name string) error {
 	case modelcatalogentry.FieldAudioOutputPrice:
 		m.ClearAudioOutputPrice()
 		return nil
-	case modelcatalogentry.FieldInputPricePriority:
-		m.ClearInputPricePriority()
-		return nil
-	case modelcatalogentry.FieldOutputPricePriority:
-		m.ClearOutputPricePriority()
-		return nil
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		m.ClearCacheWritePricePriority()
-		return nil
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		m.ClearCacheReadPricePriority()
-		return nil
 	case modelcatalogentry.FieldPerRequestPrice:
 		m.ClearPerRequestPrice()
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ClearSearchPricePerCall()
-		return nil
-	case modelcatalogentry.FieldFastMultiplier:
-		m.ClearFastMultiplier()
-		return nil
-	case modelcatalogentry.FieldFlexMultiplier:
-		m.ClearFlexMultiplier()
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ClearMaxReasoningEffortMultiplier()
@@ -26394,29 +25770,11 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 	case modelcatalogentry.FieldAudioOutputPrice:
 		m.ResetAudioOutputPrice()
 		return nil
-	case modelcatalogentry.FieldInputPricePriority:
-		m.ResetInputPricePriority()
-		return nil
-	case modelcatalogentry.FieldOutputPricePriority:
-		m.ResetOutputPricePriority()
-		return nil
-	case modelcatalogentry.FieldCacheWritePricePriority:
-		m.ResetCacheWritePricePriority()
-		return nil
-	case modelcatalogentry.FieldCacheReadPricePriority:
-		m.ResetCacheReadPricePriority()
-		return nil
 	case modelcatalogentry.FieldPerRequestPrice:
 		m.ResetPerRequestPrice()
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ResetSearchPricePerCall()
-		return nil
-	case modelcatalogentry.FieldFastMultiplier:
-		m.ResetFastMultiplier()
-		return nil
-	case modelcatalogentry.FieldFlexMultiplier:
-		m.ResetFlexMultiplier()
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ResetMaxReasoningEffortMultiplier()

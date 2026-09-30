@@ -36,7 +36,7 @@ type ResolvedPricing struct {
 	// 来源标识
 	Source string // "catalog", "litellm", "fallback"
 
-	// CanonicalModel 是厂商价格政策（DeepSeek 官方价、GPT-5.6 缓存写价、Fast 档比例、
+	// CanonicalModel 是厂商价格政策（DeepSeek 官方价、GPT-5.6 缓存写价、
 	// max 推理倍率）所依据的模型标识：目录命中时是条目的 model_id（请求可能用的是
 	// 别名），否则就是请求的计费模型。
 	CanonicalModel string
@@ -245,21 +245,16 @@ func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *
 		inputRatio = iv.InputMultiplier
 	}
 	if iv.InputPrice != nil {
-		pricing.InputPricePerTokenPriority = channelTierOverridePrice(pricing.InputPricePerToken, pricing.InputPricePerTokenPriority, *iv.InputPrice)
 		pricing.InputPricePerToken = *iv.InputPrice
 	} else if iv.InputMultiplier != nil {
 		pricing.InputPricePerToken = applyMultiplier(pricing.InputPricePerToken, iv.InputMultiplier)
-		pricing.InputPricePerTokenPriority = applyMultiplier(pricing.InputPricePerTokenPriority, iv.InputMultiplier)
 	}
 	if iv.OutputPrice != nil {
-		pricing.OutputPricePerTokenPriority = channelTierOverridePrice(pricing.OutputPricePerToken, pricing.OutputPricePerTokenPriority, *iv.OutputPrice)
 		pricing.OutputPricePerToken = *iv.OutputPrice
 	} else if iv.OutputMultiplier != nil {
 		pricing.OutputPricePerToken = applyMultiplier(pricing.OutputPricePerToken, iv.OutputMultiplier)
-		pricing.OutputPricePerTokenPriority = applyMultiplier(pricing.OutputPricePerTokenPriority, iv.OutputMultiplier)
 	}
 	if iv.CacheWritePrice != nil {
-		pricing.CacheCreationPricePerTokenPriority = channelTierOverridePrice(pricing.CacheCreationPricePerToken, pricing.CacheCreationPricePerTokenPriority, *iv.CacheWritePrice)
 		pricing.CacheCreationPricePerToken = *iv.CacheWritePrice
 		pricing.CacheCreationPriceExplicit = true
 		pricing.CacheCreation5mPrice = *iv.CacheWritePrice
@@ -272,7 +267,6 @@ func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *
 		}
 	} else if cacheWriteMultiplier := firstNonNil(iv.CacheWriteMultiplier, inputRatio); cacheWriteMultiplier != nil {
 		pricing.CacheCreationPricePerToken = applyMultiplier(pricing.CacheCreationPricePerToken, cacheWriteMultiplier)
-		pricing.CacheCreationPricePerTokenPriority = applyMultiplier(pricing.CacheCreationPricePerTokenPriority, cacheWriteMultiplier)
 		pricing.CacheCreation5mPrice = applyMultiplier(pricing.CacheCreation5mPrice, cacheWriteMultiplier)
 		pricing.CacheCreation1hPrice = applyMultiplier(pricing.CacheCreation1hPrice, cacheWriteMultiplier)
 	}
@@ -281,11 +275,9 @@ func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *
 		pricing.SupportsCacheBreakdown = true
 	}
 	if iv.CacheReadPrice != nil {
-		pricing.CacheReadPricePerTokenPriority = channelTierOverridePrice(pricing.CacheReadPricePerToken, pricing.CacheReadPricePerTokenPriority, *iv.CacheReadPrice)
 		pricing.CacheReadPricePerToken = *iv.CacheReadPrice
 	} else if cacheReadMultiplier := firstNonNil(iv.CacheReadMultiplier, inputRatio); cacheReadMultiplier != nil {
 		pricing.CacheReadPricePerToken = applyMultiplier(pricing.CacheReadPricePerToken, cacheReadMultiplier)
-		pricing.CacheReadPricePerTokenPriority = applyMultiplier(pricing.CacheReadPricePerTokenPriority, cacheReadMultiplier)
 	}
 	// 运营者价卡存在时，ImageOutputPrice 显式覆盖；图片输入价用价卡级配置
 	// （区间不携带图片输入价，与 image_output 一致）。

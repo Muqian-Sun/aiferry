@@ -103,25 +103,25 @@ func TestOpenAIRecordUsage_AudioInputOnlyCountsUncachedTokens(t *testing.T) {
 
 func TestComputeTokenBreakdown_AudioCostsAreFoldedIntoInputAndOutput(t *testing.T) {
 	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}}
-	flex := 0.5
 	pricing := &ModelPricing{
 		InputPricePerToken:       audioTestInputPrice,
 		OutputPricePerToken:      audioTestOutputPrice,
 		AudioInputPricePerToken:  audioTestAudioInput,
 		AudioOutputPricePerToken: audioTestAudioOutput,
-		FlexMultiplier:           &flex,
 	}
 	bd := bs.computeTokenBreakdown(pricing, UsageTokens{
 		InputTokens: 1000, OutputTokens: 500, AudioInputTokens: 400, AudioOutputTokens: 200,
-	}, 2, "flex")
+	}, 2)
 
-	// flex 档 0.5 倍同样作用到音频明细。
-	require.InDelta(t, 400*audioTestAudioInput*0.5, bd.AudioInputCost, 1e-12)
-	require.InDelta(t, 200*audioTestAudioOutput*0.5, bd.AudioOutputCost, 1e-12)
-	require.InDelta(t, (600*audioTestInputPrice+400*audioTestAudioInput)*0.5, bd.InputCost, 1e-12)
-	require.InDelta(t, (300*audioTestOutputPrice+200*audioTestAudioOutput)*0.5, bd.OutputCost, 1e-12)
-	require.InDelta(t, bd.InputCost+bd.OutputCost, bd.TotalCost, 1e-12)
-	require.InDelta(t, bd.TotalCost*2, bd.ActualCost, 1e-12)
+	// 音频明细：400 × $40/MTok = $0.016；200 × $80/MTok = $0.016。
+	require.InDelta(t, 0.016, bd.AudioInputCost, 1e-12)
+	require.InDelta(t, 0.016, bd.AudioOutputCost, 1e-12)
+	// 输入：600 × $2.5/MTok + $0.016 = $0.0175；输出：300 × $10/MTok + $0.016 = $0.019（音频并入，不另加）。
+	require.InDelta(t, 0.0175, bd.InputCost, 1e-12)
+	require.InDelta(t, 0.019, bd.OutputCost, 1e-12)
+	require.InDelta(t, 0.0365, bd.TotalCost, 1e-12)
+	// 用户倍率 2 作用在含音频的总额上。
+	require.InDelta(t, 0.073, bd.ActualCost, 1e-12)
 }
 
 func TestExtractOpenAIUsage_ParsesAudioTokenDetails(t *testing.T) {
