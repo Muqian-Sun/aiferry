@@ -174,7 +174,6 @@ export default {
         requests: '请求',
         tokens: 'Token',
         actualCost: '实付',
-        standardCost: '官方价',
         cacheHitRate: '缓存命中',
         avgLatency: '平均耗时',
         failures: '失败请求',
@@ -217,7 +216,7 @@ export default {
       notificationsOff: '管理员没有开启余额提醒',
       rows: {
         overview: '账户概况',
-        overviewDesc: '登录身份、余额与计价倍率',
+        overviewDesc: '登录身份、余额与并发',
         usernameDesc: '未设置时显示邮箱',
         passwordDesc: '用于邮箱登录，至少 6 个字符'
       }

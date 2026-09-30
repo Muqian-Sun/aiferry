@@ -227,8 +227,9 @@ describe('admin UsageTable tooltip', () => {
     const text = wrapper.text()
     expect(text).toContain('Service tier')
     expect(text).toContain('Fast')
-    expect(text).toContain('Rate')
-    expect(text).toContain('1.00x')
+    // 倍率与官方价不给用户看
+    expect(text).not.toContain('Rate')
+    expect(text).not.toContain('Original')
     expect(text).toContain('User billed')
     expect(text).toContain('$0.092883')
     expect(text).toContain('$5.0000 / 1M tokens')
@@ -247,7 +248,8 @@ describe('admin UsageTable tooltip', () => {
       image_output_cost: 0.00000004,
       cache_creation_cost: 0.00000005,
       cache_read_cost: 0.00000006,
-      total_cost: 0.00000022,
+      // 官方价合计 = 实付，明细不折算，只看八位小数
+      total_cost: 0.00000042,
       actual_cost: 0.00000042,
       account_rate_multiplier: 1.5,
     }
@@ -260,9 +262,9 @@ describe('admin UsageTable tooltip', () => {
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text())
     expect(amounts).toEqual(expect.arrayContaining([
       '$0.00000001', '$0.00000002', '$0.00000003', '$0.00000004',
-      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042',
+      '$0.00000005', '$0.00000006', '$0.00000042',
     ]))
-    if (billingMode === 'image') expect(amounts).toContain('$0.00000011')
+    if (billingMode === 'image') expect(amounts).toContain('$0.00000021')
     wrapper.unmount()
   })
 
@@ -278,7 +280,7 @@ describe('admin UsageTable tooltip', () => {
     const triggers = wrapper.findAll('.group.relative')
     await triggers[triggers.length - 1].trigger('mouseenter')
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text()).filter(text => text.startsWith('$'))
-    expect(amounts).toEqual(['$0.00000000', '$0.00000000', '$0.00000000'])
+    expect(amounts).toEqual(['$0.00000000', '$0.00000000'])
     wrapper.unmount()
   })
 

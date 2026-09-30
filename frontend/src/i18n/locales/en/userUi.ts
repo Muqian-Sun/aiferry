@@ -174,7 +174,6 @@ export default {
         requests: 'Requests',
         tokens: 'Tokens',
         actualCost: 'Billed',
-        standardCost: 'Official price',
         cacheHitRate: 'Cache hit rate',
         avgLatency: 'Avg latency',
         failures: 'Failed requests',
@@ -217,7 +216,7 @@ export default {
       notificationsOff: 'Balance alerts are not enabled on this site',
       rows: {
         overview: 'Account',
-        overviewDesc: 'Sign-in identity, balance and rate multiplier',
+        overviewDesc: 'Sign-in identity, balance and concurrency',
         usernameDesc: 'Your email is shown when this is empty',
         passwordDesc: 'Used for email sign-in, at least 6 characters'
       }
