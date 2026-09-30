@@ -74,9 +74,7 @@
           </div>
           <p class="text-13 text-af-ink-3" data-testid="price-unit">
             {{ t('userUi.models.priceUnit') }}
-            <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
-              · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
-            </span>
+            <span class="text-af-ink" data-testid="your-price-note">· {{ scaleNote }}</span>
           </p>
         </div>
       </div>
@@ -132,39 +130,33 @@
               </p>
             </div>
           </div>
-          <!-- 起价：token 模式输入 / 输出（分段模型是第一段），其余模式一个单价；单位见工具行 -->
-          <p class="mt-5 truncate text-13 tabular-nums" data-testid="price-summary">
-            <template v-for="(item, index) in summaryItems(entry)" :key="item.key">
-              <span v-if="index > 0" class="px-1.5 text-af-ink-4" aria-hidden="true">·</span>
-              <span class="text-af-ink-4">{{ item.label }}</span>
-              <span class="ml-1.5 font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</span>
-            </template>
+          <!--
+            格子只列基础计费项（muqian 2026-09-30「格子里面只写基础的输入输出、缓存读写」）：两列对齐，名在左、价在右，
+            没定价的显示破折号；分段模型列第一段。分段价、Fast / Flex、1 小时缓存、图片音频、搜索、分时等都在抽屉里，
+            格子底部一行灰字提示还有哪些。按次 / 图片 / 视频模式只有一个单价。单位见工具行。
+          -->
+          <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums" data-testid="price-summary">
+            <div v-for="item in cellItems(entry)" :key="item.key" class="flex items-baseline justify-between gap-3">
+              <dt class="text-af-ink-4">{{ item.label }}</dt>
+              <dd class="font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</dd>
+            </div>
+          </dl>
+          <p v-if="cellExtras(entry).length" class="mt-4 truncate text-xs text-af-ink-3" data-testid="price-extras">
+            {{ cellExtras(entry).join(' · ') }} ›
           </p>
-          <div class="mt-3 flex min-h-[22px] flex-wrap gap-1.5" data-testid="price-tags">
-            <span
-              v-for="tag in cellTags(entry)"
-              :key="tag.key"
-              class="badge badge-gray"
-              :title="tag.title"
-              :data-testid="tag.key === 'timePricing' ? 'time-pricing-badge' : `tag-${tag.key}`"
-            >
-              {{ tag.label }}
-            </span>
-          </div>
         </li>
       </ul>
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
         {{ t('userUi.models.priceNote') }}
-        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: userMultiplier }) }}</template>
+        <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: multiplierLabel }) }}</template>
       </p>
     </div>
 
     <ModelPricingDrawer
       :entry="detailEntry"
       :scale="priceScale"
-      :authenticated="isAuthenticated"
-      :multiplier="userMultiplier"
+      :scale-note="scaleNote"
       @close="detailId = null"
     />
   </div>
@@ -188,6 +180,7 @@ import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
+import { formatMultiplier } from '@/utils/formatters'
 import ModelPricingDrawer from './ModelPricingDrawer.vue'
 import {
   applyMultiplier,
@@ -197,7 +190,6 @@ import {
   countByVendor,
   filterCatalog,
   formatCatalogPrice as formatPrice,
-  formatTimePricing,
   vendorLabel,
   type CatalogModel
 } from './catalog'
@@ -278,22 +270,27 @@ watch(billingModeOptions, (options) => {
   if (!options.some((option) => option.value === selectedBillingMode.value)) selectedBillingMode.value = 'all'
 })
 
-// 你的价格：登录且账户倍率 ≠ 1 时格子与抽屉都显示折算后的价格；倍率 = 1 时标价即实付，只在脚注说明
+// 展示价 = 官方价 × 倍率：登录按账户（生效）倍率，未登录按接口给的全站默认倍率（官方价的 1/15）
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const userMultiplier = computed(() => Number(authStore.user?.rate_multiplier ?? 1))
-const showUserPrice = computed(() => isAuthenticated.value && userMultiplier.value !== 1)
-const priceScale = computed(() => (showUserPrice.value ? userMultiplier.value : 1))
+const defaultMultiplier = computed(() => Number(props.response?.default_rate_multiplier ?? 1))
+const priceScale = computed(() =>
+  isAuthenticated.value ? Number(authStore.user?.rate_multiplier ?? defaultMultiplier.value) : defaultMultiplier.value
+)
+const multiplierLabel = computed(() => formatMultiplier(priceScale.value))
+const scaleNote = computed(() =>
+  t(isAuthenticated.value ? 'userUi.models.yourPriceApplied' : 'userUi.models.defaultPriceApplied', { multiplier: multiplierLabel.value })
+)
 const consoleSummary = computed<StatItem[]>(() => [
   { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
   { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) },
-  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${userMultiplier.value}` }
+  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${multiplierLabel.value}` }
 ])
 
 /**
- * 格子里的起价：token 模式列输入 / 输出（基础价 = 分段模型的第一段，没定价的显示破折号）；
- * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。倍率 ≠ 1 时是折算后的价格。
+ * 格子里的基础计费项：token 模式固定列输入 / 输出 / 缓存写 / 缓存读（分段模型列第一段，没定价的显示破折号）；
+ * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。价格已乘访问者倍率。
  */
-function summaryItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
+function cellItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
   const scale = priceScale.value
   if (entry.billingMode !== 'token') {
     const label =
@@ -305,34 +302,30 @@ function summaryItems(entry: CatalogModel): Array<{ key: string; label: string; 
     return [{ key: 'unit', label, value: entry.unitPrice == null ? null : entry.unitPrice * scale }]
   }
   const price = applyMultiplier(entry.price, scale)
-  return [
-    { key: 'input', label: t('userUi.models.prices.input'), value: price?.input ?? null },
-    { key: 'output', label: t('userUi.models.prices.output'), value: price?.output ?? null }
-  ]
+  return (['input', 'output', 'cacheWrite', 'cacheRead'] as const).map((key) => ({
+    key,
+    label: t(`userUi.models.prices.${key}`),
+    value: price?.[key] ?? null
+  }))
 }
 
-/** 格子下方的标签：只列该模型实际有的计费项，全部内容在详情抽屉里 */
-function cellTags(entry: CatalogModel): Array<{ key: string; label: string; title?: string }> {
-  const tags: Array<{ key: string; label: string; title?: string }> = []
+/** 格子底部的灰字：还有哪些计费项在抽屉里（只列这个模型实际有的，不写价格） */
+function cellExtras(entry: CatalogModel): string[] {
+  const extras: string[] = []
   const price = entry.price
-  if (entry.rows.length > 1) tags.push({ key: 'segments', label: t('userUi.models.tags.segments', { count: entry.rows.length }) })
-  if (entry.tiers.length) tags.push({ key: 'tiers', label: t('userUi.models.tags.tiers', { count: entry.tiers.length }) })
-  if (price?.cacheWrite1h != null) tags.push({ key: 'cache1h', label: t('userUi.models.tags.cache1h') })
-  if (entry.fastRows) tags.push({ key: 'fast', label: t('userUi.models.tags.fast') })
-  if (entry.flexMultiplier != null) tags.push({ key: 'flex', label: t('userUi.models.tags.flex') })
+  if (entry.rows.length > 1) extras.push(t('userUi.models.tags.segments', { count: entry.rows.length }))
+  if (entry.tiers.length) extras.push(t('userUi.models.tags.tiers', { count: entry.tiers.length }))
+  if (price?.cacheWrite1h != null) extras.push(t('userUi.models.tags.cache1h'))
+  if (entry.fastRows) extras.push(t('userUi.models.tags.fast'))
+  if (entry.flexMultiplier != null) extras.push(t('userUi.models.tags.flex'))
   if (price && (price.imageInput != null || price.imageOutput != null || price.imageCacheRead != null)) {
-    tags.push({ key: 'image', label: t('userUi.models.tags.image') })
+    extras.push(t('userUi.models.tags.image'))
   }
-  if (price && (price.audioInput != null || price.audioOutput != null)) tags.push({ key: 'audio', label: t('userUi.models.tags.audio') })
-  if (entry.searchPerThousand != null) tags.push({ key: 'search', label: t('userUi.models.tags.search') })
-  if (entry.timePricing) {
-    tags.push({
-      key: 'timePricing',
-      label: t('userUi.models.tags.timePricing'),
-      title: formatTimePricing(entry.timePricing, t('userUi.models.weekdaysOnly'))
-    })
-  }
-  return tags
+  if (price && (price.audioInput != null || price.audioOutput != null)) extras.push(t('userUi.models.tags.audio'))
+  if (entry.searchPerThousand != null || entry.toolSearchPerThousand != null) extras.push(t('userUi.models.tags.search'))
+  if (entry.maxReasoningMultiplier != null) extras.push(t('userUi.models.tags.maxReasoning'))
+  if (entry.timePricing) extras.push(t('userUi.models.tags.timePricing'))
+  return extras
 }
 
 // 详情抽屉：记模型 id，目录刷新后仍指向同一条（下架了就自动关掉）

@@ -265,6 +265,7 @@ export default {
         image: 'Image',
         audio: 'Audio',
         search: 'Web search',
+        maxReasoning: 'Max-reasoning surcharge',
         timePricing: 'Time-based'
       },
       detail: {
@@ -278,7 +279,8 @@ export default {
         tier: 'Tier',
         defaultTier: 'Other tiers',
         tools: 'Tools',
-        search: 'Web search',
+        search: 'Web search (/alpha/search)',
+        toolSearch: 'Search tools (web / X search)',
         perThousandCalls: '{price} / 1K calls',
         other: 'Other',
         maxReasoning: 'Max reasoning',
@@ -291,7 +293,6 @@ export default {
         unitPerRequest: 'USD / request',
         unitPerImage: 'USD / image',
         unitPerSecond: 'USD / second',
-        scaledNote: 'Prices above include your account multiplier (× {multiplier}).',
         noPricing: 'The catalog has no price for this model yet.'
       },
       priceNote: 'Prices shown = official price × your account multiplier; every request is recorded on the usage page.',

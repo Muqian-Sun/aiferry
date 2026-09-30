@@ -3,7 +3,7 @@
     模型计费详情（muqian 2026-09-30 方案 A）：网格格子只放摘要，点格子在这里按块列全部计费项。
     token 模式：标准价（分段 × 项的表）→ Fast 档 → Flex 档 → 图片与音频 → 工具 → 其他（最高推理档 / 分时 / 别名）；
     按次 / 图片 / 视频模式：单价（有档位列档位表）→ 工具 → 其他。
-    只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；登录且账户倍率 ≠ 1 时价格已按倍率折算（scale）。
+    只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；价格 = 官方价 × 访问者倍率（scale）。
   -->
   <DetailDrawer
     :show="entry !== null"
@@ -112,13 +112,16 @@
         </dl>
       </section>
 
-      <section v-if="searchPerThousand != null" class="py-6 first:pt-0" data-testid="pricing-block-tools">
+      <section v-if="searchPerThousand != null || toolSearchPerThousand != null" class="py-6 first:pt-0" data-testid="pricing-block-tools">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.tools') }}</h3>
         </div>
         <dl class="divide-y divide-af-hairline">
-          <DetailField :label="t('userUi.models.detail.search')">
+          <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.search')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(searchPerThousand) }) }}</span>
+          </DetailField>
+          <DetailField v-if="toolSearchPerThousand != null" :label="t('userUi.models.detail.toolSearch')">
+            <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(toolSearchPerThousand) }) }}</span>
           </DetailField>
         </dl>
       </section>
@@ -178,11 +181,10 @@ import {
 
 const props = defineProps<{
   entry: CatalogModel | null
-  /** 价格乘的系数：登录且账户倍率 ≠ 1 时是账户倍率，否则 1 */
+  /** 价格乘的系数：接口给的是官方价，展示价 = 官方价 × 访问者倍率（登录用账户倍率，未登录用全站默认 1/15） */
   scale: number
-  authenticated: boolean
-  /** 账户倍率（脚注用） */
-  multiplier: number
+  /** 脚注里「价格按哪个倍率折算」那句，和工具行同一句 */
+  scaleNote: string
 }>()
 
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -264,6 +266,10 @@ const searchPerThousand = computed(() => {
   const value = props.entry?.searchPerThousand
   return value == null ? null : value * props.scale
 })
+const toolSearchPerThousand = computed(() => {
+  const value = props.entry?.toolSearchPerThousand
+  return value == null ? null : value * props.scale
+})
 
 const hasOther = computed(() => {
   const entry = props.entry
@@ -271,7 +277,12 @@ const hasOther = computed(() => {
 })
 
 const hasPricing = computed(
-  () => tokenBlocks.value.length > 0 || mediaItems.value.length > 0 || unitBlock.value !== null || searchPerThousand.value != null
+  () =>
+    tokenBlocks.value.length > 0 ||
+    mediaItems.value.length > 0 ||
+    unitBlock.value !== null ||
+    searchPerThousand.value != null ||
+    toolSearchPerThousand.value != null
 )
 
 const timePricingScope = computed(() => {
@@ -280,12 +291,11 @@ const timePricingScope = computed(() => {
   return timePricing.weekdays_only ? `${timePricing.timezone} · ${t('userUi.models.weekdaysOnly')}` : timePricing.timezone
 })
 
-/** 脚注：分段规则（有分段）、账户倍率（登录）、价格已折算（倍率 ≠ 1） */
+/** 脚注：分段规则（有分段）、价格按哪个倍率折算（父组件给的同一句） */
 const footnote = computed(() => {
   const parts: string[] = []
   if (segmented.value) parts.push(t('userUi.models.segmentNote'))
-  if (props.authenticated) parts.push(t('userUi.models.multiplierNote', { multiplier: props.multiplier }))
-  if (props.scale !== 1) parts.push(t('userUi.models.detail.scaledNote', { multiplier: props.multiplier }))
+  parts.push(props.scaleNote)
   return parts.join(' ')
 })
 </script>

@@ -265,6 +265,7 @@ export default {
         image: '图片',
         audio: '音频',
         search: '联网搜索',
+        maxReasoning: '最高推理加价',
         timePricing: '分时'
       },
       detail: {
@@ -278,7 +279,8 @@ export default {
         tier: '档位',
         defaultTier: '其他档位',
         tools: '工具',
-        search: '联网搜索',
+        search: '联网搜索（/alpha/search）',
+        toolSearch: '搜索工具（web / X 搜索）',
         perThousandCalls: '{price} / 千次',
         other: '其他',
         maxReasoning: '最高推理档',
@@ -291,7 +293,6 @@ export default {
         unitPerRequest: '美元 / 次',
         unitPerImage: '美元 / 张',
         unitPerSecond: '美元 / 秒',
-        scaledNote: '以上价格已按你的账户倍率 ×{multiplier} 折算。',
         noPricing: '目录里还没有这个模型的价格。'
       },
       priceNote: '展示价 = 官方价 × 账户倍率，实付逐条记录在用量页。',

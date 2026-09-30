@@ -59,8 +59,10 @@ export interface CatalogModel {
   fastRows: TokenSegment[] | null
   /** Flex 档倍率；不单列 Flex 档时为 null */
   flexMultiplier: number | null
-  /** 联网搜索，USD / 千次；没配为 null */
+  /** 联网搜索（/alpha/search），USD / 千次；这个模型走不到时为 null */
   searchPerThousand: number | null
+  /** 搜索工具（grok 的 web / X 搜索），USD / 千次；非 grok 模型为 null */
+  toolSearchPerThousand: number | null
   /** reasoning_effort=max 时整单倍率；没配为 null */
   maxReasoningMultiplier: number | null
   aliases: string[]
@@ -186,6 +188,7 @@ function catalogModel(model: PlazaModel): CatalogModel {
     fastRows,
     flexMultiplier: p && token && (p.flex_multiplier != null || hasFast(p)) ? (p.flex_multiplier ?? DEFAULT_FLEX_MULTIPLIER) : null,
     searchPerThousand: p?.search_price_per_call == null ? null : p.search_price_per_call * PER_THOUSAND,
+    toolSearchPerThousand: p?.tool_search_price_per_call == null ? null : p.tool_search_price_per_call * PER_THOUSAND,
     maxReasoningMultiplier: p?.max_reasoning_effort_multiplier ?? null,
     aliases: model.aliases ?? [],
     timePricing: model.time_pricing?.periods.length ? model.time_pricing : null

@@ -119,11 +119,10 @@ describe('ModelPlazaContent', () => {
     expect(wrapper.text()).toContain('userUi.models.multiplierNote')
   })
 
-  it('marks time-priced models with a badge that spells out the periods', () => {
+  it('hints time-priced models in the cell footer (the periods are in the drawer)', () => {
     const wrapper = mountContent()
-    const badge = wrapper.get('[data-testid="time-pricing-badge"]')
-    expect(badge.attributes('title')).toBe('09:00–18:00 ×1.5 (Asia/Shanghai, userUi.models.weekdaysOnly)')
-    expect(wrapper.findAll('[data-testid="time-pricing-badge"]')).toHaveLength(1)
+    const extras = wrapper.findAll('[data-testid="price-extras"]').filter((el) => el.text().includes('userUi.models.tags.timePricing'))
+    expect(extras).toHaveLength(1)
   })
 
   it('shows a dash for entries without token prices', () => {

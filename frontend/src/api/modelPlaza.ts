@@ -26,7 +26,7 @@ export interface UserPricingInterval {
 
 /**
  * 用户侧最小形态的目录标价（/model-plaza 的 pricing）。
- * 单价都是 USD / token（按次模式的 per_request_price 是 USD / 次、张、秒，search_price_per_call 是 USD / 次），已是售价；
+ * 单价都是目录官方价，USD / token（按次模式的 per_request_price 是 USD / 次、张、秒，搜索价是 USD / 次）；展示时乘访问者倍率；
  * 倍率类字段（fast / flex / max_reasoning_effort）是纯倍数。
  */
 export interface UserSupportedModelPricing {
@@ -52,7 +52,10 @@ export interface UserSupportedModelPricing {
   audio_input_price?: number | null
   audio_output_price?: number | null
   per_request_price: number | null
+  /** 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有（没配按内置单价）。 */
   search_price_per_call?: number | null
+  /** grok 渠道搜索工具（web_search / x_search）每次价，只有 grok 模型有。 */
+  tool_search_price_per_call?: number | null
   intervals: UserPricingInterval[]
 }
 
