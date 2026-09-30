@@ -23,10 +23,6 @@ func NewAuditLogRepository(db *sql.DB) service.AuditLogRepository {
 	return &auditLogRepository{db: db}
 }
 
-const auditLogInsertColumns = `created_at, actor_user_id, actor_email, actor_role, auth_method,
-credential_masked, action, method, path, request_id, client_ip, user_agent,
-request_body, status_code, latency_ms, extra`
-
 func auditLogInsertValues(log *service.AuditLog) []any {
 	createdAt := log.CreatedAt
 	if createdAt.IsZero() {
@@ -107,19 +103,6 @@ func (r *auditLogRepository) BatchInsert(ctx context.Context, logs []*service.Au
 		return inserted, err
 	}
 	return inserted, nil
-}
-
-func (r *auditLogRepository) Insert(ctx context.Context, log *service.AuditLog) error {
-	if r == nil || r.db == nil {
-		return fmt.Errorf("nil audit log repository")
-	}
-	if log == nil {
-		return fmt.Errorf("nil audit log")
-	}
-	query := `INSERT INTO audit_logs (` + auditLogInsertColumns + `)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`
-	_, err := r.db.ExecContext(ctx, query, auditLogInsertValues(log)...)
-	return err
 }
 
 func (r *auditLogRepository) DeleteBefore(ctx context.Context, cutoff time.Time, batchSize int) (int64, error) {

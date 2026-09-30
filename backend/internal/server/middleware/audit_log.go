@@ -43,11 +43,6 @@ func SetAuditActor(c *gin.Context, userID int64, email string) {
 	}
 }
 
-// SkipAudit 跳过当前请求的审计记录。
-func SkipAudit(c *gin.Context) {
-	c.Set(auditCtxKeySkip, true)
-}
-
 // auditExtraAllowedKeys is deliberately narrow: handlers may only attach
 // scalar, non-secret operation summaries. Request bodies and arbitrary maps
 // are never accepted through this channel.
@@ -125,7 +120,6 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/auth/register":                              service.AuditActionRegister,
 	"POST /api/v1/auth/refresh":                               service.AuditActionTokenRefresh,
 	"POST /api/v1/user/totp/step-up":                          service.AuditActionStepUpVerify,
-	"POST /api/v1/admin/audit-logs/clear":                     service.AuditActionAuditLogClear,
 	"POST /api/v1/admin/accounts/data":                        "admin.accounts.import",
 	"POST /api/v1/admin/settings/admin-api-key/regenerate":    "admin.admin_api_key.regenerate",
 	"DELETE /api/v1/admin/settings/admin-api-key":             "admin.admin_api_key.delete",

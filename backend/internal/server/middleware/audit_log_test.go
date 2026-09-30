@@ -44,12 +44,6 @@ func (r *auditCaptureRepository) BatchInsert(_ context.Context, logs []*service.
 	r.logs = append(r.logs, logs...)
 	return int64(len(logs)), nil
 }
-func (r *auditCaptureRepository) Insert(_ context.Context, log *service.AuditLog) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.logs = append(r.logs, log)
-	return nil
-}
 func (r *auditCaptureRepository) DeleteBefore(context.Context, time.Time, int) (int64, error) {
 	return 0, nil
 }
