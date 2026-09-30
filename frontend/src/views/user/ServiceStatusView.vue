@@ -10,19 +10,13 @@
   -->
   <SiteShell variant="public">
     <PageHeader :title="t('userUi.serviceStatus.title')" :description="t('userUi.serviceStatus.description')">
-      <template v-if="!disabled" #actions>
+      <template #actions>
         <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
       </template>
     </PageHeader>
 
     <StatusState
-      v-if="disabled"
-      kind="empty"
-      :title="t('userUi.serviceStatus.disabled.title')"
-      :description="t('userUi.serviceStatus.disabled.description')"
-    />
-    <StatusState
-      v-else-if="loadError && !models"
+      v-if="loadError && !models"
       kind="error"
       :title="t('userUi.serviceStatus.loadFailed')"
       :action-label="t('userUi.usage.retry')"
@@ -139,7 +133,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  SERVICE_STATUS_DISABLED_REASON,
   getServiceStatusModels,
   getServiceStatusSnapshot,
   type ServiceHealth,
@@ -186,7 +179,6 @@ const snapshot = ref<ServiceStatusSnapshot | null>(null)
 const models = ref<ServiceStatusModels | null>(null)
 const loading = ref(false)
 const loadError = ref(false)
-const disabled = ref(false)
 let controller: AbortController | null = null
 let refreshTimer: number | null = null
 
@@ -204,16 +196,11 @@ async function reload() {
     if (controller !== request) return
     snapshot.value = nextSnapshot
     models.value = nextModels
-    disabled.value = false
     scheduleRefresh()
   } catch (error) {
     if (controller !== request) return
-    const e = error as { name?: string; code?: string; reason?: string }
+    const e = error as { name?: string; code?: string }
     if (e?.name === 'CanceledError' || e?.code === 'ERR_CANCELED') return
-    if (e?.reason === SERVICE_STATUS_DISABLED_REASON) {
-      disabled.value = true
-      return
-    }
     console.error('Failed to load service status:', error)
     loadError.value = true
   } finally {
@@ -221,7 +208,7 @@ async function reload() {
   }
 }
 
-/** 数据按分钟级汇总，跟着站长配置的汇总频率刷新（至少隔 1 分钟） */
+/** 数据按分钟级汇总，跟着后端给的汇总频率刷新（至少隔 1 分钟） */
 function scheduleRefresh() {
   if (refreshTimer) window.clearInterval(refreshTimer)
   const seconds = Math.max(60, snapshot.value?.refresh_interval_seconds || 300)

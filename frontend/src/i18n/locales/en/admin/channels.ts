@@ -272,23 +272,6 @@ export default {
       },
     },
 
-    // Channel Monitor
-    channelMonitor: {
-      description: 'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user Channel Status page show rates, RPM, and TPM — not absolute request volume.',
-      form: {
-        kindRequired: 'Please select a provider'
-      },
-      advanced: {
-        headersPlaceholder: 'User-Agent: claude-cli/1.0.83 (external, cli)\nx-app: cli\nanthropic-beta: claude-code-20250219',
-        headersParseError: 'Cannot parse line: {line}',
-      },
-      template: {
-        applyTitle: 'Apply template',
-        applyConfirm: 'Apply',
-        applyConfirmMessage: 'Overwrite {n} associated monitor(s) with the current configuration of "{name}"? Any local customizations on those monitors will be discarded.',
-      }
-    },
-
     // Subscriptions
     subscriptions: {
       batchAssign: {

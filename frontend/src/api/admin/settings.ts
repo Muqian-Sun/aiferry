@@ -25,10 +25,6 @@ export interface SystemSettings {
   cyber_session_block_enabled: boolean;
   cyber_session_block_ttl_seconds: number;
 
-  // Channel Monitor feature switch
-  channel_monitor_hide_throughput?: boolean;
-  channel_monitor_hide_user_ranking?: boolean;
-
   // 利润门（全站一档）：账号倍率 > 用户倍率 × (1 − profit_min_margin) 的资源不派；0 = 关
   profit_min_margin: number;
 }
@@ -43,10 +39,6 @@ export interface UpdateSettingsRequest {
   // Cyber session block
   cyber_session_block_enabled?: boolean;
   cyber_session_block_ttl_seconds?: number;
-
-  // Channel Monitor feature switch
-  channel_monitor_hide_throughput?: boolean;
-  channel_monitor_hide_user_ranking?: boolean;
 
   profit_min_margin?: number;
 }

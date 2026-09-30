@@ -87,7 +87,7 @@ describe('AdminSidebar', () => {
     expect(sections.find((section) => section.key === 'settings')?.title).toBeUndefined()
     expect(sectionPaths(wrapper)).toEqual({
       overview: ['/dashboard', '/ops'],
-      supply: ['/accounts', '/model-catalog', '/channels/monitor', '/proxies'],
+      supply: ['/accounts', '/model-catalog', '/proxies'],
       users: ['/users', '/orders'],
       operations: ['/usage', '/announcements'],
       security: ['/risk-control', '/audit-logs'],

@@ -128,18 +128,6 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/channels/monitor',
-    name: 'AdminChannelMonitor',
-    component: () => import('@/views/admin/ChannelMonitorView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Channel Monitor',
-      titleKey: 'nav.channelHealth',
-      descriptionKey: 'admin.channelMonitor.description'
-    }
-  },
-  {
     path: '/subscriptions',
     name: 'AdminSubscriptions',
     component: () => import('@/views/admin/SubscriptionsView.vue'),

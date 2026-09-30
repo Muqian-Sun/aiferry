@@ -101,7 +101,7 @@ export interface PublicNavContext {
   /** 管理站也会渲染公开壳（法律文档、404），那里没有产品页签。 */
   adminSite: boolean
   docUrl: string
-  /** 服务状态页（各模型可用率与首字延迟）跟着站长的「渠道健康」功能开关 */
+  /** 服务状态页（各模型可用率与首字延迟）跟着「渠道健康」功能开关（后端写死开着） */
   serviceStatusEnabled: boolean
 }
 

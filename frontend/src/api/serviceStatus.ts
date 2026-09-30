@@ -58,9 +58,6 @@ export interface ServiceStatusModels {
   items: ServiceStatusModel[]
 }
 
-/** 功能被站长关掉时接口返回的原因码 */
-export const SERVICE_STATUS_DISABLED_REASON = 'CHANNEL_MONITOR_DISABLED'
-
 export async function getServiceStatusSnapshot(range: ServiceStatusRange, signal?: AbortSignal) {
   const { data } = await apiClient.get<ServiceStatusSnapshot>('/channel-monitor-v2/snapshot', { params: { range }, signal })
   return data

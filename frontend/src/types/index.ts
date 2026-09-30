@@ -227,10 +227,6 @@ export interface PublicSettings {
   account_quota_notify_enabled: boolean
   balance_low_notify_threshold: number
   channel_monitor_enabled: boolean
-  /** When true, user monitor hides RPM/TPM so scale cannot be reverse-estimated. */
-  channel_monitor_hide_throughput?: boolean
-  /** When true, user monitor hides the user ranking tab and /users payload. */
-  channel_monitor_hide_user_ranking?: boolean
   allow_user_view_error_requests?: boolean
 }
 

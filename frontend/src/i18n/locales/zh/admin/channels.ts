@@ -272,23 +272,6 @@ export default {
       },
     },
 
-    // Channel Monitor
-    channelMonitor: {
-      description: '配置被动用量汇总维度（平台 / 模型）与刷新频率。健康色与明细在用户端「渠道状态」页以比例、RPM / TPM 展示，不暴露绝对请求量。',
-      form: {
-        kindRequired: '请选择供应商'
-      },
-      advanced: {
-        headersPlaceholder: 'User-Agent: claude-cli/1.0.83 (external, cli)\nx-app: cli\nanthropic-beta: claude-code-20250219',
-        headersParseError: '无法解析这一行：{line}',
-      },
-      template: {
-        applyTitle: '应用模板',
-        applyConfirm: '确认应用',
-        applyConfirmMessage: '将把模板「{name}」的当前配置覆盖到 {n} 个关联监控。监控本地已编辑的自定义修改会被丢弃，是否继续？',
-      }
-    },
-
     // Subscriptions Management
     subscriptions: {
       batchAssign: {
