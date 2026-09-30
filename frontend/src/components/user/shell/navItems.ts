@@ -10,6 +10,7 @@
  * 顶栏在控制台与公开站是同一组页签（产品 / 模型与价格 / 服务状态 / 文档）。
  * 模型与服务状态不分登录与否，入口只在顶栏（muqian 2026-09-30），侧栏不再重复。
  */
+import type { HistoryState } from 'vue-router'
 import type { CustomMenuItem } from '@/types'
 
 /** 侧栏条目用到的图标（Icon 组件的名字；收起成图标栏时靠它认页面） */
@@ -37,6 +38,8 @@ export interface NavTab {
   iconSvg?: string
   /** 侧栏图标（顶栏页签不用） */
   icon?: NavIcon
+  /** 跳转时带进浏览记录的状态（控制台里的顶栏页签带 CONSOLE_SHELL_STATE，见 consoleShell.ts） */
+  state?: HistoryState
 }
 
 export interface ConsoleNavSection {

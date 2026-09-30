@@ -5,12 +5,13 @@
     格子只放摘要（muqian 2026-09-30 方案 A）：图标 + 名称 + 厂商 · 计费方式 + 一行起价 + 该模型实际有的计费项标签；
     点格子打开详情抽屉（ModelPricingDrawer）按块列全部计费项、别名。
     价格单位只在工具行写一次；格子与抽屉里的价格已按访问者的倍率折算（倍率本身不显示）。
-    不分登录与否都在公开壳里（入口只在顶栏，muqian 2026-09-30），页首自己画——与首页首屏同一套（muqian 2026-09-23）：
+    embedded = 在控制台壳里（从控制台点进来，muqian 2026-09-30）：页头由壳画，这里只补一条数字摘要；
+    否则公开壳，页首自己画——与首页首屏同一套（muqian 2026-09-23）：
     一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
   <div class="space-y-6">
     <!-- 页首收紧（muqian：占的空间过大）：标题 40px、说明一行、数字小一档，整块约 120px 高 -->
-    <div class="grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div v-if="!embedded" class="grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="plaza-hero">
         <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
           {{ t('userUi.models.hero.title') }}<span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
@@ -28,6 +29,9 @@
         </div>
       </dl>
     </div>
+
+    <!-- 控制台形态：页头由壳画，这里补一条数字摘要（上架模型 / 厂商），与其它列表页一致 -->
+    <StatRow v-if="embedded && catalog.length" :items="consoleSummary" data-testid="plaza-console-summary" />
 
     <!-- 管理员配置的全局价格说明（Markdown） -->
     <div v-if="descriptionHtml" class="plaza-description text-sm text-af-ink-2" v-html="descriptionHtml"></div>
@@ -167,6 +171,8 @@ import SearchInput from '@/components/common/SearchInput.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import VendorIcon from '@/components/common/VendorIcon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import { vReveal } from '@/directives/reveal'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
@@ -189,6 +195,8 @@ const props = defineProps<{
   response: ModelPlazaResponse | null
   loading: boolean
   error: boolean
+  /** 在控制台壳里（不画页首，补数字摘要） */
+  embedded?: boolean
 }>()
 
 const { t } = useI18n()
@@ -232,6 +240,10 @@ const descriptionHtml = computed(() => {
 const catalog = computed(() => buildCatalog(props.response?.models ?? []))
 const vendors = computed(() => catalogVendors(catalog.value))
 /** 页首数字：与首页数字段同一口径（上架模型数 / 厂商数） */
+const consoleSummary = computed<StatItem[]>(() => [
+  { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
+  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) }
+])
 const stats = computed(() => [
   { key: 'models', value: catalog.value.length },
   { key: 'vendors', value: vendors.value.length }

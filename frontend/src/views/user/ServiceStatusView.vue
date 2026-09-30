@@ -1,7 +1,8 @@
 <template>
   <!--
     服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快、缓存命中多少」。
-    与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）；
+    与模型页一样对未登录访客开放，入口在顶栏（muqian 2026-09-30）：从控制台点进来留在控制台壳（页头由壳画），
+    从首页等公开页进来走公开壳（consoleShell.ts）；
     加载方式也与模型页一样：路由预加载默认时间范围，数据到了再换页（serviceStatusQuery）；
     切换时间范围时旧内容留在原处（变淡），新数据到了再替换，不收成加载占位、不丢滚动位置。
     ① 整体：一句话结论 + 可用率 / 首字延迟 / 缓存命中率 + 全站趋势（三项切换）
@@ -10,9 +11,13 @@
        这段时间一个请求都没有的模型不占格子，折成一行「另有 N 个模型没有请求」，展开只列名字。
     数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行）。
   -->
-  <SiteShell variant="public">
-    <!-- 页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
-    <div class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
+  <SiteShell :variant="shell">
+    <!-- 控制台壳：页头（标题 / 说明取路由）由壳画，时间范围放在页头右侧 -->
+    <template v-if="shell === 'console'" #actions>
+      <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
+    </template>
+    <!-- 公开壳：页首与模型页同一套（muqian 2026-09-30）：标题 32 / 40px、说明 15px、逐行淡入上浮；时间范围在右侧与标题底部对齐 -->
+    <div v-if="shell === 'public'" class="mb-8 grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="service-status-hero">
         <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
           {{ t('userUi.serviceStatus.title') }}
@@ -147,6 +152,7 @@ import { usePreferredReducedMotion, useTransition } from '@vueuse/core'
 import { vReveal } from '@/directives/reveal'
 import type { ServiceHealth, ServiceStatusModels, ServiceStatusRange, ServiceStatusSnapshot } from '@/api/serviceStatus'
 import { SERVICE_STATUS_DEFAULT_RANGE, loadServiceStatus } from './serviceStatusQuery'
+import { useShellVariant } from '@/components/user/shell/consoleShell'
 import { useAppStore } from '@/stores/app'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -169,6 +175,7 @@ import {
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const shell = useShellVariant()
 
 const RANGES: ServiceStatusRange[] = ['90m', '24h', '7d', '30d']
 const LEGEND: ServiceHealth[] = ['healthy', 'warning', 'critical', 'unknown']
