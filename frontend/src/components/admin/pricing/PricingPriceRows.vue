@@ -78,7 +78,7 @@
         </span>
       </td>
       <td class="px-3 py-2 text-right align-middle">
-        <button type="button" class="text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.segments.splice(index, 1)">
+        <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.segments.splice(index, 1)">
           {{ t('admin.pricing.remove') }}
         </button>
       </td>

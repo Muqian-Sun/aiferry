@@ -83,7 +83,7 @@
             <template #margin><MarginCell :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #status><ChannelStatusCell :account="accounts.get(row.id)" :margin="savedMargin(row)" :min-margin="minMargin" /></template>
             <template #actions>
-              <button type="button" class="text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
+              <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
                 {{ t('admin.pricing.remove') }}
               </button>
             </template>
