@@ -603,8 +603,8 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.NoError(t, repo.SaveEntryPricing(ctx, updated, []service.ModelCatalogBinding{
 		{AccountID: accountA.ID, InputPrice: 1.2e-7, OutputPrice: 9e-7, CacheReadPrice: float64Value(1.2e-8),
 			Intervals: []service.PricingInterval{
-				{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7)},
-				{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6)},
+				{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), CacheWritePrice: float64Value(1.5e-7), CacheWrite1hPrice: float64Value(2.4e-7)},
+				{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), CacheReadPrice: float64Value(3e-8)},
 			}},
 		{AccountID: accountB.ID, InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8)},
 	}))
@@ -623,8 +623,8 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Equal(t, 1.2e-7, b[accountA.ID].InputPrice)
 	require.Equal(t, float64Value(1.2e-8), b[accountA.ID].CacheReadPrice)
 	require.Equal(t, []service.PricingInterval{
-		{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), SortOrder: 0},
-		{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), SortOrder: 1},
+		{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), CacheWritePrice: float64Value(1.5e-7), CacheWrite1hPrice: float64Value(2.4e-7), SortOrder: 0},
+		{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), CacheReadPrice: float64Value(3e-8), SortOrder: 1},
 	}, b[accountA.ID].Intervals)
 	require.Equal(t, 1.2e-6, b[accountB.ID].OutputPrice)
 
@@ -636,10 +636,13 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Len(t, b, 1, "bindings not in the list are removed")
 	require.Equal(t, 2.5e-7, b[accountB.ID].InputPrice)
 
-	// 3. 按渠道保存：B 改成只承接 e2；e1 上 B 的行被删，别的渠道不动。
+	// 3. 按渠道保存：B 改成只承接 e2；e1 上 B 的行被删，别的渠道（e1、e2 上的 A）不动。
 	require.NoError(t, repo.SaveEntryPricing(ctx, got, []service.ModelCatalogBinding{
 		{AccountID: accountA.ID, InputPrice: 1e-7, OutputPrice: 8e-7, CacheReadPrice: float64Value(1e-8)},
 		{AccountID: accountB.ID, InputPrice: 2.5e-7, OutputPrice: 1.5e-6, CacheReadPrice: float64Value(2.5e-8)},
+	}))
+	require.NoError(t, repo.SaveEntryPricing(ctx, e2, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, InputPrice: 4e-8, OutputPrice: 2e-7},
 	}))
 	beforeE1, beforeE2 := outboxCount(e1.ID), outboxCount(e2.ID)
 	require.NoError(t, repo.ReplaceAccountBindings(ctx, accountB.ID, []service.ModelCatalogBinding{
@@ -649,8 +652,9 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Len(t, b, 1)
 	require.Contains(t, b, accountA.ID, "other channels' bindings untouched")
 	b2 := bindingsOf(e2.ID)
-	require.Len(t, b2, 1)
+	require.Len(t, b2, 2, "A stays on e2 when B joins")
 	require.Equal(t, 5e-8, b2[accountB.ID].InputPrice)
+	require.Equal(t, 4e-8, b2[accountA.ID].InputPrice)
 	require.Equal(t, beforeE1+1, outboxCount(e1.ID), "entry the channel left is enqueued")
 	require.Equal(t, beforeE2+1, outboxCount(e2.ID), "entry the channel joined is enqueued")
 
@@ -661,7 +665,7 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Len(t, bindingsOf(e1.ID), 1, "rolled back: B not added to e1")
-	require.Len(t, bindingsOf(e2.ID), 1, "rolled back: B still on e2")
+	require.Contains(t, bindingsOf(e2.ID), accountB.ID, "rolled back: B still on e2")
 
 	// 5. 事务回滚：承接行指向不存在的渠道，条目改价也不生效。
 	broken := got.Clone()
