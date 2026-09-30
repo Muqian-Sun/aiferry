@@ -24,8 +24,8 @@ func monitorV2FixtureMetric() service.ChannelMonitorV2Metric {
 	return service.ChannelMonitorV2Metric{
 		SuccessRequests: 95, ErrorRequests: 5, RequestCount: 100,
 		InputTokens: 1000, OutputTokens: 500, CacheCreationTokens: 10, CacheReadTokens: 300, TokenCount: 1810,
-		RPM: 12.5, TPM: 3000, ErrorRate: 0.03, SuccessRate: 0.95, CacheRate: 0.23,
-		CacheRateNumerator: 300, CacheRateDenominator: 1310,
+		RPM: 12.5, TPM: 3000, ErrorRate: 0.03, SuccessRate: 0.95, CacheRate: 0.9,
+		CacheRateNumerator: 1179, CacheRateDenominator: 1310,
 		TTFT:     service.ChannelMonitorV2Latency{SampleCount: 100, P50Ms: &p50, P90Ms: &p90, P95Ms: &p95, AvgMs: &avg},
 		Duration: service.ChannelMonitorV2Latency{SampleCount: 100, P50Ms: &p90, AvgMs: &avg},
 	}
@@ -97,7 +97,7 @@ var forbiddenServiceStatusKeys = []string{
 	"details", "error_type",
 	"rpm", "tpm", "request_count", "success_requests", "error_requests", "token_count",
 	"input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens",
-	"cache_rate", "cache_rate_numerator", "cache_rate_denominator", "cache", "cache_score",
+	"cache_rate_numerator", "cache_rate_denominator", "cache_score",
 	"sample_count", "count", "config", "thresholds", "score",
 	"user_id", "email", "username", "display_label", "rank", "is_self", "can_drilldown",
 }
@@ -155,6 +155,8 @@ func TestServiceStatusPayloadsCarryOnlyWhitelistedFields(t *testing.T) {
 			metrics := jsonObject(t, data["metrics"])
 			require.InDelta(t, 0.97, metrics["availability"], 1e-9)
 			require.EqualValues(t, 800, metrics["ttft_p50_ms"])
+			require.InDelta(t, 0.9, metrics["cache_hit_rate"], 1e-9)
+			require.Equal(t, "healthy", jsonObject(t, data["health"])["cache"])
 			require.Equal(t, "healthy", jsonObject(t, data["health"])["overall"])
 			require.Len(t, data["trend"], 1)
 		}},

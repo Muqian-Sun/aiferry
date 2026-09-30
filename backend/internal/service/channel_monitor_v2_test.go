@@ -178,7 +178,7 @@ func TestChannelMonitorV2HealthLeavesMissingTTFTUnknown(t *testing.T) {
 	health := ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
 		RequestCount:         200,
 		ErrorRate:            0,
-		CacheRate:            0,
+		CacheRate:            1,
 		CacheRateDenominator: 200,
 		TTFT:                 ChannelMonitorV2Latency{SampleCount: 0},
 	})
@@ -188,21 +188,40 @@ func TestChannelMonitorV2HealthLeavesMissingTTFTUnknown(t *testing.T) {
 	require.Equal(t, "healthy", health.Overall)
 }
 
-func TestChannelMonitorV2DefaultHealthThresholdsAreTolerant(t *testing.T) {
+// 缓存命中率参与评分（muqian 2026-09-30）：命中率高时不拖分；低于 60% 时缓存档是异常，并按 20% 权重拉低总分。
+func TestChannelMonitorV2HealthScoresCacheHitRate(t *testing.T) {
 	p50 := int64(2500)
-	health := ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
+	metrics := ChannelMonitorV2Metric{
 		RequestCount:         100,
 		ErrorRate:            0.03,
-		CacheRate:            0,
+		CacheRate:            0.9,
 		CacheRateDenominator: 100,
 		TTFT:                 ChannelMonitorV2Latency{SampleCount: 100, P50Ms: &p50},
-	})
+	}
+	health := ChannelMonitorV2HealthFor(metrics)
 	require.Equal(t, "healthy", health.ErrorRate)
 	require.Equal(t, "healthy", health.TTFT)
 	require.Equal(t, "healthy", health.Cache)
 	require.Equal(t, "healthy", health.Overall)
-	require.NotNil(t, health.CacheScore)
-	require.InDelta(t, 100.0, *health.CacheScore, 0.01)
+
+	// 错误率 3%（20% 封顶 → 85 分）、首字 100 分、缓存 50% → 50 分：0.6×85 + 0.2×100 + 0.2×50 = 81
+	metrics.CacheRate = 0.5
+	health = ChannelMonitorV2HealthFor(metrics)
+	require.Equal(t, "critical", health.Cache)
+	require.NotNil(t, health.Score)
+	require.InDelta(t, 81.0, *health.Score, 0.01)
+}
+
+// 请求不满 50 个时三项都不评：以前缓存只看 token 数，几个长请求就能单凭缓存给出「正常」。
+func TestChannelMonitorV2HealthNeedsMinimumRequestsForCache(t *testing.T) {
+	health := ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
+		RequestCount:         4,
+		CacheRate:            0.9,
+		CacheRateDenominator: 5000,
+	})
+	require.Nil(t, health.CacheScore)
+	require.Equal(t, "unknown", health.Cache)
+	require.Equal(t, "unknown", health.Overall)
 }
 
 func TestErrorRateTTFTAndCacheScoreHelpers(t *testing.T) {
@@ -266,12 +285,13 @@ func TestChannelMonitorV2ReadsUseListedCatalog(t *testing.T) {
 	}
 }
 
-// 写进代码的配置 = 原配置表在全新安装时实际生效的值（迁移 198 / 203 / 205），忽略的类别都在分类里。
-func TestChannelMonitorV2ConfigMatchesFreshInstall(t *testing.T) {
+// 写进代码的配置：错误率与首字取原配置表全新安装时的生效值（迁移 198 / 205），缓存取迁移 203 的出厂值；
+// 忽略的类别都在分类里。
+func TestChannelMonitorV2ConfigValues(t *testing.T) {
 	require.Equal(t, ChannelMonitorV2HealthThresholds{
 		MinimumSample: 50, WarningErrorRate: 0.05, CriticalErrorRate: 0.20,
 		TargetTTFTMs: 3000, WarningTTFTMs: 8000, CriticalTTFTMs: 20000,
-		WarningCacheRate: 0, CriticalCacheRate: 0,
+		WarningCacheRate: 0.85, CriticalCacheRate: 0.60,
 		ErrorWeight: 0.60, TTFTWeight: 0.20, CacheWeight: 0.20,
 	}, channelMonitorV2Config.HealthThresholds)
 	require.Equal(t, 60, ChannelMonitorV2RefreshIntervalSeconds)
