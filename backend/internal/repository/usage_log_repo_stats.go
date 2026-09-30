@@ -280,7 +280,7 @@ func (r *usageLogRepository) GetAccountTodayStats(ctx context.Context, accountID
 		SELECT
 			COUNT(*) as requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as cost,
+			COALESCE(SUM(account_cost), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
 			COALESCE(SUM(actual_cost), 0) as user_cost
 		FROM usage_logs
@@ -310,7 +310,7 @@ func (r *usageLogRepository) GetAccountWindowStats(ctx context.Context, accountI
 		SELECT
 			COUNT(*) as requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as cost,
+			COALESCE(SUM(account_cost), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
 			COALESCE(SUM(actual_cost), 0) as user_cost
 		FROM usage_logs
@@ -347,7 +347,7 @@ func (r *usageLogRepository) GetAccountWindowStatsBatch(ctx context.Context, acc
 			account_id,
 			COUNT(*) as requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as cost,
+			COALESCE(SUM(account_cost), 0) as cost,
 			COALESCE(SUM(total_cost), 0) as standard_cost,
 			COALESCE(SUM(actual_cost), 0) as user_cost
 		FROM usage_logs
@@ -702,7 +702,7 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 				cache_read_tokens,
 				total_cost,
 				actual_cost,
-				total_cost * COALESCE(account_rate_multiplier, 1) AS account_cost,
+				account_cost,
 				duration_ms
 			FROM usage_logs
 			%s
@@ -837,7 +837,7 @@ func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Con
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
 			COALESCE(SUM(actual_cost), 0) as actual_cost,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(account_cost), 0) as account_cost
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
 	`, endpointColumn)
@@ -913,7 +913,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 			COUNT(*) as requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(actual_cost), 0) as actual_cost,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(account_cost), 0) as account_cost
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date

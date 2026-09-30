@@ -419,7 +419,7 @@ func TestOpenAIGatewayServiceForward_NormalizesResponsesLiteToolsForOAuth(t *tes
 			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 			account := &Account{
 				ID: 501, Name: "responses-lite", Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+				Concurrency: 1, Status: StatusActive, Schedulable: true,
 				Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
 			}
 			body := []byte(`{
@@ -536,7 +536,7 @@ func TestOpenAIGatewayServiceForward_PinsParallelToolCallsForToollessResponsesLi
 					svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 					account := &Account{
 						ID: 502, Name: "responses-lite-no-tools", Platform: PlatformOpenAI, Type: accountCase.accountType,
-						Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+						Concurrency: 1, Status: StatusActive, Schedulable: true,
 						Credentials:       accountCase.credentials,
 						ProtocolEndpoints: accountCase.endpoints,
 					}
@@ -579,7 +579,7 @@ func TestOpenAIGatewayServiceForward_DisablesParallelToolCallsForResponsesLiteAP
 			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 			account := &Account{
 				ID: 503, Name: "responses-lite-api-key", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				Concurrency: 1, Status: StatusActive, Schedulable: true, RateMultiplier: f64p(1),
+				Concurrency: 1, Status: StatusActive, Schedulable: true,
 				Credentials:       map[string]any{"api_key": "sk-test"},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}

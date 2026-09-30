@@ -60,8 +60,8 @@ export function formatDurationMs(ms: number): string {
   return `${Math.floor(totalSec / 3600)}h ${Math.floor((totalSec % 3600) / 60)}m`
 }
 
-/** 这一笔的成本：标价 × 渠道成本倍率（没记倍率按 1，与统计 SQL 的 COALESCE 同口径）。 */
+/** 这一笔的渠道成本：后端按用量 × 这个渠道给这个模型的上游价逐条算好（account_cost），这里不再折算。 */
 export function rowAccountCost(row: AdminUsageLog): number {
-  const result = (row.total_cost ?? 0) * (row.account_rate_multiplier ?? 1)
+  const result = row.account_cost ?? 0
   return Number.isFinite(result) ? result : 0
 }

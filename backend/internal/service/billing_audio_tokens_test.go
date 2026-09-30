@@ -187,7 +187,7 @@ func TestGatewayRecordUsageCost_GeminiAudioModalityBilledAtAudioPrice(t *testing
 		"promptTokensDetails":[{"modality":"TEXT","tokenCount":200},{"modality":"AUDIO","tokenCount":800}]}}`))
 	require.NotNil(t, usage)
 
-	cost := svc.calculateRecordUsageCost(context.Background(), &ForwardResult{Model: "gemini-2.5-flash", Usage: *usage},
+	cost, _ := svc.calculateRecordUsageCost(context.Background(), &ForwardResult{Model: "gemini-2.5-flash", Usage: *usage},
 		&APIKey{}, "gemini-2.5-flash", 1, time.Time{})
 
 	require.NotNil(t, cost)

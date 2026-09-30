@@ -211,7 +211,7 @@
         />
         <template v-else-if="usageStats">
           <StatRow :items="usageItems" />
-          <!-- 金额只剩三个数：收入（actual_cost）、成本（标价 × 渠道成本倍率）、利润（为负标红） -->
+          <!-- 金额只剩三个数：收入（actual_cost）、成本（用量 × 渠道上游价）、利润（为负标红） -->
           <dl class="mt-6 divide-y divide-af-hairline border-t border-af-hairline" data-testid="user-drawer-usage-money">
             <DetailField :label="t('common.money.revenue')">
               <span class="tabular-nums">{{ formatMoney(usageStats.total_actual_cost) }}</span>

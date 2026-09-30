@@ -51,7 +51,6 @@ export default {
       vendorCustom: 'Other (type it in)…',
       vendorCustomPlaceholder: 'Vendor tag, e.g. anthropic',
       modelIdPlaceholder: 'e.g. claude-sonnet-4-5',
-      channels: 'Channels',
       morePrices: 'More prices',
       morePricesFilled: '{count} set',
       morePricesHint: 'Image and audio prices (and cache prices for non-token billing); leave empty for not configured.',
@@ -136,20 +135,16 @@ export default {
       timePricing: 'Time-of-day pricing',
       timezone: 'Time zone {timezone}',
       weekdaysOnly: 'Weekdays only',
-      bind: 'Bind channels',
-      priority: 'Priority {value}',
       notSchedulable: 'Not schedulable',
       channelsHint: 'Whether each channel can be scheduled right now; use Diagnose to check each inbound protocol.',
-      channelsFallback: 'Could not load channel status; showing the bound channels only.'
+      channelsFallback: 'Could not load channel status; switch tabs to retry.'
     },
     diagnose: 'Diagnose',
     diagnosis: {
       title: 'Channel diagnosis · {model}',
       empty: 'No channels are bound to this model.',
-      followAccount: 'Follows channel',
       columns: {
         account: 'Channel',
-        priority: 'Priority',
         schedulable: 'Schedulable'
       },
       inbound: {
@@ -231,19 +226,7 @@ export default {
       empty: 'No tiers; the list price applies.'
     },
     bindings: {
-      title: 'Channels serving this model',
-      hint: 'Ticked channels serve requests for this model; leave priority empty to follow the channel.',
-      selected: '{count} selected',
-      search: 'Search channels by name',
-      boundOnly: 'Selected only',
-      loading: 'Loading channels…',
-      loadFailed: 'Failed to load channels',
-      retry: 'Retry',
-      noResults: 'No matching channels',
-      noChannels: 'No channels yet. Add one on the Channels page first.',
-      inactive: 'Disabled',
-      priority: 'Priority',
-      priorityFollow: 'Follow channel'
+      title: 'Channels serving this model'
     },
     status: {
       listed: 'Listed',

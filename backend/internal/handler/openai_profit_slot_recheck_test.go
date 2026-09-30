@@ -32,7 +32,7 @@ func (c *profitCountingConcurrencyCache) ReleaseAccountSlot(context.Context, int
 	return nil
 }
 
-func profitSlotTestAccount(id int64, rate float64) *service.Account {
+func profitSlotTestAccount(id int64) *service.Account {
 	return &service.Account{
 		ID:                id,
 		Platform:          service.PlatformOpenAI,
@@ -40,9 +40,23 @@ func profitSlotTestAccount(id int64, rate float64) *service.Account {
 		Status:            service.StatusActive,
 		Schedulable:       true,
 		Concurrency:       2,
-		RateMultiplier:    &rate,
 		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
+}
+
+// profitSlotTestRoute 本请求的目录路由：利润门的上游成本比 = 承接关系上的上游价 ÷ 官方价。
+// 账号 1 / 3 的上游价是官方价的 0.8（越线），账号 2 是 0.3（合格）。
+func profitSlotTestRoute() service.CatalogRoute {
+	price := func(v float64) *float64 { return &v }
+	binding := func(accountID int64, ratio float64) service.ModelCatalogBinding {
+		return service.ModelCatalogBinding{EntryID: 1, AccountID: accountID, InputPrice: 1e-6 * ratio, OutputPrice: 5e-6 * ratio}
+	}
+	entry := &service.ModelCatalogEntry{
+		ID: 1, ModelID: "gpt-5.4", BillingMode: service.BillingModeToken,
+		InputPrice: price(1e-6), OutputPrice: price(5e-6),
+		Bindings: []service.ModelCatalogBinding{binding(1, 0.8), binding(2, 0.3), binding(3, 0.8)},
+	}
+	return service.CatalogRoute{EntryID: entry.ID, CanonicalModel: entry.ModelID, RequestedModel: entry.ModelID, Entry: entry}
 }
 
 // profitSlotTestSettings 利润门全站一档：margin 0.5，用户倍率 1 → 阈值 0.5。
@@ -58,6 +72,7 @@ func profitSlotTestSettings(t *testing.T) *service.SettingService {
 func profitSlotTestContext(t *testing.T, gw *service.OpenAIGatewayService, suppress bool) context.Context {
 	t.Helper()
 	base := service.WithUserRateMultiplier(context.Background(), &service.User{ID: 1, RateMultiplier: customRate(1.0)})
+	base = service.WithCatalogRoute(base, profitSlotTestRoute())
 	if suppress {
 		base = service.WithOpenAIProfitControlSuppressed(base)
 	}
@@ -94,7 +109,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(1, 0.8)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(1)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireProfitVetoed, result)
 		require.Nil(t, release)
 		require.Zero(t, w.Body.Len(), "利润终检否决不得写出任何响应")
@@ -109,7 +124,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(2, 0.3)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(2)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireOK, result)
 		require.NotNil(t, release)
 		release()
@@ -123,7 +138,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, true))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(3, 0.8)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(3)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireOK, result, "生图意图跳门：过贵账号照常获取（图片边界不装门）")
 		require.NotNil(t, release)
 		release()

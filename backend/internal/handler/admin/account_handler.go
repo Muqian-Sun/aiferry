@@ -108,15 +108,14 @@ type CreateAccountRequest struct {
 	Name  string  `json:"name" binding:"required"`
 	Notes *string `json:"notes"`
 	// Platform 成品号必填（决定授权流程）；第三方 key 可不填，按地址推导（resolveCreateAccountPlatform）。
-	Platform       string         `json:"platform"`
-	Type           string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials    map[string]any `json:"credentials" binding:"required"`
-	Extra          map[string]any `json:"extra"`
-	ProxyID        *int64         `json:"proxy_id"`
-	Concurrency    int            `json:"concurrency"`
-	Priority       int            `json:"priority"`
-	RateMultiplier *float64       `json:"rate_multiplier"`
-	ExpiresAt      *int64         `json:"expires_at"`
+	Platform    string         `json:"platform"`
+	Type        string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials map[string]any `json:"credentials" binding:"required"`
+	Extra       map[string]any `json:"extra"`
+	ProxyID     *int64         `json:"proxy_id"`
+	Concurrency int            `json:"concurrency"`
+	Priority    int            `json:"priority"`
+	ExpiresAt   *int64         `json:"expires_at"`
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
@@ -124,34 +123,32 @@ type CreateAccountRequest struct {
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name           string         `json:"name"`
-	Notes          *string        `json:"notes"`
-	Type           string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials    map[string]any `json:"credentials"`
-	Extra          map[string]any `json:"extra"`
-	ProxyID        *int64         `json:"proxy_id"`
-	Concurrency    *int           `json:"concurrency"`
-	Priority       *int           `json:"priority"`
-	RateMultiplier *float64       `json:"rate_multiplier"`
-	Status         string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	ExpiresAt      *int64         `json:"expires_at"`
+	Name        string         `json:"name"`
+	Notes       *string        `json:"notes"`
+	Type        string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials map[string]any `json:"credentials"`
+	Extra       map[string]any `json:"extra"`
+	ProxyID     *int64         `json:"proxy_id"`
+	Concurrency *int           `json:"concurrency"`
+	Priority    *int           `json:"priority"`
+	Status      string         `json:"status" binding:"omitempty,oneof=active inactive error"`
+	ExpiresAt   *int64         `json:"expires_at"`
 	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
 	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
 type BulkUpdateAccountsRequest struct {
-	AccountIDs     []int64                   `json:"account_ids"`
-	Filters        *BulkUpdateAccountFilters `json:"filters"`
-	Name           string                    `json:"name"`
-	ProxyID        *int64                    `json:"proxy_id"`
-	Concurrency    *int                      `json:"concurrency"`
-	Priority       *int                      `json:"priority"`
-	RateMultiplier *float64                  `json:"rate_multiplier"`
-	Status         string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
-	Schedulable    *bool                     `json:"schedulable"`
-	Credentials    map[string]any            `json:"credentials"`
-	Extra          map[string]any            `json:"extra"`
+	AccountIDs  []int64                   `json:"account_ids"`
+	Filters     *BulkUpdateAccountFilters `json:"filters"`
+	Name        string                    `json:"name"`
+	ProxyID     *int64                    `json:"proxy_id"`
+	Concurrency *int                      `json:"concurrency"`
+	Priority    *int                      `json:"priority"`
+	Status      string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
+	Schedulable *bool                     `json:"schedulable"`
+	Credentials map[string]any            `json:"credentials"`
+	Extra       map[string]any            `json:"extra"`
 }
 
 type BulkUpdateAccountFilters struct {
@@ -486,10 +483,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
-		response.BadRequest(c, "rate_multiplier must be >= 0")
-		return
-	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
 
@@ -510,7 +503,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			ProxyID:           req.ProxyID,
 			Concurrency:       req.Concurrency,
 			Priority:          req.Priority,
-			RateMultiplier:    req.RateMultiplier,
 			ExpiresAt:         req.ExpiresAt,
 			ProtocolEndpoints: req.ProtocolEndpoints,
 		})
@@ -601,10 +593,6 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
-		response.BadRequest(c, "rate_multiplier must be >= 0")
-		return
-	}
 	// base_rpm 输入校验：负值归零，超过 10000 截断
 	sanitizeExtraBaseRPM(req.Extra)
 
@@ -619,7 +607,6 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		ProxyID:           req.ProxyID,
 		Concurrency:       req.Concurrency, // 指针类型，nil 表示未提供
 		Priority:          req.Priority,    // 指针类型，nil 表示未提供
-		RateMultiplier:    req.RateMultiplier,
 		Status:            req.Status,
 		ExpiresAt:         req.ExpiresAt,
 		ProtocolEndpoints: req.ProtocolEndpoints,
@@ -1395,31 +1382,20 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 		var openaiPrivacyAccounts []*service.Account
 
 		for _, item := range req.Accounts {
-			if item.RateMultiplier != nil && *item.RateMultiplier < 0 {
-				failed++
-				results = append(results, gin.H{
-					"name":    item.Name,
-					"success": false,
-					"error":   "rate_multiplier must be >= 0",
-				})
-				continue
-			}
-
 			// base_rpm 输入校验：负值归零，超过 10000 截断
 			sanitizeExtraBaseRPM(item.Extra)
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-				Name:           item.Name,
-				Notes:          item.Notes,
-				Platform:       item.Platform,
-				Type:           item.Type,
-				Credentials:    item.Credentials,
-				Extra:          item.Extra,
-				ProxyID:        item.ProxyID,
-				Concurrency:    item.Concurrency,
-				Priority:       item.Priority,
-				RateMultiplier: item.RateMultiplier,
-				ExpiresAt:      item.ExpiresAt,
+				Name:        item.Name,
+				Notes:       item.Notes,
+				Platform:    item.Platform,
+				Type:        item.Type,
+				Credentials: item.Credentials,
+				Extra:       item.Extra,
+				ProxyID:     item.ProxyID,
+				Concurrency: item.Concurrency,
+				Priority:    item.Priority,
+				ExpiresAt:   item.ExpiresAt,
 			})
 			if err != nil {
 				failed++
@@ -1584,10 +1560,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
-		response.BadRequest(c, "rate_multiplier must be >= 0")
-		return
-	}
 	if len(req.AccountIDs) == 0 && req.Filters == nil {
 		response.BadRequest(c, "account_ids or filters is required")
 		return
@@ -1599,7 +1571,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
 		req.Priority != nil ||
-		req.RateMultiplier != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
 		len(req.Credentials) > 0 ||
@@ -1611,17 +1582,16 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 
 	result, err := h.adminService.BulkUpdateAccounts(c.Request.Context(), &service.BulkUpdateAccountsInput{
-		AccountIDs:     req.AccountIDs,
-		Filters:        toServiceBulkUpdateAccountFilters(req.Filters),
-		Name:           req.Name,
-		ProxyID:        req.ProxyID,
-		Concurrency:    req.Concurrency,
-		Priority:       req.Priority,
-		RateMultiplier: req.RateMultiplier,
-		Status:         req.Status,
-		Schedulable:    req.Schedulable,
-		Credentials:    req.Credentials,
-		Extra:          req.Extra,
+		AccountIDs:  req.AccountIDs,
+		Filters:     toServiceBulkUpdateAccountFilters(req.Filters),
+		Name:        req.Name,
+		ProxyID:     req.ProxyID,
+		Concurrency: req.Concurrency,
+		Priority:    req.Priority,
+		Status:      req.Status,
+		Schedulable: req.Schedulable,
+		Credentials: req.Credentials,
+		Extra:       req.Extra,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

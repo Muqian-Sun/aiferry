@@ -131,9 +131,9 @@ func NewUsageCache() *UsageCache {
 
 // WindowStats 窗口期统计
 //
-// cost: 账号口径费用（total_cost * account_rate_multiplier）
-// standard_cost: 标准费用（total_cost，不含倍率）
-// user_cost: 用户/API Key 口径费用（actual_cost，受分组倍率影响）
+// cost: 渠道成本（account_cost = 用量 × 这个渠道给这个模型的上游价）
+// standard_cost: 官方价（total_cost）
+// user_cost: 用户实付（actual_cost = 官方价 × 用户倍率）
 type WindowStats struct {
 	Requests     int64   `json:"requests"`
 	Tokens       int64   `json:"tokens"`

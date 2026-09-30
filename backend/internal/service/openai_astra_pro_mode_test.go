@@ -51,15 +51,14 @@ func newAstraOAuthSetup(t *testing.T) *astraForwardSetup {
 		httpUpstream: upstream,
 	}
 	account := &Account{
-		ID:             888,
-		Name:           "oauth-astra",
-		Platform:       PlatformOpenAI,
-		Type:           AccountTypeOAuth,
-		Concurrency:    1,
-		Credentials:    map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
-		Status:         StatusActive,
-		Schedulable:    true,
-		RateMultiplier: f64p(1),
+		ID:          888,
+		Name:        "oauth-astra",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
+		Status:      StatusActive,
+		Schedulable: true,
 	}
 	return &astraForwardSetup{upstream: upstream, svc: svc, c: c, rec: rec, account: account}
 }

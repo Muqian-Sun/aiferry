@@ -74,8 +74,7 @@ const DataTableStub = {
           <slot :name="'header-' + column.key" :column="column" />
         </div>
       </template>
-      <div v-for="row in data" :key="row.id" data-test="account-rate">
-        <slot name="cell-rate_multiplier" :row="row" />
+      <div v-for="row in data" :key="row.id" data-test="account-row">
         <slot name="cell-catalog" :row="row" />
       </div>
     </div>
@@ -159,40 +158,15 @@ describe('admin AccountsView usage windows hint', () => {
   // onMounted 用 allSettled 并行拉代理 / 目录：一个失败不能拖垮另一个
   it('keeps catalog entries available when loading proxies fails', async () => {
     listAccounts.mockResolvedValue({
-      items: [{ id: 3, name: 'K1', platform: 'openai', type: 'apikey', status: 'active', schedulable: true, concurrency: 1, priority: 1, rate_multiplier: 1, extra: {}, credentials: {} }],
+      items: [{ id: 3, name: 'K1', platform: 'openai', type: 'apikey', status: 'active', schedulable: true, concurrency: 1, priority: 1, extra: {}, credentials: {} }],
       total: 1, page: 1, page_size: 20, pages: 1
     })
     getAllProxies.mockRejectedValue(new Error('proxy service unavailable'))
-    listCatalogEntries.mockResolvedValue([{ id: 199, model_id: 'gpt-5.6', status: 'listed', bindings: [{ entry_id: 199, account_id: 3, priority: null }] }])
+    listCatalogEntries.mockResolvedValue([{ id: 199, model_id: 'gpt-5.6', status: 'listed', bindings: [{ entry_id: 199, account_id: 3 }] }])
 
     const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.get('[data-test="account-catalog"]').attributes('data-entry-count')).toBe('1')
-  })
-
-  it('shows account multipliers with three-decimal precision', async () => {
-    listAccounts.mockResolvedValueOnce({
-      items: [{
-        id: 7,
-        name: 'precision-account',
-        platform: 'gemini',
-        type: 'apikey',
-        status: 'active',
-        schedulable: true,
-        rate_multiplier: 0.065,
-        created_at: '2026-07-13T00:00:00Z',
-        updated_at: '2026-07-13T00:00:00Z'
-      }],
-      total: 1,
-      page: 1,
-      page_size: 20,
-      pages: 1
-    })
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.get('[data-test="account-rate"]').text()).toBe('0.065x')
   })
 })

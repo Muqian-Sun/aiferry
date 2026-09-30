@@ -100,7 +100,6 @@ const baseImageRow = {
   model: 'gpt-image-2',
   actual_cost: 0.4,
   total_cost: 0.4,
-  account_rate_multiplier: 1,
   rate_multiplier: 1,
   service_tier: null,
   input_cost: 0,
@@ -193,7 +192,6 @@ describe('admin UsageTable tooltip', () => {
       request_id: 'req-admin-1',
       actual_cost: 0.092883,
       total_cost: 0.092883,
-      account_rate_multiplier: 1,
       rate_multiplier: 1,
       service_tier: 'priority',
       input_cost: 0.020285,
@@ -251,7 +249,6 @@ describe('admin UsageTable tooltip', () => {
       // 官方价合计 = 实付，明细不折算，只看八位小数
       total_cost: 0.00000042,
       actual_cost: 0.00000042,
-      account_rate_multiplier: 1.5,
     }
     const wrapper = mount(UsageTable, {
       props: { data: [row], loading: false, columns: [] },
@@ -291,7 +288,6 @@ describe('admin UsageTable tooltip', () => {
       upstream_model: 'claude-sonnet-4-20250514',
       actual_cost: 0,
       total_cost: 0,
-      account_rate_multiplier: 1,
       rate_multiplier: 1,
       input_cost: 0,
       output_cost: 0,

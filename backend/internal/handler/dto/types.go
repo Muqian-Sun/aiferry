@@ -104,7 +104,6 @@ type Account struct {
 	ProxyFallbackOriginName *string                        `json:"proxy_fallback_origin_name,omitempty"`
 	Concurrency             int                            `json:"concurrency"`
 	Priority                int                            `json:"priority"`
-	RateMultiplier          float64                        `json:"rate_multiplier"`
 	Status                  string                         `json:"status"`
 	ErrorMessage            string                         `json:"error_message"`
 	LastUsedAt              *time.Time                     `json:"last_used_at"`
@@ -184,7 +183,6 @@ type AccountListItem struct {
 	ProxyFallbackOriginName *string    `json:"proxy_fallback_origin_name,omitempty"`
 	Concurrency             int        `json:"concurrency"`
 	Priority                int        `json:"priority"`
-	RateMultiplier          float64    `json:"rate_multiplier"`
 	Status                  string     `json:"status"`
 	ErrorMessage            string     `json:"error_message"`
 	LastUsedAt              *time.Time `json:"last_used_at"`
@@ -511,8 +509,8 @@ type AdminUsageLog struct {
 	// UpstreamRequestID 是直接上游声明的请求标识，仅管理端可见。
 	UpstreamRequestID *string `json:"upstream_request_id,omitempty"`
 
-	// AccountRateMultiplier 账号计费倍率快照（nil 表示按 1.0 处理）
-	AccountRateMultiplier *float64 `json:"account_rate_multiplier"`
+	// AccountCost 渠道成本（USD）= 用量 × 这个渠道给这个模型的上游价，仅管理端可见。
+	AccountCost float64 `json:"account_cost"`
 
 	// IPAddress 用户请求 IP
 	IPAddress *string `json:"ip_address,omitempty"`

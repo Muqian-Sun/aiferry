@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -242,17 +241,16 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		proxyID = source.ProxyFallbackOriginID
 	}
 	input := &CreateAccountInput{
-		Name:           duplicateAccountName(source.Name),
-		Notes:          cloneAccountValuePointer(source.Notes),
-		Platform:       source.Platform,
-		Type:           source.Type,
-		Credentials:    credentials,
-		Extra:          extra,
-		ProxyID:        cloneAccountValuePointer(proxyID),
-		Concurrency:    source.Concurrency,
-		Priority:       source.Priority,
-		RateMultiplier: cloneAccountValuePointer(source.RateMultiplier),
-		ExpiresAt:      expiresAt,
+		Name:        duplicateAccountName(source.Name),
+		Notes:       cloneAccountValuePointer(source.Notes),
+		Platform:    source.Platform,
+		Type:        source.Type,
+		Credentials: credentials,
+		Extra:       extra,
+		ProxyID:     cloneAccountValuePointer(proxyID),
+		Concurrency: source.Concurrency,
+		Priority:    source.Priority,
+		ExpiresAt:   expiresAt,
 	}
 	accountExtra := input.Extra
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
@@ -331,12 +329,6 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	if input.ExpiresAt != nil && *input.ExpiresAt > 0 {
 		expiresAt := time.Unix(*input.ExpiresAt, 0)
 		account.ExpiresAt = &expiresAt
-	}
-	if input.RateMultiplier != nil {
-		if *input.RateMultiplier < 0 {
-			return nil, errors.New("rate_multiplier must be >= 0")
-		}
-		account.RateMultiplier = input.RateMultiplier
 	}
 	return account, nil
 }
@@ -530,12 +522,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if input.Priority != nil {
 		account.Priority = *input.Priority
 	}
-	if input.RateMultiplier != nil {
-		if *input.RateMultiplier < 0 {
-			return nil, errors.New("rate_multiplier must be >= 0")
-		}
-		account.RateMultiplier = input.RateMultiplier
-	}
 	if input.Status != "" {
 		account.Status = input.Status
 	}
@@ -637,10 +623,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 
-	if input.RateMultiplier != nil && *input.RateMultiplier < 0 {
-		return nil, errors.New("rate_multiplier must be >= 0")
-	}
-
 	// 校验并规范化请求头覆写配置（批量路径为 JSONB 顶层 key 合并，直接校验增量即可）
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
 		return nil, err
@@ -667,9 +649,6 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Priority != nil {
 		repoUpdates.Priority = input.Priority
-	}
-	if input.RateMultiplier != nil {
-		repoUpdates.RateMultiplier = input.RateMultiplier
 	}
 	if input.Status != "" {
 		repoUpdates.Status = &input.Status

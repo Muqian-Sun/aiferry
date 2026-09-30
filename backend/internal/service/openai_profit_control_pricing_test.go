@@ -20,10 +20,10 @@ import (
 func TestProfitControl_RequestPricingContext(t *testing.T) {
 	svc := profitControlTestService(t, 0.5)
 	expensive := upstreamCostTestAccount(1)
-	profitControlTestAccountWithRate(expensive, 0.8)
+	prices := profitTestPrices{expensive.ID: 0.8}
 
 	t.Run("installs gate and pricing instant", func(t *testing.T) {
-		base := profitControlTestCtx(1)
+		base := prices.withRoute(profitControlTestCtx(1))
 		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base)
 		require.False(t, pricingAt.IsZero())
 		require.Equal(t, pricingAt, OpenAIPricingAtFromContext(ctx))
@@ -33,7 +33,7 @@ func TestProfitControl_RequestPricingContext(t *testing.T) {
 	})
 
 	t.Run("suppress marker skips gate everywhere", func(t *testing.T) {
-		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(1))
+		base := WithOpenAIProfitControlSuppressed(prices.withRoute(profitControlTestCtx(1)))
 		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base)
 		require.False(t, pricingAt.IsZero(), "跳门时 pricingAt 仍需固定供计费共用")
 		vetoed, _ := OpenAIProfitControlVeto(ctx, expensive)
@@ -74,25 +74,25 @@ func TestProfitControl_GateKeepsPricingAt(t *testing.T) {
 	require.Equal(t, pricingAt, gate.pricingAt)
 }
 
-// 账号倍率缺失一律视为非法保守拒绝；填了倍率的任意账号类型都按
-// 同一阈值判断（OAuth 与 API Key 无差别）。
-func TestProfitControl_AccountRateSemantics(t *testing.T) {
+// 没有这个模型上游价的渠道保守拒绝；有上游价的任意渠道类型都按同一阈值判断（成品号与 key 无差别）。
+func TestProfitControl_UpstreamPriceSemantics(t *testing.T) {
 	now := time.Now()
 	missing := upstreamCostTestOAuthAccount(2)
-	manualOAuth := profitControlTestAccountWithRate(upstreamCostTestOAuthAccount(3), 0.3)
-	expensive := profitControlTestAccountWithRate(upstreamCostTestAccount(4), 0.8)
+	oauth := upstreamCostTestOAuthAccount(3)
+	expensive := upstreamCostTestAccount(4)
+	prices := profitTestPrices{oauth.ID: 0.3, expensive.ID: 0.8}
 
-	base := context.WithValue(profitControlTestCtx(1), openAIPricingAtCtxKey{}, now)
+	base := context.WithValue(prices.withRoute(profitControlTestCtx(1)), openAIPricingAtCtxKey{}, now)
 	gate := profitControlTestService(t, 0.5).resolveOpenAIProfitControlGate(base)
 	require.NotNil(t, gate)
 	gateCtx := context.WithValue(base, openAIProfitControlGateCtxKey{}, gate)
 
 	vetoed, reason := openAIProfitControlVetoReason(gateCtx, missing)
-	require.True(t, vetoed, "缺失账号倍率必须保守拒绝")
-	require.Equal(t, openAIProfitFilterReasonInvalidAccountRate, reason)
+	require.True(t, vetoed, "没有上游价的渠道必须保守拒绝")
+	require.Equal(t, openAIProfitFilterReasonMissingUpstreamPrice, reason)
 
-	vetoed, _ = openAIProfitControlVetoReason(gateCtx, manualOAuth)
-	require.False(t, vetoed, "手工维护的 OAuth 倍率应正常准入")
+	vetoed, _ = openAIProfitControlVetoReason(gateCtx, oauth)
+	require.False(t, vetoed, "成品号按上游价同样准入")
 
 	vetoed, reason = openAIProfitControlVetoReason(gateCtx, expensive)
 	require.True(t, vetoed)
@@ -112,11 +112,11 @@ func TestOpenAIUsagePricingAt(t *testing.T) {
 // 设置重装门（区别于请求级同门复用）。
 func TestProfitControl_TurnPricingContext(t *testing.T) {
 	expensive := upstreamCostTestAccount(3)
-	profitControlTestAccountWithRate(expensive, 0.8)
+	prices := profitTestPrices{expensive.ID: 0.8}
 
 	t.Run("refreshes instant and re-resolves gate config", func(t *testing.T) {
 		svc := profitControlTestService(t, 0.5)
-		connCtx, connAt := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
+		connCtx, connAt := svc.WithOpenAIRequestPricingContext(prices.withRoute(profitControlTestCtx(1)))
 		vetoed, _ := OpenAIProfitControlVeto(connCtx, expensive)
 		require.True(t, vetoed)
 
@@ -132,7 +132,7 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 
 	t.Run("suppress marker only refreshes instant", func(t *testing.T) {
 		svc := profitControlTestService(t, 0.5)
-		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(1))
+		base := WithOpenAIProfitControlSuppressed(prices.withRoute(profitControlTestCtx(1)))
 		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(base)
 		require.False(t, turnAt.IsZero())
 		vetoed, _ := OpenAIProfitControlVeto(turnCtx, expensive)
@@ -141,7 +141,7 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 
 	t.Run("clears gate when min margin is set to 0 mid-connection", func(t *testing.T) {
 		svc := profitControlTestService(t, 0.5)
-		connCtx, _ := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
+		connCtx, _ := svc.WithOpenAIRequestPricingContext(prices.withRoute(profitControlTestCtx(1)))
 		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0"))
 		InvalidateProfitControlSettingsCache()
 		turnCtx, _ := svc.WithOpenAITurnPricingContext(connCtx)

@@ -14,7 +14,6 @@
         <thead>
           <tr class="text-left text-xs text-af-ink-3">
             <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.account') }}</th>
-            <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.priority') }}</th>
             <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.schedulable') }}</th>
             <th v-for="inbound in inboundProtocols" :key="inbound" class="px-3 py-2 text-center">
               {{ t(`admin.modelCatalog.diagnosis.inbound.${inbound}`) }}
@@ -38,9 +37,6 @@
                   :vendor="account.vendor"
                 />
               </div>
-            </td>
-            <td class="px-3 py-2 text-af-ink-2">
-              {{ account.priority === null ? t('admin.modelCatalog.diagnosis.followAccount') : account.priority }}
             </td>
             <td class="px-3 py-2">
               <span v-if="account.schedulable" class="text-af-success" data-testid="model-catalog-diagnosis-schedulable">✓</span>

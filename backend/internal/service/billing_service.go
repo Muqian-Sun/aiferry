@@ -1242,7 +1242,7 @@ type CostInput struct {
 	SizeTier        string  // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
 	RateMultiplier  float64
 	PricingAt       time.Time             // 渠道分时定价使用的计费时刻
-	ReasoningEffort string                // 最终转发的推理等级；max 可触发模型/渠道倍率
+	ReasoningEffort string                // 最终转发的推理等级；max 可触发模型的最高推理倍率
 	Resolver        *ModelPricingResolver // 定价解析器
 	Resolved        *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
 }

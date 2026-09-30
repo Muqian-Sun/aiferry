@@ -219,10 +219,6 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 		if err := applySchedulerLastUsed(account, lastUsedValues[i]); err != nil {
 			return nil, false, err
 		}
-		if bucket.Mode == service.SchedulerModeCatalog {
-			// 目录桶的 score 是绑定生效的优先级（账号元数据全局共享，装的是账号自身的优先级）。
-			account.Priority = int(members[i].Score)
-		}
 		accounts = append(accounts, account)
 	}
 
@@ -278,38 +274,10 @@ func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
-	if bucket.Mode == service.SchedulerModeCatalog {
-		// 目录桶用 score 存绑定生效的优先级；账号元数据全局共享，装不下按桶不同的优先级。
-		if err := c.writeSnapshotMembers(ctx, bucket, version, schedulerSnapshotMembersByPriority(accounts, accountIDs)); err != nil {
-			return nil, err
-		}
-		return accountIDs, nil
-	}
 	if err := c.writeSnapshotAccountIDs(ctx, bucket, version, accountIDs); err != nil {
 		return nil, err
 	}
 	return accountIDs, nil
-}
-
-// schedulerSnapshotMembersByPriority 按 accountIDs（实际编码成功的账号）构造成员，score 取
-// accounts 里同 ID 账号的 Priority。同优先级成员由 Redis 按 member 字典序排，选号在同优先级
-// 内按 LRU 排，顺序无影响。
-func schedulerSnapshotMembersByPriority(accounts []service.Account, accountIDs []int64) []redis.Z {
-	if len(accountIDs) == 0 {
-		return nil
-	}
-	priorities := make(map[int64]int, len(accounts))
-	for _, account := range accounts {
-		priorities[account.ID] = account.Priority
-	}
-	members := make([]redis.Z, 0, len(accountIDs))
-	for _, accountID := range accountIDs {
-		members = append(members, redis.Z{
-			Score:  float64(priorities[accountID]),
-			Member: strconv.FormatInt(accountID, 10),
-		})
-	}
-	return members
 }
 
 func (c *schedulerCache) writeSnapshotAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accountIDs []int64) error {
@@ -688,7 +656,6 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		Type:                    account.Type,
 		Concurrency:             account.Concurrency,
 		Priority:                account.Priority,
-		RateMultiplier:          account.RateMultiplier,
 		Status:                  account.Status,
 		LastUsedAt:              account.LastUsedAt,
 		ExpiresAt:               account.ExpiresAt,

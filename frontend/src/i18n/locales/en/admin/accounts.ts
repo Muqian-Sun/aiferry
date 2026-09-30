@@ -23,7 +23,7 @@ export default {
         noProxy: 'No proxy',
         neverExpires: 'Never',
         modelsHint: 'Catalog models bound to this channel. Use Diagnose to see whether a model can be routed to it right now.',
-        modelsEmptyHint: 'Bind this channel to a model on the Models page and it will show up here.',
+        modelsEmptyHint: 'Models bound to this channel (with an upstream price) will show up here.',
         diagnose: 'Diagnose',
         goToCatalog: 'Go to Models',
         bannerError: 'Error: {reason}',
@@ -157,21 +157,6 @@ export default {
         detected: 'Detected from the address: {vendor}',
         relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
       },
-      // Catalog models this channel serves (picked right in the channel form)
-      probe: {
-        hint: 'Ask the upstream which models it supports using the address and key above; models found in the catalog are selected automatically',
-        run: 'Probe models',
-        running: 'Probing…',
-        summary: 'The upstream has {total} models; {matched} matched the catalog and are now selected',
-        unmatched: '{count} not in the catalog: ',
-        andMore: ' and {count} more',
-        import: 'Add these {count} to the catalog and select them',
-        importing: 'Adding to the catalog…',
-        imported: 'Added {count} to the catalog (unlisted; set prices on the Models page before listing)',
-        empty: 'The upstream returned an empty model list',
-        failed: 'Probe failed',
-        importFailed: 'Failed to add to the catalog'
-      },
       protocolProbe: {
         hint: 'Try all four protocols against this address and key to see what the upstream supports; pick one below to fill the protocol and address above',
         run: 'Detect protocols',
@@ -198,34 +183,10 @@ export default {
           no_model: 'No model name available to confirm with a real request'
         }
       },
-      catalogEntries: {
-        title: 'Models served',
-        hint: 'Tick the models this channel can serve; requests for them are scheduled to it. Unlisted models reach users only after they are listed on the Models page.',
-        selected: '{count} selected',
-        clear: 'Clear',
-        searchPlaceholder: 'Search model ID or name',
-        listedOnly: 'Listed only',
-        loading: 'Loading the model catalog…',
-        loadFailed: 'Failed to load the model catalog',
-        retry: 'Retry',
-        emptyCatalog: 'The model catalog is empty. Add models on the Models page first.',
-        noMatch: 'No matching models',
-        otherVendors: 'Other',
-        selectAll: 'Select all',
-        deselectAll: 'Select none',
-        unlisted: 'Unlisted',
-        edit: 'Change',
-        collapse: 'Collapse',
-        noneSelected: 'No models ticked: the channel will serve no models until you tick some on its edit page.',
-        andMore: 'and {count} more',
-        bindFailed: 'The channel was created, but its models were not saved: {message}. Tick them again on the edit page.',
-        saveFailed: 'The channel was saved, but its models were not: {message}. Click Save again to retry.',
-        loadBoundFailed: 'Could not load the models this channel serves. Reload the page before changing them.'
-      },
       // Model renames (the mapping only renames; it does not restrict which models are served)
       modelRename: {
         title: 'Model renames (optional)',
-        hint: 'Rename requested models to the names the upstream expects: the requested model on the left, the model sent upstream on the right. Renames do not restrict which models the channel serves; the models ticked above do.',
+        hint: 'Rename requested models to the names the upstream expects: the requested model on the left, the model sent upstream on the right. Renames do not restrict which models the channel serves; its bindings in the model catalog do.',
         vendorTableHint: 'This upstream has its own model table: a model missing from it is served only after you add a row for it here (the same name on both sides is fine).'
       },
       deleteAccount: 'Delete Channel',
@@ -347,7 +308,6 @@ export default {
         platform: 'Platform',
         notes: 'Notes',
         priority: 'Priority',
-        billingRateMultiplier: 'Billing Rate',
         weight: 'Weight',
         status: 'Status',
         schedulable: 'Schedulable',
@@ -799,7 +759,6 @@ export default {
       concurrency: 'Concurrency',
       priority: 'Priority',
       priorityHint: 'Lower value accounts are used first',
-      billingRateMultiplier: 'Upstream list price (vs official)',
       expiresAt: 'Expires At',
       expiresAtHint: 'Leave empty for no expiration',
       expiresAtTimezoneHint: 'Input is interpreted in your browser time zone ({timezone}).',

@@ -6,14 +6,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogBindingUpdate is the builder for updating ModelCatalogBinding entities.
@@ -57,30 +60,144 @@ func (_u *ModelCatalogBindingUpdate) SetNillableAccountID(v *int64) *ModelCatalo
 	return _u
 }
 
-// SetPriority sets the "priority" field.
-func (_u *ModelCatalogBindingUpdate) SetPriority(v int) *ModelCatalogBindingUpdate {
-	_u.mutation.ResetPriority()
-	_u.mutation.SetPriority(v)
+// SetInputPrice sets the "input_price" field.
+func (_u *ModelCatalogBindingUpdate) SetInputPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetInputPrice()
+	_u.mutation.SetInputPrice(v)
 	return _u
 }
 
-// SetNillablePriority sets the "priority" field if the given value is not nil.
-func (_u *ModelCatalogBindingUpdate) SetNillablePriority(v *int) *ModelCatalogBindingUpdate {
+// SetNillableInputPrice sets the "input_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableInputPrice(v *float64) *ModelCatalogBindingUpdate {
 	if v != nil {
-		_u.SetPriority(*v)
+		_u.SetInputPrice(*v)
 	}
 	return _u
 }
 
-// AddPriority adds value to the "priority" field.
-func (_u *ModelCatalogBindingUpdate) AddPriority(v int) *ModelCatalogBindingUpdate {
-	_u.mutation.AddPriority(v)
+// AddInputPrice adds value to the "input_price" field.
+func (_u *ModelCatalogBindingUpdate) AddInputPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddInputPrice(v)
 	return _u
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (_u *ModelCatalogBindingUpdate) ClearPriority() *ModelCatalogBindingUpdate {
-	_u.mutation.ClearPriority()
+// SetOutputPrice sets the "output_price" field.
+func (_u *ModelCatalogBindingUpdate) SetOutputPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetOutputPrice()
+	_u.mutation.SetOutputPrice(v)
+	return _u
+}
+
+// SetNillableOutputPrice sets the "output_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableOutputPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetOutputPrice(*v)
+	}
+	return _u
+}
+
+// AddOutputPrice adds value to the "output_price" field.
+func (_u *ModelCatalogBindingUpdate) AddOutputPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddOutputPrice(v)
+	return _u
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdate) SetCacheWritePrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetCacheWritePrice()
+	_u.mutation.SetCacheWritePrice(v)
+	return _u
+}
+
+// SetNillableCacheWritePrice sets the "cache_write_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableCacheWritePrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetCacheWritePrice(*v)
+	}
+	return _u
+}
+
+// AddCacheWritePrice adds value to the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdate) AddCacheWritePrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddCacheWritePrice(v)
+	return _u
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearCacheWritePrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearCacheWritePrice()
+	return _u
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdate) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetCacheWrite1hPrice()
+	_u.mutation.SetCacheWrite1hPrice(v)
+	return _u
+}
+
+// SetNillableCacheWrite1hPrice sets the "cache_write_1h_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableCacheWrite1hPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetCacheWrite1hPrice(*v)
+	}
+	return _u
+}
+
+// AddCacheWrite1hPrice adds value to the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdate) AddCacheWrite1hPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddCacheWrite1hPrice(v)
+	return _u
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearCacheWrite1hPrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearCacheWrite1hPrice()
+	return _u
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdate) SetCacheReadPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetCacheReadPrice()
+	_u.mutation.SetCacheReadPrice(v)
+	return _u
+}
+
+// SetNillableCacheReadPrice sets the "cache_read_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableCacheReadPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetCacheReadPrice(*v)
+	}
+	return _u
+}
+
+// AddCacheReadPrice adds value to the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdate) AddCacheReadPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddCacheReadPrice(v)
+	return _u
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearCacheReadPrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearCacheReadPrice()
+	return _u
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (_u *ModelCatalogBindingUpdate) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdate {
+	_u.mutation.SetPriceIntervals(v)
+	return _u
+}
+
+// AppendPriceIntervals appends value to the "price_intervals" field.
+func (_u *ModelCatalogBindingUpdate) AppendPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdate {
+	_u.mutation.AppendPriceIntervals(v)
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *ModelCatalogBindingUpdate) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpdate {
+	_u.mutation.SetUpdatedAt(v)
 	return _u
 }
 
@@ -113,6 +230,7 @@ func (_u *ModelCatalogBindingUpdate) ClearAccount() *ModelCatalogBindingUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *ModelCatalogBindingUpdate) Save(ctx context.Context) (int, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -135,6 +253,14 @@ func (_u *ModelCatalogBindingUpdate) Exec(ctx context.Context) error {
 func (_u *ModelCatalogBindingUpdate) ExecX(ctx context.Context) {
 	if err := _u.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (_u *ModelCatalogBindingUpdate) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := modelcatalogbinding.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -161,14 +287,55 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 			}
 		}
 	}
-	if value, ok := _u.mutation.Priority(); ok {
-		_spec.SetField(modelcatalogbinding.FieldPriority, field.TypeInt, value)
+	if value, ok := _u.mutation.InputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldInputPrice, field.TypeFloat64, value)
 	}
-	if value, ok := _u.mutation.AddedPriority(); ok {
-		_spec.AddField(modelcatalogbinding.FieldPriority, field.TypeInt, value)
+	if value, ok := _u.mutation.AddedInputPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldInputPrice, field.TypeFloat64, value)
 	}
-	if _u.mutation.PriorityCleared() {
-		_spec.ClearField(modelcatalogbinding.FieldPriority, field.TypeInt)
+	if value, ok := _u.mutation.OutputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedOutputPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheWritePrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheWritePrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheWritePriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.CacheWrite1hPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheWrite1hPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheWrite1hPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.CacheReadPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheReadPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PriceIntervals(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedPriceIntervals(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, modelcatalogbinding.FieldPriceIntervals, value)
+		})
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.EntryCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -276,30 +443,144 @@ func (_u *ModelCatalogBindingUpdateOne) SetNillableAccountID(v *int64) *ModelCat
 	return _u
 }
 
-// SetPriority sets the "priority" field.
-func (_u *ModelCatalogBindingUpdateOne) SetPriority(v int) *ModelCatalogBindingUpdateOne {
-	_u.mutation.ResetPriority()
-	_u.mutation.SetPriority(v)
+// SetInputPrice sets the "input_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetInputPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetInputPrice()
+	_u.mutation.SetInputPrice(v)
 	return _u
 }
 
-// SetNillablePriority sets the "priority" field if the given value is not nil.
-func (_u *ModelCatalogBindingUpdateOne) SetNillablePriority(v *int) *ModelCatalogBindingUpdateOne {
+// SetNillableInputPrice sets the "input_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableInputPrice(v *float64) *ModelCatalogBindingUpdateOne {
 	if v != nil {
-		_u.SetPriority(*v)
+		_u.SetInputPrice(*v)
 	}
 	return _u
 }
 
-// AddPriority adds value to the "priority" field.
-func (_u *ModelCatalogBindingUpdateOne) AddPriority(v int) *ModelCatalogBindingUpdateOne {
-	_u.mutation.AddPriority(v)
+// AddInputPrice adds value to the "input_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddInputPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddInputPrice(v)
 	return _u
 }
 
-// ClearPriority clears the value of the "priority" field.
-func (_u *ModelCatalogBindingUpdateOne) ClearPriority() *ModelCatalogBindingUpdateOne {
-	_u.mutation.ClearPriority()
+// SetOutputPrice sets the "output_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetOutputPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetOutputPrice()
+	_u.mutation.SetOutputPrice(v)
+	return _u
+}
+
+// SetNillableOutputPrice sets the "output_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableOutputPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetOutputPrice(*v)
+	}
+	return _u
+}
+
+// AddOutputPrice adds value to the "output_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddOutputPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddOutputPrice(v)
+	return _u
+}
+
+// SetCacheWritePrice sets the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetCacheWritePrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetCacheWritePrice()
+	_u.mutation.SetCacheWritePrice(v)
+	return _u
+}
+
+// SetNillableCacheWritePrice sets the "cache_write_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableCacheWritePrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetCacheWritePrice(*v)
+	}
+	return _u
+}
+
+// AddCacheWritePrice adds value to the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddCacheWritePrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddCacheWritePrice(v)
+	return _u
+}
+
+// ClearCacheWritePrice clears the value of the "cache_write_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearCacheWritePrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearCacheWritePrice()
+	return _u
+}
+
+// SetCacheWrite1hPrice sets the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetCacheWrite1hPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetCacheWrite1hPrice()
+	_u.mutation.SetCacheWrite1hPrice(v)
+	return _u
+}
+
+// SetNillableCacheWrite1hPrice sets the "cache_write_1h_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableCacheWrite1hPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetCacheWrite1hPrice(*v)
+	}
+	return _u
+}
+
+// AddCacheWrite1hPrice adds value to the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddCacheWrite1hPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddCacheWrite1hPrice(v)
+	return _u
+}
+
+// ClearCacheWrite1hPrice clears the value of the "cache_write_1h_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearCacheWrite1hPrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearCacheWrite1hPrice()
+	return _u
+}
+
+// SetCacheReadPrice sets the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetCacheReadPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetCacheReadPrice()
+	_u.mutation.SetCacheReadPrice(v)
+	return _u
+}
+
+// SetNillableCacheReadPrice sets the "cache_read_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableCacheReadPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetCacheReadPrice(*v)
+	}
+	return _u
+}
+
+// AddCacheReadPrice adds value to the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddCacheReadPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddCacheReadPrice(v)
+	return _u
+}
+
+// ClearCacheReadPrice clears the value of the "cache_read_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearCacheReadPrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearCacheReadPrice()
+	return _u
+}
+
+// SetPriceIntervals sets the "price_intervals" field.
+func (_u *ModelCatalogBindingUpdateOne) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdateOne {
+	_u.mutation.SetPriceIntervals(v)
+	return _u
+}
+
+// AppendPriceIntervals appends value to the "price_intervals" field.
+func (_u *ModelCatalogBindingUpdateOne) AppendPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AppendPriceIntervals(v)
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *ModelCatalogBindingUpdateOne) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpdateOne {
+	_u.mutation.SetUpdatedAt(v)
 	return _u
 }
 
@@ -345,6 +626,7 @@ func (_u *ModelCatalogBindingUpdateOne) Select(field string, fields ...string) *
 
 // Save executes the query and returns the updated ModelCatalogBinding entity.
 func (_u *ModelCatalogBindingUpdateOne) Save(ctx context.Context) (*ModelCatalogBinding, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -367,6 +649,14 @@ func (_u *ModelCatalogBindingUpdateOne) Exec(ctx context.Context) error {
 func (_u *ModelCatalogBindingUpdateOne) ExecX(ctx context.Context) {
 	if err := _u.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (_u *ModelCatalogBindingUpdateOne) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := modelcatalogbinding.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -412,14 +702,55 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 			}
 		}
 	}
-	if value, ok := _u.mutation.Priority(); ok {
-		_spec.SetField(modelcatalogbinding.FieldPriority, field.TypeInt, value)
+	if value, ok := _u.mutation.InputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldInputPrice, field.TypeFloat64, value)
 	}
-	if value, ok := _u.mutation.AddedPriority(); ok {
-		_spec.AddField(modelcatalogbinding.FieldPriority, field.TypeInt, value)
+	if value, ok := _u.mutation.AddedInputPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldInputPrice, field.TypeFloat64, value)
 	}
-	if _u.mutation.PriorityCleared() {
-		_spec.ClearField(modelcatalogbinding.FieldPriority, field.TypeInt)
+	if value, ok := _u.mutation.OutputPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedOutputPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CacheWritePrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheWritePrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheWritePriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheWritePrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.CacheWrite1hPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheWrite1hPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheWrite1hPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheWrite1hPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.CacheReadPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCacheReadPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.CacheReadPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PriceIntervals(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedPriceIntervals(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, modelcatalogbinding.FieldPriceIntervals, value)
+		})
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.EntryCleared() {
 		edge := &sqlgraph.EdgeSpec{

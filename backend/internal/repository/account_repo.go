@@ -113,10 +113,6 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable)
 
-	if account.RateMultiplier != nil {
-		builder.SetRateMultiplier(*account.RateMultiplier)
-	}
-
 	if account.ProxyID != nil {
 		builder.SetProxyID(*account.ProxyID)
 	}
@@ -336,10 +332,6 @@ func (r *accountRepository) updateLockedAccount(
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(schedulable)
-
-	if account.RateMultiplier != nil {
-		builder.SetRateMultiplier(*account.RateMultiplier)
-	}
 
 	if account.ProxyID != nil {
 		builder.SetProxyID(*account.ProxyID)
@@ -785,9 +777,6 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 		defaultOrder = false
 	case "priority":
 		field = dbaccount.FieldPriority
-		defaultOrder = false
-	case "rate_multiplier":
-		field = dbaccount.FieldRateMultiplier
 		defaultOrder = false
 	case "last_used_at":
 		field = dbaccount.FieldLastUsedAt
@@ -1489,7 +1478,7 @@ func (r *accountRepository) ListSchedulingCandidates(ctx context.Context, platfo
 	return r.accountsToService(ctx, accounts)
 }
 
-// ListSchedulingCandidatesByCatalogEntry 返回绑定到目录条目且可调度的账号，绑定优先级覆盖账号优先级。
+// ListSchedulingCandidatesByCatalogEntry 返回绑定到目录条目且可调度的账号，按账号优先级、再按 ID 排序。
 // 谓词是 ListSchedulingCandidates 的原样拷贝，去掉了 schedulingCandidatePredicate(platforms)：
 // 能否承接由条目网关族与账号自身决定，不看平台标签。
 func (r *accountRepository) ListSchedulingCandidatesByCatalogEntry(ctx context.Context, entryID int64) ([]service.Account, error) {
@@ -1510,27 +1499,17 @@ func (r *accountRepository) ListSchedulingCandidatesByCatalogEntry(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	bindings := make([]*dbent.ModelCatalogBinding, 0, len(rows))
 	dbAccounts := make([]*dbent.Account, 0, len(rows))
 	for _, row := range rows {
 		if row.Edges.Account == nil {
 			// 账号被谓词过滤掉（不活跃 / 不可调度 / 过期 / 限流中）。
 			continue
 		}
-		bindings = append(bindings, row)
 		dbAccounts = append(dbAccounts, row.Edges.Account)
 	}
 	accounts, err := r.accountsToService(ctx, dbAccounts)
 	if err != nil {
 		return nil, err
-	}
-	if len(accounts) != len(bindings) {
-		return nil, errors.New("scheduling candidates by catalog entry: account conversion dropped rows")
-	}
-	for i := range accounts {
-		if p := bindings[i].Priority; p != nil {
-			accounts[i].Priority = *p
-		}
 	}
 	sort.SliceStable(accounts, func(i, j int) bool {
 		if accounts[i].Priority != accounts[j].Priority {
@@ -2189,11 +2168,6 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		args = append(args, *updates.Priority)
 		idx++
 	}
-	if updates.RateMultiplier != nil {
-		setClauses = append(setClauses, "rate_multiplier = $"+itoa(idx))
-		args = append(args, *updates.RateMultiplier)
-		idx++
-	}
 	if updates.Status != nil {
 		setClauses = append(setClauses, "status = $"+itoa(idx))
 		args = append(args, *updates.Status)
@@ -2466,8 +2440,6 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		return nil
 	}
 
-	rateMultiplier := m.RateMultiplier
-
 	return &service.Account{
 		ID:                      m.ID,
 		Name:                    m.Name,
@@ -2480,7 +2452,6 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
-		RateMultiplier:          &rateMultiplier,
 		Status:                  m.Status,
 		ErrorMessage:            derefString(m.ErrorMessage),
 		LastUsedAt:              m.LastUsedAt,

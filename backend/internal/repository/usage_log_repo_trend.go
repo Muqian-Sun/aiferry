@@ -99,7 +99,7 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 			COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens,
 			COALESCE(SUM(u.total_cost), 0) as cost,
 			COALESCE(SUM(u.actual_cost), 0) as actual_cost,
-			COALESCE(SUM(u.total_cost * COALESCE(u.account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(u.account_cost), 0) as account_cost
 		FROM usage_logs u
 		LEFT JOIN users us ON u.user_id = us.id
 		WHERE u.user_id IN (SELECT user_id FROM top_users)
@@ -151,7 +151,7 @@ func (r *usageLogRepository) GetUserUsageTrendByUserID(ctx context.Context, user
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
 			COALESCE(SUM(actual_cost), 0) as actual_cost,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(account_cost), 0) as account_cost
 		FROM usage_logs
 		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date
@@ -213,7 +213,7 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
 			COALESCE(SUM(actual_cost), 0) as actual_cost,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(account_cost), 0) as account_cost
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
 	`, dateFormat)
@@ -414,7 +414,7 @@ func (r *usageLogRepository) getModelStatsWithFiltersBySource(ctx context.Contex
 	// actual_cost 恒为收入；渠道成本单独走 account_cost。原来仅按 account_id 聚合时把 actual_cost 换成渠道成本，
 	// 同一个字段在不同页面意思不同（渠道抽屉里「实际」和「成本」一模一样），已去掉。
 	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
-	accountCostExpr := "COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost"
+	accountCostExpr := "COALESCE(SUM(account_cost), 0) as account_cost"
 	modelExpr := resolveModelDimensionExpression(source)
 
 	query := fmt.Sprintf(`
@@ -496,7 +496,7 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(ul.total_cost), 0) as cost,
 			COALESCE(SUM(ul.actual_cost), 0) as actual_cost,
-			COALESCE(SUM(ul.total_cost * COALESCE(ul.account_rate_multiplier, 1)), 0) as account_cost
+			COALESCE(SUM(ul.account_cost), 0) as account_cost
 		FROM usage_logs ul
 		LEFT JOIN users u ON u.id = ul.user_id
 		WHERE ul.created_at >= $1 AND ul.created_at < $2

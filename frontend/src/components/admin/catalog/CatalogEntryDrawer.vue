@@ -174,13 +174,7 @@
           </button>
         </template>
 
-        <StatusState
-          v-if="bindingCount === 0"
-          kind="empty"
-          :title="t('admin.modelCatalog.diagnosis.empty')"
-          :action-label="t('admin.modelCatalog.drawer.bind')"
-          @action="emit('edit')"
-        />
+        <StatusState v-if="bindingCount === 0" kind="empty" :title="t('admin.modelCatalog.diagnosis.empty')" />
         <StatusState v-else-if="channelsLoading" kind="loading" :title="t('common.loading')" />
         <template v-else>
           <p v-if="channelsFailed" class="mb-3 text-13 text-af-ink-3">{{ t('admin.modelCatalog.drawer.channelsFallback') }}</p>
@@ -203,16 +197,9 @@
                 </p>
               </div>
               <div class="shrink-0 text-right text-xs">
-                <p v-if="channel.schedulable === true" class="text-af-ink-3">{{ t('admin.modelCatalog.diagnosis.columns.schedulable') }}</p>
-                <p v-else-if="channel.schedulable === false" class="text-af-danger" data-testid="model-catalog-drawer-channel-blocked">
+                <p v-if="channel.schedulable" class="text-af-ink-3">{{ t('admin.modelCatalog.diagnosis.columns.schedulable') }}</p>
+                <p v-else class="text-af-danger" data-testid="model-catalog-drawer-channel-blocked">
                   {{ blockedReasonLabel(channel.blockedReason) }}
-                </p>
-                <p class="mt-0.5 tabular-nums text-af-ink-3">
-                  {{
-                    channel.priority === null
-                      ? t('admin.modelCatalog.diagnosis.followAccount')
-                      : t('admin.modelCatalog.drawer.priority', { value: channel.priority })
-                  }}
                 </p>
               </div>
             </li>
@@ -424,15 +411,14 @@ const timePricingHint = computed(() => {
   return parts.join(' · ')
 })
 
-// ---- 渠道：打开页签时做一次诊断请求，拿到名称、优先级与此刻能否调度 ----
+// ---- 渠道：打开页签时做一次诊断请求，拿到名称与此刻能否调度 ----
 interface ChannelRow {
   id: number
   name: string
   platform: string
   type: string
   vendor: string
-  priority: number | null
-  schedulable: boolean | null
+  schedulable: boolean
   blockedReason?: string
 }
 
@@ -459,32 +445,18 @@ async function loadChannels(entryId: number) {
   }
 }
 
-/** 诊断拿到了就用诊断结果；拿不到就只列目录条目里绑定的渠道（渠道已不在就写「已删除渠道」） */
-const channelRows = computed<ChannelRow[]>(() => {
-  const entry = props.entry
-  if (!entry) return []
-  if (diagnosed.value) {
-    return diagnosed.value.map((account) => ({
-      id: account.id,
-      name: account.name,
-      platform: account.platform,
-      type: account.type,
-      vendor: account.vendor,
-      priority: account.priority,
-      schedulable: account.schedulable,
-      blockedReason: account.blocked_reason
-    }))
-  }
-  return (entry.bindings ?? []).map((binding) => ({
-    id: binding.account_id,
-    name: binding.account?.name ?? t('common.deletedChannel'),
-    platform: binding.account?.platform ?? '',
-    type: binding.account?.type ?? '',
-    vendor: binding.account?.vendor ?? '',
-    priority: binding.priority ?? null,
-    schedulable: null
+/** 渠道列表只来自诊断：目录条目里的绑定只有渠道 ID，诊断没取到就只提示、不列（列不出名称） */
+const channelRows = computed<ChannelRow[]>(() =>
+  (diagnosed.value ?? []).map((account) => ({
+    id: account.id,
+    name: account.name,
+    platform: account.platform,
+    type: account.type,
+    vendor: account.vendor,
+    schedulable: account.schedulable,
+    blockedReason: account.blocked_reason
   }))
-})
+)
 
 function blockedReasonLabel(reason?: string): string {
   if (!reason) return t('admin.modelCatalog.drawer.notSchedulable')

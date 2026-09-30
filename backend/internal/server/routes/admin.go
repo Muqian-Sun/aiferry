@@ -581,8 +581,8 @@ func registerTLSFingerprintProfileRoutes(admin *gin.RouterGroup, h *handler.Hand
 	}
 }
 
-// registerModelCatalogRoutes 注册模型目录的管理端 CRUD 与资源绑定。
-// 目录是「有哪些模型 + 基准价 + 绑定的资源」的权威表。
+// registerModelCatalogRoutes 注册模型目录的管理端 CRUD、承接关系查询与诊断。
+// 目录是「有哪些模型 + 基准价 + 承接的渠道（带上游价）」的权威表。
 func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	catalog := admin.Group("/model-catalog")
 	{
@@ -594,7 +594,6 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.PUT("/entries/:id", h.Admin.ModelCatalog.UpdateEntry)
 		catalog.DELETE("/entries/:id", h.Admin.ModelCatalog.DeleteEntry)
 		catalog.GET("/entries/:id/bindings", h.Admin.ModelCatalog.ListBindings)
-		catalog.PUT("/entries/:id/bindings", h.Admin.ModelCatalog.ReplaceBindings)
 		catalog.GET("/entries/:id/diagnosis", h.Admin.ModelCatalog.Diagnose)
 
 		catalog.POST("/aliases", h.Admin.ModelCatalog.CreateAlias)
@@ -604,9 +603,6 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
 	}
-	// 渠道承接的目录模型：渠道表单里直接勾选（按渠道整份覆盖，与按条目绑定同一套校验）
-	admin.GET("/accounts/:id/catalog-entries", h.Admin.ModelCatalog.ListAccountEntries)
-	admin.PUT("/accounts/:id/catalog-entries", h.Admin.ModelCatalog.ReplaceAccountEntries)
 }
 
 func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingService *service.SettingService) {

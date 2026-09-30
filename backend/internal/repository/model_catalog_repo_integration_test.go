@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -357,9 +358,11 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 	require.InDelta(t, 3, found.TimePricing.Periods[0].Multiplier, 1e-9)
 }
 
-// 绑定：整份覆盖、按账号 ID 排序、随账号删除级联消失、引用不存在的账号报专用错误，
-// 每次写入都向 scheduler_outbox 投递 catalog_bindings_changed。
-func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
+// 承接关系带上游价：读出时输入 / 输出 / 三项缓存价原样带出（缓存价没填的保持 nil），
+// 上游分段（price_intervals JSONB）按数组顺序转成 PricingInterval（SortOrder = 下标、无档位名）；
+// 按账号 ID 排序；GetEntryByID / ListEntries 都挂上；随账号删除级联消失；删条目投递 catalog_bindings_changed。
+// 承接关系的写入在价格页接口里，这里直接用 ent 落行。
+func TestModelCatalogRepository_BindingsCarryUpstreamPrices(t *testing.T) {
 	ctx := context.Background()
 	repo, unique := newModelCatalogRepoForTest(t, "repo-bind")
 	client := testEntClient(t)
@@ -382,29 +385,66 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
 	})
 
-	outboxCount := func() int {
-		var n int
-		require.NoError(t, integrationDB.QueryRowContext(ctx,
-			"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
-			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID)).Scan(&n))
-		return n
-	}
-	require.Equal(t, 0, outboxCount())
+	// 先写 B（只填必填的输入 / 输出、没有分段），再写 A（全填、两段），读出来要按账号 ID 排。
+	segmentEnd := 200000
+	_, err := client.ModelCatalogBinding.Create().
+		SetEntryID(entry.ID).
+		SetAccountID(accountB.ID).
+		SetInputPrice(2e-6).
+		SetOutputPrice(8e-6).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.ModelCatalogBinding.Create().
+		SetEntryID(entry.ID).
+		SetAccountID(accountA.ID).
+		SetInputPrice(3e-6).
+		SetOutputPrice(1.5e-5).
+		SetCacheWritePrice(3.75e-6).
+		SetCacheWrite1hPrice(6e-6).
+		SetCacheReadPrice(3e-7).
+		SetPriceIntervals([]domain.PriceSegment{
+			{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(3e-6), OutputPrice: float64Value(1.5e-5)},
+			{MinTokens: 200000, InputPrice: float64Value(6e-6), OutputPrice: float64Value(2.25e-5), CacheReadPrice: float64Value(6e-7)},
+		}).
+		Save(ctx)
+	require.NoError(t, err)
 
-	priority := 5
-	require.NoError(t, repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{
-		{AccountID: accountB.ID},
-		{AccountID: accountA.ID, Priority: &priority},
-	}))
-	require.Equal(t, 1, outboxCount(), "replace enqueues one outbox event")
+	assertBindings := func(name string, bindings []service.ModelCatalogBinding) {
+		t.Helper()
+		require.Len(t, bindings, 2, name)
+
+		a := bindings[0]
+		require.Equal(t, accountA.ID, a.AccountID, name+": sorted by account id")
+		require.Equal(t, entry.ID, a.EntryID, name)
+		require.Equal(t, 3e-6, a.InputPrice, name)
+		require.Equal(t, 1.5e-5, a.OutputPrice, name)
+		require.Equal(t, float64Value(3.75e-6), a.CacheWritePrice, name)
+		require.Equal(t, float64Value(6e-6), a.CacheWrite1hPrice, name)
+		require.Equal(t, float64Value(3e-7), a.CacheReadPrice, name)
+		require.False(t, a.CreatedAt.IsZero(), name)
+		require.False(t, a.UpdatedAt.IsZero(), name)
+		require.Equal(t, []service.PricingInterval{
+			{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(3e-6), OutputPrice: float64Value(1.5e-5), SortOrder: 0},
+			{MinTokens: 200000, InputPrice: float64Value(6e-6), OutputPrice: float64Value(2.25e-5), CacheReadPrice: float64Value(6e-7), SortOrder: 1},
+		}, a.Intervals, name)
+
+		b := bindings[1]
+		require.Equal(t, accountB.ID, b.AccountID, name)
+		require.Equal(t, 2e-6, b.InputPrice, name)
+		require.Equal(t, 8e-6, b.OutputPrice, name)
+		require.Nil(t, b.CacheWritePrice, name)
+		require.Nil(t, b.CacheWrite1hPrice, name)
+		require.Nil(t, b.CacheReadPrice, name)
+		require.Empty(t, b.Intervals, name+": no segments")
+	}
+
+	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	assertBindings("ListBindingsByEntry", bindings)
 
 	got, err := repo.GetEntryByID(ctx, entry.ID)
 	require.NoError(t, err)
-	require.Len(t, got.Bindings, 2)
-	require.Equal(t, accountA.ID, got.Bindings[0].AccountID, "sorted by account id")
-	require.NotNil(t, got.Bindings[0].Priority)
-	require.Equal(t, 5, *got.Bindings[0].Priority)
-	require.Nil(t, got.Bindings[1].Priority)
+	assertBindings("GetEntryByID", got.Bindings)
 
 	all, err := repo.ListEntries(ctx)
 	require.NoError(t, err)
@@ -415,111 +455,29 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 		}
 	}
 	require.NotNil(t, listed)
-	require.Len(t, listed.Bindings, 2, "ListEntries hydrates bindings")
-
-	ids, err := repo.ListEntryIDsByAccount(ctx, accountA.ID)
-	require.NoError(t, err)
-	require.Equal(t, []int64{entry.ID}, ids)
-
-	require.NoError(t, repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{{AccountID: accountB.ID}}))
-	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
-	require.NoError(t, err)
-	require.Len(t, bindings, 1)
-	require.Equal(t, accountB.ID, bindings[0].AccountID)
+	assertBindings("ListEntries", listed.Bindings)
 
 	// ent 的 Account.Delete 是软删除（只写 deleted_at），级联要看真正的行删除。
 	_, err = integrationDB.ExecContext(ctx, "DELETE FROM accounts WHERE id = $1", accountB.ID)
 	require.NoError(t, err)
 	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
 	require.NoError(t, err)
-	require.Empty(t, bindings, "deleting the account cascades the binding")
+	require.Len(t, bindings, 1, "deleting the account cascades the binding")
+	require.Equal(t, accountA.ID, bindings[0].AccountID)
 
-	err = repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{{AccountID: accountA.ID}, {AccountID: -1}})
-	require.ErrorIs(t, err, service.ErrModelCatalogBindingAccountNotFound)
-	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
-	require.NoError(t, err)
-	require.Empty(t, bindings, "a failed replace rolls back the whole batch")
-
-	require.ErrorIs(t, repo.ReplaceBindings(ctx, -1, []service.ModelCatalogBinding{{AccountID: accountA.ID}}), service.ErrModelCatalogEntryNotFound)
-
-	before := outboxCount()
-	require.NoError(t, repo.DeleteEntry(ctx, entry.ID))
-	require.Equal(t, before+1, outboxCount(), "deleting the entry also enqueues the event")
-}
-
-// 按渠道覆盖绑定（渠道表单里直接勾选模型）：保留的绑定优先级不变、不在列表里的删掉、新增的优先级为空，
-// 别的渠道在同一条目上的绑定不受影响；受影响的条目投递 catalog_bindings_changed；外键失败整批回滚。
-func TestModelCatalogRepository_ReplaceAccountBindings(t *testing.T) {
-	ctx := context.Background()
-	repo, unique := newModelCatalogRepoForTest(t, "repo-acct-bind")
-	client := testEntClient(t)
-
-	newEntry := func(name string) *service.ModelCatalogEntry {
-		entry := &service.ModelCatalogEntry{
-			ModelID: unique(name), Vendor: "anthropic", BillingMode: service.BillingModeToken,
-			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
-			InputPrice: float64Value(1e-6),
-		}
-		require.NoError(t, repo.CreateEntry(ctx, entry))
-		return entry
-	}
-	entryA, entryB := newEntry("a"), newEntry("b")
-	t.Cleanup(func() {
-		for _, id := range []int64{entryA.ID, entryB.ID} {
-			_, _ = integrationDB.ExecContext(context.Background(),
-				"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
-				service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", id))
-		}
-	})
-	mine := mustCreateAccount(t, client, &service.Account{Name: unique("mine"), Priority: 10})
-	other := mustCreateAccount(t, client, &service.Account{Name: unique("other"), Priority: 20})
-	t.Cleanup(func() {
-		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{mine.ID, other.ID}))
-	})
-	outboxCount := func(entryID int64) int {
+	outboxCount := func() int {
 		var n int
 		require.NoError(t, integrationDB.QueryRowContext(ctx,
 			"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
-			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entryID)).Scan(&n))
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID)).Scan(&n))
 		return n
 	}
-
-	priority := 5
-	require.NoError(t, repo.ReplaceBindings(ctx, entryA.ID, []service.ModelCatalogBinding{
-		{AccountID: mine.ID, Priority: &priority},
-		{AccountID: other.ID},
-	}))
-	outboxA, outboxB := outboxCount(entryA.ID), outboxCount(entryB.ID)
-
-	require.NoError(t, repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryA.ID, entryB.ID}))
-	ids, err := repo.ListEntryIDsByAccount(ctx, mine.ID)
+	before := outboxCount()
+	require.NoError(t, repo.DeleteEntry(ctx, entry.ID))
+	require.Equal(t, before+1, outboxCount(), "deleting the entry enqueues the event")
+	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
 	require.NoError(t, err)
-	require.Equal(t, []int64{entryA.ID, entryB.ID}, ids)
-	bindingsA, err := repo.ListBindingsByEntry(ctx, entryA.ID)
-	require.NoError(t, err)
-	require.Len(t, bindingsA, 2)
-	require.Equal(t, mine.ID, bindingsA[0].AccountID)
-	require.NotNil(t, bindingsA[0].Priority, "保留下来的绑定优先级不变")
-	require.Equal(t, 5, *bindingsA[0].Priority)
-	bindingsB, err := repo.ListBindingsByEntry(ctx, entryB.ID)
-	require.NoError(t, err)
-	require.Len(t, bindingsB, 1)
-	require.Nil(t, bindingsB[0].Priority, "新增的绑定优先级为空，跟随账号")
-	require.Equal(t, outboxA, outboxCount(entryA.ID), "条目 A 没变化，不投递")
-	require.Equal(t, outboxB+1, outboxCount(entryB.ID), "新增绑定的条目投递一次")
-
-	require.NoError(t, repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryB.ID}))
-	bindingsA, err = repo.ListBindingsByEntry(ctx, entryA.ID)
-	require.NoError(t, err)
-	require.Len(t, bindingsA, 1, "只摘掉本渠道在条目 A 上的绑定")
-	require.Equal(t, other.ID, bindingsA[0].AccountID)
-	require.Equal(t, outboxA+1, outboxCount(entryA.ID), "摘掉绑定的条目投递一次")
-
-	err = repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryA.ID, -1})
-	require.ErrorIs(t, err, service.ErrModelCatalogEntryNotFound)
-	ids, err = repo.ListEntryIDsByAccount(ctx, mine.ID)
-	require.NoError(t, err)
-	require.Equal(t, []int64{entryB.ID}, ids, "失败的覆盖整批回滚")
+	require.Empty(t, bindings, "deleting the entry cascades its bindings")
 }
 
 // 种子自带分档与别名时随条目落库：插入写、刷新整份覆盖分档、别名只补不删；

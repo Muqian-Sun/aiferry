@@ -451,7 +451,6 @@ export default {
       detail: {
         sections: { money: '费用构成', request: '请求', tokens: 'Token', timing: '耗时' },
         userRate: '用户倍率（相对官方价）',
-        accountRate: '渠道倍率（相对官方价）',
         cacheCreation5m: '缓存创建（5 分钟）',
         cacheCreation1h: '缓存创建（1 小时）',
         cacheTtlOverridden: '缓存时长改写',

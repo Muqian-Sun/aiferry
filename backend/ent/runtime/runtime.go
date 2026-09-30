@@ -43,6 +43,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // The init function reads all schema descriptors with runtime code
@@ -235,26 +236,22 @@ func init() {
 	accountDescPriority := accountFields[11].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
-	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	accountDescRateMultiplier := accountFields[12].Descriptor()
-	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
-	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[13].Descriptor()
+	accountDescStatus := accountFields[12].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[17].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[16].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[18].Descriptor()
+	accountDescSchedulable := accountFields[17].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[26].Descriptor()
+	accountDescSessionWindowStatus := accountFields[25].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
 	announcementFields := schema.Announcement{}.Fields()
@@ -1005,10 +1002,20 @@ func init() {
 	modelcatalogalias.SourceValidator = modelcatalogaliasDescSource.Validators[0].(func(string) error)
 	modelcatalogbindingFields := schema.ModelCatalogBinding{}.Fields()
 	_ = modelcatalogbindingFields
+	// modelcatalogbindingDescPriceIntervals is the schema descriptor for price_intervals field.
+	modelcatalogbindingDescPriceIntervals := modelcatalogbindingFields[7].Descriptor()
+	// modelcatalogbinding.DefaultPriceIntervals holds the default value on creation for the price_intervals field.
+	modelcatalogbinding.DefaultPriceIntervals = modelcatalogbindingDescPriceIntervals.Default.([]domain.PriceSegment)
 	// modelcatalogbindingDescCreatedAt is the schema descriptor for created_at field.
-	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[3].Descriptor()
+	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[8].Descriptor()
 	// modelcatalogbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
 	modelcatalogbinding.DefaultCreatedAt = modelcatalogbindingDescCreatedAt.Default.(func() time.Time)
+	// modelcatalogbindingDescUpdatedAt is the schema descriptor for updated_at field.
+	modelcatalogbindingDescUpdatedAt := modelcatalogbindingFields[9].Descriptor()
+	// modelcatalogbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	modelcatalogbinding.DefaultUpdatedAt = modelcatalogbindingDescUpdatedAt.Default.(func() time.Time)
+	// modelcatalogbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	modelcatalogbinding.UpdateDefaultUpdatedAt = modelcatalogbindingDescUpdatedAt.UpdateDefault.(func() time.Time)
 	modelcatalogentryMixin := schema.ModelCatalogEntry{}.Mixin()
 	modelcatalogentryMixinFields0 := modelcatalogentryMixin[0].Fields()
 	_ = modelcatalogentryMixinFields0
@@ -1853,6 +1860,10 @@ func init() {
 	usagelogDescRateMultiplier := usagelogFields[23].Descriptor()
 	// usagelog.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	usagelog.DefaultRateMultiplier = usagelogDescRateMultiplier.Default.(float64)
+	// usagelogDescAccountCost is the schema descriptor for account_cost field.
+	usagelogDescAccountCost := usagelogFields[24].Descriptor()
+	// usagelog.DefaultAccountCost holds the default value on creation for the account_cost field.
+	usagelog.DefaultAccountCost = usagelogDescAccountCost.Default.(float64)
 	// usagelogDescBillingType is the schema descriptor for billing_type field.
 	usagelogDescBillingType := usagelogFields[25].Descriptor()
 	// usagelog.DefaultBillingType holds the default value on creation for the billing_type field.

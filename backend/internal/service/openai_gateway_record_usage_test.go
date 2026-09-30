@@ -1798,7 +1798,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCoun
 		resolver:       newOpenAIImageChannelPricingResolverForTest(t, 0, "gemini-image", 0.25),
 	}
 
-	cost := svc.calculateRecordUsageCost(
+	cost, _ := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "1K"},
 		&APIKey{},
@@ -1830,7 +1830,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 		}),
 	}
 
-	cost := svc.calculateRecordUsageCost(
+	cost, _ := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "4K"},
 		&APIKey{},
@@ -1911,7 +1911,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMis
 		}),
 	}
 
-	cost := svc.calculateRecordUsageCost(
+	cost, _ := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: ""},
 		&APIKey{},

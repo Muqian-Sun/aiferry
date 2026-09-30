@@ -168,17 +168,16 @@ type AdminBoundAuthIdentityChannel struct {
 }
 
 type CreateAccountInput struct {
-	Name           string
-	Notes          *string
-	Platform       string
-	Type           string
-	Credentials    map[string]any
-	Extra          map[string]any
-	ProxyID        *int64
-	Concurrency    int
-	Priority       int
-	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
-	ExpiresAt      *int64
+	Name        string
+	Notes       *string
+	Platform    string
+	Type        string
+	Credentials map[string]any
+	Extra       map[string]any
+	ProxyID     *int64
+	Concurrency int
+	Priority    int
+	ExpiresAt   *int64
 	// ProtocolEndpoints 协议 → 上游地址映射，键必须是具体协议，见 NormalizeProtocolEndpoints。
 	ProtocolEndpoints map[string]string
 }
@@ -192,34 +191,32 @@ type ShadowOptions struct {
 }
 
 type UpdateAccountInput struct {
-	Name           string
-	Notes          *string
-	Type           string // Account type: oauth, setup-token, apikey
-	Credentials    map[string]any
-	Extra          map[string]any
-	ProxyID        *int64
-	Concurrency    *int     // 使用指针区分"未提供"和"设置为0"
-	Priority       *int     // 使用指针区分"未提供"和"设置为0"
-	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
-	Status         string
-	ExpiresAt      *int64
+	Name        string
+	Notes       *string
+	Type        string // Account type: oauth, setup-token, apikey
+	Credentials map[string]any
+	Extra       map[string]any
+	ProxyID     *int64
+	Concurrency *int // 使用指针区分"未提供"和"设置为0"
+	Priority    *int // 使用指针区分"未提供"和"设置为0"
+	Status      string
+	ExpiresAt   *int64
 	// ProtocolEndpoints 为 nil 表示不修改；非 nil（含空 map）表示整体替换。
 	ProtocolEndpoints *map[string]string
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
 type BulkUpdateAccountsInput struct {
-	AccountIDs     []int64
-	Filters        *BulkUpdateAccountFilters
-	Name           string
-	ProxyID        *int64
-	Concurrency    *int
-	Priority       *int
-	RateMultiplier *float64 // 账号计费倍率（>=0，允许 0）
-	Status         string
-	Schedulable    *bool
-	Credentials    map[string]any
-	Extra          map[string]any
+	AccountIDs  []int64
+	Filters     *BulkUpdateAccountFilters
+	Name        string
+	ProxyID     *int64
+	Concurrency *int
+	Priority    *int
+	Status      string
+	Schedulable *bool
+	Credentials map[string]any
+	Extra       map[string]any
 }
 
 type BulkUpdateAccountFilters struct {

@@ -312,17 +312,16 @@ func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 }
 
 type GrokSSOToOAuthRequest struct {
-	SSOTokens      []string       `json:"sso_tokens"`
-	SSOToken       string         `json:"sso_token"`
-	Name           string         `json:"name"`
-	Notes          *string        `json:"notes"`
-	ProxyID        *int64         `json:"proxy_id"`
-	Credentials    map[string]any `json:"credentials"`
-	Extra          map[string]any `json:"extra"`
-	Concurrency    int            `json:"concurrency"`
-	Priority       int            `json:"priority"`
-	RateMultiplier *float64       `json:"rate_multiplier"`
-	ExpiresAt      *int64         `json:"expires_at"`
+	SSOTokens   []string       `json:"sso_tokens"`
+	SSOToken    string         `json:"sso_token"`
+	Name        string         `json:"name"`
+	Notes       *string        `json:"notes"`
+	ProxyID     *int64         `json:"proxy_id"`
+	Credentials map[string]any `json:"credentials"`
+	Extra       map[string]any `json:"extra"`
+	Concurrency int            `json:"concurrency"`
+	Priority    int            `json:"priority"`
+	ExpiresAt   *int64         `json:"expires_at"`
 }
 
 type GrokSSOToOAuthItemResult struct {
@@ -421,17 +420,16 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 	credentials := grokSSOImportCredentials(h.grokOAuthService.BuildAccountCredentials(tokenInfo), req.Credentials)
 	name := grokSSOImportAccountName(req.Name, tokenInfo, index, total)
 	account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-		Name:           name,
-		Notes:          req.Notes,
-		Platform:       service.PlatformGrok,
-		Type:           service.AccountTypeOAuth,
-		Credentials:    credentials,
-		Extra:          cloneGrokSSOMap(req.Extra),
-		ProxyID:        req.ProxyID,
-		Concurrency:    req.Concurrency,
-		Priority:       req.Priority,
-		RateMultiplier: req.RateMultiplier,
-		ExpiresAt:      grokSSOImportExpiry(req.ExpiresAt, tokenInfo),
+		Name:        name,
+		Notes:       req.Notes,
+		Platform:    service.PlatformGrok,
+		Type:        service.AccountTypeOAuth,
+		Credentials: credentials,
+		Extra:       cloneGrokSSOMap(req.Extra),
+		ProxyID:     req.ProxyID,
+		Concurrency: req.Concurrency,
+		Priority:    req.Priority,
+		ExpiresAt:   grokSSOImportExpiry(req.ExpiresAt, tokenInfo),
 	})
 	if err != nil {
 		return grokSSOImportWorkerResult{item: GrokSSOToOAuthItemResult{Index: index, Name: name, Email: tokenInfo.Email, Error: grokSSOImportErrorMessage(err)}}

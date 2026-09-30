@@ -25,7 +25,7 @@ export interface SystemSettings {
   cyber_session_block_enabled: boolean;
   cyber_session_block_ttl_seconds: number;
 
-  // 利润门（全站一档）：账号倍率 > 用户倍率 × (1 − profit_min_margin) 的资源不派；0 = 关
+  // 利润门（全站一档）：上游成本比（渠道给该模型的上游价 ÷ 官方价，逐项、逐段取最高）> 用户倍率 × (1 − profit_min_margin) 的渠道这次请求不派；0 = 关
   profit_min_margin: number;
 }
 

@@ -51,15 +51,16 @@ type usageLogBestEffortWriter interface {
 
 // postUsageBillingParams 统一扣费所需的参数
 type postUsageBillingParams struct {
-	Cost                  *CostBreakdown
-	User                  *User
-	APIKey                *APIKey
-	Account               *Account
-	Subscription          *UserSubscription
-	RequestPayloadHash    string
-	IsSubscriptionBill    bool
-	AccountRateMultiplier float64
-	APIKeyService         APIKeyQuotaUpdater
+	Cost               *CostBreakdown
+	User               *User
+	APIKey             *APIKey
+	Account            *Account
+	Subscription       *UserSubscription
+	RequestPayloadHash string
+	IsSubscriptionBill bool
+	// AccountCost 渠道成本（用量 × 上游价）；渠道额度按它累计。
+	AccountCost   float64
+	APIKeyService APIKeyQuotaUpdater
 }
 
 func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {
@@ -71,7 +72,7 @@ func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
 }
 
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
-	return p.Cost.TotalCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+	return p.AccountCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
 }
 
 // postUsageBilling is the legacy fallback billing path used when the unified
@@ -116,9 +117,8 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 	}
 
 	if p.shouldUpdateAccountQuota() {
-		accountCost := cost.TotalCost * p.AccountRateMultiplier
-		if err := deps.accountRepo.IncrementQuotaUsed(billingCtx, p.Account.ID, accountCost); err != nil {
-			slog.Error("increment account quota used failed", "account_id", p.Account.ID, "cost", accountCost, "error", err)
+		if err := deps.accountRepo.IncrementQuotaUsed(billingCtx, p.Account.ID, p.AccountCost); err != nil {
+			slog.Error("increment account quota used failed", "account_id", p.Account.ID, "cost", p.AccountCost, "error", err)
 		}
 	}
 
@@ -249,7 +249,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.APIKeyRateLimitCost = p.Cost.ActualCost
 	}
 	if p.shouldUpdateAccountQuota() {
-		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
+		cmd.AccountQuotaCost = p.AccountCost
 	}
 
 	cmd.Normalize()
@@ -386,16 +386,16 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 			slog.Error("panic in notifyAccountQuota", "recover", r)
 		}
 	}()
-	if p.Cost.TotalCost <= 0 || p.Account == nil || !p.Account.IsAPIKeyOrBedrock() || deps.balanceNotifyService == nil {
+	if p.AccountCost <= 0 || p.Account == nil || !p.Account.IsAPIKeyOrBedrock() || deps.balanceNotifyService == nil {
 		slog.Debug("notifyAccountQuota: skipped",
-			"total_cost", p.Cost.TotalCost,
+			"account_cost", p.AccountCost,
 			"account_nil", p.Account == nil,
 			"is_apikey_or_bedrock", p.Account != nil && p.Account.IsAPIKeyOrBedrock(),
 			"service_nil", deps.balanceNotifyService == nil,
 		)
 		return
 	}
-	accountCost := p.Cost.TotalCost * p.AccountRateMultiplier
+	accountCost := p.AccountCost
 	var quotaState *AccountQuotaState
 	if result != nil {
 		quotaState = result.QuotaState
@@ -573,8 +573,13 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		requestedModel = input.RequestedModel
 	}
 
-	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
+	// 计算费用；渠道成本 = token 用量 × 这个渠道给这个模型的上游价（媒体用量记 0）
+	cost, tokenPath := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
+	accountCost := 0.0
+	if tokenPath {
+		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, []string{billingModel},
+			recordUsageTokens(result), pricingAt, optionalStringValue(result.ReasoningEffort))
+	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil
@@ -584,9 +589,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 创建使用日志
-	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
-		requestedModel, multiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost)
+		requestedModel, multiplier, accountCost, billingType, cacheTTLOverridden, cost)
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
@@ -598,15 +602,15 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	requestID := usageLog.RequestID
 	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-		Cost:                  cost,
-		User:                  user,
-		APIKey:                apiKey,
-		Account:               account,
-		Subscription:          subscription,
-		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-		IsSubscriptionBill:    isSubscriptionBilling,
-		AccountRateMultiplier: accountRateMultiplier,
-		APIKeyService:         input.APIKeyService,
+		Cost:               cost,
+		User:               user,
+		APIKey:             apiKey,
+		Account:            account,
+		Subscription:       subscription,
+		RequestPayloadHash: resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+		IsSubscriptionBill: isSubscriptionBilling,
+		AccountCost:        accountCost,
+		APIKeyService:      input.APIKeyService,
 	}, s.billingDeps(), s.usageBillingRepo)
 
 	if billingErr != nil {
@@ -622,7 +626,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 }
 
 // calculateRecordUsageCost 根据请求类型计算费用：媒体用量（图片 / 音频）按目录条目，
-// 其余走 token 计费；Grok 内嵌搜索是叠加在 token 费上的 surcharge。
+// 其余走 token 计费；Grok 内嵌搜索是叠加在 token 费上的 surcharge。tokenPath 报告是否走了
+// token 计费（渠道成本只在 token 路径上按上游价算）。
 func (s *GatewayService) calculateRecordUsageCost(
 	ctx context.Context,
 	result *ForwardResult,
@@ -630,13 +635,13 @@ func (s *GatewayService) calculateRecordUsageCost(
 	billingModel string,
 	multiplier float64,
 	pricingAt time.Time,
-) *CostBreakdown {
+) (cost *CostBreakdown, tokenPath bool) {
 	if cost, handled, err := s.billingService.CalculateMediaCost(ctx, s.resolver, billingModel, mediaUsageFromForwardResult(result), multiplier); handled {
 		if err != nil {
 			logger.LegacyPrintf("service.gateway", "Calculate media cost failed: %v", err)
-			return &CostBreakdown{ActualCost: 0}
+			return &CostBreakdown{ActualCost: 0}, false
 		}
-		return cost
+		return cost, false
 	}
 
 	// Token 计费；SearchCount 为叠加 surcharge（不替代 token）。
@@ -645,13 +650,13 @@ func (s *GatewayService) calculateRecordUsageCost(
 		searchCost := s.billingService.CalculateSearchCost(result.SearchCount, multiplier)
 		if searchCost != nil && (searchCost.TotalCost > 0 || searchCost.ActualCost > 0) {
 			if tokenCost == nil {
-				return searchCost
+				return searchCost, true
 			}
 			tokenCost.TotalCost += searchCost.TotalCost
 			tokenCost.ActualCost += searchCost.ActualCost
 		}
 	}
-	return tokenCost
+	return tokenCost, true
 }
 
 // billableModelWithFallback 在选定计费模型（可能是 composite 公开别名或未定价的映射名）
@@ -699,19 +704,7 @@ func (s *GatewayService) calculateTokenCost(
 	multiplier float64,
 	pricingAt time.Time,
 ) *CostBreakdown {
-	tokens := UsageTokens{
-		InputTokens:           result.Usage.InputTokens,
-		OutputTokens:          result.Usage.OutputTokens,
-		CacheCreationTokens:   result.Usage.CacheCreationInputTokens,
-		CacheReadTokens:       result.Usage.CacheReadInputTokens,
-		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
-		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
-		ImageOutputTokens:     result.Usage.ImageOutputTokens,
-		// 音频 token 在 InputTokens / OutputTokens 之内（Gemini 的 AUDIO 模态）；超出部分由
-		// computeTokenBreakdown 截到文本 token 数（如 ForceCacheBilling 把输入转成缓存读取后）。
-		AudioInputTokens:  result.Usage.AudioInputTokens,
-		AudioOutputTokens: result.Usage.AudioOutputTokens,
-	}
+	tokens := recordUsageTokens(result)
 
 	var resolved *ResolvedPricing
 	if s.resolver != nil {
@@ -735,6 +728,23 @@ func (s *GatewayService) calculateTokenCost(
 	return cost
 }
 
+// recordUsageTokens 这次请求按 token 计费的用量；用户价与渠道成本用同一份。
+func recordUsageTokens(result *ForwardResult) UsageTokens {
+	return UsageTokens{
+		InputTokens:           result.Usage.InputTokens,
+		OutputTokens:          result.Usage.OutputTokens,
+		CacheCreationTokens:   result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:       result.Usage.CacheReadInputTokens,
+		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
+		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
+		ImageOutputTokens:     result.Usage.ImageOutputTokens,
+		// 音频 token 在 InputTokens / OutputTokens 之内（Gemini 的 AUDIO 模态）；超出部分由
+		// computeTokenBreakdown 截到文本 token 数（如 ForceCacheBilling 把输入转成缓存读取后）。
+		AudioInputTokens:  result.Usage.AudioInputTokens,
+		AudioOutputTokens: result.Usage.AudioOutputTokens,
+	}
+}
+
 // buildRecordUsageLog 构建使用日志并设置计费模式。
 func (s *GatewayService) buildRecordUsageLog(
 	ctx context.Context,
@@ -746,7 +756,7 @@ func (s *GatewayService) buildRecordUsageLog(
 	subscription *UserSubscription,
 	requestedModel string,
 	multiplier float64,
-	accountRateMultiplier float64,
+	accountCost float64,
 	billingType int8,
 	cacheTTLOverridden bool,
 	cost *CostBreakdown,
@@ -787,7 +797,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		CacheCreation1hTokens:    result.Usage.CacheCreation1hTokens,
 		ImageOutputTokens:        result.Usage.ImageOutputTokens,
 		RateMultiplier:           multiplier,
-		AccountRateMultiplier:    &accountRateMultiplier,
+		AccountCost:              accountCost,
 		BillingType:              billingType,
 		BillingMode:              resolveBillingMode(result, cost),
 		Stream:                   result.Stream,

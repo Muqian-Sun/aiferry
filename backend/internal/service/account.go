@@ -28,12 +28,9 @@ type Account struct {
 	ProxyFallbackOriginName *string // 仅展示用
 	Concurrency             int
 	Priority                int
-	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
-	// 使用指针用于兼容旧版本调度缓存（Redis）中缺字段的情况：nil 表示按 1.0 处理。
-	RateMultiplier *float64
-	Status         string
-	ErrorMessage   string
-	LastUsedAt     *time.Time
+	Status                  string
+	ErrorMessage            string
+	LastUsedAt              *time.Time
 	// ExpiresAt 渠道过期时间：到期即停调（过期自动暂停写死开，见 channel_features.go）。
 	ExpiresAt *time.Time
 	CreatedAt time.Time
@@ -132,20 +129,6 @@ func (a *Account) IsSyntheticUITest() bool {
 	}
 	enabled, ok := a.Extra["synthetic_ui_test"].(bool)
 	return ok && enabled
-}
-
-// BillingRateMultiplier 返回账号计费倍率。
-// - nil 表示未配置/旧缓存缺字段，按 1.0 处理
-// - 允许 0，表示该账号计费为 0
-// - 负数属于非法数据，出于安全考虑按 1.0 处理
-func (a *Account) BillingRateMultiplier() float64 {
-	if a == nil || a.RateMultiplier == nil {
-		return 1.0
-	}
-	if *a.RateMultiplier < 0 {
-		return 1.0
-	}
-	return *a.RateMultiplier
 }
 
 // EffectiveLoadFactor 调度负载图里的容量：一律按并发数算（渠道级负载因子 2026-09-28 P5 已删），至少 1。

@@ -505,32 +505,31 @@ func (s *UsageLogRepoSuite) TestGetByID_NotFound() {
 	s.Require().Error(err, "expected error for non-existent ID")
 }
 
-func (s *UsageLogRepoSuite) TestGetByID_ReturnsAccountRateMultiplier() {
-	user := mustCreateUser(s.T(), s.client, &service.User{Email: "getbyid-mult@test.com"})
-	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-getbyid-mult", Name: "k"})
-	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-getbyid-mult"})
+// 渠道成本逐行落在 usage_logs.account_cost，读回来原样带出（不是 total_cost 也不是 actual_cost）。
+func (s *UsageLogRepoSuite) TestGetByID_ReturnsAccountCost() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "getbyid-cost@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-getbyid-cost", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-getbyid-cost"})
 
-	m := 0.5
 	log := &service.UsageLog{
-		UserID:                user.ID,
-		APIKeyID:              apiKey.ID,
-		AccountID:             account.ID,
-		RequestID:             uuid.New().String(),
-		Model:                 "claude-3",
-		InputTokens:           10,
-		OutputTokens:          20,
-		TotalCost:             1.0,
-		ActualCost:            2.0,
-		AccountRateMultiplier: &m,
-		CreatedAt:             timezone.Today().Add(2 * time.Hour),
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    account.ID,
+		RequestID:    uuid.New().String(),
+		Model:        "claude-3",
+		InputTokens:  10,
+		OutputTokens: 20,
+		TotalCost:    1.0,
+		ActualCost:   2.0,
+		AccountCost:  0.37,
+		CreatedAt:    timezone.Today().Add(2 * time.Hour),
 	}
 	_, err := s.repo.Create(s.ctx, log)
 	s.Require().NoError(err)
 
 	got, err := s.repo.GetByID(s.ctx, log.ID)
 	s.Require().NoError(err)
-	s.Require().NotNil(got.AccountRateMultiplier)
-	s.Require().InEpsilon(0.5, *got.AccountRateMultiplier, 0.0001)
+	s.Require().InDelta(0.37, got.AccountCost, 1e-9)
 }
 
 func (s *UsageLogRepoSuite) TestGetByID_ReturnsOpenAIWSMode() {
@@ -728,6 +727,7 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 		CacheReadTokens:     4,
 		TotalCost:           1.5,
 		ActualCost:          1.2,
+		AccountCost:         0.6,
 		DurationMs:          &d1,
 		CreatedAt:           testMaxTime(todayStart.Add(2*time.Minute), now.Add(-2*time.Minute)),
 	}
@@ -743,6 +743,7 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 		OutputTokens: 6,
 		TotalCost:    0.7,
 		ActualCost:   0.7,
+		AccountCost:  0.25,
 		DurationMs:   &d2,
 		CreatedAt:    todayStart.Add(-1 * time.Hour),
 	}
@@ -758,6 +759,7 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 		OutputTokens: 2,
 		TotalCost:    0.1,
 		ActualCost:   0.1,
+		AccountCost:  0.05,
 		DurationMs:   &d3,
 		CreatedAt:    now.Add(-30 * time.Second),
 	}
@@ -790,8 +792,8 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 	s.Require().Equal(baseStats.TotalTokens+int64(51), stats.TotalTokens, "TotalTokens mismatch")
 	s.Require().Equal(baseStats.TotalCost+2.3, stats.TotalCost, "TotalCost mismatch")
 	s.Require().Equal(baseStats.TotalActualCost+2.0, stats.TotalActualCost, "TotalActualCost mismatch")
-	// account_cost = total_cost × account_rate_multiplier（渠道统计价卡与 account_stats_cost 列已删）
-	s.Require().Equal(baseStats.TotalAccountCost+2.3, stats.TotalAccountCost, "TotalAccountCost mismatch")
+	// 渠道成本 = Σ usage_logs.account_cost（经小时 / 天预聚合），与标价 total_cost 无关：0.6 + 0.25 + 0.05
+	s.Require().InDelta(baseStats.TotalAccountCost+0.9, stats.TotalAccountCost, 1e-9, "TotalAccountCost mismatch")
 	s.Require().GreaterOrEqual(stats.TodayRequests, int64(1), "expected TodayRequests >= 1")
 	s.Require().GreaterOrEqual(stats.TodayCost, 0.0, "expected TodayCost >= 0")
 	s.Require().GreaterOrEqual(stats.TodayAccountCost, 0.0, "expected TodayAccountCost >= 0")
@@ -824,6 +826,7 @@ func (s *UsageLogRepoSuite) TestDashboardStatsWithRange_Fallback() {
 		OutputTokens: 8,
 		TotalCost:    0.8,
 		ActualCost:   0.7,
+		AccountCost:  0.3,
 		DurationMs:   &d3,
 		CreatedAt:    rangeStart.Add(-1 * time.Hour),
 	}
@@ -841,6 +844,7 @@ func (s *UsageLogRepoSuite) TestDashboardStatsWithRange_Fallback() {
 		CacheReadTokens:     2,
 		TotalCost:           1.0,
 		ActualCost:          0.9,
+		AccountCost:         0.4,
 		DurationMs:          &d1,
 		CreatedAt:           rangeStart.Add(2 * time.Hour),
 	}
@@ -857,6 +861,7 @@ func (s *UsageLogRepoSuite) TestDashboardStatsWithRange_Fallback() {
 		CacheReadTokens: 1,
 		TotalCost:       0.5,
 		ActualCost:      0.5,
+		AccountCost:     0.25,
 		DurationMs:      &d2,
 		CreatedAt:       now,
 	}
@@ -873,8 +878,8 @@ func (s *UsageLogRepoSuite) TestDashboardStatsWithRange_Fallback() {
 	s.Require().Equal(int64(45), stats.TotalTokens)
 	s.Require().Equal(1.5, stats.TotalCost)
 	s.Require().Equal(1.4, stats.TotalActualCost)
-	// account_cost = total_cost * COALESCE(account_rate_multiplier, 1) = total_cost
-	s.Require().Equal(1.5, stats.TotalAccountCost)
+	// 渠道成本 = 区间内 Σ account_cost = 0.4 + 0.25（区间外那条 0.3 不算）
+	s.Require().InDelta(0.65, stats.TotalAccountCost, 1e-9)
 	s.Require().InEpsilon(150.0, stats.AverageDurationMs, 0.0001)
 }
 
@@ -902,34 +907,32 @@ func (s *UsageLogRepoSuite) TestGetAccountTodayStats() {
 
 	createdAt := timezone.Today().Add(1 * time.Hour)
 
-	m1 := 1.5
-	m2 := 0.0
 	_, err := s.repo.Create(s.ctx, &service.UsageLog{
-		UserID:                user.ID,
-		APIKeyID:              apiKey.ID,
-		AccountID:             account.ID,
-		RequestID:             uuid.New().String(),
-		Model:                 "claude-3",
-		InputTokens:           10,
-		OutputTokens:          20,
-		TotalCost:             1.0,
-		ActualCost:            2.0,
-		AccountRateMultiplier: &m1,
-		CreatedAt:             createdAt,
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    account.ID,
+		RequestID:    uuid.New().String(),
+		Model:        "claude-3",
+		InputTokens:  10,
+		OutputTokens: 20,
+		TotalCost:    1.0,
+		ActualCost:   2.0,
+		AccountCost:  0.6,
+		CreatedAt:    createdAt,
 	})
 	s.Require().NoError(err)
 	_, err = s.repo.Create(s.ctx, &service.UsageLog{
-		UserID:                user.ID,
-		APIKeyID:              apiKey.ID,
-		AccountID:             account.ID,
-		RequestID:             uuid.New().String(),
-		Model:                 "claude-3",
-		InputTokens:           5,
-		OutputTokens:          5,
-		TotalCost:             0.5,
-		ActualCost:            1.0,
-		AccountRateMultiplier: &m2,
-		CreatedAt:             createdAt,
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    account.ID,
+		RequestID:    uuid.New().String(),
+		Model:        "claude-3",
+		InputTokens:  5,
+		OutputTokens: 5,
+		TotalCost:    0.5,
+		ActualCost:   1.0,
+		AccountCost:  0, // 上游价为 0 的渠道：成本就是 0，不回落成标价
+		CreatedAt:    createdAt,
 	})
 	s.Require().NoError(err)
 
@@ -937,8 +940,8 @@ func (s *UsageLogRepoSuite) TestGetAccountTodayStats() {
 	s.Require().NoError(err, "GetAccountTodayStats")
 	s.Require().Equal(int64(2), stats.Requests)
 	s.Require().Equal(int64(40), stats.Tokens)
-	// account cost = SUM(total_cost * account_rate_multiplier)
-	s.Require().InEpsilon(1.5, stats.Cost, 0.0001)
+	// account cost = SUM(account_cost)
+	s.Require().InDelta(0.6, stats.Cost, 1e-9)
 	// standard cost = SUM(total_cost)
 	s.Require().InEpsilon(1.5, stats.StandardCost, 0.0001)
 	// user cost = SUM(actual_cost)
@@ -1455,7 +1458,7 @@ func (s *UsageLogRepoSuite) TestGetUsageTrendWithFilters_HourlyGranularity() {
 	s.Require().Len(trend, 2)
 }
 
-// 趋势点要带渠道成本（标价 × 渠道成本倍率；历史数据没有倍率快照按 1）——管理站概览的利润趋势靠它。
+// 趋势点要带渠道成本（Σ usage_logs.account_cost）——管理站概览的利润趋势靠它。
 // 明细表、按用户、两张预聚合表四条查询都核；预聚合查询出错时上层会静默回落到明细表，所以直接调 getUsageTrendFromAggregates。
 func (s *UsageLogRepoSuite) TestUsageTrend_AccountCost() {
 	user := mustCreateUser(s.T(), s.client, &service.User{Email: "trend-account-cost@test.com"})
@@ -1464,10 +1467,9 @@ func (s *UsageLogRepoSuite) TestUsageTrend_AccountCost() {
 
 	// 用一个别的测试不会碰的日期，天级预聚合桶里只有这里写的两条
 	hour := time.Date(2031, 3, 7, 5, 0, 0, 0, time.UTC)
-	half := 0.5
 	for i, log := range []*service.UsageLog{
-		{TotalCost: 1.0, ActualCost: 1.2, AccountRateMultiplier: &half},
-		{TotalCost: 0.4, ActualCost: 0.5}, // 没有倍率快照，按 1
+		{TotalCost: 1.0, ActualCost: 1.2, AccountCost: 0.55},
+		{TotalCost: 0.4, ActualCost: 0.5}, // 没算出渠道成本的记 0
 	} {
 		log.UserID, log.APIKeyID, log.AccountID = user.ID, apiKey.ID, account.ID
 		log.RequestID = uuid.New().String()
@@ -1477,7 +1479,7 @@ func (s *UsageLogRepoSuite) TestUsageTrend_AccountCost() {
 		_, err := s.repo.Create(s.ctx, log)
 		s.Require().NoError(err)
 	}
-	const wantActual, wantAccount = 1.7, 0.9 // 1.0×0.5 + 0.4×1
+	const wantActual, wantAccount = 1.7, 0.55 // 0.55 + 0
 
 	start, end := hour.Add(-time.Hour), hour.Add(24*time.Hour)
 	assertOneBucket := func(name string, trend []TrendDataPoint, err error) {
@@ -1566,18 +1568,17 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	// Create logs on different days
-	accountRate := 0.5
 	log1 := &service.UsageLog{
-		UserID:                user.ID,
-		APIKeyID:              apiKey.ID,
-		AccountID:             account.ID,
-		Model:                 "claude-3-opus",
-		InputTokens:           100,
-		OutputTokens:          200,
-		TotalCost:             0.5,
-		ActualCost:            0.4,
-		AccountRateMultiplier: &accountRate,
-		CreatedAt:             base.Add(12 * time.Hour),
+		UserID:       user.ID,
+		APIKeyID:     apiKey.ID,
+		AccountID:    account.ID,
+		Model:        "claude-3-opus",
+		InputTokens:  100,
+		OutputTokens: 200,
+		TotalCost:    0.5,
+		ActualCost:   0.4,
+		AccountCost:  0.25,
+		CreatedAt:    base.Add(12 * time.Hour),
 	}
 	_, err := s.repo.Create(s.ctx, log1)
 	s.Require().NoError(err)
@@ -1591,6 +1592,7 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 		OutputTokens: 100,
 		TotalCost:    0.2,
 		ActualCost:   0.15,
+		AccountCost:  0.12,
 		CreatedAt:    base.Add(36 * time.Hour), // next day
 	}
 	_, err = s.repo.Create(s.ctx, log2)
@@ -1607,13 +1609,13 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
 	s.Require().Len(resp.Models, 2)
 
-	// 金额与 models[] 同名同义：actual_cost = 收入（Σ actual_cost），account_cost = 渠道成本（Σ total_cost × 渠道倍率，缺省按 1）。
+	// 金额与 models[] 同名同义：actual_cost = 收入（Σ actual_cost），account_cost = 渠道成本（Σ account_cost）。
 	s.Require().InDelta(0.4, resp.History[0].ActualCost, 1e-9)
 	s.Require().InDelta(0.25, resp.History[0].AccountCost, 1e-9)
 	s.Require().InDelta(0.15, resp.History[1].ActualCost, 1e-9)
-	s.Require().InDelta(0.2, resp.History[1].AccountCost, 1e-9)
+	s.Require().InDelta(0.12, resp.History[1].AccountCost, 1e-9)
 	s.Require().InDelta(0.55, resp.Summary.TotalActualCost, 1e-9)
-	s.Require().InDelta(0.45, resp.Summary.TotalAccountCost, 1e-9)
+	s.Require().InDelta(0.37, resp.Summary.TotalAccountCost, 1e-9)
 	s.Require().NotNil(resp.Summary.HighestRevenueDay)
 	s.Require().Equal("2025-01-15", resp.Summary.HighestRevenueDay.Date)
 }
@@ -1654,21 +1656,20 @@ func (s *UsageLogRepoSuite) TestGetUserUsageTrend() {
 	s.Require().GreaterOrEqual(len(trend), 2)
 }
 
-// 用户趋势带渠道成本：total_cost × 渠道倍率，倍率为空的历史数据按 1 计（与模型统计同口径）。
+// 用户趋势带渠道成本：Σ usage_logs.account_cost（与模型统计同口径）。
 func (s *UsageLogRepoSuite) TestGetUserUsageTrend_AccountCost() {
 	user := mustCreateUser(s.T(), s.client, &service.User{Email: "usertrend-cost@test.com"})
 	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-usertrend-cost", Name: "k"})
 	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-usertrend-cost"})
 
 	base := time.Date(2025, 2, 10, 12, 0, 0, 0, time.UTC)
-	half := 0.5
 	_, err := s.repo.Create(s.ctx, &service.UsageLog{
 		UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, RequestID: uuid.New().String(),
 		Model: "claude-3", InputTokens: 10, OutputTokens: 20, TotalCost: 2.0, ActualCost: 3.0,
-		AccountRateMultiplier: &half, CreatedAt: base,
+		AccountCost: 0.8, CreatedAt: base,
 	})
 	s.Require().NoError(err)
-	s.createUsageLog(user, apiKey, account, 10, 20, 1.0, base.Add(time.Hour)) // 倍率为空 → 按 1 计
+	s.createUsageLog(user, apiKey, account, 10, 20, 1.0, base.Add(time.Hour)) // 没带渠道成本 → 0
 
 	trend, err := s.repo.GetUserUsageTrend(s.ctx, base.Add(-time.Hour), base.Add(3*time.Hour), "day", 10)
 	s.Require().NoError(err)
@@ -1680,7 +1681,7 @@ func (s *UsageLogRepoSuite) TestGetUserUsageTrend_AccountCost() {
 	}
 	s.Require().Len(mine, 1)
 	s.Require().InDelta(4.0, mine[0].ActualCost, 1e-9)
-	s.Require().InDelta(2.0*0.5+1.0*1, mine[0].AccountCost, 1e-9)
+	s.Require().InDelta(0.8, mine[0].AccountCost, 1e-9)
 }
 
 // --- GetAPIKeyUsageTrend ---

@@ -169,7 +169,7 @@ func updatedAccountRows(id int64, extra string) *sqlmock.Rows {
 		[]byte(`{"api_key":"sk-test"}`), []byte(extra),
 		// protocol_endpoints：ent 列序里紧跟 extra 之后
 		[]byte(`{}`),
-		nil, nil, 1, nil, 1, 1.0,
+		nil, nil, 1, nil, 1,
 		service.StatusActive, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, service.QuotaDimensionGlobal,
 	)

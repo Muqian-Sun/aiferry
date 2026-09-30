@@ -101,12 +101,12 @@ func TestUsageLogFromService_IncludesServiceTierForUserAndAdmin(t *testing.T) {
 	inboundEndpoint := "/v1/chat/completions"
 	upstreamEndpoint := "/v1/responses"
 	log := &service.UsageLog{
-		RequestID:             "req_3",
-		Model:                 "gpt-5.4",
-		ServiceTier:           &serviceTier,
-		InboundEndpoint:       &inboundEndpoint,
-		UpstreamEndpoint:      &upstreamEndpoint,
-		AccountRateMultiplier: f64Ptr(1.5),
+		RequestID:        "req_3",
+		Model:            "gpt-5.4",
+		ServiceTier:      &serviceTier,
+		InboundEndpoint:  &inboundEndpoint,
+		UpstreamEndpoint: &upstreamEndpoint,
+		AccountCost:      0.0123,
 	}
 
 	userDTO := UsageLogFromService(log)
@@ -122,8 +122,11 @@ func TestUsageLogFromService_IncludesServiceTierForUserAndAdmin(t *testing.T) {
 	require.Equal(t, inboundEndpoint, *adminDTO.InboundEndpoint)
 	require.NotNil(t, adminDTO.UpstreamEndpoint)
 	require.Equal(t, upstreamEndpoint, *adminDTO.UpstreamEndpoint)
-	require.NotNil(t, adminDTO.AccountRateMultiplier)
-	require.InDelta(t, 1.5, *adminDTO.AccountRateMultiplier, 1e-12)
+	require.InDelta(t, 0.0123, adminDTO.AccountCost, 1e-12)
+
+	adminJSON, err := json.Marshal(adminDTO)
+	require.NoError(t, err)
+	require.Contains(t, string(adminJSON), `"account_cost":0.0123`)
 }
 
 func TestUsageLogFromService_UsesRequestedModelAndKeepsUpstreamAdminOnly(t *testing.T) {
@@ -164,19 +167,18 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 	t.Parallel()
 
 	ipAddress := "203.0.113.10"
-	accountRateMultiplier := 1.5
 	log := &service.UsageLog{
-		RequestID:             "req_user_visible_billing",
-		Model:                 "gpt-5.4",
-		InputCost:             0.01,
-		OutputCost:            0.02,
-		CacheCreationCost:     0.03,
-		CacheReadCost:         0.04,
-		TotalCost:             0.10,
-		ActualCost:            0.08,
-		RateMultiplier:        0.8,
-		IPAddress:             &ipAddress,
-		AccountRateMultiplier: &accountRateMultiplier,
+		RequestID:         "req_user_visible_billing",
+		Model:             "gpt-5.4",
+		InputCost:         0.01,
+		OutputCost:        0.02,
+		CacheCreationCost: 0.03,
+		CacheReadCost:     0.04,
+		TotalCost:         0.10,
+		ActualCost:        0.08,
+		RateMultiplier:    0.8,
+		IPAddress:         &ipAddress,
+		AccountCost:       0.05,
 	}
 
 	userDTO := UsageLogFromService(log)
@@ -192,7 +194,6 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 
 	userJSON, err := json.Marshal(userDTO)
 	require.NoError(t, err)
-	require.NotContains(t, string(userJSON), "account_rate_multiplier")
 	require.NotContains(t, string(userJSON), "account_cost")
 }
 
@@ -323,10 +324,6 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), `"image_size":null`)
 	require.NotContains(t, string(body), `"image_size":"2K"`)
-}
-
-func f64Ptr(value float64) *float64 {
-	return &value
 }
 
 // 用户接口不能让人看出请求走了哪个渠道：渠道 id、会话 id、上游端点只出现在管理员 DTO 的 JSON 里。

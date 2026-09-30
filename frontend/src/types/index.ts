@@ -764,7 +764,6 @@ export interface Account {
   concurrency: number
   current_concurrency?: number // Real-time concurrency count from Redis
   priority: number
-  rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   status: 'active' | 'inactive' | 'error'
   error_message: string | null
   last_used_at: string | null
@@ -824,7 +823,7 @@ export type AccountListItem = Account
 export interface WindowStats {
   requests: number
   tokens: number
-  cost: number // 渠道成本（标价 × 渠道成本倍率）；界面叫「成本」
+  cost: number // 渠道成本（用量 × 渠道给该模型的上游价）；界面叫「成本」
   standard_cost?: number
   user_cost?: number // 收入（actual_cost）；界面叫「收入」
 }
@@ -984,7 +983,6 @@ export interface CreateAccountRequest {
   proxy_id?: number | null
   concurrency?: number
   priority?: number
-  rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   expires_at?: number | null
   confirm_mixed_channel_risk?: boolean
 }
@@ -999,7 +997,6 @@ export interface UpdateAccountRequest {
   proxy_id?: number | null
   concurrency?: number
   priority?: number
-  rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
   expires_at?: number | null
@@ -1065,7 +1062,6 @@ export interface AdminDataAccount {
   proxy_key?: string | null
   concurrency: number
   priority: number
-  rate_multiplier?: number | null
   expires_at?: number | null
 }
 
@@ -1093,7 +1089,6 @@ export interface CodexSessionImportRequest {
   proxy_id?: number | null
   concurrency?: number
   priority?: number
-  rate_multiplier?: number
   expires_at?: number | null
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
@@ -1108,7 +1103,6 @@ export interface OpenAICodexPATCreateRequest {
   proxy_id?: number | null
   concurrency?: number
   priority?: number
-  rate_multiplier?: number
   expires_at?: number | null
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
@@ -1224,8 +1218,8 @@ export interface AdminUsageLog extends UsageLog {
   upstream_model_mismatch?: boolean | null
   upstream_request_id?: string | null
 
-  // 账号计费倍率（仅管理员可见）
-  account_rate_multiplier?: number | null
+  // 渠道成本 = 用量 × 这个渠道给这个模型的上游价（后端逐条算好；仅管理员接口返回，用户站的行没有）
+  account_cost?: number
 
   // 最小账号信息（仅管理员接口返回）
   account?: UsageLogAccountSummary
@@ -1391,7 +1385,7 @@ export interface TrendDataPoint {
   total_tokens: number
   cost: number // 标价（未乘任何倍率）
   actual_cost: number // 收入
-  /** 成本（付给渠道：标价 × 渠道成本倍率）；只有管理端趋势接口返回，用户站接口不带 */
+  /** 成本（付给渠道：用量 × 渠道给该模型的上游价）；只有管理端趋势接口返回，用户站接口不带 */
   account_cost?: number
 }
 
@@ -1423,7 +1417,7 @@ export interface EndpointStat {
   cost: number
   /** 收入 */
   actual_cost: number
-  /** 成本（付给渠道：标价 × 渠道成本倍率） */
+  /** 成本（付给渠道：用量 × 渠道给该模型的上游价） */
   account_cost: number
 }
 
@@ -1449,7 +1443,7 @@ export interface UserUsageTrendPoint {
   tokens: number
   cost: number // 标准计费
   actual_cost: number // 实际扣除（平台收入）
-  account_cost: number // 渠道成本（标价 × 渠道倍率），与模型统计同口径
+  account_cost: number // 渠道成本（用量 × 渠道给该模型的上游价），与模型统计同口径
 }
 
 export interface ApiKeyUsageTrendPoint {

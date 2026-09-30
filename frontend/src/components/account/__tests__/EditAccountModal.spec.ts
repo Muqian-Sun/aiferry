@@ -1,18 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
 const {
   updateAccountMock,
   authIsSimpleMode,
-  getProtocolDefaultsMock,
-  listAccountEntryIdsMock,
-  replaceAccountEntriesMock
+  getProtocolDefaultsMock
 } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
-  listAccountEntryIdsMock: vi.fn(),
-  replaceAccountEntriesMock: vi.fn(),
   authIsSimpleMode: { value: true },
   getProtocolDefaultsMock: vi.fn(),
 }))
@@ -42,9 +37,7 @@ vi.mock('@/api/admin', () => ({
       list: vi.fn().mockResolvedValue([])
     },
     modelCatalog: {
-      listEntries: vi.fn().mockResolvedValue([]),
-      listAccountEntryIds: listAccountEntryIdsMock,
-      replaceAccountEntries: replaceAccountEntriesMock
+      listEntries: vi.fn().mockResolvedValue([])
     }
   }
 }))
@@ -63,7 +56,6 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-import { adminAPI } from '@/api/admin'
 import EditAccountModal from '../EditAccountModal.vue'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
@@ -95,8 +87,6 @@ const PROTOCOL_DEFAULTS = {
 beforeEach(() => {
   resetProtocolDefaultsCacheForTest()
   getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
-  listAccountEntryIdsMock.mockReset().mockResolvedValue([])
-  replaceAccountEntriesMock.mockReset().mockImplementation(async (_id: number, ids: number[]) => ids)
 })
 
 const BaseDialogStub = defineComponent({
@@ -154,7 +144,6 @@ function buildAccount() {
     proxy_id: null,
     concurrency: 1,
     priority: 1,
-    rate_multiplier: 1,
     status: 'active',
     expires_at: null,
     auto_pause_on_expired: false
@@ -202,7 +191,6 @@ function buildVertexAccount() {
     proxy_id: null,
     concurrency: 1,
     priority: 1,
-    rate_multiplier: 1,
     status: 'active',
     expires_at: null,
     auto_pause_on_expired: false
@@ -226,7 +214,6 @@ function buildAntigravityAccount(projectId = 'configured-project') {
     proxy_id: null,
     concurrency: 1,
     priority: 1,
-    rate_multiplier: 1,
     status: 'active',
     expires_at: null,
     auto_pause_on_expired: false
@@ -251,7 +238,6 @@ function buildGrokOAuthAccount() {
     proxy_id: null,
     concurrency: 1,
     priority: 1,
-    rate_multiplier: 1,
     status: 'active',
     expires_at: null,
     auto_pause_on_expired: false
@@ -992,40 +978,6 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     await flushPromises()
     expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
-  })
-
-  // 承接的模型（2026-09-25 渠道表单里直接绑定）：按渠道读绑定，勾选变了保存时整份写回，没变不写。
-  it('loads the bound catalog entries and saves changed ticks through the account API', async () => {
-    const entry = (id: number, model_id: string, status: string) =>
-      ({ id, model_id, status, vendor: 'openai', vendor_platform: 'openai', bindings: [] } as unknown as ModelCatalogEntry)
-    vi.mocked(adminAPI.modelCatalog.listEntries).mockResolvedValue([
-      entry(199, 'gpt-5.6', 'listed'),
-      entry(217, 'gpt-5.6-mini', 'unlisted')
-    ])
-    listAccountEntryIdsMock.mockResolvedValue([199])
-    const account = buildAccount()
-    updateAccountMock.mockReset().mockResolvedValue(account)
-
-    const unchanged = mountModal(account)
-    await flushPromises()
-    expect(listAccountEntryIdsMock).toHaveBeenCalledWith(1)
-    await unchanged.get('form#edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(replaceAccountEntriesMock).not.toHaveBeenCalled()
-    unchanged.unmount()
-
-    const wrapper = mountModal(account)
-    await flushPromises()
-    const picker = wrapper.get('[data-testid="catalog-entry-picker"]')
-    expect((picker.get('[data-testid="catalog-entry-199"]').element as HTMLInputElement).checked).toBe(true)
-    expect((picker.get('[data-testid="catalog-entry-217"]').element as HTMLInputElement).checked).toBe(false)
-    await picker.get('[data-testid="catalog-entry-217"]').setValue(true)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(replaceAccountEntriesMock).toHaveBeenCalledTimes(1)
-    expect(replaceAccountEntriesMock.mock.calls[0]?.[0]).toBe(1)
-    expect([...(replaceAccountEntriesMock.mock.calls[0]?.[1] ?? [])].sort()).toEqual([199, 217])
   })
 
   // 分组绑定段已删：弹窗里没有分组选择器，保存也不带 group_ids

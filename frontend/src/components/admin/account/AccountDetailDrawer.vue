@@ -105,9 +105,6 @@
         <DetailField :label="t('admin.accounts.columns.priority')">
           <span class="tabular-nums">{{ account.priority }}</span>
         </DetailField>
-        <DetailField :label="t('admin.accounts.columns.billingRateMultiplier')">
-          <span class="font-mono tabular-nums">{{ formatMultiplier(account.rate_multiplier ?? 1) }}x</span>
-        </DetailField>
         <DetailField :label="t('admin.accounts.columns.proxy')" :value="account.proxy ? account.proxy.name : t('admin.accounts.detail.noProxy')" />
         <DetailField :label="t('admin.accounts.columns.expiresAt')">
           <span :class="isExpired ? 'text-af-warning' : ''">{{ expiresText }}</span>
@@ -190,7 +187,6 @@ import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
 import { accountDisplayEmail, antigravityTierKey, getAccountPlanType, getOpenAIAuthMode, openAICompactState } from './accountDisplay'
 import type { AccountDetailTab } from './accountDetail'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountListItem, ClaudeModel } from '@/types'
 
 const props = withDefaults(

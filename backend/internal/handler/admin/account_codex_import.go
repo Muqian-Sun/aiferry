@@ -29,7 +29,6 @@ type CodexSessionImportRequest struct {
 	ProxyID          *int64         `json:"proxy_id"`
 	Concurrency      *int           `json:"concurrency"`
 	Priority         *int           `json:"priority"`
-	RateMultiplier   *float64       `json:"rate_multiplier"`
 	ExpiresAt        *int64         `json:"expires_at"`
 	CredentialExtras map[string]any `json:"credential_extras"`
 	Extra            map[string]any `json:"extra"`
@@ -122,10 +121,6 @@ func (h *AccountHandler) ImportCodexSession(c *gin.Context) {
 	}
 	if req.Priority != nil && *req.Priority < 0 {
 		response.BadRequest(c, "priority must be >= 0")
-		return
-	}
-	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
-		response.BadRequest(c, "rate_multiplier must be >= 0")
 		return
 	}
 	entries, err := parseCodexSessionImportEntries(req)
@@ -257,12 +252,11 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			mergedCredentials := mergeCodexImportCredentials(existing.Credentials, credentials, item)
 			mergedExtra := mergeCodexImportMap(existing.Extra, extra)
 			updateInput := &service.UpdateAccountInput{
-				Credentials:    mergedCredentials,
-				Extra:          mergedExtra,
-				Concurrency:    req.Concurrency,
-				Priority:       req.Priority,
-				RateMultiplier: req.RateMultiplier,
-				ExpiresAt:      effectiveExpiresAt,
+				Credentials: mergedCredentials,
+				Extra:       mergedExtra,
+				Concurrency: req.Concurrency,
+				Priority:    req.Priority,
+				ExpiresAt:   effectiveExpiresAt,
 			}
 			if req.ProxyID != nil {
 				updateInput.ProxyID = req.ProxyID
@@ -302,17 +296,16 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		}
 
 		account, createErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:           accountName,
-			Notes:          req.Notes,
-			Platform:       service.PlatformOpenAI,
-			Type:           service.AccountTypeOAuth,
-			Credentials:    credentials,
-			Extra:          extra,
-			ProxyID:        req.ProxyID,
-			Concurrency:    concurrency,
-			Priority:       priority,
-			RateMultiplier: req.RateMultiplier,
-			ExpiresAt:      effectiveExpiresAt,
+			Name:        accountName,
+			Notes:       req.Notes,
+			Platform:    service.PlatformOpenAI,
+			Type:        service.AccountTypeOAuth,
+			Credentials: credentials,
+			Extra:       extra,
+			ProxyID:     req.ProxyID,
+			Concurrency: concurrency,
+			Priority:    priority,
+			ExpiresAt:   effectiveExpiresAt,
 		})
 		if createErr != nil {
 			result.Failed++

@@ -254,31 +254,30 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 		return
 	}
 	billingMode := string(BillingModeImage)
-	accountRateMultiplier := job.AccountRateMultiplier
 	inboundEndpoint := "/v1/images/batches"
 	upstreamEndpoint := "vertex:batchPredictionJobs"
 	imageSize := "1K"
 	usageLog := &UsageLog{
-		UserID:                job.UserID,
-		APIKeyID:              *job.APIKeyID,
-		AccountID:             *job.AccountID,
-		RequestID:             strings.TrimSpace(requestID),
-		Model:                 job.Model,
-		RequestedModel:        job.Model,
-		InboundEndpoint:       &inboundEndpoint,
-		UpstreamEndpoint:      &upstreamEndpoint,
-		ImageCount:            job.SuccessCount,
-		ImageOutputCost:       actualCost,
-		TotalCost:             actualCost,
-		ActualCost:            actualCost,
-		RateMultiplier:        job.GroupRateMultiplier * job.BatchDiscountMultiplier,
-		AccountRateMultiplier: &accountRateMultiplier,
-		BillingType:           BillingTypeBalance,
-		RequestType:           RequestTypeSync,
-		BillingMode:           &billingMode,
-		ImageSize:             &imageSize,
-		SessionID:             job.SessionID,
-		CreatedAt:             createdAt,
+		UserID:           job.UserID,
+		APIKeyID:         *job.APIKeyID,
+		AccountID:        *job.AccountID,
+		RequestID:        strings.TrimSpace(requestID),
+		Model:            job.Model,
+		RequestedModel:   job.Model,
+		InboundEndpoint:  &inboundEndpoint,
+		UpstreamEndpoint: &upstreamEndpoint,
+		ImageCount:       job.SuccessCount,
+		ImageOutputCost:  actualCost,
+		TotalCost:        actualCost,
+		ActualCost:       actualCost,
+		RateMultiplier:   job.GroupRateMultiplier * job.BatchDiscountMultiplier,
+		// AccountCost 先记 0：批量生图已隐藏，渠道的生图上游价等接入生图时再定。
+		BillingType: BillingTypeBalance,
+		RequestType: RequestTypeSync,
+		BillingMode: &billingMode,
+		ImageSize:   &imageSize,
+		SessionID:   job.SessionID,
+		CreatedAt:   createdAt,
 	}
 	writeUsageLogBestEffort(ctx, s.UsageLogRepo, usageLog, "service.batch_image_settlement")
 }

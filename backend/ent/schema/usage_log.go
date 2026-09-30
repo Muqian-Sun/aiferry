@@ -106,11 +106,10 @@ func (UsageLog) Fields() []ent.Field {
 			Default(1).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}),
 
-		// account_rate_multiplier: 账号计费倍率快照（NULL 表示按 1.0 处理）
-		field.Float("account_rate_multiplier").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}),
+		// account_cost: 渠道成本 = 用量 × 这个渠道给这个模型的上游价（承接关系上的上游价），记账时逐行算好。
+		field.Float("account_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 
 		// 其他字段
 		field.Int8("billing_type").

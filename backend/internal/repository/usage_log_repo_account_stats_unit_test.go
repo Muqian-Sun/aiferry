@@ -16,7 +16,7 @@ import (
 )
 
 // 渠道统计（/admin/accounts/:id/stats）的金额和同一响应里的 models[] 同名同义：
-// actual_cost 是收入（Σ usage_logs.actual_cost），account_cost 是渠道成本（Σ total_cost × 渠道成本倍率）。
+// actual_cost 是收入（Σ usage_logs.actual_cost），account_cost 是渠道成本（Σ usage_logs.account_cost）。
 // 以前 history[].actual_cost / summary.total_cost / today.cost 实际是渠道成本，user_cost 才是收入。
 func TestGetAccountUsageStats_ActualCostIsRevenueAndAccountCostIsCost(t *testing.T) {
 	db, mock := newSQLMock(t)
@@ -27,7 +27,7 @@ func TestGetAccountUsageStats_ActualCostIsRevenueAndAccountCostIsCost(t *testing
 
 	selectList := strings.Join([]string{
 		regexp.QuoteMeta("COALESCE(SUM(actual_cost), 0) as actual_cost,"),
-		regexp.QuoteMeta("COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost"),
+		regexp.QuoteMeta("COALESCE(SUM(account_cost), 0) as account_cost"),
 	}, `\s*`)
 	mock.ExpectQuery(selectList).
 		WithArgs(int64(7), start, end).

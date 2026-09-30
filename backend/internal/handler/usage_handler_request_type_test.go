@@ -204,26 +204,25 @@ func TestUserUsageListAllowsVideoBillingMode(t *testing.T) {
 func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) {
 	ipAddress := "203.0.113.10"
 	upstreamModel := "upstream-private-model"
-	accountRateMultiplier := 1.7
 	repo := &userUsageRepoCapture{
 		listRows: []service.UsageLog{{
-			ID:                    1,
-			UserID:                42,
-			APIKeyID:              7,
-			AccountID:             5,
-			RequestID:             "req_user_billing",
-			Model:                 "gpt-5",
-			NativeCompactionV2:    true,
-			InputCost:             0.01,
-			OutputCost:            0.02,
-			CacheCreationCost:     0.03,
-			CacheReadCost:         0.04,
-			TotalCost:             0.10,
-			ActualCost:            0.08,
-			RateMultiplier:        0.8,
-			IPAddress:             &ipAddress,
-			UpstreamModel:         &upstreamModel,
-			AccountRateMultiplier: &accountRateMultiplier,
+			ID:                 1,
+			UserID:             42,
+			APIKeyID:           7,
+			AccountID:          5,
+			RequestID:          "req_user_billing",
+			Model:              "gpt-5",
+			NativeCompactionV2: true,
+			InputCost:          0.01,
+			OutputCost:         0.02,
+			CacheCreationCost:  0.03,
+			CacheReadCost:      0.04,
+			TotalCost:          0.10,
+			ActualCost:         0.08,
+			RateMultiplier:     0.8,
+			IPAddress:          &ipAddress,
+			UpstreamModel:      &upstreamModel,
+			AccountCost:        0.05,
 		}},
 	}
 	router := newUserUsageRequestTypeTestRouter(repo)
@@ -244,7 +243,7 @@ func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) 
 	require.Contains(t, body, `"native_compaction_v2":true`)
 	require.Contains(t, body, `"ip_address":"203.0.113.10"`)
 	require.NotContains(t, body, "upstream_endpoint")
-	require.NotContains(t, body, "account_rate_multiplier")
+	require.NotContains(t, body, "account_cost")
 	require.NotContains(t, body, "upstream_model")
 	require.NotContains(t, body, "upstream_response_model")
 	require.NotContains(t, body, "upstream_model_mismatch")

@@ -250,7 +250,6 @@ func TestOpenAIGatewayService_Forward_LogsInstructionsRequiredDetails(t *testing
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		Status:            StatusActive,
 		Schedulable:       true,
-		RateMultiplier:    f64p(1),
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	body := []byte(`{"model":"gpt-5.1-codex","stream":false,"input":[{"type":"text","text":"hello"}],"prompt_cache_key":"pc-forward","access_token":"secret-token"}`)
@@ -307,7 +306,6 @@ func TestOpenAIGatewayService_Forward_TransientProcessingErrorTriggersFailover(t
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		Status:            StatusActive,
 		Schedulable:       true,
-		RateMultiplier:    f64p(1),
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	body := []byte(`{"model":"gpt-5.1-codex","stream":false,"input":[{"type":"text","text":"hello"}]}`)
@@ -359,7 +357,6 @@ func TestOpenAIGatewayService_Forward_ModelCapacityErrorTriggersFailoverAndSameA
 		},
 		Status:            StatusActive,
 		Schedulable:       true,
-		RateMultiplier:    f64p(1),
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"text","text":"hello"}]}`)

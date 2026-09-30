@@ -208,9 +208,6 @@
               </span>
             </div>
           </template>
-          <template #cell-rate_multiplier="{ row }">
-            <span class="font-mono text-sm tabular-nums text-af-ink-2">{{ formatMultiplier(row.rate_multiplier ?? 1) }}x</span>
-          </template>
           <template #cell-priority="{ value }">
             <span class="text-sm tabular-nums text-af-ink-2">{{ value }}</span>
           </template>
@@ -386,7 +383,6 @@ import { fetchAllAccountIds } from '@/utils/accountSelection'
 import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
-import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats } from '@/types'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
@@ -494,7 +490,6 @@ const ACCOUNT_SORTABLE_KEYS = new Set([
   'status',
   'schedulable',
   'priority',
-  'rate_multiplier',
   'last_used_at',
   'created_at',
   'expires_at'
@@ -947,7 +942,6 @@ const allColumns = computed(() => [
   { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
   { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },
   { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
-  { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: true },
   { key: 'created_at', label: t('admin.accounts.columns.createdAt'), sortable: true },
   { key: 'expires_at', label: t('admin.accounts.columns.expiresAt'), sortable: true },
   { key: 'notes', label: t('admin.accounts.columns.notes'), sortable: false },
@@ -960,7 +954,7 @@ const columnSettings = useColumnSettings({
   storageKey: 'admin-accounts-columns',
   version: 3,
   columns: allColumns,
-  defaultHidden: ['priority', 'proxy', 'rate_multiplier', 'created_at', 'expires_at', 'notes'],
+  defaultHidden: ['priority', 'proxy', 'created_at', 'expires_at', 'notes'],
   alwaysVisible: ['select', 'name', 'actions']
 })
 const cols = columnSettings.visibleColumns

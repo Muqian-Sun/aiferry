@@ -1,10 +1,10 @@
 <template>
   <!--
     目录条目表单（muqian 2026-09-25 改成独立页 /model-catalog/new、/model-catalog/:id/edit，分区导航在左）：
-    基本（模型 ID 输入后按价格文件自动带出厂商 / 计费 / 价格）/ 价格（按每百万 Token 填）/ 承接的渠道（直接勾选）。
+    基本（模型 ID 输入后按价格文件自动带出厂商 / 计费 / 价格）/ 价格（按每百万 Token 填）。
+    承接的渠道（渠道 × 模型的上游价绑定）不在这里编辑。
     按 Token 计费的「按 Token 分段」（muqian 2026-09-29）：上面的价格就是第一段，这里只加「超过 N Token」之后的各段。
     保存是整条覆盖：表单从条目整条投影（entryToRequest），没露出的字段（最高推理倍率、分时…）原样写回。
-    保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定；绑定被拒时条目已保存，弹出后端原因、表单保持打开。
   -->
   <FormPageShell :show="true" :title="title">
     <form id="model-catalog-form" class="space-y-5" @submit.prevent="save">
@@ -247,9 +247,6 @@
         </div>
       </div>
       <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
-
-      <FormSectionHeading section="channels" :title="t('admin.modelCatalog.editor.channels')" />
-      <CatalogChannelPicker v-model="bindings" :entry-id="editingId" />
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -267,11 +264,10 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import type { ModelCatalogBinding, ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
+import type { ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Icon from '@/components/icons/Icon.vue'
-import CatalogChannelPicker from './CatalogChannelPicker.vue'
 import PriceInput from './PriceInput.vue'
 import {
   IMAGE_TIER_LABELS,
@@ -309,7 +305,6 @@ const perMillionUnit = computed(() => t('admin.modelCatalog.editor.units.perMill
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const loadedEntry = ref<ModelCatalogEntry | null>(null)
-const bindings = ref<ModelCatalogBinding[]>([])
 
 // 新建用的空表单要把每个字段都列全：Object.assign 只覆盖列出的键，漏一个就会把上一次编辑的条目的值带进新条目
 const emptyForm = (): ModelCatalogEntryRequest => ({
@@ -590,8 +585,7 @@ function logApiError(error: unknown) {
   console.error(extractApiErrorMessage(error, t('common.unknownError')), error)
 }
 
-async function loadFor(entry: ModelCatalogEntry | null) {
-  bindings.value = []
+function loadFor(entry: ModelCatalogEntry | null) {
   showMorePrices.value = false
   customVendor.value = false
   lastAutofill = null
@@ -614,17 +608,12 @@ async function loadFor(entry: ModelCatalogEntry | null) {
   // 只有按 Token 计费的区间是分段；按次模式按 Token 区间的分档另算，按原值写回
   tokenSegmentRows.value = (entry.billing_mode || 'token') === 'token' ? tokenSegmentsFromIntervals(entry.intervals, entry) : []
   segmentsSubmitted.value = false
-  try {
-    bindings.value = await adminAPI.modelCatalog.getBindings(entry.id)
-  } catch (error) {
-    logApiError(error)
-  }
 }
 
 watch(
   () => props.entry,
   (entry) => {
-    void loadFor(entry)
+    loadFor(entry)
   },
   { immediate: true }
 )
@@ -652,13 +641,6 @@ function payload(): ModelCatalogEntryRequest {
   return applyOptionalPrices(body, form)
 }
 
-function bindingsPayload() {
-  return bindings.value.map((binding) => ({
-    account_id: binding.account_id,
-    priority: numberOrNull(binding.priority)
-  }))
-}
-
 async function save() {
   if (form.billing_mode === 'token' && segmentErrors.value.some((error) => error != null)) {
     segmentsSubmitted.value = true
@@ -666,15 +648,12 @@ async function save() {
   }
   saving.value = true
   try {
-    let entryId = editingId.value
-    if (entryId) {
-      await adminAPI.modelCatalog.updateEntry(entryId, payload())
+    if (editingId.value) {
+      await adminAPI.modelCatalog.updateEntry(editingId.value, payload())
     } else {
       const created = await adminAPI.modelCatalog.createEntry(payload())
-      entryId = created.id
       editingId.value = created.id
     }
-    await adminAPI.modelCatalog.updateBindings(entryId, bindingsPayload())
     emit('saved')
   } catch (error) {
     logApiError(error)

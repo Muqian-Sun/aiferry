@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createAccountMock,
-  replaceAccountEntriesMock,
   syncUpstreamModelsMock,
   importCodexSessionMock,
   createOpenAICodexPATMock,
@@ -12,7 +11,6 @@ const {
   getProtocolDefaultsMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
-  replaceAccountEntriesMock: vi.fn(),
   syncUpstreamModelsMock: vi.fn(),
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
@@ -50,7 +48,6 @@ vi.mock('@/api/admin', () => ({
     },
     modelCatalog: {
       listEntries: vi.fn().mockResolvedValue([]),
-      replaceAccountEntries: replaceAccountEntriesMock,
     },
   },
 }))
@@ -250,7 +247,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'openai', type: 'apikey' })
-    replaceAccountEntriesMock.mockReset().mockResolvedValue([])
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
     importCodexSessionMock.mockReset().mockResolvedValue({
       created: 1,
@@ -582,7 +578,6 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
-    replaceAccountEntriesMock.mockReset().mockResolvedValue([])
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
   })
 

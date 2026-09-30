@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
-	"sort"
-	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
@@ -15,7 +13,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/lib/pq"
 )
 
 type modelCatalogRepository struct {
@@ -173,7 +170,7 @@ func (r *modelCatalogRepository) hydrateEntry(ctx context.Context, entry *servic
 	return entry, nil
 }
 
-// ListBindingsByEntry 返回条目的绑定（按账号 ID 排序）。
+// ListBindingsByEntry 返回条目的承接关系（带上游价，按账号 ID 排序）。
 func (r *modelCatalogRepository) ListBindingsByEntry(ctx context.Context, entryID int64) ([]service.ModelCatalogBinding, error) {
 	client := clientFromContext(ctx, r.client)
 	rows, err := client.ModelCatalogBinding.Query().
@@ -188,110 +185,6 @@ func (r *modelCatalogRepository) ListBindingsByEntry(ctx context.Context, entryI
 		bindings = append(bindings, modelCatalogBindingToService(row))
 	}
 	return bindings, nil
-}
-
-// ReplaceBindings 用整份列表覆盖条目的绑定，提交后向调度 outbox 投递事件。
-func (r *modelCatalogRepository) ReplaceBindings(ctx context.Context, entryID int64, bindings []service.ModelCatalogBinding) error {
-	err := r.withTx(ctx, func(tx *dbent.Tx) error {
-		if _, err := tx.ModelCatalogBinding.Delete().
-			Where(modelcatalogbinding.EntryIDEQ(entryID)).Exec(ctx); err != nil {
-			return err
-		}
-		for _, binding := range bindings {
-			if _, err := tx.ModelCatalogBinding.Create().
-				SetEntryID(entryID).
-				SetAccountID(binding.AccountID).
-				SetNillablePriority(binding.Priority).
-				Save(ctx); err != nil {
-				return translateCatalogBindingError(err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return r.enqueueCatalogBindingsChanged(ctx, entryID)
-}
-
-// ListEntryIDsByAccount 返回账号被哪些条目绑定。
-func (r *modelCatalogRepository) ListEntryIDsByAccount(ctx context.Context, accountID int64) ([]int64, error) {
-	client := clientFromContext(ctx, r.client)
-	rows, err := client.ModelCatalogBinding.Query().
-		Where(modelcatalogbinding.AccountIDEQ(accountID)).
-		Order(dbent.Asc(modelcatalogbinding.FieldEntryID)).
-		All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]int64, 0, len(rows))
-	for _, row := range rows {
-		ids = append(ids, row.EntryID)
-	}
-	return ids, nil
-}
-
-// ReplaceAccountBindings 用整份条目列表覆盖账号被绑定的条目：删掉不在列表里的，补上新增的
-// （优先级为空，跟随账号优先级），保留下来的绑定原优先级不变。提交后按受影响的条目投递调度 outbox。
-func (r *modelCatalogRepository) ReplaceAccountBindings(ctx context.Context, accountID int64, entryIDs []int64) error {
-	want := make(map[int64]struct{}, len(entryIDs))
-	for _, id := range entryIDs {
-		want[id] = struct{}{}
-	}
-	var affected []int64
-	err := r.withTx(ctx, func(tx *dbent.Tx) error {
-		rows, err := tx.ModelCatalogBinding.Query().
-			Where(modelcatalogbinding.AccountIDEQ(accountID)).
-			All(ctx)
-		if err != nil {
-			return err
-		}
-		have := make(map[int64]struct{}, len(rows))
-		for _, row := range rows {
-			have[row.EntryID] = struct{}{}
-			if _, keep := want[row.EntryID]; keep {
-				continue
-			}
-			if _, err := tx.ModelCatalogBinding.Delete().
-				Where(modelcatalogbinding.AccountIDEQ(accountID), modelcatalogbinding.EntryIDEQ(row.EntryID)).
-				Exec(ctx); err != nil {
-				return err
-			}
-			affected = append(affected, row.EntryID)
-		}
-		for _, id := range entryIDs {
-			if _, exists := have[id]; exists {
-				continue
-			}
-			if _, err := tx.ModelCatalogBinding.Create().
-				SetEntryID(id).
-				SetAccountID(accountID).
-				Save(ctx); err != nil {
-				return translateCatalogBindingError(err)
-			}
-			affected = append(affected, id)
-		}
-		return nil
-	})
-	if err != nil || len(affected) == 0 {
-		return err
-	}
-	sort.Slice(affected, func(i, j int) bool { return affected[i] < affected[j] })
-	payload := map[string]any{"entry_ids": affected}
-	return enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventCatalogBindingsChanged, nil, payload)
-}
-
-// translateCatalogBindingError 把绑定写入的外键冲突翻译成业务错误：
-// 账号外键冲突是「账号不存在」，条目外键冲突是「条目不存在」。
-func translateCatalogBindingError(err error) error {
-	if !isForeignKeyViolation(err) {
-		return err
-	}
-	var pgErr *pq.Error
-	if errors.As(err, &pgErr) && strings.Contains(pgErr.Constraint, "account") {
-		return service.ErrModelCatalogBindingAccountNotFound.WithCause(err)
-	}
-	return service.ErrModelCatalogEntryNotFound.WithCause(err)
 }
 
 func (r *modelCatalogRepository) enqueueCatalogBindingsChanged(ctx context.Context, entryID int64) error {
@@ -708,13 +601,36 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 	}
 }
 
+// modelCatalogBindingToService 把承接关系行（带上游价）转成服务层结构。上游分段价存成
+// domain.PriceSegment 的 JSONB 数组，按数组下标排序：SortOrder = 下标，分段没有档位名。
 func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelCatalogBinding {
-	return service.ModelCatalogBinding{
-		EntryID:   row.EntryID,
-		AccountID: row.AccountID,
-		Priority:  row.Priority,
-		CreatedAt: row.CreatedAt,
+	binding := service.ModelCatalogBinding{
+		EntryID:           row.EntryID,
+		AccountID:         row.AccountID,
+		InputPrice:        row.InputPrice,
+		OutputPrice:       row.OutputPrice,
+		CacheWritePrice:   row.CacheWritePrice,
+		CacheWrite1hPrice: row.CacheWrite1hPrice,
+		CacheReadPrice:    row.CacheReadPrice,
+		CreatedAt:         row.CreatedAt,
+		UpdatedAt:         row.UpdatedAt,
 	}
+	if len(row.PriceIntervals) > 0 {
+		binding.Intervals = make([]service.PricingInterval, 0, len(row.PriceIntervals))
+		for i, segment := range row.PriceIntervals {
+			binding.Intervals = append(binding.Intervals, service.PricingInterval{
+				MinTokens:         segment.MinTokens,
+				MaxTokens:         segment.MaxTokens,
+				InputPrice:        segment.InputPrice,
+				OutputPrice:       segment.OutputPrice,
+				CacheWritePrice:   segment.CacheWritePrice,
+				CacheWrite1hPrice: segment.CacheWrite1hPrice,
+				CacheReadPrice:    segment.CacheReadPrice,
+				SortOrder:         i,
+			})
+		}
+	}
+	return binding
 }
 
 func modelCatalogAliasToService(row *dbent.ModelCatalogAlias) *service.ModelCatalogAlias {
