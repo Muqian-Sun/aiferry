@@ -73,11 +73,13 @@
         <p v-if="rows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('userUi.serviceStatus.models.empty') }}</p>
         <template v-else>
           <!-- 与模型页同一种 hairline 分格（不是卡片）：窄屏一列、sm 两列、lg 三列 -->
-          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="service-status-models">
+          <!-- 控制台里有侧栏、内容区窄一截：宽屏（xl）才排 3 列 -->
+          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline" :class="shell === 'console' ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'" data-testid="service-status-models">
             <li
               v-for="row in visibleActive"
               :key="row.model"
-              class="min-w-0 border-b border-af-hairline px-6 py-4 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+              class="min-w-0 border-b border-af-hairline px-6 py-4"
+              :class="shell === 'console' ? 'sm:max-xl:[&:nth-child(2n)]:border-l xl:[&:not(:nth-child(3n+1))]:border-l' : 'sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l'"
               data-testid="service-status-model"
             >
               <div class="flex items-center gap-2.5">

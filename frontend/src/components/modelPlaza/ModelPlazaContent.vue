@@ -89,7 +89,8 @@
         网格：hairline 分格，不是卡片。竖线只画在同一行里非第一个格子的左边：
         sm–lg 两列（偶数格），lg 起三列（非 3n+1 格）——两条规则按断点互斥，不能互相覆盖。
       -->
-      <ul v-else class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog-grid">
+      <!-- 控制台里有侧栏、内容区窄一截：宽屏（xl）才排 3 列 -->
+      <ul v-else class="-mx-6 grid border-t border-af-hairline" :class="embedded ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'" data-testid="catalog-grid">
         <!--
           整格可点：鼠标点格子任意处打开详情（选中文字时不打开）；键盘 Tab 到模型名按钮，Enter / Space 打开。
           复制按钮单独处理、不冒泡。格子是 flex 列，标签行留一行高，没有标签的格子与有标签的一样高。
@@ -97,7 +98,8 @@
         <li
           v-for="entry in filtered"
           :key="entry.id"
-          class="group flex min-w-0 cursor-pointer flex-col border-b border-af-hairline px-6 py-6 transition-colors hover:bg-af-sunken/60 focus-within:bg-af-sunken/60 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+          class="group flex min-w-0 cursor-pointer flex-col border-b border-af-hairline px-6 py-6 transition-colors hover:bg-af-sunken/60 focus-within:bg-af-sunken/60"
+          :class="embedded ? 'sm:max-xl:[&:nth-child(2n)]:border-l xl:[&:not(:nth-child(3n+1))]:border-l' : 'sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l'"
           data-testid="catalog-cell"
           @click="onCellClick(entry)"
         >
