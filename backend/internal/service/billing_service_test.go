@@ -1363,7 +1363,8 @@ func TestCalculateCostWithServiceTier_FlexAppliesHalfMultiplier(t *testing.T) {
 	require.InDelta(t, baseCost.TotalCost*0.5, flexCost.TotalCost, 1e-10)
 }
 
-func TestCalculateCostWithServiceTier_Gpt54MiniPriorityFallsBackToTierMultiplier(t *testing.T) {
+// 没配 Fast 价也没配 Fast 倍率的模型，priority 请求按标准价收（muqian 2026-09-30「没配 Fast / Flex 的模型一律按标准价收」）。
+func TestCalculateCostWithServiceTier_Gpt54MiniPriorityWithoutFastConfigBillsStandard(t *testing.T) {
 	svc := newTestBillingService()
 	tokens := UsageTokens{InputTokens: 120, OutputTokens: 30, CacheCreationTokens: 12, CacheReadTokens: 8}
 
@@ -1373,14 +1374,15 @@ func TestCalculateCostWithServiceTier_Gpt54MiniPriorityFallsBackToTierMultiplier
 	priorityCost, err := svc.CalculateCostWithServiceTier("gpt-5.4-mini", tokens, 1.0, "priority")
 	require.NoError(t, err)
 
-	require.InDelta(t, baseCost.InputCost*2, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*2, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost*2, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*2, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*2, priorityCost.TotalCost, 1e-10)
+	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
+	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
+	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
+	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
+	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
 }
 
-func TestCalculateCostWithServiceTier_Gpt54NanoFlexAppliesHalfMultiplier(t *testing.T) {
+// 没配 Fast / Flex 的模型，flex 请求按标准价收。
+func TestCalculateCostWithServiceTier_Gpt54NanoFlexWithoutTierConfigBillsStandard(t *testing.T) {
 	svc := newTestBillingService()
 	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheCreationTokens: 40, CacheReadTokens: 20}
 
@@ -1390,14 +1392,14 @@ func TestCalculateCostWithServiceTier_Gpt54NanoFlexAppliesHalfMultiplier(t *test
 	flexCost, err := svc.CalculateCostWithServiceTier("gpt-5.4-nano", tokens, 1.0, "flex")
 	require.NoError(t, err)
 
-	require.InDelta(t, baseCost.InputCost*0.5, flexCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*0.5, flexCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost*0.5, flexCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*0.5, flexCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*0.5, flexCost.TotalCost, 1e-10)
+	require.InDelta(t, baseCost.InputCost, flexCost.InputCost, 1e-10)
+	require.InDelta(t, baseCost.OutputCost, flexCost.OutputCost, 1e-10)
+	require.InDelta(t, baseCost.CacheCreationCost, flexCost.CacheCreationCost, 1e-10)
+	require.InDelta(t, baseCost.CacheReadCost, flexCost.CacheReadCost, 1e-10)
+	require.InDelta(t, baseCost.TotalCost, flexCost.TotalCost, 1e-10)
 }
 
-func TestCalculateCostWithServiceTier_PriorityFallsBackToTierMultiplierWithoutExplicitPriorityPrice(t *testing.T) {
+func TestCalculateCostWithServiceTier_ClaudePriorityWithoutFastConfigBillsStandard(t *testing.T) {
 	svc := newTestBillingService()
 	tokens := UsageTokens{InputTokens: 120, OutputTokens: 30, CacheCreationTokens: 12, CacheReadTokens: 8}
 
@@ -1407,11 +1409,11 @@ func TestCalculateCostWithServiceTier_PriorityFallsBackToTierMultiplierWithoutEx
 	priorityCost, err := svc.CalculateCostWithServiceTier("claude-sonnet-4", tokens, 1.0, "priority")
 	require.NoError(t, err)
 
-	require.InDelta(t, baseCost.InputCost*2, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*2, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost*2, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*2, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*2, priorityCost.TotalCost, 1e-10)
+	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
+	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
+	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
+	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
+	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
 }
 
 func TestBillingServiceGetModelPricing_UsesDynamicPriorityFields(t *testing.T) {
@@ -1460,7 +1462,8 @@ func TestBillingServiceGetModelPricing_OpenAIFallbackGpt52Variants(t *testing.T)
 	require.InDelta(t, 28e-6, gpt52Codex.OutputPricePerTokenPriority, 1e-12)
 }
 
-func TestCalculateCostWithServiceTier_PriorityFallsBackToTierMultiplierWhenExplicitPriceMissing(t *testing.T) {
+// 档位倍率只对配了档位的模型生效：没配的 priority 按标准价；配了 Fast / Flex 倍率的按倍率。
+func TestCalculateCostWithServiceTier_TierMultipliersOnlyWhenConfigured(t *testing.T) {
 	svc := NewBillingService(&config.Config{}, &PricingService{
 		pricingData: map[string]*LiteLLMModelPricing{
 			"custom-no-priority": {
@@ -1479,11 +1482,23 @@ func TestCalculateCostWithServiceTier_PriorityFallsBackToTierMultiplierWhenExpli
 	priorityCost, err := svc.CalculateCostWithServiceTier("custom-no-priority", tokens, 1.0, "priority")
 	require.NoError(t, err)
 
-	require.InDelta(t, baseCost.InputCost*2, priorityCost.InputCost, 1e-10)
-	require.InDelta(t, baseCost.OutputCost*2, priorityCost.OutputCost, 1e-10)
-	require.InDelta(t, baseCost.CacheCreationCost*2, priorityCost.CacheCreationCost, 1e-10)
-	require.InDelta(t, baseCost.CacheReadCost*2, priorityCost.CacheReadCost, 1e-10)
-	require.InDelta(t, baseCost.TotalCost*2, priorityCost.TotalCost, 1e-10)
+	require.InDelta(t, baseCost.InputCost, priorityCost.InputCost, 1e-10)
+	require.InDelta(t, baseCost.OutputCost, priorityCost.OutputCost, 1e-10)
+	require.InDelta(t, baseCost.CacheCreationCost, priorityCost.CacheCreationCost, 1e-10)
+	require.InDelta(t, baseCost.CacheReadCost, priorityCost.CacheReadCost, 1e-10)
+	require.InDelta(t, baseCost.TotalCost, priorityCost.TotalCost, 1e-10)
+
+	// 配了 Fast 倍率：priority 整单 × 它；只配 Fast 倍率也算支持档位，flex 按官方默认 ×0.5
+	fast := 3.0
+	withFast := &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 2e-6, FastMultiplier: &fast}
+	standard := svc.computeTokenBreakdown(withFast, tokens, 1, "")
+	require.InDelta(t, standard.TotalCost*3, svc.computeTokenBreakdown(withFast, tokens, 1, "priority").TotalCost, 1e-12)
+	require.InDelta(t, standard.TotalCost*0.5, svc.computeTokenBreakdown(withFast, tokens, 1, "flex").TotalCost, 1e-12)
+	// 只配了 Flex 倍率：flex 按它，priority 不加价
+	flex := 0.4
+	withFlex := &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 2e-6, FlexMultiplier: &flex}
+	require.InDelta(t, standard.TotalCost*0.4, svc.computeTokenBreakdown(withFlex, tokens, 1, "flex").TotalCost, 1e-12)
+	require.InDelta(t, standard.TotalCost, svc.computeTokenBreakdown(withFlex, tokens, 1, "priority").TotalCost, 1e-12)
 }
 
 func TestGetModelPricing_OpenAIGpt52FallbacksExposePriorityPrices(t *testing.T) {

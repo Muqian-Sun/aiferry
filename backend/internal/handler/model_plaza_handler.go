@@ -89,7 +89,7 @@ func toModelPlazaModelDTO(m *service.PlazaCatalogModel) modelPlazaModel {
 		DisplayName: m.DisplayName,
 		Vendor:      m.Vendor,
 		BillingMode: string(m.BillingMode),
-		Pricing:     toUserPricing(m.Pricing),
+		Pricing:     toUserPricing(m.Pricing, m.TokenExtras),
 		TimePricing: toModelPlazaTimePricing(m.TimePricing),
 		Aliases:     aliases,
 	}
@@ -113,18 +113,31 @@ func toModelPlazaTimePricing(p *service.TimePricing) *modelPlazaTimePricing {
 
 // userSupportedModelPricing 用户可见的定价字段白名单。
 type userSupportedModelPricing struct {
-	BillingMode                  string                   `json:"billing_mode"`
-	InputPrice                   *float64                 `json:"input_price"`
-	OutputPrice                  *float64                 `json:"output_price"`
-	CacheWritePrice              *float64                 `json:"cache_write_price"`
-	CacheWrite1hPrice            *float64                 `json:"cache_write_1h_price"`
-	CacheReadPrice               *float64                 `json:"cache_read_price"`
-	MaxReasoningEffortMultiplier *float64                 `json:"max_reasoning_effort_multiplier,omitempty"`
-	ImageInputPrice              *float64                 `json:"image_input_price"`
-	ImageOutputPrice             *float64                 `json:"image_output_price"`
-	PerRequestPrice              *float64                 `json:"per_request_price"`
-	SearchPricePerCall           *float64                 `json:"search_price_per_call,omitempty"`
-	Intervals                    []userPricingIntervalDTO `json:"intervals"`
+	BillingMode                  string   `json:"billing_mode"`
+	InputPrice                   *float64 `json:"input_price"`
+	OutputPrice                  *float64 `json:"output_price"`
+	CacheWritePrice              *float64 `json:"cache_write_price"`
+	CacheWrite1hPrice            *float64 `json:"cache_write_1h_price"`
+	CacheReadPrice               *float64 `json:"cache_read_price"`
+	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
+	ImageInputPrice              *float64 `json:"image_input_price"`
+	ImageOutputPrice             *float64 `json:"image_output_price"`
+	PerRequestPrice              *float64 `json:"per_request_price"`
+	// SearchPricePerCall 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有；ToolSearchPricePerCall grok 搜索工具每次价。
+	SearchPricePerCall     *float64 `json:"search_price_per_call,omitempty"`
+	ToolSearchPricePerCall *float64 `json:"tool_search_price_per_call,omitempty"`
+	// Fast 档（service_tier=priority）各项价；没配的项 Fast 不加价、按标准价计。FastMultiplier 非空时整单按标准价 × 它。
+	InputPricePriority      *float64 `json:"input_price_priority"`
+	OutputPricePriority     *float64 `json:"output_price_priority"`
+	CacheWritePricePriority *float64 `json:"cache_write_price_priority"`
+	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
+	FastMultiplier          *float64 `json:"fast_multiplier"`
+	// FlexMultiplier Flex 档（service_tier=flex）整单倍率；nil 按默认 0.5。
+	FlexMultiplier      *float64                 `json:"flex_multiplier"`
+	ImageCacheReadPrice *float64                 `json:"image_cache_read_price"`
+	AudioInputPrice     *float64                 `json:"audio_input_price"`
+	AudioOutputPrice    *float64                 `json:"audio_output_price"`
+	Intervals           []userPricingIntervalDTO `json:"intervals"`
 }
 
 // userPricingIntervalDTO 定价区间白名单（去掉内部 ID、SortOrder 等前端不渲染的字段）。
@@ -170,8 +183,8 @@ func toUserPricingIntervals(src []service.PricingInterval) []userPricingInterval
 	return intervals
 }
 
-// toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
-func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
+// toUserPricing 将 service 层定价转换为用户 DTO；价卡为 nil 时返回 nil。价格一律是目录官方价。
+func toUserPricing(p *service.PricingCard, extras service.PlazaTokenExtras) *userSupportedModelPricing {
 	if p == nil {
 		return nil
 	}
@@ -195,7 +208,17 @@ func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 		ImageInputPrice:              p.ImageInputPrice,
 		ImageOutputPrice:             p.ImageOutputPrice,
 		PerRequestPrice:              p.PerRequestPrice,
-		SearchPricePerCall:           p.SearchPricePerCall,
+		SearchPricePerCall:           extras.WebSearchPricePerCall,
+		ToolSearchPricePerCall:       extras.ToolSearchPricePerCall,
+		InputPricePriority:           extras.InputPricePriority,
+		OutputPricePriority:          extras.OutputPricePriority,
+		CacheWritePricePriority:      extras.CacheWritePricePriority,
+		CacheReadPricePriority:       extras.CacheReadPricePriority,
+		FastMultiplier:               p.FastMultiplier,
+		FlexMultiplier:               p.FlexMultiplier,
+		ImageCacheReadPrice:          extras.ImageCacheReadPrice,
+		AudioInputPrice:              extras.AudioInputPrice,
+		AudioOutputPrice:             extras.AudioOutputPrice,
 		Intervals:                    intervals,
 	}
 }

@@ -101,20 +101,43 @@ func serviceTierCostMultiplier(serviceTier string) float64 {
 	}
 }
 
+// configuredServiceTierMultiplier 没走 Fast 价（usePriorityServiceTierPricing）时的整单档位倍率。
+// 只有配了档位的模型才按档位计（muqian 2026-09-30「没配 Fast / Flex 的模型一律按标准价收」）：
+//   - Fast：配了 Fast 倍率按它，否则按标准价（有 Fast 价的模型在前面已按 Fast 价计）；
+//   - Flex：配了 Flex 倍率按它；模型支持 Fast（有 Fast 价或 Fast 倍率）时按官方默认 ×0.5；否则按标准价；
+//   - ultrafast：支持 Fast 的模型按官方默认 ×2，否则按标准价。
+//
+// 模型广场的 Fast / Flex 展示用的是同一套条件。
 func configuredServiceTierMultiplier(serviceTier string, pricing *ModelPricing) float64 {
-	if pricing != nil {
-		switch normalizeBillingServiceTier(serviceTier) {
-		case "priority", "fast":
-			if pricing.FastMultiplier != nil {
-				return *pricing.FastMultiplier
-			}
-		case "flex":
-			if pricing.FlexMultiplier != nil {
-				return *pricing.FlexMultiplier
-			}
+	if pricing == nil {
+		return 1
+	}
+	tier := normalizeBillingServiceTier(serviceTier)
+	switch tier {
+	case "priority", "fast":
+		if pricing.FastMultiplier != nil {
+			return *pricing.FastMultiplier
+		}
+	case "flex":
+		if pricing.FlexMultiplier != nil {
+			return *pricing.FlexMultiplier
+		}
+		if fastTierConfigured(pricing) {
+			return serviceTierCostMultiplier(tier)
+		}
+	case OpenAIFastTierUltrafast:
+		if fastTierConfigured(pricing) {
+			return serviceTierCostMultiplier(tier)
 		}
 	}
-	return serviceTierCostMultiplier(serviceTier)
+	return 1
+}
+
+// fastTierConfigured 模型配了 Fast 档：有任一项 Fast 价（priority 价），或配了 Fast 倍率。
+func fastTierConfigured(pricing *ModelPricing) bool {
+	return pricing.FastMultiplier != nil ||
+		pricing.InputPricePerTokenPriority > 0 || pricing.OutputPricePerTokenPriority > 0 ||
+		pricing.CacheCreationPricePerTokenPriority > 0 || pricing.CacheReadPricePerTokenPriority > 0
 }
 
 func pricingWithPriorityMultiplier(base *ModelPricing, multiplier float64) *ModelPricing {

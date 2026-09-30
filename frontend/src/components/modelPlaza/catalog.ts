@@ -1,12 +1,14 @@
 /**
- * 模型页的展示契约：每个上架的目录条目一格。
+ * 模型页的展示契约：每个上架的目录条目一格，点格子看全部计费项。
  *
- * 标价来自 /model-plaza 每个条目的 pricing（目录基准价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
- * - token：各项都是 USD / token，这里换算成 USD / 百万 token；按 Token 分段的（pricing.intervals 非空）另给各段的价（utils/tokenSegments）；
- * - per_request / image / video：只收 per_request_price 一个单价，单位分别是 次 / 张 / 秒，token 价不参与计费、不展示。
+ * 标价来自 /model-plaza 每个条目的 pricing（目录售价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
+ * - token：各项都是 USD / token，这里换算成 USD / 百万 token；按 Token 分段的（pricing.intervals 非空）每段一行（utils/tokenSegments），
+ *   另有 Fast / Flex 档、图片与音频单价、联网搜索按次价、最高推理档倍率；
+ * - per_request / image / video：收 per_request_price 一个单价（单位分别是 次 / 张 / 秒），带 tier_label 的区间是按档位的单价；
+ *   token 价不参与计费、不展示。
  * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
  */
-import type { PlazaModel, PlazaTimePricing } from '@/api/modelPlaza'
+import type { PlazaModel, PlazaTimePricing, UserSupportedModelPricing } from '@/api/modelPlaza'
 import { tokenSegments, type TokenSegment, type TokenSegmentPrices } from '@/utils/tokenSegments'
 
 /** token 模式的各项单价，USD / 1M tokens；目录没给的项为 null */
@@ -19,9 +21,22 @@ export interface CatalogPrice {
   cacheRead: number | null
   imageInput: number | null
   imageOutput: number | null
+  imageCacheRead: number | null
+  audioInput: number | null
+  audioOutput: number | null
 }
 
 export type CatalogPriceKey = keyof CatalogPrice
+
+/** 分段表里的项（随分段变价、Fast 档会加价的文本 Token 价），也是表格的列序 */
+export const TOKEN_ROW_KEYS = ['input', 'output', 'cacheWrite', 'cacheWrite1h', 'cacheRead'] as const satisfies ReadonlyArray<keyof TokenSegmentPrices>
+export type TokenRowKey = (typeof TOKEN_ROW_KEYS)[number]
+
+/** 按次 / 图片 / 视频模式的一个档位（pricing.intervals 里带 tier_label 的），单价 USD / 次、张、秒 */
+export interface CatalogTier {
+  label: string
+  price: number | null
+}
 
 export interface CatalogModel {
   id: string
@@ -29,26 +44,42 @@ export interface CatalogModel {
   vendor: string
   /** token / per_request / image / video；缺省视为 token */
   billingMode: string
-  /** token 模式的单价；非 token 模式或各项都缺时为 null */
+  /** token 模式的基础单价；非 token 模式或各项都缺时为 null */
   price: CatalogPrice | null
   /** 非 token 模式的单价（USD / 次、张、秒）；token 模式或没给时为 null */
   unitPrice: number | null
-  /** 按 Token 分段（第一段 = 上面的基础价），单价 USD / 1M tokens；没分段或非 token 模式为空 */
-  segments: TokenSegment[]
+  /** 非 token 模式的分档单价；没分档或 token 模式为空 */
+  tiers: CatalogTier[]
+  /**
+   * token 模式标准价的各行，USD / 1M tokens：按 Token 分段的一段一行（第一段 = 基础价），没分段只有一行（0, 不封顶）；
+   * 非 token 模式或文本 Token 价全缺时为空。多于一行即「按 Token 分段」。
+   */
+  rows: TokenSegment[]
+  /** Fast 档的各行（与 rows 一一对应）；没配 Fast 时为 null */
+  fastRows: TokenSegment[] | null
+  /** Flex 档倍率；不单列 Flex 档时为 null */
+  flexMultiplier: number | null
+  /** 联网搜索（/alpha/search），USD / 千次；这个模型走不到时为 null */
+  searchPerThousand: number | null
+  /** 搜索工具（grok 的 web / X 搜索），USD / 千次；非 grok 模型为 null */
+  toolSearchPerThousand: number | null
+  /** reasoning_effort=max 时整单倍率；没配为 null */
+  maxReasoningMultiplier: number | null
   aliases: string[]
   /** 分时倍率（有时段才带） */
   timePricing: PlazaTimePricing | null
 }
 
 const PER_MILLION = 1_000_000
+const PER_THOUSAND = 1_000
+/** 没配 flex_multiplier 时后端按 0.5 计（billing_service serviceTierCostMultiplier） */
+const DEFAULT_FLEX_MULTIPLIER = 0.5
 
 function perMillion(value: number | null | undefined): number | null {
   return value == null ? null : value * PER_MILLION
 }
 
-function priceOf(model: PlazaModel, billingMode: string): CatalogPrice | null {
-  const p = model.pricing
-  if (!p || billingMode !== 'token') return null
+function priceOf(p: UserSupportedModelPricing): CatalogPrice | null {
   const price: CatalogPrice = {
     input: perMillion(p.input_price),
     output: perMillion(p.output_price),
@@ -56,14 +87,16 @@ function priceOf(model: PlazaModel, billingMode: string): CatalogPrice | null {
     cacheWrite1h: perMillion(p.cache_write_1h_price),
     cacheRead: perMillion(p.cache_read_price),
     imageInput: perMillion(p.image_input_price),
-    imageOutput: perMillion(p.image_output_price)
+    imageOutput: perMillion(p.image_output_price),
+    imageCacheRead: perMillion(p.image_cache_read_price),
+    audioInput: perMillion(p.audio_input_price),
+    audioOutput: perMillion(p.audio_output_price)
   }
   return Object.values(price).every((value) => value == null) ? null : price
 }
 
-function segmentsOf(model: PlazaModel, billingMode: string): TokenSegment[] {
-  const p = model.pricing
-  if (!p || billingMode !== 'token') return []
+/** 标准价各行：有分段按段，没分段就基础价一行；文本 Token 价全缺时没有行 */
+function rowsOf(p: UserSupportedModelPricing): TokenSegment[] {
   const base: TokenSegmentPrices = {
     input: p.input_price,
     output: p.output_price,
@@ -71,37 +104,99 @@ function segmentsOf(model: PlazaModel, billingMode: string): TokenSegment[] {
     cacheWrite1h: p.cache_write_1h_price ?? null,
     cacheRead: p.cache_read_price
   }
-  return tokenSegments(base, p.intervals).map((segment) => ({ ...segment, prices: scalePrices(segment.prices, PER_MILLION) }))
+  if (TOKEN_ROW_KEYS.every((key) => base[key] == null)) return []
+  const segments = tokenSegments(base, p.intervals)
+  const rows = segments.length ? segments : [{ min: 0, max: null, prices: base }]
+  return rows.map((row) => ({ ...row, prices: scalePrices(row.prices, PER_MILLION) }))
+}
+
+/** 有 Fast 档：配了 fast_multiplier，或任一项 priority 单价 > 0（后端 usePriorityServiceTierPricing 的判据） */
+function hasFast(p: UserSupportedModelPricing): boolean {
+  if (p.fast_multiplier != null) return true
+  return [p.input_price_priority, p.output_price_priority, p.cache_write_price_priority, p.cache_read_price_priority].some(
+    (value) => value != null && value > 0
+  )
+}
+
+/**
+ * Fast 档每项相对本段标准价的系数（与后端 computeTokenBreakdown 同口径）：
+ * 配了 fast_multiplier 时所有项都乘它；否则某项基础 priority 价与基础标准价都 > 0 时乘两者之比（分段按同比例），
+ * 其余项（含没有 priority 字段的 1 小时缓存写）Fast 不加价。
+ */
+function fastFactors(p: UserSupportedModelPricing): Record<TokenRowKey, number> {
+  const fast = p.fast_multiplier
+  if (fast != null) return { input: fast, output: fast, cacheWrite: fast, cacheWrite1h: fast, cacheRead: fast }
+  const ratio = (standard: number | null | undefined, priority: number | null | undefined) =>
+    standard != null && standard > 0 && priority != null && priority > 0 ? priority / standard : 1
+  return {
+    input: ratio(p.input_price, p.input_price_priority),
+    output: ratio(p.output_price, p.output_price_priority),
+    cacheWrite: ratio(p.cache_write_price, p.cache_write_price_priority),
+    cacheWrite1h: 1,
+    cacheRead: ratio(p.cache_read_price, p.cache_read_price_priority)
+  }
+}
+
+function fastRowsOf(p: UserSupportedModelPricing, rows: TokenSegment[]): TokenSegment[] | null {
+  if (!hasFast(p) || rows.length === 0) return null
+  const factors = fastFactors(p)
+  return rows.map((row) => ({ ...row, prices: mapPrices(row.prices, (key, value) => value * factors[key]) }))
+}
+
+function tiersOf(p: UserSupportedModelPricing): CatalogTier[] {
+  return (p.intervals ?? [])
+    .filter((iv) => iv.tier_label)
+    .map((iv) => ({ label: iv.tier_label as string, price: iv.per_request_price ?? null }))
+}
+
+/** 分段单价逐项换算；缺项保持 null */
+function mapPrices(prices: TokenSegmentPrices, fn: (key: TokenRowKey, value: number) => number): TokenSegmentPrices {
+  const out = { ...prices }
+  for (const key of TOKEN_ROW_KEYS) {
+    const value = prices[key]
+    out[key] = value == null ? null : fn(key, value)
+  }
+  return out
 }
 
 /** 分段单价整体乘一个系数（换算单位或乘账户倍率）；缺项保持 null */
 export function scalePrices(prices: TokenSegmentPrices, factor: number): TokenSegmentPrices {
+  return mapPrices(prices, (_key, value) => value * factor)
+}
+
+/** 各行整体乘账户倍率（倍率 = 1 原样返回） */
+export function scaleRows(rows: TokenSegment[], factor: number): TokenSegment[] {
+  if (factor === 1) return rows
+  return rows.map((row) => ({ ...row, prices: scalePrices(row.prices, factor) }))
+}
+
+function catalogModel(model: PlazaModel): CatalogModel {
+  const billingMode = model.billing_mode || model.pricing?.billing_mode || 'token'
+  const p = model.pricing
+  const token = billingMode === 'token'
+  const rows = p && token ? rowsOf(p) : []
+  const fastRows = p && token ? fastRowsOf(p, rows) : null
   return {
-    input: prices.input == null ? null : prices.input * factor,
-    output: prices.output == null ? null : prices.output * factor,
-    cacheWrite: prices.cacheWrite == null ? null : prices.cacheWrite * factor,
-    cacheWrite1h: prices.cacheWrite1h == null ? null : prices.cacheWrite1h * factor,
-    cacheRead: prices.cacheRead == null ? null : prices.cacheRead * factor
+    id: model.model_id,
+    displayName: model.display_name || model.model_id,
+    vendor: model.vendor,
+    billingMode,
+    price: p && token ? priceOf(p) : null,
+    unitPrice: token ? null : (p?.per_request_price ?? null),
+    tiers: p && !token ? tiersOf(p) : [],
+    rows,
+    fastRows,
+    flexMultiplier: p && token && (p.flex_multiplier != null || hasFast(p)) ? (p.flex_multiplier ?? DEFAULT_FLEX_MULTIPLIER) : null,
+    searchPerThousand: p?.search_price_per_call == null ? null : p.search_price_per_call * PER_THOUSAND,
+    toolSearchPerThousand: p?.tool_search_price_per_call == null ? null : p.tool_search_price_per_call * PER_THOUSAND,
+    maxReasoningMultiplier: p?.max_reasoning_effort_multiplier ?? null,
+    aliases: model.aliases ?? [],
+    timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
   }
 }
 
 export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
-  return models
-    .map((model): CatalogModel => {
-      const billingMode = model.billing_mode || model.pricing?.billing_mode || 'token'
-      return {
-        id: model.model_id,
-        displayName: model.display_name || model.model_id,
-        vendor: model.vendor,
-        billingMode,
-        price: priceOf(model, billingMode),
-        unitPrice: billingMode === 'token' ? null : (model.pricing?.per_request_price ?? null),
-        segments: segmentsOf(model, billingMode),
-        aliases: model.aliases ?? [],
-        timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
-      }
-    })
-    .sort((a, b) => a.vendor.localeCompare(b.vendor) || a.id.localeCompare(b.id))
+  return models.map(catalogModel).sort((a, b) => a.vendor.localeCompare(b.vendor) || a.id.localeCompare(b.id))
 }
 
 /** 搜索匹配模型 id、展示名和别名；厂商 / 计费模式筛选精确匹配（'all' = 不筛） */
