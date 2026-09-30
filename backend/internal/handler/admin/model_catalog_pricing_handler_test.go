@@ -105,6 +105,21 @@ func TestModelCatalogHandler_PricingOverview(t *testing.T) {
 	require.Equal(t, service.PlatformAnthropic, byID[3].Vendor)
 }
 
+// 渠道多于一页时翻页读完。
+func TestModelCatalogHandler_PricingOverviewReadsAllAccountPages(t *testing.T) {
+	old := pricingAccountPageSize
+	pricingAccountPageSize = 2
+	t.Cleanup(func() { pricingAccountPageSize = old })
+
+	router, _ := newPricingTestRouter(t)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pricing", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	got := decodePricingData[PricingOverviewResponse](t, rec)
+	require.Len(t, got.Accounts, 3)
+	require.Equal(t, []int64{1, 3}, got.Entries[0].BindableAccountIDs)
+}
+
 func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 	body := func() map[string]any {
 		return map[string]any{

@@ -25,8 +25,8 @@ type ProfitSettingsSource interface {
 	GetProfitControlSettings(ctx context.Context) service.ProfitControlSettings
 }
 
-// pricingAccountPageSize 价格页列全部渠道时每页取多少（分页读到总数为止）。
-const pricingAccountPageSize = 500
+// pricingAccountPageSize 价格页列全部渠道时每页取多少（分页读到总数为止）；测试里调小验证翻页。
+var pricingAccountPageSize = 500
 
 // PricingOverviewResponse 价格页的全部数据。
 type PricingOverviewResponse struct {
