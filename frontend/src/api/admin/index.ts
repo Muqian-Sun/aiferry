@@ -24,7 +24,6 @@ import tlsFingerprintProfileAPI from './tlsFingerprintProfile'
 import modelCatalogAPI from './modelCatalog'
 import adminPaymentAPI from './payment'
 import riskControlAPI from './riskControl'
-import auditAPI from './audit'
 
 /**
  * Unified admin API object for convenient access
@@ -50,8 +49,7 @@ export const adminAPI = {
   tlsFingerprintProfiles: tlsFingerprintProfileAPI,
   modelCatalog: modelCatalogAPI,
   payment: adminPaymentAPI,
-  riskControl: riskControlAPI,
-  audit: auditAPI
+  riskControl: riskControlAPI
 }
 
 export {
@@ -74,14 +72,12 @@ export {
   scheduledTestsAPI,
   tlsFingerprintProfileAPI,
   adminPaymentAPI,
-  riskControlAPI,
-  auditAPI
+  riskControlAPI
 }
 
 export default adminAPI
 
 // Re-export types used by components
-export type { AuditLog, AuditLogQuery, AuditLogListResponse } from './audit'
 export type { BalanceHistoryItem } from './users'
 export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from './errorPassthrough'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'

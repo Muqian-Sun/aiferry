@@ -4,7 +4,6 @@ import accounts from './accounts'
 import resources from './resources'
 import ops from './ops'
 import settings from './settings'
-import audit from './audit'
 import promptAudit from './promptAudit'
 import modelCatalog from './modelCatalog'
 import entity from './entity'
@@ -16,7 +15,6 @@ export default {
   ...resources,
   ...ops,
   ...settings,
-  ...audit,
   ...promptAudit,
   ...modelCatalog,
   ...entity,

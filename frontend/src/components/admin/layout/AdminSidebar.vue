@@ -101,7 +101,6 @@ const sections = computed((): NavSection[] => {
       title: t('nav.sections.security'),
       items: [
         { path: '/risk-control', label: t('nav.review'), icon: ShieldIcon, featureFlag: flagRiskControl, activePaths: ['/prompt-audit'] },
-        { path: '/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true },
       ],
     },
     {

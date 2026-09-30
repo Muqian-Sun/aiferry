@@ -199,7 +199,6 @@ export default {
     paymentPlans: '订阅套餐',
     channelManagement: '渠道管理',
     riskControl: '风控中心',
-    auditLogs: '操作日志',
   },
 
   // Auth

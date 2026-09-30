@@ -199,7 +199,6 @@ export default {
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
     riskControl: 'Risk Control',
-    auditLogs: 'Audit Logs',
   },
 
   // Auth

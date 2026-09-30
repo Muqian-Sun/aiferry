@@ -90,7 +90,7 @@ describe('AdminSidebar', () => {
       supply: ['/accounts', '/model-catalog', '/proxies'],
       users: ['/users', '/orders'],
       operations: ['/usage', '/announcements'],
-      security: ['/risk-control', '/audit-logs'],
+      security: ['/risk-control'],
       settings: ['/settings'],
     })
   })
