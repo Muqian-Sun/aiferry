@@ -1,13 +1,13 @@
 <template>
   <!--
     一个模型在时间窗里的逐段状态：一段一格，颜色是那一段的综合状态，悬停看那一段的可用率和首字延迟。
-    灰格 = 那一段请求太少或没有请求。
+    灰格 = 那一段请求太少或没有请求。放在模型格子里，是一条细条（最多约 30 段）。
   -->
-  <ul class="flex h-6 items-stretch gap-px" :aria-label="label">
+  <ul class="flex h-2 items-stretch gap-px" :aria-label="label">
     <li
       v-for="slot in slots"
       :key="slot.start.getTime()"
-      class="min-w-[2px] flex-1 rounded-[2px]"
+      class="min-w-[2px] flex-1 rounded-[1px]"
       :class="HEALTH_BAR[slot.point?.health.overall ?? 'unknown']"
       :title="describe(slot)"
       :aria-label="describe(slot)"

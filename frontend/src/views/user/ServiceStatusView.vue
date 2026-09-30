@@ -1,15 +1,18 @@
 <template>
   <!--
-    服务状态（原「渠道监控」，站长 2026-09-26 定名并放进导航）：回答「各模型现在能不能用、快不快」。
-    ① 一句话结论 + 可用率 / 首字延迟 / 更新时间
-    ② 每个模型一行：状态、逐段色条（悬停看那一段的数）、可用率、首字延迟
-    ③ 全站整体趋势（可用率 / 首字延迟切换）
-    数据是本站真实请求的被动统计；后端对普通用户只回这些字段（没有平台、站点流量、用户排行、缓存率）。
+    服务状态（原「渠道监控」，站长 2026-09-26 定名）：回答「各模型现在能不能用、快不快」。
+    与模型页一样对未登录访客开放，走公开壳，入口在顶栏（muqian 2026-09-30）。
+    ① 整体：一句话结论 + 可用率 / 首字延迟 + 全站趋势（可用率 / 首字延迟切换）
+    ② 各模型：多列格子（一格 = 状态、逐段细色条、可用率、首字延迟），有问题的排前面，可按状态筛选、搜索；
+       这段时间一个请求都没有的模型不占格子，折成一行「另有 N 个模型没有请求」，展开只列名字。
+    数据是本站真实请求的被动统计；后端对普通访客只回这些字段（没有平台、站点流量、用户排行、缓存率）。
   -->
-  <SiteShell>
-    <template v-if="!disabled" #actions>
-      <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
-    </template>
+  <SiteShell variant="public">
+    <PageHeader :title="t('userUi.serviceStatus.title')" :description="t('userUi.serviceStatus.description')">
+      <template v-if="!disabled" #actions>
+        <SectionTabs v-model="range" :tabs="rangeTabs" :label="t('userUi.serviceStatus.range.label')" />
+      </template>
+    </PageHeader>
 
     <StatusState
       v-if="disabled"
@@ -27,94 +30,103 @@
     <StatusState v-else-if="!models" kind="loading" :title="t('userUi.status.loading')" />
 
     <div v-else class="space-y-10" :aria-busy="loading ? 'true' : undefined">
-      <!-- ① 结论 -->
-      <section data-testid="service-status-summary">
-        <p class="flex items-center gap-2.5 text-base font-semibold text-af-ink">
-          <span class="h-2 w-2 shrink-0 rounded-full" :class="HEALTH_DOT[headline.level]" aria-hidden="true" />
-          {{ headline.text }}
-        </p>
-        <p class="mt-1 text-13 text-af-ink-3">
-          {{ updatedText }}
-          <template v-if="backfillPercent != null">
-            · {{ t('userUi.serviceStatus.backfill', { percent: backfillPercent }) }}
-          </template>
-        </p>
-        <StatRow class="mt-6" :items="statItems" />
+      <!-- ① 整体 -->
+      <section class="space-y-6" data-testid="service-status-summary">
+        <div>
+          <p class="flex items-center gap-2.5 text-base font-semibold text-af-ink">
+            <span class="h-2 w-2 shrink-0 rounded-full" :class="HEALTH_DOT[headline.level]" aria-hidden="true" />
+            {{ headline.text }}
+          </p>
+          <p class="mt-1 text-13 text-af-ink-3">
+            {{ updatedText }}
+            <template v-if="backfillPercent != null">
+              · {{ t('userUi.serviceStatus.backfill', { percent: backfillPercent }) }}
+            </template>
+          </p>
+        </div>
+        <StatRow :items="statItems" />
+        <div>
+          <div class="mb-3 flex items-center justify-between gap-4">
+            <h2 class="text-13 font-medium text-af-ink-2">{{ t('userUi.serviceStatus.trend.title') }}</h2>
+            <SegmentedControl v-model="trendMetric" :options="trendOptions" :label="t('userUi.serviceStatus.trend.title')" />
+          </div>
+          <ServiceStatusTrend :slots="trendSlots" :bucket-seconds="bucketSeconds" :metric="trendMetric" />
+        </div>
       </section>
 
       <!-- ② 各模型 -->
       <SheetSection :title="t('userUi.serviceStatus.models.title')" :description="t('userUi.serviceStatus.models.description')">
         <template v-if="rows.length > SEARCH_THRESHOLD" #actions>
-          <div class="w-56">
+          <SegmentedControl v-model="healthFilter" :options="filterOptions" :label="t('userUi.serviceStatus.models.filter.label')" />
+          <div class="w-48">
             <SearchInput v-model="search" compact :placeholder="t('userUi.serviceStatus.models.search')" />
           </div>
         </template>
 
         <p v-if="rows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('userUi.serviceStatus.models.empty') }}</p>
         <template v-else>
-          <div class="hidden grid-cols-[minmax(0,14rem)_minmax(0,1fr)_5.5rem_5.5rem] gap-x-6 border-b border-af-hairline pb-2 text-xs text-af-ink-3 sm:grid">
-            <span>{{ t('userUi.serviceStatus.columns.model') }}</span>
-            <span>{{ t('userUi.serviceStatus.columns.trend') }}</span>
-            <span class="text-right">{{ t('userUi.serviceStatus.columns.availability') }}</span>
-            <span class="text-right">{{ t('userUi.serviceStatus.columns.ttft') }}</span>
-          </div>
-          <ul class="divide-y divide-af-hairline" data-testid="service-status-models">
+          <!-- 与模型页同一种 hairline 分格（不是卡片）：窄屏一列、sm 两列、lg 三列 -->
+          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="service-status-models">
             <li
-              v-for="row in visibleRows"
+              v-for="row in visibleActive"
               :key="row.model"
-              class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-6 gap-y-2 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_5.5rem_5.5rem]"
+              class="min-w-0 border-b border-af-hairline px-6 py-4 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
+              data-testid="service-status-model"
             >
-              <div class="flex min-w-0 items-center gap-2.5">
+              <div class="flex items-center gap-2.5">
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="HEALTH_DOT[row.health.overall]" aria-hidden="true" />
-                <span class="min-w-0">
-                  <span class="block truncate text-sm font-medium text-af-ink" :title="row.label">{{ row.label }}</span>
-                  <span class="block text-xs text-af-ink-3">{{ healthLabel(row.health.overall) }}</span>
-                </span>
+                <span class="min-w-0 flex-1 truncate font-mono text-sm font-medium text-af-ink" :title="row.label">{{ row.label }}</span>
+                <span class="shrink-0 text-xs" :class="HEALTH_TEXT[row.health.overall]">{{ healthLabel(row.health.overall) }}</span>
               </div>
               <ServiceStatusStrip
-                class="col-span-3 row-start-2 sm:col-span-1 sm:row-start-auto"
+                class="mt-3"
                 :slots="row.slots"
                 :bucket-seconds="bucketSeconds"
                 :label="t('userUi.serviceStatus.models.stripLabel', { model: row.label })"
               />
-              <span class="text-right text-sm tabular-nums" :class="HEALTH_TEXT[row.health.availability]">
-                {{ formatAvailability(row.metrics.availability) }}
-              </span>
-              <span class="text-right text-sm tabular-nums" :class="HEALTH_TEXT[row.health.ttft]">
-                {{ formatLatency(row.metrics.ttft_p50_ms) }}
-              </span>
+              <p class="mt-2.5 flex items-center justify-between gap-4 text-xs tabular-nums text-af-ink-3">
+                <span>
+                  {{ t('userUi.serviceStatus.columns.availability') }}
+                  <span :class="HEALTH_TEXT[row.health.availability]">{{ formatAvailability(row.metrics.availability) }}</span>
+                </span>
+                <span>
+                  {{ t('userUi.serviceStatus.columns.ttft') }}
+                  <span :class="HEALTH_TEXT[row.health.ttft]">{{ formatLatency(row.metrics.ttft_p50_ms) }}</span>
+                </span>
+              </p>
             </li>
           </ul>
-          <p v-if="visibleRows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('userUi.serviceStatus.models.noMatch') }}</p>
+          <p v-else-if="healthFilter !== 'all' || visibleIdle.length === 0" class="py-10 text-center text-sm text-af-ink-3">
+            {{ t('userUi.serviceStatus.models.noMatch') }}
+          </p>
+
+          <!-- 这段时间没有请求的模型：不占格子，折成一行；搜索命中时直接展开 -->
+          <div v-if="healthFilter === 'all' && visibleIdle.length" class="mt-4 text-13 text-af-ink-3" data-testid="service-status-idle">
+            <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{{ t('userUi.serviceStatus.models.idle', { count: visibleIdle.length }) }}</span>
+              <button
+                v-if="!searchKeyword"
+                type="button"
+                class="font-medium text-af-brand hover:text-af-brand-hover"
+                :aria-expanded="idleExpanded"
+                @click="idleExpanded = !idleExpanded"
+              >
+                {{ idleExpanded ? t('userUi.serviceStatus.models.hideIdle') : t('userUi.serviceStatus.models.showIdle') }}
+              </button>
+            </p>
+            <ul v-if="idleExpanded || searchKeyword" class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-xs text-af-ink-3">
+              <li v-for="row in visibleIdle" :key="row.model">{{ row.label }}</li>
+            </ul>
+          </div>
+
           <!-- 图例 -->
-          <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-af-ink-3">
+          <ul class="mt-6 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-af-ink-3">
             <li v-for="level in LEGEND" :key="level" class="inline-flex items-center gap-1.5">
               <span class="h-2.5 w-2.5 rounded-[2px]" :class="HEALTH_BAR[level]" aria-hidden="true" />
               {{ t(`userUi.serviceStatus.legend.${level}`) }}
             </li>
           </ul>
         </template>
-      </SheetSection>
-
-      <!-- ③ 整体趋势 -->
-      <SheetSection :title="t('userUi.serviceStatus.trend.title')">
-        <template #actions>
-          <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('userUi.serviceStatus.trend.title')">
-            <button
-              v-for="option in trendOptions"
-              :key="option.key"
-              type="button"
-              role="tab"
-              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-              :class="trendMetric === option.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-              :aria-selected="trendMetric === option.key"
-              @click="trendMetric = option.key"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </template>
-        <ServiceStatusTrend :slots="trendSlots" :bucket-seconds="bucketSeconds" :metric="trendMetric" />
       </SheetSection>
 
       <p class="text-xs text-af-ink-4">{{ t('userUi.serviceStatus.footnote') }}</p>
@@ -135,13 +147,16 @@ import {
   type ServiceStatusRange,
   type ServiceStatusSnapshot
 } from '@/api/serviceStatus'
+import { useAppStore } from '@/stores/app'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
+import PageHeader from '@/components/user/shell/PageHeader.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab, StatItem } from '@/components/user/shell/types'
 import SearchInput from '@/components/common/SearchInput.vue'
+import SegmentedControl from '@/components/user/status/SegmentedControl.vue'
 import ServiceStatusStrip from '@/components/user/status/ServiceStatusStrip.vue'
 import ServiceStatusTrend, { type ServiceTrendMetric } from '@/components/user/status/ServiceStatusTrend.vue'
 import {
@@ -154,11 +169,14 @@ import {
 } from '@/components/user/status/serviceStatus'
 
 const { t, locale } = useI18n()
+const appStore = useAppStore()
 
 const RANGES: ServiceStatusRange[] = ['90m', '24h', '7d', '30d']
 const LEGEND: ServiceHealth[] = ['healthy', 'warning', 'critical', 'unknown']
-/** 模型多于这个数才给搜索框 */
+/** 模型多于这个数才给筛选和搜索 */
 const SEARCH_THRESHOLD = 8
+/** 有问题的排前面；「请求太少」不下结论，排在正常之后 */
+const HEALTH_RANK: Record<ServiceHealth, number> = { critical: 0, warning: 1, healthy: 2, unknown: 3 }
 
 const range = ref<ServiceStatusRange>('24h')
 const rangeTabs = computed<SectionTab[]>(() => RANGES.map((key) => ({ key, label: t(`userUi.serviceStatus.range.${key}`) })))
@@ -217,7 +235,11 @@ watch(range, () => {
   snapshot.value = null
   void reload()
 })
-onMounted(() => void reload())
+onMounted(() => {
+  // 公开壳的顶栏需要站点名 / Logo；有 __APP_CONFIG__ 注入时同步命中缓存
+  void appStore.fetchPublicSettings()
+  void reload()
+})
 onBeforeUnmount(() => {
   controller?.abort()
   if (refreshTimer) window.clearInterval(refreshTimer)
@@ -230,20 +252,48 @@ function modelLabel(model: string): string {
   return model === OTHER_MODELS ? t('userUi.serviceStatus.models.other') : model
 }
 
-/** 按模型名排，「其他模型」垫底 */
+/** 有问题的在前，同档按模型名；「其他模型」垫底 */
 const rows = computed(() => {
   const data = models.value
   if (!data) return []
   return data.items
     .map((item) => ({ ...item, label: modelLabel(item.model), slots: fillSlots(data.coverage, item.buckets) }))
-    .sort((a, b) => Number(a.model === OTHER_MODELS) - Number(b.model === OTHER_MODELS) || a.label.localeCompare(b.label))
+    .sort(
+      (a, b) =>
+        Number(a.model === OTHER_MODELS) - Number(b.model === OTHER_MODELS) ||
+        HEALTH_RANK[a.health.overall] - HEALTH_RANK[b.health.overall] ||
+        a.label.localeCompare(b.label)
+    )
 })
+/** 这段时间有请求的模型占格子；一个请求都没有的（可用率为空）折叠起来 */
+const activeRows = computed(() => rows.value.filter((row) => row.metrics.availability != null))
+const idleRows = computed(() => rows.value.filter((row) => row.metrics.availability == null))
+
+type HealthFilter = 'all' | 'issues' | 'healthy'
+const healthFilter = ref<HealthFilter>('all')
+const filterOptions = computed(() => {
+  const issues = activeRows.value.filter((row) => row.health.overall === 'critical' || row.health.overall === 'warning').length
+  const healthy = activeRows.value.filter((row) => row.health.overall === 'healthy').length
+  return [
+    { key: 'all' as const, label: t('userUi.serviceStatus.models.filter.all') },
+    { key: 'issues' as const, label: t('userUi.serviceStatus.models.filter.issues', { count: issues }) },
+    { key: 'healthy' as const, label: t('userUi.serviceStatus.models.filter.healthy', { count: healthy }) }
+  ]
+})
+function matchesFilter(level: ServiceHealth): boolean {
+  if (healthFilter.value === 'issues') return level === 'critical' || level === 'warning'
+  if (healthFilter.value === 'healthy') return level === 'healthy'
+  return true
+}
 
 const search = ref('')
-const visibleRows = computed(() => {
-  const keyword = search.value.trim().toLowerCase()
-  return keyword ? rows.value.filter((row) => row.label.toLowerCase().includes(keyword)) : rows.value
-})
+const searchKeyword = computed(() => search.value.trim().toLowerCase())
+function matchesSearch(label: string): boolean {
+  return !searchKeyword.value || label.toLowerCase().includes(searchKeyword.value)
+}
+const visibleActive = computed(() => activeRows.value.filter((row) => matchesFilter(row.health.overall) && matchesSearch(row.label)))
+const visibleIdle = computed(() => idleRows.value.filter((row) => matchesSearch(row.label)))
+const idleExpanded = ref(false)
 
 function healthLabel(level: ServiceHealth): string {
   return t(`userUi.serviceStatus.legend.${level}`)
