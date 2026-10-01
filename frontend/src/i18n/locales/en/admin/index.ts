@@ -6,6 +6,7 @@ import ops from './ops'
 import settings from './settings'
 import promptAudit from './promptAudit'
 import modelCatalog from './modelCatalog'
+import pricing from './pricing'
 import entity from './entity'
 
 export default {
@@ -17,5 +18,6 @@ export default {
   ...settings,
   ...promptAudit,
   ...modelCatalog,
+  ...pricing,
   ...entity,
 }

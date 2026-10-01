@@ -12,14 +12,14 @@ import (
 
 // ModelCatalogHandler 处理模型目录的管理端请求。
 type ModelCatalogHandler struct {
-	service *service.ModelCatalogService
-	// accounts 承接关系列表与诊断里按 ID 取账号做展示；生产上是 AdminService。
-	accounts service.CatalogBindingAccountSource
+	service  *service.ModelCatalogService
+	accounts ModelCatalogAccountSource
+	settings ProfitSettingsSource
 }
 
-// NewModelCatalogHandler 创建模型目录处理器。
-func NewModelCatalogHandler(svc *service.ModelCatalogService, accounts service.CatalogBindingAccountSource) *ModelCatalogHandler {
-	return &ModelCatalogHandler{service: svc, accounts: accounts}
+// NewModelCatalogHandler 创建模型目录处理器（含价格页接口）。
+func NewModelCatalogHandler(svc *service.ModelCatalogService, accounts ModelCatalogAccountSource, settings ProfitSettingsSource) *ModelCatalogHandler {
+	return &ModelCatalogHandler{service: svc, accounts: accounts, settings: settings}
 }
 
 // ModelCatalogEntryRequest 是条目的创建 / 更新请求体。

@@ -190,6 +190,18 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/pricing',
+    name: 'AdminPricing',
+    component: () => import('@/views/admin/PricingView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Pricing',
+      titleKey: 'nav.pricing',
+      descriptionKey: 'admin.pricing.description'
+    }
+  },
+  {
     path: '/proxies',
     name: 'AdminProxies',
     component: () => import('@/views/admin/ProxiesView.vue'),

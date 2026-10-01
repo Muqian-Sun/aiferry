@@ -22,6 +22,7 @@ import errorPassthroughAPI from './errorPassthrough'
 import scheduledTestsAPI from './scheduledTests'
 import tlsFingerprintProfileAPI from './tlsFingerprintProfile'
 import modelCatalogAPI from './modelCatalog'
+import pricingAPI from './pricing'
 import adminPaymentAPI from './payment'
 import riskControlAPI from './riskControl'
 
@@ -48,6 +49,7 @@ export const adminAPI = {
   scheduledTests: scheduledTestsAPI,
   tlsFingerprintProfiles: tlsFingerprintProfileAPI,
   modelCatalog: modelCatalogAPI,
+  pricing: pricingAPI,
   payment: adminPaymentAPI,
   riskControl: riskControlAPI
 }

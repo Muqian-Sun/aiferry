@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 
@@ -165,6 +166,43 @@ func (r *catalogRepoStub) ListBindingsByEntry(_ context.Context, entryID int64) 
 	return append([]service.ModelCatalogBinding(nil), r.bindings[entryID]...), nil
 }
 
+func (r *catalogRepoStub) SaveEntryPricing(_ context.Context, entry *service.ModelCatalogEntry, bindings []service.ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.entries {
+		if r.entries[i].ID == entry.ID {
+			r.entries[i] = *entry.Clone()
+			if r.bindings == nil {
+				r.bindings = map[int64][]service.ModelCatalogBinding{}
+			}
+			r.bindings[entry.ID] = append([]service.ModelCatalogBinding(nil), bindings...)
+			return nil
+		}
+	}
+	return service.ErrModelCatalogEntryNotFound
+}
+
+func (r *catalogRepoStub) ReplaceAccountBindings(_ context.Context, accountID int64, bindings []service.ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bindings == nil {
+		r.bindings = map[int64][]service.ModelCatalogBinding{}
+	}
+	for entryID, list := range r.bindings {
+		kept := list[:0:0]
+		for _, b := range list {
+			if b.AccountID != accountID {
+				kept = append(kept, b)
+			}
+		}
+		r.bindings[entryID] = kept
+	}
+	for _, b := range bindings {
+		r.bindings[b.EntryID] = append(r.bindings[b.EntryID], b)
+	}
+	return nil
+}
+
 // catalogAccountsStub 按 ID 取账号；不在表里的账号视为不存在。
 type catalogAccountsStub map[int64]*service.Account
 
@@ -175,13 +213,34 @@ func (m catalogAccountsStub) GetAccount(_ context.Context, id int64) (*service.A
 	return nil, service.ErrAccountNotFound
 }
 
+// ListAccounts 按 ID 排序分页返回表里的账号（价格页列全部渠道用）。
+func (m catalogAccountsStub) ListAccounts(_ context.Context, page, pageSize int, _, _, _, _, _, _, _ string) ([]service.Account, int64, error) {
+	ids := make([]int64, 0, len(m))
+	for id := range m {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	out := make([]service.Account, 0, pageSize)
+	for i := (page - 1) * pageSize; i < len(ids) && len(out) < pageSize; i++ {
+		out = append(out, *m[ids[i]])
+	}
+	return out, int64(len(ids)), nil
+}
+
+// catalogProfitSettingsStub 最低毛利率。
+type catalogProfitSettingsStub float64
+
+func (s catalogProfitSettingsStub) GetProfitControlSettings(context.Context) service.ProfitControlSettings {
+	return service.ProfitControlSettings{MinMargin: float64(s)}
+}
+
 func newCatalogHandler(repo *catalogRepoStub) *ModelCatalogHandler {
 	return newCatalogHandlerWithAccounts(repo, catalogAccountsStub{})
 }
 
 func newCatalogHandlerWithAccounts(repo *catalogRepoStub, accounts catalogAccountsStub) *ModelCatalogHandler {
 	svc := service.NewModelCatalogService(repo, nil, service.ModelCatalogSeedInput{})
-	return NewModelCatalogHandler(svc, accounts)
+	return NewModelCatalogHandler(svc, accounts, catalogProfitSettingsStub(0.3))
 }
 
 func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
