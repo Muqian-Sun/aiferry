@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbmodelcatalogbinding "github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
+	dbmodelcatalogentry "github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -2321,7 +2323,7 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	if err != nil {
 		return nil, err
 	}
-	catalogEntryIDsByAccount, err := r.loadCatalogEntryIDs(ctx, accountIDs)
+	catalogByAccount, err := r.loadCatalogBindings(ctx, accountIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -2344,8 +2346,9 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 				out.ProxyFallbackOriginName = &n
 			}
 		}
-		if entryIDs, ok := catalogEntryIDsByAccount[acc.ID]; ok {
-			out.CatalogEntryIDs = entryIDs
+		if catalog, ok := catalogByAccount[acc.ID]; ok {
+			out.CatalogEntryIDs = catalog.entryIDs
+			out.CatalogUpstreamModels = catalog.upstreamModels
 		}
 		outAccounts = append(outAccounts, *out)
 	}
@@ -2353,9 +2356,16 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	return outAccounts, nil
 }
 
-// loadCatalogEntryIDs 批量装载账号被哪些目录条目绑定。
-func (r *accountRepository) loadCatalogEntryIDs(ctx context.Context, accountIDs []int64) (map[int64][]int64, error) {
-	byAccount := make(map[int64][]int64)
+// accountCatalogBindings 一个账号的承接关系：被哪些目录条目绑定，以及改了名的条目的上游模型名。
+type accountCatalogBindings struct {
+	entryIDs []int64
+	// upstreamModels 目录模型标识 → 上游模型名，只含改了名的；没有改名时为 nil。
+	upstreamModels map[string]string
+}
+
+// loadCatalogBindings 批量装载账号的承接关系（条目 ID 与改了名的上游模型名）。
+func (r *accountRepository) loadCatalogBindings(ctx context.Context, accountIDs []int64) (map[int64]*accountCatalogBindings, error) {
+	byAccount := make(map[int64]*accountCatalogBindings)
 	accountIDs = uniquePositiveInt64s(accountIDs)
 	for start := 0; start < len(accountIDs); start += postgresParameterBatchSize {
 		end := start + postgresParameterBatchSize
@@ -2364,13 +2374,31 @@ func (r *accountRepository) loadCatalogEntryIDs(ctx context.Context, accountIDs 
 		}
 		rows, err := r.client.ModelCatalogBinding.Query().
 			Where(dbmodelcatalogbinding.AccountIDIn(accountIDs[start:end]...)).
+			WithEntry(func(q *dbent.ModelCatalogEntryQuery) {
+				q.Select(dbmodelcatalogentry.FieldModelID)
+			}).
 			Order(dbmodelcatalogbinding.ByAccountID(), dbmodelcatalogbinding.ByEntryID()).
 			All(ctx)
 		if err != nil {
 			return nil, err
 		}
 		for _, row := range rows {
-			byAccount[row.AccountID] = append(byAccount[row.AccountID], row.EntryID)
+			bindings := byAccount[row.AccountID]
+			if bindings == nil {
+				bindings = &accountCatalogBindings{}
+				byAccount[row.AccountID] = bindings
+			}
+			bindings.entryIDs = append(bindings.entryIDs, row.EntryID)
+			if row.UpstreamModel == "" {
+				continue
+			}
+			if row.Edges.Entry == nil {
+				return nil, fmt.Errorf("catalog binding (%d, %d) has no entry loaded", row.EntryID, row.AccountID)
+			}
+			if bindings.upstreamModels == nil {
+				bindings.upstreamModels = make(map[string]string)
+			}
+			bindings.upstreamModels[row.Edges.Entry.ModelID] = row.UpstreamModel
 		}
 	}
 	return byAccount, nil

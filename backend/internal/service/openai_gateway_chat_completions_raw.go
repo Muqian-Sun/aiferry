@@ -69,8 +69,9 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	clientStream := gjson.GetBytes(body, "stream").Bool()
 
 	// 2. Resolve model mapping (same as ForwardAsChatCompletions)
-	billingModel := resolveOpenAIForwardModel(account, originalModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := originalModel
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel))
 	SetOpsUpstreamModel(c, upstreamModel)
 	// xAI 厂商特化：成品号按平台，第三方 key 按地址识别的厂商。
 	grokVendor := account.Vendor() == PlatformGrok
@@ -81,7 +82,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		grokCacheIdentity = resolveGrokCacheIdentity(c, body, "", upstreamModel)
 	}
 	reasoningEffort := extractOpenAIReasoningEffortFromBody(body, upstreamModel, billingModel, originalModel)
-	// 国产模型默认 effort 补充：需要 mappedModel 判定，推迟到 billingModel 算出之后。
+	// 国产模型默认 effort 补充：按用户请求的目录模型判定。
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
 
 	// 3. Rewrite model in body (no protocol conversion)
@@ -515,7 +516,8 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 		usage = parsedUsage
 	}
 	responseModel := gjson.GetBytes(respBody, "model").String()
-	if requiresBillableGrokChatUsage(account, billingModel, upstreamModel, responseModel) && !hasBillableGrokChatUsage(usage) {
+	// 只看实际发往上游的模型与上游回报的模型（计费用的目录模型名以 grok- 开头不代表上游是 Grok）
+	if requiresBillableGrokChatUsage(account, upstreamModel, responseModel) && !hasBillableGrokChatUsage(usage) {
 		upstreamRequestID := firstNonEmpty(requestID, resp.Header.Get("xai-request-id"))
 		return nil, newGrokMissingUsageFailoverError(c, account, upstreamRequestID)
 	}

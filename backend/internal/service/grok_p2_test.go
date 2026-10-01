@@ -26,12 +26,10 @@ func TestGrokModelQuotaBlockFiltersMappedUpstreamModel(t *testing.T) {
 	id := time.Now().UnixNano()%1_000_000 + 7000
 	markGrokModelQuotaBlock(id, "grok-4.5", time.Now().Add(time.Hour))
 	account := Account{
-		ID:       id,
-		Platform: PlatformGrok,
-		Type:     AccountTypeOAuth,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{"gpt-*": "grok-4.5"},
-		},
+		ID:                    id,
+		Platform:              PlatformGrok,
+		Type:                  AccountTypeOAuth,
+		CatalogUpstreamModels: map[string]string{"gpt-5": "grok-4.5"},
 	}
 
 	require.True(t, grokModelRuntimeBlocked(&account, "gpt-5", time.Now()), "the gate must look at the mapped upstream model")

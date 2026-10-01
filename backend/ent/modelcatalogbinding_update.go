@@ -183,6 +183,20 @@ func (_u *ModelCatalogBindingUpdate) ClearCacheReadPrice() *ModelCatalogBindingU
 	return _u
 }
 
+// SetUpstreamModel sets the "upstream_model" field.
+func (_u *ModelCatalogBindingUpdate) SetUpstreamModel(v string) *ModelCatalogBindingUpdate {
+	_u.mutation.SetUpstreamModel(v)
+	return _u
+}
+
+// SetNillableUpstreamModel sets the "upstream_model" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableUpstreamModel(v *string) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetUpstreamModel(*v)
+	}
+	return _u
+}
+
 // SetPriceIntervals sets the "price_intervals" field.
 func (_u *ModelCatalogBindingUpdate) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdate {
 	_u.mutation.SetPriceIntervals(v)
@@ -266,6 +280,11 @@ func (_u *ModelCatalogBindingUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ModelCatalogBindingUpdate) check() error {
+	if v, ok := _u.mutation.UpstreamModel(); ok {
+		if err := modelcatalogbinding.UpstreamModelValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogBinding.upstream_model": %w`, err)}
+		}
+	}
 	if _u.mutation.EntryCleared() && len(_u.mutation.EntryIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ModelCatalogBinding.entry"`)
 	}
@@ -325,6 +344,9 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if _u.mutation.CacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.UpstreamModel(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PriceIntervals(); ok {
 		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
@@ -566,6 +588,20 @@ func (_u *ModelCatalogBindingUpdateOne) ClearCacheReadPrice() *ModelCatalogBindi
 	return _u
 }
 
+// SetUpstreamModel sets the "upstream_model" field.
+func (_u *ModelCatalogBindingUpdateOne) SetUpstreamModel(v string) *ModelCatalogBindingUpdateOne {
+	_u.mutation.SetUpstreamModel(v)
+	return _u
+}
+
+// SetNillableUpstreamModel sets the "upstream_model" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableUpstreamModel(v *string) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetUpstreamModel(*v)
+	}
+	return _u
+}
+
 // SetPriceIntervals sets the "price_intervals" field.
 func (_u *ModelCatalogBindingUpdateOne) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpdateOne {
 	_u.mutation.SetPriceIntervals(v)
@@ -662,6 +698,11 @@ func (_u *ModelCatalogBindingUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ModelCatalogBindingUpdateOne) check() error {
+	if v, ok := _u.mutation.UpstreamModel(); ok {
+		if err := modelcatalogbinding.UpstreamModelValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogBinding.upstream_model": %w`, err)}
+		}
+	}
 	if _u.mutation.EntryCleared() && len(_u.mutation.EntryIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "ModelCatalogBinding.entry"`)
 	}
@@ -740,6 +781,9 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 	}
 	if _u.mutation.CacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.UpstreamModel(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PriceIntervals(); ok {
 		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)

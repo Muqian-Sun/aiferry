@@ -546,9 +546,9 @@ func TestOpenAIGatewayService_Forward_WSv2_RewriteModelAndToolCallsOnCompletedEv
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key": "sk-test",
-			"model_mapping": map[string]any{
-				"custom-original-model": "gpt-5.1",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"custom-original-model": "gpt-5.1",
 		},
 		Extra:             map[string]any{},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},

@@ -156,8 +156,9 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 
 	// 2. Resolve model mapping early so compat prompt_cache_key injection can
 	// derive a stable seed from the final upstream model family.
-	billingModel := resolveOpenAIForwardModel(account, originalModel)
-	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	// 计费按用户请求的目录模型；改名（承接关系上的上游名）只作用在发给上游的名字上
+	billingModel := originalModel
+	upstreamModel := normalizeOpenAIModelForUpstream(account, resolveOpenAIForwardModel(account, originalModel))
 
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	compatPromptCacheInjected := false
@@ -542,7 +543,8 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 		logOpenAISuccessMissingUsage(c.Request.Context(), c, account, resp, &usage, "response.completed", false)
 	}
 
-	if requiresBillableGrokChatUsage(account, billingModel, upstreamModel, finalResponse.Model) && !hasBillableGrokChatUsage(usage) {
+	// 只看实际发往上游的模型与上游回报的模型（计费用的目录模型名以 grok- 开头不代表上游是 Grok）
+	if requiresBillableGrokChatUsage(account, upstreamModel, finalResponse.Model) && !hasBillableGrokChatUsage(usage) {
 		upstreamRequestID := firstNonEmpty(requestID, resp.Header.Get("xai-request-id"))
 		return nil, newGrokMissingUsageFailoverError(c, account, upstreamRequestID)
 	}

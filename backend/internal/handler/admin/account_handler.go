@@ -2119,53 +2119,9 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	// Handle Grok accounts
+	// Handle Grok accounts：xAI 模型目录（渠道上的「模型改名」已删，改名在承接关系上）
 	if family == service.PlatformGrok {
-		defaultModels := xai.DefaultModels()
-
-		hasExplicitMapping := false
-		switch rawMapping := account.Credentials["model_mapping"].(type) {
-		case map[string]any:
-			hasExplicitMapping = len(rawMapping) > 0
-		case map[string]string:
-			hasExplicitMapping = len(rawMapping) > 0
-		}
-		if !hasExplicitMapping {
-			response.Success(c, defaultModels)
-			return
-		}
-
-		mapping := account.GetModelMapping()
-		if len(mapping) == 0 {
-			response.Success(c, defaultModels)
-			return
-		}
-
-		defaultByID := make(map[string]xai.Model, len(defaultModels))
-		for _, model := range defaultModels {
-			defaultByID[model.ID] = model
-		}
-
-		requestedModels := make([]string, 0, len(mapping))
-		for requestedModel := range mapping {
-			requestedModels = append(requestedModels, requestedModel)
-		}
-		sort.Strings(requestedModels)
-
-		var models []xai.Model
-		for _, requestedModel := range requestedModels {
-			if defaultModel, found := defaultByID[requestedModel]; found {
-				models = append(models, defaultModel)
-				continue
-			}
-			models = append(models, xai.Model{
-				ID:          requestedModel,
-				Object:      "model",
-				OwnedBy:     "xai",
-				DisplayName: requestedModel,
-			})
-		}
-		response.Success(c, models)
+		response.Success(c, xai.DefaultModels())
 		return
 	}
 
@@ -2258,10 +2214,9 @@ func (h *AccountHandler) SyncUpstreamModels(c *gin.Context) {
 // POST /api/v1/admin/accounts/models/sync-upstream-preview
 func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 	var req struct {
-		Platform     string            `json:"platform" binding:"required"`
-		Type         string            `json:"type" binding:"required"`
-		APIKey       string            `json:"api_key" binding:"required"`
-		ModelMapping map[string]string `json:"model_mapping"`
+		Platform string `json:"platform" binding:"required"`
+		Type     string `json:"type" binding:"required"`
+		APIKey   string `json:"api_key" binding:"required"`
 		// ProtocolEndpoints 与建号接口同一规则：第三方 key 的上游地址只认协议映射，
 		// 预览同步用的临时账号不能例外，否则预览通过、真建号却取不到地址。
 		ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
@@ -2275,17 +2230,11 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	modelMapping := make(map[string]any, len(req.ModelMapping))
-	for sourceModel, upstreamModel := range req.ModelMapping {
-		modelMapping[sourceModel] = upstreamModel
-	}
-
 	tempAccount := &service.Account{
 		Platform: req.Platform,
 		Type:     req.Type,
 		Credentials: map[string]any{
-			"api_key":       req.APIKey,
-			"model_mapping": modelMapping,
+			"api_key": req.APIKey,
 		},
 		ProtocolEndpoints: protocolEndpoints,
 	}

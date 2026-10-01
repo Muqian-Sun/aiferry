@@ -2,10 +2,11 @@
   <!--
     价格页表格里的一行价（官方价或一条承接关系的上游价）：五项价 + 「分段」开关，展开后每段一行、价格列对齐。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
-    首列、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
+    首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
   <tr :class="rowClass" :data-testid="testId">
     <td class="px-3 py-2 align-middle"><slot name="lead" /></td>
+    <td class="px-2 py-2 align-middle"><slot name="upstream" /></td>
     <td v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right align-middle">
       <div class="inline-flex flex-col items-end">
         <PriceInput
@@ -46,7 +47,7 @@
       class="bg-af-sunken/60"
       :data-testid="testId ? `${testId}-segment` : undefined"
     >
-      <td class="px-3 py-2 align-middle">
+      <td colspan="2" class="px-3 py-2 align-middle">
         <label class="flex items-center gap-1.5 whitespace-nowrap pl-4 text-13 text-af-ink-2">
           {{ t('admin.pricing.segmentAbove') }}
           <input
@@ -77,7 +78,7 @@
         </span>
       </td>
       <td class="px-3 py-2 text-right align-middle">
-        <button type="button" class="text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.segments.splice(index, 1)">
+        <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.segments.splice(index, 1)">
           {{ t('admin.pricing.remove') }}
         </button>
       </td>
@@ -107,8 +108,8 @@ import Icon from '@/components/icons/Icon.vue'
 import PriceInput from '@/components/admin/catalog/PriceInput.vue'
 import { PRICE_KEYS, type PriceKey, type PriceRow, type RowIssues } from './pricingDraft'
 
-/** 表格总列数：首列 + 五项价 + 分段 + 毛利 + 状态 + 操作 */
-const COLUMN_COUNT = 10
+/** 表格总列数：首列 + 上游模型名 + 五项价 + 分段 + 毛利 + 状态 + 操作 */
+const COLUMN_COUNT = 11
 const PER_MILLION = 1_000_000
 
 const prices = defineModel<PriceRow>('prices', { required: true })

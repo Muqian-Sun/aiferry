@@ -208,9 +208,9 @@ func TestOpenAIGatewayServiceForwardPreservesMappedGPT56MaxEffort(t *testing.T) 
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://example.com",
-			"model_mapping": map[string]any{
-				"sol": "gpt-5.6-sol",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"sol": "gpt-5.6-sol",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com",

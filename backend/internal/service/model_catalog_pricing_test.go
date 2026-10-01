@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,6 +65,17 @@ func TestModelCatalogBinding_ValidateAgainst(t *testing.T) {
 				b.Intervals = []PricingInterval{{MinTokens: 272000}}
 			},
 			wantErr: "upstream segment 1 has no price"},
+		{name: "upstream model with wildcard",
+			mutate:  func(b *ModelCatalogBinding, _ *ModelCatalogEntry) { b.UpstreamModel = "gpt-*" },
+			wantErr: "upstream_model must be a single model name"},
+		{name: "upstream model with space",
+			mutate:  func(b *ModelCatalogBinding, _ *ModelCatalogEntry) { b.UpstreamModel = "gpt 5" },
+			wantErr: "upstream_model must be a single model name"},
+		{name: "upstream model too long",
+			mutate:  func(b *ModelCatalogBinding, _ *ModelCatalogEntry) { b.UpstreamModel = strings.Repeat("m", 256) },
+			wantErr: "upstream_model must be at most 255 characters"},
+		{name: "upstream model at the length limit",
+			mutate: func(b *ModelCatalogBinding, _ *ModelCatalogEntry) { b.UpstreamModel = strings.Repeat("模", 255) }},
 		{name: "unbounded segment not last",
 			mutate: func(b *ModelCatalogBinding, _ *ModelCatalogEntry) {
 				b.Intervals = []PricingInterval{
@@ -190,6 +202,29 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 			require.Equal(t, before, repo.bindings[1], "nothing written")
 		})
 	}
+
+	// 上游模型名去首尾空白；与目录标识相同的存成空串（= 同名）
+	t.Run("upstream model names are normalized", func(t *testing.T) {
+		svc, repo := newTestModelCatalogService(upstreamCostTestEntry())
+		renamed := upstreamCostTestBinding(1)
+		renamed.UpstreamModel = "  auto-review  "
+		same := upstreamCostTestBinding(3)
+		same.UpstreamModel = "upstream-test-model"
+		_, err := svc.SaveEntryPricing(ctx, 1, official(), []ModelCatalogBinding{renamed, same}, accounts)
+		require.NoError(t, err)
+		require.Equal(t, "auto-review", repo.bindings[1][0].UpstreamModel)
+		require.Empty(t, repo.bindings[1][1].UpstreamModel)
+
+		channel := upstreamCostTestBinding(0)
+		channel.UpstreamModel = " upstream-test-model "
+		_, err = svc.SaveAccountPricing(ctx, 1, []ModelCatalogBinding{channel}, accounts)
+		require.NoError(t, err)
+		for _, b := range repo.bindings[1] {
+			if b.AccountID == 1 {
+				require.Empty(t, b.UpstreamModel, "same name as the catalog model is stored as empty")
+			}
+		}
+	})
 
 	// 只改承接渠道、官方价原样提交时不改归属：种子条目仍是平台默认价卡（DeepSeek 强制官方价 / 高峰加价照常、种子照常刷新）
 	t.Run("unchanged official prices keep the seed ownership", func(t *testing.T) {

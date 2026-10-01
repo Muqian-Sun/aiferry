@@ -672,8 +672,10 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		QuotaDimension:          account.QuotaDimension,
 		ProtocolEndpoints:       account.ProtocolEndpoints,
 		CatalogEntryIDs:         account.CatalogEntryIDs,
-		Credentials:             filterSchedulerCredentials(account.Credentials),
-		Extra:                   filterSchedulerExtra(account.Extra),
+		// 承接关系上的上游名：选号时的模型支持判断（IsModelSupported）要看它叠进厂商默认表后的映射
+		CatalogUpstreamModels: account.CatalogUpstreamModels,
+		Credentials:           filterSchedulerCredentials(account.Credentials),
+		Extra:                 filterSchedulerExtra(account.Extra),
 	}
 }
 
@@ -684,9 +686,8 @@ func filterSchedulerCredentials(credentials map[string]any) map[string]any {
 	// 选号阶段（candidateAdmits 等）在本投影上判断，读到的键漏了就按零值静默放行 / 误拒；
 	// scheduler_cache_admission_keys_test.go 用 AST 扫描选号路径守着这份清单。
 	keys := []string{
+		// model_mapping 只剩 spark 影子号的模型列表（普通渠道的改名在 CatalogUpstreamModels）
 		"model_mapping", "api_key", "project_id", "oauth_type", "plan_type",
-		// 「只改名」标记：漏了映射就变成白名单，没列进映射的目录模型被判不支持
-		"model_mapping_rename_only",
 		// OpenAI 认证方式（live 等能力门）
 		"auth_mode", "openai_auth_mode",
 		// Grok：免费档判断（生图门）与团队级模型限流

@@ -239,7 +239,8 @@ func TestOpenAIGatewayService_Forward_NormalizesMaxTokensAndStripsPromptCacheOpt
 	})
 }
 
-func TestOpenAIGatewayService_Forward_TextResponsesSetsBillingModelToMappedModel(t *testing.T) {
+// 渠道改名只作用在发给上游的名字上，计费按用户请求的目录模型。
+func TestOpenAIGatewayService_Forward_TextResponsesBillsRequestedModelWhenRenamed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{
 		resp: &http.Response{
@@ -260,12 +261,12 @@ func TestOpenAIGatewayService_Forward_TextResponsesSetsBillingModelToMappedModel
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"base_url":      "https://example.com",
-			"model_mapping": map[string]any{"gpt-5.4": "gpt-5.5"},
+			"api_key":  "sk-test",
+			"base_url": "https://example.com",
 		},
-		Extra:             map[string]any{"use_responses_api": true},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com"},
+		CatalogUpstreamModels: map[string]string{"gpt-5.4": "gpt-5.5"},
+		Extra:                 map[string]any{"use_responses_api": true},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com"},
 	}
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -277,7 +278,7 @@ func TestOpenAIGatewayService_Forward_TextResponsesSetsBillingModelToMappedModel
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "gpt-5.4", result.Model)
-	require.Equal(t, "gpt-5.5", result.BillingModel)
+	require.Equal(t, "gpt-5.4", result.BillingModel)
 	require.Equal(t, "gpt-5.5", result.UpstreamModel)
 	require.Equal(t, "gpt-5.5", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, 0, result.ImageCount)
@@ -332,12 +333,12 @@ func TestOpenAIGatewayService_Forward_TextResponsesBillingModelMatchesChatComple
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"base_url":      "https://example.com",
-			"model_mapping": map[string]any{"gpt-5.4": "gpt-5.5"},
+			"api_key":  "sk-test",
+			"base_url": "https://example.com",
 		},
-		Extra:             map[string]any{"use_responses_api": true},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com"},
+		CatalogUpstreamModels: map[string]string{"gpt-5.4": "gpt-5.5"},
+		Extra:                 map[string]any{"use_responses_api": true},
+		ProtocolEndpoints:     map[string]string{APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com"},
 	}
 
 	responsesUpstream := &httpUpstreamRecorder{
@@ -375,9 +376,12 @@ func TestOpenAIGatewayService_Forward_TextResponsesBillingModelMatchesChatComple
 	require.NoError(t, err)
 	require.NotNil(t, chatResult)
 
+	// 两条链路都按用户请求的目录模型计费，改名只作用在发给上游的名字上
 	require.Equal(t, chatResult.BillingModel, responsesResult.BillingModel)
-	require.Equal(t, "gpt-5.5", responsesResult.BillingModel)
-	require.Equal(t, "gpt-5.5", chatResult.BillingModel)
+	require.Equal(t, "gpt-5.4", responsesResult.BillingModel)
+	require.Equal(t, "gpt-5.4", chatResult.BillingModel)
+	require.Equal(t, "gpt-5.5", responsesResult.UpstreamModel)
+	require.Equal(t, "gpt-5.5", chatResult.UpstreamModel)
 }
 
 func TestOpenAIGatewayService_Forward_TextDataImageDoesNotForceMapMarshal(t *testing.T) {

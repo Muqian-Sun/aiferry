@@ -65,9 +65,9 @@ func TestGrokTeamModelRateLimitFilterUsesMappedUpstreamModel(t *testing.T) {
 		Platform: PlatformGrok,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
-			"team_id":       "team-mapped-301",
-			"model_mapping": map[string]any{"gpt-*": "grok-4.5"},
+			"team_id": "team-mapped-301",
 		},
+		CatalogUpstreamModels: map[string]string{"gpt-5": "grok-4.5"},
 	}
 	markGrokTeamModelRateLimit(account, "grok-4.5", now.Add(time.Hour))
 

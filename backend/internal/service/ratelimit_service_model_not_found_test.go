@@ -127,7 +127,7 @@ func TestRateLimitService_HandleUpstreamError_CodexPlanGatedModelRespectsModelMa
 	repo := &modelNotFoundAccountRepoStub{}
 	svc := &RateLimitService{accountRepo: repo}
 	account := openAICodexPlanGatedOAuthAccount()
-	account.Credentials["model_mapping"] = map[string]any{"gpt-5.6-sol": "gpt-5.6-sol-upstream"}
+	account.CatalogUpstreamModels = map[string]string{"gpt-5.6-sol": "gpt-5.6-sol-upstream"}
 
 	handled := svc.HandleUpstreamError(
 		context.Background(),
@@ -264,13 +264,13 @@ func TestRateLimitService_HandleUpstreamError_CodexPlanGatedImageModelSkipsCoold
 	require.Empty(t, repo.modelRateLimitCalls)
 }
 
-// 守卫口径必须与冷却键一致：冷却键走 account.GetMappedModel，账号可以把文本别名
-// 映射到 gpt-image-*，只判请求模型会漏掉这种形态，原 bug 原样复现。
+// 守卫口径必须与冷却键一致：冷却键走 account.GetMappedModel，承接关系可以把目录模型
+// 改名到 gpt-image-*，只判请求模型会漏掉这种形态，原 bug 原样复现。
 func TestRateLimitService_HandleUpstreamError_CodexPlanGatedImageModelSkipsCooldownViaModelMapping(t *testing.T) {
 	repo := &modelNotFoundAccountRepoStub{}
 	svc := &RateLimitService{accountRepo: repo}
 	account := openAICodexPlanGatedOAuthAccount()
-	account.Credentials["model_mapping"] = map[string]any{"my-draw-alias": "gpt-image-2"}
+	account.CatalogUpstreamModels = map[string]string{"my-draw-alias": "gpt-image-2"}
 
 	handled := svc.HandleUpstreamError(
 		context.Background(),

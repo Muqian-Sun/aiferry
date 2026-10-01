@@ -266,9 +266,9 @@ func TestForwardAlphaSearchAPIKeyMapsModelAndPassesThroughError(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://compat.example/v4",
-			"model_mapping": map[string]any{
-				"gpt-5.6-sol": "upstream-5.6",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"gpt-5.6-sol": "upstream-5.6",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://compat.example/v4",
@@ -636,9 +636,7 @@ func TestShouldApplyOpenAIAlphaSearchAccountErrorSideEffects(t *testing.T) {
 }
 
 func TestOpenAIAlphaSearchSchedulingModelUsesCanonicalAccountMapping(t *testing.T) {
-	account := &Account{Credentials: map[string]any{
-		"model_mapping": map[string]any{"client-visible": "canonical-upstream"},
-	}}
+	account := &Account{CatalogUpstreamModels: map[string]string{"client-visible": "canonical-upstream"}}
 	require.Equal(t, "canonical-upstream", openAIAlphaSearchSchedulingModel(account, "client-visible"))
 	require.Equal(t, "unmapped", openAIAlphaSearchSchedulingModel(account, "unmapped"))
 }

@@ -132,16 +132,18 @@ func openAIWSIngressEndedByClient(err error) bool {
 	return errors.Is(err, context.Canceled)
 }
 
+// openAIWSTurnBillingModel WebSocket 每一轮的计费模型：生图轮用生图计费模型；其余按用户请求的目录模型计费，
+// 承接关系上的改名只作用在发给上游的名字上（D4）；请求没带模型时才退回上游模型。
 func openAIWSTurnBillingModel(result *service.OpenAIForwardResult, requestedModel, upstreamModel string) string {
 	billingModel := ""
 	if result != nil {
 		billingModel = strings.TrimSpace(result.BillingModel)
 	}
 	if billingModel == "" {
-		billingModel = strings.TrimSpace(upstreamModel)
+		billingModel = strings.TrimSpace(requestedModel)
 	}
 	if billingModel == "" {
-		billingModel = strings.TrimSpace(requestedModel)
+		billingModel = strings.TrimSpace(upstreamModel)
 	}
 	return billingModel
 }

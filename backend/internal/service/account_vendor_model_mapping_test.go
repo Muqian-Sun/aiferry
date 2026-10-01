@@ -134,16 +134,23 @@ func TestAntigravityModelMapping_NeverAppliesToKeys(t *testing.T) {
 	}
 
 	t.Run("custom mapping gets no thinking suffix, passthroughs or 3.1-pro aliases", func(t *testing.T) {
-		mapping := map[string]any{
+		mapping := map[string]string{
 			"claude-sonnet-4-5":                     "claude-sonnet-4-5",
 			domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
 		}
 		key := vendorTestKey(PlatformAntigravity, relayAnthropic)
-		key.Credentials = map[string]any{"model_mapping": mapping}
+		key.CatalogUpstreamModels = mapping
 		require.Empty(t, key.Vendor())
 
-		// 对照：同样映射的 Antigravity 成品号会被注入默认透传与 3.1-pro 别名，thinking 后缀生效。
-		subscription := &Account{ID: 9101, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": mapping}}
+		// 对照：同样的模型列表放在 Antigravity 成品号上会被注入默认透传与 3.1-pro 别名，thinking 后缀生效。
+		// 普通成品号的上游名叠在默认表之上，默认表本身就含这些模型，对照不出差别，所以对照用替换默认表的
+		// spark 影子号模型列表。
+		parentID := int64(9100)
+		subscription := &Account{ID: 9101, Platform: PlatformAntigravity, Type: AccountTypeOAuth, ParentAccountID: &parentID,
+			Credentials: map[string]any{"model_mapping": map[string]any{
+				"claude-sonnet-4-5":                     "claude-sonnet-4-5",
+				domain.AntigravityGemini31ProAgentModel: domain.AntigravityGemini31ProAgentModel,
+			}}}
 		require.Contains(t, subscription.GetModelMapping(), "gemini-3-flash")
 		require.Contains(t, subscription.GetModelMapping(), "gemini-3.1-pro")
 		require.False(t, svc.isModelSupportedByAccountWithContext(thinkingCtx, subscription, "claude-sonnet-4-5"))
@@ -156,44 +163,33 @@ func TestAntigravityModelMapping_NeverAppliesToKeys(t *testing.T) {
 	})
 }
 
+// 承接关系上的上游名不兼任白名单，customtools 别名只在按上游名改写时可观测（ResolveMappedModel）。
 func TestModelLookupCustomtoolsAliasFollowsVendor(t *testing.T) {
-	mapping := map[string]any{"gemini-3.1-pro-preview": "gemini-3.1-pro-preview"}
+	mapping := map[string]string{"gemini-3.1-pro-preview": "gemini-3.1-pro-preview"}
 
 	relay := vendorTestKey(PlatformGemini, map[string]string{APIProtocolGemini: "https://relay.example.com"})
-	relay.Credentials = map[string]any{"model_mapping": mapping}
+	relay.CatalogUpstreamModels = mapping
 	require.Empty(t, relay.Vendor())
-	require.False(t, relay.IsModelSupported("gemini-3.1-pro-preview-customtools"))
 	_, matched := relay.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
 	require.False(t, matched)
 
 	keyOnOfficialHost := vendorTestKey(PlatformGemini, map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"})
-	keyOnOfficialHost.Credentials = map[string]any{"model_mapping": mapping}
+	keyOnOfficialHost.CatalogUpstreamModels = mapping
 	require.Empty(t, keyOnOfficialHost.Vendor())
-	require.False(t, keyOnOfficialHost.IsModelSupported("gemini-3.1-pro-preview-customtools"))
+	_, matched = keyOnOfficialHost.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
+	require.False(t, matched)
 
-	subscription := &Account{ID: 9104, Platform: PlatformGemini, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": mapping}}
-	require.True(t, subscription.IsModelSupported("gemini-3.1-pro-preview-customtools"))
+	subscription := &Account{ID: 9104, Platform: PlatformGemini, Type: AccountTypeOAuth, CatalogUpstreamModels: mapping}
 	mapped, matched := subscription.ResolveMappedModel("gemini-3.1-pro-preview-customtools")
 	require.True(t, matched)
 	require.Equal(t, "gemini-3.1-pro-preview", mapped)
 }
 
-// OpenAI 自动透传 2026-09-28 P5 写死关：库里残留 openai_passthrough=true 的 key 也按 model_mapping 白名单
+// OpenAI 自动透传 2026-09-28 P5 写死关：库里残留 openai_passthrough=true 的 key 也按厂商白名单
 // 判模型（改之前透传 key 在选号阶段放行所有模型）。
 func TestOpenAILegacyPassthroughKeyNoLongerBypassesModelAllowlist(t *testing.T) {
 	svc := &GatewayService{}
 	passthrough := map[string]any{"openai_passthrough": true}
-
-	t.Run("relay with leftover mapping is gated by the mapping", func(t *testing.T) {
-		account := vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: vendorTestRelayURL})
-		account.Extra = passthrough
-		account.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"}}
-		require.Empty(t, account.Vendor())
-
-		require.False(t, account.IsModelSupported("gpt-9"))
-		require.False(t, svc.isModelSupportedByAccount(account, "gpt-9"))
-		require.True(t, account.IsModelSupported("gpt-5.4"))
-	})
 
 	t.Run("known non-openai vendor does not bypass its allowlist", func(t *testing.T) {
 		account := vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"})
@@ -215,18 +211,20 @@ func TestNormalizeOpenAIModelForUpstream_DeepseekLongContextSuffixFollowsVendor(
 	require.Equal(t, "deepseek-flash", normalizeOpenAIModelForUpstream(official, "deepseek-flash[1m]"))
 }
 
-// Anthropic 短名 → 长 ID 的展开只给成品号用；key（即使指向官方地址、标签为 anthropic）
-// 的模型名完全由管理员映射决定。
+// Anthropic 短名 → 长 ID 的展开只给成品号用；key（即使指向官方地址、标签为 anthropic）不展开。
+// 展开只影响模型集合的判定，普通渠道的上游名不兼任白名单，所以两边都用 spark 影子号的模型列表。
 func TestGatewayModelSupport_AnthropicShortIDNormalizationIsSubscriptionOnly(t *testing.T) {
 	svc := &GatewayService{}
 	const shortID = "claude-sonnet-4-5"
 	longID := "claude-sonnet-4-5-20250929"
 	mapping := map[string]any{longID: longID}
+	parentID := int64(9100)
 
-	subscription := &Account{ID: 9102, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Credentials: map[string]any{"model_mapping": mapping}}
+	subscription := &Account{ID: 9102, Platform: PlatformAnthropic, Type: AccountTypeOAuth, ParentAccountID: &parentID, Credentials: map[string]any{"model_mapping": mapping}}
 	require.True(t, svc.isModelSupportedByAccount(subscription, shortID), "fixture: short id must expand to the mapped long id")
 
 	key := vendorTestKey(PlatformAnthropic, map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"})
+	key.ParentAccountID = &parentID
 	key.Credentials = map[string]any{"model_mapping": mapping}
 	require.Empty(t, key.Vendor())
 	require.False(t, svc.isModelSupportedByAccount(key, shortID))

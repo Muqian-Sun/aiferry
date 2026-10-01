@@ -31,39 +31,6 @@
         </p>
       </div>
 
-      <!-- 模型改名（映射只改名，muqian 2026-09-25 去掉白名单） -->
-      <div class="border-t border-af-hairline pt-4">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-model-restriction-label"
-            class="input-label mb-0"
-            for="bulk-edit-model-restriction-enabled"
-          >
-            {{ t('admin.accounts.modelRename.title') }}
-          </label>
-          <input
-            v-model="enableModelRestriction"
-            id="bulk-edit-model-restriction-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-model-restriction-body"
-            class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-          />
-        </div>
-
-        <div
-          id="bulk-edit-model-restriction-body"
-          :class="!enableModelRestriction && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-model-restriction-label"
-        >
-          <ModelRenameEditor
-            v-model="modelMappings"
-            :show-title="false"
-            :presets="renamePresets"
-          />
-        </div>
-      </div>
-
       <!-- Intercept warmup requests (Anthropic only) -->
       <div class="border-t border-af-hairline pt-4">
         <div class="flex items-center justify-between gap-4">
@@ -399,12 +366,7 @@ import type {
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
-import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import Icon from '@/components/icons/Icon.vue'
-import {
-  buildModelMappingObject as buildModelMappingPayload,
-  renamePresetsFor
-} from '@/composables/useModelWhitelist'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import {
   buildHeaderOverridesObject,
@@ -465,31 +427,7 @@ const allAnthropicOAuthOrSetupToken = computed(() => {
   )
 })
 
-// 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
-const renamePresets = computed(() => {
-  if (targetSelectedPlatforms.value.length === 0) return []
-
-  const dedupedPresets = new Map<string, ReturnType<typeof renamePresetsFor>[number]>()
-  for (const platform of targetSelectedPlatforms.value) {
-    for (const preset of renamePresetsFor(platform)) {
-      const key = `${preset.from}=>${preset.to}`
-      if (!dedupedPresets.has(key)) {
-        dedupedPresets.set(key, preset)
-      }
-    }
-  }
-
-  return Array.from(dedupedPresets.values())
-})
-
-// Model mapping type
-interface ModelMapping {
-  from: string
-  to: string
-}
-
 // State - field enable flags
-const enableModelRestriction = ref(false)
 const enableInterceptWarmup = ref(false)
 const enableHeaderOverride = ref(false)
 const enableProxy = ref(false)
@@ -500,7 +438,6 @@ const enableRpmLimit = ref(false)
 
 // State - field values
 const submitting = ref(false)
-const modelMappings = ref<ModelMapping[]>([])
 const interceptWarmupRequests = ref(false)
 // 请求头覆写：覆写表里有条目就生效（渠道级开关已删）。开 = 用下方条目整表替换，关 = 清空所选渠道的覆写表
 const headerOverrideEnabled = ref(false)
@@ -516,9 +453,6 @@ const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
 ])
-const buildModelMappingObject = (): Record<string, string> | null => {
-  return buildModelMappingPayload('mapping', [], modelMappings.value)
-}
 
 const buildUpdatePayload = (): Record<string, unknown> | null => {
   const updates: Record<string, unknown> = {}
@@ -546,13 +480,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
 
   if (enableStatus.value) {
     updates.status = status.value
-  }
-
-  if (enableModelRestriction.value) {
-    // 映射只改名：空配置显式发空对象，覆盖各账号已有的映射；批量路径按 JSONB 顶层键合并，标记一并写入
-    credentials.model_mapping = buildModelMappingObject() ?? {}
-    credentials.model_mapping_rename_only = true
-    credentialsChanged = true
   }
 
   if (enableInterceptWarmup.value) {
@@ -595,7 +522,6 @@ const handleSubmit = async () => {
   }
 
   const hasAnyFieldEnabled =
-    enableModelRestriction.value ||
     enableInterceptWarmup.value ||
     enableHeaderOverride.value ||
     enableProxy.value ||
@@ -668,7 +594,6 @@ watch(
   (newShow) => {
     if (!newShow) {
       // Reset all enable flags
-      enableModelRestriction.value = false
       enableInterceptWarmup.value = false
       enableHeaderOverride.value = false
       enableProxy.value = false
@@ -678,7 +603,6 @@ watch(
       enableRpmLimit.value = false
 
       // Reset all values
-      modelMappings.value = []
       interceptWarmupRequests.value = false
       headerOverrideEnabled.value = false
       headerOverrideRows.value = []

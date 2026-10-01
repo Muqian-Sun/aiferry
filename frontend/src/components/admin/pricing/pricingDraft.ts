@@ -68,10 +68,17 @@ export interface RowIssues {
   missing: PriceKey[]
   /** 每段的问题（null = 没问题），与 segments 一一对应 */
   segments: Array<TokenSegmentError | null>
+  /** 上游模型名不是一个具体的名字（带通配或空白） */
+  upstreamModelInvalid?: boolean
 }
 
 export function hasRowIssues(issues: RowIssues): boolean {
-  return issues.missing.length > 0 || issues.segments.some((error) => error != null)
+  return issues.missing.length > 0 || issues.segments.some((error) => error != null) || issues.upstreamModelInvalid === true
+}
+
+/** 上游模型名只能是一个具体的名字：不带 *、不含空白（与后端 ValidateAgainst 同口径；首尾空白保存时去掉） */
+export function upstreamModelInvalid(name: string): boolean {
+  return /[*\s]/.test(name.trim())
 }
 
 /** 官方价：输入 / 输出必填 */
@@ -112,17 +119,29 @@ export function priceRowChanges(current: PriceRow, initial: PriceRow): number {
 export interface KeyedRow {
   /** 按模型的块里是渠道 ID，按渠道的块里是模型条目 ID */
   id: number
+  /** 这个渠道给这个模型用的上游模型名，空 = 与目录模型标识同名 */
+  upstreamModel: string
   prices: PriceRow
 }
 
-/** 一块的承接行改了几处：新加 / 移除一行各算一处，同一行按 priceRowChanges 计 */
+/** 承接行的问题：上游价 + 上游模型名 */
+export function bindingRowIssues(row: KeyedRow, official: Record<PriceKey, number | null | undefined>): RowIssues {
+  return { ...upstreamIssues(row.prices, official), upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel) }
+}
+
+/** 一块的承接行改了几处：新加 / 移除一行各算一处，同一行按 priceRowChanges 计，上游模型名改了算一处 */
 export function keyedRowsChanges(current: KeyedRow[], initial: KeyedRow[]): number {
-  const before = new Map(initial.map((row) => [row.id, row.prices]))
+  const before = new Map(initial.map((row) => [row.id, row]))
   const after = new Set(current.map((row) => row.id))
   let count = initial.filter((row) => !after.has(row.id)).length
   for (const row of current) {
     const original = before.get(row.id)
-    count += original ? priceRowChanges(row.prices, original) : 1
+    if (!original) {
+      count += 1
+      continue
+    }
+    count += priceRowChanges(row.prices, original.prices)
+    if (row.upstreamModel.trim() !== original.upstreamModel.trim()) count += 1
   }
   return count
 }
@@ -171,7 +190,7 @@ export interface ChannelDraft {
 }
 
 export function cloneKeyedRows(rows: KeyedRow[]): KeyedRow[] {
-  return rows.map((row) => ({ id: row.id, prices: clonePriceRow(row.prices) }))
+  return rows.map((row) => ({ id: row.id, upstreamModel: row.upstreamModel, prices: clonePriceRow(row.prices) }))
 }
 
 export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: number) => number): ModelDraft {
@@ -179,7 +198,7 @@ export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: nu
     official: priceRowFrom(entry),
     rows: [...entry.bindings]
       .sort((a, b) => accountOrder(a.account_id) - accountOrder(b.account_id))
-      .map((binding) => ({ id: binding.account_id, prices: priceRowFrom(binding) }))
+      .map((binding) => ({ id: binding.account_id, upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding) }))
   }
 }
 
@@ -195,10 +214,10 @@ export function channelDraftFrom(accountId: number, entries: PricingEntry[]): Ch
   const rows: Array<KeyedRow & { modelId: string }> = []
   for (const entry of entries) {
     const binding = entry.bindings.find((item) => item.account_id === accountId)
-    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, prices: priceRowFrom(binding) })
+    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding) })
   }
   rows.sort((a, b) => a.modelId.localeCompare(b.modelId))
-  return { rows: rows.map(({ id, prices }) => ({ id, prices })) }
+  return { rows: rows.map(({ id, upstreamModel, prices }) => ({ id, upstreamModel, prices })) }
 }
 
 export function cloneChannelDraft(draft: ChannelDraft): ChannelDraft {

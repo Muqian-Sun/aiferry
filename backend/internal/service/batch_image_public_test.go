@@ -430,8 +430,8 @@ func TestBatchImagePublicService_ListModels(t *testing.T) {
 	t.Run("returns priced models from selected accounts", func(t *testing.T) {
 		svc, _, _, _ := newTestBatchImagePublicService(true)
 		accountRepo := svc.AccountRepo.(*publicBatchImageAccountRepo)
-		accountRepo.accounts = []Account{testBatchImageMappedAccount(303, AccountTypeAPIKey, map[string]any{
-			"gemini-2.5-flash-image": "gemini-2.5-flash-image",
+		accountRepo.accounts = []Account{testBatchImageMappedAccount(303, AccountTypeAPIKey, map[string]string{
+			"gemini-2.5-flash-image": "gemini-2.5-flash-image-preview",
 		})}
 
 		got, err := svc.ListModels(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, RateMultiplier: 1})
@@ -443,25 +443,6 @@ func TestBatchImagePublicService_ListModels(t *testing.T) {
 		}}, got.Data)
 	})
 
-	t.Run("expands wildcard mappings against batch image candidates", func(t *testing.T) {
-		svc, _, _, _ := newTestBatchImagePublicService(true)
-		accountRepo := svc.AccountRepo.(*publicBatchImageAccountRepo)
-		accountRepo.accounts = []Account{testBatchImageMappedAccount(303, AccountTypeAPIKey, map[string]any{
-			"gemini-3.1-*": "gemini-3.1-flash-lite-image",
-		})}
-
-		got, err := svc.ListModels(ctx, testBatchImageOwner())
-		require.NoError(t, err)
-		require.NotEmpty(t, got.Data)
-		ids := make([]string, 0, len(got.Data))
-		for _, model := range got.Data {
-			ids = append(ids, model.ID)
-		}
-		require.Contains(t, ids, "gemini-3.1-flash-image")
-		require.Contains(t, ids, "gemini-3.1-flash-lite-image")
-		require.NotContains(t, ids, "gemini-2.5-flash-image")
-	})
-
 	t.Run("filters models without batch image pricing", func(t *testing.T) {
 		svc, _, _, _ := newTestBatchImagePublicService(true)
 		svc.Pricing = &fakeBatchImagePricingResolver{
@@ -469,9 +450,9 @@ func TestBatchImagePublicService_ListModels(t *testing.T) {
 			missingModels: map[string]bool{"gemini-3.1-flash-lite-image": true},
 		}
 		accountRepo := svc.AccountRepo.(*publicBatchImageAccountRepo)
-		accountRepo.accounts = []Account{testBatchImageMappedAccount(303, AccountTypeAPIKey, map[string]any{
-			"gemini-2.5-flash-image":      "gemini-2.5-flash-image",
-			"gemini-3.1-flash-lite-image": "gemini-3.1-flash-lite-image",
+		accountRepo.accounts = []Account{testBatchImageMappedAccount(303, AccountTypeAPIKey, map[string]string{
+			"gemini-2.5-flash-image":      "gemini-2.5-flash-image-preview",
+			"gemini-3.1-flash-lite-image": "gemini-3.1-flash-lite-image-preview",
 		})}
 
 		got, err := svc.ListModels(ctx, testBatchImageOwner())
@@ -711,9 +692,9 @@ func testBatchImageAccount(id int64, accountType string) Account {
 	}
 }
 
-func testBatchImageMappedAccount(id int64, accountType string, mapping map[string]any) Account {
+func testBatchImageMappedAccount(id int64, accountType string, upstreamModels map[string]string) Account {
 	account := testBatchImageAccount(id, accountType)
-	account.Credentials["model_mapping"] = mapping
+	account.CatalogUpstreamModels = upstreamModels
 	return account
 }
 

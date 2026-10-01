@@ -136,9 +136,10 @@ func TestSparkShadowIntegration(t *testing.T) {
 		normalWithSpark := &Account{ID: 3, Platform: PlatformOpenAI, Credentials: sparkCreds}
 		require.True(t, normalWithSpark.IsModelSupported(sparkModel), "普通账号配 spark → 接 spark（不再按类型排除）")
 
+		// 普通账号承接哪些模型由目录绑定决定：承接关系上的上游名只改名、不兼任白名单，不按它拒 spark。
 		normalNoSpark := &Account{ID: 4, Platform: PlatformOpenAI,
-			Credentials: map[string]any{"model_mapping": map[string]any{normalModel: normalModel}}}
-		require.False(t, normalNoSpark.IsModelSupported(sparkModel), "普通账号未配 spark → 拒 spark（按配置）")
+			CatalogUpstreamModels: map[string]string{normalModel: normalModel + "-upstream"}}
+		require.True(t, normalNoSpark.IsModelSupported(sparkModel), "普通账号的上游名不兼任白名单 → 不拒 spark")
 	})
 
 	// ──────────────────────────────────────────────────────────────────────

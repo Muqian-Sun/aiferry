@@ -310,12 +310,12 @@ func TestClampOllamaCloudUpstreamMaxTokens(t *testing.T) {
 }
 
 // TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens 端到端验证 raw
-// CC 出站钩子：判定用模型映射后的真实出站 model，官方 DeepSeek 字节级不变。
+// CC 出站钩子：判定用改名（承接关系上的上游名）后的真实出站 model，官方 DeepSeek 字节级不变。
 func TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	account := ollamaUpstreamTestAccount(PlatformDeepseek, 311)
-	account.Credentials["model_mapping"] = map[string]any{"deepseek-chat": "deepseek-v4-flash"}
+	account.CatalogUpstreamModels = map[string]string{"deepseek-chat": "deepseek-v4-flash"}
 
 	body := []byte(`{"model":"deepseek-chat","max_tokens":256000,"messages":[{"role":"user","content":"hi"}],"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}

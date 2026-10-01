@@ -72,11 +72,9 @@ func TestHandleOpenAITransientError_CanonicalModelIsNotMappedTwice(t *testing.T)
 		ID:       5107,
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"public-alias": "upstream-a",
-				"upstream-a":   "upstream-b",
-			},
+		CatalogUpstreamModels: map[string]string{
+			"public-alias": "upstream-a",
+			"upstream-a":   "upstream-b",
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}

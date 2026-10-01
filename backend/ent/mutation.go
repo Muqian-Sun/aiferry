@@ -22876,6 +22876,7 @@ type ModelCatalogBindingMutation struct {
 	addcache_write_1h_price *float64
 	cache_read_price        *float64
 	addcache_read_price     *float64
+	upstream_model          *string
 	price_intervals         *[]domain.PriceSegment
 	appendprice_intervals   []domain.PriceSegment
 	created_at              *time.Time
@@ -23203,6 +23204,25 @@ func (m *ModelCatalogBindingMutation) ResetCacheReadPrice() {
 	delete(m.clearedFields, modelcatalogbinding.FieldCacheReadPrice)
 }
 
+// SetUpstreamModel sets the "upstream_model" field.
+func (m *ModelCatalogBindingMutation) SetUpstreamModel(s string) {
+	m.upstream_model = &s
+}
+
+// UpstreamModel returns the value of the "upstream_model" field in the mutation.
+func (m *ModelCatalogBindingMutation) UpstreamModel() (r string, exists bool) {
+	v := m.upstream_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUpstreamModel resets all changes to the "upstream_model" field.
+func (m *ModelCatalogBindingMutation) ResetUpstreamModel() {
+	m.upstream_model = nil
+}
+
 // SetPriceIntervals sets the "price_intervals" field.
 func (m *ModelCatalogBindingMutation) SetPriceIntervals(ds []domain.PriceSegment) {
 	m.price_intervals = &ds
@@ -23363,7 +23383,7 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
@@ -23384,6 +23404,9 @@ func (m *ModelCatalogBindingMutation) Fields() []string {
 	}
 	if m.cache_read_price != nil {
 		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
+	}
+	if m.upstream_model != nil {
+		fields = append(fields, modelcatalogbinding.FieldUpstreamModel)
 	}
 	if m.price_intervals != nil {
 		fields = append(fields, modelcatalogbinding.FieldPriceIntervals)
@@ -23416,6 +23439,8 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheWrite1hPrice()
 	case modelcatalogbinding.FieldCacheReadPrice:
 		return m.CacheReadPrice()
+	case modelcatalogbinding.FieldUpstreamModel:
+		return m.UpstreamModel()
 	case modelcatalogbinding.FieldPriceIntervals:
 		return m.PriceIntervals()
 	case modelcatalogbinding.FieldCreatedAt:
@@ -23486,6 +23511,13 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheReadPrice(v)
+		return nil
+	case modelcatalogbinding.FieldUpstreamModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamModel(v)
 		return nil
 	case modelcatalogbinding.FieldPriceIntervals:
 		v, ok := value.([]domain.PriceSegment)
@@ -23661,6 +23693,9 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldCacheReadPrice:
 		m.ResetCacheReadPrice()
+		return nil
+	case modelcatalogbinding.FieldUpstreamModel:
+		m.ResetUpstreamModel()
 		return nil
 	case modelcatalogbinding.FieldPriceIntervals:
 		m.ResetPriceIntervals()

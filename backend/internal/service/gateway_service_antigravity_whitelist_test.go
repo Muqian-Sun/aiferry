@@ -13,9 +13,11 @@ import (
 func TestGatewayService_isModelSupportedByAccount_AntigravityModelMapping(t *testing.T) {
 	svc := &GatewayService{}
 
-	// 使用 model_mapping 作为白名单（通配符匹配）
+	// spark 影子号的模型列表作为白名单（通配符匹配）：替换默认表，只有影子号的列表支持通配
+	parentID := int64(1)
 	account := &Account{
-		Platform: PlatformAntigravity,
+		Platform:        PlatformAntigravity,
+		ParentAccountID: &parentID,
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{
 				"claude-*":   "claude-sonnet-4-5",
@@ -69,7 +71,9 @@ func TestGatewayService_isModelSupportedByAccount_AntigravityNoMapping(t *testin
 }
 
 // TestGatewayService_isModelSupportedByAccountWithContext_ThinkingMode 测试 thinking 模式下的模型支持检查
-// 验证调度时使用映射后的最终模型名（包括 thinking 后缀）来检查 model_mapping 支持
+// 验证调度时使用映射后的最终模型名（包括 thinking 后缀）来检查 model_mapping 支持。
+// 默认表含 thinking 变体，普通成品号的上游名叠在默认表之上，只有替换默认表的 spark 影子号模型列表能缺 thinking 变体，
+// 所以这里用影子号装配。
 func TestGatewayService_isModelSupportedByAccountWithContext_ThinkingMode(t *testing.T) {
 	svc := &GatewayService{}
 
@@ -160,8 +164,10 @@ func TestGatewayService_isModelSupportedByAccountWithContext_ThinkingMode(t *tes
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			parentID := int64(1)
 			account := &Account{
-				Platform: PlatformAntigravity,
+				Platform:        PlatformAntigravity,
+				ParentAccountID: &parentID,
 				Credentials: map[string]any{
 					"model_mapping": tt.modelMapping,
 				},
@@ -177,31 +183,31 @@ func TestGatewayService_isModelSupportedByAccountWithContext_ThinkingMode(t *tes
 	}
 }
 
-// TestGatewayService_isModelSupportedByAccount_CustomMappingNotInDefault 测试自定义模型映射中
-// 不在 DefaultAntigravityModelMapping 中的模型能通过调度
+// TestGatewayService_isModelSupportedByAccount_CustomMappingNotInDefault 测试承接关系上的上游名中
+// 不在 DefaultAntigravityModelMapping 中的模型能通过调度（上游名叠在默认表之上，合起来仍是模型集合）
 func TestGatewayService_isModelSupportedByAccount_CustomMappingNotInDefault(t *testing.T) {
 	svc := &GatewayService{}
 
-	// 自定义映射中包含不在默认映射中的模型
+	// 承接关系上的上游名包含不在默认映射中的模型
 	account := &Account{
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"my-custom-model":   "actual-upstream-model",
-				"gpt-4o":            "some-upstream-model",
-				"llama-3-70b":       "llama-3-70b-upstream",
-				"claude-sonnet-4-5": "claude-sonnet-4-5",
-			},
+		CatalogUpstreamModels: map[string]string{
+			"my-custom-model":   "actual-upstream-model",
+			"gpt-4o":            "some-upstream-model",
+			"llama-3-70b":       "llama-3-70b-upstream",
+			"claude-sonnet-4-5": "claude-sonnet-4-5",
 		},
 	}
 
-	// 自定义模型应该通过（不在 DefaultAntigravityModelMapping 中也可以）
+	// 上游名里的模型应该通过（不在 DefaultAntigravityModelMapping 中也可以）
 	require.True(t, svc.isModelSupportedByAccount(account, "my-custom-model"))
 	require.True(t, svc.isModelSupportedByAccount(account, "gpt-4o"))
 	require.True(t, svc.isModelSupportedByAccount(account, "llama-3-70b"))
 	require.True(t, svc.isModelSupportedByAccount(account, "claude-sonnet-4-5"))
+	// 默认表里的模型仍可用
+	require.True(t, svc.isModelSupportedByAccount(account, "gemini-2.5-pro"))
 
-	// 不在自定义映射中的模型不通过
+	// 既不在默认表、也不在上游名里的模型不通过
 	require.False(t, svc.isModelSupportedByAccount(account, "gpt-3.5-turbo"))
 	require.False(t, svc.isModelSupportedByAccount(account, "unknown-model"))
 
@@ -214,15 +220,13 @@ func TestGatewayService_isModelSupportedByAccount_CustomMappingNotInDefault(t *t
 func TestGatewayService_isModelSupportedByAccountWithContext_CustomMappingThinking(t *testing.T) {
 	svc := &GatewayService{}
 
-	// 自定义映射同时配置基础模型和 thinking 变体
+	// 承接关系上的上游名同时配置基础模型和 thinking 变体
 	account := &Account{
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"claude-sonnet-4-5":          "claude-sonnet-4-5",
-				"claude-sonnet-4-5-thinking": "claude-sonnet-4-5-thinking",
-				"my-custom-model":            "upstream-model",
-			},
+		CatalogUpstreamModels: map[string]string{
+			"claude-sonnet-4-5":          "claude-sonnet-4-5",
+			"claude-sonnet-4-5-thinking": "claude-sonnet-4-5-thinking",
+			"my-custom-model":            "upstream-model",
 		},
 	}
 

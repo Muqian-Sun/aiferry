@@ -78,9 +78,9 @@ func TestForwardEmbeddings_APIKeyPassthroughRecordsUsageAndBatchInput(t *testing
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://api.jina.ai",
-			"model_mapping": map[string]any{
-				"nowledge-embedding": "jina-embeddings-v5-text-small",
-			},
+		},
+		CatalogUpstreamModels: map[string]string{
+			"nowledge-embedding": "jina-embeddings-v5-text-small",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://api.jina.ai",
@@ -94,7 +94,8 @@ func TestForwardEmbeddings_APIKeyPassthroughRecordsUsageAndBatchInput(t *testing
 	require.NotNil(t, result)
 	require.Equal(t, "emb-rid", result.RequestID)
 	require.Equal(t, "nowledge-embedding", result.Model)
-	require.Equal(t, "jina-embeddings-v5-text-small", result.BillingModel)
+	// 计费按用户请求的目录模型，改名只作用在发给上游的名字上
+	require.Equal(t, "nowledge-embedding", result.BillingModel)
 	require.Equal(t, "jina-embeddings-v5-text-small", result.UpstreamModel)
 	require.Equal(t, 13, result.Usage.InputTokens)
 	require.Equal(t, 0, result.Usage.OutputTokens)

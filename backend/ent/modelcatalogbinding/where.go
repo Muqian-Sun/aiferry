@@ -45,6 +45,11 @@ func CacheReadPrice(v float64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheReadPrice, v))
 }
 
+// UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
+func UpstreamModel(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpstreamModel, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCreatedAt, v))
@@ -323,6 +328,71 @@ func CacheReadPriceIsNil() predicate.ModelCatalogBinding {
 // CacheReadPriceNotNil applies the NotNil predicate on the "cache_read_price" field.
 func CacheReadPriceNotNil() predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldCacheReadPrice))
+}
+
+// UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.
+func UpstreamModelEQ(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpstreamModel, v))
+}
+
+// UpstreamModelNEQ applies the NEQ predicate on the "upstream_model" field.
+func UpstreamModelNEQ(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldUpstreamModel, v))
+}
+
+// UpstreamModelIn applies the In predicate on the "upstream_model" field.
+func UpstreamModelIn(vs ...string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldUpstreamModel, vs...))
+}
+
+// UpstreamModelNotIn applies the NotIn predicate on the "upstream_model" field.
+func UpstreamModelNotIn(vs ...string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldUpstreamModel, vs...))
+}
+
+// UpstreamModelGT applies the GT predicate on the "upstream_model" field.
+func UpstreamModelGT(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldUpstreamModel, v))
+}
+
+// UpstreamModelGTE applies the GTE predicate on the "upstream_model" field.
+func UpstreamModelGTE(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldUpstreamModel, v))
+}
+
+// UpstreamModelLT applies the LT predicate on the "upstream_model" field.
+func UpstreamModelLT(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldUpstreamModel, v))
+}
+
+// UpstreamModelLTE applies the LTE predicate on the "upstream_model" field.
+func UpstreamModelLTE(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldUpstreamModel, v))
+}
+
+// UpstreamModelContains applies the Contains predicate on the "upstream_model" field.
+func UpstreamModelContains(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldContains(FieldUpstreamModel, v))
+}
+
+// UpstreamModelHasPrefix applies the HasPrefix predicate on the "upstream_model" field.
+func UpstreamModelHasPrefix(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldHasPrefix(FieldUpstreamModel, v))
+}
+
+// UpstreamModelHasSuffix applies the HasSuffix predicate on the "upstream_model" field.
+func UpstreamModelHasSuffix(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldHasSuffix(FieldUpstreamModel, v))
+}
+
+// UpstreamModelEqualFold applies the EqualFold predicate on the "upstream_model" field.
+func UpstreamModelEqualFold(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEqualFold(FieldUpstreamModel, v))
+}
+
+// UpstreamModelContainsFold applies the ContainsFold predicate on the "upstream_model" field.
+func UpstreamModelContainsFold(v string) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldContainsFold(FieldUpstreamModel, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

@@ -242,7 +242,7 @@ func openAISetupTokenCompatAccount(id int64) *Account {
 		Credentials: map[string]any{
 			"access_token":       "setup-token-value",
 			"chatgpt_account_id": "chatgpt-setup",
-			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.4"},
 		},
+		CatalogUpstreamModels: map[string]string{"claude-sonnet-4-5": "gpt-5.4"},
 	}
 }

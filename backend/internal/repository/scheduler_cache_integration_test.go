@@ -35,13 +35,14 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 		Priority:    7,
 		LastUsedAt:  &now,
 		Credentials: map[string]any{
-			"api_key":       "gemini-api-key",
-			"access_token":  "secret-access-token",
-			"project_id":    "proj-1",
-			"oauth_type":    "ai_studio",
-			"model_mapping": map[string]any{"gemini-2.5-pro": "gemini-2.5-pro"},
-			"huge_blob":     strings.Repeat("x", 4096),
+			"api_key":      "gemini-api-key",
+			"access_token": "secret-access-token",
+			"project_id":   "proj-1",
+			"oauth_type":   "ai_studio",
+			"huge_blob":    strings.Repeat("x", 4096),
 		},
+		// 承接关系上的上游名：选号时的模型支持判断要看它，快照往返后必须还在
+		CatalogUpstreamModels: map[string]string{"gemini-2.5-pro": "gemini-2.5-pro-relay"},
 		Extra: map[string]any{
 			// 瘦身白名单之外的键必须被丢掉；mixed_scheduling 随分组池下线（7b-2b），
 			// 窗口费用与空闲超时随渠道级设置删除 / 写死（2026-09-28 P5）。
@@ -74,7 +75,8 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 	require.Equal(t, "gemini-api-key", got.GetCredential("api_key"))
 	require.Equal(t, "proj-1", got.GetCredential("project_id"))
 	require.Equal(t, "ai_studio", got.GetCredential("oauth_type"))
-	require.NotEmpty(t, got.GetModelMapping())
+	require.Equal(t, map[string]string{"gemini-2.5-pro": "gemini-2.5-pro-relay"}, got.CatalogUpstreamModels)
+	require.Equal(t, "gemini-2.5-pro-relay", got.GetMappedModel("gemini-2.5-pro"))
 	require.Empty(t, got.GetCredential("access_token"))
 	require.Empty(t, got.GetCredential("huge_blob"))
 	require.NotContains(t, got.Extra, "mixed_scheduling", "混合调度标记随分组池下线（7b-2b）")

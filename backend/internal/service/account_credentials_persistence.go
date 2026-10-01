@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"log/slog"
+	"net/http"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 type accountCredentialsUpdater interface {
@@ -28,6 +31,21 @@ func persistAccountCredentials(ctx context.Context, repo AccountRepository, acco
 		return updater.UpdateCredentials(ctx, account.ID, account.Credentials)
 	}
 	return repo.Update(ctx, account)
+}
+
+// removedModelMappingCredentialKeys 渠道上的「模型改名」已删（D4，muqian 2026-10-01）：改名在价格页每条承接关系的
+// 上游模型名里设置。管理端建号 / 改号 / 批量改号带这两个键直接拒绝，不静默丢掉——调用方以为设上了的改名其实不生效。
+// spark 影子号的 model_mapping 是系统维护的模型列表，走影子号自己的更新路径，不经过这里。
+var removedModelMappingCredentialKeys = []string{"model_mapping", "model_mapping_rename_only"}
+
+func rejectRemovedModelMappingCredentials(credentials map[string]any) error {
+	for _, key := range removedModelMappingCredentialKeys {
+		if _, ok := credentials[key]; ok {
+			return infraerrors.Newf(http.StatusBadRequest, "ACCOUNT_MODEL_MAPPING_REMOVED",
+				"credentials.%s is no longer supported: set the upstream model name per model on the pricing page", key)
+		}
+	}
+	return nil
 }
 
 // sparkShadowAllowedCredentialKeys 是 spark 影子账号唯一可写的凭据键集合(仅模型映射)。

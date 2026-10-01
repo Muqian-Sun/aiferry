@@ -232,9 +232,9 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 		}
 	}
 
-	// Capability enrichment also covers concrete model_mapping targets. Admins may
-	// whitelist models that the live /models list omitted; those still need registry
-	// metadata so Codex catalogs can advertise reasoning and modalities.
+	// Capability enrichment also covers the account's mapped upstream names (catalog binding
+	// renames and vendor default tables). The live /models list may omit them; they still need
+	// registry metadata so Codex catalogs can advertise reasoning and modalities.
 	enrichIDs := dedupeAndSortModelIDs(append(append([]string{}, models...), configuredUpstreamModelsForCapabilitySync(account)...))
 	// Dedicated image/video generators are not Codex agent catalog entries and often
 	// omit context windows in public registries. Keep them out of completeness checks

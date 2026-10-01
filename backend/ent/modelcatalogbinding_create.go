@@ -91,6 +91,20 @@ func (_c *ModelCatalogBindingCreate) SetNillableCacheReadPrice(v *float64) *Mode
 	return _c
 }
 
+// SetUpstreamModel sets the "upstream_model" field.
+func (_c *ModelCatalogBindingCreate) SetUpstreamModel(v string) *ModelCatalogBindingCreate {
+	_c.mutation.SetUpstreamModel(v)
+	return _c
+}
+
+// SetNillableUpstreamModel sets the "upstream_model" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableUpstreamModel(v *string) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetUpstreamModel(*v)
+	}
+	return _c
+}
+
 // SetPriceIntervals sets the "price_intervals" field.
 func (_c *ModelCatalogBindingCreate) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingCreate {
 	_c.mutation.SetPriceIntervals(v)
@@ -170,6 +184,10 @@ func (_c *ModelCatalogBindingCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *ModelCatalogBindingCreate) defaults() {
+	if _, ok := _c.mutation.UpstreamModel(); !ok {
+		v := modelcatalogbinding.DefaultUpstreamModel
+		_c.mutation.SetUpstreamModel(v)
+	}
 	if _, ok := _c.mutation.PriceIntervals(); !ok {
 		v := modelcatalogbinding.DefaultPriceIntervals
 		_c.mutation.SetPriceIntervals(v)
@@ -197,6 +215,14 @@ func (_c *ModelCatalogBindingCreate) check() error {
 	}
 	if _, ok := _c.mutation.OutputPrice(); !ok {
 		return &ValidationError{Name: "output_price", err: errors.New(`ent: missing required field "ModelCatalogBinding.output_price"`)}
+	}
+	if _, ok := _c.mutation.UpstreamModel(); !ok {
+		return &ValidationError{Name: "upstream_model", err: errors.New(`ent: missing required field "ModelCatalogBinding.upstream_model"`)}
+	}
+	if v, ok := _c.mutation.UpstreamModel(); ok {
+		if err := modelcatalogbinding.UpstreamModelValidator(v); err != nil {
+			return &ValidationError{Name: "upstream_model", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogBinding.upstream_model": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.PriceIntervals(); !ok {
 		return &ValidationError{Name: "price_intervals", err: errors.New(`ent: missing required field "ModelCatalogBinding.price_intervals"`)}
@@ -255,6 +281,10 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 	if value, ok := _c.mutation.CacheReadPrice(); ok {
 		_spec.SetField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
 		_node.CacheReadPrice = &value
+	}
+	if value, ok := _c.mutation.UpstreamModel(); ok {
+		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
+		_node.UpstreamModel = value
 	}
 	if value, ok := _c.mutation.PriceIntervals(); ok {
 		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
@@ -486,6 +516,18 @@ func (u *ModelCatalogBindingUpsert) ClearCacheReadPrice() *ModelCatalogBindingUp
 	return u
 }
 
+// SetUpstreamModel sets the "upstream_model" field.
+func (u *ModelCatalogBindingUpsert) SetUpstreamModel(v string) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldUpstreamModel, v)
+	return u
+}
+
+// UpdateUpstreamModel sets the "upstream_model" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateUpstreamModel() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldUpstreamModel)
+	return u
+}
+
 // SetPriceIntervals sets the "price_intervals" field.
 func (u *ModelCatalogBindingUpsert) SetPriceIntervals(v []domain.PriceSegment) *ModelCatalogBindingUpsert {
 	u.Set(modelcatalogbinding.FieldPriceIntervals, v)
@@ -706,6 +748,20 @@ func (u *ModelCatalogBindingUpsertOne) UpdateCacheReadPrice() *ModelCatalogBindi
 func (u *ModelCatalogBindingUpsertOne) ClearCacheReadPrice() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearCacheReadPrice()
+	})
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (u *ModelCatalogBindingUpsertOne) SetUpstreamModel(v string) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetUpstreamModel(v)
+	})
+}
+
+// UpdateUpstreamModel sets the "upstream_model" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateUpstreamModel() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateUpstreamModel()
 	})
 }
 
@@ -1076,6 +1132,20 @@ func (u *ModelCatalogBindingUpsertBulk) UpdateCacheReadPrice() *ModelCatalogBind
 func (u *ModelCatalogBindingUpsertBulk) ClearCacheReadPrice() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearCacheReadPrice()
+	})
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (u *ModelCatalogBindingUpsertBulk) SetUpstreamModel(v string) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetUpstreamModel(v)
+	})
+}
+
+// UpdateUpstreamModel sets the "upstream_model" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateUpstreamModel() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateUpstreamModel()
 	})
 }
 

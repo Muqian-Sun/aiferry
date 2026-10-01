@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // 价格页（管理站「供给 › 价格」）：官方价与上游价都在这里改；给模型加一个渠道就是这个渠道承接这个模型
@@ -30,7 +32,8 @@ func (e *ModelCatalogEntry) UpstreamCostRatio(b *ModelCatalogBinding) (ratio flo
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
-//   - 分段与官方价同一套规则（ValidateIntervals），只用绝对价，每段至少一项价。
+//   - 分段与官方价同一套规则（ValidateIntervals），只用绝对价，每段至少一项价；
+//   - 上游模型名是一个具体的名字：不带通配、不含空白，最长 255 个字符。
 func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 	if b == nil || entry == nil {
 		return catalogValidationError("binding and entry are required")
@@ -64,7 +67,28 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 			return catalogValidationError(fmt.Sprintf("upstream %s is required because the official price has it", item.name))
 		}
 	}
+	if name := b.UpstreamModel; name != "" {
+		if strings.ContainsAny(name, "* \t\r\n") {
+			return catalogValidationError("upstream_model must be a single model name without wildcards or spaces")
+		}
+		if utf8.RuneCountInString(name) > maxBindingUpstreamModelLength {
+			return catalogValidationError(fmt.Sprintf("upstream_model must be at most %d characters", maxBindingUpstreamModelLength))
+		}
+	}
 	return validatePriceSegments("upstream", b.Intervals)
+}
+
+// maxBindingUpstreamModelLength 与 262 号迁移的 VARCHAR(255) 一致。
+const maxBindingUpstreamModelLength = 255
+
+// normalizeBindingUpstreamModel 去掉首尾空白；与目录标识相同的名字存成空串（= 同名），
+// 这样改了目录标识以外的东西不会让同名的行变成「改过名」。
+func normalizeBindingUpstreamModel(entry *ModelCatalogEntry, name string) string {
+	name = strings.TrimSpace(name)
+	if entry != nil && name == entry.ModelID {
+		return ""
+	}
+	return name
 }
 
 // validatePriceSegments 价格页上的分段（官方价与上游价同一套）：只用绝对价、按 Token 分段、每段至少一项价，
@@ -237,6 +261,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 			return nil, err
 		}
 		binding.EntryID = entryID
+		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
@@ -275,6 +300,7 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 			return nil, err
 		}
 		binding.AccountID = accountID
+		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err

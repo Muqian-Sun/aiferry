@@ -56,10 +56,12 @@ type PricingEntryResponse struct {
 	BindableAccountIDs []int64 `json:"bindable_account_ids"`
 }
 
-// PricingBindingResponse 一条承接关系的上游价。
+// PricingBindingResponse 一条承接关系的上游模型名与上游价。
 type PricingBindingResponse struct {
-	EntryID           int64                     `json:"entry_id"`
-	AccountID         int64                     `json:"account_id"`
+	EntryID   int64 `json:"entry_id"`
+	AccountID int64 `json:"account_id"`
+	// UpstreamModel 这个渠道给这个模型用的上游模型名，空 = 与目录标识同名。
+	UpstreamModel     string                    `json:"upstream_model"`
 	InputPrice        float64                   `json:"input_price"`
 	OutputPrice       float64                   `json:"output_price"`
 	CacheWritePrice   *float64                  `json:"cache_write_price"`
@@ -98,7 +100,8 @@ type PricingPricesRequest struct {
 
 // PricingModelBindingRequest 按模型保存时的一条承接关系。
 type PricingModelBindingRequest struct {
-	AccountID int64 `json:"account_id" binding:"required"`
+	AccountID     int64  `json:"account_id" binding:"required"`
+	UpstreamModel string `json:"upstream_model"`
 	PricingPricesRequest
 }
 
@@ -110,7 +113,8 @@ type PricingModelSaveRequest struct {
 
 // PricingChannelBindingRequest 按渠道保存时的一条承接关系。
 type PricingChannelBindingRequest struct {
-	EntryID int64 `json:"entry_id" binding:"required"`
+	EntryID       int64  `json:"entry_id" binding:"required"`
+	UpstreamModel string `json:"upstream_model"`
 	PricingPricesRequest
 }
 
@@ -120,13 +124,14 @@ type PricingChannelSaveRequest struct {
 }
 
 // toBinding 上游价的输入 / 输出必填（muqian：「必须填，没填不能承接」）。
-func (r *PricingPricesRequest) toBinding(entryID, accountID int64) (service.ModelCatalogBinding, string) {
+func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel string) (service.ModelCatalogBinding, string) {
 	if r.InputPrice == nil || r.OutputPrice == nil {
 		return service.ModelCatalogBinding{}, "upstream input_price and output_price are required"
 	}
 	return service.ModelCatalogBinding{
 		EntryID:           entryID,
 		AccountID:         accountID,
+		UpstreamModel:     upstreamModel,
 		InputPrice:        *r.InputPrice,
 		OutputPrice:       *r.OutputPrice,
 		CacheWritePrice:   r.CacheWritePrice,
@@ -179,7 +184,7 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 	}
 	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
 	for i := range req.Bindings {
-		binding, msg := req.Bindings[i].toBinding(id, req.Bindings[i].AccountID)
+		binding, msg := req.Bindings[i].toBinding(id, req.Bindings[i].AccountID, req.Bindings[i].UpstreamModel)
 		if msg != "" {
 			response.BadRequest(c, msg)
 			return
@@ -223,7 +228,7 @@ func (h *ModelCatalogHandler) SavePricingChannel(c *gin.Context) {
 	}
 	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
 	for i := range req.Bindings {
-		binding, msg := req.Bindings[i].toBinding(req.Bindings[i].EntryID, accountID)
+		binding, msg := req.Bindings[i].toBinding(req.Bindings[i].EntryID, accountID, req.Bindings[i].UpstreamModel)
 		if msg != "" {
 			response.BadRequest(c, msg)
 			return
@@ -294,6 +299,7 @@ func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCa
 	out := PricingBindingResponse{
 		EntryID:           b.EntryID,
 		AccountID:         b.AccountID,
+		UpstreamModel:     b.UpstreamModel,
 		InputPrice:        b.InputPrice,
 		OutputPrice:       b.OutputPrice,
 		CacheWritePrice:   b.CacheWritePrice,

@@ -553,7 +553,6 @@ export interface SyncUpstreamPreviewParams {
   api_key: string
   /** 与建号同一规则：第三方 key 的上游地址只认协议映射。 */
   protocol_endpoints: ProtocolEndpoints
-  model_mapping?: Record<string, string>
 }
 
 /**

@@ -1002,16 +1002,22 @@ func init() {
 	modelcatalogalias.SourceValidator = modelcatalogaliasDescSource.Validators[0].(func(string) error)
 	modelcatalogbindingFields := schema.ModelCatalogBinding{}.Fields()
 	_ = modelcatalogbindingFields
+	// modelcatalogbindingDescUpstreamModel is the schema descriptor for upstream_model field.
+	modelcatalogbindingDescUpstreamModel := modelcatalogbindingFields[7].Descriptor()
+	// modelcatalogbinding.DefaultUpstreamModel holds the default value on creation for the upstream_model field.
+	modelcatalogbinding.DefaultUpstreamModel = modelcatalogbindingDescUpstreamModel.Default.(string)
+	// modelcatalogbinding.UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
+	modelcatalogbinding.UpstreamModelValidator = modelcatalogbindingDescUpstreamModel.Validators[0].(func(string) error)
 	// modelcatalogbindingDescPriceIntervals is the schema descriptor for price_intervals field.
-	modelcatalogbindingDescPriceIntervals := modelcatalogbindingFields[7].Descriptor()
+	modelcatalogbindingDescPriceIntervals := modelcatalogbindingFields[8].Descriptor()
 	// modelcatalogbinding.DefaultPriceIntervals holds the default value on creation for the price_intervals field.
 	modelcatalogbinding.DefaultPriceIntervals = modelcatalogbindingDescPriceIntervals.Default.([]domain.PriceSegment)
 	// modelcatalogbindingDescCreatedAt is the schema descriptor for created_at field.
-	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[8].Descriptor()
+	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[9].Descriptor()
 	// modelcatalogbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
 	modelcatalogbinding.DefaultCreatedAt = modelcatalogbindingDescCreatedAt.Default.(func() time.Time)
 	// modelcatalogbindingDescUpdatedAt is the schema descriptor for updated_at field.
-	modelcatalogbindingDescUpdatedAt := modelcatalogbindingFields[9].Descriptor()
+	modelcatalogbindingDescUpdatedAt := modelcatalogbindingFields[10].Descriptor()
 	// modelcatalogbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	modelcatalogbinding.DefaultUpdatedAt = modelcatalogbindingDescUpdatedAt.Default.(func() time.Time)
 	// modelcatalogbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

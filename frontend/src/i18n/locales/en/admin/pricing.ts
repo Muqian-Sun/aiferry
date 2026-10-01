@@ -23,6 +23,7 @@ export default {
     columns: {
       channel: 'Channel',
       model: 'Model',
+      upstreamModel: 'Upstream model',
       input_price: 'Input',
       output_price: 'Output',
       cache_read_price: 'Cache read',
@@ -34,6 +35,9 @@ export default {
       actions: 'Actions'
     },
     official: 'Official',
+    catalogName: 'Catalog ID',
+    sameName: 'Same name',
+    upstreamModelHint: 'The model name this channel uses for this model; blank = same as the catalog model ID. Users can only request catalog model IDs, and the name is converted exactly once when forwarding.',
     officialHint: 'Sale price = official × user rate (default {rate})',
     officialRef: 'Official {price}',
     officialUnset: 'No official',
@@ -79,7 +83,8 @@ export default {
     issueSeparator: '; ',
     issues: {
       missing: '{fields} missing',
-      segment: 'segment {index}: {error}'
+      segment: 'segment {index}: {error}',
+      upstreamModel: 'upstream model must be a single name without * or spaces'
     },
     discardTitle: 'Discard unsaved changes?',
     discardMessage: '{count} blocks have unsaved changes; continuing discards them.',

@@ -187,18 +187,10 @@ func TestAntigravityGatewayService_GetMappedModel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// 账户级映射 = 承接关系上的上游名（叠在默认表之上）
 			account := &Account{
-				Platform: PlatformAntigravity,
-			}
-			if tt.accountMapping != nil {
-				// GetModelMapping 期望 model_mapping 是 map[string]any 格式
-				mappingAny := make(map[string]any)
-				for k, v := range tt.accountMapping {
-					mappingAny[k] = v
-				}
-				account.Credentials = map[string]any{
-					"model_mapping": mappingAny,
-				}
+				Platform:              PlatformAntigravity,
+				CatalogUpstreamModels: tt.accountMapping,
 			}
 
 			got := svc.getMappedModel(account, tt.requestedModel)
@@ -266,7 +258,8 @@ func TestAntigravityGatewayService_IsModelSupported(t *testing.T) {
 }
 
 // TestMapAntigravityModel_WildcardTargetEqualsRequest 测试通配符映射目标恰好等于请求模型名的 edge case
-// 例如 {"claude-*": "claude-sonnet-4-5"}，请求 "claude-sonnet-4-5" 时应该通过
+// 例如 {"claude-*": "claude-sonnet-4-5"}，请求 "claude-sonnet-4-5" 时应该通过。
+// 通配只出现在 spark 影子号的模型列表里（替换默认表），所以用影子号装配。
 func TestMapAntigravityModel_WildcardTargetEqualsRequest(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -314,8 +307,10 @@ func TestMapAntigravityModel_WildcardTargetEqualsRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			parentID := int64(1)
 			account := &Account{
-				Platform: PlatformAntigravity,
+				Platform:        PlatformAntigravity,
+				ParentAccountID: &parentID,
 				Credentials: map[string]any{
 					"model_mapping": tt.modelMapping,
 				},

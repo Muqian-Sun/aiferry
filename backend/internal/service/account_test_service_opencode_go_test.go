@@ -79,7 +79,7 @@ func TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages(t *testing.T) {
 
 func TestAccountTestService_OpenCodeGoAppliesModelMappingOnResponses(t *testing.T) {
 	account := openCodeGoTestAccount(406, APIProtocolResponses, "https://opencode.ai/zen/go/v1")
-	account.Credentials["model_mapping"] = map[string]any{
+	account.CatalogUpstreamModels = map[string]string{
 		"opencode/muse-spark-1.3-contributior-free": "muse-spark-1.3-contributior-free",
 	}
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNResponsesTestResponse())

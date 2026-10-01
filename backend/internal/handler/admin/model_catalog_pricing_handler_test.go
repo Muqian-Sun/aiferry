@@ -147,6 +147,22 @@ func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 		require.Equal(t, int64(1), repo.bindings[1][0].EntryID, "entry id comes from the path")
 	})
 
+	t.Run("upstream model name round-trips", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		b := body()
+		b["bindings"].([]any)[0].(map[string]any)["upstream_model"] = " gpt-5.5-relay "
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingEntryResponse](t, rec)
+		require.Equal(t, "gpt-5.5-relay", got.Bindings[0].UpstreamModel)
+		require.Equal(t, "gpt-5.5-relay", repo.bindings[1][0].UpstreamModel)
+
+		b["bindings"].([]any)[0].(map[string]any)["upstream_model"] = "gpt-*"
+		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "upstream_model")
+	})
+
 	t.Run("upstream output price is required", func(t *testing.T) {
 		router, repo := newPricingTestRouter(t)
 		b := body()
@@ -177,11 +193,12 @@ func TestModelCatalogHandler_SavePricingChannel(t *testing.T) {
 	t.Run("saves the block", func(t *testing.T) {
 		router, repo := newPricingTestRouter(t)
 		rec := doPricingJSON(router, http.MethodPut, "/pricing/channels/3", map[string]any{
-			"bindings": []any{map[string]any{"entry_id": 1, "input_price": 0.25e-6, "output_price": 1.5e-6, "cache_read_price": 0.025e-6}},
+			"bindings": []any{map[string]any{"entry_id": 1, "upstream_model": "claude-proxy-5.5", "input_price": 0.25e-6, "output_price": 1.5e-6, "cache_read_price": 0.025e-6}},
 		})
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		got := decodePricingData[[]PricingBindingResponse](t, rec)
 		require.Len(t, got, 1)
+		require.Equal(t, "claude-proxy-5.5", got[0].UpstreamModel)
 		require.Equal(t, int64(3), got[0].AccountID, "account id comes from the path")
 		require.InDelta(t, 0.05, *got[0].CostRatio, 1e-12)
 		require.Len(t, repo.bindings[1], 2, "channel 1 on the same model untouched")

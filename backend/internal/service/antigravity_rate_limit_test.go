@@ -822,11 +822,9 @@ func TestSetAntigravityModelRateLimits_DoesNotDoubleMapCustomChain(t *testing.T)
 	account := &Account{
 		ID:       790,
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"custom-sonnet":     "claude-sonnet-4-5",
-				"claude-sonnet-4-5": "claude-sonnet-4-6",
-			},
+		CatalogUpstreamModels: map[string]string{
+			"custom-sonnet":     "claude-sonnet-4-5",
+			"claude-sonnet-4-5": "claude-sonnet-4-6",
 		},
 	}
 	resetAt := time.Now().Add(30 * time.Second)
@@ -855,10 +853,8 @@ func TestSetModelRateLimitAndClearSession_UsesUpstreamReportedModelMetadata(t *t
 	account := &Account{
 		ID:       791,
 		Platform: PlatformAntigravity,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"claude-sonnet-4-5": "claude-sonnet-4-6",
-			},
+		CatalogUpstreamModels: map[string]string{
+			"claude-sonnet-4-5": "claude-sonnet-4-6",
 		},
 	}
 

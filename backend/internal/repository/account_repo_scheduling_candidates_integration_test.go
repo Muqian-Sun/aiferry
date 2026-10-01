@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	dbmodelcatalogbinding "github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/suite"
 )
@@ -85,7 +86,7 @@ func (s *SchedulingCandidatesSuite) TestPlatformFilterOnlyConstrainsSubscription
 }
 
 // 按目录条目取候选：只有绑定的账号进入，按账号自己的优先级、再按 ID 排序（承接关系上不再有优先级），
-// 不活跃 / 不可调度的账号排除，且不看平台标签；账号上装载 CatalogEntryIDs。
+// 不活跃 / 不可调度的账号排除，且不看平台标签；账号上装载 CatalogEntryIDs 与承接关系上改了名的上游名。
 func (s *SchedulingCandidatesSuite) TestListSchedulingCandidatesByCatalogEntry() {
 	t := s.T()
 	entry, err := s.client.ModelCatalogEntry.Create().
@@ -131,6 +132,17 @@ func (s *SchedulingCandidatesSuite) TestListSchedulingCandidatesByCatalogEntry()
 	unbound := mustCreateAccount(t, s.client, &service.Account{Name: "unbound", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth})
 	_ = bound("bound-elsewhere", service.PlatformAnthropic, service.AccountTypeOAuth, 5, otherEntry.ID)
 
+	// keyGemini 在两个条目上都改了名（上游名的键 = 条目的模型标识），其余账号没改名
+	_, err = s.client.ModelCatalogBinding.Update().
+		Where(dbmodelcatalogbinding.EntryIDEQ(entry.ID), dbmodelcatalogbinding.AccountIDEQ(keyGemini)).
+		SetUpstreamModel("relay-main").Save(s.ctx)
+	s.Require().NoError(err)
+	bind(keyGemini, otherEntry.ID)
+	_, err = s.client.ModelCatalogBinding.Update().
+		Where(dbmodelcatalogbinding.EntryIDEQ(otherEntry.ID), dbmodelcatalogbinding.AccountIDEQ(keyGemini)).
+		SetUpstreamModel("relay-other").Save(s.ctx)
+	s.Require().NoError(err)
+
 	accounts, err := s.accountRepo.ListSchedulingCandidatesByCatalogEntry(s.ctx, entry.ID)
 	s.Require().NoError(err)
 	ids := make([]int64, 0, len(accounts))
@@ -145,7 +157,16 @@ func (s *SchedulingCandidatesSuite) TestListSchedulingCandidatesByCatalogEntry()
 	}
 	s.Require().Equal([]int{10, 20, 20, 90}, priorities, "account's own priority, untouched")
 	for _, account := range accounts {
+		if account.ID == keyGemini {
+			s.Require().Equal([]int64{entry.ID, otherEntry.ID}, account.CatalogEntryIDs)
+			s.Require().Equal(map[string]string{
+				"candidates-catalog-entry": "relay-main",
+				"candidates-catalog-other": "relay-other",
+			}, account.CatalogUpstreamModels, "keyed by the entry's catalog model ID")
+			continue
+		}
 		s.Require().Equal([]int64{entry.ID}, account.CatalogEntryIDs)
+		s.Require().Nil(account.CatalogUpstreamModels, "no renamed binding → no upstream names")
 	}
 
 	fresh, err := s.accountRepo.GetByID(s.ctx, unbound.ID)

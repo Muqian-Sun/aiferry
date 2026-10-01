@@ -115,7 +115,6 @@ export default {
         sections: {
           basics: 'Basics',
           endpoint: 'Endpoint & protocol',
-          models: 'Models & mapping',
           limits: 'Limits',
           advanced: 'Advanced'
         }
@@ -182,12 +181,6 @@ export default {
           network_error: 'Could not reach upstream',
           no_model: 'No model name available to confirm with a real request'
         }
-      },
-      // Model renames (the mapping only renames; it does not restrict which models are served)
-      modelRename: {
-        title: 'Model renames (optional)',
-        hint: 'Rename requested models to the names the upstream expects: the requested model on the left, the model sent upstream on the right. Renames do not restrict which models the channel serves; its bindings in the model catalog do.',
-        vendorTableHint: 'This upstream has its own model table: a model missing from it is served only after you add a row for it here (the same name on both sides is fine).'
       },
       deleteAccount: 'Delete Channel',
       searchAccounts: 'Search channel name',
@@ -643,12 +636,7 @@ export default {
         bedrockCCCompatDesc:
           'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
       },
-      requestModel: 'Request model',
-      actualModel: 'Actual model',
-      addMapping: 'Add Mapping',
       mappingExists: 'Mapping for {model} already exists',
-      wildcardOnlyAtEnd: 'Wildcard * can only be at the end',
-      targetNoWildcard: 'Target model cannot contain wildcard *',
       searchModels: 'Search models...',
       noMatchingModels: 'No matching models',
       fillRelatedModels: 'Sync latest supported models',

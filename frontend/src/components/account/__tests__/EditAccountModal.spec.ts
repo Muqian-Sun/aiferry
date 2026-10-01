@@ -344,34 +344,6 @@ describe('EditAccountModal', () => {
     wrapper.unmount()
   })
 
-  it('reopening the same account rehydrates the model renames from props', async () => {
-    const account = buildAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const renameTo = () => wrapper.get('[data-testid="model-rename-to-0"]').element as HTMLInputElement
-
-    // 旧白名单留下的同名项也作为改名行展示（去掉白名单后映射只改名）
-    expect(renameTo().value).toBe('gpt-5.2')
-
-    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('gpt-5.2-2025-12-11')
-    expect(renameTo().value).toBe('gpt-5.2-2025-12-11')
-
-    await wrapper.setProps({ show: false })
-    await wrapper.setProps({ show: true })
-
-    expect(renameTo().value).toBe('gpt-5.2')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
-      'gpt-5.2': 'gpt-5.2'
-    })
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
-  })
-
   it('preserves OpenCode Zen account type and endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'opencode_go'
@@ -531,57 +503,25 @@ describe('EditAccountModal', () => {
     expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://api.minimax.io/anthropic' })
   })
 
-  it('keeps every mapping row, same-name rows included, and saves the mapping as rename-only', async () => {
+  // 渠道上的模型改名已删（2026-10-01，改名在价格页）：已存凭据里的旧键不带回去（后端会拒收）
+  it('drops stale model_mapping keys from credentials on save', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = {
       'gpt-5.2': 'gpt-5.2',
       'gpt-latest': 'gpt-5.2'
     }
+    account.credentials.model_mapping_rename_only = true
     updateAccountMock.mockReset()
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
-
-    expect((wrapper.get('[data-testid="model-rename-from-0"]').element as HTMLInputElement).value).toBe('gpt-5.2')
-    expect((wrapper.get('[data-testid="model-rename-from-1"]').element as HTMLInputElement).value).toBe('gpt-latest')
-
-    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('gpt-5.2-2025-12-11')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
-      'gpt-5.2': 'gpt-5.2-2025-12-11',
-      'gpt-latest': 'gpt-5.2'
-    })
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
-  })
-
-  it('loads and submits Grok OAuth model mapping edits', async () => {
-    const account = buildGrokOAuthAccount()
-    updateAccountMock.mockReset()
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    expect(wrapper.text()).toContain('Imagine Image')
-    expect(wrapper.text()).toContain('Imagine Video')
-
-    const inputWithValue = (value: string) => {
-      const input = wrapper
-        .findAll('input')
-        .find((input) => (input.element as HTMLInputElement).value === value)
-      expect(input).toBeTruthy()
-      return input!
-    }
-
-    await inputWithValue('grok-latest').setValue('grok')
-    await inputWithValue('grok-4.3').setValue('grok-build-0.1')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
-      grok: 'grok-build-0.1'
-    })
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
+    const credentials = updateAccountMock.mock.calls[0]?.[1]?.credentials
+    expect(credentials).toMatchObject({ api_key: 'sk-test' })
+    expect(credentials).not.toHaveProperty('model_mapping')
+    expect(credentials).not.toHaveProperty('model_mapping_rename_only')
   })
 
   it('saves a relay key with its stored endpoints and no base_url fallback', async () => {
@@ -604,7 +544,8 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('base_url')
   })
 
-  it('only submits model mapping credentials when saving an OpenAI spark shadow account', async () => {
+  // spark 影子号的 model_mapping 是系统维护的模型列表：表单不改它，也不带 credentials（带了后端会整份替换）
+  it('submits no credentials when saving an OpenAI spark shadow account', async () => {
     authIsSimpleMode.value = false
     const account = buildOpenAISparkShadowAccount()
     updateAccountMock.mockReset()
@@ -618,11 +559,7 @@ describe('EditAccountModal', () => {
     const payload = updateAccountMock.mock.calls[0]?.[1]
     // 分组绑定段已删：编辑弹窗不再碰 group_ids
     expect(payload).not.toHaveProperty('group_ids')
-    expect(payload?.credentials).toEqual({
-      model_mapping: {
-        'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark'
-      }
-    })
+    expect(payload).not.toHaveProperty('credentials')
   })
 
   it('has no OpenAI APIKey Responses routing control and drops the retired routing flags on save', async () => {

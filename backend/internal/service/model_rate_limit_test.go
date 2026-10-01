@@ -37,10 +37,8 @@ func TestIsModelRateLimited(t *testing.T) {
 		{
 			name: "official model ID hit via mapping - request claude-3-5-sonnet, mapped to claude-sonnet-4-5",
 			account: &Account{
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{
-						"claude-3-5-sonnet": "claude-sonnet-4-5",
-					},
+				CatalogUpstreamModels: map[string]string{
+					"claude-3-5-sonnet": "claude-sonnet-4-5",
 				},
 				Extra: map[string]any{
 					modelRateLimitsKey: map[string]any{
@@ -314,10 +312,8 @@ func TestGetModelRateLimitRemainingTime(t *testing.T) {
 		{
 			name: "model rate limited - via mapping",
 			account: &Account{
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{
-						"claude-3-5-sonnet": "claude-sonnet-4-5",
-					},
+				CatalogUpstreamModels: map[string]string{
+					"claude-3-5-sonnet": "claude-sonnet-4-5",
 				},
 				Extra: map[string]any{
 					modelRateLimitsKey: map[string]any{
