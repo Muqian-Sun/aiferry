@@ -709,7 +709,7 @@
     </div>
 
     <template #footer>
-      <div class="flex flex-wrap items-center justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
         <template v-if="step === 1">
           <button type="button" class="btn btn-secondary" @click="handleClose">
@@ -1136,6 +1136,8 @@ async function applyAccessSource(sourceId: string) {
   accountCategory.value = source.category
 }
 watch(accessSourceId, (sourceId) => {
+  // 换了接入方式，上一次提交的报错已经对不上了
+  submitError.value = ''
   void applyAccessSource(sourceId)
 })
 

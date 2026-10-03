@@ -262,7 +262,7 @@
     </form>
 
     <template #footer>
-      <div class="flex flex-wrap items-center justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
         <button type="button" class="btn btn-secondary" @click="handleClose">
           {{ t('common.cancel') }}
