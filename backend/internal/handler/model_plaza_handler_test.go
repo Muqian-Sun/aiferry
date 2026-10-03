@@ -49,7 +49,7 @@ func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCata
 
 func newPlazaHandlerForTest(values map[string]string) *ModelPlazaHandler {
 	return NewModelPlazaHandler(
-		service.NewModelPlazaService(plazaCatalogStub{}),
+		service.NewModelPlazaService(plazaCatalogStub{}, nil),
 		service.NewSettingService(plazaSettingRepoStub{values: values}, &config.Config{}),
 	)
 }
@@ -135,4 +135,48 @@ func TestModelPlazaHandler_AnonymousSeesFullCatalog(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.JSONEq(t, anonymous, w.Body.String())
 	require.Contains(t, anonymous, `"model_id":"gpt-5.6"`)
+}
+
+type plazaPricingStub struct{ entry *service.ModelCatalogEntry }
+
+func (s plazaPricingStub) LookupPricingEntry(_ context.Context, model string) *service.ModelCatalogEntry {
+	if s.entry != nil && model == s.entry.ModelID {
+		return s.entry
+	}
+	return nil
+}
+
+// Claude Code 配非 Anthropic 模型时那次搜索请求的计费项：给官方价（token 由前端 × 访问者倍率），不提代执行的模型。
+func TestModelPlazaHandler_ClaudeCodeWebSearchBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	input, output := 1e-6, 5e-6
+	haiku := &service.ModelCatalogEntry{ID: 9, ModelID: service.WebSearchDelegateModel, Vendor: "anthropic", Status: service.ModelCatalogStatusUnlisted, InputPrice: &input, OutputPrice: &output}
+	get := func(pricing service.ModelCatalogPricingSource) string {
+		h := NewModelPlazaHandler(service.NewModelPlazaService(plazaCatalogStub{}, pricing), service.NewSettingService(plazaSettingRepoStub{}, &config.Config{}))
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
+		h.Get(c)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		return w.Body.String()
+	}
+
+	body := get(plazaPricingStub{entry: haiku})
+	var envelope struct {
+		Data struct {
+			ClaudeCodeWebSearch *struct {
+				InputPrice         *float64 `json:"input_price"`
+				OutputPrice        *float64 `json:"output_price"`
+				SearchPricePerCall float64  `json:"search_price_per_call"`
+			} `json:"claude_code_web_search"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &envelope))
+	require.NotNil(t, envelope.Data.ClaudeCodeWebSearch)
+	require.InDelta(t, 1e-6, *envelope.Data.ClaudeCodeWebSearch.InputPrice, 1e-18)
+	require.InDelta(t, 5e-6, *envelope.Data.ClaudeCodeWebSearch.OutputPrice, 1e-18)
+	require.InDelta(t, 0.01, envelope.Data.ClaudeCodeWebSearch.SearchPricePerCall, 1e-12, "Anthropic 每次 web 搜索公开价")
+	require.NotContains(t, body, "haiku", "广场不提代执行的模型")
+
+	require.NotContains(t, get(plazaPricingStub{}), "claude_code_web_search", "目录里没有代执行模型时不给")
 }

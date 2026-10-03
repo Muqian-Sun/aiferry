@@ -190,6 +190,11 @@ func WebSearchCost(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchCost, v))
 }
 
+// WebSearchDelegated applies equality check predicate on the "web_search_delegated" field. It's identical to WebSearchDelegatedEQ.
+func WebSearchDelegated(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchDelegated, v))
+}
+
 // BillingType applies equality check predicate on the "billing_type" field. It's identical to BillingTypeEQ.
 func BillingType(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingType, v))
@@ -1448,6 +1453,16 @@ func WebSearchCostLT(v float64) predicate.UsageLog {
 // WebSearchCostLTE applies the LTE predicate on the "web_search_cost" field.
 func WebSearchCostLTE(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldWebSearchCost, v))
+}
+
+// WebSearchDelegatedEQ applies the EQ predicate on the "web_search_delegated" field.
+func WebSearchDelegatedEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchDelegated, v))
+}
+
+// WebSearchDelegatedNEQ applies the NEQ predicate on the "web_search_delegated" field.
+func WebSearchDelegatedNEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldWebSearchDelegated, v))
 }
 
 // BillingTypeEQ applies the EQ predicate on the "billing_type" field.

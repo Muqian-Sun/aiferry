@@ -71,9 +71,10 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
-			0.42, // account_cost
-			3,    // web_search_count
-			0.03, // web_search_cost
+			0.42,  // account_cost
+			3,     // web_search_count
+			0.03,  // web_search_cost
+			false, // web_search_delegated
 			log.BillingType,
 			int16(service.RequestTypeWSV2),
 			true,
@@ -162,9 +163,10 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
-			0.0, // account_cost：没算出渠道成本时落 0（列 NOT NULL DEFAULT 0）
-			0,   // web_search_count
-			0.0, // web_search_cost
+			0.0,   // account_cost：没算出渠道成本时落 0（列 NOT NULL DEFAULT 0）
+			0,     // web_search_count
+			0.0,   // web_search_cost
+			false, // web_search_delegated
 			log.BillingType,
 			int16(service.RequestTypeSync),
 			false,
@@ -275,7 +277,7 @@ func TestPrepareUsageLogInsert_PersistsNativeCompactionV2WithoutChangingRequestT
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
 	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2])
 	require.Equal(t, true, prepared.args[len(prepared.args)-2])
-	require.Equal(t, int16(service.RequestTypeStream), prepared.args[31])
+	require.Equal(t, int16(service.RequestTypeStream), prepared.args[32])
 	require.Equal(t, service.RequestTypeStream, log.RequestType)
 	require.True(t, log.Stream)
 	require.False(t, log.OpenAIWSMode)
@@ -302,11 +304,11 @@ func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 		CreatedAt:          time.Date(2025, 1, 6, 12, 0, 0, 0, time.UTC),
 	})
 
-	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[39])
-	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[40])
-	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[41])
-	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[42])
-	breakdownJSON, ok := prepared.args[43].(string)
+	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[40])
+	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[41])
+	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[42])
+	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[43])
+	breakdownJSON, ok := prepared.args[44].(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"1K":1,"4K":1}`, breakdownJSON)
 }
@@ -828,9 +830,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.0, 0.0, 0.0, 0.0, 0.8, 0.8,
 			1.0,
-			0.0, // account_cost
-			0,   // web_search_count
-			0.0, // web_search_cost
+			0.0,   // account_cost
+			0,     // web_search_count
+			0.0,   // web_search_cost
+			false, // web_search_delegated
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),
 			false,
@@ -907,6 +910,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0.35,             // account_cost
 			2,                // web_search_count
 			0.02,             // web_search_cost
+			true,             // web_search_delegated
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeWSV2),
 			false, // legacy stream
@@ -940,6 +944,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 		require.Equal(t, 0.35, log.AccountCost)
 		require.Equal(t, 2, log.WebSearchCount)
 		require.Equal(t, 0.02, log.WebSearchCost)
+		require.True(t, log.WebSearchDelegated)
 		require.NotNil(t, log.ServiceTier)
 		require.Equal(t, "priority", *log.ServiceTier)
 		require.Equal(t, service.RequestTypeWSV2, log.RequestType)
@@ -966,9 +971,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
-			0.0, // account_cost
-			0,   // web_search_count
-			0.0, // web_search_cost
+			0.0,   // account_cost
+			0,     // web_search_count
+			0.0,   // web_search_cost
+			false, // web_search_delegated
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeUnknown),
 			true,
@@ -1026,9 +1032,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
-			0.0, // account_cost
-			0,   // web_search_count
-			0.0, // web_search_cost
+			0.0,   // account_cost
+			0,     // web_search_count
+			0.0,   // web_search_cost
+			false, // web_search_delegated
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),
 			false,

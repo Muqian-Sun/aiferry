@@ -188,6 +188,25 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 
+	// Claude Code 配第三方模型时，那次单独的搜索请求交给 Haiku 执行（gateway_web_search_delegate.go）
+	webSearchDelegated := false
+	if rewritten, ok, err := h.delegateClaudeCodeWebSearch(c, body); err != nil {
+		reqLog.Warn("gateway.web_search_delegate_unavailable", zap.Error(err))
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", webSearchDelegateUnavailableMessage)
+		return
+	} else if ok {
+		parsedReq, err = service.ParseGatewayRequest(service.NewRequestBodyRef(rewritten), domain.PlatformAnthropic)
+		if err != nil {
+			logRequestBodyParseFailure(reqLog, rewritten, err)
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+			return
+		}
+		body = parsedReq.Body.Bytes()
+		reqModel = parsedReq.Model
+		webSearchDelegated = true
+		reqLog = reqLog.With(zap.Bool("web_search_delegated", true), zap.String("delegate_model", reqModel))
+	}
+
 	// 在请求上下文中记录 thinking 状态，供 Antigravity 最终模型 key 推导/模型维度限流使用
 	c.Request = c.Request.WithContext(service.WithThinkingEnabled(c.Request.Context(), parsedReq.ThinkingEnabled, h.metadataBridgeEnabled()))
 
@@ -251,6 +270,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		APIKeyID:  apiKey.ID,
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
+	if webSearchDelegated {
+		// 代执行的搜索是一次性请求：不粘会话，免得把主对话的会话绑到执行搜索的渠道上
+		sessionHash = ""
+	}
 
 	// [DEBUG-STICKY] 打印会话 hash 生成结果
 	reqLog.Info("sticky.session_hash_generated",
@@ -336,6 +359,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				message := cls.Message
 				if !cls.ModelNotFound {
 					message = "No available accounts: " + err.Error()
+				}
+				if webSearchDelegated {
+					// 没有承接 Haiku 的可用渠道：直接报错（不提 Haiku）
+					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", webSearchDelegateUnavailableMessage, streamStarted)
+					return
 				}
 				h.handleStreamingAwareError(c, cls.Status, cls.ErrType, message, streamStarted)
 				return
@@ -635,6 +663,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					ForceCacheBilling:  forceCacheBilling,
 					APIKeyService:      h.apiKeyService,
 					RequestedModel:     clientRequestedModel(c, reqModel),
+					WebSearchDelegated: webSearchDelegated,
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.gateway.messages"),
@@ -671,6 +700,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					APIKeyService:      h.apiKeyService,
 					SessionID:          sessionID,
 					RequestedModel:     clientRequestedModel(c, reqModel),
+					WebSearchDelegated: webSearchDelegated,
 					PricingAt:          pricingAt,
 					CyberBlocked:       cyberBlocked,
 				}); err != nil {

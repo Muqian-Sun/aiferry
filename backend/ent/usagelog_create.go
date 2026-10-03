@@ -364,6 +364,20 @@ func (_c *UsageLogCreate) SetNillableWebSearchCost(v *float64) *UsageLogCreate {
 	return _c
 }
 
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (_c *UsageLogCreate) SetWebSearchDelegated(v bool) *UsageLogCreate {
+	_c.mutation.SetWebSearchDelegated(v)
+	return _c
+}
+
+// SetNillableWebSearchDelegated sets the "web_search_delegated" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableWebSearchDelegated(v *bool) *UsageLogCreate {
+	if v != nil {
+		_c.SetWebSearchDelegated(*v)
+	}
+	return _c
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_c *UsageLogCreate) SetBillingType(v int8) *UsageLogCreate {
 	_c.mutation.SetBillingType(v)
@@ -713,6 +727,10 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultWebSearchCost
 		_c.mutation.SetWebSearchCost(v)
 	}
+	if _, ok := _c.mutation.WebSearchDelegated(); !ok {
+		v := usagelog.DefaultWebSearchDelegated
+		_c.mutation.SetWebSearchDelegated(v)
+	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		v := usagelog.DefaultBillingType
 		_c.mutation.SetBillingType(v)
@@ -833,6 +851,9 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.WebSearchCost(); !ok {
 		return &ValidationError{Name: "web_search_cost", err: errors.New(`ent: missing required field "UsageLog.web_search_cost"`)}
+	}
+	if _, ok := _c.mutation.WebSearchDelegated(); !ok {
+		return &ValidationError{Name: "web_search_delegated", err: errors.New(`ent: missing required field "UsageLog.web_search_delegated"`)}
 	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		return &ValidationError{Name: "billing_type", err: errors.New(`ent: missing required field "UsageLog.billing_type"`)}
@@ -1014,6 +1035,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.WebSearchCost(); ok {
 		_spec.SetField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
 		_node.WebSearchCost = value
+	}
+	if value, ok := _c.mutation.WebSearchDelegated(); ok {
+		_spec.SetField(usagelog.FieldWebSearchDelegated, field.TypeBool, value)
+		_node.WebSearchDelegated = value
 	}
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
@@ -1656,6 +1681,18 @@ func (u *UsageLogUpsert) UpdateWebSearchCost() *UsageLogUpsert {
 // AddWebSearchCost adds v to the "web_search_cost" field.
 func (u *UsageLogUpsert) AddWebSearchCost(v float64) *UsageLogUpsert {
 	u.Add(usagelog.FieldWebSearchCost, v)
+	return u
+}
+
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (u *UsageLogUpsert) SetWebSearchDelegated(v bool) *UsageLogUpsert {
+	u.Set(usagelog.FieldWebSearchDelegated, v)
+	return u
+}
+
+// UpdateWebSearchDelegated sets the "web_search_delegated" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateWebSearchDelegated() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldWebSearchDelegated)
 	return u
 }
 
@@ -2527,6 +2564,20 @@ func (u *UsageLogUpsertOne) AddWebSearchCost(v float64) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateWebSearchCost() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateWebSearchCost()
+	})
+}
+
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (u *UsageLogUpsertOne) SetWebSearchDelegated(v bool) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchDelegated(v)
+	})
+}
+
+// UpdateWebSearchDelegated sets the "web_search_delegated" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateWebSearchDelegated() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchDelegated()
 	})
 }
 
@@ -3613,6 +3664,20 @@ func (u *UsageLogUpsertBulk) AddWebSearchCost(v float64) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateWebSearchCost() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateWebSearchCost()
+	})
+}
+
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (u *UsageLogUpsertBulk) SetWebSearchDelegated(v bool) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchDelegated(v)
+	})
+}
+
+// UpdateWebSearchDelegated sets the "web_search_delegated" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateWebSearchDelegated() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchDelegated()
 	})
 }
 

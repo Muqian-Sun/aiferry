@@ -56,8 +56,10 @@ type PricingEntryResponse struct {
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
 	// SearchDefaults 厂商公开的搜索价（官方价没设时按它收）；null = 这个厂商没有官方搜索工具，不填搜索价。
-	SearchDefaults *PricingSearchDefaults   `json:"search_defaults"`
-	Bindings       []PricingBindingResponse `json:"bindings"`
+	SearchDefaults *PricingSearchDefaults `json:"search_defaults"`
+	// WebSearchDelegate 这条是「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项）。
+	WebSearchDelegate bool                     `json:"web_search_delegate"`
+	Bindings          []PricingBindingResponse `json:"bindings"`
 	// BindableAccountIDs 能承接这个模型的渠道（「加渠道」只列这些里还没承接的）。
 	BindableAccountIDs []int64 `json:"bindable_account_ids"`
 }
@@ -312,6 +314,7 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 		XUserPrice:         entry.XUserPrice,
 		Bindings:           make([]PricingBindingResponse, 0, len(entry.Bindings)),
 		BindableAccountIDs: make([]int64, 0),
+		WebSearchDelegate:  entry.ModelID == service.WebSearchDelegateModel,
 	}
 	if defaults := service.WebSearchDefaults(entry); defaults != nil {
 		out.SearchDefaults = &PricingSearchDefaults{

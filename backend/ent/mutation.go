@@ -43378,6 +43378,7 @@ type UsageLogMutation struct {
 	addweb_search_count         *int
 	web_search_cost             *float64
 	addweb_search_cost          *float64
+	web_search_delegated        *bool
 	billing_type                *int8
 	addbilling_type             *int8
 	stream                      *bool
@@ -44883,6 +44884,42 @@ func (m *UsageLogMutation) ResetWebSearchCost() {
 	m.addweb_search_cost = nil
 }
 
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (m *UsageLogMutation) SetWebSearchDelegated(b bool) {
+	m.web_search_delegated = &b
+}
+
+// WebSearchDelegated returns the value of the "web_search_delegated" field in the mutation.
+func (m *UsageLogMutation) WebSearchDelegated() (r bool, exists bool) {
+	v := m.web_search_delegated
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWebSearchDelegated returns the old "web_search_delegated" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldWebSearchDelegated(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWebSearchDelegated is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWebSearchDelegated requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWebSearchDelegated: %w", err)
+	}
+	return oldValue.WebSearchDelegated, nil
+}
+
+// ResetWebSearchDelegated resets all changes to the "web_search_delegated" field.
+func (m *UsageLogMutation) ResetWebSearchDelegated() {
+	m.web_search_delegated = nil
+}
+
 // SetBillingType sets the "billing_type" field.
 func (m *UsageLogMutation) SetBillingType(i int8) {
 	m.billing_type = &i
@@ -45903,7 +45940,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 44)
+	fields := make([]string, 0, 45)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -45984,6 +46021,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.web_search_cost != nil {
 		fields = append(fields, usagelog.FieldWebSearchCost)
+	}
+	if m.web_search_delegated != nil {
+		fields = append(fields, usagelog.FieldWebSearchDelegated)
 	}
 	if m.billing_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
@@ -46098,6 +46138,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.WebSearchCount()
 	case usagelog.FieldWebSearchCost:
 		return m.WebSearchCost()
+	case usagelog.FieldWebSearchDelegated:
+		return m.WebSearchDelegated()
 	case usagelog.FieldBillingType:
 		return m.BillingType()
 	case usagelog.FieldStream:
@@ -46195,6 +46237,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldWebSearchCount(ctx)
 	case usagelog.FieldWebSearchCost:
 		return m.OldWebSearchCost(ctx)
+	case usagelog.FieldWebSearchDelegated:
+		return m.OldWebSearchDelegated(ctx)
 	case usagelog.FieldBillingType:
 		return m.OldBillingType(ctx)
 	case usagelog.FieldStream:
@@ -46426,6 +46470,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWebSearchCost(v)
+		return nil
+	case usagelog.FieldWebSearchDelegated:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWebSearchDelegated(v)
 		return nil
 	case usagelog.FieldBillingType:
 		v, ok := value.(int8)
@@ -47047,6 +47098,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldWebSearchCost:
 		m.ResetWebSearchCost()
+		return nil
+	case usagelog.FieldWebSearchDelegated:
+		m.ResetWebSearchDelegated()
 		return nil
 	case usagelog.FieldBillingType:
 		m.ResetBillingType()

@@ -557,6 +557,20 @@ func (_u *UsageLogUpdate) AddWebSearchCost(v float64) *UsageLogUpdate {
 	return _u
 }
 
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (_u *UsageLogUpdate) SetWebSearchDelegated(v bool) *UsageLogUpdate {
+	_u.mutation.SetWebSearchDelegated(v)
+	return _u
+}
+
+// SetNillableWebSearchDelegated sets the "web_search_delegated" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableWebSearchDelegated(v *bool) *UsageLogUpdate {
+	if v != nil {
+		_u.SetWebSearchDelegated(*v)
+	}
+	return _u
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_u *UsageLogUpdate) SetBillingType(v int8) *UsageLogUpdate {
 	_u.mutation.ResetBillingType()
@@ -1179,6 +1193,9 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedWebSearchCost(); ok {
 		_spec.AddField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.WebSearchDelegated(); ok {
+		_spec.SetField(usagelog.FieldWebSearchDelegated, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
@@ -1941,6 +1958,20 @@ func (_u *UsageLogUpdateOne) AddWebSearchCost(v float64) *UsageLogUpdateOne {
 	return _u
 }
 
+// SetWebSearchDelegated sets the "web_search_delegated" field.
+func (_u *UsageLogUpdateOne) SetWebSearchDelegated(v bool) *UsageLogUpdateOne {
+	_u.mutation.SetWebSearchDelegated(v)
+	return _u
+}
+
+// SetNillableWebSearchDelegated sets the "web_search_delegated" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableWebSearchDelegated(v *bool) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetWebSearchDelegated(*v)
+	}
+	return _u
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_u *UsageLogUpdateOne) SetBillingType(v int8) *UsageLogUpdateOne {
 	_u.mutation.ResetBillingType()
@@ -2593,6 +2624,9 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedWebSearchCost(); ok {
 		_spec.AddField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.WebSearchDelegated(); ok {
+		_spec.SetField(usagelog.FieldWebSearchDelegated, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)

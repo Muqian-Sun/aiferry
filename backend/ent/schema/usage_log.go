@@ -117,6 +117,9 @@ func (UsageLog) Fields() []ent.Field {
 		field.Float("web_search_cost").
 			Default(0).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		// web_search_delegated: Claude Code 配第三方模型时交给 Haiku 代执行的那次搜索请求。
+		field.Bool("web_search_delegated").
+			Default(false),
 
 		// 其他字段
 		field.Int8("billing_type").

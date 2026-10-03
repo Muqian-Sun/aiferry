@@ -68,6 +68,8 @@ const (
 	FieldWebSearchCount = "web_search_count"
 	// FieldWebSearchCost holds the string denoting the web_search_cost field in the database.
 	FieldWebSearchCost = "web_search_cost"
+	// FieldWebSearchDelegated holds the string denoting the web_search_delegated field in the database.
+	FieldWebSearchDelegated = "web_search_delegated"
 	// FieldBillingType holds the string denoting the billing_type field in the database.
 	FieldBillingType = "billing_type"
 	// FieldStream holds the string denoting the stream field in the database.
@@ -172,6 +174,7 @@ var Columns = []string{
 	FieldAccountCost,
 	FieldWebSearchCount,
 	FieldWebSearchCost,
+	FieldWebSearchDelegated,
 	FieldBillingType,
 	FieldStream,
 	FieldDurationMs,
@@ -246,6 +249,8 @@ var (
 	DefaultWebSearchCount int
 	// DefaultWebSearchCost holds the default value on creation for the "web_search_cost" field.
 	DefaultWebSearchCost float64
+	// DefaultWebSearchDelegated holds the default value on creation for the "web_search_delegated" field.
+	DefaultWebSearchDelegated bool
 	// DefaultBillingType holds the default value on creation for the "billing_type" field.
 	DefaultBillingType int8
 	// DefaultStream holds the default value on creation for the "stream" field.
@@ -415,6 +420,11 @@ func ByWebSearchCount(opts ...sql.OrderTermOption) OrderOption {
 // ByWebSearchCost orders the results by the web_search_cost field.
 func ByWebSearchCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWebSearchCost, opts...).ToFunc()
+}
+
+// ByWebSearchDelegated orders the results by the web_search_delegated field.
+func ByWebSearchDelegated(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWebSearchDelegated, opts...).ToFunc()
 }
 
 // ByBillingType orders the results by the billing_type field.

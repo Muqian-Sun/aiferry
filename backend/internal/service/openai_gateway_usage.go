@@ -44,6 +44,8 @@ type OpenAIRecordUsageInput struct {
 	NativeCompactionV2 bool
 	// RequestedModel 是客户端写的模型名（目录别名归一前），进 usage_logs.requested_model。
 	RequestedModel string
+	// WebSearchDelegated 这次是 Claude Code 配第三方模型时交给 Haiku 代执行的搜索请求（见 web_search_delegate.go）。
+	WebSearchDelegated bool
 }
 
 // CyberPolicyUsageInput 是 cyber 拒绝、未走正常 RecordUsage 的请求记录用量的入参。
@@ -298,6 +300,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageSizeSource:          optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:       imageSizeBreakdown,
 		NativeCompactionV2:       input.NativeCompactionV2,
+		WebSearchDelegated:       input.WebSearchDelegated,
 	}
 	isVideoUsage := result.VideoCount > 0
 	if isVideoUsage {
@@ -305,6 +308,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.VideoResolution = optionalTrimmedStringPtr(NormalizeVideoBillingResolutionOrDefault(result.VideoResolution))
 		videoDurationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
 		usageLog.VideoDurationSeconds = &videoDurationSeconds
+	}
+	if usageLog.WebSearchDelegated && usageLog.UpstreamModel == nil {
+		// 代执行的搜索：请求模型记客户端写的，发往上游的模型（Haiku）明确记下来，管理站对账用
+		usageLog.UpstreamModel = optionalTrimmedStringPtr(sentModel)
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
