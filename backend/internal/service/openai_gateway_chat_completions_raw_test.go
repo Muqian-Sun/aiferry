@@ -1243,3 +1243,63 @@ func largeRawChatCompletionsBody() []byte {
 		strings.Repeat("x", openAISilentRefusalMinRequestBodyBytes) +
 		`"}],"stream":true}`)
 }
+
+// 承接关系上改了名时，上游回报的 model 是上游名；回给用户的必须是用户请求的目录标识（流式、非流式都改），
+// 发往上游的是上游名，计费按目录模型。
+func TestForwardAsRawChatCompletions_RestoresCatalogModelInResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	newAccount := func() *Account {
+		account := rawChatCompletionsTestAccount()
+		account.CatalogUpstreamModels = map[string]string{"gpt-5.6-luna": "gpt-5.6-terra"}
+		return account
+	}
+
+	t.Run("buffered", func(t *testing.T) {
+		body := []byte(`{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+		upstream := &httpUpstreamRecorder{resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{"id":"chatcmpl_1","object":"chat.completion","model":"gpt-5.6-terra",` +
+				`"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],` +
+				`"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}}`)),
+		}}
+		svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+
+		result, err := svc.forwardAsRawChatCompletions(context.Background(), c, newAccount(), body)
+		require.NoError(t, err)
+		require.Equal(t, "gpt-5.6-terra", gjson.GetBytes(upstream.lastBody, "model").String(), "upstream receives the upstream name")
+		require.Equal(t, "gpt-5.6-luna", gjson.Get(rec.Body.String(), "model").String(), "client sees the catalog model")
+		require.Equal(t, "gpt-5.6-luna", result.BillingModel)
+		require.Equal(t, "gpt-5.6-terra", result.UpstreamModel)
+	})
+
+	t.Run("streaming", func(t *testing.T) {
+		body := []byte(`{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"hello"}],"stream":true}`)
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+		upstreamBody := strings.Join([]string{
+			`data: {"id":"chatcmpl_1","object":"chat.completion.chunk","model":"gpt-5.6-terra","choices":[{"index":0,"delta":{"content":"ok"}}]}`,
+			"",
+			`data: {"id":"chatcmpl_1","object":"chat.completion.chunk","model":"gpt-5.6-terra","choices":[],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}}`,
+			"",
+			"data: [DONE]",
+			"",
+		}, "\n")
+		upstream := &httpUpstreamRecorder{resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+		}}
+		svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+
+		_, err := svc.forwardAsRawChatCompletions(context.Background(), c, newAccount(), body)
+		require.NoError(t, err)
+		require.Equal(t, "gpt-5.6-terra", gjson.GetBytes(upstream.lastBody, "model").String())
+		require.NotContains(t, rec.Body.String(), "gpt-5.6-terra", "no chunk leaks the upstream name")
+		require.Equal(t, 2, strings.Count(rec.Body.String(), `"model":"gpt-5.6-luna"`))
+	})
+}
