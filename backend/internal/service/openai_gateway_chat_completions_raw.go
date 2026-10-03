@@ -297,6 +297,8 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	pendingLines := make([]string, 0, 8)
 	refusalDetector := newOpenAIChatSilentRefusalDetector(requestBodyLen)
 	var terminal openAIRawStreamTerminalState
+	// 上游回报的 model 是承接关系上的上游名时改回用户请求的目录标识（与 Responses / Messages 链路一致）
+	restoreModel := upstreamModel != "" && originalModel != "" && upstreamModel != originalModel
 
 	writeLine := func(line string) {
 		if clientDisconnected {
@@ -350,6 +352,9 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 		}
 		line = applyOllamaCloudRawChatCompletionsSSELine(account, line)
 		line = stripEmptyChatToolCallIdentityFromSSELine(line)
+		if restoreModel && strings.Contains(line, upstreamModel) {
+			line = s.replaceModelInSSELine(line, upstreamModel, originalModel)
+		}
 
 		writeLine(line)
 		if line == "" {
@@ -522,6 +527,10 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 		return nil, newGrokMissingUsageFailoverError(c, account, upstreamRequestID)
 	}
 	respBody = applyOllamaCloudRawChatCompletionsResponse(account, respBody)
+	// 上游回报的 model 是承接关系上的上游名时改回用户请求的目录标识（与 Responses / Messages 链路一致）
+	if upstreamModel != "" && originalModel != "" && upstreamModel != originalModel {
+		respBody = s.replaceModelInResponseBody(respBody, upstreamModel, originalModel)
+	}
 
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
