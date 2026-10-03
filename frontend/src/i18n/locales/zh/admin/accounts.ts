@@ -102,21 +102,16 @@ export default {
       dataImportSuccess: '导入完成：渠道 {account_created}，失败 {account_failed}',
       dataImportCompletedWithErrors: '导入完成但有错误：渠道失败 {account_failed}，代理失败 {proxy_failed}',
       editAccount: '编辑渠道',
-      // 新建 / 编辑渠道整页（A5-c）：/accounts/new、/accounts/:id/edit
-      formPage: {
-        createTitle: '添加渠道',
-        editTitle: '编辑渠道',
-        backToList: '渠道',
-        backToListAction: '返回渠道列表',
+      // 新建 / 编辑渠道弹窗（2026-10-03 由整页改回弹窗）：两个弹窗同一分区顺序
+      dialog: {
         loading: '正在加载渠道…',
         notFound: '该渠道不存在或已被删除。',
         loadFailed: '渠道加载失败：{message}',
-        retry: '重试',
         sections: {
-          basics: '基本',
-          endpoint: '地址与协议',
-          limits: '额度',
-          advanced: '高级'
+          upstream: '上游',
+          scheduling: '调度与限额',
+          advanced: '高级',
+          notes: '备注'
         }
       },
       // 新建渠道第一步：接入方式与来源（2026-09-25）
@@ -144,11 +139,6 @@ export default {
           vertexClaude: 'GCP 服务账号，调 Vertex 上的 Claude',
           vertexGemini: 'GCP 服务账号，调 Vertex 上的 Gemini'
         }
-      },
-      // 新建渠道默认只露必填项，其余收进「更多设置」
-      moreSettings: {
-        title: '更多设置',
-        hint: '备注、到期、并发与配额、代理、协议开关、模型改名等，不改就用默认值'
       },
       // 第三方 key 的地址：常用官方地址快捷填入、按地址识别厂商（key 不选平台）
       keyAddress: {
@@ -309,7 +299,7 @@ export default {
       resetQuota: '重置配额',
       quotaLimit: '配额限制',
       quotaLimitPlaceholder: '0 表示不限制',
-      quotaLimitHint: '设置日/周/总使用额度（美元），任一维度达到限额后渠道暂停调度。Anthropic API Key 渠道还可配置客户端亲和。修改限额不会重置已用额度。',
+      quotaLimitHint: '设置日/周/总使用额度（美元），任一维度达到限额后渠道暂停调度。修改限额不会重置已用额度。',
       quotaLimitToggle: '启用配额限制',
       quotaLimitToggleHint: '开启后，当渠道用量达到设定额度时自动暂停调度',
       quotaDailyLimit: '日限额',
@@ -824,7 +814,6 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: '配额控制',
-        hint: '配置会话数量、每分钟请求数等调度限制。',
         sessionLimit: {
           label: '会话数量控制',
           hint: '限制同时活跃的会话数量',

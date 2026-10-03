@@ -25,7 +25,7 @@ const {
 
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道是弹窗，不走路由
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => ({ query: {} }),
@@ -79,6 +79,12 @@ const AccountTestModalStub = defineComponent({
   template: '<div data-test="test-account">{{ show ? account?.name : "" }}</div>'
 })
 
+// 编辑弹窗只看拿到的是不是完整账号（extra.detail_only 只有详情接口才有）
+const EditAccountModalStub = defineComponent({
+  props: { show: Boolean, account: { type: Object, default: null } },
+  template: '<div data-test="edit-account">{{ show && account?.extra?.detail_only ? account.name : "" }}</div>'
+})
+
 const AccountUsagePanelStub = defineComponent({
   props: { account: { type: Object, default: null } },
   template: '<div data-test="stats-account">{{ account?.name }}</div>'
@@ -107,6 +113,7 @@ function mountView(stubActionMenu = true) {
         ErrorPassthroughRulesModal: true,
         TLSFingerprintProfilesModal: true,
         CreateAccountModal: true,
+        EditAccountModal: EditAccountModalStub,
         BulkEditAccountModal: true,
         PlatformTypeBadge: true,
         AccountCapacityCell: true,
@@ -210,19 +217,21 @@ describe('admin AccountsView lite account list', () => {
     wrapper.unmount()
   })
 
-  it('opens edit as a page, loads the full account before testing, and shows stats in the drawer', async () => {
+  it('opens the edit dialog with the full account, loads it before testing, and shows stats in the drawer', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    // A5：编辑是独立页面，由页面自己按 id 拉完整账号
+    // 编辑是弹窗：列表行是精简版，按 id 拉完整账号再交给弹窗
     await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    expect(routerPush).toHaveBeenCalledWith('/accounts/42/edit')
-    expect(getById).not.toHaveBeenCalled()
+    await flushPromises()
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(getById).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-test="edit-account"]').text()).toBe('compact row')
 
     const menu = wrapper.findComponent(AccountActionMenu)
     menu.vm.$emit('test', listRow)
     await flushPromises()
-    expect(getById).toHaveBeenCalledTimes(1)
+    expect(getById).toHaveBeenCalledTimes(2)
     expect(wrapper.get('[data-test="test-account"]').text()).toBe('compact row')
 
     // 「查看统计」在详情抽屉的「用量」页签里

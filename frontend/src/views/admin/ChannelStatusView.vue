@@ -61,7 +61,7 @@
             >
               <component
                 :is="row.account_id > 0 && !row.deleted ? RouterLink : 'div'"
-                v-bind="row.account_id > 0 && !row.deleted ? { to: `/accounts/${row.account_id}/edit` } : {}"
+                v-bind="row.account_id > 0 && !row.deleted ? { to: `/accounts?edit=${row.account_id}` } : {}"
                 class="block px-6 py-4"
                 :class="row.account_id > 0 && !row.deleted ? 'transition-colors hover:bg-af-sunken/60' : ''"
               >
@@ -125,7 +125,7 @@
             </p>
             <ul v-if="idleExpanded || searchKeyword" class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
               <li v-for="row in visibleIdle" :key="row.account_id">
-                <RouterLink :to="`/accounts/${row.account_id}/edit`" class="text-af-ink-3 hover:text-af-ink">{{ channelName(row) }}</RouterLink>
+                <RouterLink :to="`/accounts?edit=${row.account_id}`" class="text-af-ink-3 hover:text-af-ink">{{ channelName(row) }}</RouterLink>
               </li>
             </ul>
           </div>

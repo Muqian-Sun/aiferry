@@ -487,14 +487,22 @@ describe('EditAccountModal', () => {
     account.protocol_endpoints = { chat_completions: 'https://api.minimaxi.com/v1' }
     account.credentials = { api_key: 'sk-minimax', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
+    // 下拉只列官方地址表里有的厂商（国产厂商展开成带国际站的预设表）
+    getProtocolDefaultsMock.mockResolvedValue({
+      ...PROTOCOL_DEFAULTS,
+      defaults: { ...PROTOCOL_DEFAULTS.defaults, minimax: { default: { chat_completions: 'https://api.minimaxi.com/v1' } } }
+    })
 
     const wrapper = mountModal(account)
     await flushPromises()
-    const preset = wrapper
-      .findAll('[data-testid="cn-base-url-preset"]')
-      .find(button => button.text().startsWith('MiniMax Intl Anthropic (api.minimax.io/anthropic)'))
+    // 常用官方地址下拉（与新建同一个）：选 MiniMax 国际站的 Anthropic 地址
+    const menu = wrapper.get('[data-testid="key-address-preset"]')
+    const preset = menu.findAll('option').find(option =>
+      option.attributes('data-protocol') === 'anthropic' &&
+      option.attributes('data-url') === 'https://api.minimax.io/anthropic'
+    )
     expect(preset).toBeDefined()
-    await preset!.trigger('click')
+    await menu.setValue(preset!.attributes('value'))
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     const payload = updateAccountMock.mock.calls[0]?.[1]

@@ -1,680 +1,285 @@
 <template>
-  <!-- /accounts/:id/edit 整页（A5 起不再有弹窗形态）：分区导航读下面的 FormSectionHeading -->
-  <FormPageShell :show="show" :title="t('admin.accounts.editAccount')" @close="handleClose">
-    <form
-      v-if="account"
-      id="edit-account-form"
-      @submit.prevent="handleSubmit"
-      class="space-y-5"
-    >
-      <FormSectionHeading section="basics" :title="t('admin.accounts.formPage.sections.basics')" />
+  <!--
+    编辑渠道弹窗（2026-10-03 由整页改回弹窗）：与新建同一外壳、同一分区顺序 ——
+    上游 / 调度与限额 / 高级（默认收起）/ 备注。完整账号由渠道列表按 id 拉好再传进来，拉取期间 account 为 null。
+  -->
+  <BaseDialog :show="show" :title="t('admin.accounts.editAccount')" width="wide" @close="handleClose">
+    <div v-if="!account" class="py-6" data-testid="account-edit-loading">
+      <FormError v-if="loadError" :message="loadError" />
+      <p v-else class="flex items-center gap-2 text-sm text-af-ink-3">
+        <Icon name="refresh" size="sm" class="animate-spin" />
+        {{ t('admin.accounts.dialog.loading') }}
+      </p>
+    </div>
 
-      <div>
-        <label class="input-label">{{ t('common.name') }}</label>
-        <input v-model="form.name" type="text" required class="input" />
-      </div>
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
-      </div>
-
-      <div class="border-t border-af-hairline pt-4">
+    <form v-else id="edit-account-form" class="space-y-5" @submit.prevent="handleSubmit">
+      <ChannelFormSection section="upstream" :title="t('admin.accounts.dialog.sections.upstream')">
         <div>
+          <label class="input-label">{{ t('common.name') }}</label>
+          <input v-model="form.name" type="text" required class="input" />
+        </div>
+
+        <!-- Spark 影子号的代理恒继承母账号，不可单独改 -->
+        <div v-if="!isSparkShadow">
+          <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
+          <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        </div>
+
+        <!-- 第三方 key：地址（可从常用官方地址填入）、套餐、API Key、探测协议 -->
+        <template v-if="account.type === 'apikey'">
+          <div>
+            <KeyAddressPresetMenu
+              v-if="keyPresets.length > 0"
+              class="mb-3"
+              :presets="keyPresets"
+              @select="applyKeyAddressPreset"
+            />
+            <ProtocolEndpointsEditor
+              v-model="editProtocolEndpoints"
+              :protocols="UPSTREAM_PROTOCOLS"
+              :official-endpoints="officialProtocolEndpoints"
+              :defaults-load-failed="protocolDefaultsLoadFailed"
+            />
+            <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
+              {{ t('admin.accounts.keyAddress.detected', { vendor: keyVendorLabel }) }}
+            </p>
+            <p v-else-if="hasKeyAddress" class="input-hint" data-testid="key-vendor-relay">
+              {{ t('admin.accounts.keyAddress.relay') }}
+            </p>
+          </div>
+
+          <!-- 地址分得出套餐就不问；MiniMax 两种套餐同一个地址、智谱 Anthropic 同地址才要选 -->
+          <KeyPlanModePicker v-if="keyPlanNeedsChoice" v-model="editAccountMode" test-id="edit-key-plan-mode" />
+
+          <div>
+            <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
+            <input
+              v-model="editApiKey"
+              type="password"
+              class="input font-mono"
+              autocomplete="new-password"
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore="true"
+              :placeholder="apiKeyValuePlaceholder"
+            />
+            <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
+          </div>
+
+          <!-- 探测协议（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准；选中的协议与地址填回上面 -->
+          <UpstreamProtocolProbe
+            :protocol-endpoints="editProtocolEndpoints"
+            :api-key="editApiKey"
+            :account-id="account.id"
+            :proxy-id="form.proxy_id"
+            @select="(protocol, url) => (editProtocolEndpoints = { [protocol]: url })"
+          />
+        </template>
+
+        <!-- Vertex Service Account：区域（Project ID 由后端从 Service Account JSON 里取） -->
+        <div v-if="(account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account'">
+          <label class="input-label">Location</label>
+          <select v-model="editVertexLocation" required class="input font-mono">
+            <optgroup v-for="group in VERTEX_LOCATION_OPTIONS" :key="group.label" :label="group.label">
+              <option v-for="option in group.options" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </optgroup>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
+          <p class="input-hint">{{ t('admin.accounts.vertexSaJsonEditHint') }}</p>
+        </div>
+
+        <!-- Bedrock：凭证（SigV4 与 API Key 两种模式）、区域与全局推理 -->
+        <template v-if="account.type === 'bedrock'">
+          <template v-if="!isBedrockAPIKeyMode">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.bedrockAccessKeyId') }}</label>
+              <input v-model="editBedrockAccessKeyId" type="text" class="input font-mono" placeholder="AKIA..." />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.bedrockSecretAccessKey') }}</label>
+              <input
+                v-model="editBedrockSecretAccessKey"
+                type="password"
+                class="input font-mono"
+                :placeholder="t('admin.accounts.bedrockSecretKeyLeaveEmpty')"
+              />
+              <p class="input-hint">{{ t('admin.accounts.bedrockSecretKeyLeaveEmpty') }}</p>
+            </div>
+          </template>
+          <div v-else>
+            <label class="input-label">{{ t('admin.accounts.bedrockApiKeyInput') }}</label>
+            <input
+              v-model="editBedrockApiKeyValue"
+              type="password"
+              class="input font-mono"
+              :placeholder="t('admin.accounts.bedrockApiKeyLeaveEmpty')"
+            />
+            <p class="input-hint">{{ t('admin.accounts.bedrockApiKeyLeaveEmpty') }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
+            <input v-model="editBedrockRegion" type="text" class="input" placeholder="us-east-1" />
+            <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
+          </div>
+          <div>
+            <label class="flex cursor-pointer items-center gap-2">
+              <input
+                v-model="editBedrockForceGlobal"
+                type="checkbox"
+                class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+              />
+              <span class="text-sm text-af-ink-2">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
+            </label>
+            <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
+          </div>
+        </template>
+      </ChannelFormSection>
+
+      <ChannelFormSection section="scheduling" :title="t('admin.accounts.dialog.sections.scheduling')">
+        <div class="sm:w-1/3">
           <label class="input-label">{{ t('common.status') }}</label>
           <Select v-model="form.status" :options="statusOptions" />
         </div>
 
+        <ChannelLimitsFields
+          v-model:priority="form.priority"
+          v-model:concurrency="form.concurrency"
+          v-model:expires-at="form.expires_at"
+        />
+
+        <ChannelQuotaFields
+          v-if="account.type === 'apikey' || account.type === 'bedrock'"
+          v-model:total-limit="editQuotaLimit"
+          v-model:daily-limit="editQuotaDailyLimit"
+          v-model:weekly-limit="editQuotaWeeklyLimit"
+        />
+
+        <AnthropicSubscriptionLimits
+          v-if="account.platform === 'anthropic' && (account.type === 'oauth' || account.type === 'setup-token')"
+          v-model:session-limit-enabled="sessionLimitEnabled"
+          v-model:max-sessions="maxSessions"
+          v-model:rpm-limit-enabled="rpmLimitEnabled"
+          v-model:base-rpm="baseRpm"
+        />
+
+        <ChannelSettingToggle
+          v-if="account.platform === 'openai' && account.type === 'oauth' && !isSparkShadow"
+          v-model="autoResetCreditEnabled"
+          :label="t('admin.accounts.autoResetCredit.title')"
+          :description="t('admin.accounts.autoResetCredit.hint')"
+          test-id="auto-reset-credit-settings"
+          toggle-test-id="auto-reset-credit-enabled"
+        />
+
         <!-- 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这一项 -->
-        <div v-if="account?.platform === 'antigravity' && account?.type === 'oauth'" class="flex items-center gap-2">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              v-model="allowOverages"
-              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-            <span class="text-sm font-medium text-af-ink-2">
-              {{ t('admin.accounts.allowOverages') }}
-            </span>
-          </label>
-          <div class="group relative">
-            <span
-              class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-hairline text-xs text-af-ink-3 hover:bg-af-ink-4"
-            >
-              ?
-            </span>
-            <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-af-ink px-3 py-2 text-xs text-af-on-brand opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              {{ t('admin.accounts.allowOveragesTooltip') }}
-              <div
-                class="absolute bottom-full left-3 border-4 border-transparent border-b-af-ink-3"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <ChannelSettingToggle
+          v-if="account.platform === 'antigravity' && account.type === 'oauth'"
+          v-model="allowOverages"
+          :label="t('admin.accounts.allowOverages')"
+          :description="t('admin.accounts.allowOveragesTooltip')"
+          test-id="allow-overages"
+        />
 
-      <!-- API Key 类型：计费方式、智谱团队版 ID、API Key -->
-      <div v-if="account.type === 'apikey'" class="space-y-4">
-        <!-- 按量 / Coding 套餐：与新建同一规则，地址分得出就不问；MiniMax 两种套餐同一个地址、智谱 Anthropic 同地址才要选 -->
-        <div v-if="keyPlanNeedsChoice" data-testid="edit-key-plan-mode">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button
-              v-for="mode in CN_PLAN_MODES"
-              :key="mode"
-              type="button"
-              :class="[
-                'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
-                editAccountMode === mode
-                  ? 'border-af-brand bg-af-brand-tint font-medium text-af-brand'
-                  : 'border-af-hairline text-af-ink-2 hover:border-af-hairline-strong'
-              ]"
-              @click="editAccountMode = mode"
-            >
-              {{ t(`admin.accounts.cnProviders.accountMode.${mode}`) }}
-            </button>
-          </div>
-          <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
-        </div>
+        <OllamaCloudUsageSettings
+          v-if="account.ollama_cloud_usage?.eligible"
+          :account="account"
+          @updated="handleOllamaCloudUsageUpdated"
+        />
+      </ChannelFormSection>
 
-        <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后用量查询走团队版端点） -->
-        <div v-if="keyVendor === 'zhipu' && keyAccountMode === 'coding'">
-          <div class="flex items-center">
-            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
-            <HelpTooltip trigger="click" width-class="w-80">
-              <p class="mb-1 font-medium">{{ t('admin.accounts.cnProviders.zhipuTeam.help.title') }}</p>
-              <ol class="list-decimal space-y-1 pl-4">
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step1') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step2') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
-              </ol>
-              <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
-                {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
-              </p>
-            </HelpTooltip>
-          </div>
-          <div class="mt-2 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.organization') }}</label>
-              <input v-model="editZhipuOrganization" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.organizationPlaceholder')" />
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.project') }}</label>
-              <input v-model="editZhipuProject" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.projectPlaceholder')" />
-            </div>
-          </div>
-          <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
-        </div>
+      <ChannelAdvancedSection v-if="advancedItems.length > 0" :summary="advancedItems.join(' · ')">
+        <!-- 请求头覆写：任何第三方 key + Grok 成品号 -->
+        <HeaderOverrideField
+          v-if="headerOverrideCapable"
+          v-model:rows="headerOverrideRows"
+          test-id="edit-header-override"
+        />
 
-        <div>
-          <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
-          <input
-            v-model="editApiKey"
-            type="password"
-            class="input font-mono"
-            autocomplete="new-password"
-            data-1p-ignore
-            data-lpignore="true"
-            data-bwignore="true"
-            :placeholder="apiKeyValuePlaceholder"
-          />
-          <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
-        </div>
-      </div>
-
-      <!-- Vertex Service Account：区域（Project ID 由后端从 Service Account JSON 里取） -->
-      <div v-if="(account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account'">
-        <label class="input-label">Location</label>
-        <select
-          v-model="editVertexLocation"
-          required
-          class="input font-mono"
+        <!-- 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关 -->
+        <ChannelSettingToggle
+          v-if="account.type === 'apikey'"
+          v-model="poolModeEnabled"
+          :label="t('admin.accounts.poolMode')"
+          :description="t('admin.accounts.poolModeHint')"
+          test-id="pool-mode"
         >
-          <optgroup
-            v-for="group in VERTEX_LOCATION_OPTIONS"
-            :key="group.label"
-            :label="group.label"
-          >
-            <option
-              v-for="option in group.options"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </optgroup>
-        </select>
-        <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
-        <p class="input-hint">{{ t('admin.accounts.vertexSaJsonEditHint') }}</p>
-      </div>
+          <p class="rounded-lg bg-af-sunken p-3 text-xs text-af-ink-2">
+            <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+            {{ t('admin.accounts.poolModeInfo') }}
+          </p>
+        </ChannelSettingToggle>
 
-      <!-- Bedrock 凭证（SigV4 与 API Key 两种模式） -->
-      <div v-if="account.type === 'bedrock'" class="space-y-4">
-        <!-- SigV4 fields -->
-        <template v-if="!isBedrockAPIKeyMode">
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockAccessKeyId') }}</label>
-            <input
-              v-model="editBedrockAccessKeyId"
-              type="text"
-              class="input font-mono"
-              placeholder="AKIA..."
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSecretAccessKey') }}</label>
-            <input
-              v-model="editBedrockSecretAccessKey"
-              type="password"
-              class="input font-mono"
-              :placeholder="t('admin.accounts.bedrockSecretKeyLeaveEmpty')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.bedrockSecretKeyLeaveEmpty') }}</p>
-          </div>
-        </template>
+        <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
+        <AnthropicKeySettings
+          v-if="anthropicKeySettingsVisible"
+          v-model:auth-scheme="anthropicAPIKeyAuthScheme"
+          v-model:bedrock-cc-compat="bedrockCCCompatEnabled"
+          test-id-prefix="edit"
+        />
 
-        <!-- API Key field -->
-        <div v-if="isBedrockAPIKeyMode">
-          <label class="input-label">{{ t('admin.accounts.bedrockApiKeyInput') }}</label>
+        <ChannelSettingToggle
+          v-if="interceptWarmupCapable"
+          v-model="interceptWarmupRequests"
+          :label="t('admin.accounts.interceptWarmupRequests')"
+          :description="t('admin.accounts.interceptWarmupRequestsDesc')"
+          test-id="intercept-warmup"
+        />
+
+        <!-- 智谱团队版 Coding Plan：组织 / 项目 ID（可选，填写后用量查询走团队版端点） -->
+        <ZhipuTeamFields
+          v-if="zhipuTeamCapable"
+          v-model:organization="editZhipuOrganization"
+          v-model:project="editZhipuProject"
+        />
+
+        <div v-if="antigravityProjectIdCapable">
+          <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
           <input
-            v-model="editBedrockApiKeyValue"
-            type="password"
-            class="input font-mono"
-            :placeholder="t('admin.accounts.bedrockApiKeyLeaveEmpty')"
-          />
-          <p class="input-hint">{{ t('admin.accounts.bedrockApiKeyLeaveEmpty') }}</p>
-        </div>
-      </div>
-
-      <div
-        v-if="account.platform === 'antigravity' && account.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
-        <input
-          v-model="antigravityProjectId"
-          data-testid="antigravity-project-id-input"
-          type="text"
-          class="input font-mono"
-          :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
-        />
-        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
-      </div>
-
-      <div class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
-        <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <div class="mt-2 flex gap-2">
-          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(1)">
-            {{ t('payment.oneMonth') }}
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(12)">
-            {{ t('payment.oneYear') }}
-          </button>
-        </div>
-        <p class="input-hint">
-          {{ t('admin.accounts.expiresAtHint') }}
-          {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
-        </p>
-      </div>
-
-      <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
-
-      <!-- API Key 类型的协议地址 / 预设 -->
-      <div v-if="account.type === 'apikey'">
-        <ProtocolEndpointsEditor
-          v-model="editProtocolEndpoints"
-          :protocols="UPSTREAM_PROTOCOLS"
-          :official-endpoints="officialProtocolEndpoints"
-          :defaults-load-failed="protocolDefaultsLoadFailed"
-        />
-        <CnBaseUrlPresets
-          v-if="cnPresetPlatform"
-          class="mt-2"
-          :platform="cnPresetPlatform"
-          :mode="editAccountMode"
-          @select="onCnPresetSelect"
-        />
-        <!-- 探测协议（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准；选中的协议与地址填回上面 -->
-        <UpstreamProtocolProbe
-          class="mt-3"
-          :protocol-endpoints="editProtocolEndpoints"
-          :api-key="editApiKey"
-          :account-id="account.id"
-          :proxy-id="form.proxy_id"
-          @select="(protocol, url) => (editProtocolEndpoints = { [protocol]: url })"
-        />
-      </div>
-
-      <!-- Bedrock 区域与全局推理 -->
-      <div v-if="account.type === 'bedrock'" class="space-y-4">
-        <!-- Shared: Region -->
-        <div>
-          <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
-          <input
-            v-model="editBedrockRegion"
+            v-model="antigravityProjectId"
+            data-testid="antigravity-project-id-input"
             type="text"
+            class="input font-mono"
+            :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
+          />
+          <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
+        </div>
+      </ChannelAdvancedSection>
+
+      <ChannelFormSection section="notes" :title="t('admin.accounts.dialog.sections.notes')">
+        <div>
+          <textarea
+            v-model="form.notes"
+            rows="3"
             class="input"
-            placeholder="us-east-1"
-          />
-          <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
+            :aria-label="t('admin.accounts.notes')"
+            :placeholder="t('admin.accounts.notesPlaceholder')"
+          ></textarea>
+          <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
         </div>
-
-        <!-- Shared: Force Global -->
-        <div>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="editBedrockForceGlobal"
-              type="checkbox"
-              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-            <span class="text-sm text-af-ink-2">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
-          </label>
-          <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
-        </div>
-      </div>
-
-      <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
-      <div
-        v-if="anthropicKeySettingsVisible"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyAuthScheme') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
-            </p>
-          </div>
-          <select
-            v-model="anthropicAPIKeyAuthScheme"
-            data-testid="edit-anthropic-auth-scheme"
-            class="input w-52 text-sm"
-          >
-            <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
-            <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Bedrock CC 兼容（Anthropic 协议上的 key 设置）：清理 Claude Code 专有字段并过滤 anthropic-beta，账号是唯一开关 -->
-      <div
-        v-if="anthropicKeySettingsVisible"
-        data-testid="edit-bedrock-cc-compat"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.bedrockCCCompatDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="edit-bedrock-cc-compat-toggle"
-            @click="bedrockCCCompatEnabled = !bedrockCCCompatEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              bedrockCCCompatEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                bedrockCCCompatEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
-
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <div>
-          <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" min="1" class="input"
-            @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.priority') }}</label>
-          <input
-            v-model.number="form.priority"
-            type="number"
-            min="1"
-            class="input"
-          />
-          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
-        </div>
-      </div>
-
-      <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
-      <div
-        v-if="account?.platform === 'anthropic' && (account?.type === 'apikey' || account?.type === 'bedrock')"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaControl.hint') }}
-          </p>
-        </div>
-        <QuotaLimitCard
-          :totalLimit="editQuotaLimit"
-          :dailyLimit="editQuotaDailyLimit"
-          :weeklyLimit="editQuotaWeeklyLimit"
-          @update:totalLimit="editQuotaLimit = $event"
-          @update:dailyLimit="editQuotaDailyLimit = $event"
-          @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-        />
-      </div>
-      <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
-      <div
-        v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaLimitHint') }}
-          </p>
-        </div>
-        <QuotaLimitCard
-          :totalLimit="editQuotaLimit"
-          :dailyLimit="editQuotaDailyLimit"
-          :weeklyLimit="editQuotaWeeklyLimit"
-          @update:totalLimit="editQuotaLimit = $event"
-          @update:dailyLimit="editQuotaDailyLimit = $event"
-          @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-        />
-      </div>
-
-      <!-- 配额控制 (Anthropic OAuth/SetupToken: 会话 + RPM) -->
-      <div
-        v-if="account?.platform === 'anthropic' && (account?.type === 'oauth' || account?.type === 'setup-token')"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaControl.hint') }}
-          </p>
-        </div>
-
-        <!-- Session Limit -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="sessionLimitEnabled = !sessionLimitEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                sessionLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  sessionLimitEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="sessionLimitEnabled">
-            <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
-            <input
-              v-model.number="maxSessions"
-              type="number"
-              min="1"
-              step="1"
-              class="input"
-              :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
-          </div>
-        </div>
-
-        <!-- RPM Limit -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.rpmLimit.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="rpmLimitEnabled = !rpmLimitEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                rpmLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  rpmLimitEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="rpmLimitEnabled" class="space-y-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
-              <input
-                v-model.number="baseRpm"
-                type="number"
-                min="1"
-                max="1000"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
-        class="space-y-4 border-t border-af-hairline pt-4"
-        data-testid="auto-reset-credit-settings"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.autoResetCredit.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.autoResetCredit.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="auto-reset-credit-enabled"
-            @click="autoResetCreditEnabled = !autoResetCreditEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              autoResetCreditEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                autoResetCreditEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <OllamaCloudUsageSettings
-        v-if="account?.ollama_cloud_usage?.eligible"
-        :account="account"
-        @updated="handleOllamaCloudUsageUpdated"
-      />
-
-      <FormSectionHeading section="advanced" :title="t('admin.accounts.formPage.sections.advanced')" />
-
-      <div v-if="!isSparkShadow">
-        <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
-      </div>
-
-      <!-- API Key 类型的池模式 -->
-      <div v-if="account.type === 'apikey'" class="space-y-4">
-        <!-- Pool Mode Section -->
-        <div class="border-t border-af-hairline pt-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.poolModeHint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="poolModeEnabled = !poolModeEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                poolModeEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.poolModeInfo') }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Header Override Section（任何第三方 key + Grok OAuth） -->
-      <div
-        v-if="headerOverrideCapable"
-        data-testid="edit-header-override"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.headerOverride.hint') }}
-            </p>
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <div class="rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.headerOverride.info') }}
-            </p>
-          </div>
-
-          <HeaderOverrideEditor
-            :rows="headerOverrideRows"
-            @update:rows="headerOverrideRows = $event"
-          />
-        </div>
-      </div>
-
-      <!-- Intercept Warmup Requests (Anthropic/Antigravity) -->
-      <div
-        v-if="account?.platform === 'anthropic' || account?.platform === 'antigravity'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{
-              t('admin.accounts.interceptWarmupRequests')
-            }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="interceptWarmupRequests = !interceptWarmupRequests"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
+      </ChannelFormSection>
     </form>
 
     <template #footer>
-      <div v-if="account" class="flex justify-end gap-3">
-        <button @click="handleClose" type="button" class="btn btn-secondary">
+      <div class="flex flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
+        <button type="button" class="btn btn-secondary" @click="handleClose">
           {{ t('common.cancel') }}
         </button>
         <button
+          v-if="account"
           type="submit"
           form="edit-account-form"
           :disabled="submitting"
           class="btn btn-primary"
         >
-          <svg
-            v-if="submitting"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
+          <Icon v-if="submitting" name="refresh" size="sm" class="-ml-1 mr-2 animate-spin" />
           {{ submitting ? t('admin.accounts.updating') : t('common.update') }}
         </button>
       </div>
     </template>
-  </FormPageShell>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
@@ -689,16 +294,24 @@ import type {
   ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
-import FormPageShell from '@/components/admin/form/FormPageShell.vue'
-import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Select from '@/components/common/Select.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
-import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
-import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
+import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
+import ChannelFormSection from '@/components/account/channel/ChannelFormSection.vue'
+import ChannelLimitsFields from '@/components/account/channel/ChannelLimitsFields.vue'
+import ChannelQuotaFields from '@/components/account/channel/ChannelQuotaFields.vue'
+import ChannelSettingToggle from '@/components/account/channel/ChannelSettingToggle.vue'
+import ChannelAdvancedSection from '@/components/account/channel/ChannelAdvancedSection.vue'
+import AnthropicSubscriptionLimits from '@/components/account/channel/AnthropicSubscriptionLimits.vue'
+import AnthropicKeySettings from '@/components/account/channel/AnthropicKeySettings.vue'
+import HeaderOverrideField from '@/components/account/channel/HeaderOverrideField.vue'
+import KeyPlanModePicker from '@/components/account/channel/KeyPlanModePicker.vue'
+import ZhipuTeamFields from '@/components/account/channel/ZhipuTeamFields.vue'
 import {
   UPSTREAM_PROTOCOLS,
   describeProtocolEndpointsIssue,
@@ -715,9 +328,9 @@ import {
   apiKeyPlaceholderFor,
   detectKeyVendor,
   keyAddressPresets,
-  modeOfAddress
+  modeOfAddress,
+  type KeyAddressPreset
 } from '@/components/account/keyAddress'
-import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
 import {
   applyAntigravityProjectID,
@@ -726,24 +339,20 @@ import {
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
-  isCNProviderPlatform,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   type CnAccountMode,
-  type CnBaseUrlPreset,
-  type CnProviderPlatform,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import {
-  formatDateTimeLocalInput,
-  getBrowserTimeZone,
-  parseDateTimeLocalInput
-} from '@/utils/format'
-import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
+import { extractApiErrorMessage } from '@/utils/apiError'
+import { platformLabel } from '@/utils/platformLabel'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 
 interface Props {
   show: boolean
+  /** 完整账号（含凭据状态）；列表按 id 拉取期间为 null */
   account: Account | null
+  /** 拉取完整账号失败时的提示；有值时弹窗里只显示它 */
+  loadError?: string
   proxies: Proxy[]
 }
 
@@ -754,7 +363,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const browserTimeZone = getBrowserTimeZone()
 
 // Spark 影子账号(parent_account_id 非空):代理恒继承母账号,不可独立编辑(外审 B/P1),
 // 故隐藏代理选择器。
@@ -767,16 +375,10 @@ const handleOllamaCloudUsageUpdated = (state: OllamaCloudUsageState) => {
 
 // State
 const submitting = ref(false)
+// 保存失败 / 校验不过的提示，显示在底部按钮左边；重新打开或换账号时清空
+const submitError = ref('')
 const editApiKey = ref('')
 
-// 国产厂商的第三方 key：地址下方给该厂商的常用地址预设（CnBaseUrlPresets）。按地址识别出的厂商判断，
-// 与「填入官方地址」同一口径、不看平台标签；中转与 OpenCode 没有这组预设（null）。
-// CnBaseUrlPresets 的 platform prop 是平台字面量联合类型，模板里不能写
-// `as` 断言（其中的 `|` 会被 eslint 误判为 Vue2 filter 语法），经此 computed 传递。
-const cnPresetPlatform = computed<CnProviderPlatform | null>(() => {
-  const vendor = keyVendor.value
-  return vendor && isCNProviderPlatform(vendor) ? (vendor as CnProviderPlatform) : null
-})
 // 地址分不出套餐时管理员选的计费方式（见下方 keyAccountMode）
 const editAccountMode = ref<CnAccountMode>('payg')
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
@@ -798,13 +400,13 @@ const editProtocolEndpoints = ref<ProtocolEndpoints>({})
 // ── 计费方式（credentials.account_mode）：与新建同一规则（2026-09-28 P5）──
 // 厂商与套餐都按地址识别（官方域名表由后端下发，与后端 Account.Vendor 同口径）；地址分不出套餐
 // （MiniMax 按量与套餐同地址、智谱 Anthropic 同地址）才让管理员选；OpenCode 的 Zen / Go 只看地址；中转不写。
-const CN_PLAN_MODES: readonly CnAccountMode[] = ['payg', 'coding']
 const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
 const keyVendor = computed(() =>
   props.account?.type === 'apikey'
     ? detectKeyVendor(editProtocolEndpoints.value, protocolDefaults.value?.vendor_hosts)
     : null
 )
+const hasKeyAddress = computed(() => Object.values(editProtocolEndpoints.value).some((url) => !!url?.trim()))
 // API Key 占位跟着按地址识别出的厂商走，与新建同一规则（不看平台标签）
 const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.value))
 const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
@@ -815,6 +417,13 @@ const keyPlanFromAddress = computed(() => {
   return mode === 'payg' || mode === 'coding' ? mode : null
 })
 const keyPlanNeedsChoice = computed(() => keyHasCodingPlan.value && keyPlanFromAddress.value === null)
+// 地址下方的识别提示，与新建同一写法：地址定得了套餐就带上套餐
+const keyVendorLabel = computed(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return ''
+  const plan = keyPlanFromAddress.value
+  return plan ? `${platformLabel(vendor)} · ${t(`admin.accounts.cnProviders.accountMode.${plan}`)}` : platformLabel(vendor)
+})
 const keyAccountMode = computed<string | undefined>(() => {
   const vendor = keyVendor.value
   if (!vendor) return undefined
@@ -856,19 +465,19 @@ watch(
   },
   { immediate: true }
 )
-// 提交前校验协议地址，有问题直接提示并返回 null。
+// 提交前校验协议地址，有问题显示在底部并返回 null。
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
   const issue = validateProtocolEndpoints(editProtocolEndpoints.value)
   if (issue) {
-    console.error(describeProtocolEndpointsIssue(issue, t))
+    submitError.value = describeProtocolEndpointsIssue(issue, t)
     return null
   }
   return trimProtocolEndpoints(editProtocolEndpoints.value)
 }
-// 点击国产供应商预设：回填账号类型和该协议的地址。
-function onCnPresetSelect(preset: CnBaseUrlPreset) {
-  editAccountMode.value = preset.mode
+// 从常用官方地址里选一条：协议与地址一起换掉，预设带套餐的连套餐一起换（与新建同一规则）
+function applyKeyAddressPreset(preset: KeyAddressPreset) {
   editProtocolEndpoints.value = { [preset.protocol]: preset.url }
+  if (preset.mode === 'payg' || preset.mode === 'coding') editAccountMode.value = preset.mode
 }
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
@@ -911,17 +520,27 @@ const bedrockCCCompatEnabled = ref(false)
 const anthropicKeySettingsVisible = computed(
   () => props.account?.type === 'apikey' && hasAnthropicEndpoint(editProtocolEndpoints.value)
 )
-// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；「地址与协议」只在分区里有区块时才出标题，
-// 条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
-// 「模型与映射」分区最后只剩模型改名，2026-10-01 改名挪到价格页（每条承接关系的上游模型名），分区一起删了。
-const showEndpointSection = computed(() => {
+const interceptWarmupCapable = computed(
+  () => props.account?.platform === 'anthropic' || props.account?.platform === 'antigravity'
+)
+const zhipuTeamCapable = computed(() => keyVendor.value === 'zhipu' && keyAccountMode.value === 'coding')
+const antigravityProjectIdCapable = computed(
+  () => props.account?.platform === 'antigravity' && props.account?.type === 'oauth'
+)
+// 「高级」收起时标题下列出里面有哪几项；条件与模板里各项的 v-if 一一对应（改一处两处一起改）
+const advancedItems = computed(() => {
   const account = props.account
-  if (!account) return false
-  return (
-    account.type === 'apikey' ||
-    account.type === 'bedrock' ||
-    anthropicKeySettingsVisible.value
-  )
+  if (!account) return []
+  const items: string[] = []
+  if (headerOverrideCapable.value) items.push(t('admin.accounts.headerOverride.title'))
+  if (account.type === 'apikey') items.push(t('admin.accounts.poolMode'))
+  if (anthropicKeySettingsVisible.value) {
+    items.push(t('admin.accounts.anthropic.apiKeyAuthScheme'), t('admin.accounts.anthropic.bedrockCCCompat'))
+  }
+  if (interceptWarmupCapable.value) items.push(t('admin.accounts.interceptWarmupRequests'))
+  if (zhipuTeamCapable.value) items.push(t('admin.accounts.cnProviders.zhipuTeam.title'))
+  if (antigravityProjectIdCapable.value) items.push(t('admin.accounts.antigravityProjectIdLabel'))
+  return items
 })
 
 const editQuotaLimit = ref<number | null>(null)
@@ -949,18 +568,12 @@ const statusOptions = computed(() => {
   return options
 })
 
-const expiresAtInput = computed({
-  get: () => formatDateTimeLocal(form.expires_at),
-  set: (value: string) => {
-    form.expires_at = parseDateTimeLocal(value)
-  }
-})
-
 // Watchers
 const syncFormFromAccount = (newAccount: Account | null) => {
   if (!newAccount) {
     return
   }
+  submitError.value = ''
   // 进入回填窗口：抑制模式 watcher 与官方地址联动（见 syncingForm 注释）。
   syncingForm.value = true
   void nextTick(() => {
@@ -1112,9 +725,6 @@ function loadQuotaControlSettings(account: Account) {
   }
 }
 
-const formatDateTimeLocal = formatDateTimeLocalInput
-const parseDateTimeLocal = parseDateTimeLocalInput
-
 // Methods
 const handleClose = () => {
   emit('close')
@@ -1126,8 +736,8 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
     const updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
     emit('updated', updatedAccount)
     handleClose()
-  } catch (error: any) {
-    console.error(error.message || t('admin.accounts.failedToUpdate'), error)
+  } catch (error) {
+    submitError.value = extractApiErrorMessage(error, t('admin.accounts.failedToUpdate'))
   } finally {
     submitting.value = false
   }
@@ -1136,9 +746,10 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
 const handleSubmit = async () => {
   if (!props.account) return
   const accountID = props.account.id
+  submitError.value = ''
 
   if (form.status !== 'active' && form.status !== 'inactive' && form.status !== 'error') {
-    console.error(t('admin.accounts.pleaseSelectStatus'))
+    submitError.value = t('admin.accounts.pleaseSelectStatus')
     return
   }
 
@@ -1191,7 +802,7 @@ const handleSubmit = async () => {
       if (editApiKey.value.trim()) {
         newCredentials.api_key = editApiKey.value.trim()
       } else if (!hasExistingApiKey) {
-        console.error(t('admin.accounts.apiKeyIsRequired'))
+        submitError.value = t('admin.accounts.apiKeyIsRequired')
         return
       }
 
@@ -1205,7 +816,7 @@ const handleSubmit = async () => {
       // 请求头覆写对任何第三方 key 开放，有条目就生效
       const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
       if (headerError) {
-        console.error(t(`admin.accounts.headerOverride.${headerError}`))
+        submitError.value = t(`admin.accounts.headerOverride.${headerError}`)
         return
       }
       applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
@@ -1219,7 +830,7 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
 
       if (!editVertexLocation.value.trim()) {
-        console.error(t('admin.accounts.vertexLocationRequired'))
+        submitError.value = t('admin.accounts.vertexLocationRequired')
         return
       }
 
@@ -1232,7 +843,7 @@ const handleSubmit = async () => {
           )
         : Boolean(currentCredentials.service_account_json || currentCredentials.service_account)
       if (!hasExistingServiceAccountJson) {
-        console.error(t('admin.accounts.vertexSaJsonRequired'))
+        submitError.value = t('admin.accounts.vertexSaJsonRequired')
         return
       }
       newCredentials.location = editVertexLocation.value.trim()
@@ -1287,7 +898,7 @@ const handleSubmit = async () => {
 
       const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
       if (headerError) {
-        console.error(t(`admin.accounts.headerOverride.${headerError}`))
+        submitError.value = t(`admin.accounts.headerOverride.${headerError}`)
         return
       }
       applyHeaderOverride(newCredentials, headerOverrideRows.value, 'edit')
@@ -1424,8 +1035,8 @@ const handleSubmit = async () => {
     }
 
     await submitUpdateAccount(accountID, updatePayload)
-  } catch (error: any) {
-    console.error(error.message || t('admin.accounts.failedToUpdate'), error)
+  } catch (error) {
+    submitError.value = extractApiErrorMessage(error, t('admin.accounts.failedToUpdate'))
   }
 }
 </script>

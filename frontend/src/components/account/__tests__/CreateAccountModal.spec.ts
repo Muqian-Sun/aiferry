@@ -178,15 +178,6 @@ async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: 
   await button?.trigger('click')
 }
 
-// 默认只露必填项（muqian 2026-09-25「还是太繁琐」）：其余字段在「更多设置」里，用例先展开再操作
-async function expandMoreSettings(wrapper: ReturnType<typeof mountModal>) {
-  const toggle = wrapper.find('[data-testid="create-more-settings-toggle"]')
-  if (toggle.exists() && toggle.attributes('aria-expanded') !== 'true') {
-    await toggle.trigger('click')
-    await flushPromises()
-  }
-}
-
 // 新建渠道第一步：先选接入方式（第三方 key / 成品号）；成品号再选哪家的账号（见 accessSources.ts）
 async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: string) {
   let button = wrapper.find(`[data-testid="access-source-${sourceId}"]`)
@@ -197,7 +188,6 @@ async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: st
   }
   await button.trigger('click')
   await flushPromises()
-  await expandMoreSettings(wrapper)
 }
 
 // 第三方 key 不选平台 / 来源：选「第三方 key」，再从常用官方地址里挑一条或手填中转地址；不传地址就留空
@@ -206,7 +196,6 @@ async function selectKey(wrapper: ReturnType<typeof mountModal>, address?: KeyAd
   await flushPromises()
   if (address?.typed) await typeKeyAddress(wrapper, address)
   else if (address) await pickKeyAddress(wrapper, address)
-  await expandMoreSettings(wrapper)
 }
 
 async function typeKeyAddress(wrapper: ReturnType<typeof mountModal>, address: KeyAddress) {
@@ -496,6 +485,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     for (const checkbox of checkboxes) {
       await checkbox.setValue(true)
     }
+    await wrapper.get('[data-testid="allow-overages-toggle"]').trigger('click')
     await selectKey(wrapper)
     expect(wrapper.text()).not.toContain('admin.accounts.mixedScheduling')
     expect(wrapper.text()).not.toContain('admin.accounts.allowOverages')
@@ -592,7 +582,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('keeps header overrides limited to Grok OAuth among subscription accounts', async () => {
     const wrapper = mountModal()
-    // 默认是 Anthropic OAuth 成品号
+    await selectSource(wrapper, 'claude')
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(false)
     await selectSource(wrapper, 'grok')
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(true)
@@ -646,8 +636,8 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('never shows the key-only Anthropic settings for Anthropic subscription accounts', async () => {
     const wrapper = mountModal()
-    await flushPromises()
-    // 默认是 Anthropic OAuth 成品号；协议地址预填了官方 anthropic 地址也不展示
+    await selectSource(wrapper, 'claude')
+    // Anthropic OAuth 成品号；协议地址预填了官方 anthropic 地址也不展示
     expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
   })

@@ -102,21 +102,16 @@ export default {
       dataImportSuccess: 'Import completed: accounts {account_created}, failed {account_failed}',
       dataImportCompletedWithErrors: 'Import completed with errors: account failed {account_failed}, proxy failed {proxy_failed}',
       editAccount: 'Edit Channel',
-      // Standalone create / edit channel pages (A5-c): /accounts/new, /accounts/:id/edit
-      formPage: {
-        createTitle: 'Add channel',
-        editTitle: 'Edit channel',
-        backToList: 'Channels',
-        backToListAction: 'Back to channels',
+      // Create / edit channel dialogs (back to dialogs on 2026-10-03): both share one section order
+      dialog: {
         loading: 'Loading channel…',
         notFound: 'This channel does not exist or has been deleted.',
         loadFailed: 'Failed to load the channel: {message}',
-        retry: 'Retry',
         sections: {
-          basics: 'Basics',
-          endpoint: 'Endpoint & protocol',
-          limits: 'Limits',
-          advanced: 'Advanced'
+          upstream: 'Upstream',
+          scheduling: 'Scheduling & limits',
+          advanced: 'Advanced',
+          notes: 'Notes'
         }
       },
       // Add channel, step one: access type and source (2026-09-25)
@@ -144,11 +139,6 @@ export default {
           vertexClaude: 'GCP service account for Claude on Vertex',
           vertexGemini: 'GCP service account for Gemini on Vertex'
         }
-      },
-      // The add-channel form shows only required fields; the rest is under "More settings"
-      moreSettings: {
-        title: 'More settings',
-        hint: 'Notes, expiry, concurrency and quotas, proxy, protocol switches, model renames and more; defaults apply if left alone'
       },
       // Third-party key address: fill from common official addresses; the vendor is detected from the address
       keyAddress: {
@@ -421,7 +411,7 @@ export default {
       resetQuota: 'Reset Quota',
       quotaLimit: 'Quota Limit',
       quotaLimitPlaceholder: '0 means unlimited',
-      quotaLimitHint: 'Set daily/weekly/total spending limits (USD). Anthropic API key accounts can also configure client affinity. Changing limits won\'t reset usage.',
+      quotaLimitHint: 'Set daily/weekly/total spending limits (USD). Once any limit is reached, the channel stops being scheduled. Changing limits won\'t reset usage.',
       quotaLimitToggle: 'Enable Quota Limit',
       quotaLimitToggleHint: 'When enabled, account will be paused when usage reaches the set limit',
       quotaDailyLimit: 'Daily Limit',
@@ -707,7 +697,6 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: 'Quota Control',
-        hint: 'Configure session count, requests per minute and other scheduling limits.',
         sessionLimit: {
           label: 'Session Count Limit',
           hint: 'Limit the number of active concurrent sessions',
