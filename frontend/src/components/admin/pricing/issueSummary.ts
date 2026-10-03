@@ -1,4 +1,4 @@
-import type { PriceKey, RowIssues } from './pricingDraft'
+import type { PriceField, RowIssues } from './pricingDraft'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -6,11 +6,11 @@ type Translate = (key: string, params?: Record<string, unknown>) => string
 export function issueSummary(t: Translate, name: string, issues: RowIssues): string {
   const parts: string[] = []
   if (issues.missing.length > 0) {
-    const fields = issues.missing.map((key: PriceKey) => t(`admin.pricing.columns.${key}`)).join(t('admin.pricing.listSeparator'))
+    const fields = issues.missing.map((key: PriceField) => t(`admin.pricing.columns.${key}`)).join(t('admin.pricing.listSeparator'))
     parts.push(t('admin.pricing.issues.missing', { fields }))
   }
   if (issues.invalid.length > 0) {
-    const fields = issues.invalid.map((key: PriceKey) => t(`admin.pricing.columns.${key}`)).join(t('admin.pricing.listSeparator'))
+    const fields = issues.invalid.map((key: PriceField) => t(`admin.pricing.columns.${key}`)).join(t('admin.pricing.listSeparator'))
     parts.push(t('admin.pricing.issues.invalid', { fields }))
   }
   if (issues.upstreamModelInvalid) parts.push(t('admin.pricing.issues.upstreamModel'))

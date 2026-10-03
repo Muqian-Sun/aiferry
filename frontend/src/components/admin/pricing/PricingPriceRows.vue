@@ -1,6 +1,7 @@
 <template>
   <!--
-    价格页表格里的一行价（官方价或一条承接关系的上游价）：五项价 + 「分段」开关，展开后每段一行、价格列对齐。
+    价格页表格里的一行价（官方价或一条承接关系的上游价）：五项价 + 「分段」开关，展开后每段一行、价格列对齐；
+    有官方搜索工具的模型另有「联网搜索」开关，展开后填搜索价（存 $/次、$/条，按每千次 / 千条 / 千个显示）。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
@@ -25,20 +26,56 @@
       </div>
     </td>
     <td class="px-2 py-2 align-middle">
-      <button
-        type="button"
-        :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', segmentsInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
-        :aria-expanded="expanded"
-        :data-testid="testId ? `${testId}-segments-toggle` : undefined"
-        @click="expanded = !expanded"
-      >
-        {{ prices.segments.length ? t('admin.pricing.segmentsCount', { count: prices.segments.length }) : t('admin.pricing.segmentsNone') }}
-        <Icon :name="expanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
-      </button>
+      <div class="flex flex-col items-start">
+        <button
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', segmentsInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="expanded"
+          :data-testid="testId ? `${testId}-segments-toggle` : undefined"
+          @click="expanded = !expanded"
+        >
+          {{ prices.segments.length ? t('admin.pricing.segmentsCount', { count: prices.segments.length }) : t('admin.pricing.segmentsNone') }}
+          <Icon :name="expanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
+        <button
+          v-if="searchKeys.length > 0"
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', searchInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="searchExpanded"
+          :data-testid="testId ? `${testId}-search-toggle` : undefined"
+          @click="searchExpanded = !searchExpanded"
+        >
+          {{ t('admin.pricing.search.toggle') }}
+          <Icon :name="searchExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
+      </div>
     </td>
     <td class="px-3 py-2 text-right align-middle"><slot name="margin" /></td>
     <td class="px-3 py-2 align-middle"><slot name="status" /></td>
     <td class="px-3 py-2 text-right align-middle"><slot name="actions" /></td>
+  </tr>
+  <tr v-if="searchExpanded && searchKeys.length > 0" class="bg-af-sunken/60" :data-testid="testId ? `${testId}-search` : undefined">
+    <td colspan="2" class="px-3 py-2 align-top">
+      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.search.title') }}</div>
+      <div v-if="searchNote" class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ searchNote }}</div>
+    </td>
+    <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
+      <div class="flex flex-wrap items-start gap-x-6 gap-y-2">
+        <div v-for="key in searchKeys" :key="key" class="w-52">
+          <label class="mb-1 block text-xs text-af-ink-3">{{ t(`admin.pricing.columns.${key}`) }}</label>
+          <PriceInput
+            v-model="prices[key]"
+            :scale="PER_THOUSAND"
+            :unit="t(`admin.pricing.search.units.${key}`)"
+            :label="t(`admin.pricing.columns.${key}`)"
+            :required="issues.missing.includes(key)"
+            :placeholder="issues.missing.includes(key) ? t('admin.pricing.required') : (searchPlaceholders?.[key] ?? '')"
+            :test-id="testId ? `${testId}-${key}` : undefined"
+          />
+          <p v-if="searchHints?.[key]" class="mt-0.5 text-[11px] tabular-nums text-af-ink-4">{{ searchHints[key] }}</p>
+        </div>
+      </div>
+    </td>
   </tr>
   <template v-if="expanded">
     <tr
@@ -106,31 +143,54 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PriceInput from '@/components/admin/catalog/PriceInput.vue'
-import { PRICE_KEYS, type PriceKey, type PriceRow, type RowIssues } from './pricingDraft'
+import { PRICE_KEYS, SEARCH_KEYS, type PriceKey, type PriceRow, type RowIssues, type SearchKey } from './pricingDraft'
 
 /** 表格总列数：首列 + 上游模型名 + 五项价 + 分段 + 毛利 + 状态 + 操作 */
 const COLUMN_COUNT = 11
 const PER_MILLION = 1_000_000
+const PER_THOUSAND = 1_000
 
 const prices = defineModel<PriceRow>('prices', { required: true })
 
-const props = defineProps<{
-  issues: RowIssues
-  /** 每格下面标的官方价（$/token） */
-  refs?: Record<PriceKey, number | null>
-  rowClass?: string
-  testId?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    issues: RowIssues
+    /** 每格下面标的官方价（$/token） */
+    refs?: Record<PriceKey, number | null>
+    rowClass?: string
+    testId?: string
+    /** 这一行能填的搜索价；空 = 这个模型的厂商没有官方搜索工具，不显示「联网搜索」 */
+    searchKeys?: SearchKey[]
+    /** 搜索价输入框的占位（官方价那一行写厂商公开价） */
+    searchPlaceholders?: Partial<Record<SearchKey, string>>
+    /** 搜索价输入框下面的参考（承接行写官方价） */
+    searchHints?: Partial<Record<SearchKey, string>>
+    /** 「联网搜索」那一行的说明 */
+    searchNote?: string
+  }>(),
+  { refs: undefined, rowClass: undefined, testId: undefined, searchKeys: () => [], searchPlaceholders: undefined, searchHints: undefined, searchNote: undefined }
+)
 
 const { t } = useI18n()
 const unit = computed(() => t('admin.modelCatalog.editor.units.perMillion'))
 const expanded = ref(false)
 const segmentsInvalid = computed(() => props.issues.segments.some((error) => error != null))
+const searchExpanded = ref(false)
+const searchInvalid = computed(() =>
+  SEARCH_KEYS.some((key) => props.issues.missing.includes(key) || props.issues.invalid.includes(key))
+)
 
-// 分段有问题时自动展开，免得保存按钮灰着却看不到哪里错
+// 分段 / 搜索价有问题时自动展开，免得保存按钮灰着却看不到哪里错
 watch(segmentsInvalid, (invalid) => {
   if (invalid) expanded.value = true
 })
+watch(
+  searchInvalid,
+  (invalid) => {
+    if (invalid) searchExpanded.value = true
+  },
+  { immediate: true }
+)
 
 function addSegment() {
   prices.value.segments.push({

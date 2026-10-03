@@ -60,7 +60,7 @@ export interface PricingCard {
   time_pricing: TimePricing | null
 }
 
-/** 五项 token 价（$/token）与按 Token 分段 */
+/** 五项 token 价（$/token）、按 Token 分段与联网搜索价（$/次、$/条） */
 export interface PricingPrices {
   input_price: number | null
   output_price: number | null
@@ -68,6 +68,18 @@ export interface PricingPrices {
   cache_write_1h_price: number | null
   cache_read_price: number | null
   intervals: PricingInterval[]
+  /** 每次 web 搜索；官方价为 null = 按厂商公开价收，上游价为 null = 按官方搜索价记成本 */
+  search_price_per_call?: number | null
+  /** xAI X 搜索按取回条目收：每条帖子、每个主页 */
+  x_post_price?: number | null
+  x_user_price?: number | null
+}
+
+/** 厂商公开的联网搜索价（$/次、$/条），官方价没设时按它收；X 帖子 / 主页价只有 xAI 有 */
+export interface PricingSearchDefaults {
+  search_price_per_call: number
+  x_post_price: number | null
+  x_user_price: number | null
 }
 
 /** 一条承接关系的上游模型名与上游价 */
@@ -89,6 +101,8 @@ export interface PricingEntry extends PricingPrices {
   display_name: string
   vendor: string
   status: 'listed' | 'unlisted'
+  /** 厂商公开的搜索价；null = 这个厂商没有官方搜索工具，不填搜索价 */
+  search_defaults: PricingSearchDefaults | null
   bindings: PricingBinding[]
   /** 能承接这个模型的渠道 */
   bindable_account_ids: number[]
