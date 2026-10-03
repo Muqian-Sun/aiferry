@@ -441,6 +441,7 @@ func TestAPIContracts(t *testing.T) {
 						"rate_multiplier": 1,
 						"web_search_count": 0,
 						"web_search_cost": 0,
+						"web_search_delegated": false,
 						"billing_type": 0,
 							"stream": true,
 							"duration_ms": 100,
