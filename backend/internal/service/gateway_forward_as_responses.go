@@ -334,8 +334,10 @@ func observeAnthropicWebSearch(usage *ClaudeUsage, event *apicompat.AnthropicStr
 			usage.WebSearchRequests = &requests
 		}
 	case "content_block_start":
-		if block := event.ContentBlock; block != nil && block.Type == "web_search_tool_result" && gjson.ParseBytes(block.Content).IsArray() {
-			usage.WebSearchResults++
+		if block := event.ContentBlock; block != nil && (block.Type == "server_tool_use" || block.Type == "web_search_tool_result") {
+			if raw, err := json.Marshal(block); err == nil {
+				usage.observeWebSearchBlock(gjson.ParseBytes(raw))
+			}
 		}
 	}
 }

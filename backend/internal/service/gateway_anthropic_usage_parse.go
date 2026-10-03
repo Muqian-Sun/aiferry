@@ -66,9 +66,7 @@ func parseSSEUsagePassthrough(data string, usage *ClaudeUsage) {
 			}
 		}
 	case "content_block_start":
-		if isSuccessfulWebSearchResult(parsed.Get("content_block")) {
-			usage.WebSearchResults++
-		}
+		usage.observeWebSearchBlock(parsed.Get("content_block"))
 	}
 
 	if usage.CacheReadInputTokens == 0 {

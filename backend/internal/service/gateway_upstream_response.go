@@ -1180,7 +1180,8 @@ type sseUsagePatch struct {
 	hasCacheCreation1h       bool
 	webSearchRequests        int
 	hasWebSearchRequests     bool
-	webSearchResults         int
+	// webSearchBlock 是 content_block_start 里的搜索调用块 / 结果块原文（按块计次用）
+	webSearchBlock []byte
 }
 
 func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePatch {
@@ -1223,15 +1224,16 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 		return patch
 
 	case "content_block_start":
-		// 成功的搜索结果块（上游 usage 没报次数时按它计次）
+		// 搜索调用块 / 结果块（上游 usage 没报次数时按块计次）
 		block, _ := event["content_block"].(map[string]any)
-		if block["type"] != "web_search_tool_result" {
+		if block["type"] != "server_tool_use" && block["type"] != "web_search_tool_result" {
 			return nil
 		}
-		if _, ok := block["content"].([]any); !ok {
+		raw, err := json.Marshal(block)
+		if err != nil {
 			return nil
 		}
-		return &sseUsagePatch{webSearchResults: 1}
+		return &sseUsagePatch{webSearchBlock: raw}
 
 	case "message_delta":
 		usageObj, _ := event["usage"].(map[string]any)
@@ -1310,7 +1312,9 @@ func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
 		requests := patch.webSearchRequests
 		usage.WebSearchRequests = &requests
 	}
-	usage.WebSearchResults += patch.webSearchResults
+	if patch.webSearchBlock != nil {
+		usage.observeWebSearchBlock(gjson.ParseBytes(patch.webSearchBlock))
+	}
 }
 
 func parseSSEUsageInt(value any) (int, bool) {

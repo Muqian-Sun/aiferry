@@ -200,6 +200,16 @@ var fennoMessagesSearchEvents = []string{
 // 出错的搜索：Anthropic 不计费，结果块的 content 是错误对象
 const anthropicSearchErrorBlock = `{"type":"content_block_start","index":3,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_2","content":{"type":"web_search_tool_result_error","error_code":"max_uses_exceeded"}}}`
 
+// fennoOpenPageEvents 是 fenno · Messages 的真实流（2026-10-03 抓）：先搜一次，再「打开网页」——
+// 打开网页被转成一个 query 为空的 server_tool_use，不算一次搜索。
+var fennoOpenPageEvents = []string{
+	`{"type":"content_block_start","index":2,"content_block":{"type":"server_tool_use","id":"srvtoolu_ws_037315615a976515016ac1179c73e887d2b29dd8a0b3a06f4a","name":"web_search","input":{"query":"Tokyo Metropolitan Government population press release August 2026"}}}`,
+	`{"type":"content_block_start","index":3,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_ws_037315615a976515016ac1179c73e887d2b29dd8a0b3a06f4a","content":[]}}`,
+	`{"type":"content_block_start","index":5,"content_block":{"type":"server_tool_use","id":"srvtoolu_ws_037315615a976515016ac117a8469087d2ab62dce354a4937d","name":"web_search","input":{"query":""}}}`,
+	`{"type":"content_block_start","index":6,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_ws_037315615a976515016ac117a8469087d2ab62dce354a4937d","content":[]}}`,
+	`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":5189,"output_tokens":397,"cache_creation_input_tokens":0,"cache_read_input_tokens":3712}}`,
+}
+
 func TestClaudeUsageWebSearchCalls(t *testing.T) {
 	t.Parallel()
 
@@ -242,6 +252,30 @@ func TestAnthropicUsageParsesWebSearch(t *testing.T) {
 		withError := append(append([]string{}, fennoMessagesSearchEvents[:3]...), anthropicSearchErrorBlock, fennoMessagesSearchEvents[3])
 		require.Equal(t, 1, streamed(withError...).webSearchCalls())
 		require.Equal(t, 1, bedrockStreamed(withError...).webSearchCalls())
+	})
+
+	t.Run("打开网页（query 为空的调用）不算一次搜索", func(t *testing.T) {
+		require.Equal(t, 1, streamed(fennoOpenPageEvents...).webSearchCalls())
+		require.Equal(t, 1, bedrockStreamed(fennoOpenPageEvents...).webSearchCalls())
+
+		bridge := &ClaudeUsage{}
+		for _, raw := range fennoOpenPageEvents {
+			var event apicompat.AnthropicStreamEvent
+			require.NoError(t, json.Unmarshal([]byte(raw), &event))
+			observeAnthropicWebSearch(bridge, &event)
+		}
+		require.Equal(t, 1, bridge.webSearchCalls())
+
+		body := []byte(`{"content":[
+			{"type":"server_tool_use","id":"s1","name":"web_search","input":{"query":"q"}},
+			{"type":"web_search_tool_result","tool_use_id":"s1","content":[]},
+			{"type":"server_tool_use","id":"s2","name":"web_search","input":{"query":""}},
+			{"type":"web_search_tool_result","tool_use_id":"s2","content":[]},
+			{"type":"server_tool_use","id":"s3","name":"web_search","input":{}},
+			{"type":"web_search_tool_result","tool_use_id":"s3","content":[]}],
+			"usage":{"input_tokens":1,"output_tokens":2}}`)
+		// s2 是打开网页不算；s3 没带 query（input 走增量）照常算
+		require.Equal(t, 2, parseClaudeUsageFromResponseBody(body).webSearchCalls())
 	})
 
 	t.Run("Anthropic 报了次数：以 message_delta 的累计值为准", func(t *testing.T) {

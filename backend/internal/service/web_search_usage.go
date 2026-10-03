@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"strings"
 
 	"github.com/tidwall/gjson"
 )
@@ -85,16 +86,38 @@ func isSuccessfulWebSearchResult(block gjson.Result) bool {
 	return block.Get("type").String() == "web_search_tool_result" && block.Get("content").IsArray()
 }
 
-// countSuccessfulWebSearchResults 数 Anthropic 响应 content 里成功的搜索结果块。
+// isEmptyQueryWebSearchUse 显式带空 query 的 web_search 调用块：fenno 这类背后是 OpenAI 的中转把「打开网页」
+// （open_page）也转成一个 server_tool_use，query 为空（2026-10-03 实测）。打开网页不算一次搜索（同 Responses
+// 链路），它的结果块不计次。input 里没有 query（Anthropic 流式的 input 走增量下发）不算空。
+func isEmptyQueryWebSearchUse(block gjson.Result) bool {
+	if block.Get("type").String() != "server_tool_use" || block.Get("name").String() != "web_search" {
+		return false
+	}
+	query := block.Get("input.query")
+	return query.Exists() && strings.TrimSpace(query.String()) == ""
+}
+
+// countSuccessfulWebSearchResults 数 Anthropic 响应 content 里成功的搜索结果块（空 query 调用对应的不算）。
 func countSuccessfulWebSearchResults(content gjson.Result) int {
-	n := 0
+	var usage ClaudeUsage
 	content.ForEach(func(_, block gjson.Result) bool {
-		if isSuccessfulWebSearchResult(block) {
-			n++
-		}
+		usage.observeWebSearchBlock(block)
 		return true
 	})
-	return n
+	return usage.WebSearchResults
+}
+
+// observeWebSearchBlock 按块计次：成功的结果块 +1；空 query 调用对应的结果块不算。结果块总跟在它的调用块后面。
+func (u *ClaudeUsage) observeWebSearchBlock(block gjson.Result) {
+	switch {
+	case isEmptyQueryWebSearchUse(block):
+		u.webSearchSkipID = block.Get("id").String()
+	case isSuccessfulWebSearchResult(block):
+		if id := block.Get("tool_use_id").String(); id != "" && id == u.webSearchSkipID {
+			return
+		}
+		u.WebSearchResults++
+	}
 }
 
 // isBillableWebSearchCall 一次真正的搜索：web_search_call 且动作是 search。

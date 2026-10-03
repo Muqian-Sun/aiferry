@@ -471,9 +471,11 @@ type ClaudeUsage struct {
 	// WebSearchRequests 是上游 usage 报的 Anthropic 官方 web_search 搜索次数（usage.server_tool_use.web_search_requests，
 	// 流式取 message_delta 里的累计值）；nil = 上游没报。
 	WebSearchRequests *int `json:"-"`
-	// WebSearchResults 是返回里成功的 web_search_tool_result 块数（出错的块 Anthropic 不计费，不算）。
-	// 上游没报次数时按它计次（见 webSearchCalls）。
+	// WebSearchResults 是返回里成功的 web_search_tool_result 块数（出错的块 Anthropic 不计费，不算；
+	// 空 query 调用对应的块也不算）。上游没报次数时按它计次（见 webSearchCalls）。
 	WebSearchResults int `json:"-"`
+	// webSearchSkipID 流式里最近一个空 query 搜索调用的 id，它的结果块不计次（见 observeWebSearchBlock）。
+	webSearchSkipID string
 }
 
 // ForwardResult 转发结果
