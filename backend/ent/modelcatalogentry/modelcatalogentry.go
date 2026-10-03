@@ -56,6 +56,10 @@ const (
 	FieldPerRequestPrice = "per_request_price"
 	// FieldSearchPricePerCall holds the string denoting the search_price_per_call field in the database.
 	FieldSearchPricePerCall = "search_price_per_call"
+	// FieldXPostPrice holds the string denoting the x_post_price field in the database.
+	FieldXPostPrice = "x_post_price"
+	// FieldXUserPrice holds the string denoting the x_user_price field in the database.
+	FieldXUserPrice = "x_user_price"
 	// FieldMaxReasoningEffortMultiplier holds the string denoting the max_reasoning_effort_multiplier field in the database.
 	FieldMaxReasoningEffortMultiplier = "max_reasoning_effort_multiplier"
 	// FieldNotes holds the string denoting the notes field in the database.
@@ -120,6 +124,8 @@ var Columns = []string{
 	FieldAudioOutputPrice,
 	FieldPerRequestPrice,
 	FieldSearchPricePerCall,
+	FieldXPostPrice,
+	FieldXUserPrice,
 	FieldMaxReasoningEffortMultiplier,
 	FieldNotes,
 }
@@ -280,6 +286,16 @@ func ByPerRequestPrice(opts ...sql.OrderTermOption) OrderOption {
 // BySearchPricePerCall orders the results by the search_price_per_call field.
 func BySearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSearchPricePerCall, opts...).ToFunc()
+}
+
+// ByXPostPrice orders the results by the x_post_price field.
+func ByXPostPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldXPostPrice, opts...).ToFunc()
+}
+
+// ByXUserPrice orders the results by the x_user_price field.
+func ByXUserPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldXUserPrice, opts...).ToFunc()
 }
 
 // ByMaxReasoningEffortMultiplier orders the results by the max_reasoning_effort_multiplier field.

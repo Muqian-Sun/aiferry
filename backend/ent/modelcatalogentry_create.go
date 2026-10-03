@@ -302,6 +302,34 @@ func (_c *ModelCatalogEntryCreate) SetNillableSearchPricePerCall(v *float64) *Mo
 	return _c
 }
 
+// SetXPostPrice sets the "x_post_price" field.
+func (_c *ModelCatalogEntryCreate) SetXPostPrice(v float64) *ModelCatalogEntryCreate {
+	_c.mutation.SetXPostPrice(v)
+	return _c
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableXPostPrice(v *float64) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetXPostPrice(*v)
+	}
+	return _c
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_c *ModelCatalogEntryCreate) SetXUserPrice(v float64) *ModelCatalogEntryCreate {
+	_c.mutation.SetXUserPrice(v)
+	return _c
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableXUserPrice(v *float64) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetXUserPrice(*v)
+	}
+	return _c
+}
+
 // SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
 func (_c *ModelCatalogEntryCreate) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogEntryCreate {
 	_c.mutation.SetMaxReasoningEffortMultiplier(v)
@@ -591,6 +619,14 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.SearchPricePerCall(); ok {
 		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
 		_node.SearchPricePerCall = &value
+	}
+	if value, ok := _c.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64, value)
+		_node.XPostPrice = &value
+	}
+	if value, ok := _c.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64, value)
+		_node.XUserPrice = &value
 	}
 	if value, ok := _c.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
@@ -1075,6 +1111,54 @@ func (u *ModelCatalogEntryUpsert) AddSearchPricePerCall(v float64) *ModelCatalog
 // ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
 func (u *ModelCatalogEntryUpsert) ClearSearchPricePerCall() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldSearchPricePerCall)
+	return u
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogEntryUpsert) SetXPostPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldXPostPrice, v)
+	return u
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateXPostPrice() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldXPostPrice)
+	return u
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogEntryUpsert) AddXPostPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Add(modelcatalogentry.FieldXPostPrice, v)
+	return u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogEntryUpsert) ClearXPostPrice() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldXPostPrice)
+	return u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogEntryUpsert) SetXUserPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldXUserPrice, v)
+	return u
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateXUserPrice() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldXUserPrice)
+	return u
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogEntryUpsert) AddXUserPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Add(modelcatalogentry.FieldXUserPrice, v)
+	return u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogEntryUpsert) ClearXUserPrice() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldXUserPrice)
 	return u
 }
 
@@ -1617,6 +1701,62 @@ func (u *ModelCatalogEntryUpsertOne) UpdateSearchPricePerCall() *ModelCatalogEnt
 func (u *ModelCatalogEntryUpsertOne) ClearSearchPricePerCall() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
+	})
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertOne) SetXPostPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetXPostPrice(v)
+	})
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertOne) AddXPostPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddXPostPrice(v)
+	})
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateXPostPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateXPostPrice()
+	})
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertOne) ClearXPostPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearXPostPrice()
+	})
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertOne) SetXUserPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetXUserPrice(v)
+	})
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertOne) AddXUserPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddXUserPrice(v)
+	})
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateXUserPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateXUserPrice()
+	})
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertOne) ClearXUserPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearXUserPrice()
 	})
 }
 
@@ -2332,6 +2472,62 @@ func (u *ModelCatalogEntryUpsertBulk) UpdateSearchPricePerCall() *ModelCatalogEn
 func (u *ModelCatalogEntryUpsertBulk) ClearSearchPricePerCall() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearSearchPricePerCall()
+	})
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertBulk) SetXPostPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetXPostPrice(v)
+	})
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertBulk) AddXPostPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddXPostPrice(v)
+	})
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateXPostPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateXPostPrice()
+	})
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearXPostPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearXPostPrice()
+	})
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertBulk) SetXUserPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetXUserPrice(v)
+	})
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertBulk) AddXUserPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddXUserPrice(v)
+	})
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateXUserPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateXUserPrice()
+	})
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearXUserPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearXUserPrice()
 	})
 }
 

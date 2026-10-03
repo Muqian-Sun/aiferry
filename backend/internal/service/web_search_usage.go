@@ -189,17 +189,38 @@ type webSearchPrices struct {
 	PerXUser float64
 }
 
-// officialWebSearchPrices 官方搜索价：每次 web 搜索取目录条目的 search_price_per_call，没填按厂商公开价；
-// X 帖子 / 主页按 xAI 公开价。
+// officialWebSearchPrices 官方搜索价：目录条目设了的项用条目的（价格页填），没设的按厂商公开价。
 func officialWebSearchPrices(entry *ModelCatalogEntry) webSearchPrices {
 	prices := webSearchPrices{PerCall: defaultWebSearchPricePerCall, PerXPost: xaiXPostPrice, PerXUser: xaiXUserPrice}
 	if CatalogVendorPlatform(entry) == PlatformGrok {
 		prices.PerCall = xaiWebSearchPricePerCall
 	}
-	if entry != nil && entry.SearchPricePerCall != nil && *entry.SearchPricePerCall >= 0 {
-		prices.PerCall = *entry.SearchPricePerCall
+	if entry != nil {
+		prices = prices.override(entry.SearchPricePerCall, entry.XPostPrice, entry.XUserPrice)
 	}
 	return prices
+}
+
+// upstreamWebSearchPrices 渠道成本用的搜索上游价：承接关系上填了的项用它，没填的按官方搜索价（假设上游原价转收）。
+func upstreamWebSearchPrices(entry *ModelCatalogEntry, binding *ModelCatalogBinding) webSearchPrices {
+	prices := officialWebSearchPrices(entry)
+	if binding != nil {
+		prices = prices.override(binding.SearchPricePerCall, binding.XPostPrice, binding.XUserPrice)
+	}
+	return prices
+}
+
+// override 用设了的项（非 nil、不为负）覆盖。
+func (p webSearchPrices) override(perCall, perXPost, perXUser *float64) webSearchPrices {
+	for _, item := range []struct {
+		dst *float64
+		src *float64
+	}{{&p.PerCall, perCall}, {&p.PerXPost, perXPost}, {&p.PerXUser, perXUser}} {
+		if item.src != nil && *item.src >= 0 {
+			*item.dst = *item.src
+		}
+	}
+	return p
 }
 
 func (p webSearchPrices) cost(usage WebSearchUsage) float64 {
@@ -225,11 +246,42 @@ func addWebSearchCharge(ctx context.Context, resolver *ModelPricingResolver, mod
 	return cost
 }
 
+// webSearchToolPlatform 有官方云端搜索工具的厂商（Anthropic / OpenAI / xAI）返回平台，其余返回空串。
+func webSearchToolPlatform(entry *ModelCatalogEntry) string {
+	switch platform := CatalogVendorPlatform(entry); platform {
+	case PlatformAnthropic, PlatformOpenAI, PlatformGrok:
+		return platform
+	}
+	return ""
+}
+
+// WebSearchDefaultPrices 厂商公开的联网搜索价（USD / 次、/ 条），目录条目没设时按它收；X 帖子 / 主页价只有 xAI 有。
+type WebSearchDefaultPrices struct {
+	PerCall  float64
+	PerXPost *float64
+	PerXUser *float64
+}
+
+// WebSearchDefaults 这个模型厂商的公开搜索价；没有官方搜索工具的厂商返回 nil（价格页不给它填搜索价）。
+func WebSearchDefaults(entry *ModelCatalogEntry) *WebSearchDefaultPrices {
+	platform := webSearchToolPlatform(entry)
+	if platform == "" {
+		return nil
+	}
+	defaults := officialWebSearchPrices(&ModelCatalogEntry{Vendor: entry.Vendor})
+	out := &WebSearchDefaultPrices{PerCall: defaults.PerCall}
+	if platform == PlatformGrok {
+		out.PerXPost = &defaults.PerXPost
+		out.PerXUser = &defaults.PerXUser
+	}
+	return out
+}
+
 // plazaWebSearchPrices 模型广场列的搜索费（官方价，不乘用户倍率）：只给有官方搜索工具的厂商
 // （Anthropic / OpenAI / xAI），X 帖子 / 主页价只有 xAI 有。
 func plazaWebSearchPrices(entry *ModelCatalogEntry) (perCall, perXPost, perXUser *float64) {
-	platform := CatalogVendorPlatform(entry)
-	if platform != PlatformAnthropic && platform != PlatformOpenAI && platform != PlatformGrok {
+	platform := webSearchToolPlatform(entry)
+	if platform == "" {
 		return nil, nil, nil
 	}
 	prices := officialWebSearchPrices(entry)

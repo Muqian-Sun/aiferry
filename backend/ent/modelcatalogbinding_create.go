@@ -91,6 +91,48 @@ func (_c *ModelCatalogBindingCreate) SetNillableCacheReadPrice(v *float64) *Mode
 	return _c
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_c *ModelCatalogBindingCreate) SetSearchPricePerCall(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetSearchPricePerCall(v)
+	return _c
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableSearchPricePerCall(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetSearchPricePerCall(*v)
+	}
+	return _c
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (_c *ModelCatalogBindingCreate) SetXPostPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetXPostPrice(v)
+	return _c
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableXPostPrice(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetXPostPrice(*v)
+	}
+	return _c
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_c *ModelCatalogBindingCreate) SetXUserPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetXUserPrice(v)
+	return _c
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableXUserPrice(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetXUserPrice(*v)
+	}
+	return _c
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_c *ModelCatalogBindingCreate) SetUpstreamModel(v string) *ModelCatalogBindingCreate {
 	_c.mutation.SetUpstreamModel(v)
@@ -281,6 +323,18 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 	if value, ok := _c.mutation.CacheReadPrice(); ok {
 		_spec.SetField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64, value)
 		_node.CacheReadPrice = &value
+	}
+	if value, ok := _c.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64, value)
+		_node.SearchPricePerCall = &value
+	}
+	if value, ok := _c.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64, value)
+		_node.XPostPrice = &value
+	}
+	if value, ok := _c.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
+		_node.XUserPrice = &value
 	}
 	if value, ok := _c.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -516,6 +570,78 @@ func (u *ModelCatalogBindingUpsert) ClearCacheReadPrice() *ModelCatalogBindingUp
 	return u
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsert) SetSearchPricePerCall(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldSearchPricePerCall, v)
+	return u
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateSearchPricePerCall() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldSearchPricePerCall)
+	return u
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsert) AddSearchPricePerCall(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldSearchPricePerCall, v)
+	return u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsert) ClearSearchPricePerCall() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldSearchPricePerCall)
+	return u
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogBindingUpsert) SetXPostPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldXPostPrice, v)
+	return u
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateXPostPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldXPostPrice)
+	return u
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogBindingUpsert) AddXPostPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldXPostPrice, v)
+	return u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogBindingUpsert) ClearXPostPrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldXPostPrice)
+	return u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogBindingUpsert) SetXUserPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldXUserPrice, v)
+	return u
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateXUserPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldXUserPrice)
+	return u
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogBindingUpsert) AddXUserPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldXUserPrice, v)
+	return u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogBindingUpsert) ClearXUserPrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldXUserPrice)
+	return u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (u *ModelCatalogBindingUpsert) SetUpstreamModel(v string) *ModelCatalogBindingUpsert {
 	u.Set(modelcatalogbinding.FieldUpstreamModel, v)
@@ -748,6 +874,90 @@ func (u *ModelCatalogBindingUpsertOne) UpdateCacheReadPrice() *ModelCatalogBindi
 func (u *ModelCatalogBindingUpsertOne) ClearCacheReadPrice() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearCacheReadPrice()
+	})
+}
+
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertOne) SetSearchPricePerCall(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetSearchPricePerCall(v)
+	})
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertOne) AddSearchPricePerCall(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddSearchPricePerCall(v)
+	})
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateSearchPricePerCall() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateSearchPricePerCall()
+	})
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertOne) ClearSearchPricePerCall() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearSearchPricePerCall()
+	})
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetXPostPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetXPostPrice(v)
+	})
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddXPostPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddXPostPrice(v)
+	})
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateXPostPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateXPostPrice()
+	})
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearXPostPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearXPostPrice()
+	})
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetXUserPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetXUserPrice(v)
+	})
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddXUserPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddXUserPrice(v)
+	})
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateXUserPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateXUserPrice()
+	})
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearXUserPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearXUserPrice()
 	})
 }
 
@@ -1132,6 +1342,90 @@ func (u *ModelCatalogBindingUpsertBulk) UpdateCacheReadPrice() *ModelCatalogBind
 func (u *ModelCatalogBindingUpsertBulk) ClearCacheReadPrice() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearCacheReadPrice()
+	})
+}
+
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertBulk) SetSearchPricePerCall(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetSearchPricePerCall(v)
+	})
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertBulk) AddSearchPricePerCall(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddSearchPricePerCall(v)
+	})
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateSearchPricePerCall() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateSearchPricePerCall()
+	})
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearSearchPricePerCall() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearSearchPricePerCall()
+	})
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetXPostPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetXPostPrice(v)
+	})
+}
+
+// AddXPostPrice adds v to the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddXPostPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddXPostPrice(v)
+	})
+}
+
+// UpdateXPostPrice sets the "x_post_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateXPostPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateXPostPrice()
+	})
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearXPostPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearXPostPrice()
+	})
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetXUserPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetXUserPrice(v)
+	})
+}
+
+// AddXUserPrice adds v to the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddXUserPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddXUserPrice(v)
+	})
+}
+
+// UpdateXUserPrice sets the "x_user_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateXUserPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateXUserPrice()
+	})
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearXUserPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearXUserPrice()
 	})
 }
 

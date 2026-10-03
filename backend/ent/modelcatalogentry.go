@@ -60,6 +60,10 @@ type ModelCatalogEntry struct {
 	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
 	// SearchPricePerCall holds the value of the "search_price_per_call" field.
 	SearchPricePerCall *float64 `json:"search_price_per_call,omitempty"`
+	// XPostPrice holds the value of the "x_post_price" field.
+	XPostPrice *float64 `json:"x_post_price,omitempty"`
+	// XUserPrice holds the value of the "x_user_price" field.
+	XUserPrice *float64 `json:"x_user_price,omitempty"`
 	// MaxReasoningEffortMultiplier holds the value of the "max_reasoning_effort_multiplier" field.
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
 	// Notes holds the value of the "notes" field.
@@ -128,7 +132,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case modelcatalogentry.FieldProtocols:
 			values[i] = new([]byte)
-		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldXPostPrice, modelcatalogentry.FieldXUserPrice, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID:
 			values[i] = new(sql.NullInt64)
@@ -297,6 +301,20 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				_m.SearchPricePerCall = new(float64)
 				*_m.SearchPricePerCall = value.Float64
 			}
+		case modelcatalogentry.FieldXPostPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field x_post_price", values[i])
+			} else if value.Valid {
+				_m.XPostPrice = new(float64)
+				*_m.XPostPrice = value.Float64
+			}
+		case modelcatalogentry.FieldXUserPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field x_user_price", values[i])
+			} else if value.Valid {
+				_m.XUserPrice = new(float64)
+				*_m.XUserPrice = value.Float64
+			}
 		case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field max_reasoning_effort_multiplier", values[i])
@@ -451,6 +469,16 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	if v := _m.SearchPricePerCall; v != nil {
 		builder.WriteString("search_price_per_call=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.XPostPrice; v != nil {
+		builder.WriteString("x_post_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.XUserPrice; v != nil {
+		builder.WriteString("x_user_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

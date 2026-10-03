@@ -13,14 +13,18 @@ import (
 // （muqian 2026-09-30，方案页 X8eQjqzjAEx3hF4xzCzKZr）。按模型保存一块 = 官方价 + 这个模型的全部承接关系；
 // 按渠道保存一块 = 这个渠道承接的全部模型与上游价。两种保存都是整份覆盖、一个事务。
 
-// OfficialPrices 价格页上改的官方价：五项 token 价（USD / token）与按 Token 分段。
+// OfficialPrices 价格页上改的官方价：五项 token 价（USD / token）、按 Token 分段，
+// 联网搜索价（USD / 次、/ 条；nil = 用厂商公开价）。
 type OfficialPrices struct {
-	InputPrice        *float64
-	OutputPrice       *float64
-	CacheWritePrice   *float64
-	CacheWrite1hPrice *float64
-	CacheReadPrice    *float64
-	Intervals         []PricingInterval
+	InputPrice         *float64
+	OutputPrice        *float64
+	CacheWritePrice    *float64
+	CacheWrite1hPrice  *float64
+	CacheReadPrice     *float64
+	Intervals          []PricingInterval
+	SearchPricePerCall *float64
+	XPostPrice         *float64
+	XUserPrice         *float64
 }
 
 // UpstreamCostRatio 这条承接关系的上游成本比（上游价 ÷ 官方价，逐项、逐段取最高）；价格页的毛利
@@ -32,6 +36,8 @@ func (e *ModelCatalogEntry) UpstreamCostRatio(b *ModelCatalogBinding) (ratio flo
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
+//   - 联网搜索价同理：官方价显式设了的项（每次 web 搜索、X 帖子、X 主页）上游价也必须填；官方没设（用厂商公开价）的可不填，
+//     不填按官方搜索价记成本；
 //   - 分段与官方价同一套规则（ValidateIntervals），只用绝对价，每段至少一项价；
 //   - 上游模型名是一个具体的名字：不带通配、不含空白，最长 255 个字符。
 func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
@@ -42,11 +48,14 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 		return catalogValidationError(fmt.Sprintf("%s is not billed by token; only token models can be bound on the pricing page", entry.ModelID))
 	}
 	prices := map[string]*float64{
-		"input_price":          &b.InputPrice,
-		"output_price":         &b.OutputPrice,
-		"cache_write_price":    b.CacheWritePrice,
-		"cache_write_1h_price": b.CacheWrite1hPrice,
-		"cache_read_price":     b.CacheReadPrice,
+		"input_price":           &b.InputPrice,
+		"output_price":          &b.OutputPrice,
+		"cache_write_price":     b.CacheWritePrice,
+		"cache_write_1h_price":  b.CacheWrite1hPrice,
+		"cache_read_price":      b.CacheReadPrice,
+		"search_price_per_call": b.SearchPricePerCall,
+		"x_post_price":          b.XPostPrice,
+		"x_user_price":          b.XUserPrice,
 	}
 	for _, name := range sortedPriceFieldNames(prices) {
 		if value := prices[name]; value != nil && *value < 0 {
@@ -61,6 +70,9 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 		{"cache_write_price", entry.CacheWritePrice, b.CacheWritePrice},
 		{"cache_write_1h_price", entry.CacheWrite1hPrice, b.CacheWrite1hPrice},
 		{"cache_read_price", entry.CacheReadPrice, b.CacheReadPrice},
+		{"search_price_per_call", entry.SearchPricePerCall, b.SearchPricePerCall},
+		{"x_post_price", entry.XPostPrice, b.XPostPrice},
+		{"x_user_price", entry.XUserPrice, b.XUserPrice},
 	}
 	for _, item := range required {
 		if item.official != nil && item.upstream == nil {
@@ -111,7 +123,7 @@ func validatePriceSegments(label string, intervals []PricingInterval) error {
 	return nil
 }
 
-// sameOfficialPrices 两份条目的五项 token 价与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
+// sameOfficialPrices 两份条目的五项 token 价、联网搜索价与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
 func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 	pairs := [][2]*float64{
 		{a.InputPrice, b.InputPrice},
@@ -119,6 +131,9 @@ func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 		{a.CacheWritePrice, b.CacheWritePrice},
 		{a.CacheWrite1hPrice, b.CacheWrite1hPrice},
 		{a.CacheReadPrice, b.CacheReadPrice},
+		{a.SearchPricePerCall, b.SearchPricePerCall},
+		{a.XPostPrice, b.XPostPrice},
+		{a.XUserPrice, b.XUserPrice},
 	}
 	for _, p := range pairs {
 		if !samePricePtr(p[0], p[1]) {
@@ -236,6 +251,9 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 	entry.CacheWrite1hPrice = clonePricePtr(official.CacheWrite1hPrice)
 	entry.CacheReadPrice = clonePricePtr(official.CacheReadPrice)
 	entry.Intervals = normalizePriceSegments(official.Intervals)
+	entry.SearchPricePerCall = clonePricePtr(official.SearchPricePerCall)
+	entry.XPostPrice = clonePricePtr(official.XPostPrice)
+	entry.XUserPrice = clonePricePtr(official.XUserPrice)
 	// 官方价真改了才算运营者定价：运营者定价不再套 DeepSeek 强制官方价与高峰加价，种子也不再刷新它；
 	// 只加 / 改承接渠道时保持原来的归属。
 	if !sameOfficialPrices(current, entry) {

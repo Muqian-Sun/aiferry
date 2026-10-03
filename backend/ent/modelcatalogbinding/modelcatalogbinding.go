@@ -27,6 +27,12 @@ const (
 	FieldCacheWrite1hPrice = "cache_write_1h_price"
 	// FieldCacheReadPrice holds the string denoting the cache_read_price field in the database.
 	FieldCacheReadPrice = "cache_read_price"
+	// FieldSearchPricePerCall holds the string denoting the search_price_per_call field in the database.
+	FieldSearchPricePerCall = "search_price_per_call"
+	// FieldXPostPrice holds the string denoting the x_post_price field in the database.
+	FieldXPostPrice = "x_post_price"
+	// FieldXUserPrice holds the string denoting the x_user_price field in the database.
+	FieldXUserPrice = "x_user_price"
 	// FieldUpstreamModel holds the string denoting the upstream_model field in the database.
 	FieldUpstreamModel = "upstream_model"
 	// FieldPriceIntervals holds the string denoting the price_intervals field in the database.
@@ -70,6 +76,9 @@ var Columns = []string{
 	FieldCacheWritePrice,
 	FieldCacheWrite1hPrice,
 	FieldCacheReadPrice,
+	FieldSearchPricePerCall,
+	FieldXPostPrice,
+	FieldXUserPrice,
 	FieldUpstreamModel,
 	FieldPriceIntervals,
 	FieldCreatedAt,
@@ -137,6 +146,21 @@ func ByCacheWrite1hPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByCacheReadPrice orders the results by the cache_read_price field.
 func ByCacheReadPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheReadPrice, opts...).ToFunc()
+}
+
+// BySearchPricePerCall orders the results by the search_price_per_call field.
+func BySearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSearchPricePerCall, opts...).ToFunc()
+}
+
+// ByXPostPrice orders the results by the x_post_price field.
+func ByXPostPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldXPostPrice, opts...).ToFunc()
+}
+
+// ByXUserPrice orders the results by the x_user_price field.
+func ByXUserPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldXUserPrice, opts...).ToFunc()
 }
 
 // ByUpstreamModel orders the results by the upstream_model field.

@@ -48,6 +48,9 @@ type ModelCatalogEntryRequest struct {
 
 	PerRequestPrice    *float64 `json:"per_request_price"`
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
+	// X 搜索按取回条目收的官方价（每条帖子、每个主页）；价格页填，这里原样写回。
+	XPostPrice *float64 `json:"x_post_price"`
+	XUserPrice *float64 `json:"x_user_price"`
 
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 
@@ -79,6 +82,8 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 
 		PerRequestPrice:    r.PerRequestPrice,
 		SearchPricePerCall: r.SearchPricePerCall,
+		XPostPrice:         r.XPostPrice,
+		XUserPrice:         r.XUserPrice,
 
 		MaxReasoningEffortMultiplier: r.MaxReasoningEffortMultiplier,
 
