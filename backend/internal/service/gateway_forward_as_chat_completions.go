@@ -262,6 +262,8 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 			continue
 		}
 
+		observeAnthropicWebSearch(&usage, &event)
+
 		// message_start carries the initial response structure and cache usage
 		if event.Type == "message_start" && event.Message != nil {
 			finalResp = event.Message
@@ -432,6 +434,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 		if event.Type == "message_delta" && event.Usage != nil {
 			mergeAnthropicUsage(&usage, *event.Usage)
 		}
+		observeAnthropicWebSearch(&usage, event)
 		// Also capture usage from message_start (carries cache fields)
 		if event.Type == "message_start" && event.Message != nil {
 			mergeAnthropicUsage(&usage, event.Message.Usage)

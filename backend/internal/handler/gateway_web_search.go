@@ -209,7 +209,7 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 			Result: &service.ForwardResult{
 				RequestID: searchRequestID,
 				Model:     "grok-" + strings.ReplaceAll(searchLabel, "_", "-"),
-				Usage:     service.ClaudeUsage{WebSearchRequests: 1},
+				Usage:     service.ClaudeUsage{WebSearchResults: 1},
 				Duration:  0,
 			},
 			APIKey:             apiKey,

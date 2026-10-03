@@ -1180,6 +1180,7 @@ type sseUsagePatch struct {
 	hasCacheCreation1h       bool
 	webSearchRequests        int
 	hasWebSearchRequests     bool
+	webSearchResults         int
 }
 
 func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePatch {
@@ -1219,8 +1220,18 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 				patch.hasCacheCreation1h = true
 			}
 		}
-		patch.webSearchRequests, patch.hasWebSearchRequests = parseSSEWebSearchRequests(usageObj)
 		return patch
+
+	case "content_block_start":
+		// 成功的搜索结果块（上游 usage 没报次数时按它计次）
+		block, _ := event["content_block"].(map[string]any)
+		if block["type"] != "web_search_tool_result" {
+			return nil
+		}
+		if _, ok := block["content"].([]any); !ok {
+			return nil
+		}
+		return &sseUsagePatch{webSearchResults: 1}
 
 	case "message_delta":
 		usageObj, _ := event["usage"].(map[string]any)
@@ -1296,8 +1307,10 @@ func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
 		usage.CacheCreation1hTokens = patch.cacheCreation1hTokens
 	}
 	if patch.hasWebSearchRequests {
-		usage.WebSearchRequests = patch.webSearchRequests
+		requests := patch.webSearchRequests
+		usage.WebSearchRequests = &requests
 	}
+	usage.WebSearchResults += patch.webSearchResults
 }
 
 func parseSSEUsageInt(value any) (int, bool) {
@@ -1428,7 +1441,11 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 		response.Usage.CacheCreation5mTokens = int(cc5m.Int())
 		response.Usage.CacheCreation1hTokens = int(cc1h.Int())
 	}
-	response.Usage.WebSearchRequests = int(gjson.GetBytes(body, "usage.server_tool_use.web_search_requests").Int())
+	if v := gjson.GetBytes(body, "usage.server_tool_use.web_search_requests"); v.Exists() {
+		requests := int(v.Int())
+		response.Usage.WebSearchRequests = &requests
+	}
+	response.Usage.WebSearchResults = countSuccessfulWebSearchResults(gjson.GetBytes(body, "content"))
 
 	// 兼容 Kimi cached_tokens → cache_read_input_tokens
 	if response.Usage.CacheReadInputTokens == 0 {

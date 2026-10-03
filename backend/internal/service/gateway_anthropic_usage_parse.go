@@ -34,9 +34,6 @@ func parseSSEUsagePassthrough(data string, usage *ClaudeUsage) {
 				usage.CacheCreation5mTokens = int(cc5m.Int())
 				usage.CacheCreation1hTokens = int(cc1h.Int())
 			}
-			if v := msgUsage.Get("server_tool_use.web_search_requests"); v.Exists() {
-				usage.WebSearchRequests = int(v.Int())
-			}
 		}
 	case "message_delta":
 		deltaUsage := parsed.Get("usage")
@@ -64,8 +61,13 @@ func parseSSEUsagePassthrough(data string, usage *ClaudeUsage) {
 			}
 			// message_delta 带的是这次请求累计的搜索次数
 			if v := deltaUsage.Get("server_tool_use.web_search_requests"); v.Exists() {
-				usage.WebSearchRequests = int(v.Int())
+				requests := int(v.Int())
+				usage.WebSearchRequests = &requests
 			}
+		}
+	case "content_block_start":
+		if isSuccessfulWebSearchResult(parsed.Get("content_block")) {
+			usage.WebSearchResults++
 		}
 	}
 
@@ -173,7 +175,11 @@ func parseClaudeUsageFromResponseBody(body []byte) *ClaudeUsage {
 	usage.OutputTokens = int(usageNode.Get("output_tokens").Int())
 	usage.CacheCreationInputTokens = int(usageNode.Get("cache_creation_input_tokens").Int())
 	usage.CacheReadInputTokens = int(usageNode.Get("cache_read_input_tokens").Int())
-	usage.WebSearchRequests = int(usageNode.Get("server_tool_use.web_search_requests").Int())
+	if v := usageNode.Get("server_tool_use.web_search_requests"); v.Exists() {
+		requests := int(v.Int())
+		usage.WebSearchRequests = &requests
+	}
+	usage.WebSearchResults = countSuccessfulWebSearchResults(parsed.Get("content"))
 
 	cc5m := usageNode.Get("cache_creation.ephemeral_5m_input_tokens").Int()
 	cc1h := usageNode.Get("cache_creation.ephemeral_1h_input_tokens").Int()

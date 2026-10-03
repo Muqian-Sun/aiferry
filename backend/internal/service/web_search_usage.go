@@ -9,7 +9,8 @@ import (
 
 // 联网搜索按次计费（方案页 X8eQjqzjAEx3hF4xzCzKZr 第三版「联网搜索」；muqian 2026-09-30 定）：
 // 官方云端搜索工具的搜索费一律按上游返回内容里的次数、以官方原价收，不乘用户倍率，不看渠道平台。
-//   - Anthropic：usage.server_tool_use.web_search_requests（解析进 ClaudeUsage.WebSearchRequests）；
+//   - Anthropic（上游是 Messages）：usage.server_tool_use.web_search_requests；没报次数时数成功的
+//     web_search_tool_result 块（见 ClaudeUsage.webSearchCalls）；
 //   - xAI：usage.server_side_tool_usage_details——web 搜索按次；X 搜索按取回的帖子数、主页数收（不按次）；
 //   - OpenAI：输出里 type=web_search_call 且 action.type=search 的条目（打开网页 open_page、页内查找 find_in_page 不算）。
 //
@@ -66,6 +67,34 @@ func webSearchUsageFromResponsesBody(body []byte) WebSearchUsage {
 	}
 	usage, _ := webSearchUsageFromResponse(root)
 	return usage
+}
+
+// webSearchCalls 上游是 Messages 时按 Claude 的方式计次（muqian 2026-10-03）：usage 报了
+// web_search_requests 就以它为准；没报（fenno 这类背后是别家模型的中转只回搜索块、不给次数）
+// 就数成功的结果块。
+func (u ClaudeUsage) webSearchCalls() int {
+	if u.WebSearchRequests != nil {
+		return max(*u.WebSearchRequests, 0)
+	}
+	return u.WebSearchResults
+}
+
+// isSuccessfulWebSearchResult 成功的 web_search_tool_result 块：content 是结果数组（可以为空，
+// 背后是 OpenAI 的中转不给单条结果）；出错时 content 是 {"type":"web_search_tool_result_error"} 对象。
+func isSuccessfulWebSearchResult(block gjson.Result) bool {
+	return block.Get("type").String() == "web_search_tool_result" && block.Get("content").IsArray()
+}
+
+// countSuccessfulWebSearchResults 数 Anthropic 响应 content 里成功的搜索结果块。
+func countSuccessfulWebSearchResults(content gjson.Result) int {
+	n := 0
+	content.ForEach(func(_, block gjson.Result) bool {
+		if isSuccessfulWebSearchResult(block) {
+			n++
+		}
+		return true
+	})
+	return n
 }
 
 // isBillableWebSearchCall 一次真正的搜索：web_search_call 且动作是 search。

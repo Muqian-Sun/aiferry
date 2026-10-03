@@ -468,9 +468,12 @@ type ClaudeUsage struct {
 	// （Gemini usageMetadata 的 AUDIO 模态；输入侧已扣掉缓存命中的音频）。
 	AudioInputTokens  int `json:"audio_input_tokens,omitempty"`
 	AudioOutputTokens int `json:"audio_output_tokens,omitempty"`
-	// WebSearchRequests 是 Anthropic 官方 web_search 工具的搜索次数（usage.server_tool_use.web_search_requests），
-	// 按次收搜索费（见 web_search_usage.go）。
-	WebSearchRequests int `json:"-"`
+	// WebSearchRequests 是上游 usage 报的 Anthropic 官方 web_search 搜索次数（usage.server_tool_use.web_search_requests，
+	// 流式取 message_delta 里的累计值）；nil = 上游没报。
+	WebSearchRequests *int `json:"-"`
+	// WebSearchResults 是返回里成功的 web_search_tool_result 块数（出错的块 Anthropic 不计费，不算）。
+	// 上游没报次数时按它计次（见 webSearchCalls）。
+	WebSearchResults int `json:"-"`
 }
 
 // ForwardResult 转发结果
@@ -524,7 +527,7 @@ func (r *ForwardResult) webSearchUsage() WebSearchUsage {
 	if r == nil {
 		return WebSearchUsage{}
 	}
-	return WebSearchUsage{WebSearchCalls: r.Usage.WebSearchRequests}
+	return WebSearchUsage{WebSearchCalls: r.Usage.webSearchCalls()}
 }
 
 // GatewayFailureStage identifies which request stage failed. The zero value is

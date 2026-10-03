@@ -5,6 +5,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -187,35 +188,112 @@ func TestPlazaWebSearchPrices(t *testing.T) {
 	require.Nil(t, user)
 }
 
-func TestAnthropicUsageParsesWebSearchRequests(t *testing.T) {
+// fennoMessagesSearchEvents 是 fenno · Messages（背后是 OpenAI）回的真实流（2026-10-03 抓，截掉了文本增量）：
+// 有一次搜索的 server_tool_use + web_search_tool_result 块，usage 却没给 web_search_requests。
+var fennoMessagesSearchEvents = []string{
+	`{"type":"message_start","message":{"id":"resp_066abeddcbe85109016ac10c9471d487d19871414d9a9eeaaf","type":"message","role":"assistant","content":[],"model":"gpt-5.5","stop_reason":null,"usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`,
+	`{"type":"content_block_start","index":0,"content_block":{"type":"server_tool_use","id":"srvtoolu_ws_066abeddcbe85109016ac10c9e9aec87d1888bc447951162ad","name":"web_search","input":{"query":"Tokyo population 2026 official estimate"}}}`,
+	`{"type":"content_block_start","index":1,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_ws_066abeddcbe85109016ac10c9e9aec87d1888bc447951162ad","content":[]}}`,
+	`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":5244,"output_tokens":119,"cache_creation_input_tokens":0,"cache_read_input_tokens":1664}}`,
+}
+
+// 出错的搜索：Anthropic 不计费，结果块的 content 是错误对象
+const anthropicSearchErrorBlock = `{"type":"content_block_start","index":3,"content_block":{"type":"web_search_tool_result","tool_use_id":"srvtoolu_2","content":{"type":"web_search_tool_result_error","error_code":"max_uses_exceeded"}}}`
+
+func TestClaudeUsageWebSearchCalls(t *testing.T) {
 	t.Parallel()
 
-	// 主转发链路的流式解析：message_start 带 0，message_delta 带累计次数
+	reported := func(n int) *int { return &n }
+	require.Equal(t, 0, ClaudeUsage{}.webSearchCalls())
+	// 上游没报次数：数成功的结果块
+	require.Equal(t, 2, ClaudeUsage{WebSearchResults: 2}.webSearchCalls())
+	// 报了就以它为准（包括报 0、比结果块少——出错的搜索不计费）
+	require.Equal(t, 1, ClaudeUsage{WebSearchRequests: reported(1), WebSearchResults: 2}.webSearchCalls())
+	require.Equal(t, 0, ClaudeUsage{WebSearchRequests: reported(0), WebSearchResults: 1}.webSearchCalls())
+}
+
+func TestAnthropicUsageParsesWebSearch(t *testing.T) {
+	t.Parallel()
+
 	svc := &GatewayService{}
-	streamed := &ClaudeUsage{}
-	svc.parseSSEUsage(`{"type":"message_start","message":{"usage":{"input_tokens":10,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}}`, streamed)
-	svc.parseSSEUsage(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":10682,"output_tokens":510,"server_tool_use":{"web_search_requests":3}}}`, streamed)
-	require.Equal(t, 3, streamed.WebSearchRequests)
-	require.Equal(t, 510, streamed.OutputTokens)
+	streamed := func(events ...string) ClaudeUsage {
+		usage := &ClaudeUsage{}
+		for _, e := range events {
+			svc.parseSSEUsage(e, usage)
+		}
+		return *usage
+	}
+	bedrockStreamed := func(events ...string) ClaudeUsage {
+		usage := &ClaudeUsage{}
+		for _, e := range events {
+			parseSSEUsagePassthrough(e, usage)
+		}
+		return *usage
+	}
 
-	// Bedrock 流式与非流式
-	bedrock := &ClaudeUsage{}
-	parseSSEUsagePassthrough(`{"type":"message_delta","usage":{"output_tokens":5,"server_tool_use":{"web_search_requests":1}}}`, bedrock)
-	require.Equal(t, 1, bedrock.WebSearchRequests)
-	require.Equal(t, 2, parseClaudeUsageFromResponseBody([]byte(`{"usage":{"input_tokens":1,"output_tokens":2,"server_tool_use":{"web_search_requests":2}}}`)).WebSearchRequests)
+	t.Run("fenno 这类中转没报次数：数结果块", func(t *testing.T) {
+		got := streamed(fennoMessagesSearchEvents...)
+		require.Nil(t, got.WebSearchRequests)
+		require.Equal(t, 1, got.webSearchCalls())
+		require.Equal(t, 119, got.OutputTokens)
+		require.Equal(t, 1, bedrockStreamed(fennoMessagesSearchEvents...).webSearchCalls())
 
-	// 协议转换链路（Responses / Chat 客户端走 Anthropic 上游）
-	merged := &ClaudeUsage{}
-	mergeAnthropicUsage(merged, apicompat.AnthropicUsage{OutputTokens: 7, ServerToolUse: &apicompat.AnthropicServerToolUse{WebSearchRequests: 4}})
-	require.Equal(t, 4, merged.WebSearchRequests)
-	require.Equal(t, WebSearchUsage{WebSearchCalls: 4}, (&ForwardResult{Usage: *merged}).webSearchUsage())
+		// 出错的结果块不算
+		withError := append(append([]string{}, fennoMessagesSearchEvents[:3]...), anthropicSearchErrorBlock, fennoMessagesSearchEvents[3])
+		require.Equal(t, 1, streamed(withError...).webSearchCalls())
+		require.Equal(t, 1, bedrockStreamed(withError...).webSearchCalls())
+	})
+
+	t.Run("Anthropic 报了次数：以 message_delta 的累计值为准", func(t *testing.T) {
+		events := []string{
+			`{"type":"message_start","message":{"usage":{"input_tokens":10,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}}`,
+			fennoMessagesSearchEvents[2],
+			fennoMessagesSearchEvents[2],
+			`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":10682,"output_tokens":510,"server_tool_use":{"web_search_requests":3}}}`,
+		}
+		require.Equal(t, 3, streamed(events...).webSearchCalls())
+		require.Equal(t, 3, bedrockStreamed(events...).webSearchCalls())
+	})
+
+	t.Run("message_start 里的 0 不算报了次数", func(t *testing.T) {
+		events := []string{
+			`{"type":"message_start","message":{"usage":{"input_tokens":10,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}}`,
+			fennoMessagesSearchEvents[2],
+			`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`,
+		}
+		require.Equal(t, 1, streamed(events...).webSearchCalls())
+		require.Equal(t, 1, bedrockStreamed(events...).webSearchCalls())
+	})
+
+	t.Run("Bedrock 非流式", func(t *testing.T) {
+		body := []byte(`{"content":[{"type":"server_tool_use","id":"s1","name":"web_search"},{"type":"web_search_tool_result","tool_use_id":"s1","content":[{"type":"web_search_result","url":"https://a"}]},{"type":"text","text":"ok"}],"usage":{"input_tokens":1,"output_tokens":2}}`)
+		require.Equal(t, 1, parseClaudeUsageFromResponseBody(body).webSearchCalls())
+		reported := []byte(`{"content":[],"usage":{"input_tokens":1,"output_tokens":2,"server_tool_use":{"web_search_requests":2}}}`)
+		require.Equal(t, 2, parseClaudeUsageFromResponseBody(reported).webSearchCalls())
+	})
+
+	t.Run("协议转换桥（Responses / Chat 客户端走 Anthropic 上游）", func(t *testing.T) {
+		usage := &ClaudeUsage{}
+		for _, raw := range fennoMessagesSearchEvents {
+			var event apicompat.AnthropicStreamEvent
+			require.NoError(t, json.Unmarshal([]byte(raw), &event))
+			observeAnthropicWebSearch(usage, &event)
+		}
+		require.Equal(t, 1, usage.webSearchCalls())
+
+		var delta apicompat.AnthropicStreamEvent
+		require.NoError(t, json.Unmarshal([]byte(`{"type":"message_delta","usage":{"output_tokens":7,"server_tool_use":{"web_search_requests":4}}}`), &delta))
+		observeAnthropicWebSearch(usage, &delta)
+		require.Equal(t, 4, usage.webSearchCalls())
+		require.Equal(t, WebSearchUsage{WebSearchCalls: 4}, (&ForwardResult{Usage: *usage}).webSearchUsage())
+	})
 }
 
 func TestGatewayRecordUsageCostAddsWebSearchWithoutRate(t *testing.T) {
 	t.Parallel()
 
 	svc := &GatewayService{billingService: newTestBillingService()}
-	result := &ForwardResult{Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 1000, OutputTokens: 500, WebSearchRequests: 3}}
+	result := &ForwardResult{Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 1000, OutputTokens: 500, WebSearchResults: 3}}
 	// claude-sonnet-4 兜底价 $3 / $15：token 0.0105，× 倍率 2 = 0.021；搜索 3 × 0.01 不乘倍率
 	cost, tokenPath := svc.calculateRecordUsageCost(context.Background(), result, &APIKey{}, "claude-sonnet-4", 2, time.Time{})
 	require.True(t, tokenPath)
@@ -249,6 +327,13 @@ func TestHandleNonStreamingResponseParsesWebSearchRequests(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 	body := []byte(`{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],
 		"usage":{"input_tokens":10682,"output_tokens":510,"server_tool_use":{"web_search_requests":2}}}`)
+	// 没报次数的中转：数成功的结果块（出错的不算）
+	unreported := []byte(`{"id":"msg_2","type":"message","role":"assistant","content":[
+		{"type":"server_tool_use","id":"s1","name":"web_search","input":{"query":"q"}},
+		{"type":"web_search_tool_result","tool_use_id":"s1","content":[]},
+		{"type":"web_search_tool_result","tool_use_id":"s2","content":{"type":"web_search_tool_result_error","error_code":"unavailable"}},
+		{"type":"text","text":"ok"}],
+		"usage":{"input_tokens":5244,"output_tokens":119}}`)
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -258,6 +343,18 @@ func TestHandleNonStreamingResponseParsesWebSearchRequests(t *testing.T) {
 
 	usage, err := svc.handleNonStreamingResponse(context.Background(), resp, c, &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, "claude-sonnet-4-6", "claude-sonnet-4-6")
 	require.NoError(t, err)
-	require.Equal(t, 2, usage.WebSearchRequests)
+	require.Equal(t, 2, usage.webSearchCalls())
 	require.Equal(t, 510, usage.OutputTokens)
+
+	resp = &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(unreported)),
+	}
+	c, _ = gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	usage, err = svc.handleNonStreamingResponse(context.Background(), resp, c, &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, "gpt-5.5", "gpt-5.5")
+	require.NoError(t, err)
+	require.Nil(t, usage.WebSearchRequests)
+	require.Equal(t, 1, usage.webSearchCalls())
 }
