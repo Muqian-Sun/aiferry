@@ -69,8 +69,9 @@ function onInput(event: Event) {
   text.value = (event.target as HTMLInputElement).value
   const parsed = parse(text.value)
   invalid.value = parsed === undefined
-  if (parsed === undefined) return
-  emit('update:modelValue', parsed == null ? null : parsed / props.scale)
+  // 填错（负数、不是数字）回写 NaN：原来什么都不回写，保存时提交的是上一次的合法值，看着填的和存的对不上。
+  // 用的地方把 NaN 当「格式不对」拦下保存（pricingDraft 的 invalid、模型弹窗的搜索价）
+  emit('update:modelValue', parsed === undefined ? Number.NaN : parsed == null ? null : parsed / props.scale)
 }
 
 // 外部改了值（带价、切换条目）才重写文本；用户自己输入引起的回写不动文本，免得打断输入
@@ -80,9 +81,11 @@ watch(
     const typed = parse(text.value)
     const typedStored = typed == null ? typed : typed / props.scale
     const same =
-      typedStored === null
-        ? value == null
-        : typedStored !== undefined && value != null && Math.abs(typedStored - value) <= Math.abs(value) * 1e-9
+      value != null && Number.isNaN(value)
+        ? typedStored === undefined
+        : typedStored === null
+          ? value == null
+          : typedStored !== undefined && value != null && Math.abs(typedStored - value) <= Math.abs(value) * 1e-9
     if (!same) {
       text.value = format(value)
       invalid.value = false

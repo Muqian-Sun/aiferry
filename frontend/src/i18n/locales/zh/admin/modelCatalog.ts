@@ -74,6 +74,7 @@ export default {
         error: '查价失败，下一步手填官方价。'
       },
       createFailed: '模型创建失败',
+      invalidSearchPrice: '内置搜索单价格式不对（只能填非负数）',
       exists: '目录里已有这个模型：在列表里编辑或上架它。',
       saveFailed: '模型保存失败',
       pricingHint: '这就是价格页里这个模型的那一块：可以改官方价；加一个渠道就是让它承接这个模型。改完点这一块的「保存」。',
@@ -194,6 +195,7 @@ export default {
         required: '填这一段从超过多少 Token 开始。',
         integer: 'Token 数要填正整数。',
         notAscending: 'Token 数要比上一段大。',
+        invalidPrice: '这一段有价格格式不对（只能填非负数）。',
         noPrice: '这一段至少填一个价。'
       }
     },

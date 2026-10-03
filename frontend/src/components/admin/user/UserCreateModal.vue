@@ -1,82 +1,13 @@
 <template>
-  <BaseDialog
-    :show="show"
-    :title="t('admin.users.createUser')"
-    width="normal"
-    @close="$emit('close')"
-  >
-    <form id="create-user-form" @submit.prevent="submit" class="space-y-5">
-      <div>
-        <label class="input-label">{{ t('admin.users.email') }}</label>
-        <input v-model="form.email" type="email" required class="input" :placeholder="t('admin.users.enterEmail')" />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.password') }}</label>
-        <div class="flex gap-2">
-          <div class="relative flex-1">
-            <input v-model="form.password" type="text" required class="input pr-10" :placeholder="t('admin.users.enterPassword')" />
-          </div>
-          <button type="button" @click="generateRandomPassword" class="btn btn-secondary px-3">
-            <Icon name="refresh" size="md" />
-          </button>
-        </div>
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.username') }}</label>
-        <input v-model="form.username" type="text" class="input" :placeholder="t('admin.users.enterUsername')" />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
-        <select v-model="form.role" class="input">
-          <option value="user">{{ t('admin.users.roles.user') }}</option>
-          <option value="admin">{{ t('admin.users.roles.admin') }}</option>
-        </select>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="input-label">{{ t('admin.users.columns.balance') }}</label>
-          <input v-model="form.balance" type="number" step="any" class="input" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.users.columns.concurrency') }}</label>
-          <input
-            v-model="form.concurrency"
-            type="number"
-            min="0"
-            step="1"
-            class="input"
-            :placeholder="t('admin.users.form.newUserDefaultPlaceholder')"
-          />
-        </div>
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.form.rpmLimit') }}</label>
-        <input
-          v-model="form.rpm_limit"
-          type="number"
-          min="0"
-          step="1"
-          class="input"
-          :placeholder="t('admin.users.form.newUserDefaultPlaceholder')"
-        />
-        <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.form.rateMultiplier') }}</label>
-        <input
-          v-model="form.rate_multiplier"
-          type="number"
-          min="0"
-          step="any"
-          class="input"
-          :placeholder="t('admin.users.form.rateMultiplierDefaultPlaceholder')"
-        />
-      </div>
+  <BaseDialog :show="show" :title="t('admin.users.createUser')" width="normal" @close="$emit('close')">
+    <form id="create-user-form" novalidate @submit.prevent="submit">
+      <UserFormFields v-model:form="form" mode="create" :errors="errors" />
     </form>
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button @click="$emit('close')" type="button" class="btn btn-secondary">{{ t('common.cancel') }}</button>
-        <button type="submit" form="create-user-form" :disabled="loading" class="btn btn-primary">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
+        <button type="button" class="btn btn-secondary" @click="$emit('close')">{{ t('common.cancel') }}</button>
+        <button type="submit" form="create-user-form" :disabled="loading" class="btn btn-primary" data-testid="user-create-submit">
           {{ loading ? t('admin.users.creating') : t('common.create') }}
         </button>
       </div>
@@ -88,60 +19,93 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
+import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { adminAPI } from '@/api/admin'
+import type { NewUserDefaults } from '@/api/admin/users'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import { extractApiErrorCode, extractApiErrorMessage } from '@/utils/apiError'
+import UserFormFields from './UserFormFields.vue'
+import { emptyUserForm, validateUserForm, type UserFormErrors, type UserFormState } from './userForm'
 
 const props = defineProps<{ show: boolean }>()
-const emit = defineEmits(['close', 'success']); const { t } = useI18n()
+const emit = defineEmits(['close', 'success'])
+const { t } = useI18n()
 
-// 余额 / 并发 / RPM / 倍率留空 = 按「新用户默认值」，和自助注册一致（倍率默认官方价的 1/15）
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: '' })
-
-const stepUp = useStepUp()
+const form = ref<UserFormState>(emptyUserForm())
+const errors = ref<UserFormErrors>({})
+const submitError = ref('')
 const loading = ref(false)
+const stepUp = useStepUp()
+
+// 新用户默认并发 / RPM（后端常量）：打开就填上（muqian 2026-09-30「直接显示默认值」）。
+// 拿不到时两格留空，空的就不传、由后端按默认值建——不能按「清空 = 0」发 0
+const defaults = ref<NewUserDefaults | null>(null)
+
+async function loadDefaults() {
+  try {
+    defaults.value = await adminAPI.users.getNewUserDefaults()
+    if (form.value.concurrency === '') form.value.concurrency = defaults.value.concurrency
+    if (form.value.rpm_limit === '') form.value.rpm_limit = defaults.value.rpm_limit
+  } catch {
+    defaults.value = null
+  }
+}
+
+watch(
+  () => props.show,
+  (show) => {
+    if (!show) return
+    form.value = emptyUserForm()
+    errors.value = {}
+    submitError.value = ''
+    void loadDefaults()
+  },
+  { immediate: true }
+)
+
+const isBlank = (value: string | number) => String(value ?? '').trim() === ''
 
 const submit = async () => {
   if (loading.value) return
+  submitError.value = ''
+  const { errors: fieldErrors, values } = validateUserForm(form.value, 'create', t)
+  errors.value = fieldErrors
+  if (Object.keys(fieldErrors).length > 0) return
+
+  const payload = {
+    email: form.value.email.trim(),
+    password: form.value.password.trim(),
+    username: form.value.username.trim(),
+    notes: form.value.notes.trim(),
+    role: form.value.role,
+    balance: values.balance,
+    concurrency: !defaults.value && isBlank(form.value.concurrency) ? undefined : values.concurrency,
+    rpm_limit: !defaults.value && isBlank(form.value.rpm_limit) ? undefined : values.rpm_limit,
+    rate_multiplier: values.rate_multiplier
+  }
   loading.value = true
   try {
-    const { balance, concurrency, rpm_limit, rate_multiplier, ...rest } = { ...form }
-    const payload: typeof rest & { balance?: number; concurrency?: number; rpm_limit?: number; rate_multiplier?: number } = { ...rest }
-    const optionalNumber = (raw: string | number) => {
-      const text = String(raw).trim()
-      return text === '' ? undefined : Number(text)
-    }
-    payload.balance = optionalNumber(balance)
-    payload.concurrency = optionalNumber(concurrency)
-    payload.rpm_limit = optionalNumber(rpm_limit)
-    payload.rate_multiplier = optionalNumber(rate_multiplier)
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.create(payload))
-    emit('success'); emit('close')
-  } catch (e: any) {
-    if (isStepUpCancelled(e)) {
-      // 用户主动取消二次验证：静默返回，表单保持打开。
-    } else if (isStepUpBlocked(e)) {
-      console.error(
-        stepUpBlockReason(e) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
-          ? t('stepUp.adminApiKeyForbidden')
-          : t('stepUp.notEnabled'),
-        e
-      )
+    emit('success')
+    emit('close')
+  } catch (error) {
+    if (isStepUpCancelled(error)) {
+      // 用户主动取消二次验证：表单保持打开
+    } else if (isStepUpBlocked(error)) {
+      submitError.value =
+        stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN' ? t('stepUp.adminApiKeyForbidden') : t('stepUp.notEnabled')
+    } else if (extractApiErrorCode(error) === 'EMAIL_EXISTS') {
+      errors.value = { ...errors.value, email: t('admin.users.form.emailExists') }
     } else {
-      console.error(e?.message || t('admin.users.failedToCreate'), e)
+      submitError.value = extractApiErrorMessage(error, t('admin.users.failedToCreate'))
     }
-  } finally { loading.value = false }
-}
-
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: '' }) })
-
-const generateRandomPassword = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'
-  let p = ''; for (let i = 0; i < 16; i++) p += chars.charAt(Math.floor(Math.random() * chars.length))
-  form.password = p
+  } finally {
+    loading.value = false
+  }
 }
 </script>

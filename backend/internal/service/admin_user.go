@@ -123,8 +123,39 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		logger.LegacyPrintf("service.admin", "audit: admin user created actor_admin_id=%d target_user_id=%d",
 			input.ActorAdminID, user.ID)
 	}
+	// 初始余额记一条「管理员调整」余额流水（muqian 2026-09-30 方案第四节）：和后台加余额同一种记录，
+	// 用户余额流水里看得到，也计入后台「总充值」（SumPositiveBalanceByUser）。
+	if balance > 0 {
+		s.recordAdminBalanceAdjustment(ctx, user.ID, balance, InitialBalanceAdjustmentNotes)
+	}
 	s.assignDefaultSubscriptions(ctx, user.ID)
 	return user, nil
+}
+
+// InitialBalanceAdjustmentNotes 后台建用户时初始余额那条流水的备注。
+const InitialBalanceAdjustmentNotes = "initial balance"
+
+// recordAdminBalanceAdjustment 记一条「管理员调整」余额流水（余额本身已经改过）。
+// 流水写失败只记日志：余额已经生效，不能因为流水失败让整个操作报错。
+func (s *adminServiceImpl) recordAdminBalanceAdjustment(ctx context.Context, userID int64, delta float64, notes string) {
+	code, err := GenerateRedeemCode()
+	if err != nil {
+		logger.LegacyPrintf("service.admin", "failed to generate adjustment redeem code: %v", err)
+		return
+	}
+	now := time.Now()
+	record := &RedeemCode{
+		Code:   code,
+		Type:   AdjustmentTypeAdminBalance,
+		Value:  delta,
+		Status: StatusUsed,
+		UsedBy: &userID,
+		UsedAt: &now,
+		Notes:  notes,
+	}
+	if err := s.redeemCodeRepo.Create(ctx, record); err != nil {
+		logger.LegacyPrintf("service.admin", "failed to create balance adjustment redeem code: %v", err)
+	}
 }
 
 // ensureNotLastAdmin 降级管理员前确认系统中仍存在其他管理员，防止零 admin 锁死。
@@ -416,9 +447,13 @@ func (s *adminServiceImpl) BatchUpdateConcurrency(ctx context.Context, userIDs [
 	return affected, nil
 }
 
-func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
-	if concurrency == nil && rpmLimit == nil && rateMultiplier == nil {
-		return 0, fmt.Errorf("at least one of concurrency, rpm_limit or rate_multiplier is required")
+// useDefaultRate：把倍率改回全站默认（清掉单独设的值），与 rateMultiplier 互斥。
+func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64, useDefaultRate bool) (int, error) {
+	if concurrency == nil && rpmLimit == nil && rateMultiplier == nil && !useDefaultRate {
+		return 0, fmt.Errorf("at least one of concurrency, rpm_limit, rate_multiplier or use_default_rate_multiplier is required")
+	}
+	if rateMultiplier != nil && useDefaultRate {
+		return 0, fmt.Errorf("rate_multiplier and use_default_rate_multiplier cannot be set together")
 	}
 	if rateMultiplier != nil {
 		if err := validateUserRateMultiplier(*rateMultiplier); err != nil {
@@ -442,7 +477,7 @@ func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int6
 		return 0, nil
 	}
 
-	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit, rateMultiplier)
+	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit, rateMultiplier, useDefaultRate)
 	if err != nil {
 		return 0, err
 	}
@@ -499,26 +534,7 @@ func (s *adminServiceImpl) UpdateUserBalance(ctx context.Context, userID int64, 
 	}
 
 	if balanceDiff != 0 {
-		code, err := GenerateRedeemCode()
-		if err != nil {
-			logger.LegacyPrintf("service.admin", "failed to generate adjustment redeem code: %v", err)
-			return user, nil
-		}
-
-		adjustmentRecord := &RedeemCode{
-			Code:   code,
-			Type:   AdjustmentTypeAdminBalance,
-			Value:  balanceDiff,
-			Status: StatusUsed,
-			UsedBy: &user.ID,
-			Notes:  notes,
-		}
-		now := time.Now()
-		adjustmentRecord.UsedAt = &now
-
-		if err := s.redeemCodeRepo.Create(ctx, adjustmentRecord); err != nil {
-			logger.LegacyPrintf("service.admin", "failed to create balance adjustment redeem code: %v", err)
-		}
+		s.recordAdminBalanceAdjustment(ctx, user.ID, balanceDiff, notes)
 	}
 
 	return user, nil

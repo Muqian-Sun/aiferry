@@ -388,14 +388,33 @@
       @delete="drawerUser && handleDelete(drawerUser)"
     />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
-    <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="handleUserMutated" />
+    <UserEditModal
+      :show="showEditModal"
+      :user="editingUser"
+      @close="closeEditModal"
+      @success="handleUserMutated"
+      @adjust-balance="handleEditAdjustBalance"
+    />
     <BulkEditUserModal
       :show="showBulkEditModal"
       :selected-ids="selectedIds"
       @close="showBulkEditModal = false"
       @success="handleBulkLimitsSuccess"
     />
-    <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="handleUserMutated" />
+    <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="handleBalanceUpdated" />
+    <!-- 禁用前先确认（启用不用确认）；报错显示在确认框里 -->
+    <ConfirmDialog
+      :show="disablingUser !== null"
+      :title="t('admin.users.disableTitle')"
+      :message="t('admin.users.disableConfirm', { email: disablingUser?.email ?? '' })"
+      :confirm-text="t('admin.users.disable')"
+      :cancel-text="t('common.cancel')"
+      danger
+      @confirm="confirmDisable"
+      @cancel="disablingUser = null"
+    >
+      <FormError class="mt-2" :message="toggleError" />
+    </ConfirmDialog>
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
   </AppLayout>
 </template>
@@ -420,6 +439,8 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
@@ -1016,14 +1037,50 @@ const closeEditModal = () => {
   editingUser.value = null
 }
 
-const handleToggleStatus = async (user: AdminUser) => {
-  const newStatus = user.status === 'active' ? 'disabled' : 'active'
+// 禁用要先确认（muqian 2026-09-30 方案第四节：确认用页面里的确认框），启用直接生效
+const disablingUser = ref<AdminUser | null>(null)
+const toggleError = ref('')
+
+const setUserStatus = async (user: AdminUser, status: 'active' | 'disabled'): Promise<boolean> => {
+  toggleError.value = ''
   try {
-    await adminAPI.users.toggleStatus(user.id, newStatus)
+    await adminAPI.users.toggleStatus(user.id, status)
     void handleUserMutated()
-  } catch (error: any) {
+    return true
+  } catch (error) {
+    toggleError.value = extractApiErrorMessage(error, t('admin.users.toggleStatusFailed'))
     console.error('Error toggling user status:', error)
+    return false
   }
+}
+
+const handleToggleStatus = (user: AdminUser) => {
+  if (user.status === 'active') {
+    toggleError.value = ''
+    disablingUser.value = user
+    return
+  }
+  void setUserStatus(user, 'active')
+}
+
+const confirmDisable = async () => {
+  const user = disablingUser.value
+  if (!user) return
+  if (await setUserStatus(user, 'disabled')) disablingUser.value = null
+}
+
+// 编辑弹窗里点「充值 / 扣减」：打开同一个余额弹窗
+const handleEditAdjustBalance = (operation: 'add' | 'subtract') => {
+  const user = editingUser.value
+  if (!user) return
+  if (operation === 'add') handleDeposit(user)
+  else handleWithdraw(user)
+}
+
+// 余额改完：编辑弹窗开着就把它的「当前余额」换成新的（只换余额，正在改的字段不动）
+const handleBalanceUpdated = (updated: AdminUser) => {
+  if (editingUser.value?.id === updated.id) editingUser.value = { ...editingUser.value, balance: updated.balance }
+  void handleUserMutated()
 }
 
 const handleDelete = (user: AdminUser) => {

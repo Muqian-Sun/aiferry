@@ -50,6 +50,8 @@ export interface BatchUpdateUserLimitsRequest {
   concurrency?: number
   rpm_limit?: number
   rate_multiplier?: number
+  /** 把倍率改回全站默认（清掉单独设的值），与 rate_multiplier 互斥 */
+  use_default_rate_multiplier?: boolean
 }
 
 export interface BatchUpdateUserLimitsResponse {
@@ -113,6 +115,19 @@ export async function list(
  * @param includeDeleted - Whether to include soft-deleted users
  * @returns User details
  */
+/** 新用户默认值（后端 site_features.go 的常量）：新建用户表单直接填上 */
+export interface NewUserDefaults {
+  balance: number
+  concurrency: number
+  rpm_limit: number
+  rate_multiplier: number
+}
+
+export async function getNewUserDefaults(): Promise<NewUserDefaults> {
+  const { data } = await apiClient.get<NewUserDefaults>('/admin/users/defaults')
+  return data
+}
+
 export async function getById(id: number, includeDeleted = false): Promise<AdminUser> {
   const url = includeDeleted ? `/admin/users/${id}?include_deleted=true` : `/admin/users/${id}`
   const { data } = await apiClient.get<AdminUser>(url)
@@ -306,6 +321,7 @@ export async function bindUserAuthIdentity(
 
 export const usersAPI = {
   list,
+  getNewUserDefaults,
   getById,
   create,
   update,

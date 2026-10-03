@@ -205,7 +205,7 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesOnlyProvidedFields() {
 	})
 	concurrency := 9
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &concurrency, nil, nil)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &concurrency, nil, nil, false)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 
@@ -223,7 +223,7 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesBothFieldsToZero() {
 	})
 	zero := 0
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &zero, &zero, nil)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, &zero, &zero, nil, false)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 
@@ -233,13 +233,31 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsUpdatesBothFieldsToZero() {
 	s.Zero(updated.RPMLimit)
 }
 
+// 批量把倍率改回全站默认：单独设的倍率清成 NULL，别的字段不动
+func (s *UserRepoSuite) TestBatchUpdateLimitsUseDefaultRateClearsCustomRate() {
+	rate := 0.5
+	user := s.mustCreateUser(&service.User{Email: "batch-limits-default-rate@test.com", RPMLimit: 12, RateMultiplier: &rate})
+	before, err := s.repo.GetByID(s.ctx, user.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(before.RateMultiplier)
+
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{user.ID}, nil, nil, nil, true)
+	s.Require().NoError(err)
+	s.Equal(1, affected)
+
+	updated, err := s.repo.GetByID(s.ctx, user.ID)
+	s.Require().NoError(err)
+	s.Nil(updated.RateMultiplier)
+	s.Equal(12, updated.RPMLimit)
+}
+
 func (s *UserRepoSuite) TestBatchUpdateLimitsIgnoresDeletedUsersAndReturnsAffectedRows() {
 	active := s.mustCreateUser(&service.User{Email: "batch-limits-active@test.com", RPMLimit: 10})
 	deleted := s.mustCreateUser(&service.User{Email: "batch-limits-deleted@test.com", RPMLimit: 10})
 	s.Require().NoError(s.client.User.DeleteOneID(deleted.ID).Exec(s.ctx))
 	rpmLimit := 45
 
-	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{active.ID, deleted.ID}, nil, &rpmLimit, nil)
+	affected, err := s.repo.BatchUpdateLimits(s.ctx, []int64{active.ID, deleted.ID}, nil, &rpmLimit, nil, false)
 	s.Require().NoError(err)
 	s.Equal(1, affected)
 

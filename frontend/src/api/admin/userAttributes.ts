@@ -89,9 +89,13 @@ export async function updateUserAttributeValues(
   userId: number,
   values: UserAttributeValuesMap
 ): Promise<{ message: string }> {
+  // 后端收 map[属性 ID]string：数字框的 v-model 会自动转成数字，原样发过去必定 400，这里统一转成字符串
+  const asStrings = Object.fromEntries(
+    Object.entries(values).map(([id, value]) => [id, value == null ? '' : String(value)])
+  )
   const { data } = await apiClient.put<{ message: string }>(
     `/admin/users/${userId}/attributes`,
-    { values }
+    { values: asStrings }
   )
   return data
 }

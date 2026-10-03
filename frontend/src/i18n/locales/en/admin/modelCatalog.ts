@@ -74,6 +74,7 @@ export default {
         error: 'Price lookup failed; fill the official price in the next step.'
       },
       createFailed: 'Failed to create the model',
+      invalidSearchPrice: 'The search price is invalid (non-negative numbers only)',
       exists: 'This model is already in the catalog: edit or list it from the list.',
       saveFailed: 'Failed to save the model',
       pricingHint: 'This is the model\'s block on the pricing page: edit the official price here; adding a channel makes it serve this model. Save the block when done.',
@@ -194,6 +195,7 @@ export default {
         required: 'Enter the token count this segment starts above.',
         integer: 'The token count must be a positive integer.',
         notAscending: 'The token count must be larger than in the previous segment.',
+        invalidPrice: 'A price in this segment is invalid (non-negative numbers only).',
         noPrice: 'Enter at least one price for this segment.'
       }
     },

@@ -12,7 +12,8 @@ import (
 
 func TestAdminService_CreateUser_Success(t *testing.T) {
 	repo := &userRepoStub{nextID: 10}
-	svc := &adminServiceImpl{userRepo: repo}
+	redeemRepo := &balanceRedeemRepoStub{redeemRepoStub: &redeemRepoStub{}}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: redeemRepo}
 	balance := 12.5
 
 	input := &CreateUserInput{
@@ -38,12 +39,24 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.True(t, user.CheckPassword(input.Password))
 	require.Len(t, repo.created, 1)
 	require.Equal(t, user, repo.created[0])
+
+	// 初始余额记一条「管理员调整」流水（进余额流水、计入总充值）
+	require.Len(t, redeemRepo.created, 1)
+	record := redeemRepo.created[0]
+	require.Equal(t, AdjustmentTypeAdminBalance, record.Type)
+	require.Equal(t, balance, record.Value)
+	require.Equal(t, StatusUsed, record.Status)
+	require.NotNil(t, record.UsedBy)
+	require.Equal(t, int64(10), *record.UsedBy)
+	require.NotNil(t, record.UsedAt)
+	require.Equal(t, InitialBalanceAdjustmentNotes, record.Notes)
 }
 
 // 管理员新建用户不传余额 / 并发 / RPM 时，和自助注册一样取「新用户默认值」（site_features.go）。
 func TestAdminService_CreateUser_UsesNewUserDefaultsWhenOmitted(t *testing.T) {
 	repo := &userRepoStub{nextID: 11}
-	svc := &adminServiceImpl{userRepo: repo}
+	redeemRepo := &balanceRedeemRepoStub{redeemRepoStub: &redeemRepoStub{}}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: redeemRepo}
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
 		Email:    "default-limits@test.com",
@@ -56,11 +69,13 @@ func TestAdminService_CreateUser_UsesNewUserDefaultsWhenOmitted(t *testing.T) {
 	require.Equal(t, NewUserRPMLimit, user.RPMLimit)
 	require.Len(t, repo.created, 1)
 	require.Equal(t, NewUserConcurrency, repo.created[0].Concurrency)
+	// 余额为 0（注册不送余额）就不记流水
+	require.Empty(t, redeemRepo.created)
 }
 
 func TestAdminService_CreateUser_ExplicitValuesOverrideNewUserDefaults(t *testing.T) {
 	repo := &userRepoStub{nextID: 12}
-	svc := &adminServiceImpl{userRepo: repo}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &balanceRedeemRepoStub{redeemRepoStub: &redeemRepoStub{}}}
 	balance := 1.5
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{

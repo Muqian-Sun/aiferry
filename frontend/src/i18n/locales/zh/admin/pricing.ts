@@ -90,6 +90,7 @@ export default {
     issueSeparator: '；',
     issues: {
       missing: '{fields}还没填',
+      invalid: '{fields}格式不对（只能填非负数）',
       segment: '第 {index} 段：{error}',
       upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格'
     },

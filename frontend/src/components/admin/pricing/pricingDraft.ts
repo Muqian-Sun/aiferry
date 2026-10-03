@@ -66,6 +66,8 @@ export function priceRowToRequest(row: PriceRow): PricingPrices {
 export interface RowIssues {
   /** 必填却没填的价 */
   missing: PriceKey[]
+  /** 填了但格式不对的价（负数、不是数字：输入框回写 NaN） */
+  invalid: PriceKey[]
   /** 每段的问题（null = 没问题），与 segments 一一对应 */
   segments: Array<TokenSegmentError | null>
   /** 上游模型名不是一个具体的名字（带通配或空白） */
@@ -73,7 +75,17 @@ export interface RowIssues {
 }
 
 export function hasRowIssues(issues: RowIssues): boolean {
-  return issues.missing.length > 0 || issues.segments.some((error) => error != null) || issues.upstreamModelInvalid === true
+  return (
+    issues.missing.length > 0 ||
+    issues.invalid.length > 0 ||
+    issues.segments.some((error) => error != null) ||
+    issues.upstreamModelInvalid === true
+  )
+}
+
+/** 格式不对的价：输入框把负数、不是数字的输入回写成 NaN */
+function invalidKeys(row: PriceRow): PriceKey[] {
+  return PRICE_KEYS.filter((key) => Number.isNaN(row[key]))
 }
 
 /** 上游模型名只能是一个具体的名字：不带 *、不含空白（与后端 ValidateAgainst 同口径；首尾空白保存时去掉） */
@@ -85,6 +97,7 @@ export function upstreamModelInvalid(name: string): boolean {
 export function officialIssues(row: PriceRow): RowIssues {
   return {
     missing: (['input_price', 'output_price'] as PriceKey[]).filter((key) => row[key] == null),
+    invalid: invalidKeys(row),
     segments: tokenSegmentErrors(row.segments)
   }
 }
@@ -94,6 +107,7 @@ export function upstreamIssues(row: PriceRow, official: Record<PriceKey, number 
   const required: PriceKey[] = ['input_price', 'output_price', ...CACHE_KEYS.filter((key) => official[key] != null)]
   return {
     missing: required.filter((key) => row[key] == null),
+    invalid: invalidKeys(row),
     segments: tokenSegmentErrors(row.segments)
   }
 }

@@ -90,6 +90,7 @@ export default {
     issueSeparator: '; ',
     issues: {
       missing: '{fields} missing',
+      invalid: '{fields} invalid (non-negative numbers only)',
       segment: 'segment {index}: {error}',
       upstreamModel: 'upstream model must be a single name without * or spaces'
     },
