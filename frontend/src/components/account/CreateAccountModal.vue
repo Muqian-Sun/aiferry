@@ -786,6 +786,7 @@
     :vendor-options="catalogVendors"
     :existing-model-ids="catalogModelIds"
     :z-index="60"
+    @saved="createdModelId = $event.id"
     @close="onModelDialogClose"
   />
 
@@ -1021,6 +1022,7 @@ import {
   channelDraftChanges,
   channelDraftFrom,
   cloneChannelDraft,
+  cloneKeyedRows,
   emptyPriceRow,
   priceRowFrom,
   siblingBindingOf,
@@ -1621,6 +1623,7 @@ const resetForm = () => {
   bindLoadError.value = ''
   catalogEntries.value = []
   creatingModelId.value = ''
+  createdModelId.value = null
   nameSuggestion = ''
   form.name = ''
   form.notes = ''
@@ -1685,6 +1688,8 @@ const bindLoadError = ref('')
 // 全部目录条目：判断「目录里没有」、给新建模型弹窗做厂商选项和重名校验
 const catalogEntries = ref<ModelCatalogEntry[]>([])
 const creatingModelId = ref('')
+// 叠层里刚建好的模型：回来时这个渠道能承接就直接加一行（没上架也加，承接与上架无关）
+const createdModelId = ref<number | null>(null)
 
 const bindAccount = computed(() => overview.value?.accounts.find((account) => account.id === bindAccountId.value) ?? null)
 const catalogVendors = computed(() => [...new Set(catalogEntries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
@@ -1733,6 +1738,14 @@ async function loadBindData(prefill: boolean) {
     if (!current || channelDraftChanges(current) === 0) {
       const initial = channelDraftFrom(account.id, data.entries)
       channelState.value = { initial, draft: cloneChannelDraft(initial) }
+    } else {
+      // 改到一半：把服务端新出现的承接（比如在叠层「新建模型」里给这个渠道加的）并进来——
+      // 这一块保存是整份覆盖，不并进来的话一保存就把它删了
+      for (const row of channelDraftFrom(account.id, data.entries).rows) {
+        if (current.initial.rows.some((item) => item.id === row.id)) continue
+        current.initial.rows.push(...cloneKeyedRows([row]))
+        if (!current.draft.rows.some((item) => item.id === row.id)) current.draft.rows.push(...cloneKeyedRows([row]))
+      }
     }
     if (prefill && channelState.value) addDetectedRows(channelState.value.draft, data, account)
   } catch (error) {
@@ -1745,10 +1758,20 @@ function onBindSaved() {
   void loadBindData(false)
 }
 
-// 叠层建好模型回来：重拉价格与目录，新模型这个渠道能承接的话加成新行
+// 叠层建好模型回来：重拉价格与目录，新模型这个渠道能承接、还没加的话加成新行
 async function onModelDialogClose() {
   creatingModelId.value = ''
   await loadBindData(true)
+  const entryId = createdModelId.value
+  createdModelId.value = null
+  const data = overview.value
+  const account = bindAccount.value
+  const state = channelState.value
+  if (entryId == null || !data || !account || !state) return
+  const entry = data.entries.find((item) => item.id === entryId)
+  if (!entry || !entry.bindable_account_ids.includes(account.id) || state.draft.rows.some((row) => row.id === entry.id)) return
+  const sibling = siblingBindingOf(entry, account, data.accounts)
+  state.draft.rows.push({ id: entry.id, upstreamModel: '', prices: sibling ? priceRowFrom(sibling) : emptyPriceRow() })
 }
 
 watch(

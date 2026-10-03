@@ -302,7 +302,7 @@
       :model-id="diagnosisEntry?.model_id ?? ''"
       @close="diagnosisEntry = null"
     />
-    <CreateAccountModal :show="showCreate" :proxies="proxies" @close="showCreate = false" @created="reload" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" @close="showCreate = false" @created="handleCreated" />
     <EditAccountModal
       :show="showEdit"
       :account="editingAccount"
@@ -417,6 +417,19 @@ const catalogEntriesByAccountID = computed(() => {
   return byAccount
 })
 const catalogEntriesForAccount = (accountID: number): ModelCatalogEntry[] => catalogEntriesByAccountID.value.get(accountID) ?? []
+
+// 新建弹窗第二步会写承接关系：除了重拉渠道列表，「已上架模型」列用的目录也一起重拉
+async function reloadCatalogEntries() {
+  try {
+    catalogEntries.value = await adminAPI.modelCatalog.listEntries()
+  } catch (error) {
+    console.error('Failed to load model catalog:', error)
+  }
+}
+const handleCreated = () => {
+  void reload()
+  void reloadCatalogEntries()
+}
 const vendorLabel = (row: AccountListItem): string => {
   const vendor = accountVendor(row)
   return vendor.labelKey ? t(vendor.labelKey) : vendor.label ?? ''
