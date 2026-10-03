@@ -116,7 +116,7 @@
         <DetailField :label="t('admin.accounts.columns.notes')" :value="account.notes" />
       </dl>
 
-      <!-- 上架模型：模型目录里绑定了这个渠道的条目 -->
+      <!-- 上架模型：这个渠道承接的模型，每个带上游价与毛利（价格页同一份数据）；改价去价格页 -->
       <div v-else-if="tab === 'models'" data-testid="account-detail-models">
         <template v-if="catalogEntries.length">
           <p class="mb-3 text-13 text-af-ink-3">{{ t('admin.accounts.detail.modelsHint') }}</p>
@@ -127,19 +127,28 @@
                   {{ entry.model_id }}
                 </div>
                 <div class="truncate text-xs text-af-ink-3">
-                  {{ entry.display_name || entry.model_id }}
+                  <template v-if="upstreamPriceText(entry.id)">{{ upstreamPriceText(entry.id) }}</template>
+                  <template v-else>{{ entry.display_name || entry.model_id }}</template>
                   <template v-if="entry.status !== 'listed'"> · {{ t('admin.accounts.catalogUnlisted') }}</template>
                 </div>
               </div>
-              <button type="button" class="btn btn-ghost btn-sm shrink-0" @click="emit('diagnose', entry)">
-                {{ t('admin.accounts.detail.diagnose') }}
-              </button>
+              <div class="flex shrink-0 items-center gap-2">
+                <MarginCell v-if="pricing" :margin="marginOfEntry(entry.id)" :min-margin="pricing.min_margin" />
+                <button type="button" class="btn btn-ghost btn-sm" @click="emit('diagnose', entry)">
+                  {{ t('admin.accounts.detail.diagnose') }}
+                </button>
+              </div>
             </li>
           </ul>
         </template>
         <StatusState v-else kind="empty" :title="t('admin.accounts.catalogNone')" :description="t('admin.accounts.detail.modelsEmptyHint')" />
-        <RouterLink to="/model-catalog" class="mt-4 inline-flex text-13 font-medium text-af-brand hover:text-af-brand-hover">
-          {{ t('admin.accounts.detail.goToCatalog') }}
+        <RouterLink
+          v-if="account"
+          :to="{ path: '/pricing', query: { channel: String(account.id) } }"
+          class="mt-4 inline-flex text-13 font-medium text-af-brand hover:text-af-brand-hover"
+          data-testid="account-detail-open-pricing"
+        >
+          {{ t('admin.accounts.detail.goToPricing') }}
         </RouterLink>
       </div>
 
@@ -183,6 +192,10 @@ import { durationUntilWords } from '@/components/account/durationWords'
 import { tempUnschedReasonText } from '@/components/account/tempUnschedReason'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import AccountUsagePanel from './AccountUsagePanel.vue'
+import MarginCell from '@/components/admin/pricing/MarginCell.vue'
+import { marginOf } from '@/components/admin/pricing/pricingDraft'
+import { DETAIL_PRICE_MAX_DECIMALS, formatListPrice, perMillion, sharedPriceDecimals } from '@/components/admin/catalog/priceFormat'
+import type { PricingOverview } from '@/api/admin/pricing'
 import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
 import { accountDisplayEmail, antigravityTierKey, getAccountPlanType, getOpenAIAuthMode, openAICompactState } from './accountDisplay'
 import type { AccountDetailTab } from './accountDetail'
@@ -213,6 +226,46 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// ---- 上架模型页签：上游价与毛利取价格页同一份数据（毛利由后端按上游价 ÷ 官方价逐项逐段算）
+const pricing = ref<PricingOverview | null>(null)
+let pricingSeq = 0
+watch(
+  () => [props.tab, props.account?.id] as const,
+  async ([tab, id]) => {
+    if (tab !== 'models' || id == null) return
+    const seq = ++pricingSeq
+    try {
+      const data = await adminAPI.pricing.overview()
+      if (seq === pricingSeq) pricing.value = data
+    } catch {
+      // 拿不到就只列模型名，与改版前一样
+      if (seq === pricingSeq) pricing.value = null
+    }
+  },
+  { immediate: true }
+)
+
+function bindingOf(entryId: number) {
+  const id = props.account?.id
+  return pricing.value?.entries.find((entry) => entry.id === entryId)?.bindings.find((binding) => binding.account_id === id) ?? null
+}
+
+/** 「上游 $0.15 / $0.90」：输入 / 输出，每百万 Token */
+function upstreamPriceText(entryId: number): string {
+  const binding = bindingOf(entryId)
+  if (!binding) return ''
+  const values = [perMillion(binding.input_price), perMillion(binding.output_price)]
+  const decimals = sharedPriceDecimals(values, DETAIL_PRICE_MAX_DECIMALS)
+  return t('admin.accounts.detail.upstreamPrice', {
+    input: formatListPrice(values[0], decimals),
+    output: formatListPrice(values[1], decimals)
+  })
+}
+
+function marginOfEntry(entryId: number): number | null {
+  return marginOf(bindingOf(entryId)?.cost_ratio, pricing.value?.default_user_rate ?? 0)
+}
 
 const tabs = computed<SectionTab[]>(() => [
   { key: 'overview', label: t('admin.accounts.detail.tabs.overview') },

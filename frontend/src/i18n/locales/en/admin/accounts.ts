@@ -22,10 +22,11 @@ export default {
         concurrency: 'Concurrency',
         noProxy: 'No proxy',
         neverExpires: 'Never',
-        modelsHint: 'Catalog models bound to this channel. Use Diagnose to see whether a model can be routed to it right now.',
+        modelsHint: 'Models this channel serves, with upstream price (input / output, per million tokens) and margin. Use Diagnose to see whether a model can be routed to it right now.',
+        upstreamPrice: 'Upstream {input} / {output}',
         modelsEmptyHint: 'Models bound to this channel (with an upstream price) will show up here.',
         diagnose: 'Diagnose',
-        goToCatalog: 'Go to Models',
+        goToPricing: 'Edit serving and upstream prices on the pricing page',
         bannerError: 'Error: {reason}',
         bannerRateLimited: 'Rate limited, resumes in {time}',
         bannerOverloaded: 'Upstream overloaded, resumes in {time}',
@@ -112,6 +113,19 @@ export default {
           scheduling: 'Scheduling & limits',
           advanced: 'Advanced',
           notes: 'Notes'
+        },
+        steps: {
+          upstream: 'Connect upstream',
+          bind: 'Serve models'
+        },
+        // Create, step 3 "Serve models": this channel's block on the pricing page
+        bind: {
+          hint: 'This is the channel\'s block on the pricing page: detected models that are listed in the catalog are already added. Fill in upstream prices (a discount can fill them at once) and save the block. You can also click Done and add them on the pricing page later.',
+          loading: 'Loading prices…',
+          notFound: 'This channel is not on the pricing page.',
+          missing: 'Models the upstream lists but the catalog lacks: click one to create it, then come back to serve it.',
+          unsaved: 'The serving block has unsaved changes: save it or undo them first.',
+          done: 'Done'
         }
       },
       // Add channel, step one: access type and source (2026-09-25)
@@ -146,11 +160,20 @@ export default {
         detected: 'Detected from the address: {vendor}',
         relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
       },
-      protocolProbe: {
-        hint: 'Try all four protocols against this address and key to see what the upstream supports; pick one below to fill the protocol and address above',
-        run: 'Detect protocols',
+      // Upstream detection (2026-10-03): protocols and models in one go
+      upstreamDetect: {
+        hint: 'Tries the four protocols with the address and key, then asks the upstream for its model list; pick a protocol result to fill it in above',
+        run: 'Detect upstream',
         running: 'Detecting…',
-        failed: 'Detection failed',
+        protocolFailed: 'Protocol detection failed',
+        modelsLoading: 'Fetching the upstream model list…',
+        modelsFailed: 'Failed to fetch the model list',
+        summary: 'The upstream lists {total} models: {listed} listed in the catalog · {unlisted} in the catalog but unlisted · {missing} not in the catalog',
+        referenceOnly: 'The list is only a reference: some relays serve models that are not in their own list.',
+        unbound: '{count} of them are not served by this channel yet,',
+        openPricing: 'serve them on the pricing page →'
+      },
+      protocolProbe: {
         costNote: 'Uncertain protocols were confirmed with a 1-token real request using one upstream model, which may cost a tiny amount',
         viaModel: 'confirmed with a 1-token request to {model}',
         status: {
@@ -527,7 +550,7 @@ export default {
         urlPlaceholder: 'https://api.example.com',
         protocolLabel: 'Protocol',
         choose: 'Choose a protocol',
-        empty: 'No protocol yet. Not sure which one the upstream supports? Fill in the address, then use “Detect protocols” below once the key is in.',
+        empty: 'No protocol yet. Not sure which one the upstream supports? Fill in the address, then use “Detect upstream” below once the key is in.',
         loadFailed: 'Failed to load official addresses. Please fill in the address manually.',
         restoreOfficial: 'Use official address',
         errors: {

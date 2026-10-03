@@ -609,6 +609,25 @@ export async function probeUpstreamProtocols(
   return data
 }
 
+export interface ProbeUpstreamModelsParams {
+  /** 表单里的协议地址（只填一个协议） */
+  protocol_endpoints: ProtocolEndpoints
+  /** 新建时填的 key；编辑已有渠道不改 key 时留空，传 account_id 用存着的 key */
+  api_key?: string
+  account_id?: number
+  /** 表单里选的代理 */
+  proxy_id?: number | null
+}
+
+/**
+ * 「检测上游」的模型那一半：用表单里的地址和 key 向上游要模型名单（去重排序，不写库）。
+ * 名单只当参考：有的中转承接的模型并不在自己的 /models 里。
+ */
+export async function probeUpstreamModels(params: ProbeUpstreamModelsParams): Promise<{ models: string[] }> {
+  const { data } = await apiClient.post<{ models: string[] }>('/admin/accounts/models/probe', params)
+  return data
+}
+
 export interface ProtocolDefaultsResponse {
   /** 全部可配置协议，顺序固定。 */
   protocols: UpstreamProtocol[]
@@ -945,6 +964,7 @@ export const accountsAPI = {
   syncUpstreamModels,
   syncUpstreamModelsPreview,
   probeUpstreamProtocols,
+  probeUpstreamModels,
   getProtocolDefaults,
   generateAuthUrl,
   exchangeCode,

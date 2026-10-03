@@ -150,6 +150,7 @@ import {
   marginOf,
   priceRowFrom,
   priceRowToRequest,
+  siblingBindingOf,
   upstreamModelInvalid,
   type BlockState,
   type ChannelDraft,
@@ -255,9 +256,7 @@ const copySources = computed(() => {
 /** 同上游的渠道承接这个模型时的那条承接关系（取第一个） */
 function siblingBinding(entryId: number) {
   const entry = entriesById.value.get(entryId)
-  const host = props.account.upstream_host
-  if (!entry || !host) return null
-  return entry.bindings.find((b) => b.account_id !== props.account.id && props.accounts.find((a) => a.id === b.account_id)?.upstream_host === host) ?? null
+  return entry ? siblingBindingOf(entry, props.account, props.accounts) : null
 }
 
 function copyFrom(sourceId: number) {

@@ -6,7 +6,7 @@
  * 输入 / 输出必填；官方价有的缓存项（缓存读、缓存写 5 分钟 / 1 小时）上游价也必填。
  */
 
-import type { PricingEntry, PricingPrices } from '@/api/admin/pricing'
+import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices } from '@/api/admin/pricing'
 import {
   numberOrNull,
   tokenSegmentErrors,
@@ -267,4 +267,15 @@ export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number)
     filled += 1
   }
   return filled
+}
+
+/** 同一上游（主机名相同）的另一个渠道承接这个模型时的那条承接关系（取第一个）；成品号没有主机名，返回 null */
+export function siblingBindingOf(entry: PricingEntry, account: PricingAccount, accounts: PricingAccount[]): PricingBinding | null {
+  const host = account.upstream_host
+  if (!host) return null
+  return (
+    entry.bindings.find(
+      (binding) => binding.account_id !== account.id && accounts.find((other) => other.id === binding.account_id)?.upstream_host === host
+    ) ?? null
+  )
 }

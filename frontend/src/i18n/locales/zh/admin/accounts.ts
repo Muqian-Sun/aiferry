@@ -22,10 +22,11 @@ export default {
         concurrency: '并发',
         noProxy: '不走代理',
         neverExpires: '永不过期',
-        modelsHint: '模型目录里绑定了这个渠道的模型。点「诊断」看这个模型现在能不能调度到它。',
+        modelsHint: '这个渠道承接的模型，带上游价（输入 / 输出，每百万 Token）和毛利。点「诊断」看这个模型现在能不能调度到它。',
+        upstreamPrice: '上游 {input} / {output}',
         modelsEmptyHint: '给模型绑定这个渠道（配好上游价）后，会出现在这里。',
         diagnose: '诊断',
-        goToCatalog: '去模型页绑定',
+        goToPricing: '去价格页改承接与上游价',
         bannerError: '异常：{reason}',
         bannerRateLimited: '限流中，{time}后自动恢复',
         bannerOverloaded: '上游过载，{time}后恢复',
@@ -112,6 +113,19 @@ export default {
           scheduling: '调度与限额',
           advanced: '高级',
           notes: '备注'
+        },
+        steps: {
+          upstream: '连上游',
+          bind: '承接模型'
+        },
+        // 新建第 3 步「承接模型」：价格页「按渠道」里这个渠道的那一块
+        bind: {
+          hint: '这就是价格页里这个渠道的那一块：检测到的、目录里已上架的模型已经加好，填上游价（可以按折扣一次填）后点这一块的「保存」。不承接也可以直接点「完成」，以后在价格页加。',
+          loading: '正在加载价格…',
+          notFound: '价格页里找不到这个渠道。',
+          missing: '上游列出、目录里没有的模型：点一个新建它，建好回来就能承接。',
+          unsaved: '承接这一块还有没保存的改动：先保存，或点那一块的「撤销」。',
+          done: '完成'
         }
       },
       // 新建渠道第一步：接入方式与来源（2026-09-25）
@@ -146,11 +160,20 @@ export default {
         detected: '按地址识别为 {vendor}',
         relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
       },
+      // 检测上游（2026-10-03）：一次查协议与模型
+      upstreamDetect: {
+        hint: '用填好的地址和 Key 试四种协议，再向上游要模型名单；在协议结果前面选一个，协议和地址会填进上面',
+        run: '检测上游',
+        running: '检测中…',
+        protocolFailed: '协议检测失败',
+        modelsLoading: '正在获取上游的模型名单…',
+        modelsFailed: '模型名单获取失败',
+        summary: '上游列出 {total} 个模型：{listed} 个目录里已上架 · {unlisted} 个目录里未上架 · {missing} 个目录里没有',
+        referenceOnly: '名单只作参考：有的中转承接的模型并不在自己的名单里。',
+        unbound: '其中 {count} 个这个渠道还没承接，',
+        openPricing: '去价格页承接 →'
+      },
       protocolProbe: {
-        hint: '用填好的地址和 Key 逐个试四种协议，看上游支持哪些；在结果前面选一个，协议和地址会填进上面',
-        run: '探测协议',
-        running: '探测中…',
-        failed: '探测失败',
         costNote: '拿不准的协议用上游的一个模型发了 1 token 的真实请求确认，会产生极少费用',
         viaModel: '用 {model} 发 1 token 确认',
         status: {
@@ -649,7 +672,7 @@ export default {
         urlPlaceholder: 'https://api.example.com',
         protocolLabel: '协议',
         choose: '选择协议',
-        empty: '还没有选协议。不确定上游支持哪种，可以先填地址，填好 Key 后用下方「探测协议」看看。',
+        empty: '还没有选协议。不确定上游支持哪种，可以先填地址，填好 Key 后用下方「检测上游」看看。',
         loadFailed: '官方地址加载失败，请手动填写地址。',
         restoreOfficial: '填入官方地址',
         errors: {
