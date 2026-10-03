@@ -153,7 +153,7 @@ export function parseTokenThreshold(text: string): number | null {
   return Number.isSafeInteger(value) && value > 0 ? value : null
 }
 
-export type TokenSegmentError = 'required' | 'integer' | 'notAscending' | 'noPrice'
+export type TokenSegmentError = 'required' | 'integer' | 'notAscending' | 'invalidPrice' | 'noPrice'
 
 /** 每行的校验结果（null = 没问题）：Token 数是正整数、严格大于上一行，且至少填了一个价 */
 export function tokenSegmentErrors(rows: TokenSegmentForm[]): Array<TokenSegmentError | null> {
@@ -163,6 +163,8 @@ export function tokenSegmentErrors(rows: TokenSegmentForm[]): Array<TokenSegment
     if (above == null) return 'integer'
     const previous = index > 0 ? parseTokenThreshold(rows[index - 1].above) : null
     if (previous != null && above <= previous) return 'notAscending'
+    // 价格框填错时回写 NaN（见 PriceInput），不能当成没填
+    if (TOKEN_SEGMENT_PRICE_KEYS.some((key) => Number.isNaN(row[key]))) return 'invalidPrice'
     if (TOKEN_SEGMENT_PRICE_KEYS.every((key) => numberOrNull(row[key]) == null)) return 'noPrice'
     return null
   })

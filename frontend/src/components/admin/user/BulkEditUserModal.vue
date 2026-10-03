@@ -73,8 +73,14 @@
             data-test="enable-rate-multiplier"
           />
         </div>
-        <div v-if="enableRateMultiplier">
+        <!-- 单独设一个倍率，或改回全站默认（清掉单独设的值） -->
+        <div v-if="enableRateMultiplier" class="space-y-2">
+          <label class="flex items-center gap-2 text-sm text-af-ink-2">
+            <input v-model="rateMode" type="radio" value="custom" data-test="rate-mode-custom" />
+            {{ t('admin.users.bulkLimits.rateCustom') }}
+          </label>
           <input
+            v-if="rateMode === 'custom'"
             id="bulk-rate-multiplier"
             v-model="rateMultiplierValue"
             type="number"
@@ -83,6 +89,10 @@
             class="input"
             data-test="rate-multiplier-input"
           />
+          <label class="flex items-center gap-2 text-sm text-af-ink-2">
+            <input v-model="rateMode" type="radio" value="default" data-test="rate-mode-default" />
+            {{ t('admin.users.bulkLimits.rateDefault') }}
+          </label>
         </div>
       </div>
 
@@ -98,7 +108,8 @@
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
         <button type="button" class="btn btn-secondary" @click="emit('close')">
           {{ t('common.cancel') }}
         </button>
@@ -114,6 +125,17 @@
       </div>
     </template>
   </BaseDialog>
+
+  <!-- 确认用页面里的确认框（原来是浏览器自带的 confirm） -->
+  <ConfirmDialog
+    :show="confirming"
+    :title="t('admin.users.bulkLimits.title')"
+    :message="confirmMessage"
+    :confirm-text="t('admin.users.bulkLimits.apply')"
+    :cancel-text="t('common.cancel')"
+    @confirm="applyConfirmed"
+    @cancel="confirming = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -122,7 +144,10 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const props = defineProps<{
   show: boolean
@@ -141,7 +166,12 @@ const enableRateMultiplier = ref(false)
 const concurrencyValue = ref<string | number>('')
 const rpmLimitValue = ref<string | number>('')
 const rateMultiplierValue = ref<string | number>('')
+const rateMode = ref<'custom' | 'default'>('custom')
 const submitting = ref(false)
+const submitError = ref('')
+const confirming = ref(false)
+const confirmMessage = ref('')
+let pendingRequest: BatchUpdateUserLimitsRequest | null = null
 const MAX_BATCH_USER_IDS = 500
 
 const parseLimit = (value: string | number): number | null | undefined => {
@@ -167,8 +197,9 @@ const parseMultiplier = (value: string | number): number | null | undefined => {
   return parsed
 }
 const parsedRateMultiplier = computed(() =>
-  enableRateMultiplier.value ? parseMultiplier(rateMultiplierValue.value) : undefined
+  enableRateMultiplier.value && rateMode.value === 'custom' ? parseMultiplier(rateMultiplierValue.value) : undefined
 )
+const useDefaultRate = computed(() => enableRateMultiplier.value && rateMode.value === 'default')
 const hasInvalidValue = computed(() =>
   parsedConcurrency.value === null || parsedRPMLimit.value === null
 )
@@ -177,6 +208,7 @@ const hasUpdate = computed(() =>
   (parsedConcurrency.value !== undefined && parsedConcurrency.value !== null)
   || (parsedRPMLimit.value !== undefined && parsedRPMLimit.value !== null)
   || (parsedRateMultiplier.value !== undefined && parsedRateMultiplier.value !== null)
+  || useDefaultRate.value
 )
 const selectionTooLarge = computed(() => props.selectedIds.length > MAX_BATCH_USER_IDS)
 const canSubmit = computed(() =>
@@ -195,7 +227,11 @@ const reset = () => {
   concurrencyValue.value = ''
   rpmLimitValue.value = ''
   rateMultiplierValue.value = ''
+  rateMode.value = 'custom'
   submitting.value = false
+  submitError.value = ''
+  confirming.value = false
+  pendingRequest = null
 }
 
 watch(
@@ -231,29 +267,34 @@ const handleSubmit = async () => {
     request.rate_multiplier = parsedRateMultiplier.value
     fields.push(t('admin.users.bulkLimits.rateMultiplierValue', { value: parsedRateMultiplier.value }))
   }
+  if (useDefaultRate.value) {
+    request.use_default_rate_multiplier = true
+    fields.push(t('admin.users.bulkLimits.rateDefaultValue'))
+  }
 
-  const confirmed = window.confirm(
-    t('admin.users.bulkLimits.confirm', {
-      count: props.selectedIds.length,
-      fields: fields.join(', ')
-    })
-  )
-  if (!confirmed) return
+  submitError.value = ''
+  pendingRequest = request
+  confirmMessage.value = t('admin.users.bulkLimits.confirm', {
+    count: props.selectedIds.length,
+    fields: fields.join(', ')
+  })
+  confirming.value = true
+}
 
+async function applyConfirmed() {
+  confirming.value = false
+  const request = pendingRequest
+  if (!request) return
   submitting.value = true
   try {
     const result = await adminAPI.users.batchUpdateLimits(request)
     emit('success', result.affected)
     emit('close')
-  } catch (error: any) {
-    console.error(
-      error.response?.data?.message
-      || error.response?.data?.detail
-      || t('admin.users.bulkLimits.failed'),
-      error
-    )
+  } catch (error) {
+    submitError.value = extractApiErrorMessage(error, t('admin.users.bulkLimits.failed'))
   } finally {
     submitting.value = false
+    pendingRequest = null
   }
 }
 </script>

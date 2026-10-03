@@ -115,6 +115,11 @@ async function save() {
   const entry = props.entry
   if (!entry) return
   submitError.value = ''
+  // 搜索单价填错（负数、不是数字）时输入框回写 NaN，不能当成「没填」静默存成空
+  if (Number.isNaN(form.search_price_per_call)) {
+    submitError.value = t('admin.modelCatalog.dialog.invalidSearchPrice')
+    return
+  }
   // 上架要有渠道承接（muqian 2026-10-03）：只拦「这次从未上架改成上架」，已上架的条目改别的字段照常保存
   if (form.status === 'listed' && entry.status !== 'listed' && (entry.bindings?.length ?? 0) === 0) {
     submitError.value = t('admin.modelCatalog.dialog.listingBlocked.channel')

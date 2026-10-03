@@ -16,7 +16,8 @@
       <div v-if="form.amount > 0" class="rounded-xl border border-af-hairline bg-af-sunken p-4"><div class="flex items-center justify-between text-sm"><span class="text-af-ink-2">{{ t('admin.users.newBalance') }}:</span><span class="font-bold text-af-ink">{{ formatMoneyExact(calculateNewBalance()) }}</span></div></div>
     </form>
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="error" />
         <button @click="$emit('close')" class="btn btn-secondary">{{ t('common.cancel') }}</button>
         <button type="submit" form="balance-form" :disabled="submitting || !form.amount" class="btn" :class="operation === 'add' ? 'btn-primary' : 'btn-danger'">{{ submitting ? t('common.saving') : t('common.confirm') }}</button>
       </div>
@@ -30,14 +31,19 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 // 调余额的对话框要看准到分以下的余额（「全部」扣减会填满精确值），用精确格式而不是汇总的两位小数
 import { formatMoneyExact } from '@/utils/money'
 
 const props = defineProps<{ show: boolean, user: AdminUser | null, operation: 'add' | 'subtract' }>()
-const emit = defineEmits(['close', 'success']); const { t } = useI18n()
+// success 带上改完的用户：编辑弹窗开着时用它刷新「当前余额」
+const emit = defineEmits<{ close: []; success: [user: AdminUser] }>(); const { t } = useI18n()
 
 const submitting = ref(false); const form = reactive({ amount: 0, notes: '' })
-watch(() => props.show, (v) => { if(v) { form.amount = 0; form.notes = '' } })
+// 报错显示在弹窗底部（原来只打到控制台）
+const error = ref('')
+watch(() => props.show, (v) => { if(v) { form.amount = 0; form.notes = ''; error.value = '' } })
 
 // 填入全部余额
 const fillAllBalance = () => {
@@ -54,21 +60,22 @@ const calculateNewBalance = () => {
 }
 const handleBalanceSubmit = async () => {
   if (!props.user) return
+  error.value = ''
   if (!form.amount || form.amount <= 0) {
-    console.error(t('admin.users.amountRequired'))
+    error.value = t('admin.users.amountRequired')
     return
   }
   // 扣减余额时验证金额不超过实际余额
   if (props.operation === 'subtract' && form.amount > props.user.balance) {
-    console.error(t('admin.users.insufficientBalance'))
+    error.value = t('admin.users.insufficientBalance')
     return
   }
   submitting.value = true
   try {
-    await adminAPI.users.updateBalance(props.user.id, form.amount, props.operation, form.notes)
-    emit('success'); emit('close')
-  } catch (e: any) {
-    console.error('Failed to update balance:', e)
+    const updated = await adminAPI.users.updateBalance(props.user.id, form.amount, props.operation, form.notes)
+    emit('success', updated); emit('close')
+  } catch (e) {
+    error.value = extractApiErrorMessage(e, t('admin.users.failedToUpdateBalance'))
   } finally { submitting.value = false }
 }
 </script>

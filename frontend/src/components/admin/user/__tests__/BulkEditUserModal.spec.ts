@@ -37,6 +37,13 @@ const mountModal = () => mount(BulkEditUserModal, {
         props: ['show', 'title'],
         emits: ['close'],
         template: '<div v-if="show"><slot /><slot name="footer" /></div>'
+      },
+      // 确认改成页面里的确认框（原来是 window.confirm）
+      ConfirmDialog: {
+        props: ['show', 'message'],
+        emits: ['confirm', 'cancel'],
+        template:
+          '<div v-if="show" data-test="confirm-dialog" :data-message="message"><button data-test="confirm-ok" @click="$emit(\'confirm\')" /><button data-test="confirm-cancel" @click="$emit(\'cancel\')" /></div>'
       }
     }
   }
@@ -75,13 +82,14 @@ describe('BulkEditUserModal', () => {
   })
 
   it('submits only the enabled RPM field and preserves zero as unlimited', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountModal()
 
     await wrapper.get('[data-test="enable-rpm-limit"]').trigger('click')
     await wrapper.get('[data-test="rpm-limit-input"]').setValue('0')
     expect(wrapper.text()).toContain('admin.users.bulkLimits.unlimited')
     await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[data-test="confirm-dialog"]').attributes('data-message')).toContain('admin.users.bulkLimits.rpmUnlimitedValue')
+    await wrapper.get('[data-test="confirm-ok"]').trigger('click')
     await flushPromises()
 
     expect(batchUpdateLimits).toHaveBeenCalledWith({
@@ -89,19 +97,17 @@ describe('BulkEditUserModal', () => {
       all: false,
       rpm_limit: 0
     })
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining('admin.users.bulkLimits.rpmUnlimitedValue')
-    )
     expect(wrapper.emitted('success')).toEqual([[2]])
   })
 
   it('submits the rate multiplier when enabled', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountModal()
 
     await wrapper.get('[data-test="enable-rate-multiplier"]').trigger('click')
     await wrapper.get('[data-test="rate-multiplier-input"]').setValue('0.5')
     await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('[data-test="confirm-dialog"]').attributes('data-message')).toContain('admin.users.bulkLimits.rateMultiplierValue')
+    await wrapper.get('[data-test="confirm-ok"]').trigger('click')
     await flushPromises()
 
     expect(batchUpdateLimits).toHaveBeenCalledWith({
@@ -109,18 +115,15 @@ describe('BulkEditUserModal', () => {
       all: false,
       rate_multiplier: 0.5
     })
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining('admin.users.bulkLimits.rateMultiplierValue')
-    )
   })
 
   it('omits disabled fields from the request', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountModal()
 
     await wrapper.get('[data-test="enable-concurrency"]').trigger('click')
     await wrapper.get('[data-test="concurrency-input"]').setValue('9')
     await wrapper.get('form').trigger('submit')
+    await wrapper.get('[data-test="confirm-ok"]').trigger('click')
     await flushPromises()
 
     expect(batchUpdateLimits).toHaveBeenCalledWith({
@@ -131,12 +134,12 @@ describe('BulkEditUserModal', () => {
   })
 
   it('does not call the API when overwrite confirmation is cancelled', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     const wrapper = mountModal()
 
     await wrapper.get('[data-test="enable-concurrency"]').trigger('click')
     await wrapper.get('[data-test="concurrency-input"]').setValue('9')
     await wrapper.get('form').trigger('submit')
+    await wrapper.get('[data-test="confirm-cancel"]').trigger('click')
     await flushPromises()
 
     expect(batchUpdateLimits).not.toHaveBeenCalled()
