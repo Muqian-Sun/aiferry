@@ -811,10 +811,6 @@ func (s *GatewayService) buildRecordUsageLog(
 		SubscriptionID:           optionalSubscriptionID(subscription),
 		CreatedAt:                time.Now(),
 	}
-	if usageLog.WebSearchDelegated && usageLog.UpstreamModel == nil {
-		// 代执行的搜索：请求模型记客户端写的，发往上游的模型（Haiku）明确记下来，管理站对账用
-		usageLog.UpstreamModel = optionalTrimmedStringPtr(sentModel)
-	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
 		usageLog.OutputCost = cost.OutputCost

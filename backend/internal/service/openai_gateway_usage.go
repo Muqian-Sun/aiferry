@@ -309,10 +309,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		videoDurationSeconds := NormalizeVideoBillingDurationSecondsOrDefault(result.VideoDurationSeconds)
 		usageLog.VideoDurationSeconds = &videoDurationSeconds
 	}
-	if usageLog.WebSearchDelegated && usageLog.UpstreamModel == nil {
-		// 代执行的搜索：请求模型记客户端写的，发往上游的模型（Haiku）明确记下来，管理站对账用
-		usageLog.UpstreamModel = optionalTrimmedStringPtr(sentModel)
-	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
 		usageLog.ImageInputCost = cost.ImageInputCost
