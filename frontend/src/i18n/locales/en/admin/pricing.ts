@@ -67,6 +67,13 @@ export default {
     noMatch: 'Nothing to add',
     copyFromSibling: 'Copy prices from same upstream',
     fillFromPriceFile: 'Fill official price from price file',
+    discountFill: {
+      trigger: 'Fill by discount',
+      hint: 'Fills empty upstream prices with official price × discount (segments included); filled cells stay as they are. Save the block afterwards.',
+      prefix: 'Official ×',
+      ratio: 'Discount',
+      apply: 'Fill'
+    },
     priceFileMissing: 'The price file has no per-token price for this model',
     marginAfterSave: 'After save',
     gateSkips: 'Profit gate skips',

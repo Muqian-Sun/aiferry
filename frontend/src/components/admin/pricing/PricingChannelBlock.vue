@@ -10,6 +10,7 @@
         <span class="text-13 text-af-ink-3">{{ headerMeta }}</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <DiscountFillMenu :disabled="draft.rows.length === 0" @apply="fillDiscount" />
         <PopoverMenu v-if="copySources.length > 0" width-class="w-64">
           <template #trigger>
             <button type="button" class="btn btn-ghost btn-sm" data-testid="pricing-channel-copy">
@@ -136,12 +137,14 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import PricingPriceRows from './PricingPriceRows.vue'
 import MarginCell from './MarginCell.vue'
 import ChannelStatusCell from './ChannelStatusCell.vue'
+import DiscountFillMenu from './DiscountFillMenu.vue'
 import {
   PRICE_KEYS,
   bindingRowIssues,
   channelDraftChanges,
   cloneChannelDraft,
   emptyPriceRow,
+  fillByDiscount,
   hasRowIssues,
   keyedRowUnchanged,
   marginOf,
@@ -274,6 +277,14 @@ function copyFrom(sourceId: number) {
 
 function removeRow(id: number) {
   draft.value.rows = draft.value.rows.filter((row) => row.id !== id)
+}
+
+/** 各模型行空着的上游价 = 这个模型的官方价 × ratio（官方价只读，按服务端的值算） */
+function fillDiscount(ratio: number) {
+  for (const row of draft.value.rows) {
+    const entry = entriesById.value.get(row.id)
+    if (entry) fillByDiscount(row.prices, priceRowFrom(entry), ratio)
+  }
 }
 
 const issueMessages = computed(() =>

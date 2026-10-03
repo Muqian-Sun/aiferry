@@ -67,6 +67,13 @@ export default {
     noMatch: '没有可加的',
     copyFromSibling: '从同上游的渠道复制价格',
     fillFromPriceFile: '按价格文件带官方价',
+    discountFill: {
+      trigger: '按折扣填上游价',
+      hint: '空着的上游价按「官方价 × 折扣」填上（分段一起折），已填的不动；填完记得保存这一块。',
+      prefix: '官方价 ×',
+      ratio: '折扣',
+      apply: '填入'
+    },
     priceFileMissing: '价格文件里没有这个模型的按 Token 价',
     marginAfterSave: '保存后计算',
     gateSkips: '利润门会跳过',

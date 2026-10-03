@@ -92,29 +92,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       descriptionKey: 'admin.modelCatalog.description'
     }
   },
-  // 新建 / 编辑模型整页（2026-09-25，原来是列表页里的弹窗）；侧栏按前缀匹配，/model-catalog/* 仍点亮「模型」
-  {
-    path: '/model-catalog/new',
-    name: 'AdminModelCatalogCreate',
-    component: () => import('@/views/admin/ModelCatalogEntryFormView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Add Model',
-      titleKey: 'admin.modelCatalog.create'
-    }
-  },
-  {
-    path: '/model-catalog/:id/edit',
-    name: 'AdminModelCatalogEdit',
-    component: () => import('@/views/admin/ModelCatalogEntryFormView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Edit Model',
-      titleKey: 'admin.modelCatalog.edit'
-    }
-  },
   {
     path: '/subscriptions',
     name: 'AdminSubscriptions',

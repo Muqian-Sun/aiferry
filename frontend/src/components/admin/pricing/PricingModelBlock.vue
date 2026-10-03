@@ -16,6 +16,7 @@
         <button type="button" class="btn btn-ghost btn-sm" :disabled="lookingUp" data-testid="pricing-model-lookup" @click="fillFromPriceFile">
           {{ t('admin.pricing.fillFromPriceFile') }}
         </button>
+        <DiscountFillMenu :disabled="draft.rows.length === 0" @apply="fillDiscount" />
         <PopoverMenu width-class="w-64">
           <template #trigger>
             <button type="button" class="btn btn-secondary btn-sm" :disabled="addableAccounts.length === 0" data-testid="pricing-model-add-channel">
@@ -132,12 +133,14 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import PricingPriceRows from './PricingPriceRows.vue'
 import MarginCell from './MarginCell.vue'
 import ChannelStatusCell from './ChannelStatusCell.vue'
+import DiscountFillMenu from './DiscountFillMenu.vue'
 import {
   PRICE_KEYS,
   bindingRowIssues,
   cloneModelDraft,
   clonePriceRow,
   emptyPriceRow,
+  fillByDiscount,
   hasRowIssues,
   keyedRowUnchanged,
   marginOf,
@@ -233,6 +236,11 @@ function addChannel(account: PricingAccount) {
 
 function removeRow(id: number) {
   draft.value.rows = draft.value.rows.filter((row) => row.id !== id)
+}
+
+/** 各渠道行空着的上游价 = 这一块（可能还没保存的）官方价 × ratio */
+function fillDiscount(ratio: number) {
+  for (const row of draft.value.rows) fillByDiscount(row.prices, draft.value.official, ratio)
 }
 
 const issueMessages = computed(() => {
