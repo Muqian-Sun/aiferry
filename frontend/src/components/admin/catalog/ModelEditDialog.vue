@@ -1,7 +1,7 @@
 <template>
   <!--
-    编辑模型（一步）：模型标识、展示名、厂商，内置搜索单价（价格页还不能改它，联网搜索那个 PR 再挪过去），上架。
-    官方价、分段、承接渠道都在价格页改；计费方式、按次 / 图片 / 视频价不在表单里，保存时按条目原值整条写回。
+    编辑模型（一步）：模型标识、展示名、厂商、上架。
+    官方价、分段、联网搜索价、承接渠道都在价格页改；计费方式、按次 / 图片 / 视频价不在表单里，保存时按条目原值整条写回。
   -->
   <BaseDialog :show="show" :title="t('admin.modelCatalog.edit')" width="normal" @close="handleClose">
     <form v-if="entry" id="model-edit-form" class="space-y-4" @submit.prevent="save">
@@ -12,15 +12,6 @@
         v-model:vendor="form.vendor"
         :vendor-options="vendorOptions"
       />
-
-      <div v-if="isToken">
-        <label class="input-label">{{ t('admin.modelCatalog.fields.searchPricePerCall') }}</label>
-        <PriceInput
-          v-model="form.search_price_per_call"
-          :unit="t('admin.modelCatalog.editor.units.perCall')"
-          test-id="model-catalog-search-price-per-call"
-        />
-      </div>
 
       <div>
         <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
@@ -57,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
@@ -66,8 +57,7 @@ import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import ModelBasicsFields from './ModelBasicsFields.vue'
-import PriceInput from './PriceInput.vue'
-import { entryToRequest, numberOrNull } from './entryRequest'
+import { entryToRequest } from './entryRequest'
 
 const props = defineProps<{
   show: boolean
@@ -88,11 +78,8 @@ const form = reactive({
   model_id: '',
   display_name: '',
   vendor: '',
-  search_price_per_call: null as number | null,
   status: 'unlisted' as string
 })
-
-const isToken = computed(() => !props.entry?.billing_mode || props.entry.billing_mode === 'token')
 
 watch(
   [() => props.show, () => props.entry],
@@ -104,7 +91,6 @@ watch(
       model_id: entry.model_id,
       display_name: entry.display_name,
       vendor: entry.vendor,
-      search_price_per_call: entry.search_price_per_call,
       status: entry.status
     })
   },
@@ -115,11 +101,6 @@ async function save() {
   const entry = props.entry
   if (!entry) return
   submitError.value = ''
-  // 搜索单价填错（负数、不是数字）时输入框回写 NaN，不能当成「没填」静默存成空
-  if (Number.isNaN(form.search_price_per_call)) {
-    submitError.value = t('admin.modelCatalog.dialog.invalidSearchPrice')
-    return
-  }
   // 上架要有渠道承接（muqian 2026-10-03）：只拦「这次从未上架改成上架」，已上架的条目改别的字段照常保存
   if (form.status === 'listed' && entry.status !== 'listed' && (entry.bindings?.length ?? 0) === 0) {
     submitError.value = t('admin.modelCatalog.dialog.listingBlocked.channel')
@@ -132,7 +113,6 @@ async function save() {
       model_id: form.model_id.trim(),
       display_name: form.display_name.trim(),
       vendor: form.vendor.trim(),
-      search_price_per_call: numberOrNull(form.search_price_per_call),
       status: form.status
     })
     emit('saved', updated)

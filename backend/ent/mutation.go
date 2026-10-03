@@ -22864,31 +22864,37 @@ func (m *ModelCatalogAliasMutation) ResetEdge(name string) error {
 // ModelCatalogBindingMutation represents an operation that mutates the ModelCatalogBinding nodes in the graph.
 type ModelCatalogBindingMutation struct {
 	config
-	op                      Op
-	typ                     string
-	input_price             *float64
-	addinput_price          *float64
-	output_price            *float64
-	addoutput_price         *float64
-	cache_write_price       *float64
-	addcache_write_price    *float64
-	cache_write_1h_price    *float64
-	addcache_write_1h_price *float64
-	cache_read_price        *float64
-	addcache_read_price     *float64
-	upstream_model          *string
-	price_intervals         *[]domain.PriceSegment
-	appendprice_intervals   []domain.PriceSegment
-	created_at              *time.Time
-	updated_at              *time.Time
-	clearedFields           map[string]struct{}
-	entry                   *int64
-	clearedentry            bool
-	account                 *int64
-	clearedaccount          bool
-	done                    bool
-	oldValue                func(context.Context) (*ModelCatalogBinding, error)
-	predicates              []predicate.ModelCatalogBinding
+	op                       Op
+	typ                      string
+	input_price              *float64
+	addinput_price           *float64
+	output_price             *float64
+	addoutput_price          *float64
+	cache_write_price        *float64
+	addcache_write_price     *float64
+	cache_write_1h_price     *float64
+	addcache_write_1h_price  *float64
+	cache_read_price         *float64
+	addcache_read_price      *float64
+	search_price_per_call    *float64
+	addsearch_price_per_call *float64
+	x_post_price             *float64
+	addx_post_price          *float64
+	x_user_price             *float64
+	addx_user_price          *float64
+	upstream_model           *string
+	price_intervals          *[]domain.PriceSegment
+	appendprice_intervals    []domain.PriceSegment
+	created_at               *time.Time
+	updated_at               *time.Time
+	clearedFields            map[string]struct{}
+	entry                    *int64
+	clearedentry             bool
+	account                  *int64
+	clearedaccount           bool
+	done                     bool
+	oldValue                 func(context.Context) (*ModelCatalogBinding, error)
+	predicates               []predicate.ModelCatalogBinding
 }
 
 var _ ent.Mutation = (*ModelCatalogBindingMutation)(nil)
@@ -23204,6 +23210,165 @@ func (m *ModelCatalogBindingMutation) ResetCacheReadPrice() {
 	delete(m.clearedFields, modelcatalogbinding.FieldCacheReadPrice)
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (m *ModelCatalogBindingMutation) SetSearchPricePerCall(f float64) {
+	m.search_price_per_call = &f
+	m.addsearch_price_per_call = nil
+}
+
+// SearchPricePerCall returns the value of the "search_price_per_call" field in the mutation.
+func (m *ModelCatalogBindingMutation) SearchPricePerCall() (r float64, exists bool) {
+	v := m.search_price_per_call
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddSearchPricePerCall adds f to the "search_price_per_call" field.
+func (m *ModelCatalogBindingMutation) AddSearchPricePerCall(f float64) {
+	if m.addsearch_price_per_call != nil {
+		*m.addsearch_price_per_call += f
+	} else {
+		m.addsearch_price_per_call = &f
+	}
+}
+
+// AddedSearchPricePerCall returns the value that was added to the "search_price_per_call" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedSearchPricePerCall() (r float64, exists bool) {
+	v := m.addsearch_price_per_call
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (m *ModelCatalogBindingMutation) ClearSearchPricePerCall() {
+	m.search_price_per_call = nil
+	m.addsearch_price_per_call = nil
+	m.clearedFields[modelcatalogbinding.FieldSearchPricePerCall] = struct{}{}
+}
+
+// SearchPricePerCallCleared returns if the "search_price_per_call" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) SearchPricePerCallCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldSearchPricePerCall]
+	return ok
+}
+
+// ResetSearchPricePerCall resets all changes to the "search_price_per_call" field.
+func (m *ModelCatalogBindingMutation) ResetSearchPricePerCall() {
+	m.search_price_per_call = nil
+	m.addsearch_price_per_call = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldSearchPricePerCall)
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (m *ModelCatalogBindingMutation) SetXPostPrice(f float64) {
+	m.x_post_price = &f
+	m.addx_post_price = nil
+}
+
+// XPostPrice returns the value of the "x_post_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) XPostPrice() (r float64, exists bool) {
+	v := m.x_post_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddXPostPrice adds f to the "x_post_price" field.
+func (m *ModelCatalogBindingMutation) AddXPostPrice(f float64) {
+	if m.addx_post_price != nil {
+		*m.addx_post_price += f
+	} else {
+		m.addx_post_price = &f
+	}
+}
+
+// AddedXPostPrice returns the value that was added to the "x_post_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedXPostPrice() (r float64, exists bool) {
+	v := m.addx_post_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (m *ModelCatalogBindingMutation) ClearXPostPrice() {
+	m.x_post_price = nil
+	m.addx_post_price = nil
+	m.clearedFields[modelcatalogbinding.FieldXPostPrice] = struct{}{}
+}
+
+// XPostPriceCleared returns if the "x_post_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) XPostPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldXPostPrice]
+	return ok
+}
+
+// ResetXPostPrice resets all changes to the "x_post_price" field.
+func (m *ModelCatalogBindingMutation) ResetXPostPrice() {
+	m.x_post_price = nil
+	m.addx_post_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldXPostPrice)
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (m *ModelCatalogBindingMutation) SetXUserPrice(f float64) {
+	m.x_user_price = &f
+	m.addx_user_price = nil
+}
+
+// XUserPrice returns the value of the "x_user_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) XUserPrice() (r float64, exists bool) {
+	v := m.x_user_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddXUserPrice adds f to the "x_user_price" field.
+func (m *ModelCatalogBindingMutation) AddXUserPrice(f float64) {
+	if m.addx_user_price != nil {
+		*m.addx_user_price += f
+	} else {
+		m.addx_user_price = &f
+	}
+}
+
+// AddedXUserPrice returns the value that was added to the "x_user_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedXUserPrice() (r float64, exists bool) {
+	v := m.addx_user_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (m *ModelCatalogBindingMutation) ClearXUserPrice() {
+	m.x_user_price = nil
+	m.addx_user_price = nil
+	m.clearedFields[modelcatalogbinding.FieldXUserPrice] = struct{}{}
+}
+
+// XUserPriceCleared returns if the "x_user_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) XUserPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldXUserPrice]
+	return ok
+}
+
+// ResetXUserPrice resets all changes to the "x_user_price" field.
+func (m *ModelCatalogBindingMutation) ResetXUserPrice() {
+	m.x_user_price = nil
+	m.addx_user_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldXUserPrice)
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (m *ModelCatalogBindingMutation) SetUpstreamModel(s string) {
 	m.upstream_model = &s
@@ -23383,7 +23548,7 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 14)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
@@ -23404,6 +23569,15 @@ func (m *ModelCatalogBindingMutation) Fields() []string {
 	}
 	if m.cache_read_price != nil {
 		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
+	}
+	if m.search_price_per_call != nil {
+		fields = append(fields, modelcatalogbinding.FieldSearchPricePerCall)
+	}
+	if m.x_post_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldXPostPrice)
+	}
+	if m.x_user_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
 	}
 	if m.upstream_model != nil {
 		fields = append(fields, modelcatalogbinding.FieldUpstreamModel)
@@ -23439,6 +23613,12 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheWrite1hPrice()
 	case modelcatalogbinding.FieldCacheReadPrice:
 		return m.CacheReadPrice()
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		return m.SearchPricePerCall()
+	case modelcatalogbinding.FieldXPostPrice:
+		return m.XPostPrice()
+	case modelcatalogbinding.FieldXUserPrice:
+		return m.XUserPrice()
 	case modelcatalogbinding.FieldUpstreamModel:
 		return m.UpstreamModel()
 	case modelcatalogbinding.FieldPriceIntervals:
@@ -23512,6 +23692,27 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetCacheReadPrice(v)
 		return nil
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSearchPricePerCall(v)
+		return nil
+	case modelcatalogbinding.FieldXPostPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetXPostPrice(v)
+		return nil
+	case modelcatalogbinding.FieldXUserPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetXUserPrice(v)
+		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		v, ok := value.(string)
 		if !ok {
@@ -23563,6 +23764,15 @@ func (m *ModelCatalogBindingMutation) AddedFields() []string {
 	if m.addcache_read_price != nil {
 		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
 	}
+	if m.addsearch_price_per_call != nil {
+		fields = append(fields, modelcatalogbinding.FieldSearchPricePerCall)
+	}
+	if m.addx_post_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldXPostPrice)
+	}
+	if m.addx_user_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
+	}
 	return fields
 }
 
@@ -23581,6 +23791,12 @@ func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) 
 		return m.AddedCacheWrite1hPrice()
 	case modelcatalogbinding.FieldCacheReadPrice:
 		return m.AddedCacheReadPrice()
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		return m.AddedSearchPricePerCall()
+	case modelcatalogbinding.FieldXPostPrice:
+		return m.AddedXPostPrice()
+	case modelcatalogbinding.FieldXUserPrice:
+		return m.AddedXUserPrice()
 	}
 	return nil, false
 }
@@ -23625,6 +23841,27 @@ func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) err
 		}
 		m.AddCacheReadPrice(v)
 		return nil
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSearchPricePerCall(v)
+		return nil
+	case modelcatalogbinding.FieldXPostPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddXPostPrice(v)
+		return nil
+	case modelcatalogbinding.FieldXUserPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddXUserPrice(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding numeric field %s", name)
 }
@@ -23641,6 +23878,15 @@ func (m *ModelCatalogBindingMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(modelcatalogbinding.FieldCacheReadPrice) {
 		fields = append(fields, modelcatalogbinding.FieldCacheReadPrice)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldSearchPricePerCall) {
+		fields = append(fields, modelcatalogbinding.FieldSearchPricePerCall)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldXPostPrice) {
+		fields = append(fields, modelcatalogbinding.FieldXPostPrice)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldXUserPrice) {
+		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
 	}
 	return fields
 }
@@ -23664,6 +23910,15 @@ func (m *ModelCatalogBindingMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldCacheReadPrice:
 		m.ClearCacheReadPrice()
+		return nil
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		m.ClearSearchPricePerCall()
+		return nil
+	case modelcatalogbinding.FieldXPostPrice:
+		m.ClearXPostPrice()
+		return nil
+	case modelcatalogbinding.FieldXUserPrice:
+		m.ClearXUserPrice()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding nullable field %s", name)
@@ -23693,6 +23948,15 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldCacheReadPrice:
 		m.ResetCacheReadPrice()
+		return nil
+	case modelcatalogbinding.FieldSearchPricePerCall:
+		m.ResetSearchPricePerCall()
+		return nil
+	case modelcatalogbinding.FieldXPostPrice:
+		m.ResetXPostPrice()
+		return nil
+	case modelcatalogbinding.FieldXUserPrice:
+		m.ResetXUserPrice()
 		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		m.ResetUpstreamModel()
@@ -23842,6 +24106,10 @@ type ModelCatalogEntryMutation struct {
 	addper_request_price               *float64
 	search_price_per_call              *float64
 	addsearch_price_per_call           *float64
+	x_post_price                       *float64
+	addx_post_price                    *float64
+	x_user_price                       *float64
+	addx_user_price                    *float64
 	max_reasoning_effort_multiplier    *float64
 	addmax_reasoning_effort_multiplier *float64
 	notes                              *string
@@ -25148,6 +25416,146 @@ func (m *ModelCatalogEntryMutation) ResetSearchPricePerCall() {
 	delete(m.clearedFields, modelcatalogentry.FieldSearchPricePerCall)
 }
 
+// SetXPostPrice sets the "x_post_price" field.
+func (m *ModelCatalogEntryMutation) SetXPostPrice(f float64) {
+	m.x_post_price = &f
+	m.addx_post_price = nil
+}
+
+// XPostPrice returns the value of the "x_post_price" field in the mutation.
+func (m *ModelCatalogEntryMutation) XPostPrice() (r float64, exists bool) {
+	v := m.x_post_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldXPostPrice returns the old "x_post_price" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldXPostPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldXPostPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldXPostPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldXPostPrice: %w", err)
+	}
+	return oldValue.XPostPrice, nil
+}
+
+// AddXPostPrice adds f to the "x_post_price" field.
+func (m *ModelCatalogEntryMutation) AddXPostPrice(f float64) {
+	if m.addx_post_price != nil {
+		*m.addx_post_price += f
+	} else {
+		m.addx_post_price = &f
+	}
+}
+
+// AddedXPostPrice returns the value that was added to the "x_post_price" field in this mutation.
+func (m *ModelCatalogEntryMutation) AddedXPostPrice() (r float64, exists bool) {
+	v := m.addx_post_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (m *ModelCatalogEntryMutation) ClearXPostPrice() {
+	m.x_post_price = nil
+	m.addx_post_price = nil
+	m.clearedFields[modelcatalogentry.FieldXPostPrice] = struct{}{}
+}
+
+// XPostPriceCleared returns if the "x_post_price" field was cleared in this mutation.
+func (m *ModelCatalogEntryMutation) XPostPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogentry.FieldXPostPrice]
+	return ok
+}
+
+// ResetXPostPrice resets all changes to the "x_post_price" field.
+func (m *ModelCatalogEntryMutation) ResetXPostPrice() {
+	m.x_post_price = nil
+	m.addx_post_price = nil
+	delete(m.clearedFields, modelcatalogentry.FieldXPostPrice)
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (m *ModelCatalogEntryMutation) SetXUserPrice(f float64) {
+	m.x_user_price = &f
+	m.addx_user_price = nil
+}
+
+// XUserPrice returns the value of the "x_user_price" field in the mutation.
+func (m *ModelCatalogEntryMutation) XUserPrice() (r float64, exists bool) {
+	v := m.x_user_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldXUserPrice returns the old "x_user_price" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldXUserPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldXUserPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldXUserPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldXUserPrice: %w", err)
+	}
+	return oldValue.XUserPrice, nil
+}
+
+// AddXUserPrice adds f to the "x_user_price" field.
+func (m *ModelCatalogEntryMutation) AddXUserPrice(f float64) {
+	if m.addx_user_price != nil {
+		*m.addx_user_price += f
+	} else {
+		m.addx_user_price = &f
+	}
+}
+
+// AddedXUserPrice returns the value that was added to the "x_user_price" field in this mutation.
+func (m *ModelCatalogEntryMutation) AddedXUserPrice() (r float64, exists bool) {
+	v := m.addx_user_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (m *ModelCatalogEntryMutation) ClearXUserPrice() {
+	m.x_user_price = nil
+	m.addx_user_price = nil
+	m.clearedFields[modelcatalogentry.FieldXUserPrice] = struct{}{}
+}
+
+// XUserPriceCleared returns if the "x_user_price" field was cleared in this mutation.
+func (m *ModelCatalogEntryMutation) XUserPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogentry.FieldXUserPrice]
+	return ok
+}
+
+// ResetXUserPrice resets all changes to the "x_user_price" field.
+func (m *ModelCatalogEntryMutation) ResetXUserPrice() {
+	m.x_user_price = nil
+	m.addx_user_price = nil
+	delete(m.clearedFields, modelcatalogentry.FieldXUserPrice)
+}
+
 // SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
 func (m *ModelCatalogEntryMutation) SetMaxReasoningEffortMultiplier(f float64) {
 	m.max_reasoning_effort_multiplier = &f
@@ -25409,7 +25817,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 25)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -25473,6 +25881,12 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	if m.search_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
 	}
+	if m.x_post_price != nil {
+		fields = append(fields, modelcatalogentry.FieldXPostPrice)
+	}
+	if m.x_user_price != nil {
+		fields = append(fields, modelcatalogentry.FieldXUserPrice)
+	}
 	if m.max_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
 	}
@@ -25529,6 +25943,10 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.PerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.SearchPricePerCall()
+	case modelcatalogentry.FieldXPostPrice:
+		return m.XPostPrice()
+	case modelcatalogentry.FieldXUserPrice:
+		return m.XUserPrice()
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.MaxReasoningEffortMultiplier()
 	case modelcatalogentry.FieldNotes:
@@ -25584,6 +26002,10 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldPerRequestPrice(ctx)
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.OldSearchPricePerCall(ctx)
+	case modelcatalogentry.FieldXPostPrice:
+		return m.OldXPostPrice(ctx)
+	case modelcatalogentry.FieldXUserPrice:
+		return m.OldXUserPrice(ctx)
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.OldMaxReasoningEffortMultiplier(ctx)
 	case modelcatalogentry.FieldNotes:
@@ -25744,6 +26166,20 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetSearchPricePerCall(v)
 		return nil
+	case modelcatalogentry.FieldXPostPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetXPostPrice(v)
+		return nil
+	case modelcatalogentry.FieldXUserPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetXUserPrice(v)
+		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -25802,6 +26238,12 @@ func (m *ModelCatalogEntryMutation) AddedFields() []string {
 	if m.addsearch_price_per_call != nil {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
 	}
+	if m.addx_post_price != nil {
+		fields = append(fields, modelcatalogentry.FieldXPostPrice)
+	}
+	if m.addx_user_price != nil {
+		fields = append(fields, modelcatalogentry.FieldXUserPrice)
+	}
 	if m.addmax_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
 	}
@@ -25837,6 +26279,10 @@ func (m *ModelCatalogEntryMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPerRequestPrice()
 	case modelcatalogentry.FieldSearchPricePerCall:
 		return m.AddedSearchPricePerCall()
+	case modelcatalogentry.FieldXPostPrice:
+		return m.AddedXPostPrice()
+	case modelcatalogentry.FieldXUserPrice:
+		return m.AddedXUserPrice()
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.AddedMaxReasoningEffortMultiplier()
 	}
@@ -25932,6 +26378,20 @@ func (m *ModelCatalogEntryMutation) AddField(name string, value ent.Value) error
 		}
 		m.AddSearchPricePerCall(v)
 		return nil
+	case modelcatalogentry.FieldXPostPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddXPostPrice(v)
+		return nil
+	case modelcatalogentry.FieldXUserPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddXUserPrice(v)
+		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -25985,6 +26445,12 @@ func (m *ModelCatalogEntryMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(modelcatalogentry.FieldSearchPricePerCall) {
 		fields = append(fields, modelcatalogentry.FieldSearchPricePerCall)
+	}
+	if m.FieldCleared(modelcatalogentry.FieldXPostPrice) {
+		fields = append(fields, modelcatalogentry.FieldXPostPrice)
+	}
+	if m.FieldCleared(modelcatalogentry.FieldXUserPrice) {
+		fields = append(fields, modelcatalogentry.FieldXUserPrice)
 	}
 	if m.FieldCleared(modelcatalogentry.FieldMaxReasoningEffortMultiplier) {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
@@ -26044,6 +26510,12 @@ func (m *ModelCatalogEntryMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ClearSearchPricePerCall()
+		return nil
+	case modelcatalogentry.FieldXPostPrice:
+		m.ClearXPostPrice()
+		return nil
+	case modelcatalogentry.FieldXUserPrice:
+		m.ClearXUserPrice()
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ClearMaxReasoningEffortMultiplier()
@@ -26121,6 +26593,12 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogentry.FieldSearchPricePerCall:
 		m.ResetSearchPricePerCall()
+		return nil
+	case modelcatalogentry.FieldXPostPrice:
+		m.ResetXPostPrice()
+		return nil
+	case modelcatalogentry.FieldXUserPrice:
+		m.ResetXUserPrice()
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ResetMaxReasoningEffortMultiplier()

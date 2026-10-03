@@ -33,6 +33,12 @@ type ModelCatalogBinding struct {
 	CacheWrite1hPrice *float64 `json:"cache_write_1h_price,omitempty"`
 	// CacheReadPrice holds the value of the "cache_read_price" field.
 	CacheReadPrice *float64 `json:"cache_read_price,omitempty"`
+	// SearchPricePerCall holds the value of the "search_price_per_call" field.
+	SearchPricePerCall *float64 `json:"search_price_per_call,omitempty"`
+	// XPostPrice holds the value of the "x_post_price" field.
+	XPostPrice *float64 `json:"x_post_price,omitempty"`
+	// XUserPrice holds the value of the "x_user_price" field.
+	XUserPrice *float64 `json:"x_user_price,omitempty"`
 	// UpstreamModel holds the value of the "upstream_model" field.
 	UpstreamModel string `json:"upstream_model,omitempty"`
 	// PriceIntervals holds the value of the "price_intervals" field.
@@ -87,7 +93,7 @@ func (*ModelCatalogBinding) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case modelcatalogbinding.FieldPriceIntervals:
 			values[i] = new([]byte)
-		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice:
+		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice, modelcatalogbinding.FieldSearchPricePerCall, modelcatalogbinding.FieldXPostPrice, modelcatalogbinding.FieldXUserPrice:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogbinding.FieldEntryID, modelcatalogbinding.FieldAccountID:
 			values[i] = new(sql.NullInt64)
@@ -154,6 +160,27 @@ func (_m *ModelCatalogBinding) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.CacheReadPrice = new(float64)
 				*_m.CacheReadPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldSearchPricePerCall:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field search_price_per_call", values[i])
+			} else if value.Valid {
+				_m.SearchPricePerCall = new(float64)
+				*_m.SearchPricePerCall = value.Float64
+			}
+		case modelcatalogbinding.FieldXPostPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field x_post_price", values[i])
+			} else if value.Valid {
+				_m.XPostPrice = new(float64)
+				*_m.XPostPrice = value.Float64
+			}
+		case modelcatalogbinding.FieldXUserPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field x_user_price", values[i])
+			} else if value.Valid {
+				_m.XUserPrice = new(float64)
+				*_m.XUserPrice = value.Float64
 			}
 		case modelcatalogbinding.FieldUpstreamModel:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -250,6 +277,21 @@ func (_m *ModelCatalogBinding) String() string {
 	builder.WriteString(", ")
 	if v := _m.CacheReadPrice; v != nil {
 		builder.WriteString("cache_read_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.SearchPricePerCall; v != nil {
+		builder.WriteString("search_price_per_call=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.XPostPrice; v != nil {
+		builder.WriteString("x_post_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.XUserPrice; v != nil {
+		builder.WriteString("x_user_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

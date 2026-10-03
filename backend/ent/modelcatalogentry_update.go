@@ -463,6 +463,60 @@ func (_u *ModelCatalogEntryUpdate) ClearSearchPricePerCall() *ModelCatalogEntryU
 	return _u
 }
 
+// SetXPostPrice sets the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdate) SetXPostPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.ResetXPostPrice()
+	_u.mutation.SetXPostPrice(v)
+	return _u
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableXPostPrice(v *float64) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetXPostPrice(*v)
+	}
+	return _u
+}
+
+// AddXPostPrice adds value to the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdate) AddXPostPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddXPostPrice(v)
+	return _u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdate) ClearXPostPrice() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearXPostPrice()
+	return _u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdate) SetXUserPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.ResetXUserPrice()
+	_u.mutation.SetXUserPrice(v)
+	return _u
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableXUserPrice(v *float64) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetXUserPrice(*v)
+	}
+	return _u
+}
+
+// AddXUserPrice adds value to the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdate) AddXUserPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddXUserPrice(v)
+	return _u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdate) ClearXUserPrice() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearXUserPrice()
+	return _u
+}
+
 // SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
 func (_u *ModelCatalogEntryUpdate) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetMaxReasoningEffortMultiplier()
@@ -809,6 +863,24 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXPostPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XPostPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXUserPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XUserPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
@@ -1379,6 +1451,60 @@ func (_u *ModelCatalogEntryUpdateOne) ClearSearchPricePerCall() *ModelCatalogEnt
 	return _u
 }
 
+// SetXPostPrice sets the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdateOne) SetXPostPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.ResetXPostPrice()
+	_u.mutation.SetXPostPrice(v)
+	return _u
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableXPostPrice(v *float64) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetXPostPrice(*v)
+	}
+	return _u
+}
+
+// AddXPostPrice adds value to the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdateOne) AddXPostPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddXPostPrice(v)
+	return _u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearXPostPrice() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearXPostPrice()
+	return _u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdateOne) SetXUserPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.ResetXUserPrice()
+	_u.mutation.SetXUserPrice(v)
+	return _u
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableXUserPrice(v *float64) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetXUserPrice(*v)
+	}
+	return _u
+}
+
+// AddXUserPrice adds value to the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdateOne) AddXUserPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddXUserPrice(v)
+	return _u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearXUserPrice() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearXUserPrice()
+	return _u
+}
+
 // SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
 func (_u *ModelCatalogEntryUpdateOne) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogEntryUpdateOne {
 	_u.mutation.ResetMaxReasoningEffortMultiplier()
@@ -1755,6 +1881,24 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.SearchPricePerCallCleared() {
 		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXPostPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XPostPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldXPostPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXUserPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XUserPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldXUserPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)

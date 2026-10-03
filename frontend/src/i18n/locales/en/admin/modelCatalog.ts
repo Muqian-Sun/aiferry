@@ -50,8 +50,7 @@ export default {
       vendorCustomPlaceholder: 'Vendor tag, e.g. anthropic',
       modelIdPlaceholder: 'e.g. claude-sonnet-4-5',
       units: {
-        perMillion: '$ / 1M tokens',
-        perCall: '$ / call'
+        perMillion: '$ / 1M tokens'
       },
       lookup: {
         loading: 'Looking up the price file…'
@@ -74,7 +73,6 @@ export default {
         error: 'Price lookup failed; fill the official price in the next step.'
       },
       createFailed: 'Failed to create the model',
-      invalidSearchPrice: 'The search price is invalid (non-negative numbers only)',
       exists: 'This model is already in the catalog: edit or list it from the list.',
       saveFailed: 'Failed to save the model',
       pricingHint: 'This is the model\'s block on the pricing page: edit the official price here; adding a channel makes it serve this model. Save the block when done.',
@@ -186,8 +184,7 @@ export default {
       vendor: 'Vendor',
       billingMode: 'Billing mode',
       status: 'Listing status',
-      resources: 'Serving channels',
-      searchPricePerCall: 'Built-in search price per call (empty = built-in 0.01)'
+      resources: 'Serving channels'
     },
     segments: {
       abovePlaceholder: 'e.g. 272000',

@@ -39,7 +39,10 @@ export interface ModelCatalogEntry {
   audio_input_price?: number | null
   audio_output_price?: number | null
   per_request_price: number | null
+  /** 联网搜索官方价（$/次、$/条）：在价格页改；X 帖子 / 主页只有 xAI 模型有 */
   search_price_per_call: number | null
+  x_post_price?: number | null
+  x_user_price?: number | null
   max_reasoning_effort_multiplier: number | null
   notes?: string
   intervals: PricingInterval[]
@@ -116,6 +119,8 @@ export interface ModelCatalogEntryRequest {
   audio_output_price?: number | null
   per_request_price?: number | null
   search_price_per_call?: number | null
+  x_post_price?: number | null
+  x_user_price?: number | null
   max_reasoning_effort_multiplier?: number | null
   notes?: string | null
   intervals?: PricingInterval[]

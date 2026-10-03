@@ -337,7 +337,7 @@ func TestGatewayRecordUsageCostAddsWebSearchWithoutRate(t *testing.T) {
 	require.InDelta(t, 0.021+0.03, cost.ActualCost, 1e-9)
 }
 
-// 渠道成本里的搜索部分：承接关系上还没有搜索上游价，按官方搜索价记。
+// 渠道成本里的搜索部分：承接关系上的搜索上游价没填时按官方搜索价记。
 func TestRecordUsageAccountCostIncludesWebSearch(t *testing.T) {
 	t.Parallel()
 
@@ -391,4 +391,67 @@ func TestHandleNonStreamingResponseParsesWebSearchRequests(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, usage.WebSearchRequests)
 	require.Equal(t, 1, usage.webSearchCalls())
+}
+
+// 承接关系上填了搜索上游价就按它记渠道成本（xAI 三项分别覆盖，没填的项按官方价）。
+func TestRecordUsageAccountCostUsesBindingSearchPrices(t *testing.T) {
+	t.Parallel()
+
+	bs := newTestBillingService()
+	resolver := newUpstreamCostTestResolver(t, bs, ModelCatalogEntry{
+		ID: 1, ModelID: "grok-4.5", Vendor: "xai", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
+		InputPrice: testPtrFloat64(2e-6), OutputPrice: testPtrFloat64(6e-6), ManagedBy: ModelCatalogManagedByAdmin,
+		XUserPrice: testPtrFloat64(0.02),
+	}, ModelCatalogBinding{AccountID: 7, InputPrice: 0, OutputPrice: 0, SearchPricePerCall: testPtrFloat64(0.001), XPostPrice: testPtrFloat64(0.002)})
+	usage := WebSearchUsage{WebSearchCalls: 3, XPostsFetched: 10, XUsersFetched: 2}
+	// 上游：web 3 × 0.001 + 帖子 10 × 0.002 + 主页 2 × 0.02（上游没填，按官方条目价）= 0.063
+	got := recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"grok-4.5"}, UsageTokens{}, usage, time.Time{}, "")
+	require.InDelta(t, 0.063, got, 1e-12)
+
+	// 官方价：web 按 xAI 公开价 0.005、帖子 0.005（公开价）、主页 0.02（条目设的）
+	entry := &ModelCatalogEntry{Vendor: "xai", XUserPrice: testPtrFloat64(0.02)}
+	require.Equal(t, webSearchPrices{PerCall: 0.005, PerXPost: 0.005, PerXUser: 0.02}, officialWebSearchPrices(entry))
+	require.Equal(t, webSearchPrices{PerCall: 0.001, PerXPost: 0.005, PerXUser: 0.02},
+		upstreamWebSearchPrices(entry, &ModelCatalogBinding{SearchPricePerCall: testPtrFloat64(0.001)}))
+}
+
+func TestWebSearchDefaults(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, &WebSearchDefaultPrices{PerCall: 0.01}, WebSearchDefaults(&ModelCatalogEntry{Vendor: "anthropic"}))
+	// 条目自己设的价不影响「厂商公开价」
+	require.Equal(t, &WebSearchDefaultPrices{PerCall: 0.01}, WebSearchDefaults(&ModelCatalogEntry{Vendor: "openai", SearchPricePerCall: testPtrFloat64(0.03)}))
+	require.Equal(t, &WebSearchDefaultPrices{PerCall: 0.005, PerXPost: testPtrFloat64(0.005), PerXUser: testPtrFloat64(0.01)}, WebSearchDefaults(&ModelCatalogEntry{Vendor: "xai"}))
+	require.Nil(t, WebSearchDefaults(&ModelCatalogEntry{Vendor: "deepseek"}))
+}
+
+// 承接校验：搜索上游价不能为负；官方价显式设了的项上游价必须填，官方没设（用厂商公开价）的可不填。
+func TestBindingValidateSearchPrices(t *testing.T) {
+	t.Parallel()
+
+	entry := &ModelCatalogEntry{ModelID: "grok-4.5", Vendor: "xai", BillingMode: BillingModeToken,
+		InputPrice: testPtrFloat64(2e-6), OutputPrice: testPtrFloat64(6e-6)}
+	binding := func() *ModelCatalogBinding { return &ModelCatalogBinding{InputPrice: 1e-6, OutputPrice: 2e-6} }
+
+	require.NoError(t, binding().ValidateAgainst(entry), "官方没设搜索价，上游可不填")
+
+	negative := binding()
+	negative.XPostPrice = testPtrFloat64(-0.001)
+	require.ErrorContains(t, negative.ValidateAgainst(entry), "x_post_price must be >= 0")
+
+	withOfficial := *entry
+	withOfficial.SearchPricePerCall = testPtrFloat64(0.004)
+	withOfficial.XUserPrice = testPtrFloat64(0.01)
+	missing := binding()
+	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream search_price_per_call is required")
+	missing.SearchPricePerCall = testPtrFloat64(0.003)
+	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream x_user_price is required")
+	missing.XUserPrice = testPtrFloat64(0.008)
+	require.NoError(t, missing.ValidateAgainst(&withOfficial))
+
+	// 官方搜索价改了算运营者定价（种子不再刷新它）
+	changed := withOfficial
+	changed.SearchPricePerCall = testPtrFloat64(0.006)
+	require.False(t, sameOfficialPrices(&withOfficial, &changed))
+	require.True(t, sameOfficialPrices(&withOfficial, &withOfficial))
 }

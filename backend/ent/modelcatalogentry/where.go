@@ -155,6 +155,16 @@ func SearchPricePerCall(v float64) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldSearchPricePerCall, v))
 }
 
+// XPostPrice applies equality check predicate on the "x_post_price" field. It's identical to XPostPriceEQ.
+func XPostPrice(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldXPostPrice, v))
+}
+
+// XUserPrice applies equality check predicate on the "x_user_price" field. It's identical to XUserPriceEQ.
+func XUserPrice(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldXUserPrice, v))
+}
+
 // MaxReasoningEffortMultiplier applies equality check predicate on the "max_reasoning_effort_multiplier" field. It's identical to MaxReasoningEffortMultiplierEQ.
 func MaxReasoningEffortMultiplier(v float64) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldMaxReasoningEffortMultiplier, v))
@@ -1243,6 +1253,106 @@ func SearchPricePerCallIsNil() predicate.ModelCatalogEntry {
 // SearchPricePerCallNotNil applies the NotNil predicate on the "search_price_per_call" field.
 func SearchPricePerCallNotNil() predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldSearchPricePerCall))
+}
+
+// XPostPriceEQ applies the EQ predicate on the "x_post_price" field.
+func XPostPriceEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldXPostPrice, v))
+}
+
+// XPostPriceNEQ applies the NEQ predicate on the "x_post_price" field.
+func XPostPriceNEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldXPostPrice, v))
+}
+
+// XPostPriceIn applies the In predicate on the "x_post_price" field.
+func XPostPriceIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldXPostPrice, vs...))
+}
+
+// XPostPriceNotIn applies the NotIn predicate on the "x_post_price" field.
+func XPostPriceNotIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldXPostPrice, vs...))
+}
+
+// XPostPriceGT applies the GT predicate on the "x_post_price" field.
+func XPostPriceGT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldXPostPrice, v))
+}
+
+// XPostPriceGTE applies the GTE predicate on the "x_post_price" field.
+func XPostPriceGTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldXPostPrice, v))
+}
+
+// XPostPriceLT applies the LT predicate on the "x_post_price" field.
+func XPostPriceLT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldXPostPrice, v))
+}
+
+// XPostPriceLTE applies the LTE predicate on the "x_post_price" field.
+func XPostPriceLTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldXPostPrice, v))
+}
+
+// XPostPriceIsNil applies the IsNil predicate on the "x_post_price" field.
+func XPostPriceIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldXPostPrice))
+}
+
+// XPostPriceNotNil applies the NotNil predicate on the "x_post_price" field.
+func XPostPriceNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldXPostPrice))
+}
+
+// XUserPriceEQ applies the EQ predicate on the "x_user_price" field.
+func XUserPriceEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldXUserPrice, v))
+}
+
+// XUserPriceNEQ applies the NEQ predicate on the "x_user_price" field.
+func XUserPriceNEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldXUserPrice, v))
+}
+
+// XUserPriceIn applies the In predicate on the "x_user_price" field.
+func XUserPriceIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldXUserPrice, vs...))
+}
+
+// XUserPriceNotIn applies the NotIn predicate on the "x_user_price" field.
+func XUserPriceNotIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldXUserPrice, vs...))
+}
+
+// XUserPriceGT applies the GT predicate on the "x_user_price" field.
+func XUserPriceGT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldXUserPrice, v))
+}
+
+// XUserPriceGTE applies the GTE predicate on the "x_user_price" field.
+func XUserPriceGTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldXUserPrice, v))
+}
+
+// XUserPriceLT applies the LT predicate on the "x_user_price" field.
+func XUserPriceLT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldXUserPrice, v))
+}
+
+// XUserPriceLTE applies the LTE predicate on the "x_user_price" field.
+func XUserPriceLTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldXUserPrice, v))
+}
+
+// XUserPriceIsNil applies the IsNil predicate on the "x_user_price" field.
+func XUserPriceIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldXUserPrice))
+}
+
+// XUserPriceNotNil applies the NotNil predicate on the "x_user_price" field.
+func XUserPriceNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldXUserPrice))
 }
 
 // MaxReasoningEffortMultiplierEQ applies the EQ predicate on the "max_reasoning_effort_multiplier" field.

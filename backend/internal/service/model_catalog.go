@@ -95,6 +95,9 @@ type ModelCatalogEntry struct {
 	PerRequestPrice *float64 `json:"per_request_price"`
 	// SearchPricePerCall 官方每次 web 搜索价（联网搜索费，见 web_search_usage.go）；nil 表示用厂商公开价。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
+	// XPostPrice / XUserPrice xAI X 搜索按取回条目收的官方价（每条帖子、每个主页）；nil 表示用 xAI 公开价。
+	XPostPrice *float64 `json:"x_post_price"`
+	XUserPrice *float64 `json:"x_user_price"`
 
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 
@@ -126,8 +129,12 @@ type ModelCatalogBinding struct {
 	CacheWrite1hPrice *float64          `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64          `json:"cache_read_price"`
 	Intervals         []PricingInterval `json:"intervals"`
-	CreatedAt         time.Time         `json:"created_at"`
-	UpdatedAt         time.Time         `json:"updated_at"`
+	// 联网搜索的上游价（USD / 次、/ 条）：官方价显式设了的项必须填；没填的按官方搜索价记成本。
+	SearchPricePerCall *float64  `json:"search_price_per_call"`
+	XPostPrice         *float64  `json:"x_post_price"`
+	XUserPrice         *float64  `json:"x_user_price"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // NormalizeModelCatalogKey 返回查表用的规范化模型名。
@@ -411,6 +418,8 @@ func (e *ModelCatalogEntry) Validate() error {
 		"audio_output_price":     e.AudioOutputPrice,
 		"per_request_price":      e.PerRequestPrice,
 		"search_price_per_call":  e.SearchPricePerCall,
+		"x_post_price":           e.XPostPrice,
+		"x_user_price":           e.XUserPrice,
 	}
 	for _, name := range sortedPriceFieldNames(prices) {
 		if value := prices[name]; value != nil && *value < 0 {

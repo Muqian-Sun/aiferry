@@ -914,6 +914,9 @@ var (
 		{Name: "cache_write_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "cache_write_1h_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "cache_read_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "search_price_per_call", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "x_post_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "x_user_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "upstream_model", Type: field.TypeString, Size: 255, Default: ""},
 		{Name: "price_intervals", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -925,17 +928,17 @@ var (
 	ModelCatalogBindingsTable = &schema.Table{
 		Name:       "model_catalog_bindings",
 		Columns:    ModelCatalogBindingsColumns,
-		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[9], ModelCatalogBindingsColumns[10]},
+		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[12], ModelCatalogBindingsColumns[13]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "model_catalog_bindings_model_catalog_entries_entry",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[9]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[12]},
 				RefColumns: []*schema.Column{ModelCatalogEntriesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "model_catalog_bindings_accounts_account",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[10]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[13]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -944,7 +947,7 @@ var (
 			{
 				Name:    "modelcatalogbinding_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogBindingsColumns[10]},
+				Columns: []*schema.Column{ModelCatalogBindingsColumns[13]},
 			},
 		},
 	}
@@ -972,6 +975,8 @@ var (
 		{Name: "audio_output_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "per_request_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "search_price_per_call", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "x_post_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "x_user_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "max_reasoning_effort_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
 		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
 	}

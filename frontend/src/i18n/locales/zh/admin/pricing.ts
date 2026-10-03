@@ -29,12 +29,30 @@ export default {
       cache_read_price: '缓存读',
       cache_write_price: '缓存写 5 分钟',
       cache_write_1h_price: '缓存写 1 小时',
+      search_price_per_call: '每次 web 搜索',
+      x_post_price: 'X 搜索 · 帖子',
+      x_user_price: 'X 搜索 · 主页',
       segments: '分段',
       margin: '毛利',
       status: '状态',
       actions: '操作'
     },
     official: '官方价',
+    search: {
+      toggle: '联网搜索',
+      title: '联网搜索',
+      officialNote: '按官方原价收，不乘用户倍率；空着按厂商公开价收',
+      upstreamNote: '官方价设了的项必须填；没填的按官方价记成本',
+      units: {
+        search_price_per_call: '$ / 千次',
+        x_post_price: '$ / 千条',
+        x_user_price: '$ / 千个'
+      },
+      defaultPlaceholder: '默认 {price}',
+      officialRef: '官方 {price}',
+      officialDefaultRef: '官方 {price}（厂商公开价）',
+      optional: '选填'
+    },
     catalogName: '目录标识',
     sameName: '同名',
     upstreamModelHint: '这个渠道给这个模型用的模型名；留空 = 与目录模型标识同名。用户只能请求目录模型标识，转发时只转换这一次。',

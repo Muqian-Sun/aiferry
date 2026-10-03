@@ -46,7 +46,15 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-af-hairline">
-          <PricingPriceRows v-model:prices="draft.official" :issues="officialRowIssues" row-class="bg-af-sunken/40" test-id="pricing-official">
+          <PricingPriceRows
+            v-model:prices="draft.official"
+            :issues="officialRowIssues"
+            row-class="bg-af-sunken/40"
+            test-id="pricing-official"
+            :search-keys="searchKeys"
+            :search-placeholders="officialSearchPlaceholders(t, searchKeys, entry.search_defaults)"
+            :search-note="t('admin.pricing.search.officialNote')"
+          >
             <template #lead>
               <div class="font-medium text-af-ink">{{ t('admin.pricing.official') }}</div>
               <div class="text-xs text-af-ink-3">{{ t('admin.pricing.officialHint', { rate: rateText }) }}</div>
@@ -61,6 +69,10 @@
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
+            :search-keys="searchKeys"
+            :search-placeholders="upstreamSearchPlaceholders(t, searchKeys, draft.official)"
+            :search-hints="upstreamSearchHints(t, searchKeys, draft.official, entry.search_defaults)"
+            :search-note="t('admin.pricing.search.upstreamNote')"
           >
             <template #lead>
               <div class="flex items-center gap-1.5">
@@ -149,6 +161,7 @@ import {
   priceRowChanges,
   priceRowFrom,
   priceRowToRequest,
+  searchKeysOf,
   upstreamModelInvalid,
   type BlockState,
   type KeyedRow,
@@ -156,6 +169,7 @@ import {
   type RowIssues
 } from './pricingDraft'
 import { issueSummary } from './issueSummary'
+import { officialSearchPlaceholders, upstreamSearchHints, upstreamSearchPlaceholders } from './searchHints'
 
 const props = defineProps<{
   entry: PricingEntry
@@ -180,6 +194,9 @@ const changes = computed(() => modelDraftChanges(props.state))
 const officialChanged = computed(() => priceRowChanges(props.state.draft.official, props.state.initial.official) > 0)
 
 const officialRowIssues = computed(() => officialIssues(props.state.draft.official))
+
+/** 这个模型能填的搜索价（厂商没有官方搜索工具时为空） */
+const searchKeys = computed(() => searchKeysOf(props.entry.search_defaults))
 
 function rowIssues(row: KeyedRow): RowIssues {
   return bindingRowIssues(row, props.state.draft.official)

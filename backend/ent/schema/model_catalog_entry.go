@@ -82,8 +82,11 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 
 		// 按次 / 图片 / 视频计费的默认单价。
 		modelCatalogPriceField("per_request_price"),
-		// 模型内置搜索每次调用价（alpha search 用；未配则用内置单价）。
+		// 联网搜索官方价（USD）：每次 web 搜索；xAI X 搜索按取回条目收的每条帖子、每个主页。
+		// 未配则用厂商公开价（见 service/web_search_usage.go）。
 		modelCatalogPriceField("search_price_per_call"),
+		modelCatalogPriceField("x_post_price"),
+		modelCatalogPriceField("x_user_price"),
 
 		modelCatalogMultiplierField("max_reasoning_effort_multiplier"),
 

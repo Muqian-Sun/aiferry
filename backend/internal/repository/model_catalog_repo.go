@@ -283,6 +283,9 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 		SetNillableCacheWritePrice(binding.CacheWritePrice).
 		SetNillableCacheWrite1hPrice(binding.CacheWrite1hPrice).
 		SetNillableCacheReadPrice(binding.CacheReadPrice).
+		SetNillableSearchPricePerCall(binding.SearchPricePerCall).
+		SetNillableXPostPrice(binding.XPostPrice).
+		SetNillableXUserPrice(binding.XUserPrice).
 		SetPriceIntervals(segments).
 		Save(ctx)
 	return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
@@ -611,6 +614,8 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetNillableAudioOutputPrice(entry.AudioOutputPrice).
 		SetNillablePerRequestPrice(entry.PerRequestPrice).
 		SetNillableSearchPricePerCall(entry.SearchPricePerCall).
+		SetNillableXPostPrice(entry.XPostPrice).
+		SetNillableXUserPrice(entry.XUserPrice).
 		SetNillableMaxReasoningEffortMultiplier(entry.MaxReasoningEffortMultiplier)
 	if len(entry.Protocols) > 0 {
 		builder = builder.SetProtocols(entry.Protocols)
@@ -656,6 +661,8 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 	setPrice(builder.SetAudioOutputPrice, builder.ClearAudioOutputPrice, entry.AudioOutputPrice)
 	setPrice(builder.SetPerRequestPrice, builder.ClearPerRequestPrice, entry.PerRequestPrice)
 	setPrice(builder.SetSearchPricePerCall, builder.ClearSearchPricePerCall, entry.SearchPricePerCall)
+	setPrice(builder.SetXPostPrice, builder.ClearXPostPrice, entry.XPostPrice)
+	setPrice(builder.SetXUserPrice, builder.ClearXUserPrice, entry.XUserPrice)
 	setPrice(builder.SetMaxReasoningEffortMultiplier, builder.ClearMaxReasoningEffortMultiplier, entry.MaxReasoningEffortMultiplier)
 
 	if entry.Notes != nil {
@@ -693,6 +700,8 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 
 		PerRequestPrice:    row.PerRequestPrice,
 		SearchPricePerCall: row.SearchPricePerCall,
+		XPostPrice:         row.XPostPrice,
+		XUserPrice:         row.XUserPrice,
 
 		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
 
@@ -706,16 +715,19 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 // domain.PriceSegment 的 JSONB 数组，按数组下标排序：SortOrder = 下标，分段没有档位名。
 func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelCatalogBinding {
 	binding := service.ModelCatalogBinding{
-		EntryID:           row.EntryID,
-		AccountID:         row.AccountID,
-		UpstreamModel:     row.UpstreamModel,
-		InputPrice:        row.InputPrice,
-		OutputPrice:       row.OutputPrice,
-		CacheWritePrice:   row.CacheWritePrice,
-		CacheWrite1hPrice: row.CacheWrite1hPrice,
-		CacheReadPrice:    row.CacheReadPrice,
-		CreatedAt:         row.CreatedAt,
-		UpdatedAt:         row.UpdatedAt,
+		EntryID:            row.EntryID,
+		AccountID:          row.AccountID,
+		UpstreamModel:      row.UpstreamModel,
+		InputPrice:         row.InputPrice,
+		OutputPrice:        row.OutputPrice,
+		CacheWritePrice:    row.CacheWritePrice,
+		CacheWrite1hPrice:  row.CacheWrite1hPrice,
+		CacheReadPrice:     row.CacheReadPrice,
+		SearchPricePerCall: row.SearchPricePerCall,
+		XPostPrice:         row.XPostPrice,
+		XUserPrice:         row.XUserPrice,
+		CreatedAt:          row.CreatedAt,
+		UpdatedAt:          row.UpdatedAt,
 	}
 	if len(row.PriceIntervals) > 0 {
 		binding.Intervals = make([]service.PricingInterval, 0, len(row.PriceIntervals))

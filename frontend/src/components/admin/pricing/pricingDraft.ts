@@ -2,11 +2,12 @@
  * 价格页的草稿：每一块（按模型 / 按渠道）各自一份，改动只在块内，点保存才整块提交。
  *
  * 一行价 = 五项 token 价（$/token）+ 按 Token 分段（与模型编辑页同一套分段行：基础价是第一段，
- * 这里只放「超过某个 Token 数之后」的各段）。上游价的必填规则与后端 ModelCatalogBinding.ValidateAgainst 一致：
- * 输入 / 输出必填；官方价有的缓存项（缓存读、缓存写 5 分钟 / 1 小时）上游价也必填。
+ * 这里只放「超过某个 Token 数之后」的各段）+ 联网搜索价（$/次、$/条）。上游价的必填规则与后端
+ * ModelCatalogBinding.ValidateAgainst 一致：输入 / 输出必填；官方价有的缓存项（缓存读、缓存写 5 分钟 / 1 小时）
+ * 与官方价显式设了的搜索价，上游价也必填。
  */
 
-import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices } from '@/api/admin/pricing'
+import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSearchDefaults } from '@/api/admin/pricing'
 import {
   numberOrNull,
   tokenSegmentErrors,
@@ -23,15 +24,38 @@ export type PriceKey = (typeof PRICE_KEYS)[number]
 /** 官方价有这几项时上游价也必须填 */
 const CACHE_KEYS: PriceKey[] = ['cache_read_price', 'cache_write_price', 'cache_write_1h_price']
 
-export type PriceRow = Record<PriceKey, number | null> & { segments: TokenSegmentForm[] }
+/** 联网搜索价（$/次、$/条）：每次 web 搜索；xAI 另有 X 帖子、X 主页（按取回条目收） */
+export const SEARCH_KEYS = ['search_price_per_call', 'x_post_price', 'x_user_price'] as const
+export type SearchKey = (typeof SEARCH_KEYS)[number]
+export type PriceField = PriceKey | SearchKey
 
-export function priceRowFrom(prices: Pick<PricingPrices, PriceKey | 'intervals'>): PriceRow {
+export type PriceRow = Record<PriceKey, number | null> & Record<SearchKey, number | null> & { segments: TokenSegmentForm[] }
+
+/** 这个模型能填的搜索价：厂商没有官方搜索工具（search_defaults 为 null）时一项都没有；X 帖子 / 主页只有 xAI 有 */
+export function searchKeysOf(defaults: PricingSearchDefaults | null | undefined): SearchKey[] {
+  if (!defaults) return []
+  return defaults.x_post_price != null ? [...SEARCH_KEYS] : ['search_price_per_call']
+}
+
+/** 官方搜索价的实际值：设了用设的，没设按厂商公开价 */
+export function effectiveOfficialSearch(official: Record<SearchKey, number | null | undefined>, defaults: PricingSearchDefaults | null | undefined): Record<SearchKey, number | null> {
+  return {
+    search_price_per_call: official.search_price_per_call ?? defaults?.search_price_per_call ?? null,
+    x_post_price: official.x_post_price ?? defaults?.x_post_price ?? null,
+    x_user_price: official.x_user_price ?? defaults?.x_user_price ?? null
+  }
+}
+
+export function priceRowFrom(prices: Pick<PricingPrices, PriceKey | 'intervals'> & Partial<Record<SearchKey, number | null>>): PriceRow {
   return {
     input_price: prices.input_price ?? null,
     output_price: prices.output_price ?? null,
     cache_read_price: prices.cache_read_price ?? null,
     cache_write_price: prices.cache_write_price ?? null,
     cache_write_1h_price: prices.cache_write_1h_price ?? null,
+    search_price_per_call: prices.search_price_per_call ?? null,
+    x_post_price: prices.x_post_price ?? null,
+    x_user_price: prices.x_user_price ?? null,
     segments: tokenSegmentsFromIntervals(prices.intervals, prices)
   }
 }
@@ -43,6 +67,9 @@ export function emptyPriceRow(): PriceRow {
     cache_read_price: null,
     cache_write_price: null,
     cache_write_1h_price: null,
+    search_price_per_call: null,
+    x_post_price: null,
+    x_user_price: null,
     segments: []
   }
 }
@@ -59,15 +86,18 @@ export function priceRowToRequest(row: PriceRow): PricingPrices {
     cache_read_price: numberOrNull(row.cache_read_price),
     cache_write_price: numberOrNull(row.cache_write_price),
     cache_write_1h_price: numberOrNull(row.cache_write_1h_price),
-    intervals: tokenSegmentsToIntervals(row.segments)
+    intervals: tokenSegmentsToIntervals(row.segments),
+    search_price_per_call: numberOrNull(row.search_price_per_call),
+    x_post_price: numberOrNull(row.x_post_price),
+    x_user_price: numberOrNull(row.x_user_price)
   }
 }
 
 export interface RowIssues {
   /** 必填却没填的价 */
-  missing: PriceKey[]
+  missing: PriceField[]
   /** 填了但格式不对的价（负数、不是数字：输入框回写 NaN） */
-  invalid: PriceKey[]
+  invalid: PriceField[]
   /** 每段的问题（null = 没问题），与 segments 一一对应 */
   segments: Array<TokenSegmentError | null>
   /** 上游模型名不是一个具体的名字（带通配或空白） */
@@ -84,8 +114,8 @@ export function hasRowIssues(issues: RowIssues): boolean {
 }
 
 /** 格式不对的价：输入框把负数、不是数字的输入回写成 NaN */
-function invalidKeys(row: PriceRow): PriceKey[] {
-  return PRICE_KEYS.filter((key) => Number.isNaN(row[key]))
+function invalidKeys(row: PriceRow): PriceField[] {
+  return [...PRICE_KEYS, ...SEARCH_KEYS].filter((key) => Number.isNaN(row[key]))
 }
 
 /** 上游模型名只能是一个具体的名字：不带 *、不含空白（与后端 ValidateAgainst 同口径；首尾空白保存时去掉） */
@@ -102,9 +132,14 @@ export function officialIssues(row: PriceRow): RowIssues {
   }
 }
 
-/** 上游价：输入 / 输出必填，官方价（official）有的缓存项也必填 */
-export function upstreamIssues(row: PriceRow, official: Record<PriceKey, number | null | undefined>): RowIssues {
-  const required: PriceKey[] = ['input_price', 'output_price', ...CACHE_KEYS.filter((key) => official[key] != null)]
+/** 上游价：输入 / 输出必填，官方价（official）有的缓存项、显式设了的搜索价也必填 */
+export function upstreamIssues(row: PriceRow, official: OfficialRef): RowIssues {
+  const required: PriceField[] = [
+    'input_price',
+    'output_price',
+    ...CACHE_KEYS.filter((key) => official[key] != null),
+    ...SEARCH_KEYS.filter((key) => official[key] != null)
+  ]
   return {
     missing: required.filter((key) => row[key] == null),
     invalid: invalidKeys(row),
@@ -124,9 +159,9 @@ function sameSegments(a: TokenSegmentForm[], b: TokenSegmentForm[]): boolean {
   )
 }
 
-/** 两行价之间改了几处：每项价算一处，分段有任何不同算一处 */
+/** 两行价之间改了几处：每项价（含搜索价）算一处，分段有任何不同算一处 */
 export function priceRowChanges(current: PriceRow, initial: PriceRow): number {
-  const changed = PRICE_KEYS.filter((key) => !sameNumber(current[key], initial[key])).length
+  const changed = [...PRICE_KEYS, ...SEARCH_KEYS].filter((key) => !sameNumber(current[key], initial[key])).length
   return changed + (sameSegments(current.segments, initial.segments) ? 0 : 1)
 }
 
@@ -138,8 +173,11 @@ export interface KeyedRow {
   prices: PriceRow
 }
 
+/** 上游价必填规则用的官方价：五项 token 价 + 显式设了的搜索价（没设 = null，上游可不填） */
+export type OfficialRef = Record<PriceKey, number | null | undefined> & Partial<Record<SearchKey, number | null | undefined>>
+
 /** 承接行的问题：上游价 + 上游模型名 */
-export function bindingRowIssues(row: KeyedRow, official: Record<PriceKey, number | null | undefined>): RowIssues {
+export function bindingRowIssues(row: KeyedRow, official: OfficialRef): RowIssues {
   return { ...upstreamIssues(row.prices, official), upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel) }
 }
 
@@ -256,13 +294,13 @@ function scaled(price: number, ratio: number): number {
 }
 
 /**
- * 按官方价 × ratio 填一行上游价：只填空着的格子，已填的不动；
+ * 按官方价 × ratio 填一行上游价：只填空着的格子，已填的不动（搜索价只在官方显式设了时填）；
  * 这一行还没有分段、官方价有分段时，按官方的分段整份折算（切点相同，各段价 × ratio）。
  * 返回填了几处（每格算一处，整份分段算一处）。
  */
 export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number): number {
   let filled = 0
-  for (const key of PRICE_KEYS) {
+  for (const key of [...PRICE_KEYS, ...SEARCH_KEYS]) {
     const base = official[key]
     if (row[key] == null && base != null) {
       row[key] = scaled(base, ratio)

@@ -45,6 +45,21 @@ func CacheReadPrice(v float64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCacheReadPrice, v))
 }
 
+// SearchPricePerCall applies equality check predicate on the "search_price_per_call" field. It's identical to SearchPricePerCallEQ.
+func SearchPricePerCall(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldSearchPricePerCall, v))
+}
+
+// XPostPrice applies equality check predicate on the "x_post_price" field. It's identical to XPostPriceEQ.
+func XPostPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldXPostPrice, v))
+}
+
+// XUserPrice applies equality check predicate on the "x_user_price" field. It's identical to XUserPriceEQ.
+func XUserPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldXUserPrice, v))
+}
+
 // UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
 func UpstreamModel(v string) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpstreamModel, v))
@@ -328,6 +343,156 @@ func CacheReadPriceIsNil() predicate.ModelCatalogBinding {
 // CacheReadPriceNotNil applies the NotNil predicate on the "cache_read_price" field.
 func CacheReadPriceNotNil() predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldCacheReadPrice))
+}
+
+// SearchPricePerCallEQ applies the EQ predicate on the "search_price_per_call" field.
+func SearchPricePerCallEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallNEQ applies the NEQ predicate on the "search_price_per_call" field.
+func SearchPricePerCallNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallIn applies the In predicate on the "search_price_per_call" field.
+func SearchPricePerCallIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldSearchPricePerCall, vs...))
+}
+
+// SearchPricePerCallNotIn applies the NotIn predicate on the "search_price_per_call" field.
+func SearchPricePerCallNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldSearchPricePerCall, vs...))
+}
+
+// SearchPricePerCallGT applies the GT predicate on the "search_price_per_call" field.
+func SearchPricePerCallGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallGTE applies the GTE predicate on the "search_price_per_call" field.
+func SearchPricePerCallGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallLT applies the LT predicate on the "search_price_per_call" field.
+func SearchPricePerCallLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallLTE applies the LTE predicate on the "search_price_per_call" field.
+func SearchPricePerCallLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallIsNil applies the IsNil predicate on the "search_price_per_call" field.
+func SearchPricePerCallIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldSearchPricePerCall))
+}
+
+// SearchPricePerCallNotNil applies the NotNil predicate on the "search_price_per_call" field.
+func SearchPricePerCallNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldSearchPricePerCall))
+}
+
+// XPostPriceEQ applies the EQ predicate on the "x_post_price" field.
+func XPostPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldXPostPrice, v))
+}
+
+// XPostPriceNEQ applies the NEQ predicate on the "x_post_price" field.
+func XPostPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldXPostPrice, v))
+}
+
+// XPostPriceIn applies the In predicate on the "x_post_price" field.
+func XPostPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldXPostPrice, vs...))
+}
+
+// XPostPriceNotIn applies the NotIn predicate on the "x_post_price" field.
+func XPostPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldXPostPrice, vs...))
+}
+
+// XPostPriceGT applies the GT predicate on the "x_post_price" field.
+func XPostPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldXPostPrice, v))
+}
+
+// XPostPriceGTE applies the GTE predicate on the "x_post_price" field.
+func XPostPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldXPostPrice, v))
+}
+
+// XPostPriceLT applies the LT predicate on the "x_post_price" field.
+func XPostPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldXPostPrice, v))
+}
+
+// XPostPriceLTE applies the LTE predicate on the "x_post_price" field.
+func XPostPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldXPostPrice, v))
+}
+
+// XPostPriceIsNil applies the IsNil predicate on the "x_post_price" field.
+func XPostPriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldXPostPrice))
+}
+
+// XPostPriceNotNil applies the NotNil predicate on the "x_post_price" field.
+func XPostPriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldXPostPrice))
+}
+
+// XUserPriceEQ applies the EQ predicate on the "x_user_price" field.
+func XUserPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldXUserPrice, v))
+}
+
+// XUserPriceNEQ applies the NEQ predicate on the "x_user_price" field.
+func XUserPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldXUserPrice, v))
+}
+
+// XUserPriceIn applies the In predicate on the "x_user_price" field.
+func XUserPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldXUserPrice, vs...))
+}
+
+// XUserPriceNotIn applies the NotIn predicate on the "x_user_price" field.
+func XUserPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldXUserPrice, vs...))
+}
+
+// XUserPriceGT applies the GT predicate on the "x_user_price" field.
+func XUserPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldXUserPrice, v))
+}
+
+// XUserPriceGTE applies the GTE predicate on the "x_user_price" field.
+func XUserPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldXUserPrice, v))
+}
+
+// XUserPriceLT applies the LT predicate on the "x_user_price" field.
+func XUserPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldXUserPrice, v))
+}
+
+// XUserPriceLTE applies the LTE predicate on the "x_user_price" field.
+func XUserPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldXUserPrice, v))
+}
+
+// XUserPriceIsNil applies the IsNil predicate on the "x_user_price" field.
+func XUserPriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldXUserPrice))
+}
+
+// XUserPriceNotNil applies the NotNil predicate on the "x_user_price" field.
+func XUserPriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldXUserPrice))
 }
 
 // UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.

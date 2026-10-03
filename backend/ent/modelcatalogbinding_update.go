@@ -183,6 +183,87 @@ func (_u *ModelCatalogBindingUpdate) ClearCacheReadPrice() *ModelCatalogBindingU
 	return _u
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdate) SetSearchPricePerCall(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetSearchPricePerCall()
+	_u.mutation.SetSearchPricePerCall(v)
+	return _u
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableSearchPricePerCall(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetSearchPricePerCall(*v)
+	}
+	return _u
+}
+
+// AddSearchPricePerCall adds value to the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdate) AddSearchPricePerCall(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddSearchPricePerCall(v)
+	return _u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdate) ClearSearchPricePerCall() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearSearchPricePerCall()
+	return _u
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdate) SetXPostPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetXPostPrice()
+	_u.mutation.SetXPostPrice(v)
+	return _u
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableXPostPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetXPostPrice(*v)
+	}
+	return _u
+}
+
+// AddXPostPrice adds value to the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdate) AddXPostPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddXPostPrice(v)
+	return _u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearXPostPrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearXPostPrice()
+	return _u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdate) SetXUserPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetXUserPrice()
+	_u.mutation.SetXUserPrice(v)
+	return _u
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableXUserPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetXUserPrice(*v)
+	}
+	return _u
+}
+
+// AddXUserPrice adds value to the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdate) AddXUserPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddXUserPrice(v)
+	return _u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearXUserPrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearXUserPrice()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdate) SetUpstreamModel(v string) *ModelCatalogBindingUpdate {
 	_u.mutation.SetUpstreamModel(v)
@@ -344,6 +425,33 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if _u.mutation.CacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedSearchPricePerCall(); ok {
+		_spec.AddField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if _u.mutation.SearchPricePerCallCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXPostPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XPostPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXUserPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XUserPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -588,6 +696,87 @@ func (_u *ModelCatalogBindingUpdateOne) ClearCacheReadPrice() *ModelCatalogBindi
 	return _u
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdateOne) SetSearchPricePerCall(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetSearchPricePerCall()
+	_u.mutation.SetSearchPricePerCall(v)
+	return _u
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableSearchPricePerCall(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetSearchPricePerCall(*v)
+	}
+	return _u
+}
+
+// AddSearchPricePerCall adds value to the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdateOne) AddSearchPricePerCall(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddSearchPricePerCall(v)
+	return _u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearSearchPricePerCall() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearSearchPricePerCall()
+	return _u
+}
+
+// SetXPostPrice sets the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetXPostPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetXPostPrice()
+	_u.mutation.SetXPostPrice(v)
+	return _u
+}
+
+// SetNillableXPostPrice sets the "x_post_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableXPostPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetXPostPrice(*v)
+	}
+	return _u
+}
+
+// AddXPostPrice adds value to the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddXPostPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddXPostPrice(v)
+	return _u
+}
+
+// ClearXPostPrice clears the value of the "x_post_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearXPostPrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearXPostPrice()
+	return _u
+}
+
+// SetXUserPrice sets the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetXUserPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetXUserPrice()
+	_u.mutation.SetXUserPrice(v)
+	return _u
+}
+
+// SetNillableXUserPrice sets the "x_user_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableXUserPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetXUserPrice(*v)
+	}
+	return _u
+}
+
+// AddXUserPrice adds value to the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddXUserPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddXUserPrice(v)
+	return _u
+}
+
+// ClearXUserPrice clears the value of the "x_user_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearXUserPrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearXUserPrice()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdateOne) SetUpstreamModel(v string) *ModelCatalogBindingUpdateOne {
 	_u.mutation.SetUpstreamModel(v)
@@ -781,6 +970,33 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 	}
 	if _u.mutation.CacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedSearchPricePerCall(); ok {
+		_spec.AddField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if _u.mutation.SearchPricePerCallCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldSearchPricePerCall, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XPostPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXPostPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XPostPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldXPostPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.XUserPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedXUserPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.XUserPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)

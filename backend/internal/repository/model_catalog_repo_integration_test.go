@@ -600,13 +600,17 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	updated.CacheReadPrice = float64Value(4e-7)
 	updated.ManagedBy = service.ModelCatalogManagedByAdmin
 	updated.Intervals = []service.PricingInterval{{MinTokens: 200000, InputPrice: float64Value(8e-6), SortOrder: 0}}
+	updated.SearchPricePerCall = float64Value(0.01)
+	updated.XPostPrice = float64Value(0.005)
+	updated.XUserPrice = float64Value(0.01)
 	require.NoError(t, repo.SaveEntryPricing(ctx, updated, []service.ModelCatalogBinding{
 		{AccountID: accountA.ID, InputPrice: 1.2e-7, OutputPrice: 9e-7, CacheReadPrice: float64Value(1.2e-8),
 			Intervals: []service.PricingInterval{
 				{MinTokens: 0, MaxTokens: &segmentEnd, InputPrice: float64Value(1.2e-7), CacheWritePrice: float64Value(1.5e-7), CacheWrite1hPrice: float64Value(2.4e-7)},
 				{MinTokens: 272000, InputPrice: float64Value(3e-7), OutputPrice: float64Value(1.35e-6), CacheReadPrice: float64Value(3e-8)},
 			}},
-		{AccountID: accountB.ID, UpstreamModel: "gpt-relay", InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8)},
+		{AccountID: accountB.ID, UpstreamModel: "gpt-relay", InputPrice: 2e-7, OutputPrice: 1.2e-6, CacheReadPrice: float64Value(2e-8),
+			SearchPricePerCall: float64Value(0.008), XPostPrice: float64Value(0.004), XUserPrice: float64Value(0.009)},
 	}))
 	require.Equal(t, before+1, outboxCount(e1.ID), "saving a model enqueues its entry")
 
@@ -615,6 +619,9 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Equal(t, float64Value(4e-6), got.InputPrice)
 	require.Equal(t, float64Value(3e-5), got.OutputPrice, "untouched official price kept")
 	require.Equal(t, float64Value(4e-7), got.CacheReadPrice)
+	require.Equal(t, float64Value(0.01), got.SearchPricePerCall)
+	require.Equal(t, float64Value(0.005), got.XPostPrice)
+	require.Equal(t, float64Value(0.01), got.XUserPrice)
 	require.Equal(t, service.ModelCatalogManagedByAdmin, got.ManagedBy)
 	require.Len(t, got.Intervals, 1, "official segments replaced")
 	require.Equal(t, 200000, got.Intervals[0].MinTokens)
@@ -629,6 +636,10 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Equal(t, 1.2e-6, b[accountB.ID].OutputPrice)
 	require.Equal(t, "gpt-relay", b[accountB.ID].UpstreamModel)
 	require.Empty(t, b[accountA.ID].UpstreamModel, "empty = same name as the catalog model")
+	require.Equal(t, float64Value(0.008), b[accountB.ID].SearchPricePerCall)
+	require.Equal(t, float64Value(0.004), b[accountB.ID].XPostPrice)
+	require.Equal(t, float64Value(0.009), b[accountB.ID].XUserPrice)
+	require.Nil(t, b[accountA.ID].SearchPricePerCall, "unset = charge at the official search price")
 
 	// 2. 再保存一次只留 B：A 的承接行被删，B 改价。
 	require.NoError(t, repo.SaveEntryPricing(ctx, got, []service.ModelCatalogBinding{

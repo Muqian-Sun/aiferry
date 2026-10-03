@@ -29,12 +29,30 @@ export default {
       cache_read_price: 'Cache read',
       cache_write_price: 'Cache write 5m',
       cache_write_1h_price: 'Cache write 1h',
+      search_price_per_call: 'Web search',
+      x_post_price: 'X search · posts',
+      x_user_price: 'X search · profiles',
       segments: 'Segments',
       margin: 'Margin',
       status: 'Status',
       actions: 'Actions'
     },
     official: 'Official',
+    search: {
+      toggle: 'Web search',
+      title: 'Web search',
+      officialNote: 'Charged at the official price, not multiplied by the user rate; empty = the vendor\'s public price',
+      upstreamNote: 'Required where the official price is set; empty items cost the official price',
+      units: {
+        search_price_per_call: '$ / 1K searches',
+        x_post_price: '$ / 1K posts',
+        x_user_price: '$ / 1K profiles'
+      },
+      defaultPlaceholder: 'Default {price}',
+      officialRef: 'Official {price}',
+      officialDefaultRef: 'Official {price} (vendor public price)',
+      optional: 'Optional'
+    },
     catalogName: 'Catalog ID',
     sameName: 'Same name',
     upstreamModelHint: 'The model name this channel uses for this model; blank = same as the catalog model ID. Users can only request catalog model IDs, and the name is converted exactly once when forwarding.',

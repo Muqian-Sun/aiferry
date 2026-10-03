@@ -226,3 +226,42 @@ func TestModelCatalogHandler_SavePricingChannel(t *testing.T) {
 		require.Empty(t, repo.bindings[1])
 	})
 }
+
+// 联网搜索价：价格页给出厂商公开价作占位；官方价显式设了的项，上游价也必须填；保存后原样带回。
+func TestModelCatalogHandler_PricingSearchPrices(t *testing.T) {
+	router, repo := newPricingTestRouter(t)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pricing", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	overview := decodePricingData[PricingOverviewResponse](t, rec)
+	require.Nil(t, overview.Entries[0].SearchPricePerCall)
+	require.Equal(t, &PricingSearchDefaults{SearchPricePerCall: 0.01}, overview.Entries[0].SearchDefaults, "OpenAI 只有每次 web 搜索价")
+
+	body := map[string]any{
+		"input_price": 5e-6, "output_price": 30e-6, "cache_read_price": 0.5e-6,
+		"intervals":             []any{map[string]any{"min_tokens": 272000, "input_price": 10e-6, "output_price": 45e-6}},
+		"search_price_per_call": 0.02,
+		"bindings": []any{
+			map[string]any{"account_id": 1, "input_price": 0.15e-6, "output_price": 0.9e-6, "cache_read_price": 0.015e-6},
+		},
+	}
+	rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", body)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "upstream search_price_per_call is required")
+
+	body["bindings"].([]any)[0].(map[string]any)["search_price_per_call"] = 0.015
+	rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", body)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	got := decodePricingData[PricingEntryResponse](t, rec)
+	require.Equal(t, catalogPrice(0.02), got.SearchPricePerCall)
+	require.Equal(t, catalogPrice(0.015), got.Bindings[0].SearchPricePerCall)
+	require.Equal(t, catalogPrice(0.015), repo.bindings[1][0].SearchPricePerCall)
+
+	// 按渠道保存同样带上搜索上游价
+	rec = doPricingJSON(router, http.MethodPut, "/pricing/channels/1", map[string]any{
+		"bindings": []any{map[string]any{"entry_id": 1, "input_price": 0.15e-6, "output_price": 0.9e-6, "cache_read_price": 0.015e-6, "search_price_per_call": 0.012}},
+	})
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	saved := decodePricingData[[]PricingBindingResponse](t, rec)
+	require.Equal(t, catalogPrice(0.012), saved[0].SearchPricePerCall)
+}

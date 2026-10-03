@@ -17,6 +17,8 @@ export const NUMERIC_FIELDS = [
   'image_cache_read_price',
   'per_request_price',
   'search_price_per_call',
+  'x_post_price',
+  'x_user_price',
   'max_reasoning_effort_multiplier'
 ] as const satisfies readonly (keyof ModelCatalogEntryRequest)[]
 
@@ -60,6 +62,8 @@ export function entryToRequest(entry: ModelCatalogEntry): ModelCatalogEntryReque
     image_cache_read_price: entry.image_cache_read_price,
     per_request_price: entry.per_request_price,
     search_price_per_call: entry.search_price_per_call,
+    x_post_price: entry.x_post_price ?? null,
+    x_user_price: entry.x_user_price ?? null,
     max_reasoning_effort_multiplier: entry.max_reasoning_effort_multiplier,
     notes: entry.notes,
     intervals: entry.intervals,

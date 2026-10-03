@@ -51,9 +51,22 @@ type PricingEntryResponse struct {
 	CacheWrite1hPrice *float64                  `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64                  `json:"cache_read_price"`
 	Intervals         []service.PricingInterval `json:"intervals"`
-	Bindings          []PricingBindingResponse  `json:"bindings"`
+	// 联网搜索官方价（USD / 次、/ 条）；null = 没设，按 SearchDefaults 收。
+	SearchPricePerCall *float64 `json:"search_price_per_call"`
+	XPostPrice         *float64 `json:"x_post_price"`
+	XUserPrice         *float64 `json:"x_user_price"`
+	// SearchDefaults 厂商公开的搜索价（官方价没设时按它收）；null = 这个厂商没有官方搜索工具，不填搜索价。
+	SearchDefaults *PricingSearchDefaults   `json:"search_defaults"`
+	Bindings       []PricingBindingResponse `json:"bindings"`
 	// BindableAccountIDs 能承接这个模型的渠道（「加渠道」只列这些里还没承接的）。
 	BindableAccountIDs []int64 `json:"bindable_account_ids"`
+}
+
+// PricingSearchDefaults 厂商公开的联网搜索价（USD / 次、/ 条）；X 帖子 / 主页价只有 xAI 有。
+type PricingSearchDefaults struct {
+	SearchPricePerCall float64  `json:"search_price_per_call"`
+	XPostPrice         *float64 `json:"x_post_price"`
+	XUserPrice         *float64 `json:"x_user_price"`
 }
 
 // PricingBindingResponse 一条承接关系的上游模型名与上游价。
@@ -68,6 +81,10 @@ type PricingBindingResponse struct {
 	CacheWrite1hPrice *float64                  `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64                  `json:"cache_read_price"`
 	Intervals         []service.PricingInterval `json:"intervals"`
+	// 联网搜索的上游价（USD / 次、/ 条）；null = 没填，按官方搜索价记成本。
+	SearchPricePerCall *float64 `json:"search_price_per_call"`
+	XPostPrice         *float64 `json:"x_post_price"`
+	XUserPrice         *float64 `json:"x_user_price"`
 	// CostRatio 上游成本比（上游价 ÷ 官方价，逐项、逐段取最高），与利润门同一个数；官方价没有可比项时为 null。
 	CostRatio *float64 `json:"cost_ratio"`
 }
@@ -88,14 +105,17 @@ type PricingAccountResponse struct {
 	UpstreamHost string `json:"upstream_host"`
 }
 
-// PricingPricesRequest 五项 token 价（USD / token）与按 Token 分段。
+// PricingPricesRequest 五项 token 价（USD / token）、按 Token 分段与联网搜索价（USD / 次、/ 条）。
 type PricingPricesRequest struct {
-	InputPrice        *float64                  `json:"input_price"`
-	OutputPrice       *float64                  `json:"output_price"`
-	CacheWritePrice   *float64                  `json:"cache_write_price"`
-	CacheWrite1hPrice *float64                  `json:"cache_write_1h_price"`
-	CacheReadPrice    *float64                  `json:"cache_read_price"`
-	Intervals         []service.PricingInterval `json:"intervals"`
+	InputPrice         *float64                  `json:"input_price"`
+	OutputPrice        *float64                  `json:"output_price"`
+	CacheWritePrice    *float64                  `json:"cache_write_price"`
+	CacheWrite1hPrice  *float64                  `json:"cache_write_1h_price"`
+	CacheReadPrice     *float64                  `json:"cache_read_price"`
+	Intervals          []service.PricingInterval `json:"intervals"`
+	SearchPricePerCall *float64                  `json:"search_price_per_call"`
+	XPostPrice         *float64                  `json:"x_post_price"`
+	XUserPrice         *float64                  `json:"x_user_price"`
 }
 
 // PricingModelBindingRequest 按模型保存时的一条承接关系。
@@ -129,15 +149,18 @@ func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel
 		return service.ModelCatalogBinding{}, "upstream input_price and output_price are required"
 	}
 	return service.ModelCatalogBinding{
-		EntryID:           entryID,
-		AccountID:         accountID,
-		UpstreamModel:     upstreamModel,
-		InputPrice:        *r.InputPrice,
-		OutputPrice:       *r.OutputPrice,
-		CacheWritePrice:   r.CacheWritePrice,
-		CacheWrite1hPrice: r.CacheWrite1hPrice,
-		CacheReadPrice:    r.CacheReadPrice,
-		Intervals:         r.Intervals,
+		EntryID:            entryID,
+		AccountID:          accountID,
+		UpstreamModel:      upstreamModel,
+		InputPrice:         *r.InputPrice,
+		OutputPrice:        *r.OutputPrice,
+		CacheWritePrice:    r.CacheWritePrice,
+		CacheWrite1hPrice:  r.CacheWrite1hPrice,
+		CacheReadPrice:     r.CacheReadPrice,
+		Intervals:          r.Intervals,
+		SearchPricePerCall: r.SearchPricePerCall,
+		XPostPrice:         r.XPostPrice,
+		XUserPrice:         r.XUserPrice,
 	}, ""
 }
 
@@ -192,12 +215,15 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		bindings = append(bindings, binding)
 	}
 	official := service.OfficialPrices{
-		InputPrice:        req.InputPrice,
-		OutputPrice:       req.OutputPrice,
-		CacheWritePrice:   req.CacheWritePrice,
-		CacheWrite1hPrice: req.CacheWrite1hPrice,
-		CacheReadPrice:    req.CacheReadPrice,
-		Intervals:         req.Intervals,
+		InputPrice:         req.InputPrice,
+		OutputPrice:        req.OutputPrice,
+		CacheWritePrice:    req.CacheWritePrice,
+		CacheWrite1hPrice:  req.CacheWrite1hPrice,
+		CacheReadPrice:     req.CacheReadPrice,
+		Intervals:          req.Intervals,
+		SearchPricePerCall: req.SearchPricePerCall,
+		XPostPrice:         req.XPostPrice,
+		XUserPrice:         req.XUserPrice,
 	}
 	ctx := c.Request.Context()
 	entry, err := h.service.SaveEntryPricing(ctx, id, official, bindings, h.accounts)
@@ -281,8 +307,18 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 		CacheWrite1hPrice:  entry.CacheWrite1hPrice,
 		CacheReadPrice:     entry.CacheReadPrice,
 		Intervals:          nonNilIntervals(entry.Intervals),
+		SearchPricePerCall: entry.SearchPricePerCall,
+		XPostPrice:         entry.XPostPrice,
+		XUserPrice:         entry.XUserPrice,
 		Bindings:           make([]PricingBindingResponse, 0, len(entry.Bindings)),
 		BindableAccountIDs: make([]int64, 0),
+	}
+	if defaults := service.WebSearchDefaults(entry); defaults != nil {
+		out.SearchDefaults = &PricingSearchDefaults{
+			SearchPricePerCall: defaults.PerCall,
+			XPostPrice:         defaults.PerXPost,
+			XUserPrice:         defaults.PerXUser,
+		}
 	}
 	for i := range entry.Bindings {
 		out.Bindings = append(out.Bindings, pricingBindingResponse(entry, &entry.Bindings[i]))
@@ -297,15 +333,18 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 
 func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCatalogBinding) PricingBindingResponse {
 	out := PricingBindingResponse{
-		EntryID:           b.EntryID,
-		AccountID:         b.AccountID,
-		UpstreamModel:     b.UpstreamModel,
-		InputPrice:        b.InputPrice,
-		OutputPrice:       b.OutputPrice,
-		CacheWritePrice:   b.CacheWritePrice,
-		CacheWrite1hPrice: b.CacheWrite1hPrice,
-		CacheReadPrice:    b.CacheReadPrice,
-		Intervals:         nonNilIntervals(b.Intervals),
+		EntryID:            b.EntryID,
+		AccountID:          b.AccountID,
+		UpstreamModel:      b.UpstreamModel,
+		InputPrice:         b.InputPrice,
+		OutputPrice:        b.OutputPrice,
+		CacheWritePrice:    b.CacheWritePrice,
+		CacheWrite1hPrice:  b.CacheWrite1hPrice,
+		CacheReadPrice:     b.CacheReadPrice,
+		Intervals:          nonNilIntervals(b.Intervals),
+		SearchPricePerCall: b.SearchPricePerCall,
+		XPostPrice:         b.XPostPrice,
+		XUserPrice:         b.XUserPrice,
 	}
 	if ratio, ok := entry.UpstreamCostRatio(b); ok {
 		out.CostRatio = &ratio

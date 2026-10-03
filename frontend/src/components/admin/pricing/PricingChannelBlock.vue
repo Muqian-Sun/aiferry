@@ -66,6 +66,10 @@
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-channel-row-${row.id}`"
+            :search-keys="searchKeysOf(entriesById.get(row.id)?.search_defaults)"
+            :search-placeholders="upstreamSearchPlaceholders(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id))"
+            :search-hints="upstreamSearchHints(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id), entriesById.get(row.id)?.search_defaults)"
+            :search-note="t('admin.pricing.search.upstreamNote')"
           >
             <template #lead>
               <div class="flex items-center gap-1.5">
@@ -150,15 +154,18 @@ import {
   marginOf,
   priceRowFrom,
   priceRowToRequest,
+  searchKeysOf,
   siblingBindingOf,
   upstreamModelInvalid,
   type BlockState,
   type ChannelDraft,
   type KeyedRow,
   type PriceKey,
-  type RowIssues
+  type RowIssues,
+  type SearchKey
 } from './pricingDraft'
 import { issueSummary } from './issueSummary'
+import { upstreamSearchHints, upstreamSearchPlaceholders } from './searchHints'
 
 const props = defineProps<{
   account: PricingAccount
@@ -187,14 +194,18 @@ const draft = computed(() => props.state.draft)
 
 const changes = computed(() => channelDraftChanges(props.state))
 
-function officialOf(entryId: number): Record<PriceKey, number | null> {
+/** 官方价（搜索价只算显式设了的：没设的上游可不填） */
+function officialOf(entryId: number): Record<PriceKey, number | null> & Record<SearchKey, number | null> {
   const entry = entriesById.value.get(entryId)
   return {
     input_price: entry?.input_price ?? null,
     output_price: entry?.output_price ?? null,
     cache_read_price: entry?.cache_read_price ?? null,
     cache_write_price: entry?.cache_write_price ?? null,
-    cache_write_1h_price: entry?.cache_write_1h_price ?? null
+    cache_write_1h_price: entry?.cache_write_1h_price ?? null,
+    search_price_per_call: entry?.search_price_per_call ?? null,
+    x_post_price: entry?.x_post_price ?? null,
+    x_user_price: entry?.x_user_price ?? null
   }
 }
 
