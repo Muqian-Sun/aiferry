@@ -5,7 +5,7 @@
     工具行 = 搜索 + 状态（默认只看已上架：价格文件带进来的几百个模型大多没上架）/ 厂商 / 计费 / 渠道筛选标签 + 刷新；
     列 = 模型、厂商、标价（输入 / 输出，每百万 Token；整列同一个小数位数）、承接渠道数、状态；行尾「编辑」图标 +「⋯」（删除）；选中行时批量上下架。
     点行打开详情抽屉（A5）：概况（全部标价、别名…）/ 渠道（承接的渠道此刻能否调度 + 诊断）；点承接渠道数直接打开渠道页签。
-    新建 / 编辑是独立页（/model-catalog/new、/model-catalog/:id/edit）。
+    新建 / 编辑是弹窗（2026-10-03）：新建两步（模型 → 定价与渠道），编辑一步；改价去价格页。
   -->
   <AppLayout>
     <template #header-actions>
@@ -206,6 +206,20 @@
       @delete="drawerEntry && askDelete(drawerEntry)"
     />
 
+    <ModelCreateDialog
+      :show="showCreate"
+      :vendor-options="catalogVendors"
+      @close="showCreate = false"
+      @saved="loadEntries"
+    />
+    <ModelEditDialog
+      :show="editingEntry !== null"
+      :entry="editingEntry"
+      :vendor-options="catalogVendors"
+      @close="editingEntry = null"
+      @saved="loadEntries"
+    />
+
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"
       :entry-id="diagnosisEntry?.id ?? null"
@@ -228,7 +242,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -248,6 +261,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
 import CatalogEntryDrawer from '@/components/admin/catalog/CatalogEntryDrawer.vue'
+import ModelCreateDialog from '@/components/admin/catalog/ModelCreateDialog.vue'
+import ModelEditDialog from '@/components/admin/catalog/ModelEditDialog.vue'
 import PriceCell from '@/components/admin/catalog/CatalogPriceCell.vue'
 import { entryToRequest } from '@/components/admin/catalog/entryRequest'
 import { LIST_PRICE_MAX_DECIMALS, listPriceValues, sharedPriceDecimals } from '@/components/admin/catalog/priceFormat'
@@ -255,7 +270,6 @@ import { catalogVendorLabel } from '@/components/admin/catalog/vendorLabel'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
-const router = useRouter()
 
 const loading = ref(false)
 const seeding = ref(false)
@@ -424,12 +438,17 @@ async function loadEntries() {
   }
 }
 
+const showCreate = ref(false)
+const editingEntry = ref<ModelCatalogEntry | null>(null)
+/** 弹窗厂商下拉的选项：目录里已有的厂商 */
+const catalogVendors = computed(() => [...new Set(entries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+
 function openCreate() {
-  void router.push('/model-catalog/new')
+  showCreate.value = true
 }
 
 function openEdit(entry: ModelCatalogEntry) {
-  void router.push(`/model-catalog/${entry.id}/edit`)
+  editingEntry.value = entry
 }
 
 function openDiagnosis(entry: ModelCatalogEntry) {

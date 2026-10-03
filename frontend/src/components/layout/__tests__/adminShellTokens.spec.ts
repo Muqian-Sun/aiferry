@@ -22,7 +22,9 @@ const SCAN_FILES = [
   'components/admin/layout/AdminSidebar.vue',
   // A2：已重做的管理页与它的组件，一并盯住
   'views/admin/ModelCatalogView.vue',
-  'components/admin/catalog/CatalogEntryEditor.vue',
+  'components/admin/catalog/ModelCreateDialog.vue',
+  'components/admin/catalog/ModelEditDialog.vue',
+  'components/admin/catalog/ModelBasicsFields.vue',
   'components/admin/catalog/PriceInput.vue',
   'components/admin/catalog/CatalogPriceCell.vue',
   'components/admin/catalog/CatalogEntryDiagnosisModal.vue'

@@ -46,43 +46,51 @@ export default {
       partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：{errors}'
     },
     editor: {
-      basics: '基本信息',
-      pricing: '计费与标价',
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
       vendorNone: '（不设厂商）',
       vendorCustom: '其他（手填）…',
       vendorCustomPlaceholder: '厂商标识，如 anthropic',
       modelIdPlaceholder: '如 claude-sonnet-4-5',
-      morePrices: '更多价格',
-      morePricesFilled: '已填 {count} 项',
-      morePricesHint: '图片、音频（以及按 Token 以外计费时的缓存）的单价；留空即未配置。',
       units: {
         perMillion: '$ / 百万 Token',
-        perCall: '$ / 次',
-        perImage: '$ / 张',
-        perSecond: '$ / 秒'
+        perCall: '$ / 次'
       },
       lookup: {
-        idle: '输入模型 ID 后会从价格文件自动带出厂商、计费方式和价格。',
-        editIdle: '可以按价格文件重新带出厂商、计费方式和价格。',
-        loading: '正在查价格文件…',
-        applied: '已从价格文件带出厂商、计费方式和价格，可以再改。',
-        found: '价格文件里有这个模型。',
-        apply: '用价格文件的价格',
-        missing: '价格文件里没有这个模型，厂商和价格要手填。',
-        error: '查价失败，厂商和价格要手填。',
-        refill: '按价格文件带价'
+        loading: '正在查价格文件…'
       }
     },
-    // 新建 / 编辑模型独立页
-    formPage: {
-      backToList: '模型',
-      backToListAction: '返回模型列表',
-      loading: '正在加载模型…',
-      notFound: '该模型不存在或已被删除。',
-      loadFailed: '模型加载失败：{message}',
-      retry: '重试',
-      saved: '模型已保存'
+    // 新建 / 编辑模型弹窗（2026-10-03）：新建两步（模型 → 定价与渠道），编辑一步
+    dialog: {
+      steps: {
+        model: '模型',
+        pricing: '定价与渠道'
+      },
+      next: '下一步：定价与渠道',
+      done: '完成',
+      lookup: {
+        idle: '输入模型标识后，按价格文件带出官方价。',
+        found: '价格文件里有：{prices}（每百万 Token），建好后就是官方价，下一步可以改。',
+        missing: '价格文件里没有这个模型的按 Token 价，下一步手填官方价。',
+        error: '查价失败，下一步手填官方价。'
+      },
+      createFailed: '模型创建失败',
+      saveFailed: '模型保存失败',
+      pricingHint: '这就是价格页里这个模型的那一块：可以改官方价；加一个渠道就是让它承接这个模型。改完点这一块的「保存」。',
+      pricingLoading: '正在加载价格…',
+      pricingMissing: '价格页里找不到这个模型（只列按 Token 计费的模型）。',
+      listing: '上架',
+      listingReady: '打开后用户就能看到并调用这个模型。',
+      listedHint: '已上架：用户能看到并调用这个模型。',
+      listingBlocked: {
+        unsaved: '先保存上面这一块再上架。',
+        price: '官方价输入、输出还没填齐，不能上架。',
+        channel: '还没有渠道承接这个模型，不能上架。'
+      },
+      listingFailed: '上架状态修改失败',
+      listingRule: '上架要求官方价填齐，并且至少有一个渠道承接。',
+      unsavedPricing: '定价这一块还有没保存的改动：先保存，或点那一块的「撤销」。',
+      pricingElsewhere: '官方价、分段和承接的渠道在价格页改。',
+      openPricing: '去价格页 →'
     },
     // 模型详情抽屉（A5）
     drawer: {
@@ -169,8 +177,6 @@ export default {
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
-    fullReplaceHint: '保存是整条覆盖。本页没列出的项（分时定价、最高推理倍率、按次模式的分档）按原值写回；按 Token 分段与图片 / 视频分档在上方编辑。',
-    listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
     noResources: '无渠道',
     fields: {
       modelId: '模型标识',
@@ -179,32 +185,9 @@ export default {
       billingMode: '计费模式',
       status: '上架状态',
       resources: '承接渠道',
-      inputPrice: '输入价',
-      outputPrice: '输出价',
-      perRequestPrice: '每次标价',
-      perImagePrice: '每张标价（分档未命中时用）',
-      perSecondPrice: '每秒标价（分档未命中时用）',
-      searchPricePerCall: '内置搜索每次调用价（留空用内置单价 0.01）',
-      cacheWritePrice: '缓存写入 · 5 分钟',
-      cacheWrite1hPrice: '缓存写入 · 1 小时',
-      cacheReadPrice: '缓存读取',
-      imageInputPrice: '图片输入价',
-      imageOutputPrice: '图片输出价',
-      imageCacheReadPrice: '图片缓存读取价',
-      audioInputPrice: '音频输入价',
-      audioOutputPrice: '音频输出价'
+      searchPricePerCall: '内置搜索每次调用价（留空用内置单价 0.01）'
     },
     segments: {
-      title: '按 Token 分段',
-      hint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费。上面的价格就是第一段；各段没填的价按第一段算。',
-      empty: '未分段：所有请求都按上面的价格计费。',
-      add: '加一段',
-      remove: '移除',
-      first: '第 1 段 · {range}：按上面的价格',
-      firstUntitled: '第 1 段：按上面的价格',
-      segment: '第 {index} 段 · {range}',
-      segmentUntitled: '第 {index} 段',
-      above: '超过多少 Token',
       abovePlaceholder: '如 272000',
       errors: {
         required: '填这一段从超过多少 Token 开始。',
@@ -212,18 +195,6 @@ export default {
         notAscending: 'Token 数要比上一段大。',
         noPrice: '这一段至少填一个价。'
       }
-    },
-    tiers: {
-      title: '分档单价',
-      hint: {
-        image: '按输出尺寸分档，每张价；上架必须填每张标价。',
-        video: '按分辨率分档，每秒价；上架必须填每秒标价。'
-      },
-      tier: '档位',
-      price: '单价（$）',
-      add: '加一档',
-      remove: '移除',
-      empty: '未配分档，按标价计。'
     },
     bindings: {
       title: '承接这个模型的渠道'
