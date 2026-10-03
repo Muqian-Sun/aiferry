@@ -443,6 +443,7 @@ func TestBindingValidateSearchPrices(t *testing.T) {
 	withOfficial.SearchPricePerCall = testPtrFloat64(0.004)
 	withOfficial.XUserPrice = testPtrFloat64(0.01)
 	missing := binding()
+	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream search_price_per_call is required")
 	missing.SearchPricePerCall = testPtrFloat64(0.003)
 	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream x_user_price is required")
 	missing.XUserPrice = testPtrFloat64(0.008)
