@@ -784,7 +784,7 @@ func (r *stubUserRepo) UpdateConcurrency(ctx context.Context, id int64, amount i
 
 func (r *stubUserRepo) BatchSetConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
 func (r *stubUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
-func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int, *float64) (int, error) {
+func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int, *float64, bool) (int, error) {
 	return 0, nil
 }
 

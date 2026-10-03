@@ -19,9 +19,10 @@ type batchLimitsAdminServiceStub struct {
 }
 
 type batchLimitsAdminServiceCall struct {
-	userIDs     []int64
-	concurrency *int
-	rpmLimit    *int
+	userIDs        []int64
+	concurrency    *int
+	rpmLimit       *int
+	useDefaultRate bool
 }
 
 func cloneIntPointer(value *int) *int {
@@ -32,11 +33,12 @@ func cloneIntPointer(value *int) *int {
 	return &cloned
 }
 
-func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
+func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64, useDefaultRate bool) (int, error) {
 	s.calls = append(s.calls, batchLimitsAdminServiceCall{
-		userIDs:     append([]int64(nil), userIDs...),
-		concurrency: cloneIntPointer(concurrency),
-		rpmLimit:    cloneIntPointer(rpmLimit),
+		userIDs:        append([]int64(nil), userIDs...),
+		concurrency:    cloneIntPointer(concurrency),
+		rpmLimit:       cloneIntPointer(rpmLimit),
+		useDefaultRate: useDefaultRate,
 	})
 	return len(userIDs), nil
 }
@@ -112,6 +114,7 @@ func TestUserHandlerBatchUpdateLimitsRejectsInvalidRequests(t *testing.T) {
 		{name: "invalid json", body: []byte(`{"user_ids":`)},
 		{name: "missing user ids", body: []byte(`{"rpm_limit":10}`)},
 		{name: "more than 500 ids", body: tooManyBody},
+		{name: "rate and use default together", body: []byte(`{"user_ids":[1],"rate_multiplier":0.5,"use_default_rate_multiplier":true}`)},
 	}
 
 	for _, test := range tests {
@@ -143,4 +146,15 @@ func TestUserHandlerBatchUpdateLimitsAllUsesEveryListedUser(t *testing.T) {
 
 func pointerTo(value int) *int {
 	return &value
+}
+
+// 只改回默认倍率也是一次合法的批量设置，原样传给服务层
+func TestUserHandlerBatchUpdateLimitsPassesUseDefaultRate(t *testing.T) {
+	serviceStub := &batchLimitsAdminServiceStub{stubAdminService: newStubAdminService()}
+	recorder := postBatchLimits(t, setupBatchLimitsRouter(serviceStub), []byte(`{"user_ids":[4,5],"use_default_rate_multiplier":true}`))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Len(t, serviceStub.calls, 1)
+	require.True(t, serviceStub.calls[0].useDefaultRate)
+	require.Equal(t, []int64{4, 5}, serviceStub.calls[0].userIDs)
 }

@@ -935,7 +935,7 @@ func (s *emailBindUserRepoStub) BatchSetConcurrency(context.Context, []int64, in
 func (s *emailBindUserRepoStub) BatchAddConcurrency(context.Context, []int64, int) (int, error) {
 	return 0, nil
 }
-func (s *emailBindUserRepoStub) BatchUpdateLimits(context.Context, []int64, *int, *int, *float64) (int, error) {
+func (s *emailBindUserRepoStub) BatchUpdateLimits(context.Context, []int64, *int, *int, *float64, bool) (int, error) {
 	return 0, nil
 }
 

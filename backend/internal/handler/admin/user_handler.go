@@ -559,6 +559,17 @@ func (h *UserHandler) BatchUpdateConcurrency(c *gin.Context) {
 	response.Success(c, gin.H{"affected": affected})
 }
 
+// GetNewUserDefaults 新用户默认值（写死在 site_features.go）：后台新建用户表单直接把它们填上。
+// GET /api/v1/admin/users/defaults
+func (h *UserHandler) GetNewUserDefaults(c *gin.Context) {
+	response.Success(c, gin.H{
+		"balance":         service.NewUserBalance,
+		"concurrency":     service.NewUserConcurrency,
+		"rpm_limit":       service.NewUserRPMLimit,
+		"rate_multiplier": service.NewUserRateMultiplier,
+	})
+}
+
 // BatchUpdateLimits overwrites concurrency and/or RPM limits for multiple users.
 // POST /api/v1/admin/users/batch-limits
 type BatchUpdateLimitsRequest struct {
@@ -567,6 +578,8 @@ type BatchUpdateLimitsRequest struct {
 	Concurrency    *int     `json:"concurrency" binding:"omitempty,min=0"`
 	RPMLimit       *int     `json:"rpm_limit" binding:"omitempty,min=0"`
 	RateMultiplier *float64 `json:"rate_multiplier" binding:"omitempty,min=0"`
+	// UseDefaultRateMultiplier 把倍率改回全站默认（清掉单独设的值），与 rate_multiplier 互斥。
+	UseDefaultRateMultiplier bool `json:"use_default_rate_multiplier"`
 }
 
 func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
@@ -575,8 +588,12 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.Concurrency == nil && req.RPMLimit == nil && req.RateMultiplier == nil {
-		response.BadRequest(c, "at least one of concurrency, rpm_limit or rate_multiplier is required")
+	if req.Concurrency == nil && req.RPMLimit == nil && req.RateMultiplier == nil && !req.UseDefaultRateMultiplier {
+		response.BadRequest(c, "at least one of concurrency, rpm_limit, rate_multiplier or use_default_rate_multiplier is required")
+		return
+	}
+	if req.RateMultiplier != nil && req.UseDefaultRateMultiplier {
+		response.BadRequest(c, "rate_multiplier and use_default_rate_multiplier cannot be set together")
 		return
 	}
 	if !req.All && len(req.UserIDs) == 0 {
@@ -620,6 +637,7 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		req.Concurrency,
 		req.RPMLimit,
 		req.RateMultiplier,
+		req.UseDefaultRateMultiplier,
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)

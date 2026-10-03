@@ -1049,8 +1049,8 @@ func (r *userRepository) BatchAddConcurrency(ctx context.Context, userIDs []int6
 	return int(affected), nil
 }
 
-func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
-	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil && rateMultiplier == nil) {
+func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64, useDefaultRate bool) (int, error) {
+	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil && rateMultiplier == nil && !useDefaultRate) {
 		return 0, nil
 	}
 
@@ -1070,6 +1070,9 @@ func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64,
 		value := max(*rateMultiplier, 0)
 		args = append(args, value)
 		setClauses = append(setClauses, fmt.Sprintf("rate_multiplier = $%d", len(args)))
+	} else if useDefaultRate {
+		// 改回全站默认：清掉单独设的倍率（NULL = 跟全站默认）
+		setClauses = append(setClauses, "rate_multiplier = NULL")
 	}
 	setClauses = append(setClauses, "updated_at = NOW()")
 	args = append(args, pq.Array(userIDs))
