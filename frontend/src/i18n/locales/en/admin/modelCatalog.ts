@@ -74,6 +74,7 @@ export default {
         error: 'Price lookup failed; fill the official price in the next step.'
       },
       createFailed: 'Failed to create the model',
+      exists: 'This model is already in the catalog: edit or list it from the list.',
       saveFailed: 'Failed to save the model',
       pricingHint: 'This is the model\'s block on the pricing page: edit the official price here; adding a channel makes it serve this model. Save the block when done.',
       pricingLoading: 'Loading prices…',

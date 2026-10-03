@@ -209,6 +209,7 @@
     <ModelCreateDialog
       :show="showCreate"
       :vendor-options="catalogVendors"
+      :existing-model-ids="catalogModelIds"
       @close="showCreate = false"
       @saved="loadEntries"
     />
@@ -442,6 +443,7 @@ const showCreate = ref(false)
 const editingEntry = ref<ModelCatalogEntry | null>(null)
 /** 弹窗厂商下拉的选项：目录里已有的厂商 */
 const catalogVendors = computed(() => [...new Set(entries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+const catalogModelIds = computed(() => entries.value.map((entry) => entry.model_id))
 
 function openCreate() {
   showCreate.value = true

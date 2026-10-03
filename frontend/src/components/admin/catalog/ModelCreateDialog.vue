@@ -5,7 +5,8 @@
     ② 定价与渠道：就是价格页「按模型」那一块（同组件、同保存接口），改官方价、加渠道即承接；最后打开「上架」。
     渠道弹窗「检测上游」里目录没有的模型从这里加：initialModelId 预填标识。
   -->
-  <BaseDialog :show="show" :title="t('admin.modelCatalog.create')" width="wide" :z-index="zIndex" @close="handleClose">
+  <!-- 第二步是价格页那一块（宽表格），弹窗加宽 -->
+  <BaseDialog :show="show" :title="t('admin.modelCatalog.create')" :width="step === 2 ? 'extra-wide' : 'wide'" :z-index="zIndex" @close="handleClose">
     <ol class="mb-5 flex items-center gap-2 text-13" data-testid="model-create-steps">
       <li v-for="(label, index) in stepLabels" :key="label" class="flex items-center gap-2">
         <span v-if="index > 0" class="h-px w-6 bg-af-hairline-strong" aria-hidden="true"></span>
@@ -30,7 +31,8 @@
         :vendor-options="vendorOptions"
       >
         <template #model-id-hint>
-          <p class="input-hint" data-testid="model-create-lookup">{{ lookupText }}</p>
+          <p v-if="alreadyInCatalog" class="input-error-text" data-testid="model-create-exists">{{ t('admin.modelCatalog.dialog.exists') }}</p>
+          <p v-else class="input-hint" data-testid="model-create-lookup">{{ lookupText }}</p>
         </template>
       </ModelBasicsFields>
     </form>
@@ -74,7 +76,7 @@
         <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
         <template v-if="step === 1">
           <button type="button" class="btn btn-secondary" @click="handleClose">{{ t('common.cancel') }}</button>
-          <button type="submit" form="model-create-form" class="btn btn-primary" :disabled="submitting" data-testid="model-create-next">
+          <button type="submit" form="model-create-form" class="btn btn-primary" :disabled="submitting || alreadyInCatalog" data-testid="model-create-next">
             <Icon v-if="submitting" name="refresh" size="sm" class="-ml-1 mr-2 animate-spin" />
             {{ t('admin.modelCatalog.dialog.next') }}
           </button>
@@ -116,12 +118,14 @@ const props = withDefaults(
     show: boolean
     /** 目录里已有的厂商标签 */
     vendorOptions: string[]
+    /** 目录里已有的模型标识：输入撞上时直接提示，不必等后端拒 */
+    existingModelIds?: string[]
     /** 预填的模型标识（从渠道「检测上游」里目录没有的模型进来） */
     initialModelId?: string
     /** 叠在别的弹窗上面时传更高的层级 */
     zIndex?: number
   }>(),
-  { initialModelId: '', zIndex: 50 }
+  { existingModelIds: () => [], initialModelId: '', zIndex: 50 }
 )
 
 const emit = defineEmits<{
@@ -139,6 +143,10 @@ const submitError = ref('')
 const basicsRef = ref<InstanceType<typeof ModelBasicsFields> | null>(null)
 
 const form = reactive({ model_id: '', display_name: '', vendor: '' })
+
+// 模型标识唯一（不分大小写，与后端唯一索引 lower(model_id) 一致）
+const existingIds = computed(() => new Set(props.existingModelIds.map((id) => id.toLowerCase())))
+const alreadyInCatalog = computed(() => existingIds.value.has(form.model_id.trim().toLowerCase()))
 
 // ---- 按模型标识查价格文件（输入停 400ms 查一次；直接点「下一步」时补查）。只认按 Token 计费的价
 type LookupState = 'idle' | 'loading' | 'found' | 'missing' | 'error'
@@ -246,7 +254,7 @@ function createRequest(modelId: string): ModelCatalogEntryRequest {
 
 async function next() {
   const modelId = form.model_id.trim()
-  if (!modelId) return
+  if (!modelId || alreadyInCatalog.value) return
   submitError.value = ''
   submitting.value = true
   try {
@@ -257,7 +265,9 @@ async function next() {
     step.value = 2
     await loadPricing()
   } catch (error) {
-    submitError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.createFailed'))
+    submitError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.createFailed'), {
+      MODEL_CATALOG_ENTRY_EXISTS: t('admin.modelCatalog.dialog.exists')
+    })
   } finally {
     submitting.value = false
   }
@@ -299,6 +309,10 @@ async function loadPricing() {
 }
 
 const hasUnsavedPricing = computed(() => modelState.value != null && modelDraftChanges(modelState.value) > 0)
+// 「还有没保存的改动」只在改动还在时有意义：保存或撤销之后清掉
+watch(hasUnsavedPricing, (unsaved) => {
+  if (!unsaved && submitError.value === t('admin.modelCatalog.dialog.unsavedPricing')) submitError.value = ''
+})
 
 /** 不能上架的原因（空串 = 可以上架）：按服务端已保存的数据判断 */
 const listingBlocker = computed(() => {

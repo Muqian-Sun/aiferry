@@ -74,6 +74,7 @@ export default {
         error: '查价失败，下一步手填官方价。'
       },
       createFailed: '模型创建失败',
+      exists: '目录里已有这个模型：在列表里编辑或上架它。',
       saveFailed: '模型保存失败',
       pricingHint: '这就是价格页里这个模型的那一块：可以改官方价；加一个渠道就是让它承接这个模型。改完点这一块的「保存」。',
       pricingLoading: '正在加载价格…',

@@ -6,25 +6,29 @@
         {{ t('admin.pricing.discountFill.trigger') }}<Icon name="chevronDown" size="xs" />
       </button>
     </template>
-    <div class="space-y-2 px-3 py-2">
-      <p class="text-xs text-af-ink-3">{{ t('admin.pricing.discountFill.hint') }}</p>
-      <form class="flex items-center gap-2" @submit.prevent="apply">
-        <span class="whitespace-nowrap text-13 text-af-ink-2">{{ t('admin.pricing.discountFill.prefix') }}</span>
-        <input
-          v-model="ratioText"
-          type="text"
-          inputmode="decimal"
-          autocomplete="off"
-          placeholder="0.03"
-          :aria-label="t('admin.pricing.discountFill.ratio')"
-          class="input h-8 w-20 px-2 py-1 text-right text-13 tabular-nums"
-          data-testid="pricing-discount-ratio"
-        />
-        <button type="submit" class="btn btn-primary btn-sm" :disabled="ratio == null" data-testid="pricing-discount-apply">
-          {{ t('admin.pricing.discountFill.apply') }}
-        </button>
-      </form>
-    </div>
+    <template #default="{ close }">
+      <div class="space-y-2 px-3 py-2">
+        <p class="text-xs text-af-ink-3">{{ t('admin.pricing.discountFill.hint') }}</p>
+        <!-- 「填入」用 click 而不是表单提交：点按钮时弹出层会先关掉卸载，表单的提交就发不出去了 -->
+        <div class="flex items-center gap-2">
+          <span class="whitespace-nowrap text-13 text-af-ink-2">{{ t('admin.pricing.discountFill.prefix') }}</span>
+          <input
+            v-model="ratioText"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="0.03"
+            :aria-label="t('admin.pricing.discountFill.ratio')"
+            class="input h-8 w-20 px-2 py-1 text-right text-13 tabular-nums"
+            data-testid="pricing-discount-ratio"
+            @keydown.enter.prevent="applyAndClose(close)"
+          />
+          <button type="button" class="btn btn-primary btn-sm" :disabled="ratio == null" data-testid="pricing-discount-apply" @click="apply">
+            {{ t('admin.pricing.discountFill.apply') }}
+          </button>
+        </div>
+      </div>
+    </template>
   </PopoverMenu>
 </template>
 
@@ -50,5 +54,12 @@ function onOpen() {
 
 function apply() {
   if (ratio.value != null) emit('apply', ratio.value)
+}
+
+/** 回车：填完顺手关掉弹出层（点按钮时弹出层自己会关） */
+function applyAndClose(close: () => void) {
+  if (ratio.value == null) return
+  apply()
+  close()
 }
 </script>
