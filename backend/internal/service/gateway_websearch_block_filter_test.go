@@ -9,11 +9,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// emulatedWebSearchBody is a follow-up /v1/messages request whose history
-// contains an assistant turn synthesized by the web-search emulation
-// (server_tool_use + web_search_tool_result with the local srvtoolu_ws_ ID
-// prefix, followed by the text summary).
-const emulatedWebSearchBody = `{"model":"claude-sonnet-4-6","max_tokens":1024,"messages":[` +
+// relayWebSearchBody 是 fenno 这类中转回的真实搜索块：ID 恰好也是 srvtoolu_ws_ 前缀（原来的本地搜索模拟用的
+// 同一个前缀），以前会被当成模拟伪造的块剥掉。
+const relayWebSearchBody = `{"model":"claude-sonnet-4-6","max_tokens":1024,"messages":[` +
 	`{"role":"user","content":[{"type":"text","text":"search the weather"}]},` +
 	`{"role":"assistant","content":[` +
 	`{"type":"server_tool_use","id":"srvtoolu_ws_0123456789abcdef","name":"web_search","input":{"query":"weather"}},` +
@@ -21,8 +19,7 @@ const emulatedWebSearchBody = `{"model":"claude-sonnet-4-6","max_tokens":1024,"m
 	`{"type":"text","text":"Here are the search results for \"weather\":"}]},` +
 	`{"role":"user","content":[{"type":"text","text":"thanks, continue"}]}]}`
 
-// genuineWebSearchBody carries real Anthropic web-search blocks (upstream IDs
-// do NOT have the local srvtoolu_ws_ prefix).
+// genuineWebSearchBody carries real Anthropic web-search blocks.
 const genuineWebSearchBody = `{"model":"claude-sonnet-4-6","max_tokens":1024,"messages":[` +
 	`{"role":"user","content":[{"type":"text","text":"search"}]},` +
 	`{"role":"assistant","content":[` +
@@ -41,14 +38,13 @@ func collectContentTypes(t *testing.T, body []byte) []string {
 	return types
 }
 
-func TestFilterWebSearchHistoryBlocks_StripsEmulatedBlocksForAnthropicStrict(t *testing.T) {
-	out := FilterWebSearchHistoryBlocks([]byte(emulatedWebSearchBody), "claude-sonnet-4-6")
+func TestFilterWebSearchHistoryBlocks_KeepsRelayBlocks(t *testing.T) {
+	for _, model := range []string{"claude-sonnet-4-6", "totally-unknown-model"} {
+		body := []byte(relayWebSearchBody)
+		out := FilterWebSearchHistoryBlocks(body, model)
 
-	require.Equal(t, []string{"text", "text", "text"}, collectContentTypes(t, out))
-	// The emulated text summary must survive so the search context is preserved.
-	require.Contains(t, string(out), "Here are the search results")
-	require.NotContains(t, string(out), "srvtoolu_ws_")
-	require.True(t, gjson.ValidBytes(out))
+		require.Equal(t, string(body), string(out), model)
+	}
 }
 
 func TestFilterWebSearchHistoryBlocks_KeepsGenuineBlocksForAnthropicStrict(t *testing.T) {
@@ -67,13 +63,6 @@ func TestFilterWebSearchHistoryBlocks_StripsAllBlocksForPassbackRequired(t *test
 	require.NotContains(t, string(out), "server_tool_use")
 	require.NotContains(t, string(out), "web_search_tool_result")
 	require.Contains(t, string(out), "summary with citations")
-}
-
-func TestFilterWebSearchHistoryBlocks_StripsEmulatedBlocksForUnknownModel(t *testing.T) {
-	out := FilterWebSearchHistoryBlocks([]byte(emulatedWebSearchBody), "totally-unknown-model")
-
-	require.Equal(t, []string{"text", "text", "text"}, collectContentTypes(t, out))
-	require.NotContains(t, string(out), "srvtoolu_ws_")
 }
 
 func TestFilterWebSearchHistoryBlocks_KeepsGenuineBlocksForUnknownModel(t *testing.T) {
