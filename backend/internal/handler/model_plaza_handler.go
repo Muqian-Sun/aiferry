@@ -59,6 +59,17 @@ type modelPlazaResponse struct {
 	Description           string            `json:"description"`
 	DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
 	Models                []modelPlazaModel `json:"models"`
+	// ClaudeCodeWebSearch 用 Claude Code 配非 Anthropic 模型时，那次搜索请求的计费项（官方价；token × 用户倍率，
+	// 每次搜索按原价）；目录里没有代执行模型时省略。
+	ClaudeCodeWebSearch *plazaWebSearchBillingDTO `json:"claude_code_web_search,omitempty"`
+}
+
+type plazaWebSearchBillingDTO struct {
+	InputPrice         *float64 `json:"input_price"`
+	OutputPrice        *float64 `json:"output_price"`
+	CacheReadPrice     *float64 `json:"cache_read_price"`
+	CacheWritePrice    *float64 `json:"cache_write_price"`
+	SearchPricePerCall float64  `json:"search_price_per_call"`
 }
 
 // Get 返回模型广场数据。
@@ -71,11 +82,21 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
 	for i := range models {
 		out = append(out, toModelPlazaModelDTO(&models[i]))
 	}
-	response.Success(c, modelPlazaResponse{
+	resp := modelPlazaResponse{
 		Description:           description,
 		DefaultRateMultiplier: service.NewUserRateMultiplier,
 		Models:                out,
-	})
+	}
+	if billing := h.plazaService.ClaudeCodeWebSearchBilling(c.Request.Context()); billing != nil {
+		resp.ClaudeCodeWebSearch = &plazaWebSearchBillingDTO{
+			InputPrice:         billing.InputPrice,
+			OutputPrice:        billing.OutputPrice,
+			CacheReadPrice:     billing.CacheReadPrice,
+			CacheWritePrice:    billing.CacheWritePrice,
+			SearchPricePerCall: billing.SearchPricePerCall,
+		}
+	}
+	response.Success(c, resp)
 }
 
 // toModelPlazaModelDTO 将 service 层广场模型映射为白名单 DTO。

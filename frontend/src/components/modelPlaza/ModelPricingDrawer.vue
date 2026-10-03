@@ -105,21 +105,31 @@
         </dl>
       </section>
 
-      <!-- 联网搜索按官方原价收，不乘账户倍率（方案第三版） -->
-      <section v-if="searchPerThousand != null" class="py-6 first:pt-0" data-testid="pricing-block-tools">
+      <!-- 联网搜索按官方原价收，不乘账户倍率（方案第三版）；非 Anthropic 模型另列 Claude Code 联网搜索的计费项 -->
+      <section v-if="searchPerThousand != null || claudeCodeSearch" class="py-6 first:pt-0" data-testid="pricing-block-tools">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.tools') }}</h3>
-          <span class="text-xs text-af-ink-3">{{ t('userUi.models.detail.searchOfficialPrice') }}</span>
         </div>
         <dl class="divide-y divide-af-hairline">
-          <DetailField :label="t('userUi.models.detail.search')">
+          <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.search')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(searchPerThousand) }) }}</span>
+            <span class="block text-xs text-af-ink-3">{{ t('userUi.models.detail.searchOfficialPrice') }}</span>
           </DetailField>
           <DetailField v-if="entry?.xPostPerThousand != null" :label="t('userUi.models.detail.xPosts')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandPosts', { price: formatPrice(entry.xPostPerThousand) }) }}</span>
           </DetailField>
           <DetailField v-if="entry?.xUserPerThousand != null" :label="t('userUi.models.detail.xUsers')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandUsers', { price: formatPrice(entry.xUserPerThousand) }) }}</span>
+          </DetailField>
+          <DetailField v-if="claudeCodeSearch" :label="t('userUi.models.detail.claudeCodeSearch')" data-testid="pricing-claude-code-search">
+            <span class="font-medium tabular-nums">{{
+              t('userUi.models.detail.claudeCodeSearchPrice', {
+                input: formatPrice(claudeCodeSearch.input),
+                output: formatPrice(claudeCodeSearch.output),
+                search: formatPrice(claudeCodeSearch.perThousand)
+              })
+            }}</span>
+            <span class="block text-xs text-af-ink-3">{{ t('userUi.models.detail.claudeCodeSearchNote') }}</span>
           </DetailField>
         </dl>
       </section>
@@ -166,6 +176,7 @@ import DetailDrawer from '@/components/common/DetailDrawer.vue'
 import DetailField from '@/components/common/DetailField.vue'
 import { getBillingModeLabel } from '@/utils/billingMode'
 import { formatSegmentRange, type TokenSegment } from '@/utils/tokenSegments'
+import type { PlazaWebSearchBilling } from '@/api/modelPlaza'
 import {
   applyMultiplier,
   formatCatalogPrice as formatPrice,
@@ -177,11 +188,16 @@ import {
   type TokenRowKey
 } from './catalog'
 
-const props = defineProps<{
-  entry: CatalogModel | null
-  /** 价格乘的系数：接口给的是官方价，展示价 = 官方价 × 访问者倍率（登录用账户倍率，未登录用全站默认 1/15） */
-  scale: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    entry: CatalogModel | null
+    /** 价格乘的系数：接口给的是官方价，展示价 = 官方价 × 访问者倍率（登录用账户倍率，未登录用全站默认 1/15） */
+    scale: number
+    /** 用 Claude Code 配非 Anthropic 模型时那次搜索请求的计费项（官方价）；没有时为 null */
+    claudeCodeWebSearch?: PlazaWebSearchBilling | null
+  }>(),
+  { claudeCodeWebSearch: null }
+)
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
@@ -255,6 +271,15 @@ const unitBlock = computed<{ label: string; unit: string; price: number | null; 
 /** 搜索费按官方原价收，不乘账户倍率 */
 const searchPerThousand = computed(() => props.entry?.searchPerThousand ?? null)
 
+/** Claude Code 联网搜索（只给非 Anthropic 模型）：token 价 × 访问者倍率、按每百万 Token；每次搜索按原价、按每千次 */
+const claudeCodeSearch = computed(() => {
+  const billing = props.claudeCodeWebSearch
+  const entry = props.entry
+  if (!billing || !entry || entry.vendor === 'anthropic' || entry.vendor === 'bedrock') return null
+  const perMillion = (value: number | null) => (value == null ? null : value * 1_000_000 * props.scale)
+  return { input: perMillion(billing.input_price), output: perMillion(billing.output_price), perThousand: billing.search_price_per_call * 1000 }
+})
+
 const hasOther = computed(() => {
   const entry = props.entry
   return !!entry && (entry.maxReasoningMultiplier != null || entry.timePricing != null || entry.aliases.length > 0)
@@ -265,7 +290,8 @@ const hasPricing = computed(
     tokenBlocks.value.length > 0 ||
     mediaItems.value.length > 0 ||
     unitBlock.value !== null ||
-    searchPerThousand.value != null
+    searchPerThousand.value != null ||
+    claudeCodeSearch.value != null
 )
 
 const timePricingScope = computed(() => {

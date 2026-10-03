@@ -1171,6 +1171,8 @@ export interface UsageLog {
   // 联网搜索：次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）
   web_search_count: number
   web_search_cost: number
+  /** Claude Code 配第三方模型时那次单独的搜索请求（由代执行模型去搜，Token 按「联网搜索」计费项计） */
+  web_search_delegated?: boolean
 
   request_type?: UsageRequestType
   stream: boolean

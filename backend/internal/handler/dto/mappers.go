@@ -473,6 +473,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		RateMultiplier:        l.RateMultiplier,
 		WebSearchCount:        l.WebSearchCount,
 		WebSearchCost:         l.WebSearchCost,
+		WebSearchDelegated:    l.WebSearchDelegated,
 		BillingType:           l.BillingType,
 		RequestType:           requestType.String(),
 		Stream:                stream,

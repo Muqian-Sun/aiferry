@@ -18,7 +18,8 @@ func TestModelPlazaService_ListModelsProjectsListedEntries(t *testing.T) {
 		{ID: 2, ModelID: "claude-fable-5-1", Vendor: "anthropic", Status: ModelCatalogStatusListed, InputPrice: testPtrFloat64(3e-6)},
 		{ID: 3, ModelID: "hidden", Vendor: "openai", Status: ModelCatalogStatusUnlisted, InputPrice: testPtrFloat64(1e-6)},
 	}}
-	svc := NewModelPlazaService(NewModelCatalogService(repo, nil, ModelCatalogSeedInput{}))
+	catalog := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
+	svc := NewModelPlazaService(catalog, catalog)
 
 	models := svc.ListModels(context.Background())
 	require.Len(t, models, 2, "unlisted entries are not shown")

@@ -33,6 +33,8 @@ type RecordUsageInput struct {
 	// RequestedModel 是客户端写的模型名（目录别名归一前），进 usage_logs.requested_model；
 	// 空则用 result.Model。
 	RequestedModel string
+	// WebSearchDelegated 这次是 Claude Code 配第三方模型时交给 Haiku 代执行的搜索请求（见 web_search_delegate.go）。
+	WebSearchDelegated bool
 }
 
 // APIKeyQuotaUpdater defines the interface for updating API Key quota and rate limit usage
@@ -506,6 +508,7 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
 		RequestedModel:     input.RequestedModel,
+		WebSearchDelegated: input.WebSearchDelegated,
 	})
 }
 
@@ -526,6 +529,7 @@ type recordUsageCoreInput struct {
 	ForceCacheBilling  bool
 	APIKeyService      APIKeyQuotaUpdater
 	RequestedModel     string
+	WebSearchDelegated bool
 }
 
 // recordUsageCore 是 RecordUsage 的核心实现。
@@ -774,6 +778,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		UpstreamModel:            optionalTrimmedStringPtr(result.UpstreamModel),
 		UpstreamResponseModel:    optionalTrimmedStringPtr(result.UpstreamResponseModel),
 		UpstreamModelMismatch:    upstreamModelMismatch(sentModel, result.UpstreamResponseModel),
+		WebSearchDelegated:       input.WebSearchDelegated,
 		ServiceTier:              result.ServiceTier,
 		ReasoningEffort:          result.ReasoningEffort,
 		RequestedReasoningEffort: coalesceRequestedReasoningEffort(result.RequestedReasoningEffort, result.ReasoningEffort),

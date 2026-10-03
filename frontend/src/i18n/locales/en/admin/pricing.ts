@@ -38,6 +38,8 @@ export default {
       actions: 'Actions'
     },
     official: 'Official',
+    webSearchDelegate: 'Web search rate',
+    webSearchDelegateHint: 'When Claude Code runs on a third-party model, its standalone search request runs on this model: its official price is the web search rate (tokens × user rate + per-search fee at cost) and its channels run the search; not listed to users',
     search: {
       toggle: 'Web search',
       title: 'Web search',

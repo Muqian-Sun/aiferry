@@ -10,6 +10,12 @@
         <span class="text-13 text-af-ink-3">
           {{ headerMeta }}
         </span>
+        <span
+          v-if="entry.web_search_delegate"
+          class="rounded-full bg-af-sheet px-2 text-xs font-medium text-af-ink-2 ring-1 ring-inset ring-af-hairline"
+          :title="t('admin.pricing.webSearchDelegateHint')"
+          data-testid="pricing-web-search-delegate"
+        >{{ t('admin.pricing.webSearchDelegate') }}</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <span v-if="lookupMessage" class="text-xs text-af-ink-3">{{ lookupMessage }}</span>

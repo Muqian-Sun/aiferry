@@ -9,6 +9,7 @@
     <!-- Cost Breakdown -->
     <div class="mb-2 border-b border-af-hairline-strong pb-1.5">
       <div v-if="showTitle" class="text-xs font-semibold text-af-ink-3 mb-1">{{ t('usage.costDetails') }}</div>
+      <p v-if="row?.web_search_delegated" class="mb-1 max-w-[16rem] text-xs text-af-ink-3" data-testid="usage-cost-delegated-note">{{ t('usage.webSearchDelegatedHint') }}</p>
       <div v-if="row && row.input_cost > 0" class="flex items-center justify-between gap-4">
         <span class="text-af-ink-3">{{ t('admin.usage.inputCost') }}</span>
         <span class="font-medium text-af-ink">${{ billed(row.input_cost).toFixed(8) }}</span>

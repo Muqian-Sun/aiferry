@@ -166,6 +166,9 @@ type UsageLog struct {
 	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 TotalCost / ActualCost 里）。
 	WebSearchCount int
 	WebSearchCost  float64
+	// WebSearchDelegated 这一行是 Claude Code 配第三方模型时交给 Haiku 代执行的搜索请求
+	// （Model 是 Haiku，RequestedModel 是客户端写的模型）。
+	WebSearchDelegated bool
 
 	BillingType        int8
 	RequestType        RequestType

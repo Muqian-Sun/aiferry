@@ -38,6 +38,8 @@ export default {
       actions: '操作'
     },
     official: '官方价',
+    webSearchDelegate: '联网搜索计费项',
+    webSearchDelegateHint: 'Claude Code 配第三方模型时，那次单独的搜索请求交给这个模型执行：它的官方价就是「联网搜索」计费项（Token × 用户倍率 + 每次搜索按原价），承接它的渠道就是执行渠道；不对用户上架',
     search: {
       toggle: '联网搜索',
       title: '联网搜索',

@@ -89,6 +89,16 @@ export interface ModelPlazaResponse {
   /** 新用户默认倍率（相对官方价，= 1/15）：未登录时展示价 = 官方价 × 它。 */
   default_rate_multiplier: number
   models: PlazaModel[]
+  /** 用 Claude Code 配非 Anthropic 模型时，那次搜索请求的计费项（官方价：token × 账户倍率，每次搜索按原价）；没有时省略 */
+  claude_code_web_search?: PlazaWebSearchBilling
+}
+
+export interface PlazaWebSearchBilling {
+  input_price: number | null
+  output_price: number | null
+  cache_read_price: number | null
+  cache_write_price: number | null
+  search_price_per_call: number
 }
 
 /** 获取模型广场数据（匿名可访问）。 */

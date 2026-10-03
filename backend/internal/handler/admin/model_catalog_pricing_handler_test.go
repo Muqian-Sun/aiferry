@@ -265,3 +265,22 @@ func TestModelCatalogHandler_PricingSearchPrices(t *testing.T) {
 	saved := decodePricingData[[]PricingBindingResponse](t, rec)
 	require.Equal(t, catalogPrice(0.012), saved[0].SearchPricePerCall)
 }
+
+// 「联网搜索」计费项就是代执行模型这条目录：价格页给它打标记。
+func TestModelCatalogHandler_PricingMarksWebSearchDelegate(t *testing.T) {
+	router, repo := newPricingTestRouter(t)
+	repo.entries = append(repo.entries, service.ModelCatalogEntry{
+		ID: 9, ModelID: service.WebSearchDelegateModel, Vendor: "anthropic", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedByAdmin,
+		InputPrice: catalogPrice(1e-6), OutputPrice: catalogPrice(5e-6),
+	})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pricing", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	got := decodePricingData[PricingOverviewResponse](t, rec)
+	flags := map[string]bool{}
+	for _, entry := range got.Entries {
+		flags[entry.ModelID] = entry.WebSearchDelegate
+	}
+	require.Equal(t, map[string]bool{"gpt-5.5": false, service.WebSearchDelegateModel: true}, flags)
+}

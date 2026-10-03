@@ -158,6 +158,7 @@
     <ModelPricingDrawer
       :entry="detailEntry"
       :scale="priceScale"
+      :claude-code-web-search="response?.claude_code_web_search ?? null"
       @close="detailId = null"
     />
   </div>

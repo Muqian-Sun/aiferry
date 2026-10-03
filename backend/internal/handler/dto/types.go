@@ -444,6 +444,8 @@ type UsageLog struct {
 	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）。
 	WebSearchCount int     `json:"web_search_count"`
 	WebSearchCost  float64 `json:"web_search_cost"`
+	// WebSearchDelegated 这一行是 Claude Code 联网搜索（交给代执行模型去搜）：用户站标「联网搜索」，Model 是客户端请求的模型。
+	WebSearchDelegated bool `json:"web_search_delegated"`
 
 	BillingType  int8   `json:"billing_type"`
 	RequestType  string `json:"request_type"`

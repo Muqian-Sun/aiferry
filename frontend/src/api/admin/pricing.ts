@@ -103,6 +103,8 @@ export interface PricingEntry extends PricingPrices {
   status: 'listed' | 'unlisted'
   /** 厂商公开的搜索价；null = 这个厂商没有官方搜索工具，不填搜索价 */
   search_defaults: PricingSearchDefaults | null
+  /** 「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项） */
+  web_search_delegate?: boolean
   bindings: PricingBinding[]
   /** 能承接这个模型的渠道 */
   bindable_account_ids: number[]

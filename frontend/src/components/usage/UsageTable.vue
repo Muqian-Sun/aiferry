@@ -71,6 +71,12 @@
               </div>
             </div>
             <span v-else class="font-medium text-af-ink">{{ row.model }}</span>
+            <span
+              v-if="row.web_search_delegated"
+              class="inline-flex rounded bg-af-sunken px-1.5 py-px text-[11px] font-medium text-af-ink-2"
+              :title="isAdmin ? t('usage.webSearchDelegatedAdminHint') : t('usage.webSearchDelegatedHint')"
+              data-testid="usage-web-search-delegated"
+            >{{ t('usage.webSearch') }}</span>
             <div
               v-if="row.upstream_model_mismatch === true && row.upstream_response_model"
               class="break-all pl-3 text-[11px]"

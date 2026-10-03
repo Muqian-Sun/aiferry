@@ -20,6 +20,9 @@ const (
 	// RequestedPublicModel 是客户端原始请求中的公开模型名。
 	RequestedPublicModel Key = "ctx_requested_public_model"
 
+	// WebSearchDelegated 标记这次请求是 Claude Code 配第三方模型时交给 Haiku 代执行的联网搜索。
+	WebSearchDelegated Key = "ctx_web_search_delegated"
+
 	// InboundProtocol 是本次请求的入站协议（anthropic / chat_completions /
 	// responses / gemini），由网关入口按请求路径设置，供调度做协议偏好。
 	InboundProtocol Key = "ctx_inbound_protocol"
