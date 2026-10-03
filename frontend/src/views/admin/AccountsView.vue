@@ -4,7 +4,7 @@
     数字摘要（渠道 / 可调度 / 异常 / 限流中，异常与限流可一键筛选）；工具行 = 搜索 + 筛选标签 + 自动刷新 / 刷新 / 列设置。
     默认 6 列（方案 2026-09-25）：名称（一行名字 + 一行「厂商 · 接入方式」）、状态（一行，异常写原因）、调度、
     今日（请求 · 收入 · 利润）、已上架模型数、最近使用；其余列在列设置里。上游用量窗口和容量列表放不下，在详情抽屉「用量」页签。
-    行尾「编辑」图标 + 「⋯」；点整行打开详情抽屉；选中行时出现批量条。新建 / 编辑是独立页面（/accounts/new、/accounts/:id/edit）。
+    行尾「编辑」图标 + 「⋯」；点整行打开详情抽屉；选中行时出现批量条。新建 / 编辑是弹窗；别处带 ?edit=<id> 跳过来直接打开该渠道的编辑弹窗。
   -->
   <AppLayout>
     <template #header-actions>
@@ -302,6 +302,15 @@
       :model-id="diagnosisEntry?.model_id ?? ''"
       @close="diagnosisEntry = null"
     />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" @close="showCreate = false" @created="reload" />
+    <EditAccountModal
+      :show="showEdit"
+      :account="editingAccount"
+      :load-error="editLoadError"
+      :proxies="proxies"
+      @close="closeEdit"
+      @updated="handleAccountUpdated"
+    />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountActionMenu
@@ -349,6 +358,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { useRoute, useRouter } from 'vue-router'
 import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
@@ -361,7 +371,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import { BulkEditAccountModal, TempUnschedStatusModal } from '@/components/account'
+import { BulkEditAccountModal, CreateAccountModal, EditAccountModal, TempUnschedStatusModal } from '@/components/account'
 import AccountTableFilters from '@/components/admin/account/AccountTableFilters.vue'
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
@@ -465,6 +475,11 @@ const showDeleteDialog = ref(false)
 const showCreateShadowDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
+const showCreate = ref(false)
+const showEdit = ref(false)
+// 编辑弹窗的完整账号（列表行是精简版）：按 id 拉取期间为 null，拉取失败时 editLoadError 有值
+const editingAccount = ref<Account | null>(null)
+const editLoadError = ref('')
 const tempUnschedAcc = ref<Account | null>(null)
 const deletingAcc = ref<Account | null>(null)
 const creatingShadowAcc = ref<Account | null>(null)
@@ -790,7 +805,9 @@ const isAnyModalOpen = computed(() => {
     showTempUnsched.value ||
     showDeleteDialog.value ||
     showReAuth.value ||
-    showTest.value
+    showTest.value ||
+    showCreate.value ||
+    showEdit.value
   )
 })
 
@@ -1024,12 +1041,42 @@ const loadAccountDetails = async (account: Pick<AccountListItem, 'id'>): Promise
   }
 }
 
-// 新建 / 编辑渠道是独立页面（A5）：页面自己按 id 拉完整账号
+// 新建 / 编辑渠道是弹窗（2026-10-03 由整页改回）；编辑先开弹窗，再按 id 拉完整账号
 const openCreate = () => {
-  router.push('/accounts/new')
+  showCreate.value = true
 }
-const handleEdit = (a: Pick<AccountListItem, 'id'>) => {
-  router.push(`/accounts/${a.id}/edit`)
+let editLoadSeq = 0
+const handleEdit = async (a: Pick<AccountListItem, 'id'>) => {
+  const seq = ++editLoadSeq
+  editingAccount.value = null
+  editLoadError.value = ''
+  showEdit.value = true
+  try {
+    const account = await adminAPI.accounts.getById(a.id)
+    if (seq === editLoadSeq) editingAccount.value = account
+  } catch (error) {
+    if (seq !== editLoadSeq) return
+    editLoadError.value =
+      (error as { status?: number } | null)?.status === 404
+        ? t('admin.accounts.dialog.notFound')
+        : t('admin.accounts.dialog.loadFailed', { message: extractApiErrorMessage(error, t('common.error')) })
+  }
+}
+const closeEdit = () => {
+  editLoadSeq++
+  showEdit.value = false
+  editingAccount.value = null
+  editLoadError.value = ''
+}
+// 渠道状态页等处带 ?edit=<id> 跳过来：打开该渠道的编辑弹窗，并把参数从地址栏去掉（刷新不再弹）
+function openEditFromQuery() {
+  const raw = route.query.edit
+  if (typeof raw !== 'string') return
+  const query = { ...route.query }
+  delete query.edit
+  void router.replace({ query })
+  const id = Number(raw)
+  if (Number.isInteger(id) && id > 0) void handleEdit({ id })
 }
 
 // 详情抽屉：跟着列表行走（自动刷新 / 本地修补后抽屉里同步变化）；行被筛掉时保留打开时的快照
@@ -1598,6 +1645,7 @@ const handleScroll = (event: Event) => {
 }
 
 onMounted(async () => {
+  openEditFromQuery()
   load()
   loadSummary()
   const [proxiesResult, catalogResult] = await Promise.allSettled([

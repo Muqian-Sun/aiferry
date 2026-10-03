@@ -114,7 +114,6 @@
         :show-cookie-option="isAnthropic"
         :show-refresh-token-option="isOpenAI || isAntigravity || isGrok"
         :show-sso-option="isGrok"
-        :show-email-password-option="false"
         :allow-multiple="false"
         :method-label="t('admin.accounts.inputMethod')"
         :platform="isOpenAI ? 'openai' : isGemini ? 'gemini' : isAntigravity ? 'antigravity' : isGrok ? 'grok' : 'anthropic'"
@@ -280,10 +279,10 @@ const currentError = computed(() => {
   return claudeOAuth.error.value
 })
 
-// Computed — footer "complete auth" only for code-exchange flows, not SSO/password/RT.
+// Computed — footer "complete auth" only for code-exchange flows, not SSO/RT.
 const isManualInputMethod = computed(() => {
   const method = oauthFlowRef.value?.inputMethod
-  if (method === 'sso_cookie' || method === 'email_password' || method === 'refresh_token') {
+  if (method === 'sso_cookie' || method === 'refresh_token') {
     return false
   }
   // OpenAI/Gemini/Antigravity/Grok use manual code paste by default (no cookie auth)

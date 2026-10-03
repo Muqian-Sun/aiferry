@@ -55,5 +55,5 @@ export function findAccessSource(id: string): AccessSource {
   return source
 }
 
-/** 新建表单的默认来源：与改版前的默认一致（Anthropic 成品号）。 */
-export const DEFAULT_ACCESS_SOURCE_ID = 'claude'
+/** 新建弹窗打开时的接入方式：第三方 key（2026-10-03 定，原来是 Claude 成品号）。 */
+export const DEFAULT_ACCESS_SOURCE_ID = KEY_SOURCE_ID

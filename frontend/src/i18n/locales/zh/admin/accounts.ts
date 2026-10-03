@@ -102,21 +102,16 @@ export default {
       dataImportSuccess: '导入完成：渠道 {account_created}，失败 {account_failed}',
       dataImportCompletedWithErrors: '导入完成但有错误：渠道失败 {account_failed}，代理失败 {proxy_failed}',
       editAccount: '编辑渠道',
-      // 新建 / 编辑渠道整页（A5-c）：/accounts/new、/accounts/:id/edit
-      formPage: {
-        createTitle: '添加渠道',
-        editTitle: '编辑渠道',
-        backToList: '渠道',
-        backToListAction: '返回渠道列表',
+      // 新建 / 编辑渠道弹窗（2026-10-03 由整页改回弹窗）：两个弹窗同一分区顺序
+      dialog: {
         loading: '正在加载渠道…',
         notFound: '该渠道不存在或已被删除。',
         loadFailed: '渠道加载失败：{message}',
-        retry: '重试',
         sections: {
-          basics: '基本',
-          endpoint: '地址与协议',
-          limits: '额度',
-          advanced: '高级'
+          upstream: '上游',
+          scheduling: '调度与限额',
+          advanced: '高级',
+          notes: '备注'
         }
       },
       // 新建渠道第一步：接入方式与来源（2026-09-25）
@@ -144,11 +139,6 @@ export default {
           vertexClaude: 'GCP 服务账号，调 Vertex 上的 Claude',
           vertexGemini: 'GCP 服务账号，调 Vertex 上的 Gemini'
         }
-      },
-      // 新建渠道默认只露必填项，其余收进「更多设置」
-      moreSettings: {
-        title: '更多设置',
-        hint: '备注、到期、并发与配额、代理、协议开关、模型改名等，不改就用默认值'
       },
       // 第三方 key 的地址：常用官方地址快捷填入、按地址识别厂商（key 不选平台）
       keyAddress: {
@@ -309,7 +299,7 @@ export default {
       resetQuota: '重置配额',
       quotaLimit: '配额限制',
       quotaLimitPlaceholder: '0 表示不限制',
-      quotaLimitHint: '设置日/周/总使用额度（美元），任一维度达到限额后渠道暂停调度。Anthropic API Key 渠道还可配置客户端亲和。修改限额不会重置已用额度。',
+      quotaLimitHint: '设置日/周/总使用额度（美元），任一维度达到限额后渠道暂停调度。修改限额不会重置已用额度。',
       quotaLimitToggle: '启用配额限制',
       quotaLimitToggleHint: '开启后，当渠道用量达到设定额度时自动暂停调度',
       quotaDailyLimit: '日限额',
@@ -824,7 +814,6 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: '配额控制',
-        hint: '配置会话数量、每分钟请求数等调度限制。',
         sessionLimit: {
           label: '会话数量控制',
           hint: '限制同时活跃的会话数量',
@@ -986,7 +975,6 @@ export default {
           refreshTokenDesc: '输入您已有的 OpenAI Refresh Token，支持批量输入（每行一个），系统将自动验证并创建渠道。',
           refreshTokenPlaceholder: '粘贴您的 OpenAI Refresh Token...\n支持多个，每行一个',
           mobileRefreshTokenAuth: '手动输入 Mobile RT',
-          accessTokenAuth: '手动输入 AT',
           codexSessionAuth: 'Codex OAuth auth.json / AT 导入',
           codexSessionDesc: '粘贴 Codex OAuth auth.json 或 accessToken，按第一步配置创建渠道。',
           codexSessionInputLabel: 'Codex OAuth auth.json 或 accessToken',
@@ -1011,15 +999,6 @@ export default {
           codexPatImportAndCreate: '校验并创建 Codex PAT 渠道',
           codexPatEmpty: '请输入 Codex Personal Access Token',
           codexPatImportFailed: 'Codex PAT 渠道创建失败',
-          sessionTokenAuth: '手动输入 ST',
-          sessionTokenDesc: '输入您已有的 Session Token，支持批量输入（每行一个），系统将自动验证并创建渠道。',
-          sessionTokenPlaceholder: '粘贴您的 Session Token...\n支持多个，每行一个',
-          sessionTokenRawLabel: '原始字符串',
-          sessionTokenRawPlaceholder: '粘贴 /api/auth/session 原始数据或 Session Token...',
-          sessionTokenRawHint: '支持粘贴完整 JSON，系统会自动解析 ST 和 AT。',
-          openSessionUrl: '打开获取链接',
-          copySessionUrl: '复制链接',
-          sessionUrlHint: '该链接通常可获取 AT。若返回中无 sessionToken，请从浏览器 Cookie 复制 __Secure-next-auth.session-token 作为 ST。',
           parsedSessionTokensLabel: '解析出的 ST',
           parsedSessionTokensEmpty: '未解析到 ST，请检查输入内容',
           parsedAccessTokensLabel: '解析出的 AT',
@@ -1049,16 +1028,8 @@ export default {
           ssoCookieLabel: 'Grok Web SSO Key',
           ssoCookiePlaceholder: '每行一个 SSO key\n支持多个，每行一个',
           ssoCookieHint: '每行一个 SSO key；多个 key 会 3 路并发导入，耗时约 90 秒 × 批次数，建议使用对应地区代理。',
-          emailPasswordAuth: '邮箱密码登录',
-          emailPasswordDesc:
-            '使用 Grok 网页邮箱与密码登录。服务端仅用密码换取临时 SSO 再转 Build OAuth；密码与 raw SSO 均不会写入渠道凭据。',
-          emailPasswordInputLabel: '邮箱----密码',
-          emailPasswordPlaceholder: "user{'@'}example.com----your-password\n支持多个，每行一组",
-          emailPasswordHint: '格式：email----password（密码可含 -）。需要配置 YesCaptcha 密钥；建议搭配代理。',
-          pleaseEnterPassword: '请输入 email----password（每行一组）',
           pleaseEnterSSOToken: '请输入 SSO Token',
           failedToValidateSSO: '校验 Grok SSO 失败',
-          failedToAuthorizePassword: 'Grok 密码授权失败',
           convertingSSO: '转换中...',
           convertSSOAndCreate: '转换并创建渠道',
           validating: '验证中...',

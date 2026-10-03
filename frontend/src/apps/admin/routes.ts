@@ -154,29 +154,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       descriptionKey: 'admin.channelStatus.description'
     }
   },
-  // 新建 / 编辑渠道整页（A5-c）；侧栏按前缀匹配，/accounts/* 仍点亮「渠道」
-  {
-    path: '/accounts/new',
-    name: 'AdminAccountCreate',
-    component: () => import('@/views/admin/AccountCreateView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Add Channel',
-      titleKey: 'admin.accounts.formPage.createTitle'
-    }
-  },
-  {
-    path: '/accounts/:id/edit',
-    name: 'AdminAccountEdit',
-    component: () => import('@/views/admin/AccountEditView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Edit Channel',
-      titleKey: 'admin.accounts.formPage.editTitle'
-    }
-  },
   {
     path: '/announcements',
     name: 'AdminAnnouncements',

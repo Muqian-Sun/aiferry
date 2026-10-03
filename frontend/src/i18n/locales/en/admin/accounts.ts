@@ -102,21 +102,16 @@ export default {
       dataImportSuccess: 'Import completed: accounts {account_created}, failed {account_failed}',
       dataImportCompletedWithErrors: 'Import completed with errors: account failed {account_failed}, proxy failed {proxy_failed}',
       editAccount: 'Edit Channel',
-      // Standalone create / edit channel pages (A5-c): /accounts/new, /accounts/:id/edit
-      formPage: {
-        createTitle: 'Add channel',
-        editTitle: 'Edit channel',
-        backToList: 'Channels',
-        backToListAction: 'Back to channels',
+      // Create / edit channel dialogs (back to dialogs on 2026-10-03): both share one section order
+      dialog: {
         loading: 'Loading channel…',
         notFound: 'This channel does not exist or has been deleted.',
         loadFailed: 'Failed to load the channel: {message}',
-        retry: 'Retry',
         sections: {
-          basics: 'Basics',
-          endpoint: 'Endpoint & protocol',
-          limits: 'Limits',
-          advanced: 'Advanced'
+          upstream: 'Upstream',
+          scheduling: 'Scheduling & limits',
+          advanced: 'Advanced',
+          notes: 'Notes'
         }
       },
       // Add channel, step one: access type and source (2026-09-25)
@@ -144,11 +139,6 @@ export default {
           vertexClaude: 'GCP service account for Claude on Vertex',
           vertexGemini: 'GCP service account for Gemini on Vertex'
         }
-      },
-      // The add-channel form shows only required fields; the rest is under "More settings"
-      moreSettings: {
-        title: 'More settings',
-        hint: 'Notes, expiry, concurrency and quotas, proxy, protocol switches, model renames and more; defaults apply if left alone'
       },
       // Third-party key address: fill from common official addresses; the vendor is detected from the address
       keyAddress: {
@@ -421,7 +411,7 @@ export default {
       resetQuota: 'Reset Quota',
       quotaLimit: 'Quota Limit',
       quotaLimitPlaceholder: '0 means unlimited',
-      quotaLimitHint: 'Set daily/weekly/total spending limits (USD). Anthropic API key accounts can also configure client affinity. Changing limits won\'t reset usage.',
+      quotaLimitHint: 'Set daily/weekly/total spending limits (USD). Once any limit is reached, the channel stops being scheduled. Changing limits won\'t reset usage.',
       quotaLimitToggle: 'Enable Quota Limit',
       quotaLimitToggleHint: 'When enabled, account will be paused when usage reaches the set limit',
       quotaDailyLimit: 'Daily Limit',
@@ -707,7 +697,6 @@ export default {
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
         title: 'Quota Control',
-        hint: 'Configure session count, requests per minute and other scheduling limits.',
         sessionLimit: {
           label: 'Session Count Limit',
           hint: 'Limit the number of active concurrent sessions',
@@ -875,7 +864,6 @@ export default {
           refreshTokenDesc: 'Enter your existing OpenAI Refresh Token(s). Supports batch input (one per line). The system will automatically validate and create accounts.',
           refreshTokenPlaceholder: 'Paste your OpenAI Refresh Token...\nSupports multiple, one per line',
           mobileRefreshTokenAuth: 'Manual Mobile RT Input',
-          accessTokenAuth: 'Manual AT Input',
           codexSessionAuth: 'Codex OAuth auth.json / AT Import',
           codexSessionDesc: 'Paste a Codex OAuth auth.json or an accessToken. Accounts use the step 1 settings.',
           codexSessionInputLabel: 'Codex OAuth auth.json or accessToken',
@@ -900,15 +888,6 @@ export default {
           codexPatImportAndCreate: 'Validate & Create Codex PAT Account',
           codexPatEmpty: 'Please enter a Codex personal access token',
           codexPatImportFailed: 'Failed to create Codex PAT account',
-          sessionTokenAuth: 'Manual ST Input',
-          sessionTokenDesc: 'Enter your existing Session Token(s). Supports batch input (one per line). The system will automatically validate and create accounts.',
-          sessionTokenPlaceholder: 'Paste your Session Token...\nSupports multiple, one per line',
-          sessionTokenRawLabel: 'Raw Input',
-          sessionTokenRawPlaceholder: 'Paste /api/auth/session raw payload or Session Token...',
-          sessionTokenRawHint: 'You can paste full JSON. The system will auto-parse ST and AT.',
-          openSessionUrl: 'Open Fetch URL',
-          copySessionUrl: 'Copy URL',
-          sessionUrlHint: 'This URL usually returns AT. If sessionToken is absent, copy __Secure-next-auth.session-token from browser cookies as ST.',
           parsedSessionTokensLabel: 'Parsed ST',
           parsedSessionTokensEmpty: 'No ST parsed. Please check your input.',
           parsedAccessTokensLabel: 'Parsed AT',
@@ -938,17 +917,8 @@ export default {
           ssoCookieLabel: 'Grok Web SSO Key',
           ssoCookiePlaceholder: 'One SSO key per line\nSupports multiple, one per line',
           ssoCookieHint: 'One SSO key per line. Multiple keys are imported with 3-way concurrency; expect about 90 seconds per batch. Use a matching-region proxy if needed.',
-          emailPasswordAuth: 'Email + password',
-          emailPasswordDesc:
-            'Sign in with a Grok web email and password. The server uses the password only to obtain an ephemeral SSO cookie, then converts it to Build OAuth credentials. Neither the password nor raw SSO is stored on the account.',
-          emailPasswordInputLabel: 'email----password',
-          emailPasswordPlaceholder: "user{'@'}example.com----your-password\nMultiple lines supported",
-          emailPasswordHint:
-            'Format: email----password (password may contain -). Requires YesCaptcha keys; use a matching-region proxy when needed.',
-          pleaseEnterPassword: 'Please enter email----password (one per line)',
           pleaseEnterSSOToken: 'Please enter an SSO token',
           failedToValidateSSO: 'Failed to validate Grok SSO',
-          failedToAuthorizePassword: 'Grok password authorization failed',
           convertingSSO: 'Converting...',
           convertSSOAndCreate: 'Convert & Create Account',
           validating: 'Validating...',

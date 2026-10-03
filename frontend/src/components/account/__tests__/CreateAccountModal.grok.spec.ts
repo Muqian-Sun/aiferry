@@ -25,12 +25,14 @@ describe('CreateAccountModal Grok account types', () => {
   })
 
   it('validates and applies upstream config on Grok OAuth create paths', () => {
-    // 授权码兑换 / RT 批量 / SSO 批量（密码授权已隐藏）
+    // 授权码兑换 / RT 批量 / SSO 批量（密码授权已删）
     expect(source.match(/validateHeaderOverrideForm\(\)/g)?.length).toBeGreaterThanOrEqual(3)
     expect(source.match(/applyGrokOAuthUpstreamConfig\(credentials\)/g)?.length).toBeGreaterThanOrEqual(3)
   })
 
-  it('hides Grok password authorize option in the create flow', () => {
-    expect(source).toContain(':show-email-password-option="false"')
+  it('has no Grok password authorize option in the create flow', () => {
+    // 授权组件已没有邮箱密码登录（2026-10-03 删）
+    expect(source).not.toContain('show-email-password-option')
+    expect(source).not.toContain('@authorize-password=')
   })
 })

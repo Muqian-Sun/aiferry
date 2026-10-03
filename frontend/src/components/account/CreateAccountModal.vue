@@ -1,6 +1,9 @@
 <template>
-  <!-- /accounts/new 整页（A5 起不再有弹窗形态）：分区导航读下面的 FormSectionHeading -->
-  <FormPageShell :show="show" :title="t('admin.accounts.createAccount')" @close="handleClose">
+  <!--
+    新建渠道弹窗（2026-10-03 由整页改回弹窗）：与编辑同一外壳、同一分区顺序 ——
+    上游 / 调度与限额 / 高级（默认收起）/ 备注；成品号点「下一步」进第二步授权。
+  -->
+  <BaseDialog :show="show" :title="t('admin.accounts.createAccount')" width="wide" @close="handleClose">
     <!-- Step Indicator for OAuth accounts -->
     <div v-if="isOAuthFlow" class="mb-6 flex items-center justify-center">
       <div class="flex items-center space-x-4">
@@ -41,6 +44,7 @@
       @submit.prevent="handleSubmit"
       class="space-y-5"
     >
+      <ChannelFormSection section="upstream" :title="t('admin.accounts.dialog.sections.upstream')">
       <!-- 先选接入方式与来源（muqian 2026-09-25）：第三方 key 不选平台，成品号只选哪家的账号 -->
       <AccessSourcePicker v-model="accessSourceId" />
 
@@ -53,6 +57,11 @@
           class="input"
           :placeholder="t('admin.accounts.enterAccountName')"
         />
+      </div>
+
+      <div>
+        <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
+        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
       <div
@@ -533,35 +542,7 @@
         </div>
 
         <!-- 按量 / Coding 套餐：地址分得出就不问（识别提示里带上）；MiniMax 两种套餐同一个地址，要管理员选 -->
-        <div v-if="keyPlanNeedsChoice" data-testid="key-plan-mode">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              v-for="mode in CN_PLAN_MODES"
-              :key="mode.value"
-              type="button"
-              :data-testid="`key-plan-mode-${mode.value}`"
-              :class="[
-                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-                keyPlanMode === mode.value ? 'border-af-brand bg-af-brand-tint' : 'border-af-hairline hover:border-af-hairline-strong'
-              ]"
-              @click="keyPlanMode = mode.value"
-            >
-              <span
-                :class="[
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
-                  keyPlanMode === mode.value ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
-                ]"
-              >
-                <Icon :name="mode.icon" size="sm" />
-              </span>
-              <span>
-                <span class="block text-sm font-medium text-af-ink">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}`) }}</span>
-                <span class="text-xs text-af-ink-3">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}Desc`) }}</span>
-              </span>
-            </button>
-          </div>
-        </div>
+        <KeyPlanModePicker v-if="keyPlanNeedsChoice" v-model="keyPlanMode" test-id="key-plan-mode" />
       </div>
 
       <!-- 第三方 key 的 API Key -->
@@ -587,449 +568,110 @@
         @select="applyProbedProtocol"
       />
 
-      <!-- 更多设置：不点开就按默认值建（muqian 2026-09-25「还是太繁琐」：默认只露必填项） -->
-      <div class="border-t border-af-hairline pt-4">
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 text-left text-sm font-medium text-af-ink-2 transition-colors hover:text-af-ink"
-          :aria-expanded="showMoreSettings ? 'true' : 'false'"
-          data-testid="create-more-settings-toggle"
-          @click="showMoreSettings = !showMoreSettings"
+      </ChannelFormSection>
+
+      <ChannelFormSection section="scheduling" :title="t('admin.accounts.dialog.sections.scheduling')">
+        <ChannelLimitsFields
+          v-model:priority="form.priority"
+          v-model:concurrency="form.concurrency"
+          v-model:expires-at="form.expires_at"
+        />
+
+        <ChannelQuotaFields
+          v-if="form.type === 'apikey' || form.type === 'bedrock'"
+          v-model:total-limit="editQuotaLimit"
+          v-model:daily-limit="editQuotaDailyLimit"
+          v-model:weekly-limit="editQuotaWeeklyLimit"
+        />
+
+        <AnthropicSubscriptionLimits
+          v-if="form.platform === 'anthropic' && accountCategory === 'oauth-based'"
+          v-model:session-limit-enabled="sessionLimitEnabled"
+          v-model:max-sessions="maxSessions"
+          v-model:rpm-limit-enabled="rpmLimitEnabled"
+          v-model:base-rpm="baseRpm"
+        />
+
+        <!-- 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这一项 -->
+        <ChannelSettingToggle
+          v-if="form.platform === 'antigravity'"
+          v-model="allowOverages"
+          :label="t('admin.accounts.allowOverages')"
+          :description="t('admin.accounts.allowOveragesTooltip')"
+          test-id="allow-overages"
+        />
+      </ChannelFormSection>
+
+      <ChannelAdvancedSection v-if="advancedItems.length > 0" :summary="advancedItems.join(' · ')">
+        <!-- 请求头覆写：任何第三方 key 与 Grok 成品号 -->
+        <HeaderOverrideField
+          v-if="headerOverrideCapable"
+          v-model:rows="headerOverrideRows"
+          test-id="create-header-override"
+        />
+
+        <!-- 池模式：同渠道重试次数与状态码写死在后端（channel_features.go），这里只有开关 -->
+        <ChannelSettingToggle
+          v-if="poolModeCapable"
+          v-model="poolModeEnabled"
+          :label="t('admin.accounts.poolMode')"
+          :description="t('admin.accounts.poolModeHint')"
+          test-id="pool-mode"
         >
-          <Icon name="chevronRight" size="sm" :class="['transition-transform', showMoreSettings ? 'rotate-90' : '']" />
-          {{ t('admin.accounts.moreSettings.title') }}
-          <span class="font-normal text-af-ink-3">{{ t('admin.accounts.moreSettings.hint') }}</span>
-        </button>
-      </div>
+          <p class="rounded-lg bg-af-sunken p-3 text-xs text-af-ink-2">
+            <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+            {{ t('admin.accounts.poolModeInfo') }}
+          </p>
+        </ChannelSettingToggle>
 
-      <template v-if="showMoreSettings">
-      <FormSectionHeading section="basics" :title="t('admin.accounts.formPage.sections.basics')" />
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
-      </div>
-
-      <div class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
-        <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <div class="mt-2 flex gap-2">
-          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(1)">
-            {{ t('payment.oneMonth') }}
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(12)">
-            {{ t('payment.oneYear') }}
-          </button>
-        </div>
-        <p class="input-hint">
-          {{ t('admin.accounts.expiresAtHint') }}
-          {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
-        </p>
-      </div>
-
-      <div v-if="form.platform === 'antigravity'">
-        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
-        <input
-          v-model="antigravityProjectId"
-          data-testid="antigravity-project-id-input"
-          type="text"
-          class="input font-mono"
-          :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
+        <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
+        <AnthropicKeySettings
+          v-if="anthropicKeySettingsVisible"
+          v-model:auth-scheme="anthropicAPIKeyAuthScheme"
+          v-model:bedrock-cc-compat="bedrockCCCompatEnabled"
+          test-id-prefix="create"
         />
-        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
-      </div>
 
-      <!-- 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这一项。条件放在外层，别的平台不留一条空分隔线 -->
-      <div v-if="form.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
-        <div class="flex items-center gap-2">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              v-model="allowOverages"
-              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-            <span class="text-sm font-medium text-af-ink-2">
-              {{ t('admin.accounts.allowOverages') }}
-            </span>
-          </label>
-          <div class="group relative">
-            <span
-              class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-hairline text-xs text-af-ink-3 hover:bg-af-ink-4"
-            >
-              ?
-            </span>
-            <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-af-ink px-3 py-2 text-xs text-af-on-brand opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              {{ t('admin.accounts.allowOveragesTooltip') }}
-              <div
-                class="absolute bottom-full left-3 border-4 border-transparent border-b-af-ink-3"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <ChannelSettingToggle
+          v-if="interceptWarmupCapable"
+          v-model="interceptWarmupRequests"
+          :label="t('admin.accounts.interceptWarmupRequests')"
+          :description="t('admin.accounts.interceptWarmupRequestsDesc')"
+          test-id="intercept-warmup"
+        />
 
-      <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
+        <!-- 智谱团队版 Coding Plan：组织 / 项目 ID（可选，填写后额度探测走团队版端点） -->
+        <ZhipuTeamFields
+          v-if="zhipuTeamCapable"
+          v-model:organization="zhipuOrganization"
+          v-model:project="zhipuProject"
+        />
 
-      <!-- 第三方 key 的其余设置：智谱团队版（按识别出的厂商显示） -->
-      <div v-if="form.type === 'apikey'" class="space-y-4">
-        <!-- 智谱团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
-        <div v-if="keyVendor === 'zhipu' && keyPlanMode === 'coding'">
-          <div class="flex items-center">
-            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
-            <HelpTooltip trigger="click" width-class="w-80">
-              <p class="mb-1 font-medium">{{ t('admin.accounts.cnProviders.zhipuTeam.help.title') }}</p>
-              <ol class="list-decimal space-y-1 pl-4">
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step1') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step2') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
-                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
-              </ol>
-              <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
-                {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
-              </p>
-            </HelpTooltip>
-          </div>
-          <div class="mt-2 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.organization') }}</label>
-              <input v-model="zhipuOrganization" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.organizationPlaceholder')" />
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.project') }}</label>
-              <input v-model="zhipuProject" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.projectPlaceholder')" />
-            </div>
-          </div>
-          <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
-        </div>
-      </div>
-
-      <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
-      <div
-        v-if="anthropicKeySettingsVisible"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyAuthScheme') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
-            </p>
-          </div>
-          <select
-            v-model="anthropicAPIKeyAuthScheme"
-            data-testid="create-anthropic-auth-scheme"
-            class="input w-52 text-sm"
-          >
-            <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
-            <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Bedrock CC 兼容（Anthropic 协议上的 key 设置）：清理 Claude Code 专有字段并过滤 anthropic-beta，账号是唯一开关 -->
-      <div
-        v-if="anthropicKeySettingsVisible"
-        data-testid="create-bedrock-cc-compat"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.anthropic.bedrockCCCompatDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="create-bedrock-cc-compat-toggle"
-            @click="bedrockCCCompatEnabled = !bedrockCCCompatEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              bedrockCCCompatEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                bedrockCCCompatEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      <FormSectionHeading section="limits" :title="t('admin.accounts.formPage.sections.limits')" />
-
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <div>
-          <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" min="1" class="input"
-            @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.priority') }}</label>
+        <div v-if="form.platform === 'antigravity'">
+          <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
           <input
-            v-model.number="form.priority"
-            type="number"
-            min="1"
+            v-model="antigravityProjectId"
+            data-testid="antigravity-project-id-input"
+            type="text"
+            class="input font-mono"
+            :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
+          />
+          <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
+        </div>
+      </ChannelAdvancedSection>
+
+      <ChannelFormSection section="notes" :title="t('admin.accounts.dialog.sections.notes')">
+        <div>
+          <textarea
+            v-model="form.notes"
+            rows="3"
             class="input"
-          />
-          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
+            :aria-label="t('admin.accounts.notes')"
+            :placeholder="t('admin.accounts.notesPlaceholder')"
+          ></textarea>
+          <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
         </div>
-      </div>
-
-      <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
-      <div
-        v-if="form.platform === 'anthropic' && (form.type === 'apikey' || form.type === 'bedrock')"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaControl.hint') }}
-          </p>
-        </div>
-        <QuotaLimitCard
-          :totalLimit="editQuotaLimit"
-          :dailyLimit="editQuotaDailyLimit"
-          :weeklyLimit="editQuotaWeeklyLimit"
-          @update:totalLimit="editQuotaLimit = $event"
-          @update:dailyLimit="editQuotaDailyLimit = $event"
-          @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-        />
-      </div>
-
-      <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
-      <div
-        v-else-if="form.type === 'apikey' || form.type === 'bedrock'"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaLimitHint') }}
-          </p>
-        </div>
-        <QuotaLimitCard
-          :totalLimit="editQuotaLimit"
-          :dailyLimit="editQuotaDailyLimit"
-          :weeklyLimit="editQuotaWeeklyLimit"
-          @update:totalLimit="editQuotaLimit = $event"
-          @update:dailyLimit="editQuotaDailyLimit = $event"
-          @update:weeklyLimit="editQuotaWeeklyLimit = $event"
-        />
-      </div>
-
-      <!-- 配额控制 (Anthropic OAuth/SetupToken: 会话 + RPM) -->
-      <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'oauth-based'"
-        class="border-t border-af-hairline pt-4 space-y-4"
-      >
-        <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-af-ink-3">
-            {{ t('admin.accounts.quotaControl.hint') }}
-          </p>
-        </div>
-
-        <!-- Session Limit -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="sessionLimitEnabled = !sessionLimitEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                sessionLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  sessionLimitEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="sessionLimitEnabled">
-            <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
-            <input
-              v-model.number="maxSessions"
-              type="number"
-              min="1"
-              step="1"
-              class="input"
-              :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
-          </div>
-        </div>
-
-        <!-- RPM Limit -->
-        <div class="rounded-lg border border-af-hairline p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.quotaControl.rpmLimit.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="rpmLimitEnabled = !rpmLimitEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                rpmLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  rpmLimitEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="rpmLimitEnabled" class="space-y-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
-              <input
-                v-model.number="baseRpm"
-                type="number"
-                min="1"
-                max="1000"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <FormSectionHeading section="advanced" :title="t('admin.accounts.formPage.sections.advanced')" />
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
-      </div>
-
-      <!-- API Key 类型的池模式 -->
-      <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
-        <!-- Pool Mode Section -->
-        <div class="border-t border-af-hairline pt-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.poolModeHint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="poolModeEnabled = !poolModeEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-                poolModeEnabled ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                  poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.poolModeInfo') }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 请求头覆写：任何第三方 key（含 Antigravity 上游 key）与 Grok OAuth -->
-      <div
-        v-if="isHeaderOverrideCapable(form.platform, form.type)"
-        data-testid="create-header-override"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.headerOverride.hint') }}
-            </p>
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <div class="rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.headerOverride.info') }}
-            </p>
-          </div>
-
-          <HeaderOverrideEditor
-            :rows="headerOverrideRows"
-            @update:rows="headerOverrideRows = $event"
-          />
-        </div>
-      </div>
-
-      <!-- Intercept Warmup Requests (Anthropic/Antigravity) -->
-      <div
-        v-if="form.platform === 'anthropic' || form.platform === 'antigravity'"
-        class="border-t border-af-hairline pt-4"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{
-              t('admin.accounts.interceptWarmupRequests')
-            }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="interceptWarmupRequests = !interceptWarmupRequests"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-af-brand' : 'bg-af-hairline'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-                interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
-      </template>
+      </ChannelFormSection>
     </form>
 
     <!-- Step 2: OAuth Authorization -->
@@ -1047,13 +689,10 @@
         :show-cookie-option="form.platform === 'anthropic'"
         :show-refresh-token-option="form.platform === 'openai' || form.platform === 'antigravity' || form.platform === 'grok'"
         :show-mobile-refresh-token-option="form.platform === 'openai'"
-        :show-session-token-option="false"
-        :show-access-token-option="false"
         :show-codex-session-import-option="form.platform === 'openai'"
         :show-agent-identity-option="form.platform === 'openai'"
         :show-codex-pat-option="form.platform === 'openai'"
         :show-sso-option="form.platform === 'grok'"
-        :show-email-password-option="false"
         :show-manual-option="true"
         :initial-input-method="'manual'"
         :platform="form.platform"
@@ -1062,95 +701,53 @@
         @cookie-auth="handleCookieAuth"
         @validate-refresh-token="handleValidateRefreshToken"
         @validate-mobile-refresh-token="handleOpenAIValidateMobileRT"
-        @validate-session-token="handleValidateSessionToken"
         @import-codex-session="handleOpenAIImportCodexSession"
         @import-codex-pat="handleOpenAIImportCodexPAT"
         @import-sso="handleGrokImportSSO"
-        @authorize-password="handleGrokAuthorizePassword"
       />
 
     </div>
 
     <template #footer>
-      <div v-if="step === 1" class="flex justify-end gap-3">
-        <button @click="handleClose" type="button" class="btn btn-secondary">
-          {{ t('common.cancel') }}
-        </button>
-        <button
-          type="submit"
-          form="create-account-form"
-          :disabled="submitting"
-          class="btn btn-primary"
-        >
-          <svg
-            v-if="submitting"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
+        <template v-if="step === 1">
+          <button type="button" class="btn btn-secondary" @click="handleClose">
+            {{ t('common.cancel') }}
+          </button>
+          <button type="submit" form="create-account-form" :disabled="submitting" class="btn btn-primary">
+            <Icon v-if="submitting" name="refresh" size="sm" class="-ml-1 mr-2 animate-spin" />
+            {{
+              isOAuthFlow
+                ? t('common.next')
+                : submitting
+                  ? t('admin.accounts.creating')
+                  : t('common.create')
+            }}
+          </button>
+        </template>
+        <template v-else>
+          <button type="button" class="btn btn-secondary" @click="goBackToBasicInfo">
+            {{ t('common.back') }}
+          </button>
+          <button
+            v-if="isManualInputMethod"
+            type="button"
+            :disabled="!canExchangeCode"
+            class="btn btn-primary"
+            @click="handleExchangeCode"
           >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          {{
-            isOAuthFlow
-              ? t('common.next')
-              : submitting
-                ? t('admin.accounts.creating')
-                : t('common.create')
-          }}
-        </button>
-      </div>
-      <div v-else class="flex justify-between gap-3">
-        <button type="button" class="btn btn-secondary" @click="goBackToBasicInfo">
-          {{ t('common.back') }}
-        </button>
-        <button
-          v-if="isManualInputMethod"
-          type="button"
-          :disabled="!canExchangeCode"
-          class="btn btn-primary"
-          @click="handleExchangeCode"
-        >
-          <svg
-            v-if="currentOAuthLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          {{
-            currentOAuthLoading
-              ? t('admin.accounts.oauth.verifying')
-              : t('admin.accounts.oauth.completeAuth')
-          }}
-        </button>
+            <Icon v-if="currentOAuthLoading" name="refresh" size="sm" class="-ml-1 mr-2 animate-spin" />
+            {{
+              currentOAuthLoading
+                ? t('admin.accounts.oauth.verifying')
+                : t('admin.accounts.oauth.completeAuth')
+            }}
+          </button>
+        </template>
       </div>
     </template>
-  </FormPageShell>
+  </BaseDialog>
 
   <!-- Gemini Help Dialog -->
   <BaseDialog
@@ -1371,9 +968,7 @@ import type {
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import FormPageShell from '@/components/admin/form/FormPageShell.vue'
-import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
@@ -1382,7 +977,6 @@ import {
   DEFAULT_ACCESS_SOURCE_ID,
   findAccessSource
 } from '@/components/account/accessSources'
-import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
 import {
   VENDORS_WITH_CODING_PLAN,
@@ -1405,7 +999,16 @@ import {
   trimProtocolEndpoints,
   validateProtocolEndpoints
 } from '@/components/account/protocolEndpoints'
-import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
+import ChannelFormSection from '@/components/account/channel/ChannelFormSection.vue'
+import ChannelLimitsFields from '@/components/account/channel/ChannelLimitsFields.vue'
+import ChannelQuotaFields from '@/components/account/channel/ChannelQuotaFields.vue'
+import ChannelSettingToggle from '@/components/account/channel/ChannelSettingToggle.vue'
+import ChannelAdvancedSection from '@/components/account/channel/ChannelAdvancedSection.vue'
+import AnthropicSubscriptionLimits from '@/components/account/channel/AnthropicSubscriptionLimits.vue'
+import AnthropicKeySettings from '@/components/account/channel/AnthropicKeySettings.vue'
+import HeaderOverrideField from '@/components/account/channel/HeaderOverrideField.vue'
+import KeyPlanModePicker from '@/components/account/channel/KeyPlanModePicker.vue'
+import ZhipuTeamFields from '@/components/account/channel/ZhipuTeamFields.vue'
 import {
   applyAntigravityProjectID,
   applyHeaderOverride,
@@ -1415,12 +1018,7 @@ import {
   type CnAccountMode,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import {
-  formatDateTimeLocalInput,
-  getBrowserTimeZone,
-  parseDateTimeLocalInput
-} from '@/utils/format'
-import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
 
@@ -1432,7 +1030,6 @@ interface OAuthFlowExposed {
   projectId: string
   sessionKey: string
   refreshToken: string
-  sessionToken: string
   codexSession: string
   codexPAT: string
   ssoCookie: string
@@ -1441,7 +1038,8 @@ interface OAuthFlowExposed {
 }
 
 const { t } = useI18n()
-const browserTimeZone = getBrowserTimeZone()
+// 打开弹窗时的接入方式：第三方 key（2026-10-03 起，原来是 Claude 成品号）
+const DEFAULT_ACCESS_SOURCE = findAccessSource(DEFAULT_ACCESS_SOURCE_ID)
 
 const oauthStepTitle = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.oauth.openai.title')
@@ -1511,7 +1109,9 @@ const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
 // State
 const step = ref(1)
 const submitting = ref(false)
-const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('oauth-based') // UI selection for account category
+// 第一步校验不过 / 建号失败的提示，显示在底部按钮左边（第二步授权的错误由授权组件自己显示）
+const submitError = ref('')
+const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>(DEFAULT_ACCESS_SOURCE.category) // UI selection for account category
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyValue = ref('')
 
@@ -1524,8 +1124,6 @@ const accessSourceId = ref(DEFAULT_ACCESS_SOURCE_ID)
 const accessSource = computed(() => findAccessSource(accessSourceId.value))
 // 第三方 key 不选平台：form.platform 只是表单内部占位，提交时不带，厂商按地址识别（keyVendor）
 const isKeyMode = computed(() => accessSource.value.kind === 'key')
-// 默认只露必填项，其余在「更多设置」里（muqian 2026-09-25「还是太繁琐，要填的东西太多了」）
-const showMoreSettings = ref(false)
 
 // 选接入方式 / 成品号的厂商 = 切到它的平台与类别。先换平台并等平台 watcher 跑完（它会重置平台相关字段，
 // 部分平台还会把类别复位成成品号），再定类别。
@@ -1538,6 +1136,8 @@ async function applyAccessSource(sourceId: string) {
   accountCategory.value = source.category
 }
 watch(accessSourceId, (sourceId) => {
+  // 换了接入方式，上一次提交的报错已经对不上了
+  submitError.value = ''
   void applyAccessSource(sourceId)
 })
 
@@ -1555,10 +1155,6 @@ const keyVendor = computed(() =>
 )
 const hasKeyAddress = computed(() => Object.values(protocolEndpoints.value).some((url) => !!url?.trim()))
 // 按量 / Coding 套餐：只有 Kimi / 智谱 / MiniMax 有。地址能分出来就跟地址走，分不出来（MiniMax 同地址）由管理员选
-const CN_PLAN_MODES = [
-  { value: 'payg', icon: 'creditCard' },
-  { value: 'coding', icon: 'bolt' }
-] as const
 const keyPlanMode = ref<CnAccountMode>('payg')
 const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
 // 地址本身定得了套餐就不问（识别提示里带上）；MiniMax 两种套餐同地址、智谱 Anthropic 同地址才要选
@@ -1626,11 +1222,11 @@ async function ensureProtocolDefaults() {
     protocolDefaultsLoadFailed.value = true
   }
 }
-// 提交前校验协议地址，有问题直接提示并返回 null。
+// 提交前校验协议地址，有问题显示在底部并返回 null。
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
   const issue = validateProtocolEndpoints(protocolEndpoints.value)
   if (issue) {
-    console.error(describeProtocolEndpointsIssue(issue, t))
+    submitError.value = describeProtocolEndpointsIssue(issue, t)
     return null
   }
   return trimProtocolEndpoints(protocolEndpoints.value)
@@ -1649,7 +1245,7 @@ const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const validateHeaderOverrideForm = (): boolean => {
   const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
   if (headerError) {
-    console.error(t(`admin.accounts.headerOverride.${headerError}`))
+    submitError.value = t(`admin.accounts.headerOverride.${headerError}`)
     return false
   }
   return true
@@ -1688,6 +1284,7 @@ const vertexServiceAccountFileInput = ref<HTMLInputElement | null>(null)
 const vertexServiceAccountJson = ref('')
 const vertexLocation = ref('global')
 const vertexServiceAccountDragActive = ref(false)
+// 初始与重置同一个值：第一张卡 Google One（之前重置成 Code Assist，第二次打开默认值就变了）
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('google_one')
 const geminiAIStudioOAuthEnabled = ref(false)
 function buildAntigravityExtra(): Record<string, unknown> | undefined {
@@ -1723,8 +1320,8 @@ const geminiHelpLinks = {
 const form = reactive({
   name: '',
   notes: '',
-  platform: 'anthropic' as AccountPlatform,
-  type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
+  platform: DEFAULT_ACCESS_SOURCE.platform as AccountPlatform,
+  type: 'oauth' as AccountType, // 由下面的 watcher 按类别 / 添加方式 / 平台同步
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
   concurrency: 10,
@@ -1747,26 +1344,28 @@ const anthropicKeySettingsVisible = computed(
   () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
 )
 
-// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；
-// 「地址与协议」只在分区里有区块时才出标题，条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
-// OpenAI 的透传 / WS mode / 摊平 / 端点能力 / 生图转 base64 区块 2026-09-28 P5 删了（写进后端代码）。
-// 「模型与映射」分区最后只剩模型改名，2026-10-01 改名挪到价格页（每条承接关系的上游模型名），分区一起删了。
-const showEndpointSection = computed(() =>
-  form.type === 'apikey' ||
-  anthropicKeySettingsVisible.value
-)
+const headerOverrideCapable = computed(() => isHeaderOverrideCapable(form.platform, form.type))
+const poolModeCapable = computed(() => form.type === 'apikey' && form.platform !== 'antigravity')
+const interceptWarmupCapable = computed(() => form.platform === 'anthropic' || form.platform === 'antigravity')
+const zhipuTeamCapable = computed(() => keyVendor.value === 'zhipu' && keyPlanMode.value === 'coding')
+// 「高级」收起时标题下列出里面有哪几项；条件与模板里各项的 v-if 一一对应（改一处两处一起改）
+const advancedItems = computed(() => {
+  const items: string[] = []
+  if (headerOverrideCapable.value) items.push(t('admin.accounts.headerOverride.title'))
+  if (poolModeCapable.value) items.push(t('admin.accounts.poolMode'))
+  if (anthropicKeySettingsVisible.value) {
+    items.push(t('admin.accounts.anthropic.apiKeyAuthScheme'), t('admin.accounts.anthropic.bedrockCCCompat'))
+  }
+  if (interceptWarmupCapable.value) items.push(t('admin.accounts.interceptWarmupRequests'))
+  if (zhipuTeamCapable.value) items.push(t('admin.accounts.cnProviders.zhipuTeam.title'))
+  if (form.platform === 'antigravity') items.push(t('admin.accounts.antigravityProjectIdLabel'))
+  return items
+})
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
 const isManualInputMethod = computed(() => {
   return oauthFlowRef.value?.inputMethod === 'manual'
-})
-
-const expiresAtInput = computed({
-  get: () => formatDateTimeLocal(form.expires_at),
-  set: (value: string) => {
-    form.expires_at = parseDateTimeLocal(value)
-  }
 })
 
 const canExchangeCode = computed(() => {
@@ -1895,7 +1494,7 @@ watch(
 
 const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | 'ai_studio') => {
   if (oauthType === 'ai_studio' && !geminiAIStudioOAuthEnabled.value) {
-    console.error(t('admin.accounts.oauth.gemini.aiStudioNotConfigured'))
+    submitError.value = t('admin.accounts.oauth.gemini.aiStudioNotConfigured')
     return
   }
   geminiOAuthType.value = oauthType
@@ -1915,8 +1514,8 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
     await createAccountRecord(payload)
     emit('created')
     handleClose()
-  } catch (error: any) {
-    console.error(error.response?.data?.message || error.response?.data?.detail || t('admin.accounts.failedToCreate'), error)
+  } catch (error) {
+    submitError.value = extractApiErrorMessage(error, t('admin.accounts.failedToCreate'))
   } finally {
     submitting.value = false
   }
@@ -1925,16 +1524,17 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 // Methods
 const resetForm = () => {
   step.value = 1
+  submitError.value = ''
   form.name = ''
   form.notes = ''
-  form.platform = 'anthropic'
-  form.type = 'oauth'
+  // form.type 不在这里设：它由 watcher 按类别 / 添加方式 / 平台同步，三者没变时它本来就对
+  form.platform = DEFAULT_ACCESS_SOURCE.platform
   form.credentials = {}
   form.proxy_id = null
   form.concurrency = 10
   form.priority = 1
   form.expires_at = null
-  accountCategory.value = 'oauth-based'
+  accountCategory.value = DEFAULT_ACCESS_SOURCE.category
   addMethod.value = 'oauth'
   keyPlanMode.value = 'payg'
   protocolEndpoints.value = {}
@@ -1946,7 +1546,6 @@ const resetForm = () => {
   editQuotaDailyLimit.value = null
   editQuotaWeeklyLimit.value = null
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
-  showMoreSettings.value = false
   poolModeEnabled.value = false
   headerOverrideRows.value = []
   interceptWarmupRequests.value = false
@@ -1961,7 +1560,7 @@ const resetForm = () => {
   antigravityProjectId.value = ''
   vertexServiceAccountJson.value = ''
   vertexLocation.value = 'global'
-  geminiOAuthType.value = 'code_assist'
+  geminiOAuthType.value = 'google_one'
   oauth.resetState()
   openaiOAuth.resetState()
   geminiOAuth.resetState()
@@ -2011,13 +1610,13 @@ const applyVertexServiceAccountJson = (value: string) => {
     const clientEmail = typeof parsed.client_email === 'string' ? parsed.client_email.trim() : ''
     const privateKey = typeof parsed.private_key === 'string' ? parsed.private_key.trim() : ''
     if (!projectId || !clientEmail || !privateKey) {
-      console.error(t('admin.accounts.vertexSaJsonMissingFields'))
+      submitError.value = t('admin.accounts.vertexSaJsonMissingFields')
       return false
     }
     vertexServiceAccountJson.value = JSON.stringify(parsed)
     return true
-  } catch (error) {
-    console.error(t('admin.accounts.vertexSaJsonInvalid'), error)
+  } catch {
+    submitError.value = t('admin.accounts.vertexSaJsonInvalid')
     return false
   }
 }
@@ -2043,10 +1642,11 @@ const handleVertexServiceAccountDrop = async (event: DragEvent) => {
 }
 
 const handleSubmit = async () => {
+  submitError.value = ''
   // For OAuth-based type, handle OAuth flow (goes to step 2)
   if (isOAuthFlow.value) {
     if (!isGrokSSOInputMethod.value && !form.name.trim()) {
-      console.error(t('admin.accounts.pleaseEnterAccountName'))
+      submitError.value = t('admin.accounts.pleaseEnterAccountName')
       return
     }
     step.value = 2
@@ -2056,7 +1656,7 @@ const handleSubmit = async () => {
   // For Bedrock type, create directly
   if (form.platform === 'anthropic' && accountCategory.value === 'bedrock') {
     if (!form.name.trim()) {
-      console.error(t('admin.accounts.pleaseEnterAccountName'))
+      submitError.value = t('admin.accounts.pleaseEnterAccountName')
       return
     }
 
@@ -2067,18 +1667,18 @@ const handleSubmit = async () => {
 
     if (bedrockAuthMode.value === 'sigv4') {
       if (!bedrockAccessKeyId.value.trim()) {
-        console.error(t('admin.accounts.bedrockAccessKeyIdRequired'))
+        submitError.value = t('admin.accounts.bedrockAccessKeyIdRequired')
         return
       }
       if (!bedrockSecretAccessKey.value.trim()) {
-        console.error(t('admin.accounts.bedrockSecretAccessKeyRequired'))
+        submitError.value = t('admin.accounts.bedrockSecretAccessKeyRequired')
         return
       }
       credentials.aws_access_key_id = bedrockAccessKeyId.value.trim()
       credentials.aws_secret_access_key = bedrockSecretAccessKey.value.trim()
     } else {
       if (!bedrockApiKeyValue.value.trim()) {
-        console.error(t('admin.accounts.bedrockApiKeyRequired'))
+        submitError.value = t('admin.accounts.bedrockApiKeyRequired')
         return
       }
       credentials.api_key = bedrockApiKeyValue.value.trim()
@@ -2096,14 +1696,14 @@ const handleSubmit = async () => {
 
   if ((form.platform === 'gemini' || form.platform === 'anthropic') && accountCategory.value === 'service_account') {
     if (!form.name.trim()) {
-      console.error(t('admin.accounts.pleaseEnterAccountName'))
+      submitError.value = t('admin.accounts.pleaseEnterAccountName')
       return
     }
     if (!parseVertexServiceAccountJson()) {
       return
     }
     if (!vertexLocation.value.trim()) {
-      console.error(t('admin.accounts.vertexLocationRequired'))
+      submitError.value = t('admin.accounts.vertexLocationRequired')
       return
     }
     const credentials: Record<string, unknown> = {
@@ -2111,13 +1711,15 @@ const handleSubmit = async () => {
       location: vertexLocation.value.trim(),
       tier_id: 'vertex'
     }
+    // Vertex · Claude 也有「拦截预热请求」开关（anthropic 平台都有），之前这里漏写了
+    applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
     await createAccountAndFinish(form.platform, 'service_account' as AccountType, credentials)
     return
   }
 
   // For apikey type, create directly
   if (!apiKeyValue.value.trim()) {
-    console.error(t('admin.accounts.pleaseEnterApiKey'))
+    submitError.value = t('admin.accounts.pleaseEnterApiKey')
     return
   }
 
@@ -2167,6 +1769,7 @@ const handleSubmit = async () => {
 
 const goBackToBasicInfo = () => {
   step.value = 1
+  submitError.value = ''
   oauth.resetState()
   openaiOAuth.resetState()
   geminiOAuth.resetState()
@@ -2203,12 +1806,6 @@ const handleValidateRefreshToken = (rt: string) => {
   }
 }
 
-const handleValidateSessionToken = (_sessionToken: string) => {
-  // Session token validation removed
-}
-
-const formatDateTimeLocal = formatDateTimeLocalInput
-const parseDateTimeLocal = parseDateTimeLocalInput
 
 // 限额（日 / 周 / 总）写进 extra（重置方式固定滚动、提醒固定用到 80% 发一次，都不用写）。
 // 第三方 key 的提交分支和 Bedrock / Vertex 共用，任何一条漏调，界面上填的限额就会被静默丢掉。
@@ -2307,7 +1904,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
         successCount++
       } catch (error: any) {
         failedCount++
-        const errMsg = error.response?.data?.detail || error.message || 'Unknown error'
+        const errMsg = extractApiErrorMessage(error, 'Unknown error')
         errors.push(`#${i + 1}: ${errMsg}`)
       }
     }
@@ -2320,7 +1917,6 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
       emit('created')
     } else {
       grokOAuth.error.value = errors.join('\n')
-      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     grokOAuth.loading.value = false
@@ -2369,94 +1965,9 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       grokOAuth.error.value = (result.failed || [])
         .map((item) => `#${item.index}: ${item.error || 'Unknown error'}`)
         .join('\n') || t('admin.accounts.oauth.grok.failedToConvertSSO')
-      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } catch (error: any) {
-    grokOAuth.error.value = error.response?.data?.detail || error.message || t('admin.accounts.oauth.grok.failedToConvertSSO')
-    console.error(grokOAuth.error.value, error)
-  } finally {
-    grokOAuth.loading.value = false
-  }
-}
-
-/**
- * Grok password login: each line is email----password.
- * Password is only used for the authorize API call; buildCredentials never stores it.
- */
-const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
-  if (!emailPasswordInput.trim()) return
-  if (!validateHeaderOverrideForm()) return
-
-  const lines = emailPasswordInput
-    .split('\n')
-    // Keep the password portion byte-for-byte; trim is only for determining
-    // whether this textarea line is blank.
-    .filter((line) => line.trim() && line.includes('----'))
-
-  if (lines.length === 0) {
-    grokOAuth.error.value = t(
-      'admin.accounts.oauth.grok.pleaseEnterPassword',
-      'Please enter email----password (one per line)'
-    )
-    return
-  }
-
-  grokOAuth.loading.value = true
-  grokOAuth.error.value = ''
-
-  let successCount = 0
-  let failedCount = 0
-  const errors: string[] = []
-
-  try {
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        const tokenInfo = await grokOAuth.authorizePassword(lines[i], form.proxy_id)
-        if (!tokenInfo) {
-          failedCount++
-          errors.push(`#${i + 1}: ${grokOAuth.error.value || 'Authorization failed'}`)
-          grokOAuth.error.value = ''
-          continue
-        }
-
-        const credentials = grokOAuth.buildCredentials(tokenInfo)
-        applyGrokOAuthUpstreamConfig(credentials)
-        const extra = grokOAuth.buildExtraInfo(tokenInfo)
-        const accountName =
-          lines.length > 1
-            ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}`
-            : form.name || tokenInfo.email || 'Grok OAuth Account'
-
-        await createAccountRecord({
-          name: accountName,
-          notes: form.notes,
-          platform: 'grok',
-          type: 'oauth',
-          credentials,
-          extra,
-          proxy_id: form.proxy_id,
-          concurrency: form.concurrency,
-          priority: form.priority,
-          expires_at: form.expires_at
-        })
-        successCount++
-      } catch (error: any) {
-        failedCount++
-        const errMsg = error.response?.data?.detail || error.message || 'Unknown error'
-        errors.push(`#${i + 1}: ${errMsg}`)
-      }
-    }
-
-    if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
-    } else if (successCount > 0) {
-      grokOAuth.error.value = errors.join('\n')
-      emit('created')
-    } else {
-      grokOAuth.error.value = errors.join('\n')
-      console.error(t('admin.accounts.oauth.batchFailed'))
-    }
+    grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.grok.failedToConvertSSO'))
   } finally {
     grokOAuth.loading.value = false
   }
@@ -2474,7 +1985,6 @@ const handleOpenAIExchange = async (authCode: string) => {
     const stateToUse = (oauthFlowRef.value?.oauthState || oauthClient.oauthState.value || '').trim()
     if (!stateToUse) {
       oauthClient.error.value = t('admin.accounts.oauth.authFailed')
-      console.error(oauthClient.error.value)
       return
     }
 
@@ -2508,8 +2018,7 @@ const handleOpenAIExchange = async (authCode: string) => {
     emit('created')
     handleClose()
   } catch (error: any) {
-    oauthClient.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    console.error(oauthClient.error.value, error)
+    oauthClient.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
     oauthClient.loading.value = false
   }
@@ -2598,14 +2107,10 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       return
     }
 
-    console.error(t('admin.accounts.oauth.openai.codexSessionImportFailed'))
+    if (!oauthClient.error.value) oauthClient.error.value = t('admin.accounts.oauth.openai.codexSessionImportFailed')
   } catch (error: any) {
     oauthClient.error.value =
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      t('admin.accounts.oauth.openai.codexSessionImportFailed')
-    console.error(oauthClient.error.value, error)
+      extractApiErrorMessage(error, t('admin.accounts.oauth.openai.codexSessionImportFailed'))
   } finally {
     oauthClient.loading.value = false
   }
@@ -2637,11 +2142,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
     handleClose()
   } catch (error: any) {
     oauthClient.error.value =
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      t('admin.accounts.oauth.openai.codexPatImportFailed')
-    console.error(oauthClient.error.value, error)
+      extractApiErrorMessage(error, t('admin.accounts.oauth.openai.codexPatImportFailed'))
   } finally {
     oauthClient.loading.value = false
   }
@@ -2713,7 +2214,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
         successCount++
       } catch (error: any) {
         failedCount++
-        const errMsg = error.response?.data?.detail || error.message || 'Unknown error'
+        const errMsg = extractApiErrorMessage(error, 'Unknown error')
         errors.push(`#${i + 1}: ${errMsg}`)
       }
     }
@@ -2727,7 +2228,6 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
       emit('created')
     } else {
       oauthClient.error.value = errors.join('\n')
-      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     oauthClient.loading.value = false
@@ -2799,7 +2299,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
         successCount++
       } catch (error: any) {
         failedCount++
-        const errMsg = error.response?.data?.detail || error.message || 'Unknown error'
+        const errMsg = extractApiErrorMessage(error, 'Unknown error')
         errors.push(`#${i + 1}: ${errMsg}`)
       }
     }
@@ -2813,7 +2313,6 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
       emit('created')
     } else {
       antigravityOAuth.error.value = errors.join('\n')
-      console.error(t('admin.accounts.oauth.batchFailed'))
     }
   } finally {
     antigravityOAuth.loading.value = false
@@ -2832,7 +2331,6 @@ const handleGeminiExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || geminiOAuth.state.value
     if (!stateToUse) {
       geminiOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      console.error(geminiOAuth.error.value)
       return
     }
 
@@ -2849,8 +2347,7 @@ const handleGeminiExchange = async (authCode: string) => {
     const extra = geminiOAuth.buildExtraInfo(tokenInfo)
     await createAccountAndFinish('gemini', 'oauth', credentials, extra)
   } catch (error: any) {
-    geminiOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    console.error(geminiOAuth.error.value, error)
+    geminiOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
     geminiOAuth.loading.value = false
   }
@@ -2868,7 +2365,6 @@ const handleAntigravityExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || antigravityOAuth.state.value
     if (!stateToUse) {
       antigravityOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      console.error(antigravityOAuth.error.value)
       return
     }
 
@@ -2886,8 +2382,7 @@ const handleAntigravityExchange = async (authCode: string) => {
 		const extra = buildAntigravityExtra()
 		await createAccountAndFinish('antigravity', 'oauth', credentials, extra)
   } catch (error: any) {
-    antigravityOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    console.error(antigravityOAuth.error.value, error)
+    antigravityOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
     antigravityOAuth.loading.value = false
   }
@@ -2906,7 +2401,6 @@ const handleGrokExchange = async (authCode: string) => {
     const stateToUse = stateFromInput || grokOAuth.state.value
     if (!stateToUse) {
       grokOAuth.error.value = t('admin.accounts.oauth.authFailed')
-      console.error(grokOAuth.error.value)
       return
     }
 
@@ -2923,8 +2417,7 @@ const handleGrokExchange = async (authCode: string) => {
     const extra = grokOAuth.buildExtraInfo(tokenInfo)
     await createAccountAndFinish('grok', 'oauth', credentials, extra)
   } catch (error: any) {
-    grokOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    console.error(grokOAuth.error.value, error)
+    grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
     grokOAuth.loading.value = false
   }
@@ -2971,8 +2464,7 @@ const handleAnthropicExchange = async (authCode: string) => {
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
     await createAccountAndFinish(form.platform, addMethod.value as AccountType, credentials, extra)
   } catch (error: any) {
-    oauth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
-    console.error(oauth.error.value, error)
+    oauth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
     oauth.loading.value = false
   }
@@ -3067,7 +2559,7 @@ const handleCookieAuth = async (sessionKey: string) => {
         errors.push(
           t('admin.accounts.oauth.keyAuthFailed', {
             index: i + 1,
-            error: error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+            error: extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
           })
         )
       }
@@ -3086,7 +2578,7 @@ const handleCookieAuth = async (sessionKey: string) => {
       oauth.error.value = errors.join('\n')
     }
   } catch (error: any) {
-    oauth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.cookieAuthFailed')
+    oauth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.cookieAuthFailed'))
   } finally {
     oauth.loading.value = false
   }
