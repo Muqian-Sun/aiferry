@@ -54,7 +54,6 @@ type PricingCard struct {
 	ImageInputPrice              *float64          `json:"image_input_price"`
 	ImageOutputPrice             *float64          `json:"image_output_price"`
 	PerRequestPrice              *float64          `json:"per_request_price"`
-	SearchPricePerCall           *float64          `json:"search_price_per_call,omitempty"`
 	Intervals                    []PricingInterval `json:"intervals"`
 	TimePricing                  *TimePricing      `json:"time_pricing,omitempty"`
 	CreatedAt                    time.Time         `json:"created_at,omitempty"`

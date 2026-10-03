@@ -515,6 +515,48 @@ func (_u *UsageLogUpdate) AddAccountCost(v float64) *UsageLogUpdate {
 	return _u
 }
 
+// SetWebSearchCount sets the "web_search_count" field.
+func (_u *UsageLogUpdate) SetWebSearchCount(v int) *UsageLogUpdate {
+	_u.mutation.ResetWebSearchCount()
+	_u.mutation.SetWebSearchCount(v)
+	return _u
+}
+
+// SetNillableWebSearchCount sets the "web_search_count" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableWebSearchCount(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetWebSearchCount(*v)
+	}
+	return _u
+}
+
+// AddWebSearchCount adds value to the "web_search_count" field.
+func (_u *UsageLogUpdate) AddWebSearchCount(v int) *UsageLogUpdate {
+	_u.mutation.AddWebSearchCount(v)
+	return _u
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (_u *UsageLogUpdate) SetWebSearchCost(v float64) *UsageLogUpdate {
+	_u.mutation.ResetWebSearchCost()
+	_u.mutation.SetWebSearchCost(v)
+	return _u
+}
+
+// SetNillableWebSearchCost sets the "web_search_cost" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableWebSearchCost(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetWebSearchCost(*v)
+	}
+	return _u
+}
+
+// AddWebSearchCost adds value to the "web_search_cost" field.
+func (_u *UsageLogUpdate) AddWebSearchCost(v float64) *UsageLogUpdate {
+	_u.mutation.AddWebSearchCost(v)
+	return _u
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_u *UsageLogUpdate) SetBillingType(v int8) *UsageLogUpdate {
 	_u.mutation.ResetBillingType()
@@ -1125,6 +1167,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedAccountCost(); ok {
 		_spec.AddField(usagelog.FieldAccountCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.WebSearchCount(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedWebSearchCount(); ok {
+		_spec.AddField(usagelog.FieldWebSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.WebSearchCost(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedWebSearchCost(); ok {
+		_spec.AddField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
@@ -1845,6 +1899,48 @@ func (_u *UsageLogUpdateOne) AddAccountCost(v float64) *UsageLogUpdateOne {
 	return _u
 }
 
+// SetWebSearchCount sets the "web_search_count" field.
+func (_u *UsageLogUpdateOne) SetWebSearchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetWebSearchCount()
+	_u.mutation.SetWebSearchCount(v)
+	return _u
+}
+
+// SetNillableWebSearchCount sets the "web_search_count" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableWebSearchCount(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetWebSearchCount(*v)
+	}
+	return _u
+}
+
+// AddWebSearchCount adds value to the "web_search_count" field.
+func (_u *UsageLogUpdateOne) AddWebSearchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.AddWebSearchCount(v)
+	return _u
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (_u *UsageLogUpdateOne) SetWebSearchCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetWebSearchCost()
+	_u.mutation.SetWebSearchCost(v)
+	return _u
+}
+
+// SetNillableWebSearchCost sets the "web_search_cost" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableWebSearchCost(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetWebSearchCost(*v)
+	}
+	return _u
+}
+
+// AddWebSearchCost adds value to the "web_search_cost" field.
+func (_u *UsageLogUpdateOne) AddWebSearchCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddWebSearchCost(v)
+	return _u
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_u *UsageLogUpdateOne) SetBillingType(v int8) *UsageLogUpdateOne {
 	_u.mutation.ResetBillingType()
@@ -2485,6 +2581,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedAccountCost(); ok {
 		_spec.AddField(usagelog.FieldAccountCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.WebSearchCount(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedWebSearchCount(); ok {
+		_spec.AddField(usagelog.FieldWebSearchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.WebSearchCost(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedWebSearchCost(); ok {
+		_spec.AddField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)

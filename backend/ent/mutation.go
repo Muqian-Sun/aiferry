@@ -42896,6 +42896,10 @@ type UsageLogMutation struct {
 	addrate_multiplier          *float64
 	account_cost                *float64
 	addaccount_cost             *float64
+	web_search_count            *int
+	addweb_search_count         *int
+	web_search_cost             *float64
+	addweb_search_cost          *float64
 	billing_type                *int8
 	addbilling_type             *int8
 	stream                      *bool
@@ -44289,6 +44293,118 @@ func (m *UsageLogMutation) ResetAccountCost() {
 	m.addaccount_cost = nil
 }
 
+// SetWebSearchCount sets the "web_search_count" field.
+func (m *UsageLogMutation) SetWebSearchCount(i int) {
+	m.web_search_count = &i
+	m.addweb_search_count = nil
+}
+
+// WebSearchCount returns the value of the "web_search_count" field in the mutation.
+func (m *UsageLogMutation) WebSearchCount() (r int, exists bool) {
+	v := m.web_search_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWebSearchCount returns the old "web_search_count" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldWebSearchCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWebSearchCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWebSearchCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWebSearchCount: %w", err)
+	}
+	return oldValue.WebSearchCount, nil
+}
+
+// AddWebSearchCount adds i to the "web_search_count" field.
+func (m *UsageLogMutation) AddWebSearchCount(i int) {
+	if m.addweb_search_count != nil {
+		*m.addweb_search_count += i
+	} else {
+		m.addweb_search_count = &i
+	}
+}
+
+// AddedWebSearchCount returns the value that was added to the "web_search_count" field in this mutation.
+func (m *UsageLogMutation) AddedWebSearchCount() (r int, exists bool) {
+	v := m.addweb_search_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetWebSearchCount resets all changes to the "web_search_count" field.
+func (m *UsageLogMutation) ResetWebSearchCount() {
+	m.web_search_count = nil
+	m.addweb_search_count = nil
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (m *UsageLogMutation) SetWebSearchCost(f float64) {
+	m.web_search_cost = &f
+	m.addweb_search_cost = nil
+}
+
+// WebSearchCost returns the value of the "web_search_cost" field in the mutation.
+func (m *UsageLogMutation) WebSearchCost() (r float64, exists bool) {
+	v := m.web_search_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWebSearchCost returns the old "web_search_cost" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldWebSearchCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWebSearchCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWebSearchCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWebSearchCost: %w", err)
+	}
+	return oldValue.WebSearchCost, nil
+}
+
+// AddWebSearchCost adds f to the "web_search_cost" field.
+func (m *UsageLogMutation) AddWebSearchCost(f float64) {
+	if m.addweb_search_cost != nil {
+		*m.addweb_search_cost += f
+	} else {
+		m.addweb_search_cost = &f
+	}
+}
+
+// AddedWebSearchCost returns the value that was added to the "web_search_cost" field in this mutation.
+func (m *UsageLogMutation) AddedWebSearchCost() (r float64, exists bool) {
+	v := m.addweb_search_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetWebSearchCost resets all changes to the "web_search_cost" field.
+func (m *UsageLogMutation) ResetWebSearchCost() {
+	m.web_search_cost = nil
+	m.addweb_search_cost = nil
+}
+
 // SetBillingType sets the "billing_type" field.
 func (m *UsageLogMutation) SetBillingType(i int8) {
 	m.billing_type = &i
@@ -45309,7 +45425,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 42)
+	fields := make([]string, 0, 44)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -45384,6 +45500,12 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.account_cost != nil {
 		fields = append(fields, usagelog.FieldAccountCost)
+	}
+	if m.web_search_count != nil {
+		fields = append(fields, usagelog.FieldWebSearchCount)
+	}
+	if m.web_search_cost != nil {
+		fields = append(fields, usagelog.FieldWebSearchCost)
 	}
 	if m.billing_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
@@ -45494,6 +45616,10 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.RateMultiplier()
 	case usagelog.FieldAccountCost:
 		return m.AccountCost()
+	case usagelog.FieldWebSearchCount:
+		return m.WebSearchCount()
+	case usagelog.FieldWebSearchCost:
+		return m.WebSearchCost()
 	case usagelog.FieldBillingType:
 		return m.BillingType()
 	case usagelog.FieldStream:
@@ -45587,6 +45713,10 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldRateMultiplier(ctx)
 	case usagelog.FieldAccountCost:
 		return m.OldAccountCost(ctx)
+	case usagelog.FieldWebSearchCount:
+		return m.OldWebSearchCount(ctx)
+	case usagelog.FieldWebSearchCost:
+		return m.OldWebSearchCost(ctx)
 	case usagelog.FieldBillingType:
 		return m.OldBillingType(ctx)
 	case usagelog.FieldStream:
@@ -45805,6 +45935,20 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAccountCost(v)
 		return nil
+	case usagelog.FieldWebSearchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWebSearchCount(v)
+		return nil
+	case usagelog.FieldWebSearchCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWebSearchCost(v)
+		return nil
 	case usagelog.FieldBillingType:
 		v, ok := value.(int8)
 		if !ok {
@@ -45974,6 +46118,12 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addaccount_cost != nil {
 		fields = append(fields, usagelog.FieldAccountCost)
 	}
+	if m.addweb_search_count != nil {
+		fields = append(fields, usagelog.FieldWebSearchCount)
+	}
+	if m.addweb_search_cost != nil {
+		fields = append(fields, usagelog.FieldWebSearchCost)
+	}
 	if m.addbilling_type != nil {
 		fields = append(fields, usagelog.FieldBillingType)
 	}
@@ -46028,6 +46178,10 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedRateMultiplier()
 	case usagelog.FieldAccountCost:
 		return m.AddedAccountCost()
+	case usagelog.FieldWebSearchCount:
+		return m.AddedWebSearchCount()
+	case usagelog.FieldWebSearchCost:
+		return m.AddedWebSearchCost()
 	case usagelog.FieldBillingType:
 		return m.AddedBillingType()
 	case usagelog.FieldDurationMs:
@@ -46146,6 +46300,20 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddAccountCost(v)
+		return nil
+	case usagelog.FieldWebSearchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWebSearchCount(v)
+		return nil
+	case usagelog.FieldWebSearchCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWebSearchCost(v)
 		return nil
 	case usagelog.FieldBillingType:
 		v, ok := value.(int8)
@@ -46395,6 +46563,12 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldAccountCost:
 		m.ResetAccountCost()
+		return nil
+	case usagelog.FieldWebSearchCount:
+		m.ResetWebSearchCount()
+		return nil
+	case usagelog.FieldWebSearchCost:
+		m.ResetWebSearchCost()
 		return nil
 	case usagelog.FieldBillingType:
 		m.ResetBillingType()

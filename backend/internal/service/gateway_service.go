@@ -468,6 +468,9 @@ type ClaudeUsage struct {
 	// （Gemini usageMetadata 的 AUDIO 模态；输入侧已扣掉缓存命中的音频）。
 	AudioInputTokens  int `json:"audio_input_tokens,omitempty"`
 	AudioOutputTokens int `json:"audio_output_tokens,omitempty"`
+	// WebSearchRequests 是 Anthropic 官方 web_search 工具的搜索次数（usage.server_tool_use.web_search_requests），
+	// 按次收搜索费（见 web_search_usage.go）。
+	WebSearchRequests int `json:"-"`
 }
 
 // ForwardResult 转发结果
@@ -513,8 +516,15 @@ type ForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
-	SearchCount        int
 	AudioUsage         *AudioUsage
+}
+
+// webSearchUsage 这次请求的联网搜索用量：Anthropic 侧只有 web 搜索次数。
+func (r *ForwardResult) webSearchUsage() WebSearchUsage {
+	if r == nil {
+		return WebSearchUsage{}
+	}
+	return WebSearchUsage{WebSearchCalls: r.Usage.WebSearchRequests}
 }
 
 // GatewayFailureStage identifies which request stage failed. The zero value is

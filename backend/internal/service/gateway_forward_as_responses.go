@@ -319,6 +319,10 @@ func mergeAnthropicUsage(dst *ClaudeUsage, src apicompat.AnthropicUsage) {
 	if src.OutputTokens > 0 {
 		dst.OutputTokens = src.OutputTokens
 	}
+	// message_delta 带的是这次请求累计的搜索次数
+	if src.ServerToolUse != nil {
+		dst.WebSearchRequests = src.ServerToolUse.WebSearchRequests
+	}
 }
 
 // parseAnthropicSSEField parses an SSE field line in the form "field:value" or "field: value".

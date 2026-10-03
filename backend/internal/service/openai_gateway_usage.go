@@ -168,7 +168,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		AudioOutputTokens: max(result.Usage.AudioOutputTokens, 0),
 	}
 
-	// 用户价 = 目录价 × 用户倍率；图片 / 视频 / 搜索按次倍率与 token 倍率是同一个数。
+	// 用户价 = 目录价 × 用户倍率；图片 / 视频倍率与 token 倍率是同一个数，联网搜索费按官方原价、不乘倍率。
 	multiplier := UserRateMultiplier(user)
 	pricingAt := openAIUsagePricingAt(input)
 
@@ -221,7 +221,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	accountCost := 0.0
 	if tokenPath && err == nil {
 		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, billingModels,
-			tokens, pricingAt, optionalStringValue(result.ReasoningEffort))
+			tokens, result.WebSearch, pricingAt, optionalStringValue(result.ReasoningEffort))
 	}
 
 	// Create usage log
@@ -315,6 +315,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
+		usageLog.WebSearchCount = cost.WebSearchCount
+		usageLog.WebSearchCost = cost.WebSearchCost
 	}
 	usageLog.RateMultiplier = multiplier
 	usageLog.AccountCost = accountCost
@@ -404,7 +406,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	pricingAt time.Time,
 ) (cost *CostBreakdown, tokenPath bool, err error) {
 	billingModel := firstUsageBillingModel(billingModels)
-	// 媒体用量（alpha search / 音频 / 视频 / 图片）按目录条目计价；图片落在 token 模式条目
+	// 媒体用量（音频 / 视频 / 图片）按目录条目计价；图片落在 token 模式条目
 	// （gpt-image-*）时回到下面的 token 路径。图片 / 视频倍率与 token 倍率是同一个数。
 	if cost, handled, err := s.billingService.CalculateMediaCost(ctx, s.resolver, billingModel, mediaUsageFromOpenAIForwardResult(result), multiplier); handled {
 		if err != nil {
@@ -413,9 +415,10 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		return cost, false, nil
 	}
 
-	// Token path (optional search surcharge is additive — never replaces token cost).
+	// Token 计费，再叠加联网搜索费（官方原价、不乘用户倍率）。
 	var tokenCost *CostBreakdown
 	var lastErr error
+	pricedModel := billingModel
 	if len(billingModels) > 0 && billingModel != "" {
 		for _, candidate := range billingModels {
 			candidate = strings.TrimSpace(candidate)
@@ -433,45 +436,27 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 			)
 			if err == nil {
 				tokenCost = cost
+				pricedModel = candidate
 				break
 			}
 			lastErr = err
 		}
 	}
-	// Search surcharge is additive. Never let a zero/default search cost mask a
-	// real token-pricing failure for requests that attempted token billing.
-	searchCost := (*CostBreakdown)(nil)
-	if result != nil && result.SearchCount > 0 {
-		searchCost = s.billingService.CalculateSearchCost(result.SearchCount, multiplier)
-	}
 
-	tokenBillingAttempted := len(billingModels) > 0 && billingModel != ""
 	if tokenCost == nil {
-		if tokenBillingAttempted {
-			if lastErr == nil {
-				lastErr = fmt.Errorf("%w: no non-empty billing model candidates", ErrModelPricingUnavailable)
-			}
-			return nil, true, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
-		}
-		// Search-only (no model / pure tool path): allow search billing alone.
-		if searchCost != nil {
-			return searchCost, true, nil
-		}
-		// 空候选按「无价可循」处理并携带 ErrModelPricingUnavailable：上层据此走
-		// 零成本+告警落账，而不是丢弃整条 usage 记录。CN 账号的 claude-* 候选被
-		// filterCNProviderBillingModelCandidates 全数过滤后即落到这里。
 		if lastErr == nil {
-			lastErr = fmt.Errorf("%w: openai usage billing model is empty", ErrModelPricingUnavailable)
+			if len(billingModels) > 0 && billingModel != "" {
+				lastErr = fmt.Errorf("%w: no non-empty billing model candidates", ErrModelPricingUnavailable)
+			} else {
+				// 空候选按「无价可循」处理并携带 ErrModelPricingUnavailable：上层据此走
+				// 零成本+告警落账，而不是丢弃整条 usage 记录。CN 账号的 claude-* 候选被
+				// filterCNProviderBillingModelCandidates 全数过滤后即落到这里。
+				lastErr = fmt.Errorf("%w: openai usage billing model is empty", ErrModelPricingUnavailable)
+			}
 		}
 		return nil, true, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
 	}
-	if searchCost == nil || (searchCost.TotalCost == 0 && searchCost.ActualCost == 0) {
-		return tokenCost, true, nil
-	}
-	// Additive: tokens + search surcharge.
-	tokenCost.TotalCost += searchCost.TotalCost
-	tokenCost.ActualCost += searchCost.ActualCost
-	return tokenCost, true, nil
+	return addWebSearchCharge(ctx, s.resolver, pricedModel, result.WebSearch, tokenCost), true, nil
 }
 
 func isUsagePricingUnavailableError(err error) bool {

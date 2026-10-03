@@ -441,6 +441,9 @@ type UsageLog struct {
 	TotalCost         float64 `json:"total_cost"`
 	ActualCost        float64 `json:"actual_cost"`
 	RateMultiplier    float64 `json:"rate_multiplier"`
+	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）。
+	WebSearchCount int     `json:"web_search_count"`
+	WebSearchCost  float64 `json:"web_search_cost"`
 
 	BillingType  int8   `json:"billing_type"`
 	RequestType  string `json:"request_type"`

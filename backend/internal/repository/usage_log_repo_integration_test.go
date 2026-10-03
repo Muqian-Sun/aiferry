@@ -288,6 +288,39 @@ func TestUsageLogRepositoryCreateBestEffort_BatchPathDuplicateRequestID(t *testi
 	}, 3*time.Second, 20*time.Millisecond)
 }
 
+func TestUsageLogRepositoryCreateBestEffort_PersistsWebSearch(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := newUsageLogRepositoryWithSQL(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{Email: fmt.Sprintf("usage-best-effort-search-%d@example.com", time.Now().UnixNano())})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-usage-best-effort-search-" + uuid.NewString(), Name: "k"})
+	account := mustCreateAccount(t, client, &service.Account{Name: "acc-usage-best-effort-search-" + uuid.NewString()})
+	requestID := uuid.NewString()
+
+	require.NoError(t, repo.CreateBestEffort(ctx, &service.UsageLog{
+		UserID:         user.ID,
+		APIKeyID:       apiKey.ID,
+		AccountID:      account.ID,
+		RequestID:      requestID,
+		Model:          "grok-4.5",
+		InputTokens:    10,
+		OutputTokens:   20,
+		TotalCost:      0.525,
+		ActualCost:     0.525,
+		WebSearchCount: 5,
+		WebSearchCost:  0.025,
+		CreatedAt:      time.Now().UTC(),
+	}))
+
+	require.Eventually(t, func() bool {
+		var count int
+		var cost float64
+		err := integrationDB.QueryRowContext(ctx, "SELECT web_search_count, web_search_cost FROM usage_logs WHERE request_id = $1 AND api_key_id = $2", requestID, apiKey.ID).Scan(&count, &cost)
+		return err == nil && count == 5 && cost == 0.025
+	}, 3*time.Second, 20*time.Millisecond)
+}
+
 func TestUsageLogRepositoryCreateBestEffort_QueueFullBlocksUntilCtxDeadline(t *testing.T) {
 	// 队列满时不再立即丢弃：阻塞等待入队，直到调用方 ctx 到期才标记 dropped（issue #3656）。
 	client := testEntClient(t)
@@ -530,6 +563,34 @@ func (s *UsageLogRepoSuite) TestGetByID_ReturnsAccountCost() {
 	got, err := s.repo.GetByID(s.ctx, log.ID)
 	s.Require().NoError(err)
 	s.Require().InDelta(0.37, got.AccountCost, 1e-9)
+}
+
+// 联网搜索的次数与搜索费逐行落库（单条写入；批量写入见 TestUsageLogRepositoryCreateBestEffort_PersistsWebSearch）。
+func (s *UsageLogRepoSuite) TestCreate_PersistsWebSearch() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "web-search-usage@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-web-search-usage", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-web-search-usage"})
+
+	log := &service.UsageLog{
+		UserID:         user.ID,
+		APIKeyID:       apiKey.ID,
+		AccountID:      account.ID,
+		RequestID:      uuid.New().String(),
+		Model:          "grok-4.5",
+		InputTokens:    10,
+		OutputTokens:   20,
+		TotalCost:      1.03,
+		ActualCost:     0.53,
+		WebSearchCount: 3,
+		WebSearchCost:  0.03,
+		CreatedAt:      timezone.Today().Add(2 * time.Hour),
+	}
+	_, err := s.repo.Create(s.ctx, log)
+	s.Require().NoError(err)
+	got, err := s.repo.GetByID(s.ctx, log.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(3, got.WebSearchCount)
+	s.Require().InDelta(0.03, got.WebSearchCost, 1e-12)
 }
 
 func (s *UsageLogRepoSuite) TestGetByID_ReturnsOpenAIWSMode() {

@@ -93,7 +93,7 @@ type ModelCatalogEntry struct {
 	AudioOutputPrice *float64 `json:"audio_output_price"`
 
 	PerRequestPrice *float64 `json:"per_request_price"`
-	// SearchPricePerCall 模型内置搜索每次调用价（alpha search 用）；nil 表示用内置单价。
+	// SearchPricePerCall 官方每次 web 搜索价（联网搜索费，见 web_search_usage.go）；nil 表示用厂商公开价。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
@@ -204,7 +204,6 @@ func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 		ImageInputPrice:              e.ImageInputPrice,
 		ImageOutputPrice:             e.ImageOutputPrice,
 		PerRequestPrice:              e.PerRequestPrice,
-		SearchPricePerCall:           e.SearchPricePerCall,
 		TimePricing:                  e.TimePricing,
 	}
 	if e.Intervals != nil {

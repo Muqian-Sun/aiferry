@@ -1178,6 +1178,8 @@ type sseUsagePatch struct {
 	hasCacheCreation5m       bool
 	cacheCreation1hTokens    int
 	hasCacheCreation1h       bool
+	webSearchRequests        int
+	hasWebSearchRequests     bool
 }
 
 func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePatch {
@@ -1217,6 +1219,7 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 				patch.hasCacheCreation1h = true
 			}
 		}
+		patch.webSearchRequests, patch.hasWebSearchRequests = parseSSEWebSearchRequests(usageObj)
 		return patch
 
 	case "message_delta":
@@ -1252,10 +1255,21 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 				patch.hasCacheCreation1h = true
 			}
 		}
+		// message_delta 带的是这次请求累计的搜索次数
+		patch.webSearchRequests, patch.hasWebSearchRequests = parseSSEWebSearchRequests(usageObj)
 		return patch
 	}
 
 	return nil
+}
+
+// parseSSEWebSearchRequests 读 usage.server_tool_use.web_search_requests（Anthropic 官方 web_search 工具的次数）。
+func parseSSEWebSearchRequests(usageObj map[string]any) (int, bool) {
+	serverToolUse, ok := usageObj["server_tool_use"].(map[string]any)
+	if !ok {
+		return 0, false
+	}
+	return parseSSEUsageInt(serverToolUse["web_search_requests"])
 }
 
 func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
@@ -1280,6 +1294,9 @@ func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
 	}
 	if patch.hasCacheCreation1h {
 		usage.CacheCreation1hTokens = patch.cacheCreation1hTokens
+	}
+	if patch.hasWebSearchRequests {
+		usage.WebSearchRequests = patch.webSearchRequests
 	}
 }
 
@@ -1411,6 +1428,7 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 		response.Usage.CacheCreation5mTokens = int(cc5m.Int())
 		response.Usage.CacheCreation1hTokens = int(cc1h.Int())
 	}
+	response.Usage.WebSearchRequests = int(gjson.GetBytes(body, "usage.server_tool_use.web_search_requests").Int())
 
 	// 兼容 Kimi cached_tokens → cache_read_input_tokens
 	if response.Usage.CacheReadInputTokens == 0 {

@@ -102,6 +102,9 @@ type CostBreakdown struct {
 	// 仅供明细与测试核对。
 	AudioInputCost  float64
 	AudioOutputCost float64
+	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 TotalCost / ActualCost 里）。
+	WebSearchCount int
+	WebSearchCost  float64
 }
 
 func applyCostBreakdownMultiplier(cost *CostBreakdown, multiplier float64) {
@@ -1609,61 +1612,11 @@ func (s *BillingService) IsModelSupported(model string) bool {
 }
 
 const (
-	// Codex alpha/search 网页搜索的内置单价：OpenAI 官方 web search 定价 $10/1000 次。
-	// 目录条目的 search_price_per_call 可覆盖它；这是单价，不是「算不出价」的兜底。
-	defaultWebSearchPricePerCall = 0.01
-
-	// xAI server-side web/X search and code execution are $5/1000 calls.
-	defaultSearchPricePer1k = 5.0
-
 	// Grok Voice 内置单价（realtime 每分钟 / TTS 每百万字符 / STT 每小时）。
 	defaultAudioRealtimePricePerMin     = 0.05
 	defaultAudioTTSPricePerMillionChars = 15.0
 	defaultAudioSTTPricePerHour         = 0.10
 )
-
-// CalculateWebSearchCost 计算 Codex alpha/search 网页搜索按次费用。
-// callCount: 搜索调用次数（每次请求为 1）
-// entryPrice: 目录条目的 search_price_per_call（nil 表示用内置单价 0.01；0 表示免费）
-// rateMultiplier: 用户倍率
-func (s *BillingService) CalculateWebSearchCost(callCount int, entryPrice *float64, rateMultiplier float64) *CostBreakdown {
-	if callCount <= 0 {
-		return &CostBreakdown{}
-	}
-	unitPrice := defaultWebSearchPricePerCall
-	if entryPrice != nil && *entryPrice >= 0 {
-		unitPrice = *entryPrice
-	}
-	totalCost := unitPrice * float64(callCount)
-
-	// 应用倍率（保存时强制 > 0；负数按 0 处理避免按 1x 误扣）
-	if rateMultiplier < 0 {
-		rateMultiplier = 0
-	}
-	return &CostBreakdown{
-		TotalCost:   totalCost,
-		ActualCost:  totalCost * rateMultiplier,
-		BillingMode: string(BillingModePerRequest),
-	}
-}
-
-// CalculateSearchCost bills Grok search/tool invocations (web_search / x_search, standalone or
-// embedded in chat) at the built-in per-1k rate.
-func (s *BillingService) CalculateSearchCost(numCalls int, rateMultiplier float64) *CostBreakdown {
-	if numCalls <= 0 {
-		return &CostBreakdown{}
-	}
-	if rateMultiplier < 0 {
-		rateMultiplier = 0
-	}
-	unit := defaultSearchPricePer1k / 1000.0
-	total := unit * float64(numCalls)
-	return &CostBreakdown{
-		TotalCost:   total,
-		ActualCost:  total * rateMultiplier,
-		BillingMode: string(BillingModePerRequest),
-	}
-}
 
 // CalculateAudioCost supports realtime (per min), tts (per M chars), stt (per hr) at the
 // built-in unit prices.
