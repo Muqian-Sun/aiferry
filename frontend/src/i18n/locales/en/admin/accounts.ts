@@ -603,7 +603,7 @@ export default {
         testModeSTT: 'STT (/stt)',
         testModeRealtime: 'Realtime (WS /realtime)',
         textTestMode: 'Mode: Text (Responses)',
-        searchTestMode: 'Mode: Web search (/web_search)',
+        searchTestMode: 'Mode: Web search (Responses)',
         ttsTestMode: 'Mode: TTS (/tts)',
         sttTestMode: 'Mode: STT (/stt)',
         realtimeTestMode: 'Mode: Realtime (WS /realtime)',
@@ -611,7 +611,7 @@ export default {
         searchQueryPlaceholder: 'Example: xAI Grok',
         searchQueryDefault: 'xAI Grok',
         searchTestHint:
-          'Standalone web_search probe (same as gateway /v1/web_search). Not a free-form chat with tools.',
+          'One Responses request with only the web_search tool. Not a free-form chat with tools.',
         ttsTextLabel: 'TTS text',
         ttsTextPlaceholder: 'Example: Hello from AiFerry connectivity test.',
         ttsTextDefault: 'Hello from AiFerry account connectivity test.',

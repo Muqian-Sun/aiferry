@@ -32,9 +32,6 @@ type SystemSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 
-	// Web Search Emulation
-	WebSearchEmulationEnabled bool // Web Search 模拟是否生效：有配了 Key 的服务商（只读，由配置算出）
-
 	// 利润门（全站一档）：最低毛利率，0 = 关
 	ProfitMinMargin float64
 }

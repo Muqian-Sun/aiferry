@@ -263,9 +263,6 @@ const (
 	// SettingKeyOpenAICodexClientVersionSynced 自动同步任务写入的官方 Codex 最新稳定版版本号。
 	// 由 OpenAICodexVersionSyncService 独占写入；出站身份按它拼（没有时用内置常量）。
 	SettingKeyOpenAICodexClientVersionSynced = "openai_codex_client_version_synced"
-
-	// Web Search Emulation
-	SettingKeyWebSearchEmulationConfig = "web_search_emulation_config" // JSON 配置
 )
 
 // 利润门（全站一档）：上游成本比（上游价 ÷ 官方价）> 用户倍率 × (1 − min_margin) 的渠道不派；min_margin 填 0 = 关。

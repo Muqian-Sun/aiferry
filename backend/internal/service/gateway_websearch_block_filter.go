@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 	"unsafe"
 
 	"github.com/tidwall/gjson"
@@ -24,31 +23,25 @@ var (
 )
 
 // FilterWebSearchHistoryBlocks removes web-search content blocks from
-// historical messages when the upstream cannot accept them:
+// historical messages for passback-required upstreams (DeepSeek/Kimi/GLM …,
+// see ResolveThinkingProtocol): these upstreams only accept
+// text/thinking/image/tool_use/tool_result and reject anything else with
+// 400 "invalid value: `server_tool_use`". anthropic-strict and unknown
+// upstreams keep the blocks untouched.
 //
-//  1. Emulation-synthesized blocks — server_tool_use / web_search_tool_result
-//     whose tool-use ID carries webSearchToolUseIDPrefix — are fabricated
-//     locally by the web-search emulation (gateway_websearch_emulation.go).
-//     No upstream ever issued them, so clients replaying the conversation
-//     (e.g. Claude Code) poison every follow-up request. They are stripped
-//     for all upstreams.
-//  2. For passback-required upstreams (DeepSeek/Kimi/GLM …, see
-//     ResolveThinkingProtocol) all server_tool_use / web_search_tool_result
-//     blocks are stripped: these upstreams only accept
-//     text/thinking/image/tool_use/tool_result and reject anything else with
-//     400 "invalid value: `server_tool_use`". anthropic-strict and unknown
-//     upstreams keep genuine blocks untouched.
+// （原来还有一条「剥掉本地搜索模拟伪造的块」：按 srvtoolu_ws_ 前缀认，模拟删了它也删了——
+// 那条会把 fenno 这类中转回的真实搜索块（同样是这个前缀）一起误删。）
 //
-// The emulated assistant turn always carries a trailing text summary, so the
-// search context survives the strip. A message whose content would become
-// empty gets a placeholder text block (mirroring FilterThinkingBlocksForRetry).
-// Returns the original body unchanged when nothing needs stripping.
+// A message whose content would become empty gets a placeholder text block
+// (mirroring FilterThinkingBlocksForRetry). Returns the original body
+// unchanged when nothing needs stripping.
 func FilterWebSearchHistoryBlocks(body []byte, mappedModel string) []byte {
 	if !bytes.Contains(body, patternServerToolUse) && !bytes.Contains(body, patternWebSearchToolResult) {
 		return body
 	}
-
-	stripAll := ResolveThinkingProtocol(mappedModel) == ThinkingProtocolPassbackRequired
+	if ResolveThinkingProtocol(mappedModel) != ThinkingProtocolPassbackRequired {
+		return body
+	}
 
 	jsonStr := *(*string)(unsafe.Pointer(&body))
 	msgsRes := gjson.Get(jsonStr, "messages")
@@ -76,7 +69,7 @@ func FilterWebSearchHistoryBlocks(body []byte, mappedModel string) []byte {
 		var newContent []any
 		for i, block := range content {
 			blockMap, isMap := block.(map[string]any)
-			if isMap && shouldStripWebSearchBlock(blockMap, stripAll) {
+			if isMap && isWebSearchBlock(blockMap) {
 				if newContent == nil {
 					newContent = make([]any, 0, len(content))
 					newContent = append(newContent, content[:i]...)
@@ -117,22 +110,7 @@ func FilterWebSearchHistoryBlocks(body []byte, mappedModel string) []byte {
 	return out
 }
 
-func shouldStripWebSearchBlock(block map[string]any, stripAll bool) bool {
+func isWebSearchBlock(block map[string]any) bool {
 	blockType, _ := block["type"].(string)
-	switch blockType {
-	case blockTypeServerToolUse:
-		if stripAll {
-			return true
-		}
-		id, _ := block["id"].(string)
-		return strings.HasPrefix(id, webSearchToolUseIDPrefix)
-	case blockTypeWebSearchToolResult:
-		if stripAll {
-			return true
-		}
-		id, _ := block["tool_use_id"].(string)
-		return strings.HasPrefix(id, webSearchToolUseIDPrefix)
-	default:
-		return false
-	}
+	return blockType == blockTypeServerToolUse || blockType == blockTypeWebSearchToolResult
 }

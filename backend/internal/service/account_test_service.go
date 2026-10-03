@@ -922,7 +922,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 //   - default/text → Responses (optional model)
 //   - image → /v1/images/generations (model optional; defaults to grok-imagine-image)
 //   - video → /v1/videos/generations (model optional; defaults to grok-imagine-video)
-//   - search → standalone web-search probe (gateway /v1/web_search semantics)
+//   - search → Responses with only the web_search tool (checks the account can search)
 //   - tts → HTTP /v1/tts
 //   - stt → HTTP /v1/stt (synthetic tiny wav probe)
 //   - realtime → WS /v1/realtime dial + optional first server event
@@ -1500,15 +1500,13 @@ func (s *AccountTestService) testGrokWebSearch(c *gin.Context, ctx context.Conte
 		query = defaultGrokSearchTestQuery
 	}
 
-	// Account-test "web_search" mode mirrors the standalone gateway endpoint
-	// POST /v1/web_search (not a free-form chat with tools). Implementation still
-	// uses the same DoGrokNativeResponsesJSON helper as the gateway handler so
-	// results match production search.
+	// Account-test "web_search" mode: one Responses request with only the web_search
+	// tool and a fixed JSON-results prompt (not a free-form chat with tools).
 	s.prepareGrokTestSSE(c)
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: "grok-web-search"})
-	s.sendEvent(c, TestEvent{Type: "status", Text: "Calling standalone web_search probe (same as gateway /v1/web_search)..."})
+	s.sendEvent(c, TestEvent{Type: "status", Text: "Calling web_search probe via Responses..."})
 
-	// Keep parity with handler.buildGrokWebSearchPrompt / include sources.
+	// Ask for structured results and include sources.
 	const maxResults = 5
 	prompt := fmt.Sprintf(
 		`Search the web for the user query below. Return ONLY valid JSON with this exact shape: {"results":[{"url":"https://...","title":"page title","snippet":"concise factual summary"}]}. Return at most %d unique results. Every URL must be an actual web_search source. Populate a non-empty title and snippet for every result. Do not wrap the JSON in markdown.
@@ -1547,7 +1545,7 @@ User query:
 		return s.sendErrorAndEnd(c, fmt.Sprintf("standalone web_search probe returned %d: %s", resp.StatusCode, string(body)))
 	}
 
-	// Normalize like gateway extractGrokWebSearchSources (URL-only sources are enough for connectivity).
+	// Count sources (URL-only sources are enough for connectivity).
 	sourceCount := 0
 	gjson.GetBytes(body, "output").ForEach(func(_, item gjson.Result) bool {
 		if item.Get("type").String() != "web_search_call" {

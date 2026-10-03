@@ -724,7 +724,7 @@ export default {
         testModeSTT: '语音识别 STT（/stt）',
         testModeRealtime: '实时语音 Realtime（WS /realtime）',
         textTestMode: '模式：文本（Responses）',
-        searchTestMode: '模式：网页搜索（/web_search）',
+        searchTestMode: '模式：网页搜索（Responses）',
         ttsTestMode: '模式：TTS（/tts）',
         sttTestMode: '模式：STT（/stt）',
         realtimeTestMode: '模式：Realtime（WS /realtime）',
@@ -732,7 +732,7 @@ export default {
         searchQueryPlaceholder: '例如：xAI Grok',
         searchQueryDefault: 'xAI Grok',
         searchTestHint:
-          '独立网页搜索探测（与网关 /v1/web_search 语义一致），不是带 tools 的自由对话。',
+          '只带 web_search 工具的一次 Responses 请求，不是带 tools 的自由对话。',
         ttsTextLabel: 'TTS 文本',
         ttsTextPlaceholder: '例如：Hello from AiFerry connectivity test.',
         ttsTextDefault: 'Hello from AiFerry account connectivity test.',

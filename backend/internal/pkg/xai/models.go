@@ -227,17 +227,6 @@ func ResolveGrokTextResponsesModelID(model string, defaultText ...string) string
 	return StripGrokProviderPrefix(trimmed)
 }
 
-// ResolveDefaultTextModel returns defaultText (or DefaultTextModel) when model is empty.
-func ResolveDefaultTextModel(model string, defaultText ...string) string {
-	if trimmed := strings.TrimSpace(model); trimmed != "" {
-		return trimmed
-	}
-	if len(defaultText) > 0 && strings.TrimSpace(defaultText[0]) != "" {
-		return strings.TrimSpace(defaultText[0])
-	}
-	return DefaultTextModel
-}
-
 // CanonicalImagineVideoModel normalizes video model ids for pricing tables.
 // Legacy "grok-imagine-video-1.5" shares the 1.5 price family with preview.
 func CanonicalImagineVideoModel(model string) string {
