@@ -3,11 +3,17 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -234,4 +240,24 @@ func TestRecordUsageAccountCostIncludesWebSearch(t *testing.T) {
 	got := recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"gpt-5.5"}, tokens, WebSearchUsage{WebSearchCalls: 2}, time.Time{}, "")
 	require.InDelta(t, 0.043, got, 1e-12)
 	require.InDelta(t, 0.003, recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"gpt-5.5"}, tokens, WebSearchUsage{}, time.Time{}, ""), 1e-12)
+}
+
+// Anthropic 主链路非流式：搜索次数从响应体的 usage.server_tool_use 读出来。
+func TestHandleNonStreamingResponseParsesWebSearchRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	body := []byte(`{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],
+		"usage":{"input_tokens":10682,"output_tokens":510,"server_tool_use":{"web_search_requests":2}}}`)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(body)),
+	}
+	svc := &GatewayService{cfg: &config.Config{}, rateLimitService: &RateLimitService{}}
+
+	usage, err := svc.handleNonStreamingResponse(context.Background(), resp, c, &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, "claude-sonnet-4-6", "claude-sonnet-4-6")
+	require.NoError(t, err)
+	require.Equal(t, 2, usage.WebSearchRequests)
+	require.Equal(t, 510, usage.OutputTokens)
 }
