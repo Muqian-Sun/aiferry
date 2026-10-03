@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,11 +21,9 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/cespare/xxhash/v2"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 const (
@@ -1151,78 +1148,6 @@ func (s *GatewayService) getOAuthToken(ctx context.Context, account *Account) (s
 	}
 	// Token刷新由后台 TokenRefreshService 处理，此处只返回当前token
 	return accessToken, "oauth", nil
-}
-
-// DoGrokNativeResponsesJSON POSTs a non-streaming Responses body to the account's
-// Grok upstream and returns the raw JSON body. Used by /v1/web_search.
-// Gin-free: UA is always the pinned Grok CLI identity (resolveGrokUpstreamUserAgent ignores inbound).
-func (s *GatewayService) DoGrokNativeResponsesJSON(ctx context.Context, account *Account, body []byte) ([]byte, error) {
-	if s == nil || s.httpUpstream == nil {
-		return nil, errors.New("http upstream not configured")
-	}
-	if account == nil {
-		return nil, errors.New("account is required")
-	}
-	// xAI 搜索是 Grok 成品号专属的厂商端点：第三方 key 一律按中转（指向 api.x.ai 的也一样，2026-09-29）。
-	if account.Vendor() != PlatformGrok {
-		return nil, errors.New("grok account required")
-	}
-	token, _, err := s.GetAccessToken(ctx, account)
-	if err != nil {
-		// Credential/token failures should try the next Grok account in the pool.
-		return nil, &UpstreamFailoverError{
-			StatusCode: http.StatusUnauthorized,
-			Reason:     GatewayFailureReason("grok_search_token"),
-		}
-	}
-	targetURL, err := buildGrokResponsesURL(account, nil)
-	if err != nil {
-		return nil, err
-	}
-	if json.Valid(body) {
-		if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); model == "" {
-			if patched, patchErr := sjson.SetBytes(body, "model", xai.DefaultTextModel); patchErr == nil {
-				body = patched
-			}
-		}
-	}
-	upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("build grok responses request: %w", err)
-	}
-	upstreamReq.Header.Set("Authorization", "Bearer "+token)
-	upstreamReq.Header.Set("Content-Type", "application/json")
-	upstreamReq.Header.Set("Accept", "application/json")
-	upstreamReq.Header.Set("User-Agent", defaultGrokUpstreamUserAgent())
-	applyGrokCLIHeaders(upstreamReq.Header)
-	account.ApplyHeaderOverrides(upstreamReq.Header)
-	proxyURL := ""
-	if account.ProxyID != nil && account.Proxy != nil {
-		proxyURL = account.Proxy.URL()
-	}
-	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
-	if err != nil {
-		return nil, &UpstreamFailoverError{StatusCode: http.StatusBadGateway, Reason: GatewayFailureReason("grok_search_transport")}
-	}
-	defer func() { _ = resp.Body.Close() }()
-	respBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-	if readErr != nil {
-		return nil, &UpstreamFailoverError{
-			StatusCode: http.StatusBadGateway,
-			Reason:     GatewayFailureReason("grok_search_read"),
-		}
-	}
-	if resp.StatusCode >= 400 {
-		msg := string(respBytes)
-		if len(msg) > 200 {
-			msg = msg[:200]
-		}
-		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusPaymentRequired || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
-			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBytes}
-		}
-		return nil, fmt.Errorf("grok upstream %d: %s", resp.StatusCode, msg)
-	}
-	return respBytes, nil
 }
 
 const debugGatewayBodyDefaultFilename = "gateway_debug.log"

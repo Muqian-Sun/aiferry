@@ -227,8 +227,6 @@ func RegisterGatewayRoutes(
 		gateway.PATCH("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.DELETE("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.GET("/realtime", h.OpenAIGateway.GrokRealtime)
-		gateway.POST("/web_search", h.Gateway.WebSearch)
-		gateway.POST("/x_search", h.Gateway.XSearch)
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -322,8 +320,6 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodPatch, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodDelete, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodGet, "/realtime", bodyLimit, h.OpenAIGateway.GrokRealtime)
-	rootRoute(http.MethodPost, "/web_search", bodyLimit, h.Gateway.WebSearch)
-	rootRoute(http.MethodPost, "/x_search", bodyLimit, h.Gateway.XSearch)
 
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), h.Gateway.AntigravityModels)

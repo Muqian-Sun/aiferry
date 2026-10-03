@@ -40,7 +40,7 @@ func newSubscriptionAdmissionRouter(sub *service.UserSubscription) (*gin.Engine,
 	}
 	router.POST("/v1/messages", handler)
 	router.POST("/v1/chat/completions", handler)
-	router.POST("/v1/web_search", handler) // 无模型端点：catalogAdmission 不挂路由
+	router.POST("/v1/custom-voices", handler) // 无模型端点：catalogAdmission 不挂路由
 	return router, seen
 }
 
@@ -78,7 +78,7 @@ func TestSubscriptionModelAdmission_AllowsCoveredEntry(t *testing.T) {
 // 无模型端点没有目录路由：放行（限额已在 apiKeyAuth 检过）
 func TestSubscriptionModelAdmission_SkipsWithoutRoute(t *testing.T) {
 	router, seen := newSubscriptionAdmissionRouter(planWithEntries(2))
-	w := doJSON(t, router, http.MethodPost, "/v1/web_search", `{"query":"x"}`)
+	w := doJSON(t, router, http.MethodPost, "/v1/custom-voices", `{"name":"x"}`)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Equal(t, 1, seen.calls)
 }

@@ -3,7 +3,6 @@
 package service
 
 import (
-	"context"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -30,18 +29,6 @@ func TestGrokURLBuildersRejectThirdPartyKeys(t *testing.T) {
 			require.EqualError(t, err, "grok account is required")
 		})
 	}
-}
-
-// xAI 搜索（/v1/web_search）同样只对 Grok 成品号：贴 grok 标签、地址是 api.x.ai 的 key 直接拒绝，不发上游。
-func TestDoGrokNativeResponsesJSONRejectsThirdPartyKeys(t *testing.T) {
-	upstream := &httpUpstreamRecorder{}
-	svc := &GatewayService{httpUpstream: upstream}
-	key := &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "xai"},
-		ProtocolEndpoints: map[string]string{APIProtocolResponses: xai.DefaultBaseURL}}
-
-	_, err := svc.DoGrokNativeResponsesJSON(context.Background(), key, []byte(`{"input":"q"}`))
-	require.EqualError(t, err, "grok account required")
-	require.Empty(t, upstream.requests)
 }
 
 func TestGrokOAuthURLPolicy(t *testing.T) {
