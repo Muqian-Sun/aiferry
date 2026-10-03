@@ -37,7 +37,6 @@ vi.mock('@/api/admin', () => ({
       createOpenAICodexPAT: createOpenAICodexPATMock,
     },
     settings: {
-      getWebSearchEmulationConfig: vi.fn().mockResolvedValue({ enabled: false, providers: [] }),
       getSettings: vi.fn().mockResolvedValue({}),
     },
     tlsFingerprintProfiles: {

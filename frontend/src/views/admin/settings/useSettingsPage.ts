@@ -7,21 +7,16 @@
  *
  * 上线收口 P4（2026-09-27）：冷却 / 流超时 / 整流 / Beta 与 Fast 策略 / 转发行为 / Claude Code 与 Codex /
  * Grok / 调度阈值 / identity patch / 上游余额探测 / Ollama Cloud 用量全部写进后端代码，这里的状态、加载、保存一并删掉。
- * 剩下的都在总表单里（利润门、风控开关）或随总表单一起保存（联网搜索模拟），不再有走独立接口单独保存的卡片。
+ * 剩下的都在总表单里（利润门、风控开关），不再有走独立接口单独保存的卡片。
  *
- * 2026-09-28：利润门只剩「最低毛利率」一个数（填 0 = 关）；联网搜索模拟只配服务商与 Key
- * （配了 Key 就生效，没有总开关、配额、订阅时间、代理，也就没有「重置用量」）。
+ * 2026-09-28：利润门只剩「最低毛利率」一个数（填 0 = 关）。
+ * 2026-10-04：联网搜索模拟（Brave / Tavily）删了（方案页第三版），这里的服务商配置一并删掉。
  */
 import { ref, reactive, computed, onMounted, watch, inject, type InjectionKey, nextTick, type Ref } from "vue";
 import type { SettingsSectionKey } from "./sections";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
-import type {
-  SystemSettings,
-  UpdateSettingsRequest,
-  WebSearchProviderConfig,
-  WebSearchTestResult,
-} from "@/api/admin/settings";
+import type { SystemSettings, UpdateSettingsRequest } from "@/api/admin/settings";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
 
@@ -52,113 +47,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
     profit_min_margin: 0,
   });
 
-  // Web Search Emulation config (loaded/saved separately)：只有服务商列表
-  const webSearchConfig = reactive<{ providers: WebSearchProviderConfig[] }>({
-    providers: [],
-  });
-
-  const expandedProviders = reactive<Record<number, boolean>>({});
-  const apiKeyVisible = reactive<Record<number, boolean>>({});
-  const wsTestQuery = ref("");
-  const wsTestLoading = ref(false);
-  const wsTestResult = ref<WebSearchTestResult | null>(null);
-  const wsTestDialogOpen = ref(false);
-
-  function openTestDialog() {
-    wsTestResult.value = null;
-    wsTestDialogOpen.value = true;
-  }
-
-  function toggleProviderExpand(idx: number) {
-    expandedProviders[idx] = !expandedProviders[idx];
-  }
-
-  function removeWebSearchProvider(idx: number) {
-    webSearchConfig.providers.splice(idx, 1);
-    // Re-index expandedProviders and apiKeyVisible after removal
-    const newExpanded: Record<number, boolean> = {};
-    const newVisible: Record<number, boolean> = {};
-    for (let i = 0; i < webSearchConfig.providers.length; i++) {
-      const oldIdx = i >= idx ? i + 1 : i;
-      newExpanded[i] = expandedProviders[oldIdx] ?? false;
-      newVisible[i] = apiKeyVisible[oldIdx] ?? false;
-    }
-    Object.keys(expandedProviders).forEach(
-      (k) => delete expandedProviders[Number(k)],
-    );
-    Object.keys(apiKeyVisible).forEach((k) => delete apiKeyVisible[Number(k)]);
-    Object.assign(expandedProviders, newExpanded);
-    Object.assign(apiKeyVisible, newVisible);
-  }
-
-  function addWebSearchProvider() {
-    const idx = webSearchConfig.providers.length;
-    webSearchConfig.providers.push({
-      type: "brave",
-      api_key: "",
-      api_key_configured: false,
-      expires_at: null,
-    });
-    expandedProviders[idx] = true;
-  }
-
-  async function copyApiKey(idx: number) {
-    const key = webSearchConfig.providers[idx]?.api_key;
-    if (!key) {
-      console.error(
-        t("admin.settings.webSearchEmulation.apiKeyPlaceholder"),
-      );
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(key);
-    } catch (error) {
-      console.error(t("common.error"), error);
-    }
-  }
-
-  async function testWebSearchProvider() {
-    wsTestLoading.value = true;
-    wsTestResult.value = null;
-    try {
-      const query =
-        wsTestQuery.value.trim() ||
-        t("admin.settings.webSearchEmulation.testDefaultQuery");
-      wsTestResult.value = await adminAPI.settings.testWebSearchEmulation(query);
-    } catch (err: unknown) {
-      console.error(extractApiErrorMessage(err, t("common.error")), err);
-    } finally {
-      wsTestLoading.value = false;
-    }
-  }
-
-  async function loadWebSearchConfig() {
-    try {
-      const resp = await adminAPI.settings.getWebSearchEmulationConfig();
-      if (resp) {
-        webSearchConfig.providers = resp.providers || [];
-      }
-    } catch (err: unknown) {
-      // 404 is expected when config hasn't been created yet; show error for other failures
-      const status = (err as { status?: number })?.status;
-      if (status !== 404 && status !== undefined) {
-        console.error(extractApiErrorMessage(err, t("common.error")), err);
-      }
-    }
-  }
-
-  async function saveWebSearchConfig(): Promise<boolean> {
-    try {
-      await adminAPI.settings.updateWebSearchEmulationConfig({
-        providers: webSearchConfig.providers,
-      });
-      return true;
-    } catch (err: unknown) {
-      console.error(extractApiErrorMessage(err, t("common.error")), err);
-      return false;
-    }
-  }
-
   async function loadSettings() {
     loading.value = true;
     loadFailed.value = false;
@@ -170,9 +58,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
           (form as Record<string, unknown>)[key] = value;
         }
       }
-
-      // Load web search emulation config separately
-      await loadWebSearchConfig();
     } catch (error: unknown) {
       loadFailed.value = true;
       console.error(
@@ -197,11 +82,9 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
           (form as Record<string, unknown>)[key] = value;
         }
       }
-      // Save web search emulation config separately (errors handled internally)
-      const wsOk = await saveWebSearchConfig();
       // Refresh cached settings so sidebar/header update immediately
       await appStore.fetchPublicSettings(true);
-      return wsOk;
+      return true;
     } catch (error: unknown) {
       console.error(
         extractApiErrorMessage(error, t("admin.settings.failedToSave")), error,
@@ -228,12 +111,9 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   // （后端本身支持只发部分字段：没发送的字段沿用库里的旧值，见 setting_handler_update.go。）
   // 改动判断：总表单状态与「上次加载 / 保存后的基线」比较。
 
-  /** 总表单保存时会读到的全部状态（联网搜索模拟走自己的接口，但跟总表单一起保存） */
+  /** 总表单保存时会读到的全部状态 */
   function mainState() {
-    return {
-      form,
-      webSearchConfig,
-    };
+    return { form };
   }
   function serializeMain(): string {
     return JSON.stringify(mainState());
@@ -241,7 +121,6 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   function restoreMain(saved: ReturnType<typeof mainState>) {
     const copy = JSON.parse(JSON.stringify(saved)) as ReturnType<typeof mainState>;
     Object.assign(form, copy.form);
-    Object.assign(webSearchConfig, copy.webSearchConfig);
   }
 
   const baseline = ref<string | undefined>(undefined);
@@ -284,27 +163,14 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   }
 
 return {
-    addWebSearchProvider,
-    apiKeyVisible,
-    copyApiKey,
     discardSection,
-    expandedProviders,
     form,
     isSectionDirty,
     loadFailed,
     loading,
-    openTestDialog,
-    removeWebSearchProvider,
     saveSection,
     sectionSaving,
     t,
-    testWebSearchProvider,
-    toggleProviderExpand,
-    webSearchConfig,
-    wsTestDialogOpen,
-    wsTestLoading,
-    wsTestQuery,
-    wsTestResult,
   }
 }
 

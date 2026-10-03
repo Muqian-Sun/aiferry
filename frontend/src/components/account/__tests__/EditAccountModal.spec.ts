@@ -30,7 +30,6 @@ vi.mock('@/api/admin', () => ({
       update: updateAccountMock
     },
     settings: {
-      getWebSearchEmulationConfig: vi.fn().mockResolvedValue({ enabled: false, providers: [] }),
       getSettings: vi.fn().mockResolvedValue({})
     },
     tlsFingerprintProfiles: {

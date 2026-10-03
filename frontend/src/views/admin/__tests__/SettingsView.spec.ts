@@ -7,16 +7,12 @@ import SettingsView from "../SettingsView.vue";
 const {
   getSettings,
   updateSettings,
-  getWebSearchEmulationConfig,
-  updateWebSearchEmulationConfig,
   getGroups,
   listProxies,
   fetchPublicSettings,
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
-  getWebSearchEmulationConfig: vi.fn(),
-  updateWebSearchEmulationConfig: vi.fn(),
   getGroups: vi.fn(),
   listProxies: vi.fn(),
   fetchPublicSettings: vi.fn(),
@@ -29,8 +25,6 @@ vi.mock("@/api/admin", () => ({
     settings: {
       getSettings,
       updateSettings,
-      getWebSearchEmulationConfig,
-      updateWebSearchEmulationConfig,
     },
     groups: {
       getAll: getGroups,
@@ -186,8 +180,6 @@ describe("admin SettingsView", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
-    getWebSearchEmulationConfig.mockReset();
-    updateWebSearchEmulationConfig.mockReset();
     getGroups.mockReset();
     listProxies.mockReset();
     fetchPublicSettings.mockReset();
@@ -198,14 +190,6 @@ describe("admin SettingsView", () => {
       ...baseSettingsResponse,
       ...payload,
     }));
-    getWebSearchEmulationConfig.mockResolvedValue({
-      enabled: false,
-      providers: [],
-    });
-    updateWebSearchEmulationConfig.mockResolvedValue({
-      enabled: false,
-      providers: [],
-    });
     getGroups.mockResolvedValue([]);
     listProxies.mockResolvedValue({
       items: [],
