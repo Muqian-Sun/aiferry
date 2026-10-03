@@ -24,7 +24,7 @@ const (
 // evolving alpha request or response schema.
 //
 // 返回值约定：仅当上游返回 2xx（一次真实成功的搜索）时返回非 nil 的
-// *OpenAIForwardResult（WebSearchCalls=1，供按次计费）；上游错误被原样透传
+// *OpenAIForwardResult（记 1 次 web 搜索，按官方原价收搜索费）；上游错误被原样透传
 // 给客户端时返回 (nil, nil)，不产生计费。
 func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	if s == nil || c == nil || account == nil {
@@ -133,7 +133,7 @@ func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Co
 		Model:           requestedModel,
 		UpstreamModel:   upstreamModel,
 		Duration:        time.Since(upstreamStart),
-		WebSearchCalls:  1,
+		WebSearch:       WebSearchUsage{WebSearchCalls: 1},
 	}, nil
 }
 
@@ -219,7 +219,7 @@ func (s *OpenAIGatewayService) forwardAlphaSearchViaResponsesWebSearch(
 		UpstreamEndpoint: "/v1/responses",
 		ResponseHeaders:  resp.Header.Clone(),
 		Duration:         time.Since(upstreamStart),
-		WebSearchCalls:   1,
+		WebSearch:        WebSearchUsage{WebSearchCalls: 1},
 	}, nil
 }
 

@@ -32,7 +32,7 @@ type openaiStreamingResult struct {
 	responseID       string
 	imageCount       int
 	imageOutputSizes []string
-	searchCount      int
+	webSearch        WebSearchUsage
 }
 
 type openaiNonStreamingResult struct {
@@ -41,7 +41,7 @@ type openaiNonStreamingResult struct {
 	responseID       string
 	imageCount       int
 	imageOutputSizes []string
-	searchCount      int
+	webSearch        WebSearchUsage
 }
 
 func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel string) (*openaiStreamingResult, error) {
@@ -341,10 +341,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	streamDoneItems := newResponsesStreamOutputItems()
 	streamImageOutputs := make([]json.RawMessage, 0, 1)
 	streamSeenImages := make(map[string]struct{})
-	searchCounter := 0
-	// Dedup search tool calls across SSE events (item.done + response.completed
-	// both list the same call_id — counting both would ~2× the surcharge).
-	streamSearchSeen := make(map[string]struct{})
+	var searchCounter responsesWebSearchCounter
 	resultWithUsage := func() *openaiStreamingResult {
 		return &openaiStreamingResult{
 			usage:            usage,
@@ -352,7 +349,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			responseID:       responseID,
 			imageCount:       imageCounter.Count(),
 			imageOutputSizes: imageCounter.Sizes(),
-			searchCount:      searchCounter,
+			webSearch:        searchCounter.Usage(),
 		}
 	}
 	flushPending := func(disconnectMessage string) {
@@ -611,7 +608,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				line = "data: " + data
 			}
 			imageCounter.AddSSEData(dataBytes)
-			searchCounter += countGrokNativeSearchCallsInSSEDataDedup(dataBytes, streamSearchSeen)
+			searchCounter.Observe(dataBytes)
 
 			// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
 			if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
@@ -1714,7 +1711,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		responseID:       extractOpenAIResponseIDFromJSONBytes(body),
 		imageCount:       countOpenAIResponseImageOutputsFromJSONBytes(body),
 		imageOutputSizes: collectOpenAIResponseImageOutputSizesFromJSONBytes(body),
-		searchCount:      countGrokNativeSearchCallsFromJSONBytes(body),
+		webSearch:        webSearchUsageFromResponsesBody(body),
 	}, nil
 }
 
@@ -1821,7 +1818,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		responseID:       extractOpenAIResponseIDFromJSONBytes(body),
 		imageCount:       countOpenAIImageOutputsFromSSEBody(bodyText),
 		imageOutputSizes: collectOpenAIImageOutputSizesFromSSEBody(bodyText),
-		searchCount:      countGrokNativeSearchCallsFromSSEBody(bodyText),
+		webSearch:        webSearchUsageFromSSEBody(bodyText),
 	}, nil
 }
 

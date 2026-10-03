@@ -43,10 +43,11 @@ export interface UserSupportedModelPricing {
   audio_input_price?: number | null
   audio_output_price?: number | null
   per_request_price: number | null
-  /** 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有（没配按内置单价）。 */
+  /** 联网搜索每次 web 搜索的官方价（按原价收，不乘倍率）；Anthropic / OpenAI / xAI 模型有。 */
   search_price_per_call?: number | null
-  /** grok 渠道搜索工具（web_search / x_search）每次价，只有 grok 模型有。 */
-  tool_search_price_per_call?: number | null
+  /** xAI X 搜索每条帖子、每个主页的官方价（按取回条目收）；只有 xAI 模型有。 */
+  x_post_price?: number | null
+  x_user_price?: number | null
   intervals: UserPricingInterval[]
 }
 

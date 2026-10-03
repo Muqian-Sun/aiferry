@@ -188,6 +188,10 @@
                   <span class="font-medium text-af-ink-2">{{ row.image_output_tokens.toLocaleString() }}</span>
                 </div>
               </div>
+              <div v-if="row.web_search_count > 0" class="inline-flex items-center gap-1 text-af-ink-2" data-testid="usage-web-search">
+                <Icon name="search" size="sm" class="h-3.5 w-3.5 text-af-ink-4" />
+                <span class="font-medium">{{ t('usage.webSearchTimes', { count: row.web_search_count }) }}</span>
+              </div>
             </div>
             <!-- Token Detail Tooltip -->
             <div
@@ -437,6 +441,7 @@ const adminTokenLines = (row: AdminUsageLog): Array<{ key: string; label: string
   { key: 'output', label: t('admin.usage.outputTokens'), value: row.output_tokens || 0 },
   ...(row.cache_read_tokens > 0 ? [{ key: 'cacheRead', label: t('admin.usage.cacheReadTokens'), value: row.cache_read_tokens }] : []),
   ...(row.cache_creation_tokens > 0 ? [{ key: 'cacheCreation', label: t('admin.usage.cacheCreationTokens'), value: row.cache_creation_tokens }] : []),
+  ...(row.web_search_count > 0 ? [{ key: 'webSearch', label: t('usage.webSearchCount'), value: row.web_search_count }] : []),
 ]
 
 const formatDuration = (ms: number | null | undefined): string => (ms == null ? '-' : formatDurationMs(ms))

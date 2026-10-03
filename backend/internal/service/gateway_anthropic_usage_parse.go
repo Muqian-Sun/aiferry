@@ -59,7 +59,14 @@ func parseSSEUsagePassthrough(data string, usage *ClaudeUsage) {
 			if cc1h.Exists() {
 				usage.CacheCreation1hTokens = int(cc1h.Int())
 			}
+			// message_delta 带的是这次请求累计的搜索次数
+			if v := deltaUsage.Get("server_tool_use.web_search_requests"); v.Exists() {
+				requests := int(v.Int())
+				usage.WebSearchRequests = &requests
+			}
 		}
+	case "content_block_start":
+		usage.observeWebSearchBlock(parsed.Get("content_block"))
 	}
 
 	if usage.CacheReadInputTokens == 0 {
@@ -166,6 +173,11 @@ func parseClaudeUsageFromResponseBody(body []byte) *ClaudeUsage {
 	usage.OutputTokens = int(usageNode.Get("output_tokens").Int())
 	usage.CacheCreationInputTokens = int(usageNode.Get("cache_creation_input_tokens").Int())
 	usage.CacheReadInputTokens = int(usageNode.Get("cache_read_input_tokens").Int())
+	if v := usageNode.Get("server_tool_use.web_search_requests"); v.Exists() {
+		requests := int(v.Int())
+		usage.WebSearchRequests = &requests
+	}
+	usage.WebSearchResults = countSuccessfulWebSearchResults(parsed.Get("content"))
 
 	cc5m := usageNode.Get("cache_creation.ephemeral_5m_input_tokens").Int()
 	cc1h := usageNode.Get("cache_creation.ephemeral_1h_input_tokens").Int()

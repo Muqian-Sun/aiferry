@@ -23,8 +23,7 @@ func TestCalculateMediaCost(t *testing.T) {
 		Intervals: []PricingInterval{{TierLabel: VideoBillingResolution720P, PerRequestPrice: p(0.14)}}}
 	perRequestVideoCard := PricingCard{Models: []string{"vid-per-request"}, BillingMode: BillingModePerRequest, PerRequestPrice: p(2.0)}
 	tokenCard := PricingCard{Models: []string{"tok"}, BillingMode: BillingModeToken, InputPrice: p(1e-6), OutputPrice: p(2e-6), ImageOutputPrice: p(4e-5)}
-	tokenSearchCard := PricingCard{Models: []string{"tok-search"}, BillingMode: BillingModeToken, InputPrice: p(1e-6), SearchPricePerCall: p(0.02)}
-	adminResolver := newResolverWithCatalogCards(bs, imageCard, videoCard, perRequestVideoCard, tokenCard, tokenSearchCard)
+	adminResolver := newResolverWithCatalogCards(bs, imageCard, videoCard, perRequestVideoCard, tokenCard)
 
 	// seed 条目：与 admin 同一份价卡，只是 managed_by=seed
 	seedEntry := catalogEntryFromCard("img", ModelCatalogManagedBySeed, imageCard)
@@ -53,9 +52,6 @@ func TestCalculateMediaCost(t *testing.T) {
 		{"image on token entry goes to token path", adminResolver, "tok", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1, false, false, 0, 0, ""},
 		{"video on token entry is an error, not zero", adminResolver, "tok", mediaUsage{VideoCount: 1, VideoDurationSeconds: 5}, 1, true, true, 0, 0, ""},
 		{"image on unknown model is an error", adminResolver, "nope", mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize1K}, 1, true, true, 0, 0, ""},
-		{"alpha search uses entry search_price_per_call", adminResolver, "tok-search", mediaUsage{WebSearchCalls: 3}, 1.5, true, false, 0.06, 0.09, "per_request"},
-		{"alpha search without entry price uses built-in 0.01", adminResolver, "tok", mediaUsage{WebSearchCalls: 2}, 1, true, false, 0.02, 0.02, "per_request"},
-		{"alpha search on unknown model still bills built-in", adminResolver, "nope", mediaUsage{WebSearchCalls: 1}, 1, true, false, 0.01, 0.01, "per_request"},
 		{"audio tts 0.5M chars at built-in 15/M", adminResolver, "tok", mediaUsage{Audio: &AudioUsage{Mode: "tts", DurationOrUnits: 0.5}}, 1, true, false, 7.5, 7.5, "per_request"},
 		{"no media usage is not handled", adminResolver, "tok", mediaUsage{}, 1, false, false, 0, 0, ""},
 	}

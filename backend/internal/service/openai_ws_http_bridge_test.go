@@ -1776,7 +1776,7 @@ func TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB(t *testing.T) {
 	sseBody := strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_large_bridge","model":"gpt-5"}}`,
 		"",
-		`data: {"type":"response.completed","response":{"id":"resp_large_bridge","model":"gpt-5","usage":{"input_tokens":9,"output_tokens":1}}}`,
+		`data: {"type":"response.completed","response":{"id":"resp_large_bridge","model":"gpt-5","output":[{"type":"web_search_call","id":"ws_bridge","status":"completed","action":{"type":"search","query":"q"}}],"usage":{"input_tokens":9,"output_tokens":1}}}`,
 		"",
 	}, "\n")
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
@@ -1921,6 +1921,7 @@ func TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB(t *testing.T) {
 		require.NotNil(t, outcome.result)
 		require.Equal(t, 9, outcome.result.Usage.InputTokens)
 		require.Equal(t, 1, outcome.result.Usage.OutputTokens)
+		require.Equal(t, WebSearchUsage{WebSearchCalls: 1}, outcome.result.WebSearch, "WS 转 HTTP 桥也要带出联网搜索次数")
 		require.Equal(t, "response.completed", outcome.result.UpstreamTerminalEvent)
 	default:
 		t.Fatal("AfterTurn was not called for websocket HTTP bridge turn")

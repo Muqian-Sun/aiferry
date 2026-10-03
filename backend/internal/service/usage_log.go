@@ -161,8 +161,11 @@ type UsageLog struct {
 	ActualCost        float64
 	RateMultiplier    float64
 	// AccountCost 渠道成本 = 用量 × 这个渠道给这个模型的上游价（承接关系上的上游价）。
-	// 媒体用量（图片 / 视频 / 音频 / 独立搜索）与找不到承接关系的请求记 0。
+	// 媒体用量（图片 / 视频 / 音频）与找不到承接关系的请求记 0。
 	AccountCost float64
+	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 TotalCost / ActualCost 里）。
+	WebSearchCount int
+	WebSearchCost  float64
 
 	BillingType        int8
 	RequestType        RequestType

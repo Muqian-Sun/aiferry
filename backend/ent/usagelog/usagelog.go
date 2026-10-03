@@ -64,6 +64,10 @@ const (
 	FieldRateMultiplier = "rate_multiplier"
 	// FieldAccountCost holds the string denoting the account_cost field in the database.
 	FieldAccountCost = "account_cost"
+	// FieldWebSearchCount holds the string denoting the web_search_count field in the database.
+	FieldWebSearchCount = "web_search_count"
+	// FieldWebSearchCost holds the string denoting the web_search_cost field in the database.
+	FieldWebSearchCost = "web_search_cost"
 	// FieldBillingType holds the string denoting the billing_type field in the database.
 	FieldBillingType = "billing_type"
 	// FieldStream holds the string denoting the stream field in the database.
@@ -166,6 +170,8 @@ var Columns = []string{
 	FieldActualCost,
 	FieldRateMultiplier,
 	FieldAccountCost,
+	FieldWebSearchCount,
+	FieldWebSearchCost,
 	FieldBillingType,
 	FieldStream,
 	FieldDurationMs,
@@ -236,6 +242,10 @@ var (
 	DefaultRateMultiplier float64
 	// DefaultAccountCost holds the default value on creation for the "account_cost" field.
 	DefaultAccountCost float64
+	// DefaultWebSearchCount holds the default value on creation for the "web_search_count" field.
+	DefaultWebSearchCount int
+	// DefaultWebSearchCost holds the default value on creation for the "web_search_cost" field.
+	DefaultWebSearchCost float64
 	// DefaultBillingType holds the default value on creation for the "billing_type" field.
 	DefaultBillingType int8
 	// DefaultStream holds the default value on creation for the "stream" field.
@@ -395,6 +405,16 @@ func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 // ByAccountCost orders the results by the account_cost field.
 func ByAccountCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAccountCost, opts...).ToFunc()
+}
+
+// ByWebSearchCount orders the results by the web_search_count field.
+func ByWebSearchCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWebSearchCount, opts...).ToFunc()
+}
+
+// ByWebSearchCost orders the results by the web_search_cost field.
+func ByWebSearchCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWebSearchCost, opts...).ToFunc()
 }
 
 // ByBillingType orders the results by the billing_type field.

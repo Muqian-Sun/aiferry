@@ -281,3 +281,53 @@ func testPassthroughIngressFreezesSubsequentTurnBeforeRequestPolicy(t *testing.T
 		t.Fatal("passthrough ingress did not exit")
 	}
 }
+
+// 透传链路的联网搜索次数从终止事件的整份响应里取（中继把终止事件原文交给 OnTurnComplete）。
+func TestPassthroughIngressTurnCarriesWebSearch(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	controlCtx, cancelControl := context.WithCancelCause(context.Background())
+	defer cancelControl(context.Canceled)
+
+	upstream := newStagedPassthroughConn()
+	upstream.Send(`{"type":"response.completed","response":{"id":"resp_search_1","model":"gpt-5.1","output":[` +
+		`{"type":"web_search_call","id":"ws_1","status":"completed","action":{"type":"search","query":"q"}},` +
+		`{"type":"web_search_call","id":"ws_2","status":"completed","action":{"type":"open_page","url":"https://a"}}],` +
+		`"usage":{"input_tokens":1,"output_tokens":1}}}`)
+
+	var mu sync.Mutex
+	var searches []WebSearchUsage
+	hooks := &OpenAIWSIngressHooks{
+		AfterTurn: func(_ int, result *OpenAIForwardResult, turnErr error) {
+			if turnErr == nil && result != nil {
+				mu.Lock()
+				searches = append(searches, result.WebSearch)
+				mu.Unlock()
+			}
+		},
+	}
+
+	server, _ := startPassthroughHookRecordingServer(
+		t,
+		controlCtx,
+		newPassthroughLifecycleService(passthroughLifecycleConfig(), upstream),
+		passthroughLifecycleAccount(),
+		hooks,
+	)
+	defer server.Close()
+	clientConn := dialPassthroughLifecycleClient(t, server)
+	defer func() { _ = clientConn.CloseNow() }()
+	require.Equal(t, "response.create", gjson.GetBytes(requirePassthroughUpstreamWrite(t, upstream, time.Second), "type").String())
+
+	event, err := readPassthroughLifecycleFrame(t, clientConn, 3*time.Second)
+	require.NoError(t, err)
+	require.Equal(t, "response.completed", gjson.GetBytes(event, "type").String())
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(searches) == 1
+	}, 3*time.Second, 10*time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, WebSearchUsage{WebSearchCalls: 1}, searches[0])
+}

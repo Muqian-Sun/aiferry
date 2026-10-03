@@ -365,6 +365,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 
 	usage := &OpenAIUsage{}
 	imageCounter := newOpenAIImageOutputCounter()
+	var searchCounter responsesWebSearchCounter
 	var firstTokenMs *int
 	responseID := ""
 	var finalResponse []byte
@@ -434,6 +435,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			Duration:                      time.Since(startTime),
 			FirstTokenMs:                  firstTokenMs,
 			ClientDisconnect:              clientDisconnected,
+			WebSearch:                     searchCounter.Usage(),
 		}
 	}
 
@@ -664,6 +666,7 @@ readLoop:
 			parseOpenAIWSResponseUsageFromCompletedEvent(message, usage)
 		}
 		imageCounter.AddSSEData(message)
+		searchCounter.Observe(message)
 
 		if eventType == "error" || eventType == "response.failed" {
 			markOpenAICyberPolicyEvent(c, message, http.StatusOK, usage)

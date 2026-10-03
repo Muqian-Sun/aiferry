@@ -111,6 +111,13 @@ func (UsageLog) Fields() []ent.Field {
 			Default(0).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 
+		// 联网搜索：官方云端搜索工具的次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）。
+		field.Int("web_search_count").
+			Default(0),
+		field.Float("web_search_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+
 		// 其他字段
 		field.Int8("billing_type").
 			Default(0),

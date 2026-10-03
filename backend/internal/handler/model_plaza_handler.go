@@ -123,13 +123,14 @@ type userSupportedModelPricing struct {
 	ImageInputPrice              *float64 `json:"image_input_price"`
 	ImageOutputPrice             *float64 `json:"image_output_price"`
 	PerRequestPrice              *float64 `json:"per_request_price"`
-	// SearchPricePerCall 联网搜索（/alpha/search）每次价，只有 OpenAI 模型有；ToolSearchPricePerCall grok 搜索工具每次价。
-	SearchPricePerCall     *float64                 `json:"search_price_per_call,omitempty"`
-	ToolSearchPricePerCall *float64                 `json:"tool_search_price_per_call,omitempty"`
-	ImageCacheReadPrice    *float64                 `json:"image_cache_read_price"`
-	AudioInputPrice        *float64                 `json:"audio_input_price"`
-	AudioOutputPrice       *float64                 `json:"audio_output_price"`
-	Intervals              []userPricingIntervalDTO `json:"intervals"`
+	// 联网搜索的官方单价（不乘用户倍率）：每次 web 搜索；xAI 模型另有每条 X 帖子、每个 X 主页。
+	SearchPricePerCall  *float64                 `json:"search_price_per_call,omitempty"`
+	XPostPrice          *float64                 `json:"x_post_price,omitempty"`
+	XUserPrice          *float64                 `json:"x_user_price,omitempty"`
+	ImageCacheReadPrice *float64                 `json:"image_cache_read_price"`
+	AudioInputPrice     *float64                 `json:"audio_input_price"`
+	AudioOutputPrice    *float64                 `json:"audio_output_price"`
+	Intervals           []userPricingIntervalDTO `json:"intervals"`
 }
 
 // userPricingIntervalDTO 定价区间白名单（去掉内部 ID、SortOrder 等前端不渲染的字段）。
@@ -201,7 +202,8 @@ func toUserPricing(p *service.PricingCard, extras service.PlazaTokenExtras) *use
 		ImageOutputPrice:             p.ImageOutputPrice,
 		PerRequestPrice:              p.PerRequestPrice,
 		SearchPricePerCall:           extras.WebSearchPricePerCall,
-		ToolSearchPricePerCall:       extras.ToolSearchPricePerCall,
+		XPostPrice:                   extras.XPostPrice,
+		XUserPrice:                   extras.XUserPrice,
 		ImageCacheReadPrice:          extras.ImageCacheReadPrice,
 		AudioInputPrice:              extras.AudioInputPrice,
 		AudioOutputPrice:             extras.AudioOutputPrice,

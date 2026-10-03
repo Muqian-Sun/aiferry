@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// 搜索费叠加在 token 费上：官方原价、不乘用户倍率。
 func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 	t.Parallel()
 
@@ -19,43 +20,23 @@ func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 	apiKey := &APIKey{}
 
 	// claude-sonnet-4 fallback: Input $3/MTok, Output $15/MTok
-	// 1000 in + 500 out → 0.003 + 0.0075 = 0.0105
-	// + 100 searches at the built-in $5/1k → +0.5 → total 0.5105
+	// 1000 in + 500 out → 0.003 + 0.0075 = 0.0105，× 倍率 2 = 0.021
+	// + 100 次搜索 × 内置 $0.01（不乘倍率）= 1.0
 	cost, _, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(),
-		&OpenAIForwardResult{SearchCount: 100},
+		&OpenAIForwardResult{WebSearch: WebSearchUsage{WebSearchCalls: 100}},
 		apiKey,
 		[]string{"claude-sonnet-4"},
-		1.0,
+		2.0,
 		UsageTokens{InputTokens: 1000, OutputTokens: 500},
 		time.Time{},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, cost)
-	require.InDelta(t, 0.5105, cost.ActualCost, 1e-9)
-	require.InDelta(t, 0.5105, cost.TotalCost, 1e-9)
-}
-
-func TestCalculateOpenAIRecordUsageCost_SearchOnlyWhenNoTokenPricing(t *testing.T) {
-	t.Parallel()
-
-	svc := &OpenAIGatewayService{
-		billingService: newTestBillingService(),
-	}
-	apiKey := &APIKey{}
-	// Empty model list: token path fails; search-only surcharge still bills at $5/1k.
-	cost, _, err := svc.calculateOpenAIRecordUsageCost(
-		context.Background(),
-		&OpenAIForwardResult{SearchCount: 100},
-		apiKey,
-		nil,
-		1.0,
-		UsageTokens{},
-		time.Time{},
-	)
-	require.NoError(t, err)
-	require.NotNil(t, cost)
-	require.InDelta(t, 0.5, cost.ActualCost, 1e-9)
+	require.Equal(t, 100, cost.WebSearchCount)
+	require.InDelta(t, 1.0, cost.WebSearchCost, 1e-9)
+	require.InDelta(t, 1.021, cost.ActualCost, 1e-9)
+	require.InDelta(t, 1.0105, cost.TotalCost, 1e-9)
 }
 
 func TestCalculateOpenAIRecordUsageCost_TokenPricingErrorNotSwallowedBySearch(t *testing.T) {
@@ -68,7 +49,7 @@ func TestCalculateOpenAIRecordUsageCost_TokenPricingErrorNotSwallowedBySearch(t 
 	// Unknown model → token pricing fails; search must not replace that with $0/$search bill.
 	cost, _, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(),
-		&OpenAIForwardResult{SearchCount: 100},
+		&OpenAIForwardResult{WebSearch: WebSearchUsage{WebSearchCalls: 100}},
 		apiKey,
 		[]string{"totally-unknown-model-xyz-no-pricing"},
 		1.0,

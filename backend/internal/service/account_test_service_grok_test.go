@@ -316,7 +316,7 @@ func TestAccountTestService_GrokWebSearchModeUsesResponsesWebSearchTool(t *testi
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Body: io.NopCloser(strings.NewReader(
-			`{"id":"r1","output":[{"type":"web_search_call","id":"ws1","status":"completed"},{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Grok is built by xAI."}]}]}`,
+			`{"id":"r1","output":[{"type":"web_search_call","id":"ws1","status":"completed","action":{"type":"search","query":"xAI"}},{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Grok is built by xAI."}]}]}`,
 		)),
 	}}
 	svc := &AccountTestService{

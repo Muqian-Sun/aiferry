@@ -1178,6 +1178,10 @@ type sseUsagePatch struct {
 	hasCacheCreation5m       bool
 	cacheCreation1hTokens    int
 	hasCacheCreation1h       bool
+	webSearchRequests        int
+	hasWebSearchRequests     bool
+	// webSearchBlock 是 content_block_start 里的搜索调用块 / 结果块原文（按块计次用）
+	webSearchBlock []byte
 }
 
 func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePatch {
@@ -1219,6 +1223,18 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 		}
 		return patch
 
+	case "content_block_start":
+		// 搜索调用块 / 结果块（上游 usage 没报次数时按块计次）
+		block, _ := event["content_block"].(map[string]any)
+		if block["type"] != "server_tool_use" && block["type"] != "web_search_tool_result" {
+			return nil
+		}
+		raw, err := json.Marshal(block)
+		if err != nil {
+			return nil
+		}
+		return &sseUsagePatch{webSearchBlock: raw}
+
 	case "message_delta":
 		usageObj, _ := event["usage"].(map[string]any)
 		if len(usageObj) == 0 {
@@ -1252,10 +1268,21 @@ func (s *GatewayService) extractSSEUsagePatch(event map[string]any) *sseUsagePat
 				patch.hasCacheCreation1h = true
 			}
 		}
+		// message_delta 带的是这次请求累计的搜索次数
+		patch.webSearchRequests, patch.hasWebSearchRequests = parseSSEWebSearchRequests(usageObj)
 		return patch
 	}
 
 	return nil
+}
+
+// parseSSEWebSearchRequests 读 usage.server_tool_use.web_search_requests（Anthropic 官方 web_search 工具的次数）。
+func parseSSEWebSearchRequests(usageObj map[string]any) (int, bool) {
+	serverToolUse, ok := usageObj["server_tool_use"].(map[string]any)
+	if !ok {
+		return 0, false
+	}
+	return parseSSEUsageInt(serverToolUse["web_search_requests"])
 }
 
 func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
@@ -1280,6 +1307,13 @@ func mergeSSEUsagePatch(usage *ClaudeUsage, patch *sseUsagePatch) {
 	}
 	if patch.hasCacheCreation1h {
 		usage.CacheCreation1hTokens = patch.cacheCreation1hTokens
+	}
+	if patch.hasWebSearchRequests {
+		requests := patch.webSearchRequests
+		usage.WebSearchRequests = &requests
+	}
+	if patch.webSearchBlock != nil {
+		usage.observeWebSearchBlock(gjson.ParseBytes(patch.webSearchBlock))
 	}
 }
 
@@ -1411,6 +1445,11 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 		response.Usage.CacheCreation5mTokens = int(cc5m.Int())
 		response.Usage.CacheCreation1hTokens = int(cc1h.Int())
 	}
+	if v := gjson.GetBytes(body, "usage.server_tool_use.web_search_requests"); v.Exists() {
+		requests := int(v.Int())
+		response.Usage.WebSearchRequests = &requests
+	}
+	response.Usage.WebSearchResults = countSuccessfulWebSearchResults(gjson.GetBytes(body, "content"))
 
 	// 兼容 Kimi cached_tokens → cache_read_input_tokens
 	if response.Usage.CacheReadInputTokens == 0 {

@@ -1168,6 +1168,9 @@ export interface UsageLog {
   actual_cost: number
   rate_multiplier: number
   billing_type: number
+  // 联网搜索：次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）
+  web_search_count: number
+  web_search_cost: number
 
   request_type?: UsageRequestType
   stream: boolean

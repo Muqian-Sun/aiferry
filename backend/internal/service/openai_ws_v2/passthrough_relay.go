@@ -63,6 +63,8 @@ type RelayTurnResult struct {
 	StartedAt             time.Time
 	Duration              time.Duration
 	FirstTokenMs          *int
+	// TerminalPayload 终止事件原文（整份响应），调用方从里面取搜索用量等 usage 以外的计费项。
+	TerminalPayload []byte
 }
 
 type RelayExit struct {
@@ -138,6 +140,7 @@ type observedUpstreamEvent struct {
 	responseServiceTier string
 	duration            time.Duration
 	firstToken          *int
+	terminalPayload     []byte
 }
 
 type relayTurnTiming struct {
@@ -806,6 +809,7 @@ func observeUpstreamMessage(
 	}
 	observeRelayTurnResponseServiceTier(turnTiming, firstRelayResponseServiceTier(message))
 	state.terminalEventType = eventType
+	observed.terminalPayload = message
 	if eventType == "error" {
 		// Some Responses servers emit error immediately before response.failed.
 		// Defer turn settlement so the authoritative failed usage can replace
@@ -909,6 +913,7 @@ func emitTurnComplete(
 		StartedAt:             observed.startedAt,
 		Duration:              observed.duration,
 		FirstTokenMs:          openAIWSRelayCloneIntPtr(observed.firstToken),
+		TerminalPayload:       observed.terminalPayload,
 	})
 }
 

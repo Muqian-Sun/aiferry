@@ -180,6 +180,16 @@ func AccountCost(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldAccountCost, v))
 }
 
+// WebSearchCount applies equality check predicate on the "web_search_count" field. It's identical to WebSearchCountEQ.
+func WebSearchCount(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchCount, v))
+}
+
+// WebSearchCost applies equality check predicate on the "web_search_cost" field. It's identical to WebSearchCostEQ.
+func WebSearchCost(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchCost, v))
+}
+
 // BillingType applies equality check predicate on the "billing_type" field. It's identical to BillingTypeEQ.
 func BillingType(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingType, v))
@@ -1358,6 +1368,86 @@ func AccountCostLT(v float64) predicate.UsageLog {
 // AccountCostLTE applies the LTE predicate on the "account_cost" field.
 func AccountCostLTE(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldAccountCost, v))
+}
+
+// WebSearchCountEQ applies the EQ predicate on the "web_search_count" field.
+func WebSearchCountEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchCount, v))
+}
+
+// WebSearchCountNEQ applies the NEQ predicate on the "web_search_count" field.
+func WebSearchCountNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldWebSearchCount, v))
+}
+
+// WebSearchCountIn applies the In predicate on the "web_search_count" field.
+func WebSearchCountIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldWebSearchCount, vs...))
+}
+
+// WebSearchCountNotIn applies the NotIn predicate on the "web_search_count" field.
+func WebSearchCountNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldWebSearchCount, vs...))
+}
+
+// WebSearchCountGT applies the GT predicate on the "web_search_count" field.
+func WebSearchCountGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldWebSearchCount, v))
+}
+
+// WebSearchCountGTE applies the GTE predicate on the "web_search_count" field.
+func WebSearchCountGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldWebSearchCount, v))
+}
+
+// WebSearchCountLT applies the LT predicate on the "web_search_count" field.
+func WebSearchCountLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldWebSearchCount, v))
+}
+
+// WebSearchCountLTE applies the LTE predicate on the "web_search_count" field.
+func WebSearchCountLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldWebSearchCount, v))
+}
+
+// WebSearchCostEQ applies the EQ predicate on the "web_search_cost" field.
+func WebSearchCostEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldWebSearchCost, v))
+}
+
+// WebSearchCostNEQ applies the NEQ predicate on the "web_search_cost" field.
+func WebSearchCostNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldWebSearchCost, v))
+}
+
+// WebSearchCostIn applies the In predicate on the "web_search_cost" field.
+func WebSearchCostIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldWebSearchCost, vs...))
+}
+
+// WebSearchCostNotIn applies the NotIn predicate on the "web_search_cost" field.
+func WebSearchCostNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldWebSearchCost, vs...))
+}
+
+// WebSearchCostGT applies the GT predicate on the "web_search_cost" field.
+func WebSearchCostGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldWebSearchCost, v))
+}
+
+// WebSearchCostGTE applies the GTE predicate on the "web_search_cost" field.
+func WebSearchCostGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldWebSearchCost, v))
+}
+
+// WebSearchCostLT applies the LT predicate on the "web_search_cost" field.
+func WebSearchCostLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldWebSearchCost, v))
+}
+
+// WebSearchCostLTE applies the LTE predicate on the "web_search_cost" field.
+func WebSearchCostLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldWebSearchCost, v))
 }
 
 // BillingTypeEQ applies the EQ predicate on the "billing_type" field.

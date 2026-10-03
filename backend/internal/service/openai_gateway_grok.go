@@ -210,7 +210,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 	var usage *OpenAIUsage
 	var firstTokenMs *int
 	responseID := ""
-	searchCount := 0
+	var webSearch WebSearchUsage
 	imageCount := 0
 	var imageOutputSizes []string
 	if reqStream {
@@ -229,7 +229,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		usage = streamResult.usage
 		firstTokenMs = streamResult.firstTokenMs
 		responseID = strings.TrimSpace(streamResult.responseID)
-		searchCount = streamResult.searchCount
+		webSearch = streamResult.webSearch
 		imageCount = streamResult.imageCount
 		imageOutputSizes = streamResult.imageOutputSizes
 	} else {
@@ -239,7 +239,7 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		}
 		usage = nonStreamResult.usage
 		responseID = strings.TrimSpace(nonStreamResult.responseID)
-		searchCount = nonStreamResult.searchCount
+		webSearch = nonStreamResult.webSearch
 		imageCount = nonStreamResult.imageCount
 		imageOutputSizes = nonStreamResult.imageOutputSizes
 	}
@@ -261,12 +261,10 @@ func (s *OpenAIGatewayService) forwardGrokResponses(
 		ResponseHeaders: resp.Header.Clone(),
 		Duration:        time.Since(startTime),
 		FirstTokenMs:    firstTokenMs,
+		WebSearch:       webSearch,
 	}
-	// Propagate search/image counters from the shared Responses handler — without
-	// this, stream/JSON counting runs but search_price_per_1k / image bills never apply.
-	if searchCount > 0 {
-		result.SearchCount = searchCount
-	}
+	// Propagate image counters from the shared Responses handler — without
+	// this, stream/JSON counting runs but image bills never apply.
 	if imageCount > 0 {
 		result.ImageCount = imageCount
 		result.ImageOutputSizes = imageOutputSizes

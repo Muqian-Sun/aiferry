@@ -1559,7 +1559,7 @@ User query:
 		}
 		return true
 	})
-	searchCount := countGrokNativeSearchCallsFromJSONBytes(body)
+	searchCount := webSearchUsageFromResponsesBody(body).Count()
 	s.sendEvent(c, TestEvent{Type: "content", Text: fmt.Sprintf("web_search ok: query=%q tool_calls=%d sources=%d\n", query, searchCount, sourceCount)})
 	// Optional: first structured result title if model returned JSON text.
 	gjson.GetBytes(body, "output").ForEach(func(_, item gjson.Result) bool {

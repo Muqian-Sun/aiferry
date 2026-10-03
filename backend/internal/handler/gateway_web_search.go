@@ -207,10 +207,10 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 	h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 		if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 			Result: &service.ForwardResult{
-				RequestID:   searchRequestID,
-				Model:       "grok-" + strings.ReplaceAll(searchLabel, "_", "-"),
-				SearchCount: 1,
-				Duration:    0,
+				RequestID: searchRequestID,
+				Model:     "grok-" + strings.ReplaceAll(searchLabel, "_", "-"),
+				Usage:     service.ClaudeUsage{WebSearchResults: 1},
+				Duration:  0,
 			},
 			APIKey:             apiKey,
 			User:               apiKey.User,

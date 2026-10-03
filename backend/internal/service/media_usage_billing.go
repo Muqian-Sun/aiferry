@@ -12,9 +12,6 @@ type mediaUsage struct {
 	VideoCount           int
 	VideoResolution      string
 	VideoDurationSeconds int
-	// WebSearchCalls 是 Codex alpha/search 的调用次数：按目录条目 search_price_per_call，
-	// 未配用内置单价 defaultWebSearchPricePerCall。
-	WebSearchCalls int
 	// Audio 是 Grok Voice（tts / stt / realtime）的用量，按内置单价。
 	Audio *AudioUsage
 }
@@ -40,7 +37,6 @@ func mediaUsageFromOpenAIForwardResult(r *OpenAIForwardResult) mediaUsage {
 		VideoCount:           r.VideoCount,
 		VideoResolution:      r.VideoResolution,
 		VideoDurationSeconds: r.VideoDurationSeconds,
-		WebSearchCalls:       r.WebSearchCalls,
 		Audio:                r.AudioUsage,
 	}
 }
@@ -49,18 +45,10 @@ func mediaUsageFromOpenAIForwardResult(r *OpenAIForwardResult) mediaUsage {
 // 不再有分组价与默认价。handled=false 表示这次用量走 token 路径（没有媒体用量，或图片落在
 // token 模式的条目上——gpt-image-* 按 image token 价）。
 //
-//	WebSearchCalls > 0 → 单价(条目 search_price_per_call ?? 内置) × 次
 //	Audio != nil       → 内置单价 × 单位数
 //	VideoCount > 0     → mode video：单价(分辨率档) × 条 × 秒；mode image/per_request：单价 × 条
 //	ImageCount > 0 且 mode ∈ {image, per_request} → 单价(尺寸档) × 张
 func (s *BillingService) CalculateMediaCost(ctx context.Context, resolver *ModelPricingResolver, model string, usage mediaUsage, multiplier float64) (cost *CostBreakdown, handled bool, err error) {
-	if usage.WebSearchCalls > 0 {
-		var entryPrice *float64
-		if resolved := resolveIfPossible(ctx, resolver, model); resolved != nil {
-			entryPrice = resolved.SearchPricePerCall
-		}
-		return s.CalculateWebSearchCost(usage.WebSearchCalls, entryPrice, multiplier), true, nil
-	}
 	if usage.Audio != nil {
 		return s.CalculateAudioCost(usage.Audio.Mode, usage.Audio.DurationOrUnits, multiplier), true, nil
 	}

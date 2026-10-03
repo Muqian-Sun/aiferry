@@ -684,7 +684,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 			// 媒体 / 搜索 / 语音结果不能因池溢出丢单（与 OpenAI handler 的 submitOpenAIUsageRecordTask 同规则）
-			if res.ImageCount > 0 || res.VideoCount > 0 || res.SearchCount > 0 || res.WebSearchCalls > 0 || res.AudioUsage != nil {
+			if res.ImageCount > 0 || res.VideoCount > 0 || !res.WebSearch.IsZero() || res.AudioUsage != nil {
 				h.submitMandatoryUsageRecordTask(c.Request.Context(), task)
 			} else {
 				h.submitUsageRecordTask(c.Request.Context(), task)

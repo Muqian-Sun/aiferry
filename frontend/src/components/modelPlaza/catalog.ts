@@ -55,10 +55,11 @@ export interface CatalogModel {
    * 非 token 模式或文本 Token 价全缺时为空。多于一行即「按 Token 分段」。
    */
   rows: TokenSegment[]
-  /** 联网搜索（/alpha/search），USD / 千次；这个模型走不到时为 null */
+  /** 联网搜索（官方原价，不乘倍率），USD / 千次；没有官方搜索工具的模型为 null */
   searchPerThousand: number | null
-  /** 搜索工具（grok 的 web / X 搜索），USD / 千次；非 grok 模型为 null */
-  toolSearchPerThousand: number | null
+  /** xAI X 搜索按取回条目收：USD / 千条帖子、USD / 千个主页；非 xAI 模型为 null */
+  xPostPerThousand: number | null
+  xUserPerThousand: number | null
   /** reasoning_effort=max 时整单倍率；没配为 null */
   maxReasoningMultiplier: number | null
   aliases: string[]
@@ -147,7 +148,8 @@ function catalogModel(model: PlazaModel): CatalogModel {
     tiers: p && !token ? tiersOf(p) : [],
     rows,
     searchPerThousand: p?.search_price_per_call == null ? null : p.search_price_per_call * PER_THOUSAND,
-    toolSearchPerThousand: p?.tool_search_price_per_call == null ? null : p.tool_search_price_per_call * PER_THOUSAND,
+    xPostPerThousand: p?.x_post_price == null ? null : p.x_post_price * PER_THOUSAND,
+    xUserPerThousand: p?.x_user_price == null ? null : p.x_user_price * PER_THOUSAND,
     maxReasoningMultiplier: p?.max_reasoning_effort_multiplier ?? null,
     aliases: model.aliases ?? [],
     timePricing: model.time_pricing?.periods.length ? model.time_pricing : null

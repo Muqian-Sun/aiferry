@@ -87,9 +87,12 @@ func (s *BillingService) CalculateUpstreamCost(ctx context.Context, resolver *Mo
 }
 
 // recordUsageAccountCost 两个网关记账时的渠道成本：按候选计费模型依次找这个渠道的承接关系，
-// 用第一个找得到的算。媒体用量（图片 / 视频 / 音频 / 独立搜索）不经这里，记 0。
+// 用第一个找得到的算。媒体用量（图片 / 视频 / 音频）不经这里，记 0。
 // 找不到承接关系或算不出来时记 0 并告警：请求已经完成，不能再拒，只能把缺口暴露出来。
-func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolver *ModelPricingResolver, accountID int64, models []string, tokens UsageTokens, pricingAt time.Time, reasoningEffort string) float64 {
+//
+// 联网搜索的上游成本暂按官方搜索价记（假设上游按原价转收）：承接关系上还没有「每次搜索」上游价，
+// 价格页加上这一项后改按它算。
+func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolver *ModelPricingResolver, accountID int64, models []string, tokens UsageTokens, search WebSearchUsage, pricingAt time.Time, reasoningEffort string) float64 {
 	if billing == nil || resolver == nil {
 		return 0
 	}
@@ -103,7 +106,7 @@ func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolv
 			slog.Warn("usage_account_cost_failed", "account_id", accountID, "model", entry.ModelID, "error", err)
 			return 0
 		}
-		return cost
+		return cost + officialWebSearchPrices(entry).cost(search)
 	}
 	slog.Warn("usage_account_cost_missing_upstream_price", "account_id", accountID, "models", models)
 	return 0

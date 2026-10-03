@@ -813,3 +813,23 @@ func TestObserveUpstreamMessage_ResponseServiceTierOnlyFromTerminalEvents(t *tes
 	)
 	require.Equal(t, "", second.responseServiceTier)
 }
+
+// 终止事件原文要随 turn 一起交给调用方：联网搜索次数（output 里的 web_search_call、xAI 工具明细）只在整份响应里。
+func TestEmitTurnCompleteCarriesTerminalPayload(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(500, 0)
+	state := &relayState{}
+	message := []byte(`{"type":"response.completed","response":{"id":"resp_ws","output":[{"type":"web_search_call","action":{"type":"search"}}],"usage":{"input_tokens":3,"output_tokens":2}}}`)
+	observed := observeUpstreamMessage(state, message, now, func() time.Time { return now }, nil)
+	require.True(t, observed.terminal)
+
+	var got RelayTurnResult
+	emitTurnComplete(func(turn RelayTurnResult) { got = turn }, state, observed)
+	require.Equal(t, "resp_ws", got.RequestID)
+	require.Equal(t, message, got.TerminalPayload)
+
+	// 非终止事件不带原文
+	delta := observeUpstreamMessage(state, []byte(`{"type":"response.output_text.delta","response_id":"resp_ws","delta":"x"}`), now, func() time.Time { return now }, nil)
+	require.Nil(t, delta.terminalPayload)
+}

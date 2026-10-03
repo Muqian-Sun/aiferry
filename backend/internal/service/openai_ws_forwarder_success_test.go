@@ -310,6 +310,13 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 						"status": "in_progress",
 						"result": "final-image",
 					},
+					// 同一轮里的一次联网搜索：WS 链路也要把搜索次数带到计费结果
+					map[string]any{
+						"id":     "ws_ws_1",
+						"type":   "web_search_call",
+						"status": "completed",
+						"action": map[string]any{"type": "search", "query": "q"},
+					},
 				},
 				"usage": map[string]any{
 					"input_tokens":  9,
@@ -380,6 +387,7 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, "1K", result.ImageSize)
 	require.Equal(t, "gpt-image-2", result.BillingModel)
+	require.Equal(t, WebSearchUsage{WebSearchCalls: 1}, result.WebSearch)
 	require.Equal(t, 9, result.Usage.InputTokens)
 	require.Equal(t, 4, result.Usage.OutputTokens)
 	require.True(t, result.OpenAIWSMode)

@@ -286,7 +286,6 @@ func catalogEntryFromCard(modelID, managedBy string, card PricingCard) ModelCata
 		ImageInputPrice:              card.ImageInputPrice,
 		ImageOutputPrice:             card.ImageOutputPrice,
 		PerRequestPrice:              card.PerRequestPrice,
-		SearchPricePerCall:           card.SearchPricePerCall,
 		MaxReasoningEffortMultiplier: card.MaxReasoningEffortMultiplier,
 		Intervals:                    card.Intervals,
 		TimePricing:                  card.TimePricing,

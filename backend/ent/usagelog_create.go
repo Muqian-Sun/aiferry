@@ -336,6 +336,34 @@ func (_c *UsageLogCreate) SetNillableAccountCost(v *float64) *UsageLogCreate {
 	return _c
 }
 
+// SetWebSearchCount sets the "web_search_count" field.
+func (_c *UsageLogCreate) SetWebSearchCount(v int) *UsageLogCreate {
+	_c.mutation.SetWebSearchCount(v)
+	return _c
+}
+
+// SetNillableWebSearchCount sets the "web_search_count" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableWebSearchCount(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetWebSearchCount(*v)
+	}
+	return _c
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (_c *UsageLogCreate) SetWebSearchCost(v float64) *UsageLogCreate {
+	_c.mutation.SetWebSearchCost(v)
+	return _c
+}
+
+// SetNillableWebSearchCost sets the "web_search_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableWebSearchCost(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetWebSearchCost(*v)
+	}
+	return _c
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_c *UsageLogCreate) SetBillingType(v int8) *UsageLogCreate {
 	_c.mutation.SetBillingType(v)
@@ -677,6 +705,14 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultAccountCost
 		_c.mutation.SetAccountCost(v)
 	}
+	if _, ok := _c.mutation.WebSearchCount(); !ok {
+		v := usagelog.DefaultWebSearchCount
+		_c.mutation.SetWebSearchCount(v)
+	}
+	if _, ok := _c.mutation.WebSearchCost(); !ok {
+		v := usagelog.DefaultWebSearchCost
+		_c.mutation.SetWebSearchCost(v)
+	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		v := usagelog.DefaultBillingType
 		_c.mutation.SetBillingType(v)
@@ -791,6 +827,12 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.AccountCost(); !ok {
 		return &ValidationError{Name: "account_cost", err: errors.New(`ent: missing required field "UsageLog.account_cost"`)}
+	}
+	if _, ok := _c.mutation.WebSearchCount(); !ok {
+		return &ValidationError{Name: "web_search_count", err: errors.New(`ent: missing required field "UsageLog.web_search_count"`)}
+	}
+	if _, ok := _c.mutation.WebSearchCost(); !ok {
+		return &ValidationError{Name: "web_search_cost", err: errors.New(`ent: missing required field "UsageLog.web_search_cost"`)}
 	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		return &ValidationError{Name: "billing_type", err: errors.New(`ent: missing required field "UsageLog.billing_type"`)}
@@ -964,6 +1006,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AccountCost(); ok {
 		_spec.SetField(usagelog.FieldAccountCost, field.TypeFloat64, value)
 		_node.AccountCost = value
+	}
+	if value, ok := _c.mutation.WebSearchCount(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCount, field.TypeInt, value)
+		_node.WebSearchCount = value
+	}
+	if value, ok := _c.mutation.WebSearchCost(); ok {
+		_spec.SetField(usagelog.FieldWebSearchCost, field.TypeFloat64, value)
+		_node.WebSearchCost = value
 	}
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
@@ -1570,6 +1620,42 @@ func (u *UsageLogUpsert) UpdateAccountCost() *UsageLogUpsert {
 // AddAccountCost adds v to the "account_cost" field.
 func (u *UsageLogUpsert) AddAccountCost(v float64) *UsageLogUpsert {
 	u.Add(usagelog.FieldAccountCost, v)
+	return u
+}
+
+// SetWebSearchCount sets the "web_search_count" field.
+func (u *UsageLogUpsert) SetWebSearchCount(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldWebSearchCount, v)
+	return u
+}
+
+// UpdateWebSearchCount sets the "web_search_count" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateWebSearchCount() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldWebSearchCount)
+	return u
+}
+
+// AddWebSearchCount adds v to the "web_search_count" field.
+func (u *UsageLogUpsert) AddWebSearchCount(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldWebSearchCount, v)
+	return u
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (u *UsageLogUpsert) SetWebSearchCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldWebSearchCost, v)
+	return u
+}
+
+// UpdateWebSearchCost sets the "web_search_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateWebSearchCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldWebSearchCost)
+	return u
+}
+
+// AddWebSearchCost adds v to the "web_search_cost" field.
+func (u *UsageLogUpsert) AddWebSearchCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldWebSearchCost, v)
 	return u
 }
 
@@ -2399,6 +2485,48 @@ func (u *UsageLogUpsertOne) AddAccountCost(v float64) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateAccountCost() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateAccountCost()
+	})
+}
+
+// SetWebSearchCount sets the "web_search_count" field.
+func (u *UsageLogUpsertOne) SetWebSearchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchCount(v)
+	})
+}
+
+// AddWebSearchCount adds v to the "web_search_count" field.
+func (u *UsageLogUpsertOne) AddWebSearchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddWebSearchCount(v)
+	})
+}
+
+// UpdateWebSearchCount sets the "web_search_count" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateWebSearchCount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchCount()
+	})
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (u *UsageLogUpsertOne) SetWebSearchCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchCost(v)
+	})
+}
+
+// AddWebSearchCost adds v to the "web_search_cost" field.
+func (u *UsageLogUpsertOne) AddWebSearchCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddWebSearchCost(v)
+	})
+}
+
+// UpdateWebSearchCost sets the "web_search_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateWebSearchCost() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchCost()
 	})
 }
 
@@ -3443,6 +3571,48 @@ func (u *UsageLogUpsertBulk) AddAccountCost(v float64) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateAccountCost() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateAccountCost()
+	})
+}
+
+// SetWebSearchCount sets the "web_search_count" field.
+func (u *UsageLogUpsertBulk) SetWebSearchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchCount(v)
+	})
+}
+
+// AddWebSearchCount adds v to the "web_search_count" field.
+func (u *UsageLogUpsertBulk) AddWebSearchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddWebSearchCount(v)
+	})
+}
+
+// UpdateWebSearchCount sets the "web_search_count" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateWebSearchCount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchCount()
+	})
+}
+
+// SetWebSearchCost sets the "web_search_cost" field.
+func (u *UsageLogUpsertBulk) SetWebSearchCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetWebSearchCost(v)
+	})
+}
+
+// AddWebSearchCost adds v to the "web_search_cost" field.
+func (u *UsageLogUpsertBulk) AddWebSearchCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddWebSearchCost(v)
+	})
+}
+
+// UpdateWebSearchCost sets the "web_search_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateWebSearchCost() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateWebSearchCost()
 	})
 }
 

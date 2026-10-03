@@ -321,6 +321,27 @@ func mergeAnthropicUsage(dst *ClaudeUsage, src apicompat.AnthropicUsage) {
 	}
 }
 
+// observeAnthropicWebSearch 转换桥（上游是 Messages）上的搜索计次，口径同 ClaudeUsage.webSearchCalls：
+// message_delta 带的累计次数；成功的搜索结果块（上游没报次数时用）。message_start 里的初始值不算「报了」。
+func observeAnthropicWebSearch(usage *ClaudeUsage, event *apicompat.AnthropicStreamEvent) {
+	if usage == nil || event == nil {
+		return
+	}
+	switch event.Type {
+	case "message_delta":
+		if event.Usage != nil && event.Usage.ServerToolUse != nil {
+			requests := event.Usage.ServerToolUse.WebSearchRequests
+			usage.WebSearchRequests = &requests
+		}
+	case "content_block_start":
+		if block := event.ContentBlock; block != nil && (block.Type == "server_tool_use" || block.Type == "web_search_tool_result") {
+			if raw, err := json.Marshal(block); err == nil {
+				usage.observeWebSearchBlock(gjson.ParseBytes(raw))
+			}
+		}
+	}
+}
+
 // parseAnthropicSSEField parses an SSE field line in the form "field:value" or "field: value".
 // According to the SSE spec (https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation),
 // the space after the colon is optional. This function handles both formats.
@@ -383,6 +404,8 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 			)
 			continue
 		}
+
+		observeAnthropicWebSearch(&usage, &event)
 
 		// message_start carries the initial response structure
 		if event.Type == "message_start" && event.Message != nil {
@@ -541,6 +564,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 		if event.Type == "message_delta" && event.Usage != nil {
 			mergeAnthropicUsage(&usage, *event.Usage)
 		}
+		observeAnthropicWebSearch(&usage, event)
 		// Also capture usage from message_start
 		if event.Type == "message_start" && event.Message != nil {
 			mergeAnthropicUsage(&usage, event.Message.Usage)

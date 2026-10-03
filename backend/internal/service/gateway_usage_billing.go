@@ -578,7 +578,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	accountCost := 0.0
 	if tokenPath {
 		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, []string{billingModel},
-			recordUsageTokens(result), pricingAt, optionalStringValue(result.ReasoningEffort))
+			recordUsageTokens(result), result.webSearchUsage(), pricingAt, optionalStringValue(result.ReasoningEffort))
 	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
@@ -626,7 +626,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 }
 
 // calculateRecordUsageCost 根据请求类型计算费用：媒体用量（图片 / 音频）按目录条目，
-// 其余走 token 计费；Grok 内嵌搜索是叠加在 token 费上的 surcharge。tokenPath 报告是否走了
+// 其余走 token 计费，联网搜索费叠加在 token 费上。tokenPath 报告是否走了
 // token 计费（渠道成本只在 token 路径上按上游价算）。
 func (s *GatewayService) calculateRecordUsageCost(
 	ctx context.Context,
@@ -644,19 +644,9 @@ func (s *GatewayService) calculateRecordUsageCost(
 		return cost, false
 	}
 
-	// Token 计费；SearchCount 为叠加 surcharge（不替代 token）。
+	// Token 计费，再叠加联网搜索费（官方原价、不乘用户倍率）。
 	tokenCost := s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
-	if result.SearchCount > 0 {
-		searchCost := s.billingService.CalculateSearchCost(result.SearchCount, multiplier)
-		if searchCost != nil && (searchCost.TotalCost > 0 || searchCost.ActualCost > 0) {
-			if tokenCost == nil {
-				return searchCost, true
-			}
-			tokenCost.TotalCost += searchCost.TotalCost
-			tokenCost.ActualCost += searchCost.ActualCost
-		}
-	}
-	return tokenCost, true
+	return addWebSearchCharge(ctx, s.resolver, billingModel, result.webSearchUsage(), tokenCost), true
 }
 
 // billableModelWithFallback 在选定计费模型（可能是 composite 公开别名或未定价的映射名）
@@ -824,6 +814,8 @@ func (s *GatewayService) buildRecordUsageLog(
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
+		usageLog.WebSearchCount = cost.WebSearchCount
+		usageLog.WebSearchCost = cost.WebSearchCost
 	}
 
 	return usageLog

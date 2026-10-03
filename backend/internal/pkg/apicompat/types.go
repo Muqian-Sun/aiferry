@@ -216,6 +216,13 @@ type AnthropicUsage struct {
 	PromptTokensDetails   *AnthropicPromptTokensDetails `json:"prompt_tokens_details,omitempty"`
 	PromptCacheHitTokens  *int                          `json:"prompt_cache_hit_tokens,omitempty"`
 	PromptCacheMissTokens *int                          `json:"prompt_cache_miss_tokens,omitempty"`
+	// ServerToolUse 官方云端工具的用量（web_search_requests = 搜索次数），按次收搜索费。
+	ServerToolUse *AnthropicServerToolUse `json:"server_tool_use,omitempty"`
+}
+
+// AnthropicServerToolUse 是 usage.server_tool_use。
+type AnthropicServerToolUse struct {
+	WebSearchRequests int `json:"web_search_requests"`
 }
 
 // ---------------------------------------------------------------------------

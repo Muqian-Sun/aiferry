@@ -99,12 +99,13 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.NotNil(t, pricing.AudioInputPrice)
 	require.InDelta(t, 3e-6, *pricing.AudioInputPrice, 1e-18)
 
-	// 搜索价只给走得到的：OpenAI 模型没配就按内置 $0.01 / 次（/alpha/search），Anthropic 模型不给
+	// 联网搜索价（官方价，不乘倍率）：有官方搜索工具的厂商都给，条目没配按厂商公开价；X 帖子 / 主页价只有 xAI 有
 	require.Contains(t, string(gpt["pricing"]), `"search_price_per_call":0.01`)
+	require.NotContains(t, string(gpt["pricing"]), "x_post_price")
 	var sonnetPricing map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(envelope.Data.Models[0], &sonnetPricing))
-	require.NotContains(t, string(sonnetPricing["pricing"]), "search_price_per_call")
-	require.NotContains(t, string(sonnetPricing["pricing"]), "tool_search_price_per_call")
+	require.Contains(t, string(sonnetPricing["pricing"]), `"search_price_per_call":0.01`)
+	require.NotContains(t, string(sonnetPricing["pricing"]), "x_user_price")
 	require.JSONEq(t, `{"timezone":"Asia/Shanghai","weekdays_only":true,"periods":[{"start_time":"09:00","end_time":"18:00","multiplier":1.5}]}`, string(gpt["time_pricing"]))
 
 	var sonnet map[string]json.RawMessage
