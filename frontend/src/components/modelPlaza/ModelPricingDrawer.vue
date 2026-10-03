@@ -105,18 +105,21 @@
         </dl>
       </section>
 
-      <section v-if="searchPerThousand != null || toolSearchPerThousand != null" class="py-6 first:pt-0" data-testid="pricing-block-tools">
+      <!-- 联网搜索按官方原价收，不乘账户倍率（方案第三版） -->
+      <section v-if="searchPerThousand != null" class="py-6 first:pt-0" data-testid="pricing-block-tools">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.tools') }}</h3>
+          <span class="text-xs text-af-ink-3">{{ t('userUi.models.detail.searchOfficialPrice') }}</span>
         </div>
         <dl class="divide-y divide-af-hairline">
-          <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.search')">
+          <DetailField :label="t('userUi.models.detail.search')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(searchPerThousand) }) }}</span>
-            <span class="ml-2 text-xs text-af-ink-3">{{ t('userUi.models.detail.searchVia') }}</span>
           </DetailField>
-          <DetailField v-if="toolSearchPerThousand != null" :label="t('userUi.models.detail.toolSearch')">
-            <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(toolSearchPerThousand) }) }}</span>
-            <span class="ml-2 text-xs text-af-ink-3">{{ t('userUi.models.detail.toolSearchVia') }}</span>
+          <DetailField v-if="entry?.xPostPerThousand != null" :label="t('userUi.models.detail.xPosts')">
+            <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandPosts', { price: formatPrice(entry.xPostPerThousand) }) }}</span>
+          </DetailField>
+          <DetailField v-if="entry?.xUserPerThousand != null" :label="t('userUi.models.detail.xUsers')">
+            <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandUsers', { price: formatPrice(entry.xUserPerThousand) }) }}</span>
           </DetailField>
         </dl>
       </section>
@@ -249,14 +252,8 @@ const unitBlock = computed<{ label: string; unit: string; price: number | null; 
   }
 })
 
-const searchPerThousand = computed(() => {
-  const value = props.entry?.searchPerThousand
-  return value == null ? null : value * props.scale
-})
-const toolSearchPerThousand = computed(() => {
-  const value = props.entry?.toolSearchPerThousand
-  return value == null ? null : value * props.scale
-})
+/** 搜索费按官方原价收，不乘账户倍率 */
+const searchPerThousand = computed(() => props.entry?.searchPerThousand ?? null)
 
 const hasOther = computed(() => {
   const entry = props.entry
@@ -268,8 +265,7 @@ const hasPricing = computed(
     tokenBlocks.value.length > 0 ||
     mediaItems.value.length > 0 ||
     unitBlock.value !== null ||
-    searchPerThousand.value != null ||
-    toolSearchPerThousand.value != null
+    searchPerThousand.value != null
 )
 
 const timePricingScope = computed(() => {

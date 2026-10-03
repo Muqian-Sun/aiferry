@@ -457,7 +457,11 @@ export default {
         ttlBilled5m: '按 5 分钟计费',
         ttlBilled1h: '按 1 小时计费',
         images: '图片',
-        imagesValue: '{count} 张 · {size}'
+        imagesValue: '{count} 张 · {size}',
+        tokenRevenue: 'Token 收入',
+        webSearchRevenue: '搜索费收入',
+        webSearchRevenueValue: '{count} 次 · {cost}',
+        webSearchRevenueHint: '按官方原价收，不乘用户倍率'
       },
       userFilter: '用户',
       searchUserPlaceholder: '按邮箱搜索用户...',

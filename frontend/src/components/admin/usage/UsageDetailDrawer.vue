@@ -22,6 +22,14 @@
           </div>
         </dl>
         <dl class="mt-4 divide-y divide-af-hairline border-t border-af-hairline">
+          <!-- 有联网搜索时收入拆成两项：Token 收入（乘用户倍率）和搜索费（官方原价，不乘倍率） -->
+          <template v-if="log.web_search_count > 0">
+            <DetailField :label="t('admin.usage.detail.tokenRevenue')" :value="formatMoneyExact((log.actual_cost ?? 0) - log.web_search_cost)" />
+            <DetailField :label="t('admin.usage.detail.webSearchRevenue')" data-testid="usage-detail-web-search">
+              {{ t('admin.usage.detail.webSearchRevenueValue', { count: log.web_search_count, cost: formatMoneyExact(log.web_search_cost) }) }}
+              <span class="block text-xs text-af-ink-3">{{ t('admin.usage.detail.webSearchRevenueHint') }}</span>
+            </DetailField>
+          </template>
           <!-- 用户倍率 0 = 免费（库里 NOT NULL DEFAULT 1），不能用 || 把 0 当成没记 -->
           <DetailField :label="t('admin.usage.detail.userRate')" :value="`${formatMultiplier(log.rate_multiplier ?? 1)}x`" />
           <DetailField

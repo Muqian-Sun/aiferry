@@ -2,8 +2,8 @@
   <!--
     一条用量记录的费用明细（各项费用、单价、图片计费与实付）。
     只有用户站用：用量表的悬停提示和请求详情抽屉共用这一份（管理站的成本 / 利润在管理端详情抽屉）。单价原来写的是 text-af-on-brand（白底上看不见），统一成墨色。
-    倍率与官方价不给用户看（muqian 2026-09-30）：记录里的各项费用是官方价口径，这里一律乘「实付 / 官方价合计」
-    折成实付口径再显示，各项加起来就是实付；单价同样按实付口径算。
+    倍率与官方价不给用户看（muqian 2026-09-30）：记录里的各项 token 费用是官方价口径，这里乘「token 实付 / token 官方价」
+    折成实付口径再显示；联网搜索费按官方原价收、不乘倍率，单列一行原样显示。各项加起来就是实付；单价同样按实付口径算。
   -->
   <div class="space-y-1.5">
     <!-- Cost Breakdown -->
@@ -90,6 +90,10 @@
         <span class="text-af-ink-3">{{ t('admin.usage.cacheReadCost') }}</span>
         <span class="font-medium text-af-ink">${{ billed(row.cache_read_cost).toFixed(8) }}</span>
       </div>
+      <div v-if="row && row.web_search_count > 0" class="flex items-center justify-between gap-4" data-testid="usage-cost-web-search">
+        <span class="text-af-ink-3">{{ t('usage.webSearch') }} · {{ t('usage.webSearchTimes', { count: row.web_search_count }) }}</span>
+        <span class="font-medium text-af-ink">${{ (row.web_search_cost ?? 0).toFixed(8) }}</span>
+      </div>
     </div>
     <!-- Summary -->
     <div class="flex items-center justify-between gap-6">
@@ -129,8 +133,17 @@ const props = withDefaults(defineProps<{ row: AdminUsageLog; showTitle?: boolean
 
 const { t } = useI18n()
 
-/** 官方价口径 → 实付口径的系数（= 实付 / 官方价合计）；官方价合计为 0 时各项本来就是 0 */
-const billedFactor = computed(() => (props.row && props.row.total_cost > 0 ? props.row.actual_cost / props.row.total_cost : 1))
+/**
+ * token 各项从官方价口径折成实付口径的系数（= token 实付 / token 官方价）。联网搜索费两边都含、又不乘倍率，
+ * 先从两边扣掉，否则带搜索的请求各项会被折错；token 官方价为 0 时各项本来就是 0
+ */
+const billedFactor = computed(() => {
+  const row = props.row
+  if (!row) return 1
+  const search = row.web_search_cost ?? 0
+  const tokenTotal = row.total_cost - search
+  return tokenTotal > 0 ? (row.actual_cost - search) / tokenTotal : 1
+})
 function billed(cost: number | null | undefined): number {
   return (cost ?? 0) * billedFactor.value
 }

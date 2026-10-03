@@ -460,7 +460,11 @@ export default {
         ttlBilled5m: 'Billed as 5 minutes',
         ttlBilled1h: 'Billed as 1 hour',
         images: 'Images',
-        imagesValue: '{count} · {size}'
+        imagesValue: '{count} · {size}',
+        tokenRevenue: 'Token revenue',
+        webSearchRevenue: 'Web search revenue',
+        webSearchRevenueValue: '{count} searches · {cost}',
+        webSearchRevenueHint: 'Charged at the official price, not multiplied by the user rate'
       },
       userFilter: 'User',
       searchUserPlaceholder: 'Search user by email...',

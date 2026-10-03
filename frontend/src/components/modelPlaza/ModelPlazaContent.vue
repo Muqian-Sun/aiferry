@@ -317,7 +317,7 @@ function cellExtras(entry: CatalogModel): string[] {
     extras.push(t('userUi.models.tags.image'))
   }
   if (price && (price.audioInput != null || price.audioOutput != null)) extras.push(t('userUi.models.tags.audio'))
-  if (entry.searchPerThousand != null || entry.toolSearchPerThousand != null) extras.push(t('userUi.models.tags.search'))
+  if (entry.searchPerThousand != null) extras.push(t('userUi.models.tags.search'))
   if (entry.maxReasoningMultiplier != null) extras.push(t('userUi.models.tags.maxReasoning'))
   if (entry.timePricing) extras.push(t('userUi.models.tags.timePricing'))
   return extras
