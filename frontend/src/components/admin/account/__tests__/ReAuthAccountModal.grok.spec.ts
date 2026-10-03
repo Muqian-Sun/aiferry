@@ -8,9 +8,10 @@ const source = readFileSync(
 )
 
 describe('ReAuthAccountModal Grok re-auth paths', () => {
-  it('exposes SSO cookie and refresh-token options; password auth stays hidden', () => {
+  it('exposes SSO cookie and refresh-token options; password auth is gone', () => {
     expect(source).toContain(':show-sso-option="isGrok"')
-    expect(source).toContain(':show-email-password-option="false"')
+    // 授权组件已没有邮箱密码登录（2026-10-03 删），也不再有这个开关
+    expect(source).not.toContain('show-email-password-option')
     expect(source).toContain(':show-refresh-token-option="isOpenAI || isAntigravity || isGrok"')
     expect(source).not.toContain('@authorize-password=')
   })

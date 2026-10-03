@@ -689,13 +689,10 @@
         :show-cookie-option="form.platform === 'anthropic'"
         :show-refresh-token-option="form.platform === 'openai' || form.platform === 'antigravity' || form.platform === 'grok'"
         :show-mobile-refresh-token-option="form.platform === 'openai'"
-        :show-session-token-option="false"
-        :show-access-token-option="false"
         :show-codex-session-import-option="form.platform === 'openai'"
         :show-agent-identity-option="form.platform === 'openai'"
         :show-codex-pat-option="form.platform === 'openai'"
         :show-sso-option="form.platform === 'grok'"
-        :show-email-password-option="false"
         :show-manual-option="true"
         :initial-input-method="'manual'"
         :platform="form.platform"
@@ -704,11 +701,9 @@
         @cookie-auth="handleCookieAuth"
         @validate-refresh-token="handleValidateRefreshToken"
         @validate-mobile-refresh-token="handleOpenAIValidateMobileRT"
-        @validate-session-token="handleValidateSessionToken"
         @import-codex-session="handleOpenAIImportCodexSession"
         @import-codex-pat="handleOpenAIImportCodexPAT"
         @import-sso="handleGrokImportSSO"
-        @authorize-password="handleGrokAuthorizePassword"
       />
 
     </div>
@@ -1035,7 +1030,6 @@ interface OAuthFlowExposed {
   projectId: string
   sessionKey: string
   refreshToken: string
-  sessionToken: string
   codexSession: string
   codexPAT: string
   ssoCookie: string
@@ -1810,10 +1804,6 @@ const handleValidateRefreshToken = (rt: string) => {
   }
 }
 
-const handleValidateSessionToken = (_sessionToken: string) => {
-  // Session token validation removed
-}
-
 
 // 限额（日 / 周 / 总）写进 extra（重置方式固定滚动、提醒固定用到 80% 发一次，都不用写）。
 // 第三方 key 的提交分支和 Bedrock / Vertex 共用，任何一条漏调，界面上填的限额就会被静默丢掉。
@@ -1976,88 +1966,6 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     }
   } catch (error: any) {
     grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.grok.failedToConvertSSO'))
-  } finally {
-    grokOAuth.loading.value = false
-  }
-}
-
-/**
- * Grok password login: each line is email----password.
- * Password is only used for the authorize API call; buildCredentials never stores it.
- */
-const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
-  if (!emailPasswordInput.trim()) return
-  if (!validateHeaderOverrideForm()) return
-
-  const lines = emailPasswordInput
-    .split('\n')
-    // Keep the password portion byte-for-byte; trim is only for determining
-    // whether this textarea line is blank.
-    .filter((line) => line.trim() && line.includes('----'))
-
-  if (lines.length === 0) {
-    grokOAuth.error.value = t(
-      'admin.accounts.oauth.grok.pleaseEnterPassword',
-      'Please enter email----password (one per line)'
-    )
-    return
-  }
-
-  grokOAuth.loading.value = true
-  grokOAuth.error.value = ''
-
-  let successCount = 0
-  let failedCount = 0
-  const errors: string[] = []
-
-  try {
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        const tokenInfo = await grokOAuth.authorizePassword(lines[i], form.proxy_id)
-        if (!tokenInfo) {
-          failedCount++
-          errors.push(`#${i + 1}: ${grokOAuth.error.value || 'Authorization failed'}`)
-          grokOAuth.error.value = ''
-          continue
-        }
-
-        const credentials = grokOAuth.buildCredentials(tokenInfo)
-        applyGrokOAuthUpstreamConfig(credentials)
-        const extra = grokOAuth.buildExtraInfo(tokenInfo)
-        const accountName =
-          lines.length > 1
-            ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}`
-            : form.name || tokenInfo.email || 'Grok OAuth Account'
-
-        await createAccountRecord({
-          name: accountName,
-          notes: form.notes,
-          platform: 'grok',
-          type: 'oauth',
-          credentials,
-          extra,
-          proxy_id: form.proxy_id,
-          concurrency: form.concurrency,
-          priority: form.priority,
-          expires_at: form.expires_at
-        })
-        successCount++
-      } catch (error: any) {
-        failedCount++
-        const errMsg = extractApiErrorMessage(error, 'Unknown error')
-        errors.push(`#${i + 1}: ${errMsg}`)
-      }
-    }
-
-    if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
-    } else if (successCount > 0) {
-      grokOAuth.error.value = errors.join('\n')
-      emit('created')
-    } else {
-      grokOAuth.error.value = errors.join('\n')
-    }
   } finally {
     grokOAuth.loading.value = false
   }

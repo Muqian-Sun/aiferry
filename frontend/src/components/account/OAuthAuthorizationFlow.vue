@@ -55,17 +55,6 @@
                 t(getOAuthKey('ssoCookieAuth'))
               }}</span>
             </label>
-            <label v-if="emailPasswordOptionEnabled" class="flex cursor-pointer items-center gap-2">
-              <input
-                v-model="inputMethod"
-                type="radio"
-                value="email_password"
-                class="text-af-ink-2 focus:ring-af-brand"
-              />
-              <span class="text-sm text-af-ink-2">{{
-                t(getOAuthKey('emailPasswordAuth'))
-              }}</span>
-            </label>
             <label v-if="showMobileRefreshTokenOption" class="flex cursor-pointer items-center gap-2">
               <input
                 v-model="inputMethod"
@@ -75,28 +64,6 @@
               />
               <span class="text-sm text-af-ink-2">{{
                 t('admin.accounts.oauth.openai.mobileRefreshTokenAuth')
-              }}</span>
-            </label>
-            <label v-if="showSessionTokenOption" class="flex cursor-pointer items-center gap-2">
-              <input
-                v-model="inputMethod"
-                type="radio"
-                value="session_token"
-                class="text-af-ink-2 focus:ring-af-brand"
-              />
-              <span class="text-sm text-af-ink-2">{{
-                t(getOAuthKey('sessionTokenAuth'))
-              }}</span>
-            </label>
-            <label v-if="showAccessTokenOption" class="flex cursor-pointer items-center gap-2">
-              <input
-                v-model="inputMethod"
-                type="radio"
-                value="access_token"
-                class="text-af-ink-2 focus:ring-af-brand"
-              />
-              <span class="text-sm text-af-ink-2">{{
-                t('admin.accounts.oauth.openai.accessTokenAuth')
               }}</span>
             </label>
             <label v-if="showCodexSessionImportOption" class="flex cursor-pointer items-center gap-2">
@@ -290,79 +257,6 @@
               </svg>
               <Icon v-else name="sparkles" size="sm" class="mr-2" />
               {{ loading ? t(getOAuthKey('convertingSSO')) : t(getOAuthKey('convertSSOAndCreate')) }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Grok email + password → ephemeral SSO → Build OAuth (password never stored) -->
-        <div v-if="inputMethod === 'email_password'" class="space-y-4">
-          <div
-            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
-          >
-            <p class="mb-3 text-sm text-af-ink-2">
-              {{ t(getOAuthKey('emailPasswordDesc')) }}
-            </p>
-            <div class="mb-4">
-              <label
-                class="mb-2 flex items-center gap-2 text-sm font-semibold text-af-ink-2"
-              >
-                <Icon name="user" size="sm" class="text-af-ink-2" />
-                {{ t(getOAuthKey('emailPasswordInputLabel')) }}
-                <span
-                  v-if="parsedEmailPasswordCount > 1"
-                  class="rounded-full bg-af-ink px-2 py-0.5 text-xs text-af-on-brand"
-                >
-                  {{ t('admin.accounts.oauth.keysCount', { count: parsedEmailPasswordCount }) }}
-                </span>
-              </label>
-              <textarea
-                v-model="emailPasswordInput"
-                rows="4"
-                class="input w-full resize-y font-mono text-sm"
-                :placeholder="t(getOAuthKey('emailPasswordPlaceholder'))"
-                spellcheck="false"
-                autocomplete="off"
-              ></textarea>
-              <p class="mt-1 text-xs text-af-ink-2">
-                {{ t(getOAuthKey('emailPasswordHint')) }}
-              </p>
-            </div>
-            <div
-              v-if="error"
-              class="mb-4 rounded-lg border border-af-danger/30 bg-af-danger-tint p-3"
-            >
-              <p class="whitespace-pre-line text-sm text-af-danger">
-                {{ error }}
-              </p>
-            </div>
-            <button
-              type="button"
-              class="btn btn-primary w-full"
-              :disabled="loading || !emailPasswordInput.trim()"
-              @click="handleAuthorizePassword"
-            >
-              <svg
-                v-if="loading"
-                class="-ml-1 mr-2 h-4 w-4 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                ></circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <Icon v-else name="sparkles" size="sm" class="mr-2" />
-              {{ loading ? t(getOAuthKey('validating')) : t(getOAuthKey('validateAndCreate')) }}
             </button>
           </div>
         </div>
@@ -896,7 +790,6 @@ import { useClipboard } from '@/composables/useClipboard'
 import Icon from '@/components/icons/Icon.vue'
 import type { AddMethod, AuthInputMethod } from '@/composables/useAccountOAuth'
 import type { AccountPlatform } from '@/types'
-import { adminAPI } from '@/api/admin'
 
 interface Props {
   addMethod: AddMethod
@@ -911,21 +804,12 @@ interface Props {
   showCookieOption?: boolean // Whether to show cookie auto-auth option
   showRefreshTokenOption?: boolean // Whether to show refresh token input option (OpenAI only)
   showMobileRefreshTokenOption?: boolean // Whether to show mobile refresh token option (OpenAI only)
-  showSessionTokenOption?: boolean
-  showAccessTokenOption?: boolean
   showCodexSessionImportOption?: boolean
   showAgentIdentityOption?: boolean
   showCodexPatOption?: boolean
   showSsoOption?: boolean
-  /** Grok email----password login (admin; password never persisted). */
-  showEmailPasswordOption?: boolean
   showManualOption?: boolean
   initialInputMethod?: AuthInputMethod
-  /**
-   * Prefill for Grok email----password reauth. Password is never stored;
-   * pass only the email (or "email----") so the operator types the password.
-   */
-  initialEmailPassword?: string
   platform?: AccountPlatform // Platform type for different UI/text
   showProjectId?: boolean // New prop to control project ID visibility
 }
@@ -942,16 +826,12 @@ const props = withDefaults(defineProps<Props>(), {
   showCookieOption: true,
   showRefreshTokenOption: false,
   showMobileRefreshTokenOption: false,
-  showSessionTokenOption: false,
-  showAccessTokenOption: false,
   showCodexSessionImportOption: false,
   showAgentIdentityOption: false,
   showCodexPatOption: false,
   showSsoOption: false,
-  showEmailPasswordOption: false,
   showManualOption: true,
   initialInputMethod: 'manual',
-  initialEmailPassword: '',
   platform: 'anthropic',
   showProjectId: true
 })
@@ -962,20 +842,13 @@ const emit = defineEmits<{
   'cookie-auth': [sessionKey: string]
   'validate-refresh-token': [refreshToken: string]
   'validate-mobile-refresh-token': [refreshToken: string]
-  'validate-session-token': [sessionToken: string]
-  'import-access-token': [accessToken: string]
   'import-codex-session': [content: string]
   'import-codex-pat': [accessToken: string]
   'import-sso': [content: string]
-  'authorize-password': [emailPasswordInput: string]
   'update:inputMethod': [method: AuthInputMethod]
 }>()
 
 const { t } = useI18n()
-const passwordAuthEnabled = ref(false)
-const emailPasswordOptionEnabled = computed(
-  () => props.showEmailPasswordOption && props.platform === 'grok' && passwordAuthEnabled.value
-)
 
 const showLocalCallbackNotice = computed(() => props.platform === 'openai' || props.platform === 'grok')
 
@@ -1013,33 +886,12 @@ const isAgentIdentityInput = computed(() => inputMethod.value === 'agent_identit
 const authCodeInput = ref('')
 const sessionKeyInput = ref('')
 const refreshTokenInput = ref('')
-const sessionTokenInput = ref('')
 const codexSessionInput = ref('')
 const codexPATInput = ref('')
 const ssoCookieInput = ref('')
-const emailPasswordInput = ref(props.initialEmailPassword || '')
 const showHelpDialog = ref(false)
 const oauthState = ref('')
 const projectId = ref('')
-
-watch(
-  () => [props.platform, props.showEmailPasswordOption] as const,
-  async ([platform, requested]) => {
-    passwordAuthEnabled.value = false
-    if (platform !== 'grok' || !requested) return
-    try {
-      const capabilities = await adminAPI.grok.getCapabilities()
-      passwordAuthEnabled.value = capabilities.password_auth_enabled
-    } catch {
-      // Fail closed; the backend enforces the same capability.
-    }
-  },
-  { immediate: true }
-)
-
-watch(emailPasswordOptionEnabled, (enabled) => {
-  if (!enabled && inputMethod.value === 'email_password') inputMethod.value = 'manual'
-})
 
 // Computed: show method selection only when there is something to choose.
 const methodOptionCount = computed(() => [
@@ -1047,13 +899,10 @@ const methodOptionCount = computed(() => [
   props.showCookieOption,
   props.showRefreshTokenOption,
   props.showMobileRefreshTokenOption,
-  props.showSessionTokenOption,
-  props.showAccessTokenOption,
   props.showCodexSessionImportOption,
   props.showAgentIdentityOption,
   props.showCodexPatOption,
-  props.showSsoOption,
-  emailPasswordOptionEnabled.value
+  props.showSsoOption
 ].filter(Boolean).length)
 const showMethodSelection = computed(() => methodOptionCount.value > 1)
 
@@ -1093,33 +942,10 @@ const parsedSSOCount = computed(() => {
     .filter((item) => item).length
 })
 
-const parsedEmailPasswordCount = computed(() => {
-  return emailPasswordInput.value
-    .split('\n')
-    .map((item) => item.trim())
-    .filter((item) => item && item.includes('----')).length
-})
-
-const handleAuthorizePassword = () => {
-  if (emailPasswordInput.value.trim()) {
-    emit('authorize-password', emailPasswordInput.value)
-  }
-}
-
 // Watchers
 watch(() => props.initialInputMethod, (newVal) => {
   inputMethod.value = newVal
 })
-
-watch(
-  () => props.initialEmailPassword,
-  (newVal) => {
-    // Only prefill when the field is empty so we never overwrite operator input.
-    if (newVal && !emailPasswordInput.value.trim()) {
-      emailPasswordInput.value = newVal
-    }
-  }
-)
 
 watch(inputMethod, (newVal) => {
   emit('update:inputMethod', newVal)
@@ -1216,11 +1042,9 @@ defineExpose({
   projectId,
   sessionKey: sessionKeyInput,
   refreshToken: refreshTokenInput,
-  sessionToken: sessionTokenInput,
   codexSession: codexSessionInput,
   codexPAT: codexPATInput,
   ssoCookie: ssoCookieInput,
-  emailPassword: emailPasswordInput,
   inputMethod,
   reset: () => {
     authCodeInput.value = ''
@@ -1228,11 +1052,9 @@ defineExpose({
     projectId.value = ''
     sessionKeyInput.value = ''
     refreshTokenInput.value = ''
-    sessionTokenInput.value = ''
     codexSessionInput.value = ''
     codexPATInput.value = ''
     ssoCookieInput.value = ''
-    emailPasswordInput.value = ''
     inputMethod.value = props.initialInputMethod
     showHelpDialog.value = false
   }

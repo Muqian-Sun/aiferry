@@ -19,16 +19,7 @@ export interface GrokAuthUrlRequest {
   redirect_uri?: string
 }
 
-export interface GrokOAuthCapabilities {
-  password_auth_enabled: boolean
-}
-
 const GROK_AUTHORIZATION_TIMEOUT_MS = 120_000
-
-export async function getCapabilities(): Promise<GrokOAuthCapabilities> {
-  const { data } = await apiClient.get<GrokOAuthCapabilities>('/admin/grok/oauth/capabilities')
-  return data
-}
 
 export interface GrokExchangeCodeRequest {
   session_id: string
@@ -191,35 +182,12 @@ export async function validateSSOToken(
   return data
 }
 
-/**
- * Password login → ephemeral SSO → Build OAuth.
- * Password is only sent over the wire for this call; never persist it in credentials.
- */
-export async function authorizePassword(
-  emailAndPassword: string,
-  proxyId?: number | null
-): Promise<GrokTokenInfo> {
-  // Format: email----password (password may contain dashes).
-  const sep = '----'
-  const idx = emailAndPassword.indexOf(sep)
-  const email = (idx >= 0 ? emailAndPassword.slice(0, idx) : emailAndPassword).trim()
-  const password = idx >= 0 ? emailAndPassword.slice(idx + sep.length) : ''
-  const payload: Record<string, unknown> = { email, password }
-  if (proxyId) payload.proxy_id = proxyId
-  const { data } = await apiClient.post<GrokTokenInfo>('/admin/grok/oauth/password', payload, {
-    timeout: GROK_AUTHORIZATION_TIMEOUT_MS
-  })
-  return data
-}
-
 export default {
   generateAuthUrl,
-  getCapabilities,
   exchangeCode,
   refreshGrokToken,
   queryQuota,
   resetQuota,
   createFromSSO,
   validateSSOToken,
-  authorizePassword,
 }
