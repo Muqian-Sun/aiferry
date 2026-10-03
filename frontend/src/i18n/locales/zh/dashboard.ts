@@ -288,6 +288,8 @@ export default {
     webSearchTimes: '搜索 {count} 次',
     webSearchCount: '搜索次数',
     webSearchCost: '搜索费',
+    webSearchDelegatedHint: 'Claude Code 的联网搜索请求：由平台代为执行，Token 按「联网搜索」计费项计，另加每次搜索费',
+    webSearchDelegatedAdminHint: 'Claude Code 配第三方模型，搜索交给 claude-haiku-4-5 执行（按它的官方价计费）',
     cacheTtlOverriddenHint: '缓存 TTL Override 已启用',
     cacheTtlOverriddenLabel: 'TTL 替换',
     cacheTtlOverridden5m: '按 5m 计费',

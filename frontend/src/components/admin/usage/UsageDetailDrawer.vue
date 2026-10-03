@@ -57,6 +57,12 @@
           <!-- 名字查不到就是已删除（不露内部 id） -->
           <DetailField :label="t('usage.apiKeyFilter')" :value="log.api_key?.name || t('common.deletedKey')" />
           <DetailField :label="t('admin.usage.account')" :value="log.account?.name || t('common.deletedChannel')" />
+          <DetailField
+            v-if="log.web_search_delegated"
+            :label="t('usage.webSearch')"
+            :value="t('usage.webSearchDelegatedAdminHint')"
+            data-testid="usage-detail-web-search-delegated"
+          />
           <DetailField :label="t('usage.model')">
             <div class="space-y-0.5">
               <div class="break-all">{{ log.model }}</div>
