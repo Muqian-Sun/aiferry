@@ -3,7 +3,7 @@
     编辑渠道弹窗（2026-10-03 由整页改回弹窗）：与新建同一外壳、同一分区顺序 ——
     上游 / 调度与限额 / 高级（默认收起）/ 备注。完整账号由渠道列表按 id 拉好再传进来，拉取期间 account 为 null。
   -->
-  <BaseDialog :show="show" :title="t('admin.accounts.editAccount')" width="wide" @close="handleClose">
+  <BaseDialog :show="show" :title="dialogTitle" width="wide" @close="handleClose">
     <div v-if="!account" class="py-6" data-testid="account-edit-loading">
       <FormError v-if="loadError" :message="loadError" />
       <p v-else class="flex items-center gap-2 text-sm text-af-ink-3">
@@ -14,32 +14,24 @@
 
     <form v-else id="edit-account-form" class="space-y-5" @submit.prevent="handleSubmit">
       <ChannelFormSection section="upstream" :title="t('admin.accounts.dialog.sections.upstream')">
-        <div>
-          <label class="input-label">{{ t('common.name') }}</label>
-          <input v-model="form.name" type="text" required class="input" />
-        </div>
-
-        <!-- Spark 影子号的代理恒继承母账号，不可单独改 -->
-        <div v-if="!isSparkShadow">
-          <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
-          <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
-        </div>
-
-        <!-- 第三方 key：地址（可从常用官方地址填入）、套餐、API Key、探测协议 -->
+        <!-- 第三方 key：地址（常用官方地址在地址框右边）、套餐、API Key；与新建同一顺序，代理、检测上游、名称在后面 -->
         <template v-if="account.type === 'apikey'">
           <div>
-            <KeyAddressPresetMenu
-              v-if="keyPresets.length > 0"
-              class="mb-3"
-              :presets="keyPresets"
-              @select="applyKeyAddressPreset"
-            />
             <ProtocolEndpointsEditor
               v-model="editProtocolEndpoints"
               :protocols="UPSTREAM_PROTOCOLS"
               :official-endpoints="officialProtocolEndpoints"
               :defaults-load-failed="protocolDefaultsLoadFailed"
-            />
+            >
+              <template #url-suffix>
+                <KeyAddressPresetMenu
+                  v-if="keyPresets.length > 0"
+                  class="sm:w-48 sm:shrink-0"
+                  :presets="keyPresets"
+                  @select="applyKeyAddressPreset"
+                />
+              </template>
+            </ProtocolEndpointsEditor>
             <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
               {{ t('admin.accounts.keyAddress.detected', { vendor: keyVendorLabel }) }}
             </p>
@@ -65,15 +57,6 @@
             />
             <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
           </div>
-
-          <!-- 探测协议（muqian 2026-09-29）：没改 key 时用存着的 key，地址以表单为准；选中的协议与地址填回上面 -->
-          <UpstreamProtocolProbe
-            :protocol-endpoints="editProtocolEndpoints"
-            :api-key="editApiKey"
-            :account-id="account.id"
-            :proxy-id="form.proxy_id"
-            @select="(protocol, url) => (editProtocolEndpoints = { [protocol]: url })"
-          />
         </template>
 
         <!-- Vertex Service Account：区域（Project ID 由后端从 Service Account JSON 里取） -->
@@ -135,6 +118,36 @@
             <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
           </div>
         </template>
+        <!-- Spark 影子号的代理恒继承母账号，不可单独改 -->
+        <div v-if="!isSparkShadow">
+          <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
+          <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        </div>
+
+        <!-- 检测上游：没改 key 时用存着的 key，地址以表单为准；选中的协议与地址填回上面。承接改在价格页 -->
+        <UpstreamDetect
+          v-if="account.type === 'apikey'"
+          :protocol-endpoints="editProtocolEndpoints"
+          :api-key="editApiKey"
+          :account-id="account.id"
+          :proxy-id="form.proxy_id"
+          @select="(protocol, url) => (editProtocolEndpoints = { [protocol]: url })"
+        >
+          <template #models="{ classified }">
+            <p class="flex flex-wrap items-center gap-x-2 text-af-ink-2" data-testid="upstream-detect-unbound">
+              {{ t('admin.accounts.upstreamDetect.unbound', { count: unboundCount(classified) }) }}
+              <RouterLink :to="{ path: '/pricing', query: { channel: String(account.id) } }" class="font-medium text-af-ink hover:underline">
+                {{ t('admin.accounts.upstreamDetect.openPricing') }}
+              </RouterLink>
+            </p>
+          </template>
+        </UpstreamDetect>
+
+        <div>
+          <label class="input-label">{{ t('common.name') }}</label>
+          <input v-model="form.name" type="text" required class="input" />
+        </div>
+
       </ChannelFormSection>
 
       <ChannelFormSection section="scheduling" :title="t('admin.accounts.dialog.sections.scheduling')">
@@ -299,7 +312,8 @@ import FormError from '@/components/common/FormError.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
-import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
+import UpstreamDetect from '@/components/account/channel/UpstreamDetect.vue'
+import type { DetectedModels } from '@/components/account/channel/upstreamModels'
 import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
 import ChannelFormSection from '@/components/account/channel/ChannelFormSection.vue'
@@ -367,6 +381,17 @@ const { t } = useI18n()
 // Spark 影子账号(parent_account_id 非空):代理恒继承母账号,不可独立编辑(外审 B/P1),
 // 故隐藏代理选择器。
 const isSparkShadow = computed(() => props.account?.parent_account_id != null)
+
+// 标题带上渠道名（名称在「上游」分区的最后）
+const dialogTitle = computed(() =>
+  props.account ? `${t('admin.accounts.editAccount')} · ${props.account.name}` : t('admin.accounts.editAccount')
+)
+
+/** 检测到的、目录里已上架、这个渠道还没承接的模型数 */
+function unboundCount(classified: DetectedModels): number {
+  const id = props.account?.id
+  return classified.listed.filter((match) => !(match.entry.bindings ?? []).some((binding) => binding.account_id === id)).length
+}
 
 const handleOllamaCloudUsageUpdated = (state: OllamaCloudUsageState) => {
   if (props.account) emit('updated', { ...props.account, ollama_cloud_usage: state })

@@ -3,39 +3,22 @@
     新建渠道弹窗（2026-10-03 由整页改回弹窗）：与编辑同一外壳、同一分区顺序 ——
     上游 / 调度与限额 / 高级（默认收起）/ 备注；成品号点「下一步」进第二步授权。
   -->
-  <BaseDialog :show="show" :title="t('admin.accounts.createAccount')" width="wide" @close="handleClose">
-    <!-- Step Indicator for OAuth accounts -->
-    <div v-if="isOAuthFlow" class="mb-6 flex items-center justify-center">
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center">
-          <div
-            :class="[
-              'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold',
-              step >= 1 ? 'bg-af-ink text-af-on-brand' : 'bg-af-hairline text-af-ink-3'
-            ]"
-          >
-            1
-          </div>
-          <span class="ml-2 text-sm font-medium text-af-ink-2">{{
-            t('admin.accounts.oauth.authMethod')
-          }}</span>
-        </div>
-        <div class="h-0.5 w-8 bg-af-ink-4" />
-        <div class="flex items-center">
-          <div
-            :class="[
-              'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold',
-              step >= 2 ? 'bg-af-ink text-af-on-brand' : 'bg-af-hairline text-af-ink-3'
-            ]"
-          >
-            2
-          </div>
-          <span class="ml-2 text-sm font-medium text-af-ink-2">{{
-            oauthStepTitle
-          }}</span>
-        </div>
-      </div>
-    </div>
+  <BaseDialog :show="show" :title="t('admin.accounts.createAccount')" :width="step === 3 ? 'extra-wide' : 'wide'" @close="handleClose">
+    <!-- 步骤：第三方 key 是「连上游 → 承接模型」，成品号中间多一步授权 -->
+    <ol class="mb-5 flex flex-wrap items-center gap-2 text-13" data-testid="create-account-steps">
+      <li v-for="(item, index) in stepItems" :key="item.step" class="flex items-center gap-2">
+        <span v-if="index > 0" class="h-px w-6 bg-af-hairline-strong" aria-hidden="true"></span>
+        <span
+          :class="[
+            'flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
+            step >= item.step ? 'bg-af-ink text-af-on-brand' : 'bg-af-hairline text-af-ink-3'
+          ]"
+        >
+          {{ index + 1 }}
+        </span>
+        <span :class="step === item.step ? 'font-medium text-af-ink' : 'text-af-ink-3'">{{ item.label }}</span>
+      </li>
+    </ol>
 
     <!-- Step 1: Basic Info -->
     <form
@@ -47,22 +30,6 @@
       <ChannelFormSection section="upstream" :title="t('admin.accounts.dialog.sections.upstream')">
       <!-- 先选接入方式与来源（muqian 2026-09-25）：第三方 key 不选平台，成品号只选哪家的账号 -->
       <AccessSourcePicker v-model="accessSourceId" />
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
-        <input
-          v-model="form.name"
-          type="text"
-          :required="!isGrokSSOInputMethod"
-          class="input"
-          :placeholder="t('admin.accounts.enterAccountName')"
-        />
-      </div>
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
-      </div>
 
       <div
         v-if="form.platform === 'anthropic' && accountCategory === 'service_account'"
@@ -520,19 +487,22 @@
       -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
         <div>
-          <KeyAddressPresetMenu
-            v-if="keyPresets.length > 0"
-            class="mb-3"
-            :presets="keyPresets"
-            @select="applyKeyAddressPreset"
-          />
           <ProtocolEndpointsEditor
             v-model="protocolEndpoints"
             v-model:draft-url="keyAddressDraft"
             :protocols="UPSTREAM_PROTOCOLS"
             :official-endpoints="officialProtocolEndpoints"
             :defaults-load-failed="protocolDefaultsLoadFailed"
-          />
+          >
+            <template #url-suffix>
+              <KeyAddressPresetMenu
+                v-if="keyPresets.length > 0"
+                class="sm:w-48 sm:shrink-0"
+                :presets="keyPresets"
+                @select="applyKeyAddressPreset"
+              />
+            </template>
+          </ProtocolEndpointsEditor>
           <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
             {{ t('admin.accounts.keyAddress.detected', { vendor: keyVendorLabel }) }}
           </p>
@@ -558,15 +528,34 @@
         <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
 
-      <!-- 探测协议（muqian 2026-09-29）：填好地址与 key 后逐个试四种协议，选中的协议与地址填回上面 -->
-      <UpstreamProtocolProbe
+      <div>
+        <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
+        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+      </div>
+
+      <!-- 检测上游（2026-10-03）：一次查协议与模型；查到的模型在下一步「承接模型」里预填。检测也走上面的代理 -->
+      <UpstreamDetect
         v-if="form.type === 'apikey'"
         :protocol-endpoints="protocolEndpoints"
         :draft-url="keyAddressDraft"
         :api-key="apiKeyValue"
         :proxy-id="form.proxy_id"
         @select="applyProbedProtocol"
+        @models="detected = $event"
       />
+
+      <!-- 渠道名称放在最后：第三方 key 按「上游 · 协议」自动建议（改过就不再跟着变） -->
+      <div>
+        <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
+        <input
+          v-model="form.name"
+          type="text"
+          :required="!isGrokSSOInputMethod"
+          class="input"
+          :placeholder="t('admin.accounts.enterAccountName')"
+          data-testid="channel-name"
+        />
+      </div>
 
       </ChannelFormSection>
 
@@ -675,7 +664,7 @@
     </form>
 
     <!-- Step 2: OAuth Authorization -->
-    <div v-else class="space-y-5">
+    <div v-else-if="step === 2" class="space-y-5">
       <OAuthAuthorizationFlow
         ref="oauthFlowRef"
         :add-method="form.platform === 'anthropic' ? addMethod : 'oauth'"
@@ -708,6 +697,44 @@
 
     </div>
 
+    <!--
+      第 3 步「承接模型」（2026-10-03）：就是价格页「按渠道」里这个渠道的那一块（同组件、同保存接口）。
+      检测到的、目录里已上架、这个渠道能承接的模型预填成新行（名字相近的填上游模型名，同上游渠道有价的带上它的价）；
+      目录里没有的列在下面，点一个打开「新建模型」并预填标识，建好回来就能加上。
+    -->
+    <div v-else class="space-y-4" data-testid="create-account-bind">
+      <p class="text-13 text-af-ink-3">{{ t('admin.accounts.dialog.bind.hint') }}</p>
+      <FormError v-if="bindLoadError" :message="bindLoadError" />
+      <p v-else-if="!bindAccount || !channelState || !overview" class="flex items-center gap-2 text-13 text-af-ink-3">
+        <Icon name="refresh" size="sm" class="animate-spin" />
+        {{ t('admin.accounts.dialog.bind.loading') }}
+      </p>
+      <PricingChannelBlock
+        v-else
+        :account="bindAccount"
+        :state="channelState"
+        :accounts="overview.accounts"
+        :entries="overview.entries"
+        :default-user-rate="overview.default_user_rate"
+        :min-margin="overview.min_margin"
+        @saved="onBindSaved"
+      />
+      <div v-if="missingModels.length > 0" class="rounded-lg bg-af-sunken px-3 py-2 text-13" data-testid="create-account-missing-models">
+        <p class="text-af-ink-2">{{ t('admin.accounts.dialog.bind.missing') }}</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button
+            v-for="name in missingModels"
+            :key="name"
+            type="button"
+            class="inline-flex items-center gap-1 rounded-md border border-af-hairline bg-af-sheet px-2 py-1 font-mono text-xs text-af-ink-2 transition-colors hover:border-af-hairline-strong hover:text-af-ink"
+            @click="creatingModelId = name"
+          >
+            <Icon name="plus" size="xs" />{{ name }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <template #footer>
       <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
@@ -726,7 +753,7 @@
             }}
           </button>
         </template>
-        <template v-else>
+        <template v-else-if="step === 2">
           <button type="button" class="btn btn-secondary" @click="goBackToBasicInfo">
             {{ t('common.back') }}
           </button>
@@ -745,9 +772,22 @@
             }}
           </button>
         </template>
+        <button v-else type="button" class="btn btn-primary" data-testid="create-account-done" @click="handleClose">
+          {{ t('admin.accounts.dialog.bind.done') }}
+        </button>
       </div>
     </template>
   </BaseDialog>
+
+  <!-- 承接模型那一步里「目录里没有」的模型：叠一层新建模型弹窗，预填标识 -->
+  <ModelCreateDialog
+    :show="creatingModelId !== ''"
+    :initial-model-id="creatingModelId"
+    :vendor-options="catalogVendors"
+    :existing-model-ids="catalogModelIds"
+    :z-index="60"
+    @close="onModelDialogClose"
+  />
 
   <!-- Gemini Help Dialog -->
   <BaseDialog
@@ -972,7 +1012,23 @@ import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
-import UpstreamProtocolProbe from '@/components/account/UpstreamProtocolProbe.vue'
+import UpstreamDetect from '@/components/account/channel/UpstreamDetect.vue'
+import { classifyUpstreamModels, upstreamModelFor, type DetectedModels } from '@/components/account/channel/upstreamModels'
+import { suggestChannelName, upstreamHostLabel } from '@/components/account/channel/channelName'
+import PricingChannelBlock from '@/components/admin/pricing/PricingChannelBlock.vue'
+import ModelCreateDialog from '@/components/admin/catalog/ModelCreateDialog.vue'
+import {
+  channelDraftChanges,
+  channelDraftFrom,
+  cloneChannelDraft,
+  emptyPriceRow,
+  priceRowFrom,
+  siblingBindingOf,
+  type BlockState,
+  type ChannelDraft
+} from '@/components/admin/pricing/pricingDraft'
+import type { PricingOverview } from '@/api/admin/pricing'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import {
   DEFAULT_ACCESS_SOURCE_ID,
   findAccessSource
@@ -1048,6 +1104,13 @@ const oauthStepTitle = computed(() => {
   if (form.platform === 'grok') return t('admin.accounts.oauth.grok.title')
   return t('admin.accounts.oauth.title')
 })
+
+// 步骤条：第三方 key「连上游 → 承接模型」，成品号中间多一步授权
+const stepItems = computed(() => [
+  { step: 1, label: t('admin.accounts.dialog.steps.upstream') },
+  ...(isOAuthFlow.value ? [{ step: 2, label: oauthStepTitle.value }] : []),
+  { step: 3, label: t('admin.accounts.dialog.steps.bind') }
+])
 
 // API Key 的占位跟着按地址识别出的厂商走（与编辑同一规则）；提示一律用通用说法
 const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.value))
@@ -1146,7 +1209,7 @@ watch(accessSourceId, (sourceId) => {
 const protocolDefaults = ref<ProtocolDefaultsResponse | null>(null)
 const protocolDefaultsLoadFailed = ref(false)
 const protocolEndpoints = ref<ProtocolEndpoints>({})
-// 还没选协议时地址栏里先填的地址（好用「探测协议」），选了协议就并进 protocolEndpoints
+// 还没选协议时地址栏里先填的地址（好用「检测上游」），选了协议就并进 protocolEndpoints
 const keyAddressDraft = ref('')
 const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
 // 按地址识别出的厂商（官方域名表由后端下发，与后端 Account.Vendor 同口径）；认不出的是中转
@@ -1170,6 +1233,21 @@ const keyVendorLabel = computed(() => {
   if (!vendor) return ''
   const plan = keyPlanFromAddress.value
   return plan ? `${platformLabel(vendor)} · ${t(`admin.accounts.cnProviders.accountMode.${plan}`)}` : platformLabel(vendor)
+})
+// 渠道名建议（2026-10-03）：第三方 key 按「上游 · 协议」（识别出厂商用厂商名，中转用地址里的上游名）；
+// 名称空着或还是上一次的建议时才填，管理员改过就不再覆盖
+let nameSuggestion = ''
+const suggestedName = computed(() => {
+  if (!isKeyMode.value) return ''
+  const protocol = currentProtocolOf(protocolEndpoints.value)
+  const url = protocol ? protocolEndpoints.value[protocol]?.trim() : ''
+  if (!protocol || !url) return ''
+  const label = keyVendor.value ? platformLabel(keyVendor.value) : upstreamHostLabel(url)
+  return suggestChannelName(label, protocol)
+})
+watch(suggestedName, (next) => {
+  if (!form.name.trim() || form.name === nameSuggestion) form.name = next
+  nameSuggestion = next
 })
 // 写进 credentials.account_mode 的模式：国产厂商按量 / 套餐，OpenCode 的 Zen / Go 由地址定；中转不写
 const keyAccountMode = computed<string | undefined>(() => {
@@ -1204,7 +1282,7 @@ const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
   const mode = vendor === 'opencode_go' ? keyAccountMode.value : keyHasCodingPlan.value ? keyPlanMode.value : undefined
   return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })
-// 探测协议里选中一个：协议与地址填进表单，草稿作废
+// 检测上游里选中一个协议：协议与地址填进表单，草稿作废
 function applyProbedProtocol(protocol: UpstreamProtocol, url: string) {
   protocolEndpoints.value = { [protocol]: url }
   keyAddressDraft.value = ''
@@ -1502,18 +1580,28 @@ const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | '
 
 
 // 所有单个建号都走这里：第三方 key 不带平台（后端按地址认厂商，认不出的中转按协议归族）。
+// 建成的渠道记下来：这次只建了一个时，下一步「承接模型」就给它。
+const createdAccounts = ref<Account[]>([])
 const createAccountRecord = async (payload: CreateAccountRequest): Promise<Account> => {
   const body: CreateAccountRequest = { ...payload }
   if (body.type === 'apikey') delete body.platform
-  return adminAPI.accounts.create(body)
+  const account = await adminAPI.accounts.create(body)
+  createdAccounts.value.push(account)
+  return account
+}
+
+// 建号全部成功之后：只建了一个渠道就进「承接模型」，批量建了多个（或走导入接口没拿到渠道）就直接关
+const finishCreated = () => {
+  emit('created')
+  if (createdAccounts.value.length === 1) void enterBindStep(createdAccounts.value[0])
+  else handleClose()
 }
 
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
     await createAccountRecord(payload)
-    emit('created')
-    handleClose()
+    finishCreated()
   } catch (error) {
     submitError.value = extractApiErrorMessage(error, t('admin.accounts.failedToCreate'))
   } finally {
@@ -1525,6 +1613,15 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 const resetForm = () => {
   step.value = 1
   submitError.value = ''
+  createdAccounts.value = []
+  detected.value = null
+  bindAccountId.value = null
+  overview.value = null
+  channelState.value = null
+  bindLoadError.value = ''
+  catalogEntries.value = []
+  creatingModelId.value = ''
+  nameSuggestion = ''
   form.name = ''
   form.notes = ''
   // form.type 不在这里设：它由 watcher 按类别 / 添加方式 / 平台同步，三者没变时它本来就对
@@ -1569,9 +1666,97 @@ const resetForm = () => {
   oauthFlowRef.value?.reset()
 }
 
+// 承接那一块改了没保存时不关（右上角关闭也一样）：先保存或点那一块的「撤销」
 const handleClose = () => {
+  if (step.value === 3 && channelState.value && channelDraftChanges(channelState.value) > 0) {
+    submitError.value = t('admin.accounts.dialog.bind.unsaved')
+    return
+  }
   emit('close')
 }
+
+// ── 第 3 步「承接模型」：价格页「按渠道」那一块 ──
+// 检测上游的结果（名单 + 对照目录）：没检测或检测失败为 null
+const detected = ref<{ names: string[]; classified: DetectedModels } | null>(null)
+const bindAccountId = ref<number | null>(null)
+const overview = ref<PricingOverview | null>(null)
+const channelState = ref<BlockState<ChannelDraft> | null>(null)
+const bindLoadError = ref('')
+// 全部目录条目：判断「目录里没有」、给新建模型弹窗做厂商选项和重名校验
+const catalogEntries = ref<ModelCatalogEntry[]>([])
+const creatingModelId = ref('')
+
+const bindAccount = computed(() => overview.value?.accounts.find((account) => account.id === bindAccountId.value) ?? null)
+const catalogVendors = computed(() => [...new Set(catalogEntries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+const catalogModelIds = computed(() => catalogEntries.value.map((entry) => entry.model_id))
+// 上游列出、目录里没有的（按最新的目录重新对照：刚在叠层里建好的就不再列）
+const missingModels = computed(() =>
+  detected.value ? classifyUpstreamModels(detected.value.names, catalogEntries.value).missing : []
+)
+
+async function enterBindStep(account: Account) {
+  bindAccountId.value = account.id
+  step.value = 3
+  submitError.value = ''
+  await loadBindData(true)
+}
+
+/** 检测到的、目录里已上架、这个渠道能承接、还没加的模型：加成新行（同上游渠道有价的带上它的价） */
+function addDetectedRows(draft: ChannelDraft, data: PricingOverview, account: PricingOverview['accounts'][number]) {
+  if (!detected.value) return
+  const entriesById = new Map(data.entries.map((entry) => [entry.id, entry]))
+  for (const match of classifyUpstreamModels(detected.value.names, catalogEntries.value).listed) {
+    const entry = entriesById.get(match.entry.id)
+    if (!entry || !entry.bindable_account_ids.includes(account.id)) continue
+    if (draft.rows.some((row) => row.id === entry.id)) continue
+    const sibling = siblingBindingOf(entry, account, data.accounts)
+    draft.rows.push({
+      id: entry.id,
+      upstreamModel: upstreamModelFor(match),
+      prices: sibling ? priceRowFrom(sibling) : emptyPriceRow()
+    })
+  }
+}
+
+async function loadBindData(prefill: boolean) {
+  bindLoadError.value = ''
+  try {
+    const [data, catalog] = await Promise.all([adminAPI.pricing.overview(), adminAPI.modelCatalog.listEntries()])
+    overview.value = data
+    catalogEntries.value = catalog
+    const account = data.accounts.find((item) => item.id === bindAccountId.value)
+    if (!account) {
+      bindLoadError.value = t('admin.accounts.dialog.bind.notFound')
+      return
+    }
+    const current = channelState.value
+    if (!current || channelDraftChanges(current) === 0) {
+      const initial = channelDraftFrom(account.id, data.entries)
+      channelState.value = { initial, draft: cloneChannelDraft(initial) }
+    }
+    if (prefill && channelState.value) addDetectedRows(channelState.value.draft, data, account)
+  } catch (error) {
+    bindLoadError.value = extractApiErrorMessage(error, t('admin.pricing.loadFailed'))
+  }
+}
+
+function onBindSaved() {
+  emit('created')
+  void loadBindData(false)
+}
+
+// 叠层建好模型回来：重拉价格与目录，新模型这个渠道能承接的话加成新行
+async function onModelDialogClose() {
+  creatingModelId.value = ''
+  await loadBindData(true)
+}
+
+watch(
+  () => [step.value, channelState.value ? channelDraftChanges(channelState.value) : 0] as const,
+  ([currentStep, changes]) => {
+    if (currentStep === 3 && changes === 0 && submitError.value === t('admin.accounts.dialog.bind.unsaved')) submitError.value = ''
+  }
+)
 
 const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
   if (!anthropicKeySettingsVisible.value) {
@@ -1910,8 +2095,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
     }
 
     if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
+      finishCreated()
     } else if (successCount > 0) {
       grokOAuth.error.value = errors.join('\n')
       emit('created')
@@ -1953,8 +2137,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     const successCount = result.created?.length || 0
     const failedCount = result.failed?.length || 0
     if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
+      finishCreated()
     } else if (successCount > 0 && failedCount > 0) {
       // Same as OpenAI/Grok RT: keep input, show failures, refresh list.
       grokOAuth.error.value = (result.failed || [])
@@ -2015,8 +2198,7 @@ const handleOpenAIExchange = async (authCode: string) => {
       })
     }
 
-    emit('created')
-    handleClose()
+    finishCreated()
   } catch (error: any) {
     oauthClient.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
   } finally {
@@ -2091,8 +2273,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
     const successCount = result.created + result.updated
 
     if (successCount > 0 && result.failed === 0) {
-      emit('created')
-      handleClose()
+      finishCreated()
       return
     }
 
@@ -2138,8 +2319,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       expires_at: form.expires_at
     })
 
-    emit('created')
-    handleClose()
+    finishCreated()
   } catch (error: any) {
     oauthClient.error.value =
       extractApiErrorMessage(error, t('admin.accounts.oauth.openai.codexPatImportFailed'))
@@ -2221,8 +2401,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
 
     // Show results
     if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
+      finishCreated()
     } else if (successCount > 0 && failedCount > 0) {
       oauthClient.error.value = errors.join('\n')
       emit('created')
@@ -2306,8 +2485,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
 
     // Show results
     if (successCount > 0 && failedCount === 0) {
-      emit('created')
-      handleClose()
+      finishCreated()
     } else if (successCount > 0 && failedCount > 0) {
       antigravityOAuth.error.value = errors.join('\n')
       emit('created')
@@ -2567,8 +2745,7 @@ const handleCookieAuth = async (sessionKey: string) => {
 
     if (successCount > 0) {
       if (failedCount === 0) {
-        emit('created')
-        handleClose()
+        finishCreated()
       } else {
         emit('created')
       }

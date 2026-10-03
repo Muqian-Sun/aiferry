@@ -2,7 +2,7 @@
   <!--
     第三方 key 的上游地址：一个 key 只承接一个上游协议（后端拒绝多协议），所以是「协议 + 地址」一行。
     切换协议时，地址没改过（空或仍是原协议的官方地址）就换成新协议的官方地址。
-    还没选协议也能先填地址（草稿，v-model:draft-url），好用「探测协议」看上游支持哪些；选了协议草稿就并进来（muqian 2026-09-29）。
+    还没选协议也能先填地址（草稿，v-model:draft-url），好用「检测上游」看上游支持哪些；选了协议草稿就并进来（muqian 2026-09-29）。
   -->
   <div data-testid="protocol-endpoints-editor">
     <div class="flex items-center justify-between gap-2">
@@ -44,6 +44,8 @@
         :data-testid="`protocol-endpoint-input-${protocol ?? 'none'}`"
         @input="onInput"
       />
+      <!-- 地址框右边的附加项（常用官方地址下拉） -->
+      <slot name="url-suffix" />
     </div>
     <p v-if="!protocol" class="mt-2 text-sm text-af-warning" data-testid="protocol-endpoints-empty">
       {{ t('admin.accounts.protocolEndpoints.empty') }}

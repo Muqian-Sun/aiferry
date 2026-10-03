@@ -224,7 +224,7 @@ async function switchProtocol(wrapper: ReturnType<typeof mountModal>, protocol: 
 async function openCodexImportStep() {
   const wrapper = mountModal()
   await selectSource(wrapper, 'chatgpt')
-  await wrapper.get('form#create-account-form input[type="text"]').setValue('Codex import')
+  await wrapper.get('[data-testid="channel-name"]').setValue('Codex import')
   await wrapper.get('form#create-account-form').trigger('submit.prevent')
   return wrapper
 }
@@ -251,7 +251,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     vi.setSystemTime(new Date('2026-01-31T12:34:00'))
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.relayResponses)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('expiry account')
+    await wrapper.get('[data-testid="channel-name"]').setValue('expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     const input = wrapper.get<HTMLInputElement>('input[type="datetime-local"]')
 
@@ -275,7 +275,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('allows a manually entered expiry to override a preset before account creation', async () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.relayResponses)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('custom expiry account')
+    await wrapper.get('[data-testid="channel-name"]').setValue('custom expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await selectButtonByText(wrapper, 'payment.oneMonth')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-04-15T09:20')
@@ -289,7 +289,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('submits OpenCode Zen default protocol rules with adaptive endpoints', async () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.opencodeZen)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('oc')
+    await wrapper.get('[data-testid="channel-name"]').setValue('oc')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-opencode-zen')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -310,7 +310,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.opencodeZen)
     await pickKeyAddress(wrapper, KEY.opencodeGo)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('oc-go')
+    await wrapper.get('[data-testid="channel-name"]').setValue('oc-go')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-opencode-go')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -328,7 +328,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('submits Kimi protocol endpoints without an API protocol', async () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.kimi)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi adaptive')
+    await wrapper.get('[data-testid="channel-name"]').setValue('Kimi adaptive')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -345,7 +345,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     // Kimi 的套餐看地址就知道（api.kimi.com 是 Coding），不用再选
     await selectKey(wrapper, KEY.kimiCoding)
     expect(wrapper.find('[data-testid="key-plan-mode"]').exists()).toBe(false)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi coding')
+    await wrapper.get('[data-testid="channel-name"]').setValue('Kimi coding')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi-coding')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -360,7 +360,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('submits MiniMax protocol endpoints', async () => {
     const wrapper = mountModal()
     await selectKey(wrapper, KEY.minimax)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('MiniMax adaptive')
+    await wrapper.get('[data-testid="channel-name"]').setValue('MiniMax adaptive')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -376,7 +376,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     const wrapper = mountModal()
     // 自定义中转不预填地址
     await selectKey(wrapper)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('no endpoint')
+    await wrapper.get('[data-testid="channel-name"]').setValue('no endpoint')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -391,7 +391,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
     expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.apiProtocol.title')
     await switchProtocol(wrapper, 'responses')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi without anthropic')
+    await wrapper.get('[data-testid="channel-name"]').setValue('kimi without anthropic')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -413,7 +413,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(
       (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
     ).toBe('https://api.minimaxi.com/v1')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('minimax coding')
+    await wrapper.get('[data-testid="channel-name"]').setValue('minimax coding')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
@@ -427,7 +427,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     // 国际站地址：常用地址菜单里有，官方地址表里没有
     await pickKeyAddress(wrapper, KEY.minimaxIntlAnthropic)
 
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('minimax preset')
+    await wrapper.get('[data-testid="channel-name"]').setValue('minimax preset')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
@@ -452,7 +452,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('exposes Agent Identity in the OpenAI authorization methods', async () => {
     const wrapper = mountModal()
     await selectSource(wrapper, 'chatgpt')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenAI account')
+    await wrapper.get('[data-testid="channel-name"]').setValue('OpenAI account')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
 
     const flow = wrapper.getComponent(OAuthAuthorizationFlowStub)
@@ -489,7 +489,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await selectKey(wrapper)
     expect(wrapper.text()).not.toContain('admin.accounts.mixedScheduling')
     expect(wrapper.text()).not.toContain('admin.accounts.allowOverages')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
+    await wrapper.get('[data-testid="channel-name"]').setValue('antigravity relay')
     await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
@@ -506,7 +506,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     // 平台由后端按地址推导。
     const wrapper = mountModal()
     await selectKey(wrapper)
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
+    await wrapper.get('[data-testid="channel-name"]').setValue('antigravity relay')
     await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
@@ -548,7 +548,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   })
 
   async function fillKeyBasics(wrapper: ReturnType<typeof mountModal>, name: string) {
-    await wrapper.get('form#create-account-form input[type="text"]').setValue(name)
+    await wrapper.get('[data-testid="channel-name"]').setValue(name)
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
   }
 
