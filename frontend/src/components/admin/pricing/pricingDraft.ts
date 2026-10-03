@@ -227,3 +227,44 @@ export function cloneChannelDraft(draft: ChannelDraft): ChannelDraft {
 export function channelDraftChanges(state: BlockState<ChannelDraft>): number {
   return keyedRowsChanges(state.draft.rows, state.initial.rows)
 }
+
+// ---- 按官方价 × 折扣快填上游价（muqian 2026-10-03：中转多按官方价打折标价，填一个数把空格一次填上）
+
+/** 折扣输入框的值 → 折扣；只认大于 0 的数，其余为 null */
+export function parseDiscount(text: string): number | null {
+  const value = Number(text.trim())
+  return text.trim() !== '' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+// 只为去掉浮点乘法尾巴（0.000005 × 0.03 = 1.4999999999999999e-7）：12 位有效数字远超 $/token 价格的精度
+function scaled(price: number, ratio: number): number {
+  return Number((price * ratio).toPrecision(12))
+}
+
+/**
+ * 按官方价 × ratio 填一行上游价：只填空着的格子，已填的不动；
+ * 这一行还没有分段、官方价有分段时，按官方的分段整份折算（切点相同，各段价 × ratio）。
+ * 返回填了几处（每格算一处，整份分段算一处）。
+ */
+export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number): number {
+  let filled = 0
+  for (const key of PRICE_KEYS) {
+    const base = official[key]
+    if (row[key] == null && base != null) {
+      row[key] = scaled(base, ratio)
+      filled += 1
+    }
+  }
+  if (row.segments.length === 0 && official.segments.length > 0) {
+    row.segments = official.segments.map((segment) => {
+      const next = { ...segment }
+      for (const key of PRICE_KEYS) {
+        const base = segment[key]
+        next[key] = base == null ? null : scaled(base, ratio)
+      }
+      return next
+    })
+    filled += 1
+  }
+  return filled
+}
