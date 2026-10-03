@@ -38,9 +38,6 @@ type SystemSettings struct {
 	OpsQueryModeDefault          string `json:"ops_query_mode_default"`
 	OpsMetricsIntervalSeconds    int    `json:"ops_metrics_interval_seconds"`
 
-	// Web Search Emulation
-	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
-
 	// Channel Monitor feature switch
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`

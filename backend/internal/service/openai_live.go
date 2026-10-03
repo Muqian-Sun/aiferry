@@ -843,3 +843,11 @@ func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
 		CreatedAt:        record.CreatedAt,
 	}, "service.openai_live")
 }
+
+// resolveAccountProxyURL 账号配了代理时返回代理地址，否则为空。
+func resolveAccountProxyURL(account *Account) string {
+	if account.ProxyID != nil && account.Proxy != nil {
+		return account.Proxy.URL()
+	}
+	return ""
+}

@@ -56,7 +56,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpsRealtimeMonitoringEnabled: settings.OpsRealtimeMonitoringEnabled,
 		OpsQueryModeDefault:          settings.OpsQueryModeDefault,
 		OpsMetricsIntervalSeconds:    settings.OpsMetricsIntervalSeconds,
-		WebSearchEmulationEnabled:    settings.WebSearchEmulationEnabled,
 
 		ChannelMonitorMode:                   settings.ChannelMonitorMode,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,

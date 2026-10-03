@@ -99,11 +99,6 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	}()
 	beginUpstreamResponseModelObservation(c)
 
-	// Web Search 模拟：纯 web_search 请求时，直接调用搜索 API 构造响应
-	if account != nil && s.shouldEmulateWebSearch(ctx, account, parsed.Body.Bytes()) {
-		return s.handleWebSearchEmulation(ctx, c, account, parsed)
-	}
-
 	if account != nil && account.IsBedrock() {
 		return s.forwardBedrock(ctx, c, account, parsed, startTime)
 	}
@@ -306,10 +301,8 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	if err := replaceBody(StripEmptyTextBlocks(body)); err != nil {
 		return nil, err
 	}
-	// Pre-filter: strip web-search history blocks the upstream cannot accept
-	// (emulation-synthesized server_tool_use / web_search_tool_result always;
-	// genuine ones additionally for passback-required upstreams). See
-	// FilterWebSearchHistoryBlocks. reqModel 此时已是映射后的模型 ID。
+	// Pre-filter: strip web-search history blocks for passback-required upstreams
+	// that reject them. See FilterWebSearchHistoryBlocks. reqModel 此时已是映射后的模型 ID。
 	if err := replaceBody(FilterWebSearchHistoryBlocks(body, reqModel)); err != nil {
 		return nil, err
 	}

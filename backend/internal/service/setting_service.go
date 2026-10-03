@@ -75,16 +75,12 @@ type SettingRepository interface {
 	Delete(ctx context.Context, key string) error
 }
 
-// WebSearchManagerBuilder creates a websearch.Manager from config (injected by infra layer).
-type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig)
-
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo             SettingRepository
 	cfg                     *config.Config
-	onUpdate                func() // Callback when settings are updated (for cache invalidation)
-	version                 string // Application version
-	webSearchManagerBuilder WebSearchManagerBuilder
+	onUpdate                func()       // Callback when settings are updated (for cache invalidation)
+	version                 string       // Application version
 	openAICodexVersionCache atomic.Value // *cachedOpenAICodexClientVersion
 	openAICodexVersionSF    singleflight.Group
 

@@ -496,7 +496,6 @@ func TestAPIContracts(t *testing.T) {
 					"affiliate_rebate_duration_days": 0,
 					"affiliate_rebate_per_invitee_cap": 0,
 					"affiliate_admin_recharge_enabled": false,
-					"web_search_emulation_enabled": false,
 					"channel_monitor_mode": "v2",
 					"channel_monitor_show_quota": false,
 					"channel_monitor_default_interval_seconds": 60,

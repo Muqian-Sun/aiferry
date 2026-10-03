@@ -130,9 +130,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.CyberSessionBlockTTLSeconds = 3600
 	}
 
-	// Web Search 模拟：有配了 Key 的服务商就算开（没有全局开关）
-	result.WebSearchEmulationEnabled = webSearchEmulationActive(parseWebSearchConfigJSON(settings[SettingKeyWebSearchEmulationConfig]))
-
 	result.ProfitMinMargin = parseProfitControlRatio(settings[SettingKeyProfitMinMargin])
 
 	return result

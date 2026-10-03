@@ -10,7 +10,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/Wei-Shaw/sub2api/internal/web"
@@ -61,23 +60,6 @@ func ProvideRouters(
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
-	// Wire up websearch Manager builder so it initializes on startup and rebuilds on config save.
-	// 配了 Key 的服务商才进 Manager；一个都没有就不建（Web Search 模拟不生效）。
-	settingService.SetWebSearchManagerBuilder(context.Background(), func(cfg *service.WebSearchEmulationConfig) {
-		configs := make([]websearch.ProviderConfig, 0, len(cfg.Providers))
-		for _, p := range cfg.Providers {
-			if p.APIKey == "" {
-				continue
-			}
-			configs = append(configs, websearch.ProviderConfig{Type: p.Type, APIKey: p.APIKey, ExpiresAt: p.ExpiresAt})
-		}
-		if len(configs) == 0 {
-			service.SetWebSearchManager(nil)
-			return
-		}
-		service.SetWebSearchManager(websearch.NewManager(configs))
-	})
 
 	middleware2.SetIngressRejectRecorder(opsService)
 
