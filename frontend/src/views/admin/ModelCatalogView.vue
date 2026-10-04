@@ -121,17 +121,19 @@
           <template #cell-price="{ row }">
             <PriceCell :entry="row" :decimals="priceDecimals" />
           </template>
-          <!-- 上架却没有渠道承接是真异常：橙点橙字；点数字 / 「无渠道」都打开详情抽屉的渠道页签 -->
+          <!-- 上架却没有能调度的渠道是真异常（没有承接、渠道都停了、或都被利润门跳过，D6）：橙点橙字，悬停看原因；
+               点数字 / 这行字都打开详情抽屉的渠道页签 -->
           <template #cell-resources="{ row }">
             <button
-              v-if="row.status === 'listed' && bindingCount(row) === 0"
+              v-if="row.status === 'listed' && hasNoSchedulableChannel(row)"
               type="button"
               class="inline-flex items-center gap-1.5 text-af-warning hover:underline"
+              :title="unschedulableReasonText(row, t)"
               data-testid="model-catalog-no-resources"
               @click.stop="openDrawer(row, 'channels')"
             >
               <span class="inline-block h-2 w-2 rounded-full bg-af-warning"></span>
-              {{ t('admin.modelCatalog.noResources') }}
+              {{ t('admin.modelCatalog.unschedulable.label') }}
             </button>
             <button
               v-else
@@ -237,6 +239,16 @@
     />
 
     <ConfirmDialog
+      :show="pendingListing !== null"
+      :title="t('admin.modelCatalog.unschedulable.confirmTitle')"
+      :message="t('admin.modelCatalog.unschedulable.confirmMessage', { models: unschedulableListText(pendingListing?.entries ?? [], t) })"
+      :confirm-text="t('admin.modelCatalog.unschedulable.confirm')"
+      :cancel-text="t('common.cancel')"
+      @confirm="confirmPendingListing"
+      @cancel="pendingListing = null"
+    />
+
+    <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.modelCatalog.deleteTitle')"
       :message="deleteConfirmMessage"
@@ -266,6 +278,7 @@ import type { StatItem } from '@/components/user/shell/types'
 import { BulkBar, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
 import type { FilterOption, RowAction } from '@/components/admin/list'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { hasNoSchedulableChannel, unschedulableListText, unschedulableReasonText } from '@/components/admin/catalog/schedulable'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
@@ -350,7 +363,7 @@ const resourceOptions = computed<FilterOption[]>(() => [
 ])
 
 const listedCount = computed(() => entries.value.filter((entry) => entry.status === 'listed').length)
-const listedWithoutResources = computed(() => entries.value.filter((entry) => entry.status === 'listed' && bindingCount(entry) === 0).length)
+const listedWithoutResources = computed(() => entries.value.filter((entry) => entry.status === 'listed' && hasNoSchedulableChannel(entry)).length)
 
 /** 摘要「上架但无渠道」旁的「筛选」：一键筛出这些条目（其余筛选清掉，免得叠加后看不全） */
 function showListedWithoutResources() {
@@ -385,8 +398,8 @@ const filteredEntries = computed(() => {
     if (statusFilter.value && entry.status !== statusFilter.value) return false
     if (vendorFilter.value && (vendor || NO_VENDOR) !== vendorFilter.value) return false
     if (billingFilter.value && (entry.billing_mode || 'token') !== billingFilter.value) return false
-    if (resourceFilter.value === 'bound' && bindingCount(entry) === 0) return false
-    if (resourceFilter.value === 'unbound' && bindingCount(entry) > 0) return false
+    if (resourceFilter.value === 'bound' && hasNoSchedulableChannel(entry)) return false
+    if (resourceFilter.value === 'unbound' && !hasNoSchedulableChannel(entry)) return false
     if (!q) return true
     return [entry.model_id, entry.display_name, entry.vendor, vendor, ...(entry.aliases ?? []).map((alias) => alias.alias)].some((value) =>
       (value || '').toLowerCase().includes(q)
@@ -477,9 +490,21 @@ function openDrawer(entry: ModelCatalogEntry, tab = 'overview') {
   drawerOpen.value = true
 }
 
+// 上架没有能调度的渠道的模型：不拦，先确认（D6）。确认后照常走原来的上架
+const pendingListing = ref<{ entries: ModelCatalogEntry[]; run: () => void } | null>(null)
+function confirmPendingListing() {
+  const pending = pendingListing.value
+  pendingListing.value = null
+  pending?.run()
+}
+
 /** 抽屉「⋯」里的上架 / 下架：与批量上下架同一条路（整条覆盖 PUT，价格 / 绑定校验在后端） */
-async function setEntryStatus(entry: ModelCatalogEntry, status: 'listed' | 'unlisted') {
+async function setEntryStatus(entry: ModelCatalogEntry, status: 'listed' | 'unlisted', confirmed = false) {
   if (entry.status === status) return
+  if (status === 'listed' && !confirmed && hasNoSchedulableChannel(entry)) {
+    pendingListing.value = { entries: [entry], run: () => void setEntryStatus(entry, status, true) }
+    return
+  }
   try {
     await adminAPI.modelCatalog.updateEntry(entry.id, { ...entryToRequest(entry), status })
     await loadEntries()
@@ -530,9 +555,14 @@ async function confirmDelete() {
  * 批量上下架：没有批量接口，逐条整条覆盖 PUT（上架必有价 / 绑定校验都在后端，被拒的逐条列出来）。
  * 已是目标状态的跳过；全部成功提示条数，部分失败把失败的模型与原因一起摆出来。
  */
-async function bulkSetStatus(status: 'listed' | 'unlisted') {
+async function bulkSetStatus(status: 'listed' | 'unlisted', confirmed = false) {
   const targets = entries.value.filter((entry) => selectedIds.value.includes(entry.id) && entry.status !== status)
   if (targets.length === 0) {
+    return
+  }
+  const unschedulable = targets.filter(hasNoSchedulableChannel)
+  if (status === 'listed' && !confirmed && unschedulable.length > 0) {
+    pendingListing.value = { entries: unschedulable, run: () => void bulkSetStatus(status, true) }
     return
   }
   bulkRunning.value = true

@@ -26,7 +26,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
-  return {
+  const built: ModelCatalogEntry = {
     id: 1,
     model_id: 'claude-opus-4-6',
     display_name: 'Opus',
@@ -53,6 +53,8 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     updated_at: '2026-09-18T00:00:00Z',
     ...overrides
   }
+  // 列表接口带的「能调度的渠道数」（D6）：桩数据里承接的渠道都能派，等于承接数
+  return { schedulable_channels: built.bindings.length, ...built }
 }
 
 const binding = { entry_id: 0, account_id: 9 }
@@ -91,7 +93,11 @@ function mountView() {
         DataTable: DataTableStub,
         Pagination: true,
         BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
-        ConfirmDialog: { props: ['show'], template: '<div v-if="show" />' },
+        ConfirmDialog: {
+          props: ['show'],
+          emits: ['confirm', 'cancel'],
+          template: '<div v-if="show"><button data-testid="confirm-dialog-confirm" @click="$emit(\'confirm\')" /></div>'
+        },
         EmptyState: true,
         Icon: true,
         PlatformTypeBadge: true,
@@ -193,6 +199,10 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
 
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
     await flushPromises()
+    // 3 / 4 / 5 没有承接（没有能调度的渠道）：先确认，不拦（D6）
+    expect(updateEntry).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
 
     // 1 / 2 已上架跳过；3 / 4 / 5 整条覆盖 + status=listed
     expect(updateEntry).toHaveBeenCalledTimes(3)
@@ -212,6 +222,8 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await pickFilter(wrapper, 'model-catalog-filter-status', '')
     await wrapper.get('[data-testid="select-all"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('common.selectedItems:{"count":1}')

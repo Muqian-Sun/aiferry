@@ -251,13 +251,21 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 	if !ok || route.Entry == nil {
 		return false, ""
 	}
-	upstream, ok := bindingCostRatio(route.Entry, route.Entry.BindingFor(account.ID))
+	if rejected, reason := profitGateRejectsBinding(route.Entry, route.Entry.BindingFor(account.ID), gate.threshold); rejected {
+		openAIProfitControlObserverInstance.recordVeto(gate.threshold, reason)
+		return true, reason
+	}
+	return false, ""
+}
+
+// profitGateRejectsBinding 利润门是否跳过这条承接：上游成本比算不出（缺上游价 / 官方价）或超过阈值。
+// 调度的否决点与上架提示（SchedulableBindings）共用这一个判断，两边口径不会分叉。
+func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, threshold float64) (bool, string) {
+	upstream, ok := bindingCostRatio(entry, b)
 	if !ok {
-		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonMissingUpstreamPrice)
 		return true, openAIProfitFilterReasonMissingUpstreamPrice
 	}
-	if profitControlOverThreshold(upstream, gate.threshold) {
-		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonThreshold)
+	if profitControlOverThreshold(upstream, threshold) {
 		return true, openAIProfitFilterReasonThreshold
 	}
 	return false, ""

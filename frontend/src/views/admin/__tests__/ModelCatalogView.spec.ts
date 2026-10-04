@@ -35,7 +35,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
-  return {
+  const built: ModelCatalogEntry = {
     id: 1,
     model_id: 'claude-opus-4-6',
     display_name: 'Opus',
@@ -62,6 +62,8 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     updated_at: '2026-09-18T00:00:00Z',
     ...overrides
   }
+  // 列表接口带的「能调度的渠道数」（D6）：桩数据里承接的渠道都能派，等于承接数
+  return { schedulable_channels: built.bindings.length, ...built }
 }
 
 function mountView() {

@@ -11,15 +11,15 @@ export default {
     summaryStats: {
       total: '模型',
       listed: '已上架',
-      listedWithoutResources: '上架但无渠道',
+      listedWithoutResources: '上架但没有能调度的渠道',
       showThem: '筛选'
     },
     filtered: '筛选后 {count} 个',
     aliasCount: '{count} 个别名',
     filters: {
       noVendor: '（无厂商）',
-      withResources: '有渠道',
-      withoutResources: '无渠道'
+      withResources: '有能调度的渠道',
+      withoutResources: '没有能调度的渠道'
     },
     columns: {
       model: '模型',
@@ -194,7 +194,21 @@ export default {
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除 {model} 后，它的别名、{intervals}和分时定价会一起删掉。确定删除？',
     deleteIntervals: { segments: '分段', tiers: '分档' },
-    noResources: '无渠道',
+    // 模型没有能派到请求的渠道（D6）：列表标出来，上架前确认（不拦）
+    unschedulable: {
+      label: '没有能调度的渠道',
+      reasons: {
+        no_bindings: '没有承接渠道',
+        channels_disabled: '承接的渠道都停用或关了调度',
+        profit_gate: '承接的渠道毛利都低于最低毛利率，利润门会跳过',
+        unknown: '没有能派到请求的渠道'
+      },
+      confirmTitle: '这些模型没有能调度的渠道',
+      confirmMessage: '{models}。上架后用户请求这些模型会失败，仍要上架吗？',
+      confirm: '仍然上架',
+      item: '{model}（{reason}）',
+      separator: '、'
+    },
     fields: {
       modelId: '模型标识',
       displayName: '展示名',
