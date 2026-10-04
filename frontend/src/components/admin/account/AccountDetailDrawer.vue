@@ -167,7 +167,12 @@
 
       <!-- 定时测试 -->
       <div v-else-if="tab === 'schedule'" data-testid="account-detail-schedule">
-        <ScheduledTestsPanel :account-id="account.id" :model-options="scheduleModelOptions" />
+        <ScheduledTestsPanel
+          :account-id="account.id"
+          :model-options="scheduleModelOptions"
+          :models-loading="scheduleModelsLoading"
+          :models-error="scheduleModelsError"
+        />
       </div>
     </template>
   </DetailDrawer>
@@ -200,7 +205,8 @@ import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
 import { accountDisplayEmail, antigravityTierKey, getAccountPlanType, getOpenAIAuthMode, openAICompactState } from './accountDisplay'
 import type { AccountDetailTab } from './accountDetail'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { Account, AccountListItem, ClaudeModel } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
+import type { Account, AccountListItem } from '@/types'
 
 const props = withDefaults(
   defineProps<{
@@ -350,21 +356,28 @@ const banner = computed<{ tone: 'danger' | 'warning'; text: string } | null>(() 
   return null
 })
 
-// 定时测试要选模型：打开这个页签时按渠道拉一次可用模型
+// 定时测试要选模型：打开这个页签时按渠道拉一次它承接的模型（没有承接就是空的，面板里给去价格页的入口）
 const scheduleModelOptions = ref<SelectOption[]>([])
 const scheduleModelsFor = ref<number | null>(null)
+const scheduleModelsLoading = ref(false)
+const scheduleModelsError = ref('')
 watch(
   () => [props.tab, props.account?.id] as const,
   async ([tab, id]) => {
     if (tab !== 'schedule' || !id || scheduleModelsFor.value === id) return
     scheduleModelsFor.value = id
     scheduleModelOptions.value = []
+    scheduleModelsError.value = ''
+    scheduleModelsLoading.value = true
     try {
       const models = await adminAPI.accounts.getAvailableModels(id)
       if (props.account?.id !== id) return
-      scheduleModelOptions.value = models.map((m: ClaudeModel) => ({ value: m.id, label: m.display_name || m.id }))
-    } catch {
-      scheduleModelOptions.value = []
+      scheduleModelOptions.value = models.map((m) => ({ value: m.id, label: m.display_name || m.id }))
+    } catch (error) {
+      if (props.account?.id !== id) return
+      scheduleModelsError.value = extractApiErrorMessage(error, t('common.unknownError'))
+    } finally {
+      if (props.account?.id === id) scheduleModelsLoading.value = false
     }
   },
   { immediate: true }

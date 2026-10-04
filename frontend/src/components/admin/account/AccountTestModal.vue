@@ -66,6 +66,7 @@
           label-key="display_name"
           :placeholder="loadingModels ? t('common.loading') + '...' : t('admin.accounts.selectTestModel')"
         />
+        <TestModelsHint v-if="account && !loadingModels" :account-id="account.id" :error="modelsError" :empty-text="modelsEmptyText" />
       </div>
 
       <div v-if="isOpenAIAccount" class="space-y-1.5">
@@ -370,7 +371,10 @@ import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
 import { adminAPI } from '@/api/admin'
-import type { Account, ClaudeModel } from '@/types'
+import type { AccountTestModel } from '@/api/admin/accounts'
+import type { Account } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
+import TestModelsHint from './TestModelsHint.vue'
 import { accountAccessKey } from './accountAccess'
 
 const { t } = useI18n()
@@ -400,10 +404,11 @@ const status = ref<'idle' | 'connecting' | 'success' | 'error'>('idle')
 const outputLines = ref<OutputLine[]>([])
 const streamingContent = ref('')
 const errorMessage = ref('')
-const availableModels = ref<ClaudeModel[]>([])
+const availableModels = ref<AccountTestModel[]>([])
 const selectedModelId = ref('')
 const testPrompt = ref('')
 const loadingModels = ref(false)
+const modelsError = ref('')
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewMedia[]>([])
 const generatedAudios = ref<PreviewMedia[]>([])
@@ -490,6 +495,14 @@ const modelOptionsForMode = computed(() => {
     return availableModels.value.filter((m) => isGrokTextModel(m.id))
   }
   return []
+})
+
+// 下拉只列这个渠道承接的模型：一个都没有、或者承接的里面没有这种测试要的那类，就说清楚
+const modelsEmptyText = computed(() => {
+  if (modelsError.value) return ''
+  if (availableModels.value.length === 0) return t('admin.accounts.testModelsEmpty')
+  if (modelOptionsForMode.value.length === 0) return t('admin.accounts.testModelsNoneForMode')
+  return ''
 })
 
 const supportsPromptInput = computed(() => {
@@ -685,7 +698,7 @@ const canStartTest = computed(() => {
   return Boolean(selectedModelId.value)
 })
 
-const sortTestModels = (models: ClaudeModel[]) => {
+const sortTestModels = (models: AccountTestModel[]) => {
   const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
 
   return [...models].sort((a, b) => {
@@ -760,6 +773,7 @@ const loadAvailableModels = async () => {
   if (!props.account) return
 
   loadingModels.value = true
+  modelsError.value = ''
   selectedModelId.value = '' // Reset selection before loading
   try {
     const models = await adminAPI.accounts.getAvailableModels(props.account.id)
@@ -777,10 +791,9 @@ const loadAvailableModels = async () => {
       }
     }
   } catch (error) {
-    console.error('Failed to load available models:', error)
-    // Fallback to empty list
     availableModels.value = []
     selectedModelId.value = ''
+    modelsError.value = extractApiErrorMessage(error, t('common.unknownError'))
   } finally {
     loadingModels.value = false
   }

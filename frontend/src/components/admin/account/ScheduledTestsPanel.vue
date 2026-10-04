@@ -32,6 +32,7 @@
               :placeholder="t('admin.scheduledTests.model')"
               :searchable="modelOptions.length > 5"
             />
+            <TestModelsHint v-if="accountId && !modelsLoading" :account-id="accountId" :error="modelsError" :empty-text="modelsEmptyText" />
           </div>
           <div>
             <label class="mb-1 flex items-center gap-1 text-xs font-medium text-af-ink-2">
@@ -242,6 +243,7 @@
                   :placeholder="t('admin.scheduledTests.model')"
                   :searchable="modelOptions.length > 5"
                 />
+                <TestModelsHint v-if="accountId && !modelsLoading" :account-id="accountId" :error="modelsError" :empty-text="modelsEmptyText" />
               </div>
               <div>
                 <label class="mb-1 flex items-center gap-1 text-xs font-medium text-af-ink-2">
@@ -456,7 +458,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch } from 'vue'
+import { computed, onMounted, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
@@ -467,13 +469,22 @@ import { Icon } from '@/components/icons'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import type { ScheduledTestPlan, ScheduledTestResult } from '@/types'
+import TestModelsHint from './TestModelsHint.vue'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   accountId: number | null
+  /** 这个渠道承接的模型（定时测试只能从这里选） */
   modelOptions: SelectOption[]
+  modelsLoading?: boolean
+  /** 模型列表加载失败的原因 */
+  modelsError?: string
 }>()
+
+const modelsEmptyText = computed(() =>
+  !props.modelsError && props.modelOptions.length === 0 ? t('admin.accounts.testModelsEmpty') : ''
+)
 
 // State
 const loading = ref(false)
