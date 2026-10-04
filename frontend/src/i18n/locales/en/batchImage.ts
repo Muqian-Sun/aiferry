@@ -68,7 +68,6 @@ export default {
     },
     promptPopover: {
       title: 'Full prompt',
-      copied: 'Prompt copied',
     },
     detail: {
       title: 'Job details',

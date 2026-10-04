@@ -38,9 +38,6 @@ export default {
       list: 'List',
       unlist: 'Unlist',
       selectEntry: 'Select {model}',
-      nothingToDo: 'The selected entries already have that status',
-      listedDone: 'Listed {count} models',
-      unlistedDone: 'Unlisted {count} models',
       partial: '{done} succeeded, {failed} failed (failures stay selected):'
     },
     editor: {
@@ -116,8 +113,6 @@ export default {
       },
       unpricedBanner: 'Listed without a price: users cannot see this model.',
       unboundBanner: 'Listed without channels: user calls to this model will fail.',
-      listedDone: 'Listed {model}',
-      unlistedDone: 'Unlisted {model}',
       aliases: 'Aliases',
       notes: 'Notes',
       updatedAt: 'Updated',

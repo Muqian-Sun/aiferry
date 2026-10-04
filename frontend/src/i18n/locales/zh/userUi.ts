@@ -17,7 +17,6 @@ export default {
       docs: '文档',
       console: '控制台',
       login: '登录',
-      openMenu: '打开导航',
       primaryNav: '主导航',
       collapseSidebar: '收起',
       expandSidebar: '展开侧栏'
@@ -29,11 +28,8 @@ export default {
     topbar: {
       balance: '余额',
       debt: '欠费',
-      available: '可用',
       frozen: '冻结',
-      total: '总额',
       language: '语言',
-      theme: '主题',
       switchToLight: '切换到浅色',
       switchToDark: '切换到深色',
       accountMenu: '账户菜单'
@@ -99,10 +95,6 @@ export default {
         today: '今日 Token',
         range: '近 {days} 天 Token',
         total: '累计 Token'
-      },
-      models: {
-        other: '其他',
-        empty: '这段时间没有用量'
       },
       trend: {
         title: '用量趋势'
@@ -189,7 +181,6 @@ export default {
         eyebrow: '请求详情',
         request: '请求信息',
         requestId: '请求 ID',
-        requestIdCopied: '已复制请求 ID',
         copy: '复制'
       },
       trend: {

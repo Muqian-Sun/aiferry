@@ -1,10 +1,5 @@
 export default {
 
-  // Subscription Progress (Header component)
-  subscriptionProgress: {
-    noSubscriptions: '没有有效订阅',
-  },
-
 
   // Recharge / Subscription Page
   purchase: {
@@ -30,22 +25,11 @@ export default {
   // Announcements Page
   announcements: {
     title: '公告',
-    description: '查看系统公告',
-    unreadOnly: '仅显示未读',
     markRead: '标记已读',
     markAllRead: '全部已读',
-    viewAll: '查看全部公告',
-    markedAsRead: '已标记为已读',
-    allMarkedAsRead: '所有公告已标记为已读',
-    newCount: '有 {count} 条新公告',
-    readAt: '已读时间',
     read: '已读',
     unread: '未读',
-    startsAt: '开始时间',
-    endsAt: '结束时间',
     empty: '还没有公告',
-    emptyUnread: '没有未读公告',
-    total: '条公告',
     emptyDescription: '暂时没有任何系统公告',
     readStatus: '你已阅读此公告',
     markReadHint: '点击"已读"标记此公告',
@@ -60,52 +44,26 @@ export default {
     unnamedPlan: '订阅套餐',
     noActiveSubscriptions: '没有有效订阅',
     noActiveSubscriptionsDesc: '你没有任何有效订阅。请联系管理员获取订阅。',
-    failedToLoad: '加载订阅失败',
     status: {
       active: '有效',
       expired: '已过期',
       revoked: '已撤销'
     },
-    usage: '用量',
     expires: '到期时间',
     noExpiration: '无到期时间',
     daysRemaining: '剩余 {days} 天',
-    expiresOn: '{date} 到期',
     resetIn: '{time} 后重置',
     quotaEndsIn: '额度将在 {time} 后结束',
     windowNotActive: '等待首次使用',
-    usageOf: '已用 {used} / {limit}'
   },
 
   // Onboarding Tour
   onboarding: {
     restartTour: '重新查看新手引导',
-    dontShowAgain: '不再提示',
-    dontShowAgainTitle: '永久关闭新手引导',
-    confirmDontShow: '确定不再显示新手引导吗？\n\n你可以随时在右上角头像菜单中重新开启。',
-    confirmExit: '确定要退出新手引导吗？你可以随时在右上角菜单重新开始。',
     interactiveHint: '按 Enter 或点击继续',
     navigation: {
       flipPage: '翻页',
       exit: '退出'
-    },
-    // Admin tour steps
-    admin: {
-      accountName: {
-        nextBtn: '下一步'
-      },
-      accountPlatform: {
-        nextBtn: '下一步'
-      },
-      accountType: {
-        nextBtn: '下一步'
-      },
-      accountPriority: {
-        nextBtn: '下一步'
-      },
-      keyName: {
-        nextBtn: '下一步'
-      },
     },
     // User tour steps
     user: {
@@ -130,7 +88,6 @@ export default {
         title: '密钥名称',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">为密钥起一个便于识别的名称。</p><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>"我的第一个密钥"、"测试用" 等</p></div>',
-        nextBtn: '下一步'
       },
       keySubmit: {
         title: '完成创建',
@@ -142,7 +99,6 @@ export default {
 
   // Payment System
   payment: {
-    title: '充值/订阅',
     amountLabel: '充值金额',
     creditedBalance: '到账余额',
     quickAmounts: '快捷金额',
@@ -204,16 +160,13 @@ export default {
       alipaySaveAndScanHint: '保存二维码后，打开支付宝扫一扫，从相册选择二维码',
     },
     orders: {
-      title: '我的订单',
       empty: '还没有订单',
-      orderId: '订单 ID',
       orderNo: '订单编号',
       amount: '金额',
       payAmount: '实付',
       creditedAmount: '到账金额',
       fee: '手续费',
       baseAmount: '充值金额',
-      includedInPayAmount: '已含在实付金额中',
       status: '状态',
       paymentMethod: '支付方式',
       createdAt: '创建时间',
@@ -231,13 +184,8 @@ export default {
     currentBalance: '当前余额',
     rechargeAccount: '充值账户',
     activeSubscription: '当前订阅',
-    noActiveSubscription: '没有有效订阅',
-    tabTopUp: '充值',
-    tabSubscribe: '订阅',
     noPlans: '没有可购买的订阅套餐',
     notAvailable: '充值功能暂未开放',
-    billingUnavailable: '充值与订阅均暂未开放，请联系管理员。',
-    confirmSubscription: '确认订阅',
     amountTooLow: '最低金额为 {min}',
     amountTooHigh: '最高金额为 {max}',
     amountNoMethod: '该金额没有可用的支付方式',
@@ -306,13 +254,11 @@ export default {
       redirecting: '正在跳转到支付页面…',
       loadingQr: '正在获取微信支付二维码…',
       timeout: '等待支付凭证超时，请重试',
-      qrFailed: '未能获取微信支付二维码',
     },
     subscribeNow: '立即开通',
     renewNow: '续费',
     renewPlanUnavailable: '该套餐已下架，暂时无法续费',
     selectPlan: '选择套餐',
-    planFeatures: '功能特性',
     planCard: {
       dailyLimit: '日限额',
       weeklyLimit: '周限额',
@@ -326,11 +272,9 @@ export default {
     days: '天',
     weeks: '周',
     months: '个月',
-    years: '年',
     oneMonth: '1 个月',
     oneYear: '1 年',
     perMonth: '月',
-    perYear: '年',
     admin: {
       tabs: {
         overview: '概览',
