@@ -55,14 +55,11 @@
             <p class="font-medium text-af-ink-2">
               {{ t('profile.totp.notEnabled') }}
             </p>
-            <p class="text-sm text-af-ink-3">
-              {{ t('profile.totp.notEnabledHint') }}
-            </p>
           </div>
         </div>
         <button
           type="button"
-          class="btn btn-primary"
+          class="btn btn-secondary"
           @click="showSetupModal = true"
         >
           {{ t('profile.totp.enable') }}
