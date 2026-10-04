@@ -8,7 +8,8 @@
     <template v-if="$slots.actions" #actions>
       <slot name="actions" />
     </template>
-    <template v-if="group" #tabs>
+    <!-- 只剩一个可见页签时不出页签条 -->
+    <template v-if="groupTabs.length > 1" #tabs>
       <SectionTabs :tabs="groupTabs" :label="title" />
     </template>
   </PageHeader>
@@ -22,6 +23,7 @@ import { resolveRouteMetaKeys } from '@/router/title'
 import PageHeader from '@/components/user/shell/PageHeader.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import type { SectionTab } from '@/components/user/shell/types'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { ADMIN_PAGE_GROUPS, type AdminPageGroupKey } from './adminPageGroups'
 
 const route = useRoute()
@@ -48,6 +50,8 @@ const description = computed(() => {
 })
 
 const groupTabs = computed<SectionTab[]>(() =>
-  (group.value?.tabs ?? []).map((tab) => ({ key: tab.path, label: t(tab.labelKey), to: tab.path }))
+  (group.value?.tabs ?? [])
+    .filter((tab) => !tab.siteFeature || SITE_FEATURES[tab.siteFeature])
+    .map((tab) => ({ key: tab.path, label: t(tab.labelKey), to: tab.path }))
 )
 </script>
