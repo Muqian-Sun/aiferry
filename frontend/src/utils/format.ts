@@ -271,6 +271,7 @@ function normalizeReasoningEffortKey(effort: string | null | undefined): string 
   return (effort ?? '').toString().trim().toLowerCase().replace(/[-_\s]/g, '')
 }
 
+/** 推理强度按界面语言显示（common.reasoningEffort.*）；不认识的值首字母大写原样显示 */
 export function formatReasoningEffort(effort: string | null | undefined): string {
   const raw = (effort ?? '').toString().trim()
   if (!raw) return '-'
@@ -278,16 +279,13 @@ export function formatReasoningEffort(effort: string | null | undefined): string
   const normalized = normalizeReasoningEffortKey(raw)
   switch (normalized) {
     case 'low':
-      return 'Low'
     case 'medium':
-      return 'Medium'
     case 'high':
-      return 'High'
+    case 'max':
+      return i18n.global.t(`common.reasoningEffort.${normalized}`)
     case 'xhigh':
     case 'extrahigh':
-      return 'XHigh'
-    case 'max':
-      return 'Max'
+      return i18n.global.t('common.reasoningEffort.xhigh')
     case 'none':
     case 'minimal':
       return '-'

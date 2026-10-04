@@ -37,7 +37,7 @@
           rel="noopener noreferrer"
           class="font-medium text-af-ink underline-offset-4 hover:underline"
         >
-          {{ t('legal.loginAgreementPrompt.documentTitle', { title: doc.title }) }}
+          {{ t('legal.loginAgreementPrompt.documentTitle', { title: legalDocumentTitle(doc, t) }) }}
         </RouterLink>
         <span v-if="index < documents.length - 1">{{ t('legal.loginAgreementPrompt.documentSeparator') }}</span>
       </template>
@@ -49,6 +49,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LoginAgreementDocument } from '@/types'
+import { legalDocumentTitle } from '@/utils/legalDocumentTitle'
 
 const { t } = useI18n()
 

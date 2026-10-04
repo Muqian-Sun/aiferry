@@ -110,6 +110,13 @@ export default {
     deletedChannel: 'Deleted channel',
     deletedPlan: 'Deleted plan',
     deletedKey: 'Deleted key',
+    reasoningEffort: {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      xhigh: 'XHigh',
+      max: 'Max'
+    },
     time: {
       never: 'Never',
       justNow: 'Just now',
@@ -133,6 +140,10 @@ export default {
     updatedAt: 'Updated: {date}',
     empty: 'No content',
     loginAgreement: 'Login Agreement',
+    documents: {
+      usagePolicy: 'Usage Policy',
+      privacy: 'Privacy Policy'
+    },
     loginAgreementPrompt: {
       checkboxPrefix: 'I have read and agree to the ',
       documentTitle: '{title}',
@@ -376,7 +387,7 @@ export default {
     newPassword: 'New Password',
     newPasswordPlaceholder: 'Enter your new password',
     confirmPassword: 'Confirm Password',
-    confirmPasswordPlaceholder: 'Confirm your new password',
+    confirmPasswordPlaceholder: 'Enter the password again',
     confirmPasswordRequired: 'Please confirm your password',
     passwordsDoNotMatch: 'Passwords do not match',
     resetPassword: 'Reset Password',

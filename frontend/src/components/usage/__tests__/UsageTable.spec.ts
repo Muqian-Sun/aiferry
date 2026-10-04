@@ -122,6 +122,7 @@ const baseImageRow = {
   image_size_breakdown: null,
 }
 
+// 推理强度按界面语言显示（utils/format.ts 的 common.reasoningEffort.*）；测试环境不编译文案，t 原样返回 key
 describe('admin UsageTable tooltip', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -341,8 +342,8 @@ describe('admin UsageTable tooltip', () => {
     })
 
     const text = wrapper.text()
-    expect(text).toContain('Max')
-    expect(text).toContain('XHigh')
+    expect(text).toContain('common.reasoningEffort.max')
+    expect(text).toContain('common.reasoningEffort.xhigh')
     expect(text).toContain('↳')
   })
 
@@ -368,7 +369,7 @@ describe('admin UsageTable tooltip', () => {
     })
 
     const text = wrapper.text()
-    expect(text).toContain('Max')
+    expect(text).toContain('common.reasoningEffort.max')
     expect(text).not.toContain('↳')
   })
 
@@ -393,8 +394,8 @@ describe('admin UsageTable tooltip', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Max')
-    expect(wrapper.text()).not.toContain('XHigh')
+    expect(wrapper.text()).toContain('common.reasoningEffort.max')
+    expect(wrapper.text()).not.toContain('common.reasoningEffort.xhigh')
     expect(wrapper.text()).not.toContain('↳')
   })
 

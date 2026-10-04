@@ -217,6 +217,7 @@ function reasoningCellText(wrapper: ReturnType<typeof mount>): string {
   return wrapper.get('[data-testid="reasoning-effort-cell"]').text()
 }
 
+// 推理强度按界面语言显示（utils/format.ts 的 common.reasoningEffort.*）；测试环境不编译文案，t 原样返回 key
 describe('usage reasoning effort page display', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -252,10 +253,10 @@ describe('usage reasoning effort page display', () => {
     await flushPromises()
 
     const cell = reasoningCellText(wrapper)
-    expect(cell).toContain('Max')
-    expect(cell).not.toContain('XHigh')
+    expect(cell).toContain('common.reasoningEffort.max')
+    expect(cell).not.toContain('common.reasoningEffort.xhigh')
     expect(cell).not.toContain('↳')
-    expect(wrapper.text()).not.toContain('XHigh')
+    expect(wrapper.text()).not.toContain('common.reasoningEffort.xhigh')
   })
 
   it('admin usage page shows requested and mapped effort after the column is enabled', async () => {
@@ -283,8 +284,8 @@ describe('usage reasoning effort page display', () => {
     await flushPromises()
 
     const cell = reasoningCellText(wrapper)
-    expect(cell).toContain('Max')
-    expect(cell).toContain('XHigh')
+    expect(cell).toContain('common.reasoningEffort.max')
+    expect(cell).toContain('common.reasoningEffort.xhigh')
     expect(cell).toContain('↳')
   })
 
@@ -317,7 +318,7 @@ describe('usage reasoning effort page display', () => {
     await flushPromises()
 
     const cell = reasoningCellText(wrapper)
-    expect(cell).toContain('High')
+    expect(cell).toContain('common.reasoningEffort.high')
     expect(cell).not.toContain('↳')
   })
 })

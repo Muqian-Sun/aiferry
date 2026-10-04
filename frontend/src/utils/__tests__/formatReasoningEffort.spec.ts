@@ -5,23 +5,24 @@ import {
   reasoningEffortValuesEqual,
 } from '@/utils/format'
 
+// 推理强度按界面语言显示（common.reasoningEffort.*）；测试环境不编译文案，t 原样返回 key
 describe('formatReasoningEffort', () => {
-  it('title-cases known effort values', () => {
-    expect(formatReasoningEffort('max')).toBe('Max')
-    expect(formatReasoningEffort('x-high')).toBe('XHigh')
+  it('maps known effort values to their labels', () => {
+    expect(formatReasoningEffort('max')).toBe('common.reasoningEffort.max')
+    expect(formatReasoningEffort('x-high')).toBe('common.reasoningEffort.xhigh')
     expect(formatReasoningEffort(null)).toBe('-')
   })
 })
 
 describe('formatReasoningEffortMapping', () => {
   it('shows a single value when requested and forwarded match', () => {
-    expect(formatReasoningEffortMapping('max', 'max')).toBe('Max')
-    expect(formatReasoningEffortMapping(null, 'high')).toBe('High')
+    expect(formatReasoningEffortMapping('max', 'max')).toBe('common.reasoningEffort.max')
+    expect(formatReasoningEffortMapping(null, 'high')).toBe('common.reasoningEffort.high')
   })
 
   it('shows requested then forwarded when mapping changed the value', () => {
-    expect(formatReasoningEffortMapping('max', 'xhigh')).toBe('Max → XHigh')
-    expect(formatReasoningEffortMapping('high', 'medium')).toBe('High → Medium')
+    expect(formatReasoningEffortMapping('max', 'xhigh')).toBe('common.reasoningEffort.max → common.reasoningEffort.xhigh')
+    expect(formatReasoningEffortMapping('high', 'medium')).toBe('common.reasoningEffort.high → common.reasoningEffort.medium')
   })
 })
 

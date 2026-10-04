@@ -167,15 +167,15 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome({})
     await flushPromises()
 
-    // 模型 2 / 厂商 2 从目录算；协议 4 / 客户端 5 是产品事实；数字段整体 v-reveal，跳数由 .count-up 的 --count-to 驱动
+    // 模型 2 从目录算；协议 4 / 客户端 5 是产品事实；数字段整体 v-reveal，跳数由 .count-up 的 --count-to 驱动
     const stats = wrapper.get('[data-testid="home-stats"]')
     expect(stats.attributes('data-reveal')).toBe('single')
     // 数字在上、名目在下，且不装进卡片
     expect(stats.classes()).not.toContain('sheet-card')
     expect(stats.get('div').element.firstElementChild?.tagName).toBe('DD')
-    expect(stats.findAll('[data-testid="home-stat-value"]').map((v) => v.text())).toEqual(['2', '2', '4', '5'])
+    expect(stats.findAll('[data-testid="home-stat-value"]').map((v) => v.text())).toEqual(['2', '4', '5'])
     const counters = stats.findAll('.count-up')
-    expect(counters.map((c) => (c.element as HTMLElement).style.getPropertyValue('--count-to'))).toEqual(['2', '2', '4', '5'])
+    expect(counters.map((c) => (c.element as HTMLElement).style.getPropertyValue('--count-to'))).toEqual(['2', '4', '5'])
     expect(counters.every((c) => c.attributes('aria-hidden') === 'true')).toBe(true)
   })
 

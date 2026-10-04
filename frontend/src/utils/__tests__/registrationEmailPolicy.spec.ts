@@ -116,6 +116,6 @@ describe('registrationEmailPolicy utils', () => {
         ['@a.com', '@b.com', '@c.com', '@d.com', '@e.com', '*.edu.cn', '@f.com'],
         { separator: ', ', more: (count) => `and ${count} more` }
       )
-    ).toBe('@a.com, @b.com, @c.com, @d.com, @e.com, and 2 more')
+    ).toBe('@a.com, @b.com, @c.com, @d.com, @e.com and 2 more')
   })
 })

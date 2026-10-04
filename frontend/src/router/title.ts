@@ -2,6 +2,7 @@ import { i18n } from '@/i18n'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { CustomMenuItem } from '@/types'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
+import { legalDocumentTitle } from '@/utils/legalDocumentTitle'
 
 /**
  * 统一生成页面标题，避免多处写入 document.title 产生覆盖冲突。
@@ -23,6 +24,10 @@ export function resolveDocumentTitle(routeTitle: unknown, siteName?: string, tit
   }
 
   return normalizedSiteName
+}
+
+function legalTitleOf(doc: { id: string; title: string } | undefined): string | undefined {
+  return doc ? legalDocumentTitle(doc, (key) => i18n.global.t(key)).trim() : undefined
 }
 
 export interface RouteTitleOptions {
@@ -61,7 +66,7 @@ export function resolveRouteDocumentTitle(
   const menuTitle = menuItem?.label.trim()
   const documentId = typeof route.params.documentId === 'string' ? route.params.documentId : ''
   const legalTitle = route.name === LEGAL_DOCUMENT_ROUTE_NAME && documentId
-    ? options.legalDocuments?.find((doc) => doc.id === documentId)?.title.trim()
+    ? legalTitleOf(options.legalDocuments?.find((doc) => doc.id === documentId))
     : undefined
   const exactTitle = menuTitle || legalTitle
   const { titleKey } = resolveRouteMetaKeys(route)
