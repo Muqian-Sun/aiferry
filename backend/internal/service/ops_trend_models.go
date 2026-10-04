@@ -9,6 +9,9 @@ type OpsThroughputTrendPoint struct {
 	SwitchCount   int64     `json:"switch_count"`
 	QPS           float64   `json:"qps"`
 	TPS           float64   `json:"tps"`
+	// 这个时间段成功请求的首字延迟分位数（毫秒），没有样本时为空（运维页「首字延迟」趋势，2026-10-04）。
+	TTFTP50Ms *int `json:"ttft_p50_ms"`
+	TTFTP99Ms *int `json:"ttft_p99_ms"`
 }
 
 type OpsThroughputPlatformBreakdownItem struct {
@@ -36,6 +39,12 @@ type OpsErrorTrendPoint struct {
 	UpstreamErrorCountExcl429529 int64 `json:"upstream_error_count_excl_429_529"`
 	Upstream429Count             int64 `json:"upstream_429_count"`
 	Upstream529Count             int64 `json:"upstream_529_count"`
+
+	// 运维页「失败 / 换渠道恢复」按环节叠（2026-10-04）：用户收到错误的里面，上游导致的、没选到渠道的；
+	// 以及上游出错、换渠道后成功的（不算失败）。
+	UpstreamFailedCount int64 `json:"upstream_failed_count"`
+	RoutingFailedCount  int64 `json:"routing_failed_count"`
+	RecoveredCount      int64 `json:"recovered_count"`
 }
 
 type OpsErrorTrendResponse struct {
