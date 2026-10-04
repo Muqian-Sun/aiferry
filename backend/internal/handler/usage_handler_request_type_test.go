@@ -233,9 +233,9 @@ func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) 
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	body := rec.Body.String()
-	// 用户站只给实付：按官方价的分项费用、标准计费与倍率不出接口（2026-10-04 D1）
+	// 用户站只给实付口径：分项按 实付 / 标准计费 = 0.8 折算，标准计费与倍率不出接口（2026-10-04 D1）
 	require.Contains(t, body, `"actual_cost":0.08`)
-	require.NotContains(t, body, "input_cost")
+	require.Contains(t, body, `"input_cost":0.008`)
 	require.NotContains(t, body, "total_cost")
 	require.NotContains(t, body, "rate_multiplier")
 	require.Contains(t, body, `"native_compaction_v2":true`)

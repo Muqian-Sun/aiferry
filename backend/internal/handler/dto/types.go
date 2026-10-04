@@ -434,8 +434,13 @@ type UsageLog struct {
 	CacheCreation5mTokens int `json:"cache_creation_5m_tokens"`
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens"`
 
-	// ActualCost 实付（向用户扣的钱）。按官方价算的分项费用、标准计费与用户倍率只在 AdminUsageLog 里（2026-10-04 D1）。
-	ActualCost float64 `json:"actual_cost"`
+	// 分项费用按实付口径（= 官方价口径 × token 实付 / token 官方价，见 usageLogFromServiceUser），加上联网搜索费就是实付。
+	// 官方价口径的分项、标准计费与用户倍率只在 AdminUsageLog 里（同名字段覆盖这几项，2026-10-04 D1）。
+	InputCost         float64 `json:"input_cost"`
+	OutputCost        float64 `json:"output_cost"`
+	CacheCreationCost float64 `json:"cache_creation_cost"`
+	CacheReadCost     float64 `json:"cache_read_cost"`
+	ActualCost        float64 `json:"actual_cost"`
 	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（按原价收、不乘用户倍率，已含在 actual_cost 里）。
 	WebSearchCount int     `json:"web_search_count"`
 	WebSearchCost  float64 `json:"web_search_cost"`
@@ -458,7 +463,9 @@ type UsageLog struct {
 	ImageInputSize     *string        `json:"image_input_size"`
 	ImageOutputSize    *string        `json:"image_output_size"`
 	ImageInputTokens   int            `json:"image_input_tokens"`
+	ImageInputCost     float64        `json:"image_input_cost"`
 	ImageOutputTokens  int            `json:"image_output_tokens"`
+	ImageOutputCost    float64        `json:"image_output_cost"`
 	ImageSizeSource    *string        `json:"image_size_source"`
 	ImageSizeBreakdown map[string]int `json:"image_size_breakdown"`
 	MediaType          *string        `json:"media_type"`
@@ -494,6 +501,7 @@ type AdminUsageLog struct {
 	UsageLog
 
 	// 按目录官方价算的分项费用与标准计费（未乘用户倍率）、用户倍率：只给管理站。
+	// 分项与 UsageLog 同名：JSON 取外层这份（官方价口径），用户站拿到的是 UsageLog 里实付口径那份。
 	InputCost         float64 `json:"input_cost"`
 	OutputCost        float64 `json:"output_cost"`
 	CacheCreationCost float64 `json:"cache_creation_cost"`

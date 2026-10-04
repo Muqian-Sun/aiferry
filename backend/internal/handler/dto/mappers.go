@@ -448,6 +448,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	if requestedModel == "" {
 		requestedModel = l.Model
 	}
+	billed := userBilledFactor(l)
 	return UsageLog{
 		ID:                    l.ID,
 		UserID:                l.UserID,
@@ -464,6 +465,10 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CacheReadTokens:       l.CacheReadTokens,
 		CacheCreation5mTokens: l.CacheCreation5mTokens,
 		CacheCreation1hTokens: l.CacheCreation1hTokens,
+		InputCost:             l.InputCost * billed,
+		OutputCost:            l.OutputCost * billed,
+		CacheCreationCost:     l.CacheCreationCost * billed,
+		CacheReadCost:         l.CacheReadCost * billed,
 		ActualCost:            l.ActualCost,
 		WebSearchCount:        l.WebSearchCount,
 		WebSearchCost:         l.WebSearchCost,
@@ -480,7 +485,9 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ImageInputSize:        l.ImageInputSize,
 		ImageOutputSize:       l.ImageOutputSize,
 		ImageInputTokens:      l.ImageInputTokens,
+		ImageInputCost:        l.ImageInputCost * billed,
 		ImageOutputTokens:     l.ImageOutputTokens,
+		ImageOutputCost:       l.ImageOutputCost * billed,
 		ImageSizeSource:       l.ImageSizeSource,
 		ImageSizeBreakdown:    l.ImageSizeBreakdown,
 		MediaType:             l.MediaType,
@@ -493,6 +500,17 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		APIKey:                usageAPIKeyRefFromService(l.APIKey),
 		Subscription:          UserSubscriptionFromService(l.Subscription),
 	}
+}
+
+// userBilledFactor 把一条用量的分项费用从官方价口径折成实付口径的系数（= token 实付 / token 官方价）：
+// 联网搜索费两边都含、又按原价收不乘倍率，先从两边扣掉；token 官方价为 0 时分项本来就是 0。
+// 用户站只拿折好的分项，看不到官方价与倍率（2026-10-04 D1，原来由前端用 total_cost 自己折）。
+func userBilledFactor(l *service.UsageLog) float64 {
+	tokenTotal := l.TotalCost - l.WebSearchCost
+	if tokenTotal <= 0 {
+		return 1
+	}
+	return (l.ActualCost - l.WebSearchCost) / tokenTotal
 }
 
 // UsageLogFromService converts a service UsageLog to DTO for regular users.

@@ -22,7 +22,7 @@ func (userDashboardRepoStub) GetUserDashboardStats(context.Context, int64) (*usa
 	return &usagestats.UserDashboardStats{TodayRequests: 1, TodayCost: 0.3, TodayActualCost: 0.02, TotalCost: 3, TotalActualCost: 0.2}, nil
 }
 
-// 用户站接口只给实付：按官方价算的标价（cost / total_cost / today_cost / 分项费用）、用户倍率、渠道成本都不出接口
+// 用户站接口只给实付：按官方价算的标价（cost / total_cost / today_cost）、用户倍率、渠道成本都不出接口
 // （2026-10-04 D1：标价 ÷ 实付就是倍率；渠道成本可算毛利）。
 func TestUserUsageEndpointsOnlyExposeActualCost(t *testing.T) {
 	inputCost := 0.1
@@ -56,7 +56,8 @@ func TestUserUsageEndpointsOnlyExposeActualCost(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, path+": "+rec.Body.String())
 		body := rec.Body.String()
 		require.Contains(t, body, `actual_cost":0.02`, path)
-		for _, hidden := range []string{`"cost":`, `"total_cost"`, `"today_cost"`, `"input_cost"`, `"output_cost"`, `"image_input_cost"`, `"rate_multiplier"`, `account_cost`, `"upstream_endpoints"`} {
+		// 明细行的分项费用（input_cost 等）是实付口径，可以给；见 dto 的 TestUsageLogDTOBilledItemsForUsersOfficialForAdmin
+		for _, hidden := range []string{`"cost":`, `"total_cost"`, `"today_cost"`, `"rate_multiplier"`, `account_cost`, `"upstream_endpoints"`} {
 			require.NotContains(t, body, hidden, path)
 		}
 	}
