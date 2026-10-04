@@ -495,19 +495,29 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
   errorTrend.value = data.error_trend
 }
 
-// 模型下拉：近 7 天有流量的模型（与用量页同一来源）
+// 模型下拉：上架目录的模型 ∪ 近 7 天有用量的模型。只看用量会漏掉只失败、没有成功用量的模型，
+// 而排查的恰恰是这类模型；只看目录又会漏掉已下架但还在报错的模型。
 async function loadModelOptions() {
   const end = new Date()
   const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000)
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  try {
-    const res = await adminAPI.dashboard.getModelStats({ start_date: ymd(start), end_date: ymd(end), model_source: 'requested' })
-    const names = new Set((res.models || []).map((m) => m.model).filter(Boolean))
-    if (model.value) names.add(model.value)
-    modelOptions.value = [...names].sort()
-  } catch (err) {
-    console.error('[OpsDashboard] failed to load model options', err)
+  const [catalog, stats] = await Promise.allSettled([
+    adminAPI.modelCatalog.listEntries(),
+    adminAPI.dashboard.getModelStats({ start_date: ymd(start), end_date: ymd(end), model_source: 'requested' })
+  ])
+  const names = new Set<string>()
+  if (catalog.status === 'fulfilled') {
+    for (const entry of catalog.value) if (entry.status === 'listed' && entry.model_id) names.add(entry.model_id)
+  } else {
+    console.error('[OpsDashboard] failed to load catalog models', catalog.reason)
   }
+  if (stats.status === 'fulfilled') {
+    for (const m of stats.value.models || []) if (m.model) names.add(m.model)
+  } else {
+    console.error('[OpsDashboard] failed to load model stats', stats.reason)
+  }
+  if (model.value) names.add(model.value)
+  modelOptions.value = [...names].sort()
 }
 
 function isOpsDisabledError(err: unknown): boolean {

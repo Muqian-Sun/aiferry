@@ -276,7 +276,7 @@ const hasData = computed(() => logs.value.length > 0)
         :placeholder="t('admin.ops.page.logs.searchPlaceholder')"
         data-testid="ops-logs-search"
       />
-      <Select v-model="filters.level" class="w-full sm:w-36" :options="filterLevelOptions" />
+      <Select v-model="filters.level" class="w-full sm:w-36" :options="filterLevelOptions" @change="applyFilters" />
       <button type="button" class="btn btn-primary btn-sm" @click="applyFilters">{{ t('admin.ops.systemLogs.search') }}</button>
       <button type="button" class="btn btn-secondary btn-sm" @click="showMoreFilters = !showMoreFilters">
         {{ t('admin.ops.page.logs.moreFilters') }}<template v-if="moreFilterCount"> · {{ moreFilterCount }}</template>

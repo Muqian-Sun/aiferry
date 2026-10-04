@@ -736,11 +736,6 @@ export default {
         refreshInterval15s: '15 seconds',
         refreshInterval30s: '30 seconds',
         refreshInterval60s: '60 seconds',
-        dashboardCards: 'Dashboard Cards',
-        displayAlertEvents: 'Display alert events',
-        displayAlertEventsHint: 'Show or hide the recent alert events card on the ops dashboard. Enabled by default.',
-        displayOpenAITokenStats: 'Display token request stats',
-        displayOpenAITokenStatsHint: 'Show token request stats by model across all platforms, with a platform filter. Hidden by default.',
         autoRefreshCountdown: 'Auto refresh: {seconds}s',
         validation: {
           title: 'Please fix the following issues',
