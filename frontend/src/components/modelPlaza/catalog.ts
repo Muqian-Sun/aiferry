@@ -226,10 +226,13 @@ export function vendorLabel(vendor: string): string {
   return VENDOR_LABELS[vendor] ?? vendor
 }
 
-/** 价格的展示格式：≥100 取整、≥1 两位小数、更小的保留到 4 位并去掉尾零；null 显示破折号 */
+/**
+ * 价格的展示格式：≥100 取整、≥1 两位小数、更小的保留到 4 位，尾零最多去到剩两位小数
+ * （$0.20 与 $1.00 / $0.25 对齐，不写 $0.2；$0.075 不补成 $0.0750）；null 显示破折号
+ */
 export function formatCatalogPrice(value: number | null | undefined): string {
   if (value == null) return '—'
   if (value >= 100) return `$${value.toFixed(0)}`
   if (value >= 1) return `$${value.toFixed(2)}`
-  return `$${Number(value.toFixed(4))}`
+  return `$${value.toFixed(4).replace(/0{1,2}$/, '')}`
 }

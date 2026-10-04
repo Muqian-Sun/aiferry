@@ -92,6 +92,8 @@ const lineOptions = computed(() => ({
   },
   scales: {
     x: {
+      // 首尾的点不贴坐标轴、不压在纵轴刻度上：类目轴两端各留半格（2026-10-05 走查：渠道状态 100% 的点被刻度挡住）
+      offset: true,
       grid: { display: false },
       ticks: { color: theme.value.text, maxTicksLimit: 8, font: { size: 10 } }
     },

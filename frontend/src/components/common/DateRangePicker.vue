@@ -3,7 +3,7 @@
     <button
       type="button"
       @click="toggle"
-      :class="['date-picker-trigger', isOpen && 'date-picker-trigger-open', plain && 'date-picker-trigger-plain']"
+      :class="['date-picker-trigger', isOpen && 'date-picker-trigger-open']"
     >
       <span class="date-picker-icon">
         <Icon name="calendar" size="sm" />
@@ -86,7 +86,6 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import { IS_ADMIN_SITE } from '@/app/site'
 import { LAST_24_HOURS_PRESET, isReversedDateRange } from '@/utils/dateRange'
 
 interface DatePreset {
@@ -116,8 +115,6 @@ const emit = defineEmits<Emits>()
 
 const { t, locale } = useI18n()
 
-/** 用户站触发器不画框（见样式区 .date-picker-trigger-plain） */
-const plain = !IS_ADMIN_SITE
 
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
@@ -353,20 +350,17 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 触发器：两站同一种无框轻按钮，32px 高，与页头的分段切换、刷新图标同高（2026-10-05；原来管理站是 38px 带框的大框） */
 .date-picker-trigger {
-  @apply flex items-center gap-2;
-  @apply rounded-md px-3 py-2 text-sm;
-  @apply bg-af-sheet;
-  @apply border border-af-hairline-strong;
+  @apply flex h-8 items-center gap-1.5 rounded-md px-2.5 text-13;
   @apply text-af-ink-2;
   @apply transition-colors duration-150;
-  @apply focus:border-af-brand focus:outline-none focus:ring-2 focus:ring-af-brand/30;
-  @apply hover:border-af-ink-4;
+  @apply hover:bg-af-sunken hover:text-af-ink focus:outline-none;
   @apply cursor-pointer;
 }
 
 .date-picker-trigger-open {
-  @apply border-af-brand ring-2 ring-af-brand/30;
+  @apply bg-af-sunken text-af-ink;
 }
 
 .date-picker-icon {
@@ -477,8 +471,4 @@ onUnmounted(() => {
 }
 
 /* 用户站：触发器不画框，只有图标 + 文字 + 箭头（与语言切换同一套，muqian 2026-09-23 不要方块）；管理端保持描边 */
-.date-picker-trigger-plain {
-  @apply border-transparent bg-transparent px-1 font-medium text-af-ink;
-  @apply hover:border-transparent hover:text-af-ink-2 focus:border-transparent focus:ring-0 focus-visible:underline;
-}
 </style>

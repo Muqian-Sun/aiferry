@@ -157,8 +157,13 @@
             <span class="font-medium text-af-ink">{{ row.image_count }}{{ t('usage.imageUnit') }}</span>
             <span class="text-af-ink-3">({{ formatImageBillingSize(row, t) }})</span>
           </div>
-          <!-- Token 请求 -->
-          <div v-else class="flex items-center gap-1.5">
+          <!-- Token 请求：悬停整格看明细（不再每行挂一个 ⓘ，2026-10-05） -->
+          <div
+            v-else
+            class="group relative cursor-help"
+            @mouseenter="showTokenTooltip($event, row)"
+            @mouseleave="hideTokenTooltip"
+          >
             <div class="space-y-1 text-sm">
               <div class="flex items-center gap-2">
                 <div class="inline-flex items-center gap-1">
@@ -199,40 +204,22 @@
                 <span class="font-medium">{{ t('usage.webSearchTimes', { count: row.web_search_count }) }}</span>
               </div>
             </div>
-            <!-- Token Detail Tooltip -->
-            <div
-              class="group relative"
-              @mouseenter="showTokenTooltip($event, row)"
-              @mouseleave="hideTokenTooltip"
-            >
-              <div class="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-sunken transition-colors group-hover:bg-af-brand-tint">
-                <Icon name="infoCircle" size="xs" class="text-af-ink-3 group-hover:text-af-brand" />
-              </div>
-            </div>
           </div>
         </template>
 
         <template #cell-cost="{ row }">
           <!-- 管理站：这一列是收入，按方案两位小数（不足一分写 <$0.01）；单笔精确金额、成本、利润在详情抽屉 -->
           <span v-if="isAdmin" class="text-sm font-medium tabular-nums text-af-ink" :title="formatMoneyExact(row.actual_cost)">{{ formatMoney(row.actual_cost) }}</span>
-          <div v-else class="text-sm">
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium tabular-nums text-af-ink">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
-              <!-- Cost Detail Tooltip -->
-              <div
-                class="group relative"
-                @mouseenter="showTooltip($event, row)"
-                @mouseleave="hideTooltip"
-              >
-                <div class="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-sunken transition-colors group-hover:bg-af-brand-tint">
-                  <Icon name="infoCircle" size="xs" class="text-af-ink-3 group-hover:text-af-brand" />
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- 金额下的虚线提示可悬停看计费明细 -->
+          <span
+            v-else
+            class="group relative cursor-help text-sm font-medium tabular-nums text-af-ink underline decoration-af-ink-4 decoration-dotted underline-offset-4"
+            @mouseenter="showTooltip($event, row)"
+            @mouseleave="hideTooltip"
+          >${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
         </template>
 
-        <!-- 合并首字/总耗时的健康度列：左侧色条上半随首字档、下半随总耗时档，便于纵向扫视整体健康状况 -->
+        <!-- 首字 / 总耗时合在一列，数字按档着色（慢了才变黄 / 红）；原来左侧还有一根色条，正常时是灰竖线，2026-10-05 删掉 -->
         <template #cell-latency="{ row }">
           <!-- 管理站：只写总耗时（按档着色），首字耗时在 title 与详情抽屉里 -->
           <span
@@ -241,18 +228,12 @@
             :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]"
             :title="row.first_token_ms != null ? `${t('usage.latencyFirstToken')} ${formatDuration(row.first_token_ms)}` : undefined"
           >{{ formatDuration(row.duration_ms) }}</span>
-          <div v-else class="flex items-stretch gap-2">
-            <span class="flex w-1 shrink-0 flex-col overflow-hidden rounded-full" aria-hidden="true">
-              <span class="flex-1" :class="LATENCY_BAR_CLASSES[row.first_token_ms != null ? firstTokenSeverity(row.first_token_ms) : durationSeverity(row.duration_ms ?? 0)]"></span>
-              <span class="flex-1" :class="LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"></span>
-            </span>
-            <div class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
-              <span class="text-af-ink-3">{{ t('usage.latencyFirstToken') }}</span>
-              <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
-              <span v-else class="text-af-ink-3">-</span>
-              <span class="text-af-ink-3">{{ t('usage.latencyDuration') }}</span>
-              <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
-            </div>
+          <div v-else class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
+            <span class="text-af-ink-3">{{ t('usage.latencyFirstToken') }}</span>
+            <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
+            <span v-else class="text-af-ink-3">-</span>
+            <span class="text-af-ink-3">{{ t('usage.latencyDuration') }}</span>
+            <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
           </div>
         </template>
 
@@ -337,7 +318,6 @@ import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens } from '@/utils/formatters'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import {
-  LATENCY_BAR_CLASSES,
   LATENCY_TEXT_CLASSES,
   durationSeverity,
   firstTokenSeverity,

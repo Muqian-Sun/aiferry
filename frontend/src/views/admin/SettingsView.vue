@@ -37,8 +37,15 @@
             <component :is="SECTION_COMPONENTS[section.key]" />
           </div>
 
-          <div class="settings-save-bar">
-            <!-- 保存栏左侧：失败原因 > 未保存 > 刚保存成功（2.5 秒后收起） -->
+          <!--
+            保存栏只在有事可说时出现：有改动 / 正在保存 / 保存失败 / 刚保存成功（2.5 秒后收起）；
+            没改动时不摆两个灰掉的按钮（2026-10-05 走查）
+          -->
+          <div
+            v-if="isSectionDirty(section.key) || (section.key === currentSection && (sectionSaving || saveError || justSaved))"
+            class="settings-save-bar"
+          >
+            <!-- 保存栏左侧：失败原因 > 未保存 > 刚保存成功 -->
             <span class="mr-auto inline-flex items-center gap-1.5 text-13" role="status" :data-testid="`settings-status-${section.key}`">
               <template v-if="section.key === currentSection && saveError">
                 <span class="text-af-danger">{{ saveError }}</span>
@@ -51,23 +58,25 @@
                 <span class="text-af-success">{{ t('admin.settings.settingsSaved') }}</span>
               </template>
             </span>
-            <button
-              type="button"
-              class="btn btn-secondary"
-              :disabled="sectionSaving || !isSectionDirty(section.key)"
-              :data-testid="`settings-discard-${section.key}`"
-              @click="discardSection(section.key)"
-            >
-              {{ t('admin.settings.discard') }}
-            </button>
-            <button
-              type="submit"
-              class="btn btn-primary"
-              :disabled="sectionSaving || loadFailed || !isSectionDirty(section.key)"
-              :data-testid="`settings-save-${section.key}`"
-            >
-              {{ sectionSaving ? t('admin.settings.saving') : t('admin.settings.saveSection') }}
-            </button>
+            <template v-if="isSectionDirty(section.key) || sectionSaving">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                :disabled="sectionSaving || !isSectionDirty(section.key)"
+                :data-testid="`settings-discard-${section.key}`"
+                @click="discardSection(section.key)"
+              >
+                {{ t('admin.settings.discard') }}
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="sectionSaving || loadFailed || !isSectionDirty(section.key)"
+                :data-testid="`settings-save-${section.key}`"
+              >
+                {{ sectionSaving ? t('admin.settings.saving') : t('admin.settings.saveSection') }}
+              </button>
+            </template>
           </div>
         </form>
       </div>

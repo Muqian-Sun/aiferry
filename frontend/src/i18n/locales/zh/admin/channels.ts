@@ -1,10 +1,7 @@
 export default {
     channelStatus: {
       description: '按渠道看最近的可用率、首字延迟、缓存命中率与请求数，与用户站服务状态同一份统计',
-      allModels: '全部模型',
-      allPlatforms: '全部平台',
-      modelFilter: '按模型筛选',
-      platformFilter: '按平台筛选',
+      filters: { model: '模型', platform: '平台' },
       loadFailed: '渠道状态没有加载出来',
       stats: { requests: '请求数' },
       channels: {
@@ -177,17 +174,11 @@ export default {
       preBlockSyncStatus: '前置拦截同步状态',
       preBlockSyncHint: '同步审核链路的实时计数，不包含异步写记录任务。',
       preBlockActive: '同步处理中',
-      preBlockActiveHint: '当前正在审核',
       preBlockChecked: '已检查',
-      preBlockCheckedHint: '进入前置拦截链路',
       preBlockAllowed: '已放行',
-      preBlockAllowedHint: '未触发拦截',
       preBlockBlocked: '已拦截',
-      preBlockBlockedHint: '命中后拒绝请求',
       preBlockErrors: '审核异常',
-      preBlockErrorsHint: '失败或无可用密钥',
       preBlockAvgLatency: '平均耗时',
-      preBlockAvgLatencyHint: '同步链路平均值',
       preBlockAPIKeyLoad: '审核密钥负载',
       preBlockAPIKeyLoadHint: '同步前置拦截直接轮询可用审核密钥。',
       preBlockAPIKeyLoadSummary: '同步并发 {active} / 可用密钥 {available}，累计 {total} 次，工作线程：{workerActive} / {workerTotal}',
@@ -255,7 +246,6 @@ export default {
         search: '按用户/密钥/摘要搜索',
         from: '开始时间',
         to: '结束时间',
-        allEndpoints: '全部端点',
       },
       table: {
         time: '时间',
@@ -269,7 +259,6 @@ export default {
         input: '输入摘要',
       },
       result: {
-        all: '全部结果',
         hit: '命中',
         blocked: '已拦截',
         pass: '未命中',

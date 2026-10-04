@@ -21,7 +21,7 @@ export default {
       },
       profitControl: {
         title: 'Minimum margin',
-        description: 'Channels that cannot reach the margin are not scheduled: upstream cost ratio = this channel\'s upstream price for the model ÷ the official price (highest across price items and segments); for a given request, a channel whose ratio exceeds user multiplier × (1 − minimum margin) is skipped. One site-wide setting, applies to every resource; 0 turns it off.',
+        description: 'Channels that cannot reach the margin are not scheduled: upstream cost ratio = this channel\'s upstream price for the model ÷ the official price (highest across price items and segments); for a given request, a channel whose ratio exceeds user multiplier × (1 − minimum margin) is skipped. One site-wide setting, applies to every resource.',
         minMargin: 'Minimum margin (fraction, 0.30 = 30%)',
         hint: '0 turns it off; at most 0.99.'
       },

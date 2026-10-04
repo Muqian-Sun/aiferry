@@ -30,9 +30,9 @@ export const HEALTH_TEXT: Record<ServiceHealth, string> = {
 export function formatPercent(value: number | null | undefined): string {
   if (value == null) return '—'
   const percent = value * 100
-  // 99.95% 以上写 100%，其余一位小数：再多的精度读不出差别
+  // 99.95% 以上写 100%，其余一位小数：再多的精度读不出差别；整数不带 .0（0.0% → 0%）
   if (percent >= 99.95) return '100%'
-  return `${percent.toFixed(1)}%`
+  return `${Number(percent.toFixed(1))}%`
 }
 
 export function formatLatency(ms: number | null | undefined): string {

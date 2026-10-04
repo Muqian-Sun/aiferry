@@ -84,8 +84,6 @@
             <EmptyState
               :title="t('payment.admin.noPlansYet')"
               :description="t('payment.admin.createFirstPlan')"
-              :action-text="t('payment.admin.createPlan')"
-              @action="openPlanEdit(null)"
             />
           </template>
         </DataTable>

@@ -1,6 +1,6 @@
 <template>
   <!--
-    目录表格里的标价格：按 Token 的第一行「$输入 / $输出」（有分段时是第一段的价）、第二行「输入 / 输出 · 每百万 Token（· 分 N 段）」；
+    目录表格里的标价格：按 Token 的只写「$输入 / $输出」（有分段时是第一段的价，第二行「分 N 段」）——单位写在列头，不在每行重复（2026-10-05）；
     按次 / 图片 / 视频第一行默认按次价、第二行「每次 / 每张 / 每秒 · N 档」。
     整列共用一个小数位数（decimals 由列表页按当前筛选结果算好传进来）。
     没配价写「未配价」，只有上架的才标红（上架必有价；未上架的没配价是常态）。
@@ -17,10 +17,7 @@
       <div class="text-af-ink">
         {{ formatListPrice(prices[0], decimals) }} <span class="text-af-ink-3">/</span> {{ formatListPrice(prices[1], decimals) }}
       </div>
-      <div class="text-xs text-af-ink-3">
-        {{ t('admin.modelCatalog.columns.perMillion') }}
-        <template v-if="segmentCount"> · {{ t('admin.modelCatalog.columns.segments', { count: segmentCount }) }}</template>
-      </div>
+      <div v-if="segmentCount" class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.columns.segments', { count: segmentCount }) }}</div>
     </template>
     <template v-else>
       <div class="text-af-ink">{{ formatListPrice(prices[0], decimals) }}</div>

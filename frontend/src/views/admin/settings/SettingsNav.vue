@@ -1,7 +1,7 @@
 <template>
   <!--
     系统设置二级导航（A6）：组标题 + 小节。宽屏是左侧一列，窄屏收成一行横向滚动。
-    样式同侧栏：当前项文字加粗 + 左侧竖线，不用底色块。
+    样式同侧栏：宽屏当前项文字加粗 + 左侧竖线；窄屏横排时加浅底块（只有加粗看不出当前项）。
   -->
   <nav class="settings-nav" :aria-label="t('admin.settings.navLabel')">
     <div v-for="group in SETTINGS_SECTION_GROUPS" :key="group.key" class="settings-nav-group">
@@ -48,7 +48,8 @@ const { t } = useI18n()
   @apply relative whitespace-nowrap rounded-md px-2.5 py-1.5 text-left text-sm text-af-ink-2 transition-colors hover:text-af-ink lg:rounded-none lg:border-l-2 lg:border-transparent lg:py-1;
 }
 
+/* 宽屏左侧竖线；窄屏横排时没有竖线，用浅底块标出当前项（同用户站第二行导航） */
 .settings-nav-link-active {
-  @apply font-semibold text-af-ink lg:border-af-ink;
+  @apply font-semibold text-af-ink max-lg:bg-af-sunken lg:border-af-ink;
 }
 </style>

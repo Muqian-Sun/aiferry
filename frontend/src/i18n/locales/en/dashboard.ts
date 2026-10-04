@@ -283,7 +283,6 @@ export default {
     sync: 'Sync',
     nativeCompactionV2: 'Compaction',
     compactionFilter: 'Request Kind',
-    allCompactionTypes: 'All Requests',
     compactionOnly: 'Compaction requests only',
     cyber: 'Cyber',
     live: 'Live',
@@ -343,7 +342,7 @@ export default {
     errors: {
       time: 'Time', model: 'Model', endpoint: 'Endpoint', status: 'Status',
       category: 'Category', message: 'Message',
-      keyName: 'Key Name', keyDeleted: 'Deleted', allCategories: 'All categories', allStatuses: 'All status codes',
+      keyName: 'Key Name', keyDeleted: 'Deleted',
       empty: 'No error requests',
       categories: {
         auth: 'Auth failed', rate_limit: 'Rate limited', quota: 'Balance/Subscription',
@@ -398,7 +397,6 @@ export default {
     accountBalance: 'Account Balance',
     concurrencyLimit: 'Concurrency Limit',
     memberSince: 'Member Since',
-    administrator: 'Administrator',
     user: 'User',
     username: 'Username',
     enterUsername: 'Enter username',
@@ -501,7 +499,7 @@ export default {
     avatar: {
       title: 'Profile Avatar',
       uploadAction: 'Upload image',
-      uploadHint: 'Static uploads are compressed to 20KB when possible. GIF uploads must already be within 20KB.',
+      uploadHint: 'Images are compressed to under 20KB; GIFs are not, so keep them under 20KB.',
       uploadRequired: 'Upload an avatar image first',
       saveSuccess: 'Avatar updated',
       deleteSuccess: 'Avatar removed',
@@ -510,7 +508,6 @@ export default {
       compressTooLarge: 'Unable to compress this image below 20KB. Try a smaller image.',
       compressFailed: 'Failed to compress the selected image.',
       readFailed: 'Failed to read the selected image.',
-      emptyDeleteHint: 'Avatar is already empty',
       saveFailed: 'Failed to save avatar',
       deleteFailed: 'Failed to delete avatar',
     },
@@ -556,14 +553,13 @@ export default {
 
   // Pagination
   pagination: {
-    showing: 'Showing',
-    to: 'to',
-    of: 'of',
-    results: 'results',
+    totalOnly: '{total} items',
+    range: '{from}–{to} of {total}',
     pageOf: 'Page {page} of {total}',
     previous: 'Previous',
     next: 'Next',
     perPage: 'Per page',
+    perPageCount: '{size} / page',
     goToPage: 'Go to page {page}',
     jumpTo: 'Jump to',
     jumpPlaceholder: 'Page',

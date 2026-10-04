@@ -167,8 +167,6 @@
             <EmptyState
               v-else
               :title="entries.length ? t('admin.modelCatalog.noMatch') : t('admin.modelCatalog.empty')"
-              :action-text="entries.length ? undefined : t('admin.modelCatalog.create')"
-              @action="openCreate"
             />
           </template>
         </DataTable>

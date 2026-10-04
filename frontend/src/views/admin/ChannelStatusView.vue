@@ -9,12 +9,8 @@
   -->
   <AppLayout>
     <template #header-actions>
-      <div class="w-40">
-        <Select v-model="model" :options="modelOptions" :title="t('admin.channelStatus.modelFilter')" />
-      </div>
-      <div class="w-32">
-        <Select v-model="platform" :options="platformOptions" :title="t('admin.channelStatus.platformFilter')" />
-      </div>
+      <FilterChip v-model="model" :label="t('admin.channelStatus.filters.model')" :options="modelOptions" test-id="channel-status-filter-model" />
+      <FilterChip v-model="platform" :label="t('admin.channelStatus.filters.platform')" :options="platformOptions" test-id="channel-status-filter-platform" />
       <SegmentedControl v-model="range" :options="rangeOptions" :label="t('userUi.serviceStatus.range.label')" />
     </template>
 
@@ -153,7 +149,7 @@ import { getChannelStatus, type ChannelStatus, type ChannelStatusRow } from '@/a
 import type { ServiceHealth, ServiceStatusRange } from '@/api/serviceStatus'
 import type { AccountPlatform } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import Select from '@/components/common/Select.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -178,14 +174,11 @@ const HEALTH_RANK: Record<ServiceHealth, number> = { critical: 0, warning: 1, he
 const range = ref<ServiceStatusRange>('24h')
 const rangeOptions = computed(() => RANGES.map((key) => ({ key, label: t(`userUi.serviceStatus.range.${key}`) })))
 const model = ref('')
-const modelOptions = computed(() => [
-  { value: '', label: t('admin.channelStatus.allModels') },
-  ...(data.value?.models ?? []).map((id) => ({ value: id, label: id }))
-])
+const modelOptions = computed(() => (data.value?.models ?? []).map((id) => ({ value: id, label: id })))
 const platform = ref('')
 const platformOptions = computed(() => {
   const platforms = [...new Set(rows.value.filter((row) => row.account_id > 0).map((row) => row.platform))].sort()
-  return [{ value: '', label: t('admin.channelStatus.allPlatforms') }, ...platforms.map((p) => ({ value: p, label: platformLabel(p) }))]
+  return platforms.map((p) => ({ value: p, label: platformLabel(p) }))
 })
 
 // ---------- 数据 ----------
@@ -284,28 +277,25 @@ function healthLabel(level: ServiceHealth): string {
 }
 
 // ---------- 数字 ----------
+// 整体数字一律黑色（同用户站服务状态，2026-10-04）；红黄只留在各渠道的状态上
 const statItems = computed<StatItem[]>(() => {
   const metrics = data.value?.metrics
-  const health = data.value?.health
   return [
     {
       key: 'availability',
       label: t('userUi.serviceStatus.stats.availability'),
-      value: formatPercent(metrics?.availability),
-      valueClass: health ? HEALTH_TEXT[health.availability] : undefined
+      value: formatPercent(metrics?.availability)
     },
     {
       key: 'ttft',
       label: t('userUi.serviceStatus.stats.ttft'),
       value: formatLatency(metrics?.ttft_p50_ms),
-      hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined,
-      valueClass: health ? HEALTH_TEXT[health.ttft] : undefined
+      hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined
     },
     {
       key: 'cache',
       label: t('userUi.serviceStatus.stats.cache'),
-      value: formatPercent(metrics?.cache_hit_rate),
-      valueClass: health ? HEALTH_TEXT[health.cache] : undefined
+      value: formatPercent(metrics?.cache_hit_rate)
     },
     { key: 'requests', label: t('admin.channelStatus.stats.requests'), value: formatNumber(metrics?.request_count ?? 0) }
   ]

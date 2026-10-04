@@ -11,12 +11,10 @@
   <AppLayout>
     <template #header-actions>
       <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" :preset="datePreset" @change="onDateRangeChange" />
-      <div class="w-28">
-        <Select v-model="granularity" :options="granularityOptions" :title="t('admin.dashboard.granularity')" @change="loadChartData" />
-      </div>
+      <SegmentedControl :model-value="granularity" :options="granularityOptions" :label="t('admin.dashboard.granularity')" @update:model-value="onGranularityChange" />
       <button
         type="button"
-        class="btn btn-ghost btn-md px-2.5"
+        class="btn btn-ghost btn-sm h-8 px-2"
         :disabled="chartsLoading"
         :title="t('common.refresh')"
         :aria-label="t('common.refresh')"
@@ -33,17 +31,20 @@
 
     <div v-else-if="stats" class="space-y-8">
       <section data-testid="dashboard-numbers">
-        <p class="mb-3 text-right text-xs tabular-nums text-af-ink-3" data-testid="dashboard-realtime">
-          {{ t('admin.dashboard.realtime', { rpm: formatNumber(stats.rpm), tpm: formatTokens(stats.tpm) }) }}
-        </p>
         <div class="divide-y divide-af-hairline">
           <div
             v-for="row in numberRows"
             :key="row.key"
-            class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start"
+            class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
             :data-testid="`dashboard-row-${row.key}`"
           >
-            <p class="w-16 shrink-0 text-13 font-medium text-af-ink-2">{{ row.title }}</p>
+            <!-- 行标题；实时 RPM · TPM 跟在「今日」这一行的右侧（原来单独一行挂在右上角） -->
+            <div class="flex items-baseline justify-between gap-4">
+              <p class="text-13 font-medium text-af-ink-2">{{ row.title }}</p>
+              <p v-if="row.key === 'today'" class="text-xs tabular-nums text-af-ink-3" data-testid="dashboard-realtime">
+                {{ t('admin.dashboard.realtime', { rpm: formatNumber(stats.rpm), tpm: formatTokens(stats.tpm) }) }}
+              </p>
+            </div>
             <!-- 标签在上、数字在下：与用量页、各列表页的数字带同一种排法（原来这里数字在上） -->
             <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               <div v-for="cell in row.cells" :key="cell.key" class="flex min-w-0 flex-col">
@@ -116,7 +117,6 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import Select from '@/components/common/Select.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import ModelTokenTrendChart from '@/components/admin/dashboard/ModelTokenTrendChart.vue'
@@ -159,10 +159,14 @@ const datePreset = ref<string | null>(null)
 const timeWindow = ref(windowForPreset(datePreset.value))
 const rangeQuery = computed(() => rangeParams(startDate.value, endDate.value, timeWindow.value))
 
-const granularityOptions = computed(() => [
-  { value: 'day', label: t('admin.dashboard.day') },
-  { value: 'hour', label: t('admin.dashboard.hour') }
+const granularityOptions = computed<Array<{ key: TrendGranularity; label: string }>>(() => [
+  { key: 'day', label: t('admin.dashboard.day') },
+  { key: 'hour', label: t('admin.dashboard.hour') }
 ])
+const onGranularityChange = (value: TrendGranularity) => {
+  granularity.value = value
+  loadChartData()
+}
 
 // ---------- ① 今日 / 累计 ----------
 const toFiniteNumber = (value: unknown): number => {

@@ -19,17 +19,10 @@
       </div>
 
       <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-center gap-2">
-          <h3 class="truncate text-base font-semibold text-af-ink">
-            {{ displayName }}
-          </h3>
-          <span :class="['badge', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
-            {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
-          </span>
-          <span :class="['badge', user?.status === 'active' ? 'badge-gray' : 'badge-danger']">
-            {{ user?.status === 'active' ? t('common.active') : t('common.disabled') }}
-          </span>
-        </div>
+        <!-- 不挂「用户 / 启用」徽标：管理员登不进用户站、停用的账户也登不进来，这两个永远是同一个值（2026-10-05） -->
+        <h3 class="truncate text-base font-semibold text-af-ink">
+          {{ displayName }}
+        </h3>
         <p v-if="primaryEmailDisplay && primaryEmailDisplay !== displayName" class="mt-0.5 truncate text-13 text-af-ink-3">
           {{ primaryEmailDisplay }}
         </p>
@@ -40,7 +33,8 @@
     </section>
 
     <!-- 余额 / 并发 / 注册时间。倍率不给用户看（muqian 2026-09-30），价格页与用量页展示的都已是实付口径 -->
-    <dl class="mt-6 grid grid-cols-2 gap-y-4 border-t border-af-hairline pt-5 sm:grid-cols-3 sm:divide-x sm:divide-af-hairline">
+    <!-- 与身份之间只留白：这里画横线只有内容栏那么宽，和整行的分隔线对不齐 -->
+    <dl class="mt-6 grid grid-cols-2 gap-y-4 sm:grid-cols-3 sm:divide-x sm:divide-af-hairline">
       <div data-testid="profile-overview-metric-balance" class="min-w-0 pr-4">
         <dt class="truncate text-13 text-af-ink-3">{{ t('profile.accountBalance') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ formatCurrency(user?.balance || 0) }}</dd>

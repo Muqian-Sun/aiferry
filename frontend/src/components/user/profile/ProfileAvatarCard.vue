@@ -44,7 +44,9 @@
             {{ t('common.save') }}
           </button>
 
+          <!-- 存过头像才有「删除」 -->
           <button
+            v-if="user?.avatar_url?.trim()"
             data-testid="profile-avatar-delete"
             type="button"
             class="text-13 font-medium text-af-ink-3 transition-colors hover:text-af-danger disabled:opacity-40"
@@ -239,11 +241,6 @@ async function handleAvatarDelete() {
   }
   avatarError.value = ''
   avatarSaved.clear()
-  if (!avatarDraft.value.trim() && !props.user?.avatar_url?.trim()) {
-    avatarError.value = t('profile.avatar.emptyDeleteHint')
-    return
-  }
-
   avatarSaving.value = true
   try {
     const updated = await userAPI.updateProfile({ avatar_url: '' })

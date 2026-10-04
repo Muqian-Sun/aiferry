@@ -8,7 +8,11 @@
       v-for="(item, index) in items"
       :key="item.key ?? item.label"
       class="min-w-0 pr-6 lg:flex-1 lg:px-6 lg:first:pl-0 lg:last:pr-0"
-      :class="index >= 2 ? 'border-t border-af-hairline pt-4 lg:border-t-0 lg:pt-0' : ''"
+      :class="[
+        index >= 2 ? 'border-t border-af-hairline pt-4 lg:border-t-0 lg:pt-0' : '',
+        // 两列时项数为奇数：最后一项占满一行，分隔线不会只画半截
+        index === items.length - 1 && items.length % 2 === 1 ? 'col-span-2' : ''
+      ]"
       :data-testid="item.key ? `stat-${item.key}` : undefined"
     >
       <dt class="truncate text-13 text-af-ink-3">{{ item.label }}</dt>

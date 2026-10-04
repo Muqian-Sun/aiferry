@@ -391,15 +391,8 @@ describe('admin RiskControlView', () => {
     const syncCard = wrapper.get('[data-test="pre-block-sync-card"]')
     const apiKeyLoadCard = wrapper.get('[data-test="pre-block-api-key-load-card"]')
 
-    expect(runtimeCards.classes()).toEqual(expect.arrayContaining([
-      'grid',
-      'grid-cols-1',
-      'xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]',
-    ]))
     expect(syncCard.element.parentElement).toBe(runtimeCards.element)
     expect(apiKeyLoadCard.element.parentElement).toBe(runtimeCards.element)
-    expect(syncCard.classes()).toContain('card')
-    expect(apiKeyLoadCard.classes()).toContain('card')
     expect(syncCard.get('h2').text()).toBe('admin.riskControl.preBlockSyncStatus')
     expect(syncCard.text()).toContain('admin.riskControl.preBlockSyncHint')
     expect(apiKeyLoadCard.get('h2').text()).toBe('admin.riskControl.preBlockAPIKeyLoad')

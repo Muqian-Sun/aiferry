@@ -122,8 +122,8 @@ const lineData = computed(() => {
   return {
     labels: labels.value,
     datasets: [
-      { label: 'P50', data: props.throughput.map((p) => seconds(p.ttft_p50_ms)), borderColor: palette.ink, backgroundColor: palette.ink, pointRadius: 2, spanGaps: false, tension: 0.2 },
-      { label: 'P99', data: props.throughput.map((p) => seconds(p.ttft_p99_ms)), borderColor: palette.text, backgroundColor: palette.text, borderDash: [4, 4], pointRadius: 2, spanGaps: false, tension: 0.2 }
+      { label: 'P50', data: props.throughput.map((p) => seconds(p.ttft_p50_ms)), borderColor: palette.ink, backgroundColor: palette.ink, pointRadius: 2, clip: false as const, spanGaps: false, tension: 0.2 },
+      { label: 'P99', data: props.throughput.map((p) => seconds(p.ttft_p99_ms)), borderColor: palette.text, backgroundColor: palette.text, borderDash: [4, 4], pointRadius: 2, clip: false as const, spanGaps: false, tension: 0.2 }
     ]
   }
 })
@@ -163,7 +163,7 @@ const options = computed(() => {
       }
     },
     scales: {
-      x: { stacked, grid: { display: false }, ticks: { color: palette.text, font: { size: 10 }, maxTicksLimit: 8, autoSkip: true } },
+      x: { stacked, offset: true, grid: { display: false }, ticks: { color: palette.text, font: { size: 10 }, maxTicksLimit: 8, autoSkip: true } },
       // 从 0 开始：全是 0 的时间段不再出现负刻度
       y: {
         stacked,
