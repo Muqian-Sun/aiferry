@@ -217,7 +217,7 @@ func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
 // newProbeTestService 部署配置里只有一个守卫节点（guard-1）的服务
 func newProbeTestService(baseURL, token string) *PromptService {
 	return &PromptService{
-		config: &ConfigManager{endpoints: []ActiveEndpoint{{ID: "guard-1", Name: "Probe One", BaseURL: baseURL, Model: DefaultGuardModel, Token: token}}},
+		config:  &ConfigManager{endpoints: []ActiveEndpoint{{ID: "guard-1", Name: "Probe One", BaseURL: baseURL, Model: DefaultGuardModel, Token: token}}},
 		scanner: NewOpenAICompatibleScanner(), clock: realClock{},
 		probes: map[string]ProbeResult{},
 	}

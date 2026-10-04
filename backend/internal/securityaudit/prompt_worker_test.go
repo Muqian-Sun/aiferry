@@ -56,7 +56,9 @@ func (s *fakeConfigStore) RuntimeState() (int64, int64, *time.Time, string) {
 	return s.cfg.ConfigVersion, s.cfg.ConfigVersion, nil, ""
 }
 func (s *fakeConfigStore) Encrypt(value string) (string, error) { return value, nil }
-func (s *fakeConfigStore) GuardEndpoints() []ActiveEndpoint     { return append([]ActiveEndpoint(nil), s.cfg.Endpoints...) }
+func (s *fakeConfigStore) GuardEndpoints() []ActiveEndpoint {
+	return append([]ActiveEndpoint(nil), s.cfg.Endpoints...)
+}
 func (s *fakeConfigStore) Decrypt(value string) (string, error) { return value, nil }
 
 type fakeJobRepository struct {
