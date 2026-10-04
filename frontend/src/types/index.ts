@@ -550,14 +550,6 @@ export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'bedrock' | 'serv
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
 
-// Claude Model type (returned by /v1/models and account models API)
-export interface ClaudeModel {
-  id: string
-  type: string
-  display_name: string
-  created_at: string
-}
-
 export interface Proxy {
   id: number
   name: string

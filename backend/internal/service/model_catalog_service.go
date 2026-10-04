@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -328,6 +329,22 @@ func (s *ModelCatalogService) ListEntries(ctx context.Context) ([]ModelCatalogEn
 		return nil, nil
 	}
 	return s.repo.ListEntries(ctx)
+}
+
+// ListAccountEntries 返回这个渠道承接的目录条目（按模型标识排序，上架与否都算）。
+// 渠道测试（测试连接 / 定时测试）只从这里挑模型：没有承接就是空列表，不回退到任何写死的模型表。
+func (s *ModelCatalogService) ListAccountEntries(ctx context.Context, accountID int64) ([]ModelCatalogEntry, error) {
+	entries, err := s.ListEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bound := make([]ModelCatalogEntry, 0, len(entries))
+	for _, entry := range entries {
+		if slices.ContainsFunc(entry.Bindings, func(binding ModelCatalogBinding) bool { return binding.AccountID == accountID }) {
+			bound = append(bound, entry)
+		}
+	}
+	return bound, nil
 }
 
 // GetEntry 按 ID 取条目。

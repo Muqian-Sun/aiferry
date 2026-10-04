@@ -149,7 +149,6 @@ type AccountTestService struct {
 	modelMetadataRegistryMu   sync.Mutex
 	modelMetadataRegistry     map[string]modelsDevProvider
 	modelMetadataRegistryAt   time.Time
-	openaiGatewayService      *OpenAIGatewayService
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
 	// grokWSDialer is optional; realtime account tests use the default OpenAI-style
@@ -161,65 +160,6 @@ func (s *AccountTestService) SetSettingService(settingService *SettingService) {
 	if s != nil {
 		s.settingService = settingService
 	}
-}
-
-func (s *AccountTestService) SetOpenAIGatewayService(gateway *OpenAIGatewayService) {
-	if s != nil {
-		s.openaiGatewayService = gateway
-	}
-}
-
-// FetchOpenAIAccountModels uses the shared cached discovery path for the test picker.
-// It only fills picker-only gaps (local display-name fallbacks, OAuth image choices)
-// on its own copy; the shared catalog and its cache stay untouched.
-func (s *AccountTestService) FetchOpenAIAccountModels(ctx context.Context, account *Account) ([]openai.Model, error) {
-	if s == nil || s.openaiGatewayService == nil {
-		return nil, errors.New("OpenAI model discovery service is unavailable")
-	}
-	response, err := s.openaiGatewayService.FetchOpenAIModelsList(ctx, account)
-	if err != nil {
-		return nil, err
-	}
-	var payload struct {
-		Data []openai.Model `json:"data"`
-	}
-	if err := json.Unmarshal(response.Body, &payload); err != nil {
-		return nil, fmt.Errorf("decode OpenAI account models: %w", err)
-	}
-	// Every entry in the picker is labelled by the same rule: the upstream display
-	// name when the catalog has one, otherwise the local catalog name for that model
-	// ID, otherwise the raw ID. Without this the picker mixes "GPT-5.6 Sol" with
-	// "gpt-5.6-sol" for the same catalog.
-	for i := range payload.Data {
-		model := &payload.Data[i]
-		if strings.TrimSpace(model.DisplayName) == "" {
-			model.DisplayName = openaiCodexDisplayName(model.ID)
-		}
-		if strings.TrimSpace(model.Type) == "" {
-			model.Type = "model"
-		}
-	}
-	// Codex discovery lists Responses drivers, not image_generation tool models.
-	// Add locally supported image choices only to the OAuth test picker; keep the
-	// shared upstream catalog and API-key discovery authoritative.
-	if account != nil && account.IsOpenAIOAuthLike() {
-		seen := make(map[string]bool, len(payload.Data))
-		for _, model := range payload.Data {
-			seen[model.ID] = true
-		}
-		for _, model := range openai.DefaultModels {
-			if IsGPTImageGenerationModel(model.ID) && account.IsModelSupported(model.ID) && !seen[model.ID] {
-				payload.Data = append(payload.Data, model)
-				seen[model.ID] = true
-			}
-		}
-		for model := range account.GetModelMapping() {
-			if IsGPTImageGenerationModel(model) && !strings.Contains(model, "*") && !seen[model] {
-				payload.Data = append(payload.Data, openai.Model{ID: model, Object: "model", Type: "model", OwnedBy: "openai", DisplayName: openaiCodexDisplayName(model)})
-			}
-		}
-	}
-	return payload.Data, nil
 }
 
 // NewAccountTestService creates a new AccountTestService

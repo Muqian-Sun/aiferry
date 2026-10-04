@@ -12,7 +12,6 @@ import type {
   PaginatedResponse,
   AccountUsageInfo,
   WindowStats,
-  ClaudeModel,
   AccountUsageStatsResponse,
   TempUnschedulableStatus,
   AdminDataPayload,
@@ -503,13 +502,17 @@ export async function setSchedulable(id: number, schedulable: boolean): Promise<
   return data
 }
 
-/**
- * Get available models for an account
- * @param id - Account ID
- * @returns List of available models for this account
- */
-export async function getAvailableModels(id: number): Promise<ClaudeModel[]> {
-  const { data } = await apiClient.get<ClaudeModel[]>(`/admin/accounts/${id}/models`)
+/** 渠道测试（测试连接 / 定时测试）可选的一个模型：这个渠道承接的目录模型 */
+export interface AccountTestModel {
+  /** 目录模型标识：测试请求发它，后端按承接换成上游模型名 */
+  id: string
+  /** 目录展示名，没填时后端给标识 */
+  display_name: string
+}
+
+/** 渠道测试可选的模型：只有这个渠道承接的目录模型，没有承接时是空数组 */
+export async function getAvailableModels(id: number): Promise<AccountTestModel[]> {
+  const { data } = await apiClient.get<AccountTestModel[]>(`/admin/accounts/${id}/models`)
   return data
 }
 

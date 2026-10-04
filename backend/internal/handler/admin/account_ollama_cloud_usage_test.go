@@ -128,7 +128,7 @@ func TestOllamaCloudUsageEncryptionKeyStateConsistentAcrossAccountResponses(t *t
 			)
 			t.Cleanup(usageService.Stop)
 
-			handler := NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+			handler := NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 			handler.SetOllamaCloudUsageService(usageService)
 			router := gin.New()
 			router.GET("/accounts", handler.List)
@@ -210,7 +210,7 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 	adminService.getAccountResult = sibling
 	usageService := service.NewOllamaCloudUsageService(repo, nil, nil, true)
 	t.Cleanup(usageService.Stop)
-	handler := NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	handler.SetOllamaCloudUsageService(usageService)
 	router := gin.New()
 	router.GET("/accounts", handler.List)

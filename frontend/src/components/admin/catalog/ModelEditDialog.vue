@@ -1,6 +1,7 @@
 <template>
   <!--
-    编辑模型（一步）：模型标识、展示名、厂商、上架。
+    编辑模型（一步）：模型标识、展示名、厂商、别名、上架、备注。
+    别名增删各自一个请求、立即生效（不随「保存」）；其余字段点「保存」整条写回。
     官方价、分段、联网搜索价、承接渠道都在价格页改；计费方式、按次 / 图片 / 视频价不在表单里，保存时按条目原值整条写回。
   -->
   <BaseDialog :show="show" :title="t('admin.modelCatalog.edit')" width="normal" @close="handleClose">
@@ -13,6 +14,59 @@
         :vendor-options="vendorOptions"
       />
 
+      <div data-testid="model-catalog-aliases">
+        <label class="input-label" for="model-catalog-alias-input">{{ t('admin.modelCatalog.dialog.aliases.label') }}</label>
+        <ul v-if="aliases.length" class="mb-2 flex flex-wrap gap-1.5">
+          <li
+            v-for="alias in aliases"
+            :key="alias.id"
+            class="inline-flex items-center gap-1 rounded bg-af-sunken py-1 pl-2 pr-1 font-mono text-xs text-af-ink-2"
+            :title="alias.notes || undefined"
+          >
+            {{ alias.alias }}
+            <span v-if="alias.source === 'seed'" class="pr-1 font-sans text-af-ink-4" :title="t('admin.modelCatalog.dialog.aliases.seedTitle')">
+              {{ t('admin.modelCatalog.dialog.aliases.seed') }}
+            </span>
+            <button
+              v-else
+              type="button"
+              class="rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-hairline hover:text-af-ink disabled:cursor-not-allowed disabled:opacity-35"
+              :disabled="aliasBusy"
+              :aria-label="t('admin.modelCatalog.dialog.aliases.remove', { alias: alias.alias })"
+              :title="t('admin.modelCatalog.dialog.aliases.remove', { alias: alias.alias })"
+              data-testid="model-catalog-alias-remove"
+              @click="removeAlias(alias)"
+            >
+              <Icon name="x" size="xs" />
+            </button>
+          </li>
+        </ul>
+        <div class="flex gap-2">
+          <input
+            id="model-catalog-alias-input"
+            v-model="aliasDraft"
+            :class="['input font-mono', aliasError ? 'input-error' : '']"
+            autocomplete="off"
+            spellcheck="false"
+            :placeholder="t('admin.modelCatalog.dialog.aliases.placeholder')"
+            :disabled="aliasBusy"
+            data-testid="model-catalog-alias-input"
+            @keydown.enter.prevent="addAlias"
+          />
+          <button
+            type="button"
+            class="btn btn-secondary shrink-0"
+            :disabled="aliasBusy || !aliasDraft.trim()"
+            data-testid="model-catalog-alias-add"
+            @click="addAlias"
+          >
+            {{ t('admin.modelCatalog.dialog.aliases.add') }}
+          </button>
+        </div>
+        <p v-if="aliasError" class="input-error-text" data-testid="model-catalog-alias-error">{{ aliasError }}</p>
+        <p v-else class="input-hint">{{ t('admin.modelCatalog.dialog.aliases.hint') }}</p>
+      </div>
+
       <div>
         <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
         <select v-model="form.status" class="input" data-testid="model-catalog-status">
@@ -20,6 +74,18 @@
           <option value="unlisted">{{ t('admin.modelCatalog.status.unlisted') }}</option>
         </select>
         <p class="input-hint">{{ t('admin.modelCatalog.dialog.listingRule') }}</p>
+      </div>
+
+      <div>
+        <label class="input-label" for="model-catalog-notes">{{ t('admin.modelCatalog.dialog.notes') }}</label>
+        <textarea
+          id="model-catalog-notes"
+          v-model="form.notes"
+          class="input"
+          rows="2"
+          :placeholder="t('admin.modelCatalog.dialog.notesPlaceholder')"
+          data-testid="model-catalog-notes"
+        ></textarea>
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-af-sunken px-3 py-2 text-13">
@@ -51,7 +117,7 @@
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
+import type { ModelCatalogAlias, ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -67,7 +133,12 @@ const props = defineProps<{
   vendorOptions: CatalogVendorChoice[]
 }>()
 
-const emit = defineEmits<{ close: []; saved: [entry: ModelCatalogEntry] }>()
+const emit = defineEmits<{
+  close: []
+  saved: [entry: ModelCatalogEntry]
+  /** 别名增删已经写进库（不等「保存」）：目录页要重新拉列表 */
+  'aliases-changed': []
+}>()
 
 const { t } = useI18n()
 
@@ -79,8 +150,15 @@ const form = reactive({
   model_id: '',
   display_name: '',
   vendor: '',
-  status: 'unlisted' as string
+  status: 'unlisted' as string,
+  notes: ''
 })
+
+// 别名：弹窗里的这份随增删即时更新，和库里一致
+const aliases = ref<ModelCatalogAlias[]>([])
+const aliasDraft = ref('')
+const aliasError = ref('')
+const aliasBusy = ref(false)
 
 watch(
   [() => props.show, () => props.entry],
@@ -92,11 +170,50 @@ watch(
       model_id: entry.model_id,
       display_name: entry.display_name,
       vendor: entry.vendor,
-      status: entry.status
+      status: entry.status,
+      notes: entry.notes ?? ''
     })
+    aliases.value = [...(entry.aliases ?? [])]
+    aliasDraft.value = ''
+    aliasError.value = ''
   },
   { immediate: true }
 )
+
+async function addAlias() {
+  const entry = props.entry
+  const alias = aliasDraft.value.trim()
+  if (!entry || !alias || aliasBusy.value) return
+  aliasError.value = ''
+  aliasBusy.value = true
+  try {
+    const created = await adminAPI.modelCatalog.createAlias({ entry_id: entry.id, alias })
+    aliases.value = [...aliases.value, created].sort((a, b) => a.alias.localeCompare(b.alias))
+    aliasDraft.value = ''
+    emit('aliases-changed')
+  } catch (error) {
+    aliasError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.aliases.addFailed'), {
+      MODEL_CATALOG_ALIAS_EXISTS: t('admin.modelCatalog.dialog.aliases.exists')
+    })
+  } finally {
+    aliasBusy.value = false
+  }
+}
+
+async function removeAlias(alias: ModelCatalogAlias) {
+  if (aliasBusy.value) return
+  aliasError.value = ''
+  aliasBusy.value = true
+  try {
+    await adminAPI.modelCatalog.deleteAlias(alias.id)
+    aliases.value = aliases.value.filter((item) => item.id !== alias.id)
+    emit('aliases-changed')
+  } catch (error) {
+    aliasError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.aliases.removeFailed'))
+  } finally {
+    aliasBusy.value = false
+  }
+}
 
 async function save() {
   const entry = props.entry
@@ -109,12 +226,14 @@ async function save() {
   }
   saving.value = true
   try {
+    const notes = form.notes.trim()
     const updated = await adminAPI.modelCatalog.updateEntry(entry.id, {
       ...entryToRequest(entry),
       model_id: form.model_id.trim(),
       display_name: form.display_name.trim(),
       vendor: form.vendor.trim(),
-      status: form.status
+      status: form.status,
+      notes: notes === '' ? null : notes
     })
     emit('saved', updated)
     emit('close')
