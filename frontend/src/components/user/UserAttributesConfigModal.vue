@@ -12,6 +12,8 @@
         </button>
       </div>
 
+      <FormError :message="loadError" />
+
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center py-12">
         <svg class="h-8 w-8 animate-spin text-af-brand" fill="none" viewBox="0 0 24 24">
@@ -21,7 +23,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="attributes.length === 0" class="py-12 text-center">
+      <div v-else-if="attributes.length === 0 && !loadError" class="py-12 text-center">
         <svg class="mx-auto h-12 w-12 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
@@ -208,7 +210,8 @@
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="formError" />
         <button @click="closeEditModal" type="button" class="btn btn-secondary">
           {{ t('common.cancel') }}
         </button>
@@ -233,7 +236,9 @@
     :danger="true"
     @confirm="handleDelete"
     @cancel="showDeleteDialog = false"
-  />
+  >
+    <FormError :message="deleteError" />
+  </ConfirmDialog>
 </template>
 
 <script setup lang="ts">
@@ -243,6 +248,7 @@ import { adminAPI } from '@/api/admin'
 import type { UserAttributeDefinition, UserAttributeType, UserAttributeOption } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
@@ -270,6 +276,10 @@ const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const editingAttribute = ref<UserAttributeDefinition | null>(null)
 const deletingAttribute = ref<UserAttributeDefinition | null>(null)
+// 加载、保存（含前端校验）、删除失败的原因分别显示在列表上方、编辑弹窗底部、删除确认弹窗里
+const loadError = ref('')
+const formError = ref('')
+const deleteError = ref('')
 const getOptionKey = createStableObjectKeyResolver<UserAttributeOption>('user-attr-option')
 
 const form = reactive({
@@ -285,10 +295,12 @@ const form = reactive({
 
 const loadAttributes = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     attributes.value = await adminAPI.userAttributes.listDefinitions()
-  } catch (error: any) {
-    console.error(extractApiErrorMessage(error, t('admin.users.attributes.failedToLoad')), error)
+  } catch (error: unknown) {
+    loadError.value = extractApiErrorMessage(error, t('admin.users.attributes.failedToLoad'))
+    console.error(loadError.value, error)
   } finally {
     loading.value = false
   }
@@ -296,6 +308,7 @@ const loadAttributes = async () => {
 
 const openCreateModal = () => {
   editingAttribute.value = null
+  formError.value = ''
   form.key = ''
   form.name = ''
   form.type = 'text'
@@ -309,6 +322,7 @@ const openCreateModal = () => {
 
 const openEditModal = (attr: UserAttributeDefinition) => {
   editingAttribute.value = attr
+  formError.value = ''
   form.key = attr.key
   form.name = attr.name
   form.type = attr.type
@@ -334,16 +348,17 @@ const removeOption = (index: number) => {
 }
 
 const handleSave = async () => {
+  formError.value = ''
   if (!form.key.trim()) {
-    console.error(t('admin.users.attributes.keyRequired'))
+    formError.value = t('admin.users.attributes.keyRequired')
     return
   }
   if (!form.name.trim()) {
-    console.error(t('admin.users.attributes.nameRequired'))
+    formError.value = t('admin.users.attributes.nameRequired')
     return
   }
   if ((form.type === 'select' || form.type === 'multi_select') && form.options.length === 0) {
-    console.error(t('admin.users.attributes.optionsRequired'))
+    formError.value = t('admin.users.attributes.optionsRequired')
     return
   }
   saving.value = true
@@ -367,11 +382,14 @@ const handleSave = async () => {
 
     closeEditModal()
     loadAttributes()
-  } catch (error: any) {
+  } catch (error: unknown) {
     const msg = editingAttribute.value
       ? t('admin.users.attributes.failedToUpdate')
       : t('admin.users.attributes.failedToCreate')
-    console.error(extractApiErrorMessage(error, msg), error)
+    formError.value = extractApiErrorMessage(error, msg, {
+      ATTRIBUTE_KEY_EXISTS: t('admin.users.attributes.keyExists')
+    })
+    console.error(formError.value, error)
   } finally {
     saving.value = false
   }
@@ -379,19 +397,22 @@ const handleSave = async () => {
 
 const confirmDelete = (attr: UserAttributeDefinition) => {
   deletingAttribute.value = attr
+  deleteError.value = ''
   showDeleteDialog.value = true
 }
 
 const handleDelete = async () => {
   if (!deletingAttribute.value) return
 
+  deleteError.value = ''
   try {
     await adminAPI.userAttributes.deleteDefinition(deletingAttribute.value.id)
     showDeleteDialog.value = false
     deletingAttribute.value = null
     loadAttributes()
-  } catch (error: any) {
-    console.error(extractApiErrorMessage(error, t('admin.users.attributes.failedToDelete')), error)
+  } catch (error: unknown) {
+    deleteError.value = extractApiErrorMessage(error, t('admin.users.attributes.failedToDelete'))
+    console.error(deleteError.value, error)
   }
 }
 
