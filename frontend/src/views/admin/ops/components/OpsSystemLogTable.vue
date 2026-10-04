@@ -13,7 +13,9 @@ import FormSuccess from '@/components/common/FormSuccess.vue'
 import { useTransientMessage } from '@/composables/useTransientMessage'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import { FilterChip } from '@/components/admin/list'
+import Icon from '@/components/icons/Icon.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import OpsRuntimeLogConfigDialog from './OpsRuntimeLogConfigDialog.vue'
 import { parseTimeRangeMinutes } from '../utils/opsFormatters'
@@ -71,8 +73,8 @@ const onUserFilterChange = (userId: number | undefined) => {
   filters.api_key_id = undefined
 }
 
+// 不选就是全部：筛选标签自带「清除」，不放「全部」项
 const filterLevelOptions = computed(() => [
-  { value: '', label: t('admin.ops.systemLogs.all') },
   { value: 'debug', label: 'debug' },
   { value: 'info', label: 'info' },
   { value: 'warn', label: 'warn' },
@@ -276,20 +278,27 @@ const hasData = computed(() => logs.value.length > 0)
     </div>
     <p v-if="health.last_error" class="mb-2 text-xs text-af-danger">{{ t('admin.ops.systemLogs.latestWriteError') }} {{ health.last_error }}</p>
 
-    <form class="mb-3 flex flex-wrap items-center gap-2" @submit.prevent="applyFilters">
-      <input
+    <!-- 与各列表页同一套工具行：紧凑搜索框（边打边搜）+ 级别筛选标签 + 「更多筛选」文字按钮，不摆大框 -->
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <SearchInput
         v-model="filters.q"
-        type="search"
-        class="input w-full sm:w-80"
+        compact
+        class="w-full sm:w-72"
         :placeholder="t('admin.ops.page.logs.searchPlaceholder')"
         data-testid="ops-logs-search"
+        @search="applyFilters"
       />
-      <Select v-model="filters.level" class="w-full sm:w-36" :options="filterLevelOptions" @change="applyFilters" />
-      <button type="button" class="btn btn-primary btn-sm" @click="applyFilters">{{ t('admin.ops.systemLogs.search') }}</button>
-      <button type="button" class="btn btn-secondary btn-sm" @click="showMoreFilters = !showMoreFilters">
+      <FilterChip v-model="filters.level" :label="t('admin.ops.systemLogs.level')" :options="filterLevelOptions" test-id="ops-logs-level" @change="applyFilters" />
+      <button
+        type="button"
+        class="inline-flex h-8 items-center gap-1 rounded-full px-2 text-13 text-af-ink-3 transition-colors hover:text-af-ink"
+        :class="showMoreFilters ? 'text-af-ink' : ''"
+        @click="showMoreFilters = !showMoreFilters"
+      >
+        <Icon name="plus" size="xs" :stroke-width="2" />
         {{ t('admin.ops.page.logs.moreFilters') }}<template v-if="moreFilterCount"> · {{ moreFilterCount }}</template>
       </button>
-    </form>
+    </div>
 
     <div v-if="showMoreFilters" class="mb-3 border-y border-af-hairline py-3">
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -64,7 +64,10 @@ const chartData = computed(() => {
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
-        fill: 'origin',
+        // 不填色：请求稀疏时只有相邻两段都有数据才填得出来，会剩下一块孤立的灰柱（2026-10-04 走查）
+        fill: false,
+        // 100% 的点压在顶线上，允许画出绘图区，不被裁掉半个
+        clip: false as const,
         spanGaps: false,
         cubicInterpolationMode: 'monotone' as const
       }
@@ -75,6 +78,8 @@ const chartData = computed(() => {
 const lineOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  // 顶部留出圆点半径的空间
+  layout: { padding: { top: 6 } },
   interaction: { mode: 'index' as const, intersect: false },
   plugins: {
     legend: { display: false },

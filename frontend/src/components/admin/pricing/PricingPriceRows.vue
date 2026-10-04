@@ -6,7 +6,7 @@
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
   <tr :class="rowClass" :data-testid="testId">
-    <td class="px-3 py-2 align-middle"><slot name="lead" /></td>
+    <td class="py-2 pl-0 pr-3 align-middle"><slot name="lead" /></td>
     <td class="px-2 py-2 align-middle"><slot name="upstream" /></td>
     <td v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right align-middle">
       <div class="inline-flex flex-col items-end">
@@ -53,10 +53,10 @@
     </td>
     <td class="px-3 py-2 text-right align-middle"><slot name="margin" /></td>
     <td class="px-3 py-2 align-middle"><slot name="status" /></td>
-    <td class="px-3 py-2 text-right align-middle"><slot name="actions" /></td>
+    <td class="py-2 pl-3 pr-0 text-right align-middle"><slot name="actions" /></td>
   </tr>
-  <tr v-if="searchExpanded && searchKeys.length > 0" class="bg-af-sunken/60" :data-testid="testId ? `${testId}-search` : undefined">
-    <td colspan="2" class="px-3 py-2 align-top">
+  <tr v-if="searchExpanded && searchKeys.length > 0" :data-testid="testId ? `${testId}-search` : undefined">
+    <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.search.title') }}</div>
       <div v-if="searchNote" class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ searchNote }}</div>
     </td>
@@ -82,10 +82,9 @@
     <tr
       v-for="(segment, index) in prices.segments"
       :key="index"
-      class="bg-af-sunken/60"
       :data-testid="testId ? `${testId}-segment` : undefined"
     >
-      <td colspan="2" class="px-3 py-2 align-middle">
+      <td colspan="2" class="py-2 pl-0 pr-3 align-middle">
         <label class="flex items-center gap-1.5 whitespace-nowrap pl-4 text-13 text-af-ink-2">
           {{ t('admin.pricing.segmentAbove') }}
           <input
@@ -115,14 +114,14 @@
           {{ t(`admin.modelCatalog.segments.errors.${issues.segments[index]}`) }}
         </span>
       </td>
-      <td class="px-3 py-2 text-right align-middle">
+      <td class="py-2 pl-3 pr-0 text-right align-middle">
         <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.segments.splice(index, 1)">
           {{ t('admin.pricing.remove') }}
         </button>
       </td>
     </tr>
-    <tr class="bg-af-sunken/60">
-      <td :colspan="COLUMN_COUNT" class="px-3 py-2">
+    <tr>
+      <td :colspan="COLUMN_COUNT" class="py-2 pl-0 pr-3">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pl-4">
           <button
             type="button"

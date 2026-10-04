@@ -6,6 +6,7 @@
  * 点一行打开现有的错误详情；「查看全部」打开现有的错误列表。
  */
 import { computed, ref, watch } from 'vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsErrorListQueryParams, type OpsErrorLog } from '@/api/admin/ops'
 
@@ -105,18 +106,10 @@ function open(row: OpsErrorLog) {
   <section class="border-t border-af-hairline py-4" data-testid="ops-recent-failures">
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-sm font-semibold text-af-ink">{{ t('admin.ops.page.failures.title') }}</h2>
-      <div class="flex flex-wrap items-center gap-1">
-        <button
-          v-for="item in kinds"
-          :key="item.key"
-          type="button"
-          class="rounded px-2 py-0.5 text-xs"
-          :class="kind === item.key ? 'bg-af-ink text-af-sheet' : 'text-af-ink-3 hover:text-af-ink'"
-          @click="kind = item.key"
-        >
-          {{ item.label }}
-        </button>
-        <button type="button" class="ml-2 text-xs text-af-ink-3 hover:text-af-ink" @click="emit('openAll', kind === 'recovered' ? 'upstream' : 'request')">
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- 与全站同一种分段切换（原来是黑底小药丸） -->
+        <SegmentedControl v-model="kind" :options="kinds" :label="t('admin.ops.page.failures.title')" test-id-prefix="ops-failures-kind" />
+        <button type="button" class="text-xs text-af-ink-3 hover:text-af-ink" @click="emit('openAll', kind === 'recovered' ? 'upstream' : 'request')">
           {{ t('admin.ops.page.viewAll') }} →
         </button>
       </div>

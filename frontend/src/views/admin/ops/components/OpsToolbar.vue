@@ -2,11 +2,15 @@
 /**
  * 运维页页头：标题、刷新时间，以及筛选（时间范围 / 模型 / 渠道）与入口（刷新、告警规则、设置、全屏）。
  * 2026-10-04 运维页重排（方案页 8ARyR9…）：平台筛选换成按模型、按渠道。
+ * 2026-10-04 muqian「这些框很丑，像卡片似的」：与各列表页同一套工具行——模型 / 渠道用筛选标签，
+ * 时间范围用分段切换，刷新是图标按钮，其余入口是无框文字按钮。
  */
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { FilterChip } from '@/components/admin/list'
 
 export interface OpsChannelOption {
   id: number
@@ -54,13 +58,13 @@ function formatCustomLabel(startTime: string, endTime: string): string {
 }
 
 const timeRangeOptions = computed(() => [
-  { value: '5m', label: t('admin.ops.timeRange.5m') },
-  { value: '30m', label: t('admin.ops.timeRange.30m') },
-  { value: '1h', label: t('admin.ops.timeRange.1h') },
-  { value: '6h', label: t('admin.ops.timeRange.6h') },
-  { value: '24h', label: t('admin.ops.timeRange.24h') },
+  { key: '5m', label: t('admin.ops.timeRange.5m') },
+  { key: '30m', label: t('admin.ops.timeRange.30m') },
+  { key: '1h', label: t('admin.ops.timeRange.1h') },
+  { key: '6h', label: t('admin.ops.timeRange.6h') },
+  { key: '24h', label: t('admin.ops.timeRange.24h') },
   {
-    value: 'custom',
+    key: 'custom',
     label:
       props.timeRange === 'custom' && props.customStartTime && props.customEndTime
         ? `${t('admin.ops.timeRange.custom')} (${formatCustomLabel(props.customStartTime, props.customEndTime)})`
@@ -68,17 +72,11 @@ const timeRangeOptions = computed(() => [
   }
 ])
 
-const modelSelectOptions = computed(() => [
-  { value: '', label: t('admin.ops.page.allModels') },
-  ...props.modelOptions.map((model) => ({ value: model, label: model }))
-])
+// 筛选标签不选就是全部（自带清除），不放「全部」项
+const modelChipOptions = computed(() => props.modelOptions.map((model) => ({ value: model, label: model })))
+const channelChipOptions = computed(() => props.channelOptions.map((channel) => ({ value: channel.id, label: channel.name })))
 
-const channelSelectOptions = computed(() => [
-  { value: 0, label: t('admin.ops.page.allChannels') },
-  ...props.channelOptions.map((channel) => ({ value: channel.id, label: channel.name }))
-])
-
-function onTimeRangeChange(value: string | number | boolean | null) {
+function onTimeRangeChange(value: string) {
   const next = String(value || '1h')
   if (next !== 'custom') {
     emit('update:timeRange', next)
@@ -123,39 +121,48 @@ const lastUpdatedLabel = computed(() => (props.lastUpdated ? props.lastUpdated.t
 
     <div class="flex flex-wrap items-center gap-2">
       <template v-if="!props.fullscreen">
-        <Select
+        <FilterChip
           :model-value="props.model"
-          :options="modelSelectOptions"
-          searchable
-          class="w-full sm:w-[180px]"
-          data-testid="ops-filter-model"
+          :label="t('admin.ops.page.modelFilter')"
+          :options="modelChipOptions"
+          test-id="ops-filter-model"
           @update:model-value="(v) => emit('update:model', String(v || ''))"
         />
-        <Select
-          :model-value="props.accountId ?? 0"
-          :options="channelSelectOptions"
-          searchable
-          class="w-full sm:w-[180px]"
-          data-testid="ops-filter-channel"
+        <FilterChip
+          :model-value="props.accountId ?? ''"
+          :label="t('admin.ops.page.channelFilter')"
+          :options="channelChipOptions"
+          test-id="ops-filter-channel"
           @update:model-value="(v) => emit('update:accountId', Number(v) > 0 ? Number(v) : null)"
         />
       </template>
-      <Select
+      <SegmentedControl
         :model-value="props.timeRange"
         :options="timeRangeOptions"
-        class="w-full sm:w-[150px]"
-        data-testid="ops-filter-time"
+        :label="t('admin.ops.page.timeRangeLabel')"
+        test-id-prefix="ops-filter-time"
         @update:model-value="onTimeRangeChange"
       />
-      <button type="button" class="btn btn-secondary btn-sm" :disabled="props.loading" @click="emit('refresh')">
-        {{ t('common.refresh') }}
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="props.loading"
+        :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
+        @click="emit('refresh')"
+      >
+        <Icon name="refresh" size="md" :class="props.loading ? 'animate-spin' : ''" />
       </button>
       <template v-if="!props.fullscreen">
-        <button type="button" class="btn btn-secondary btn-sm" @click="emit('openAlertRules')">{{ t('admin.ops.alertRules.manage') }}</button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="emit('openSettings')">{{ t('common.settings') }}</button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="emit('enterFullscreen')">{{ t('admin.ops.fullscreen.enter') }}</button>
+        <button type="button" class="btn btn-ghost btn-sm" @click="emit('openAlertRules')">
+          <Icon name="bell" size="sm" />{{ t('admin.ops.alertRules.manage') }}
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" @click="emit('openSettings')">
+          <Icon name="cog" size="sm" />{{ t('common.settings') }}
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" @click="emit('enterFullscreen')">{{ t('admin.ops.fullscreen.enter') }}</button>
       </template>
-      <button v-else type="button" class="btn btn-secondary btn-sm" @click="emit('exitFullscreen')">{{ t('admin.ops.fullscreen.exit') }}</button>
+      <button v-else type="button" class="btn btn-ghost btn-sm" @click="emit('exitFullscreen')">{{ t('admin.ops.fullscreen.exit') }}</button>
     </div>
 
     <BaseDialog :show="showCustomDialog" :title="t('admin.ops.timeRange.custom')" width="narrow" @close="showCustomDialog = false">

@@ -2,8 +2,9 @@ export default {
     ops: {
       // 运维页重排（2026-10-04，方案页 8ARyR9…）
       page: {
-        allModels: '全部模型',
-        allChannels: '全部渠道',
+        modelFilter: '模型',
+        channelFilter: '渠道',
+        timeRangeLabel: '时间范围',
         updatedAt: '更新于 {time}',
         loadFailed: '加载失败，请刷新重试',
         saveFailed: '保存失败，请重试',
@@ -17,6 +18,7 @@ export default {
           db: '数据库连接',
           redis: 'Redis 连接',
           goroutines: '协程',
+          goroutinesScale: '异常线 {count}',
           jobs: '后台任务',
           jobsOk: '{count} 个正常',
           jobsFailed: '{count} 个出错',
@@ -143,7 +145,6 @@ export default {
       lastSuccess: '最近成功',
       lastError: '最近错误',
       result: '结果',
-      noData: '没有数据',
       loadingText: '加载中…',
       autoRefreshRemaining: '剩余 {seconds}s',
       systemLogs: {
@@ -153,7 +154,6 @@ export default {
         dropped: '已丢弃',
         failed: '写入失败',
         runtimeConfig: '运行时日志设置（立即生效）',
-        all: '全部',
         level: '级别',
         stacktraceThreshold: '堆栈阈值',
         samplingInitial: '采样初始条数',

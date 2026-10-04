@@ -2,8 +2,9 @@ export default {
     ops: {
       // Ops page layout (2026-10-04)
       page: {
-        allModels: 'All models',
-        allChannels: 'All channels',
+        modelFilter: 'Model',
+        channelFilter: 'Channel',
+        timeRangeLabel: 'Time range',
         updatedAt: 'Updated {time}',
         loadFailed: 'Failed to load. Refresh to retry.',
         saveFailed: 'Failed to save. Please retry.',
@@ -17,6 +18,7 @@ export default {
           db: 'DB connections',
           redis: 'Redis connections',
           goroutines: 'Goroutines',
+          goroutinesScale: 'critical at {count}',
           jobs: 'Background jobs',
           jobsOk: '{count} healthy',
           jobsFailed: '{count} failing',
@@ -143,7 +145,6 @@ export default {
       lastSuccess: 'last_success:',
       lastError: 'last_error:',
       result: 'Result',
-      noData: 'No data.',
       loadingText: 'loading',
       autoRefreshRemaining: 'Remaining {seconds}s',
       systemLogs: {
@@ -153,7 +154,6 @@ export default {
         dropped: 'Dropped',
         failed: 'Failed',
         runtimeConfig: 'Runtime Log Configuration (applies immediately)',
-        all: 'All',
         level: 'Level',
         stacktraceThreshold: 'Stacktrace threshold',
         samplingInitial: 'Sampling initial',

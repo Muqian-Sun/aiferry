@@ -99,7 +99,6 @@
     class="table-wrapper"
     :class="{
       'actions-expanded': actionsExpanded,
-      'is-scrollable': isScrollable,
       'table-head-plain': plainHeader
     }"
   >
@@ -296,7 +295,6 @@ const emit = defineEmits<{
 
 // 表格容器引用
 const tableWrapperRef = ref<HTMLElement | null>(null)
-const isScrollable = ref(false)
 const actionsColumnNeedsExpanding = ref(false)
 
 // --- 虚拟滚动「整表空白」根治 ---
@@ -319,13 +317,6 @@ const observeElementRectNonZero = (
 ) => observeElementRectDefault(instance, (rect) => {
   if (rect.height > 0) cb(rect)
 })
-
-// 检查是否可滚动
-const checkScrollable = () => {
-  if (tableWrapperRef.value) {
-    isScrollable.value = tableWrapperRef.value.scrollWidth > tableWrapperRef.value.clientWidth
-  }
-}
 
 // 检查操作列是否需要展开
 const checkActionsColumnWidth = () => {
@@ -394,18 +385,15 @@ const detachDesktopTableTracking = () => {
 }
 
 const attachDesktopTableTracking = () => {
-  checkScrollable()
   checkActionsColumnWidth()
   if (tableWrapperRef.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
-      checkScrollable()
       checkActionsColumnWidth()
     })
     resizeObserver.observe(tableWrapperRef.value)
   } else {
     // 降级方案：不支持 ResizeObserver 时使用 window resize
     resizeHandler = () => {
-      checkScrollable()
       checkActionsColumnWidth()
     }
     window.addEventListener('resize', resizeHandler)
@@ -663,23 +651,16 @@ watch(
   { immediate: true, flush: 'post' }
 )
 
-// 数据/列变化时重新检查滚动状态
+// 数据/列变化时重新检查操作列宽度
 // 注意：不能监听 actionsExpanded，因为 checkActionsColumnWidth 会临时修改它，会导致无限循环
 watch(
   [() => props.data.length, columnsSignature],
   async () => {
     await nextTick()
-    checkScrollable()
     checkActionsColumnWidth()
   },
   { flush: 'post' }
 )
-
-// 单独监听展开状态变化，只更新滚动状态
-watch(actionsExpanded, async () => {
-  await nextTick()
-  checkScrollable()
-})
 
 const handleSort = (key: string) => {
   let newOrder: 'asc' | 'desc' = 'asc'
@@ -1063,55 +1044,7 @@ tbody tr:hover .sticky-col {
   background-color: rgb(var(--af-sunken));
 }
 
-/* 阴影只在可滚动时显示 */
-/* 单列固定右侧阴影 */
-.is-scrollable .sticky-col-left::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 10px;
-  transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
-  pointer-events: none;
-}
-
-/* 双列固定：只在第二列显示阴影 */
-.is-scrollable .sticky-col-left-second::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 10px;
-  transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
-  pointer-events: none;
-}
-
-/* 操作列左侧阴影 */
-.is-scrollable .sticky-col-right::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 10px;
-  transform: translateX(-100%);
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
-  pointer-events: none;
-}
-
-/* 暗色模式阴影 */
-.dark .is-scrollable .sticky-col-left::after,
-.dark .is-scrollable .sticky-col-left-second::after {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.2), transparent);
-}
-
-.dark .is-scrollable .sticky-col-right::before {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent);
-}
+/* 固定列不画投影（2026-10-04 muqian：横向滚动时首列 / 操作列边上的灰色渐变不要） */
 </style>
 
 <style>
