@@ -100,7 +100,10 @@
             >
               <span class="flex min-w-0 items-center gap-2.5">
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="DOT[item.level]" aria-hidden="true" />
-                <span class="min-w-0">{{ item.label }}</span>
+                <span class="min-w-0">
+                  {{ item.label }}
+                  <span v-if="item.hint" class="block text-13 text-af-ink-3" data-testid="overview-attention-hint">{{ item.hint }}</span>
+                </span>
               </span>
               <span v-if="item.to" class="inline-flex shrink-0 items-center gap-1 text-13 text-af-ink-3 group-hover:text-af-ink">
                 {{ item.action }}
@@ -383,6 +386,8 @@ interface AttentionItem {
   level: 'danger' | 'warning' | 'normal'
   to?: RouteLocationRaw
   action?: string
+  /** 第二行说明（如在线充值没开时「联系管理员充值」） */
+  hint?: string
 }
 
 interface SubscriptionMeter {
@@ -473,9 +478,15 @@ const attentionItems = computed<AttentionItem[]>(() => {
   if (user && !simpleMode.value && subscriptionRows.value.length === 0) {
     const balance = Number(user.balance ?? 0)
     const daily = recentDailyCost.value
-    const recharge = canRecharge.value ? { to: '/billing/recharge', action: t('userUi.overview.attention.recharge') } : {}
-    if (daily !== null && daily > 0 && balance <= 0) {
-      items.push({ key: 'balance', level: 'danger', label: t('userUi.overview.attention.balanceEmpty'), ...recharge })
+    // 在线充值没开：没有充值页可去，说清楚找管理员充值，配了客服联系方式（SiteContactInfo）就带上（2026-10-04 D3）
+    const contact = appStore.cachedPublicSettings?.contact_info?.trim()
+    const recharge = canRecharge.value
+      ? { to: '/billing/recharge', action: t('userUi.overview.attention.recharge') }
+      : { hint: contact ? t('userUi.overview.attention.contactAdminWith', { contact }) : t('userUi.overview.attention.contactAdmin') }
+    if (balance <= 0) {
+      // 新注册还没用过的 $0 用户也要提示（原来要先有用量才提示，新用户什么都看不到）
+      const label = daily !== null && daily > 0 ? t('userUi.overview.attention.balanceEmpty') : t('userUi.overview.attention.balanceZero')
+      items.push({ key: 'balance', level: 'danger', label, ...recharge })
     } else if (daily !== null && daily > 0 && balance / daily < 7) {
       items.push({
         key: 'balance',
