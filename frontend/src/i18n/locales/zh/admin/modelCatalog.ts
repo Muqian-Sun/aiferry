@@ -92,7 +92,21 @@ export default {
       listingRule: '上架要求官方价填齐，并且至少有一个渠道承接。',
       unsavedPricing: '定价这一块还有没保存的改动：先保存，或点那一块的「撤销」。',
       pricingElsewhere: '官方价、分段和承接的渠道在价格页改。',
-      openPricing: '去价格页 →'
+      openPricing: '去价格页 →',
+      aliases: {
+        label: '别名',
+        placeholder: '如 gpt-5.5-2026-08-01，末尾可以加 *',
+        add: '添加',
+        hint: '回车添加。别名的增删立即生效，不用点「保存」。',
+        seed: '内置',
+        seedTitle: '内置别名跟着价格文件走：删掉后下次刷新目录会补回来，所以这里不能删。',
+        remove: '删除别名 {alias}',
+        exists: '这个别名已经被占用了（可能在别的模型上）。',
+        addFailed: '别名添加失败',
+        removeFailed: '别名删除失败'
+      },
+      notes: '备注',
+      notesPlaceholder: '选填，只在管理站显示'
     },
     // 模型详情抽屉（A5）
     drawer: {

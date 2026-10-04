@@ -92,7 +92,21 @@ export default {
       listingRule: 'Listing requires the official price and at least one serving channel.',
       unsavedPricing: 'The pricing block has unsaved changes: save it or undo them first.',
       pricingElsewhere: 'Official prices, segments and serving channels are edited on the pricing page.',
-      openPricing: 'Open pricing →'
+      openPricing: 'Open pricing →',
+      aliases: {
+        label: 'Aliases',
+        placeholder: 'e.g. gpt-5.5-2026-08-01; may end with *',
+        add: 'Add',
+        hint: 'Press Enter to add. Adding or removing an alias takes effect right away, no need to click Save.',
+        seed: 'Built-in',
+        seedTitle: 'Built-in aliases follow the price file: a removed one comes back the next time the catalog refreshes, so it cannot be removed here.',
+        remove: 'Remove alias {alias}',
+        exists: 'This alias is already taken (possibly by another model).',
+        addFailed: 'Failed to add the alias',
+        removeFailed: 'Failed to remove the alias'
+      },
+      notes: 'Notes',
+      notesPlaceholder: 'Optional, shown only on the admin site'
     },
     // Model detail drawer (A5)
     drawer: {

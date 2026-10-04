@@ -226,6 +226,7 @@
       :vendor-options="catalogVendors"
       @close="editingEntry = null"
       @saved="loadEntries"
+      @aliases-changed="loadEntries"
     />
 
     <CatalogEntryDiagnosisModal
