@@ -1,11 +1,18 @@
 <script setup lang="ts">
+/**
+ * 运维页「系统日志」（2026-10-04 重排）：先给关键词搜索和级别，其余筛选收进「更多筛选」；
+ * 时间跟页头的时间范围走，不再单独选；运行时日志配置挪进「日志配置」弹窗；清理收进更多筛选、页面内确认。
+ */
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { opsAPI, type OpsRuntimeLogConfig, type OpsSystemLog, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
+import { opsAPI, type OpsSystemLog, type OpsSystemLogQuery, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
+import OpsRuntimeLogConfigDialog from './OpsRuntimeLogConfigDialog.vue'
+import { parseTimeRangeMinutes } from '../utils/opsFormatters'
 
 const { t } = useI18n()
 
@@ -13,10 +20,10 @@ const { t } = useI18n()
 const isDesktopViewport = useMediaQuery('(min-width: 768px)')
 
 const props = withDefaults(defineProps<{
-  platformFilter?: string
+  /** 页头选的时间范围（time_range 或 start_time / end_time） */
+  timeParams: { time_range?: string; start_time?: string; end_time?: string }
   refreshToken?: number
 }>(), {
-  platformFilter: '',
   refreshToken: 0
 })
 
@@ -25,6 +32,9 @@ const logs = ref<OpsSystemLog[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
+const showMoreFilters = ref(false)
+const showRuntimeConfig = ref(false)
+const confirmCleanup = ref(false)
 
 const health = ref<OpsSystemLogSinkHealth>({
   queue_depth: 0,
@@ -35,35 +45,18 @@ const health = ref<OpsSystemLogSinkHealth>({
   avg_write_delay_ms: 0
 })
 
-const runtimeLoading = ref(false)
-const runtimeSaving = ref(false)
-const runtimeConfig = reactive<OpsRuntimeLogConfig>({
-  level: 'info',
-  persist_access_logs: false,
-  enable_sampling: false,
-  sampling_initial: 100,
-  sampling_thereafter: 100,
-  caller: true,
-  stacktrace_level: 'error',
-  retention_days: 30
-})
-
 // 用户 / 密钥 / 渠道按名字选（EntityPicker），存的是选中对象的 id，不让人手填
 const filters = reactive({
-  time_range: '1h' as '5m' | '30m' | '1h' | '6h' | '24h' | '7d' | '30d',
-  start_time: '',
-  end_time: '',
-  host: '',
+  q: '',
   level: '',
+  host: '',
   component: '',
   request_id: '',
   client_request_id: '',
   user_id: undefined as number | undefined,
   api_key_id: undefined as number | undefined,
   account_id: undefined as number | undefined,
-  platform: '',
-  model: '',
-  q: ''
+  model: ''
 })
 
 // 换了用户，原来选的密钥不一定属于新用户，一并清掉
@@ -72,29 +65,6 @@ const onUserFilterChange = (userId: number | undefined) => {
   filters.api_key_id = undefined
 }
 
-const runtimeLevelOptions = [
-  { value: 'debug', label: 'debug' },
-  { value: 'info', label: 'info' },
-  { value: 'warn', label: 'warn' },
-  { value: 'error', label: 'error' }
-]
-
-const stacktraceLevelOptions = [
-  { value: 'none', label: 'none' },
-  { value: 'error', label: 'error' },
-  { value: 'fatal', label: 'fatal' }
-]
-
-const timeRangeOptions = [
-  { value: '5m', label: '5m' },
-  { value: '30m', label: '30m' },
-  { value: '1h', label: '1h' },
-  { value: '6h', label: '6h' },
-  { value: '24h', label: '24h' },
-  { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' }
-]
-
 const filterLevelOptions = computed(() => [
   { value: '', label: t('admin.ops.systemLogs.all') },
   { value: 'debug', label: 'debug' },
@@ -102,6 +72,12 @@ const filterLevelOptions = computed(() => [
   { value: 'warn', label: 'warn' },
   { value: 'error', label: 'error' }
 ])
+
+const moreFilterCount = computed(
+  () =>
+    [filters.host, filters.component, filters.request_id, filters.client_request_id, filters.model].filter((v) => v.trim()).length +
+    [filters.user_id, filters.api_key_id, filters.account_id].filter(Boolean).length
+)
 
 const levelBadgeClass = (level: string) => {
   const v = String(level || '').toLowerCase()
@@ -173,36 +149,30 @@ const toRFC3339 = (value: string) => {
   return d.toISOString()
 }
 
-const buildQuery = () => {
-  const query: Record<string, any> = {
-    page: page.value,
-    page_size: pageSize.value,
-    time_range: filters.time_range
-  }
-
-  if (filters.time_range === '30d') {
-    query.time_range = '30d'
-  }
-  if (filters.start_time) query.start_time = toRFC3339(filters.start_time)
-  if (filters.end_time) query.end_time = toRFC3339(filters.end_time)
-  if (filters.host.trim()) query.host = filters.host.trim()
-  if (filters.level.trim()) query.level = filters.level.trim()
-  if (filters.component.trim()) query.component = filters.component.trim()
-  if (filters.request_id.trim()) query.request_id = filters.request_id.trim()
-  if (filters.client_request_id.trim()) query.client_request_id = filters.client_request_id.trim()
-  if (filters.user_id) query.user_id = filters.user_id
-  if (filters.api_key_id) query.api_key_id = filters.api_key_id
-  if (filters.account_id) query.account_id = filters.account_id
-  if (filters.platform.trim()) query.platform = filters.platform.trim()
-  if (filters.model.trim()) query.model = filters.model.trim()
-  if (filters.q.trim()) query.q = filters.q.trim()
-  return query
-}
+const filterPayload = () => ({
+  host: filters.host.trim() || undefined,
+  level: filters.level.trim() || undefined,
+  component: filters.component.trim() || undefined,
+  request_id: filters.request_id.trim() || undefined,
+  client_request_id: filters.client_request_id.trim() || undefined,
+  user_id: filters.user_id,
+  api_key_id: filters.api_key_id,
+  account_id: filters.account_id,
+  model: filters.model.trim() || undefined,
+  q: filters.q.trim() || undefined
+})
 
 const fetchLogs = async () => {
   loading.value = true
   try {
-    const res = await opsAPI.listSystemLogs(buildQuery())
+    const res = await opsAPI.listSystemLogs({
+      page: page.value,
+      page_size: pageSize.value,
+      time_range: props.timeParams.time_range as OpsSystemLogQuery['time_range'],
+      start_time: props.timeParams.start_time,
+      end_time: props.timeParams.end_time,
+      ...filterPayload()
+    })
     logs.value = res.items || []
     total.value = res.total || 0
   } catch (err: any) {
@@ -220,87 +190,18 @@ const fetchHealth = async () => {
   }
 }
 
-const loadRuntimeConfig = async () => {
-  runtimeLoading.value = true
-  try {
-    const cfg = await opsAPI.getRuntimeLogConfig()
-    runtimeConfig.level = cfg.level
-    runtimeConfig.persist_access_logs = cfg.persist_access_logs
-    runtimeConfig.enable_sampling = cfg.enable_sampling
-    runtimeConfig.sampling_initial = cfg.sampling_initial
-    runtimeConfig.sampling_thereafter = cfg.sampling_thereafter
-    runtimeConfig.caller = cfg.caller
-    runtimeConfig.stacktrace_level = cfg.stacktrace_level
-    runtimeConfig.retention_days = cfg.retention_days
-  } catch (err: any) {
-    console.error('[OpsSystemLogTable] Failed to load runtime log config', err)
-  } finally {
-    runtimeLoading.value = false
-  }
-}
-
-const saveRuntimeConfig = async () => {
-  runtimeSaving.value = true
-  try {
-    const saved = await opsAPI.updateRuntimeLogConfig({ ...runtimeConfig })
-    runtimeConfig.level = saved.level
-    runtimeConfig.persist_access_logs = saved.persist_access_logs
-    runtimeConfig.enable_sampling = saved.enable_sampling
-    runtimeConfig.sampling_initial = saved.sampling_initial
-    runtimeConfig.sampling_thereafter = saved.sampling_thereafter
-    runtimeConfig.caller = saved.caller
-    runtimeConfig.stacktrace_level = saved.stacktrace_level
-    runtimeConfig.retention_days = saved.retention_days
-  } catch (err: any) {
-    console.error('[OpsSystemLogTable] Failed to save runtime log config', err)
-  } finally {
-    runtimeSaving.value = false
-  }
-}
-
-const resetRuntimeConfig = async () => {
-  const ok = window.confirm(t('admin.ops.systemLogs.resetRuntimeConfigConfirm'))
-  if (!ok) return
-
-  runtimeSaving.value = true
-  try {
-    const saved = await opsAPI.resetRuntimeLogConfig()
-    runtimeConfig.level = saved.level
-    runtimeConfig.persist_access_logs = saved.persist_access_logs
-    runtimeConfig.enable_sampling = saved.enable_sampling
-    runtimeConfig.sampling_initial = saved.sampling_initial
-    runtimeConfig.sampling_thereafter = saved.sampling_thereafter
-    runtimeConfig.caller = saved.caller
-    runtimeConfig.stacktrace_level = saved.stacktrace_level
-    runtimeConfig.retention_days = saved.retention_days
-    await fetchHealth()
-  } catch (err: any) {
-    console.error('[OpsSystemLogTable] Failed to reset runtime log config', err)
-  } finally {
-    runtimeSaving.value = false
-  }
-}
-
 const cleanupCurrentFilter = async () => {
-  const ok = window.confirm(t('admin.ops.systemLogs.cleanupConfirm'))
-  if (!ok) return
+  confirmCleanup.value = false
   try {
-    const payload = {
-      start_time: toRFC3339(filters.start_time),
-      end_time: toRFC3339(filters.end_time),
-      host: filters.host.trim() || undefined,
-      level: filters.level.trim() || undefined,
-      component: filters.component.trim() || undefined,
-      request_id: filters.request_id.trim() || undefined,
-      client_request_id: filters.client_request_id.trim() || undefined,
-      user_id: filters.user_id,
-      api_key_id: filters.api_key_id,
-      account_id: filters.account_id,
-      platform: filters.platform.trim() || undefined,
-      model: filters.model.trim() || undefined,
-      q: filters.q.trim() || undefined
+    // 清理接口只认具体的起止时间：页头是「近 1 小时」这类相对范围时先换算，免得删到范围外的日志
+    let start = props.timeParams.start_time
+    let end = props.timeParams.end_time
+    if (!start || !end) {
+      const now = new Date()
+      end = now.toISOString()
+      start = new Date(now.getTime() - parseTimeRangeMinutes(props.timeParams.time_range || '1h') * 60_000).toISOString()
     }
-    await opsAPI.cleanupSystemLogs(payload)
+    await opsAPI.cleanupSystemLogs({ ...filterPayload(), start_time: toRFC3339(start), end_time: toRFC3339(end) })
     page.value = 1
     await Promise.all([fetchLogs(), fetchHealth()])
   } catch (err: any) {
@@ -309,36 +210,28 @@ const cleanupCurrentFilter = async () => {
 }
 
 const resetFilters = () => {
-  filters.time_range = '1h'
-  filters.start_time = ''
-  filters.end_time = ''
-  filters.host = ''
+  filters.q = ''
   filters.level = ''
+  filters.host = ''
   filters.component = ''
   filters.request_id = ''
   filters.client_request_id = ''
   filters.user_id = undefined
   filters.api_key_id = undefined
   filters.account_id = undefined
-  filters.platform = props.platformFilter || ''
   filters.model = ''
-  filters.q = ''
   page.value = 1
   fetchLogs()
 }
 
-watch(() => props.platformFilter, (v) => {
-  if (v && !filters.platform) {
-    filters.platform = v
+watch(
+  () => [props.refreshToken, props.timeParams.time_range, props.timeParams.start_time, props.timeParams.end_time],
+  () => {
     page.value = 1
     fetchLogs()
+    fetchHealth()
   }
-})
-
-watch(() => props.refreshToken, () => {
-  fetchLogs()
-  fetchHealth()
-})
+)
 
 const onPageChange = (next: number) => {
   page.value = next
@@ -359,153 +252,84 @@ const applyFilters = () => {
 const hasData = computed(() => logs.value.length > 0)
 
 onMounted(async () => {
-  if (props.platformFilter) {
-    filters.platform = props.platformFilter
-  }
-  await Promise.all([fetchLogs(), fetchHealth(), loadRuntimeConfig()])
+  await Promise.all([fetchLogs(), fetchHealth()])
 })
 </script>
 
 <template>
-  <section class="rounded-lg border border-af-hairline bg-af-sheet p-4">
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h3 class="text-sm font-bold text-af-ink">{{ t('admin.ops.systemLogs.title') }}</h3>
-        <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.ops.systemLogs.description') }}</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span class="rounded-md bg-af-sunken px-2 py-1 text-af-ink-2">{{ t('admin.ops.systemLogs.queue') }} {{ health.queue_depth }}/{{ health.queue_capacity }}</span>
-        <span class="rounded-md bg-af-sunken px-2 py-1 text-af-ink-2">{{ t('admin.ops.systemLogs.written') }} {{ health.written_count }}</span>
-        <span class="rounded-md bg-af-warning-tint px-2 py-1 text-af-warning">{{ t('admin.ops.systemLogs.dropped') }} {{ health.dropped_count }}</span>
-        <span class="rounded-md bg-af-danger-tint px-2 py-1 text-af-danger">{{ t('admin.ops.systemLogs.failed') }} {{ health.write_failed_count }}</span>
+  <section class="border-t border-af-hairline py-4" data-testid="ops-system-logs">
+    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-sm font-semibold text-af-ink">{{ t('admin.ops.systemLogs.title') }}</h2>
+      <div class="flex flex-wrap items-center gap-3 text-xs text-af-ink-3">
+        <span class="tabular-nums">{{ t('admin.ops.systemLogs.queue') }} {{ health.queue_depth }}/{{ health.queue_capacity }}</span>
+        <span class="tabular-nums">{{ t('admin.ops.systemLogs.written') }} {{ health.written_count }}</span>
+        <span class="tabular-nums" :class="health.dropped_count > 0 ? 'text-af-warning' : ''">{{ t('admin.ops.systemLogs.dropped') }} {{ health.dropped_count }}</span>
+        <span class="tabular-nums" :class="health.write_failed_count > 0 ? 'text-af-danger' : ''">{{ t('admin.ops.systemLogs.failed') }} {{ health.write_failed_count }}</span>
+        <button type="button" class="text-af-ink-3 hover:text-af-ink" @click="showRuntimeConfig = true">{{ t('admin.ops.page.logs.config') }}</button>
       </div>
     </div>
+    <p v-if="health.last_error" class="mb-2 text-xs text-af-danger">{{ t('admin.ops.systemLogs.latestWriteError') }} {{ health.last_error }}</p>
 
-    <div class="mb-4 rounded-xl border border-af-hairline bg-af-sunken p-3">
-      <div class="mb-2 flex items-center justify-between">
-        <div class="text-xs font-semibold text-af-ink-2">{{ t('admin.ops.systemLogs.runtimeConfig') }}</div>
-        <span v-if="runtimeLoading" class="text-xs text-af-ink-3">{{ t('common.loading') }}</span>
-      </div>
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
-        <label class="text-xs text-af-ink-2">
-          {{ t('admin.ops.systemLogs.level') }}
-          <Select v-model="runtimeConfig.level" class="mt-1" :options="runtimeLevelOptions" />
-        </label>
-        <label class="text-xs text-af-ink-2">
-          {{ t('admin.ops.systemLogs.stacktraceThreshold') }}
-          <Select v-model="runtimeConfig.stacktrace_level" class="mt-1" :options="stacktraceLevelOptions" />
-        </label>
-        <label class="text-xs text-af-ink-2">
-          {{ t('admin.ops.systemLogs.samplingInitial') }}
-          <input v-model.number="runtimeConfig.sampling_initial" type="number" min="1" class="input mt-1" />
-        </label>
-        <label class="text-xs text-af-ink-2">
-          {{ t('admin.ops.systemLogs.samplingThereafter') }}
-          <input v-model.number="runtimeConfig.sampling_thereafter" type="number" min="1" class="input mt-1" />
-        </label>
-        <label class="text-xs text-af-ink-2">
-          {{ t('admin.ops.systemLogs.retentionDays') }}
-          <input v-model.number="runtimeConfig.retention_days" type="number" min="1" max="3650" class="input mt-1" />
-          <span class="mt-1 block text-[11px] text-af-ink-3">{{ t('admin.ops.systemLogs.retentionDaysHint') }}</span>
-        </label>
-        <div class="md:col-span-2 xl:col-span-6">
-          <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <label class="inline-flex items-center gap-2 text-xs text-af-ink-2">
-                <input v-model="runtimeConfig.caller" type="checkbox" />
-                {{ t('admin.ops.systemLogs.caller') }}
-              </label>
-              <label class="inline-flex items-center gap-2 text-xs text-af-ink-2">
-                <input v-model="runtimeConfig.enable_sampling" type="checkbox" />
-                {{ t('admin.ops.systemLogs.sampling') }}
-              </label>
-              <label class="inline-flex items-center gap-2 text-xs text-af-ink-2">
-                <input v-model="runtimeConfig.persist_access_logs" type="checkbox" />
-                {{ t('admin.ops.systemLogs.persistAccessLogs') }}
-              </label>
-            </div>
-            <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-              <button type="button" class="btn btn-primary btn-sm" :disabled="runtimeSaving" @click="saveRuntimeConfig">
-                {{ runtimeSaving ? t('common.saving') : t('admin.ops.systemLogs.saveAndApply') }}
-              </button>
-              <button type="button" class="btn btn-secondary btn-sm" :disabled="runtimeSaving" @click="resetRuntimeConfig">
-                {{ t('admin.ops.systemLogs.resetDefaults') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p class="mt-2 text-xs text-af-ink-3">{{ t('admin.ops.systemLogs.persistAccessLogsHint') }}</p>
-      <p v-if="health.last_error" class="mt-2 text-xs text-af-danger">{{ t('admin.ops.systemLogs.latestWriteError') }} {{ health.last_error }}</p>
-    </div>
-
-    <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-5">
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.timeRange') }}
-        <Select v-model="filters.time_range" class="mt-1" :options="timeRangeOptions" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.startTime') }}
-        <input v-model="filters.start_time" type="datetime-local" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.endTime') }}
-        <input v-model="filters.end_time" type="datetime-local" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.level') }}
-        <Select v-model="filters.level" class="mt-1" :options="filterLevelOptions" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.component') }}
-        <input v-model="filters.component" type="text" class="input mt-1" :placeholder="t('admin.ops.systemLogs.componentPlaceholder')" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.host') }}
-        <input v-model="filters.host" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.requestId') }}
-        <input v-model="filters.request_id" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.clientRequestId') }}
-        <input v-model="filters.client_request_id" type="text" class="input mt-1" />
-      </label>
-      <div class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.user') }}
-        <EntityPicker :model-value="filters.user_id" kind="user" class="mt-1" @update:model-value="onUserFilterChange" />
-      </div>
-      <div class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.apiKey') }}
-        <EntityPicker v-model="filters.api_key_id" kind="apiKey" class="mt-1" :user-id="filters.user_id" />
-      </div>
-      <div class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.account') }}
-        <EntityPicker v-model="filters.account_id" kind="channel" class="mt-1" />
-      </div>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.platform') }}
-        <input v-model="filters.platform" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.model') }}
-        <input v-model="filters.model" type="text" class="input mt-1" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        {{ t('admin.ops.systemLogs.keyword') }}
-        <input v-model="filters.q" type="text" class="input mt-1" :placeholder="t('admin.ops.systemLogs.keywordPlaceholder')" />
-      </label>
-    </div>
-
-    <div class="mb-3 flex flex-wrap gap-2">
+    <form class="mb-3 flex flex-wrap items-center gap-2" @submit.prevent="applyFilters">
+      <input
+        v-model="filters.q"
+        type="search"
+        class="input w-full sm:w-80"
+        :placeholder="t('admin.ops.page.logs.searchPlaceholder')"
+        data-testid="ops-logs-search"
+      />
+      <Select v-model="filters.level" class="w-full sm:w-36" :options="filterLevelOptions" />
       <button type="button" class="btn btn-primary btn-sm" @click="applyFilters">{{ t('admin.ops.systemLogs.search') }}</button>
-      <button type="button" class="btn btn-secondary btn-sm" @click="resetFilters">{{ t('common.reset') }}</button>
-      <button type="button" class="btn btn-danger btn-sm" @click="cleanupCurrentFilter">{{ t('admin.ops.systemLogs.cleanCurrentFilters') }}</button>
-      <button type="button" class="btn btn-secondary btn-sm" @click="fetchHealth">{{ t('admin.ops.systemLogs.refreshHealth') }}</button>
+      <button type="button" class="btn btn-secondary btn-sm" @click="showMoreFilters = !showMoreFilters">
+        {{ t('admin.ops.page.logs.moreFilters') }}<template v-if="moreFilterCount"> · {{ moreFilterCount }}</template>
+      </button>
+    </form>
+
+    <div v-if="showMoreFilters" class="mb-3 border-y border-af-hairline py-3">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.user') }}
+          <EntityPicker :model-value="filters.user_id" kind="user" class="mt-1" @update:model-value="onUserFilterChange" />
+        </div>
+        <div class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.apiKey') }}
+          <EntityPicker v-model="filters.api_key_id" kind="apiKey" class="mt-1" :user-id="filters.user_id" />
+        </div>
+        <div class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.account') }}
+          <EntityPicker v-model="filters.account_id" kind="channel" class="mt-1" />
+        </div>
+        <label class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.model') }}
+          <input v-model="filters.model" type="text" class="input mt-1" />
+        </label>
+        <label class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.requestId') }}
+          <input v-model="filters.request_id" type="text" class="input mt-1" />
+        </label>
+        <label class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.clientRequestId') }}
+          <input v-model="filters.client_request_id" type="text" class="input mt-1" />
+        </label>
+        <label class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.component') }}
+          <input v-model="filters.component" type="text" class="input mt-1" :placeholder="t('admin.ops.systemLogs.componentPlaceholder')" />
+        </label>
+        <label class="text-xs text-af-ink-2">
+          {{ t('admin.ops.systemLogs.host') }}
+          <input v-model="filters.host" type="text" class="input mt-1" />
+        </label>
+      </div>
+      <div class="mt-3 flex flex-wrap justify-between gap-2">
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-primary btn-sm" @click="applyFilters">{{ t('admin.ops.systemLogs.search') }}</button>
+          <button type="button" class="btn btn-secondary btn-sm" @click="resetFilters">{{ t('common.reset') }}</button>
+        </div>
+        <button type="button" class="btn btn-danger btn-sm" @click="confirmCleanup = true">{{ t('admin.ops.systemLogs.cleanCurrentFilters') }}</button>
+      </div>
     </div>
 
-    <div class="overflow-hidden rounded-xl border border-af-hairline">
+    <div>
       <div v-if="loading" class="px-4 py-8 text-center text-sm text-af-ink-3">{{ t('common.loading') }}</div>
       <div v-else-if="!hasData" class="px-4 py-8 text-center text-sm text-af-ink-3">{{ t('admin.ops.systemLogs.empty') }}</div>
       <div v-else-if="!isDesktopViewport" class="divide-y divide-af-hairline">
@@ -560,5 +384,15 @@ onMounted(async () => {
         @update:page-size="onPageSizeChange"
       />
     </div>
+
+    <OpsRuntimeLogConfigDialog :show="showRuntimeConfig" @close="showRuntimeConfig = false" @saved="fetchHealth" />
+    <ConfirmDialog
+      :show="confirmCleanup"
+      :title="t('admin.ops.systemLogs.cleanCurrentFilters')"
+      :message="t('admin.ops.systemLogs.cleanupConfirm')"
+      danger
+      @confirm="cleanupCurrentFilter"
+      @cancel="confirmCleanup = false"
+    />
   </section>
 </template>

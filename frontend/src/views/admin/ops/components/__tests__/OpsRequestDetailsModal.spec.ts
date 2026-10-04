@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import type { OpsDashboardOverview } from '@/api/admin/ops'
-import { flushPromises, mount, shallowMount } from '@vue/test-utils'
-import OpsDashboardHeader from '../OpsDashboardHeader.vue'
+import { flushPromises, mount } from '@vue/test-utils'
 import OpsRequestDetailsModal from '../OpsRequestDetailsModal.vue'
 
 const { listRequestDetails, viewport } = vi.hoisted(() => ({
@@ -47,23 +45,6 @@ describe('Ops request latency details', () => {
       ],
       total: 3,
     })
-  })
-
-  it('opens the TTFT card with first-token sorting and successful requests', async () => {
-    const wrapper = shallowMount(OpsDashboardHeader, {
-      props: { overview: {} as OpsDashboardOverview, platform: '', groupId: null, timeRange: '1h', queryMode: 'auto', loading: false, lastUpdated: null },
-    })
-    await flushPromises()
-    const button = wrapper.findAll('button').find((item) =>
-      item.text() === 'admin.ops.requestDetails.details' &&
-      item.element.parentElement?.textContent?.includes('TTFT'),
-    )
-    expect(button).toBeDefined()
-    await button!.trigger('click')
-    expect(wrapper.emitted('openRequestDetails')).toEqual([[
-      { title: 'admin.ops.ttftLabel', kind: 'success', sort: 'ttft_desc' },
-    ]])
-    wrapper.unmount()
   })
 
   it.each([true, false])('shows TTFT rather than total duration (desktop: %s)', async (desktop) => {

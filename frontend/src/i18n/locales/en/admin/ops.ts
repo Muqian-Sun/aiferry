@@ -1,5 +1,105 @@
 export default {
     ops: {
+      // Ops page layout (2026-10-04)
+      page: {
+        allModels: 'All models',
+        allChannels: 'All channels',
+        updatedAt: 'Updated {time}',
+        loadFailed: 'Failed to load. Refresh to retry.',
+        saveFailed: 'Failed to save. Please retry.',
+        noDataInRange: 'No data in this time range',
+        viewAll: 'View all',
+        resources: {
+          title: 'System resources',
+          cpu: 'CPU',
+          memory: 'Memory',
+          db: 'DB connections',
+          redis: 'Redis connections',
+          goroutines: 'Goroutines',
+          jobs: 'Background jobs',
+          jobsOk: '{count} healthy',
+          jobsFailed: '{count} failing',
+          jobName: 'Job',
+          down: 'Unreachable',
+          waiting: '{count} waiting'
+        },
+        metrics: {
+          title: 'Requests',
+          requests: 'Requests',
+          currentQps: 'Now {qps} QPS',
+          successRate: 'Success rate',
+          failed: '{count} failed',
+          ttft: 'First token P50',
+          p99: 'P99 {value}',
+          recovered: 'Recovered by failover',
+          recoveredHint: 'Upstream failed, user unaffected'
+        },
+        phase: {
+          upstream: 'Upstream',
+          routing: 'Routing',
+          client: 'Client',
+          other: 'Other'
+        },
+        channels: {
+          title: 'Channels',
+          history: 'Channel status',
+          name: 'Channel',
+          status: 'Status',
+          inUse: 'In use',
+          waiting: 'Queued',
+          total: 'Total',
+          empty: 'No channels yet',
+          deleted: 'Deleted channel',
+          showMore: 'Show {count} more healthy channels',
+          inSeconds: 'back in about {n}s',
+          inMinutes: 'back in about {n} min',
+          state: {
+            error: 'Paused',
+            rateLimited: 'Rate limited',
+            overloaded: 'Overloaded',
+            unavailable: 'Unavailable',
+            normal: 'Healthy'
+          }
+        },
+        alerts: {
+          title: 'Firing alerts ({count})',
+          history: 'Alert history',
+          firedAt: 'Started',
+          name: 'Alert',
+          value: 'Value',
+          threshold: 'Threshold'
+        },
+        failures: {
+          title: 'Recent failed requests',
+          empty: 'No failed requests in this time range',
+          kinds: {
+            all: 'All',
+            failed: 'Failed',
+            recovered: 'Recovered by failover',
+            routing: 'No channel available'
+          },
+          time: 'Time',
+          result: 'Result',
+          user: 'User',
+          model: 'Model',
+          channel: 'Channel',
+          phase: 'Stage',
+          status: 'Status',
+          message: 'Message',
+          failedTag: 'Failed',
+          recoveredTag: 'Recovered'
+        },
+        slow: {
+          title: 'Slowest first tokens',
+          ttft: 'First token',
+          duration: 'Total'
+        },
+        logs: {
+          config: 'Log settings',
+          searchPlaceholder: 'Search by request ID or keyword',
+          moreFilters: 'More filters'
+        }
+      },
       description: 'Operational monitoring and troubleshooting',
       // Dashboard
       systemHealth: 'System Health',
@@ -180,7 +280,8 @@ export default {
         }
       },
       fullscreen: {
-        enter: 'Enter Fullscreen'
+        enter: 'Enter Fullscreen',
+        exit: 'Exit fullscreen'
       },
       diagnosis: {
         title: 'Smart Diagnosis',
