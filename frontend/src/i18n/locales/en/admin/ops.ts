@@ -8,6 +8,7 @@ export default {
         loadFailed: 'Failed to load. Refresh to retry.',
         saveFailed: 'Failed to save. Please retry.',
         noDataInRange: 'No data in this time range',
+        customRangeInvalid: 'The start time must be earlier than the end time',
         viewAll: 'View all',
         resources: {
           title: 'System resources',
@@ -29,6 +30,7 @@ export default {
           currentQps: 'Now {qps} QPS',
           successRate: 'Success rate',
           failed: '{count} failed',
+          failedWithLimited: '{count} failed · {limited} limited',
           ttft: 'First token P50',
           p99: 'P99 {value}',
           recovered: 'Recovered by failover',
@@ -51,10 +53,13 @@ export default {
           empty: 'No channels yet',
           deleted: 'Deleted channel',
           showMore: 'Show {count} more healthy channels',
+          showLess: 'Hide healthy channels',
+          disabled: 'Disabled',
           inSeconds: 'back in about {n}s',
           inMinutes: 'back in about {n} min',
           state: {
-            error: 'Paused',
+            error: 'Failing',
+            paused: 'Paused',
             rateLimited: 'Rate limited',
             overloaded: 'Overloaded',
             unavailable: 'Unavailable',
@@ -67,11 +72,19 @@ export default {
           firedAt: 'Started',
           name: 'Alert',
           value: 'Value',
-          threshold: 'Threshold'
+          threshold: 'Threshold',
+          allSeverities: 'All severities',
+          allStatuses: 'All statuses',
+          allEmail: 'Email: all'
         },
         failures: {
           title: 'Recent failed requests',
-          empty: 'No failed requests in this time range',
+          emptyBy: {
+            all: 'No failed or failover-recovered requests in this time range',
+            failed: 'No failed requests in this time range',
+            recovered: 'No failover-recovered requests in this time range',
+            routing: 'No requests without an available channel in this time range'
+          },
           kinds: {
             all: 'All',
             failed: 'Failed',

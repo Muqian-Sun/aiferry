@@ -74,7 +74,7 @@ async function load() {
   }
 }
 
-watch(() => [props.refreshToken, kind.value], load, { immediate: true })
+watch(() => [props.refreshToken, kind.value], load)
 
 function phaseLabel(row: OpsErrorLog): string {
   switch (row.phase) {
@@ -122,7 +122,7 @@ function open(row: OpsErrorLog) {
       </div>
     </div>
     <p v-if="failed" class="text-sm text-af-danger">{{ t('admin.ops.page.loadFailed') }}</p>
-    <p v-else-if="!loading && !rows.length" class="text-sm text-af-ink-3">{{ t('admin.ops.page.failures.empty') }}</p>
+    <p v-else-if="!loading && !rows.length" class="text-sm text-af-ink-3">{{ t(`admin.ops.page.failures.emptyBy.${kind}`) }}</p>
     <div v-else class="overflow-x-auto">
       <table class="w-full min-w-[760px] text-sm">
         <thead>

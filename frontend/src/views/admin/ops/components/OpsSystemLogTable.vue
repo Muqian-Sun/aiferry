@@ -3,7 +3,7 @@
  * 运维页「系统日志」（2026-10-04 重排）：先给关键词搜索和级别，其余筛选收进「更多筛选」；
  * 时间跟页头的时间范围走，不再单独选；运行时日志配置挪进「日志配置」弹窗；清理收进更多筛选、页面内确认。
  */
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsSystemLog, type OpsSystemLogQuery, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
@@ -251,9 +251,7 @@ const applyFilters = () => {
 
 const hasData = computed(() => logs.value.length > 0)
 
-onMounted(async () => {
-  await Promise.all([fetchLogs(), fetchHealth()])
-})
+// 不在挂载时自己加载：页面每次刷新递增 refreshToken，第一次刷新就会触发上面的 watch（避免首屏请求两次）
 </script>
 
 <template>

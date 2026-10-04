@@ -8,6 +8,7 @@ export default {
         loadFailed: '加载失败，请刷新重试',
         saveFailed: '保存失败，请重试',
         noDataInRange: '这段时间没有数据',
+        customRangeInvalid: '开始时间要早于结束时间',
         viewAll: '查看全部',
         resources: {
           title: '系统资源',
@@ -29,6 +30,7 @@ export default {
           currentQps: '当前 {qps} QPS',
           successRate: '成功率',
           failed: '失败 {count}',
+          failedWithLimited: '失败 {count} · 业务限制 {limited}',
           ttft: '首字延迟 P50',
           p99: 'P99 {value}',
           recovered: '换渠道恢复',
@@ -51,10 +53,13 @@ export default {
           empty: '还没有渠道',
           deleted: '已删除渠道',
           showMore: '展开其余 {count} 个正常渠道',
+          showLess: '收起正常渠道',
+          disabled: '已停用',
           inSeconds: '约 {n} 秒后恢复',
           inMinutes: '约 {n} 分钟后恢复',
           state: {
-            error: '停调',
+            error: '出错停调',
+            paused: '暂停调度',
             rateLimited: '限流',
             overloaded: '过载',
             unavailable: '不可用',
@@ -67,11 +72,19 @@ export default {
           firedAt: '开始',
           name: '告警',
           value: '当前值',
-          threshold: '阈值'
+          threshold: '阈值',
+          allSeverities: '全部级别',
+          allStatuses: '全部状态',
+          allEmail: '邮件：全部'
         },
         failures: {
           title: '最近失败的请求',
-          empty: '这段时间没有失败的请求',
+          emptyBy: {
+            all: '这段时间没有失败或换渠道恢复的请求',
+            failed: '这段时间没有失败的请求',
+            recovered: '这段时间没有换渠道恢复的请求',
+            routing: '这段时间没有没选到渠道的请求'
+          },
           kinds: {
             all: '全部',
             failed: '用户失败',
@@ -583,7 +596,7 @@ export default {
         editTitle: '编辑告警规则',
         deleteConfirmTitle: '确认删除该规则？',
         deleteConfirmMessage: '将删除该规则及其关联的告警事件，是否继续？',
-        manage: '预警规则',
+        manage: '告警规则',
         metricGroups: {
           system: '系统指标',
           account: '渠道级别指标'

@@ -61,7 +61,12 @@ const tabs = computed(() => {
       key: 'success' as Tab,
       label: t('admin.ops.page.metrics.successRate'),
       value: ov && slaBase > 0 ? `${(ov.sla * 100).toFixed(1)}%` : noData,
-      detail: ov ? t('admin.ops.page.metrics.failed', { count: ov.error_count_sla }) : '',
+      // 业务限制（用户自己的余额、限额、并发）计入请求数、不算失败，一并写出来，免得请求数和失败数对不上
+      detail: !ov
+        ? ''
+        : ov.business_limited_count > 0
+          ? t('admin.ops.page.metrics.failedWithLimited', { count: ov.error_count_sla, limited: ov.business_limited_count })
+          : t('admin.ops.page.metrics.failed', { count: ov.error_count_sla }),
       detailClass: ov && ov.error_count_sla > 0 ? 'text-af-danger' : 'text-af-ink-3'
     },
     {

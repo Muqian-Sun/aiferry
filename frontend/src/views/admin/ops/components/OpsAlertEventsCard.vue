@@ -54,8 +54,9 @@ const timeRangeOptions = computed(() => [
 ])
 
 const severity = ref<string>('')
+// 三个筛选的「全部」各写清是哪一项（2026-10-04 UI E2E：原来三个都只写「全部」）
 const severityOptions = computed(() => [
-  { value: '', label: t('common.all') },
+  { value: '', label: t('admin.ops.page.alerts.allSeverities') },
   { value: 'P0', label: 'P0' },
   { value: 'P1', label: 'P1' },
   { value: 'P2', label: 'P2' },
@@ -64,7 +65,7 @@ const severityOptions = computed(() => [
 
 const status = ref<string>('')
 const statusOptions = computed(() => [
-  { value: '', label: t('common.all') },
+  { value: '', label: t('admin.ops.page.alerts.allStatuses') },
   { value: 'firing', label: t('admin.ops.alertEvents.status.firing') },
   { value: 'resolved', label: t('admin.ops.alertEvents.status.resolved') },
   { value: 'manual_resolved', label: t('admin.ops.alertEvents.status.manualResolved') }
@@ -90,7 +91,7 @@ function ruleName(ruleId: number): string {
 
 const emailSent = ref<string>('')
 const emailSentOptions = computed(() => [
-  { value: '', label: t('common.all') },
+  { value: '', label: t('admin.ops.page.alerts.allEmail') },
   { value: 'true', label: t('admin.ops.alertEvents.table.emailSent') },
   { value: 'false', label: t('admin.ops.alertEvents.table.emailIgnored') }
 ])

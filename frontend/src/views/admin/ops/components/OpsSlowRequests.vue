@@ -38,7 +38,7 @@ async function load() {
   }
 }
 
-watch(() => props.refreshToken, load, { immediate: true })
+watch(() => props.refreshToken, load)
 
 function channelName(id?: number | null): string {
   if (!id) return '—'

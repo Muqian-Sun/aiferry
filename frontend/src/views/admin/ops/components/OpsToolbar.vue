@@ -45,6 +45,7 @@ const { t } = useI18n()
 const showCustomDialog = ref(false)
 const customStartInput = ref('')
 const customEndInput = ref('')
+const customRangeError = ref('')
 
 function formatCustomLabel(startTime: string, endTime: string): string {
   const fmt = (d: Date) =>
@@ -85,13 +86,22 @@ function onTimeRangeChange(value: string | number | boolean | null) {
   }
   const now = new Date()
   const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-  customStartInput.value = toLocalInput(new Date(now.getTime() - 60 * 60 * 1000))
-  customEndInput.value = toLocalInput(now)
+  // 已经是自定义时沿用当前起止（原来每次都重置成近 1 小时）
+  const hasCustom = props.customStartTime && props.customEndTime
+  customStartInput.value = toLocalInput(hasCustom ? new Date(props.customStartTime as string) : new Date(now.getTime() - 60 * 60 * 1000))
+  customEndInput.value = toLocalInput(hasCustom ? new Date(props.customEndTime as string) : now)
+  customRangeError.value = ''
   showCustomDialog.value = true
 }
 
 function confirmCustomRange() {
   if (!customStartInput.value || !customEndInput.value) return
+  // 开始不能晚于结束（原来照样发请求，页面只报「加载运维数据失败」、旧数据还留着）
+  if (new Date(customStartInput.value).getTime() >= new Date(customEndInput.value).getTime()) {
+    customRangeError.value = t('admin.ops.page.customRangeInvalid')
+    return
+  }
+  customRangeError.value = ''
   // 先给自定义时间、再切到 custom：父组件响应 timeRange 变化时就能拼出正确的参数
   emit('update:customTimeRange', new Date(customStartInput.value).toISOString(), new Date(customEndInput.value).toISOString())
   emit('update:timeRange', 'custom')
@@ -158,6 +168,7 @@ const lastUpdatedLabel = computed(() => (props.lastUpdated ? props.lastUpdated.t
           <label class="input-label" for="ops-custom-end">{{ t('admin.ops.customTimeRange.endTime') }}</label>
           <input id="ops-custom-end" v-model="customEndInput" type="datetime-local" class="input" />
         </div>
+        <p v-if="customRangeError" class="text-sm text-af-danger" role="alert">{{ customRangeError }}</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn btn-secondary" @click="showCustomDialog = false">{{ t('common.cancel') }}</button>
           <button type="button" class="btn btn-primary" @click="confirmCustomRange">{{ t('common.confirm') }}</button>

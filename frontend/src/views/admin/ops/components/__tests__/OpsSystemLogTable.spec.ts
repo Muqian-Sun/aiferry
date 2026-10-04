@@ -122,6 +122,8 @@ describe('OpsSystemLogTable host support', () => {
         },
       },
     })
+    // 页面每次刷新递增 refreshToken，组件只在它变化时加载
+    await wrapper.setProps({ refreshToken: 1 })
     await flushPromises()
 
     expect(wrapper.text()).toContain('api-node-1')

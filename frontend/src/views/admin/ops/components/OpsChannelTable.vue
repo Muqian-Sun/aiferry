@@ -27,7 +27,7 @@ const expanded = ref(false)
 const availability = ref<Record<string, AccountAvailability>>({})
 const concurrency = ref<Record<string, AccountConcurrencyInfo>>({})
 
-type State = 'error' | 'rateLimited' | 'overloaded' | 'unavailable' | 'normal'
+type State = 'error' | 'paused' | 'rateLimited' | 'overloaded' | 'unavailable' | 'normal'
 
 interface Row {
   id: number
@@ -39,7 +39,7 @@ interface Row {
   waiting: number | null
 }
 
-const STATE_ORDER: Record<State, number> = { error: 0, rateLimited: 1, overloaded: 2, unavailable: 3, normal: 4 }
+const STATE_ORDER: Record<State, number> = { error: 0, paused: 1, rateLimited: 2, overloaded: 3, unavailable: 4, normal: 5 }
 
 function remaining(sec?: number): string {
   if (!sec || sec <= 0) return ''
@@ -76,9 +76,13 @@ const rows = computed<Row[]>(() => {
     } else if (a?.is_overloaded) {
       state = 'overloaded'
       reason = remaining(a.overload_remaining_sec)
+    } else if (a?.temp_unschedulable_until && Date.parse(a.temp_unschedulable_until) > Date.now()) {
+      // 出错后按规则临时停调（原来落到「不可用」并直接显示原始 status「active」，2026-10-04 UI E2E）
+      state = 'paused'
+      reason = remaining(Math.ceil((Date.parse(a.temp_unschedulable_until) - Date.now()) / 1000))
     } else if (a && !a.is_available) {
       state = 'unavailable'
-      reason = a.status || ''
+      reason = a.status === 'disabled' ? t('admin.ops.page.channels.disabled') : ''
     }
     list.push({
       id,
@@ -142,7 +146,7 @@ async function load() {
   }
 }
 
-watch(() => props.refreshToken, load, { immediate: true })
+watch(() => props.refreshToken, load)
 </script>
 
 <template>
@@ -175,10 +179,10 @@ watch(() => props.refreshToken, load, { immediate: true })
             <td class="py-2 pr-4 text-right tabular-nums text-af-ink-2">{{ row.inUse == null ? '—' : `${row.inUse} / ${row.max}` }}</td>
             <td class="py-2 text-right tabular-nums" :class="(row.waiting ?? 0) > 0 ? 'text-af-warning' : 'text-af-ink-2'">{{ row.waiting ?? '—' }}</td>
           </tr>
-          <tr v-if="hiddenCount > 0">
+          <tr v-if="hiddenCount > 0 || (expanded && normalRows.length > VISIBLE_NORMAL)">
             <td colspan="4" class="py-2">
-              <button type="button" class="text-xs text-af-ink-3 hover:text-af-ink" @click="expanded = true">
-                {{ t('admin.ops.page.channels.showMore', { count: hiddenCount }) }}
+              <button type="button" class="text-xs text-af-ink-3 hover:text-af-ink" @click="expanded = !expanded">
+                {{ expanded ? t('admin.ops.page.channels.showLess') : t('admin.ops.page.channels.showMore', { count: hiddenCount }) }}
               </button>
             </td>
           </tr>
