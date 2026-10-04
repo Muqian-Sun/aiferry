@@ -9,7 +9,6 @@ import type {
   PromptEventFilters,
   PromptEventPage,
   PromptProbeResult,
-  PromptAuditEndpointDraft,
 } from './types'
 import { eventFilterPayload, eventQueryParams } from './viewModel'
 
@@ -25,20 +24,9 @@ export async function updateConfig(payload: PromptAuditUpdateRequest): Promise<P
   return data
 }
 
-export async function probeEndpoint(endpoint: PromptAuditEndpointDraft): Promise<PromptProbeResult> {
-  const { data } = await apiClient.post<PromptProbeResult>(`${basePath}/endpoints/probe`, {
-    endpoint: {
-      id: endpoint.id,
-      name: endpoint.name,
-      protocol: 'openai_compatible',
-      base_url: endpoint.base_url,
-      model: endpoint.model,
-      token: endpoint.token || undefined,
-      timeout_ms: endpoint.timeout_ms,
-      input_limit: endpoint.input_limit,
-      enabled: endpoint.enabled,
-    },
-  })
+// 探测部署配置里的某个守卫节点：只传节点 id，地址和密钥都在服务端
+export async function probeEndpoint(endpointId: string): Promise<PromptProbeResult> {
+  const { data } = await apiClient.post<PromptProbeResult>(`${basePath}/endpoints/probe`, { endpoint_id: endpointId })
   return data
 }
 

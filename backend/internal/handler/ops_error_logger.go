@@ -45,18 +45,19 @@ const (
 	opsErrInsufficientQuota          = "insufficient_quota"
 
 	// 上游错误码常量 — 错误分类 (normalizeOpsErrorType / classifyOpsPhase / classifyOpsIsBusinessLimited)
-	opsCodeInsufficientBalance   = "INSUFFICIENT_BALANCE"
-	opsCodeUsageLimitExceeded    = "USAGE_LIMIT_EXCEEDED"
-	opsCodeSubscriptionNotFound  = "SUBSCRIPTION_NOT_FOUND"
-	opsCodeSubscriptionInvalid   = "SUBSCRIPTION_INVALID"
-	opsCodeUserInactive          = "USER_INACTIVE"
-	opsCodeInvalidAPIKey         = "INVALID_API_KEY"
-	opsCodeAPIKeyRequired        = "API_KEY_REQUIRED"
-	opsCodeAPIKeyExpired         = "API_KEY_EXPIRED"
-	opsCodeAPIKeyDisabled        = "API_KEY_DISABLED"
-	opsCodeUserNotFound          = "USER_NOT_FOUND"
-	opsCodeAPIKeyQuotaExhausted  = "API_KEY_QUOTA_EXHAUSTED"
-	opsCodeAPIKeyQueryDeprecated = "api_key_in_query_deprecated"
+	opsCodeInsufficientBalance    = "INSUFFICIENT_BALANCE"
+	opsCodeContentPolicyViolation = "content_policy_violation"
+	opsCodeUsageLimitExceeded     = "USAGE_LIMIT_EXCEEDED"
+	opsCodeSubscriptionNotFound   = "SUBSCRIPTION_NOT_FOUND"
+	opsCodeSubscriptionInvalid    = "SUBSCRIPTION_INVALID"
+	opsCodeUserInactive           = "USER_INACTIVE"
+	opsCodeInvalidAPIKey          = "INVALID_API_KEY"
+	opsCodeAPIKeyRequired         = "API_KEY_REQUIRED"
+	opsCodeAPIKeyExpired          = "API_KEY_EXPIRED"
+	opsCodeAPIKeyDisabled         = "API_KEY_DISABLED"
+	opsCodeUserNotFound           = "USER_NOT_FOUND"
+	opsCodeAPIKeyQuotaExhausted   = "API_KEY_QUOTA_EXHAUSTED"
+	opsCodeAPIKeyQueryDeprecated  = "api_key_in_query_deprecated"
 )
 
 const (
@@ -2132,6 +2133,11 @@ func isKnownOpsErrorType(t string) bool {
 func normalizeOpsErrorType(errType string, code string) string {
 	if errType != "" && isKnownOpsErrorType(errType) {
 		return errType
+	}
+	// 内容审核拦截的响应 type 写的是 content_policy_violation；按请求方被拒处理（同提示词审计拦截），
+	// 不当成内部错误抬高错误率（2026-10-05 E2E）
+	if errType == opsCodeContentPolicyViolation || strings.TrimSpace(code) == opsCodeContentPolicyViolation {
+		return "permission_error"
 	}
 	switch strings.TrimSpace(code) {
 	case opsCodeInsufficientBalance:

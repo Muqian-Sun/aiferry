@@ -31,9 +31,7 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 	gatewayCache := testutil.NewRedisGatewayCache(t)
 
 	settingRepo := &contentModerationHandlerSettingRepo{values: map[string]string{
-		service.SettingKeyRiskControlEnabled:          "true",
-		service.SettingKeyCyberSessionBlockEnabled:    "true",
-		service.SettingKeyCyberSessionBlockTTLSeconds: "60",
+		service.SettingKeyRiskControlEnabled: "true",
 	}}
 	moderationRepo := &contentModerationHandlerTestRepo{}
 	moderationSvc := service.NewContentModerationService(settingRepo, moderationRepo, nil, nil, nil, nil, nil)

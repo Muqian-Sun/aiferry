@@ -1,193 +1,84 @@
 <template>
+  <!--
+    守卫节点（2026-10-05）：节点写在部署配置里（prompt_audit.guard_endpoints / PROMPT_AUDIT_GUARD_ENDPOINTS），
+    这里只读、按顺序列出，可逐个探测；改节点要改配置并重启。探测结果只在这里显示一次。
+  -->
   <section aria-labelledby="prompt-pool-title" class="border-b border-af-hairline py-6">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 id="prompt-pool-title" class="text-base font-semibold text-af-ink">{{ t('admin.promptAudit.pool.title') }}</h2>
-        <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.promptAudit.pool.description') }}</p>
-      </div>
-      <button type="button" class="btn btn-primary btn-sm" data-test="add-endpoint" @click="openCreate">
-        {{ t('admin.promptAudit.pool.add') }}
-      </button>
+    <div>
+      <h2 id="prompt-pool-title" class="text-base font-semibold text-af-ink">{{ t('admin.promptAudit.pool.title') }}</h2>
+      <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.promptAudit.pool.description') }}</p>
     </div>
 
-    <div v-if="endpoints.length === 0" class="mt-5 rounded-xl border border-dashed border-af-hairline-strong px-5 py-10 text-center text-sm text-af-ink-3">
+    <p v-if="endpoints.length === 0" class="mt-4 text-sm text-af-ink-3" data-test="endpoint-pool-empty">
       {{ t('admin.promptAudit.pool.empty') }}
-    </div>
-    <div v-else class="mt-5 overflow-hidden rounded-xl border border-af-hairline bg-af-sheet">
-      <div class="hidden grid-cols-[minmax(260px,1.45fr)_minmax(210px,1fr)_minmax(190px,.8fr)_minmax(230px,1.15fr)_auto] gap-5 border-b border-l-[3px] border-b-af-hairline border-l-transparent bg-af-sunken/80 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-af-ink-3 xl:grid">
-        <span>{{ t('admin.promptAudit.pool.node') }}</span>
-        <span>{{ t('admin.promptAudit.pool.model') }}</span>
-        <span>{{ t('admin.promptAudit.pool.limits') }}</span>
-        <span>{{ t('admin.promptAudit.pool.credential') }}</span>
-        <span class="text-right">{{ t('admin.promptAudit.common.actions') }}</span>
-      </div>
-
-      <div class="divide-y divide-af-hairline">
-        <article
-          v-for="endpoint in endpoints"
-          :key="endpoint.id"
-          :data-test="`endpoint-${endpoint.id}`"
-          class="group grid gap-4 border-l-[3px] border-l-transparent px-4 py-4 transition-[background-color,border-color] duration-200 hover:border-l-af-brand hover:bg-af-sunken/80 sm:px-5 xl:grid-cols-[minmax(260px,1.45fr)_minmax(210px,1fr)_minmax(190px,.8fr)_minmax(230px,1.15fr)_auto] xl:items-center xl:gap-5"
-        >
-          <div class="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              :aria-checked="endpoint.enabled"
-              :aria-label="t('admin.promptAudit.pool.toggleNode', { name: endpoint.name })"
-              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand focus-visible:ring-offset-2"
-              :class="endpoint.enabled ? 'bg-af-brand' : 'bg-af-hairline'"
-              @click="toggleEndpoint(endpoint.id)"
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 rounded-full bg-af-sheet transition-transform duration-200 ease-in-out"
-                :class="endpoint.enabled ? 'translate-x-5' : 'translate-x-0'"
-              />
-            </button>
-            <div class="min-w-0">
-              <div class="flex min-w-0 items-center gap-2">
-                <p class="truncate font-semibold text-af-ink">{{ endpoint.name }}</p>
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="endpoint.enabled ? 'bg-af-success' : 'bg-af-ink-4'" aria-hidden="true" />
-              </div>
-              <p class="mt-0.5 truncate font-mono text-xs text-af-ink-3" :title="endpoint.base_url">{{ endpoint.base_url }}</p>
-            </div>
+    </p>
+    <ul v-else class="mt-4 divide-y divide-af-hairline border-y border-af-hairline">
+      <li
+        v-for="(endpoint, index) in endpoints"
+        :key="endpoint.id"
+        :data-test="`endpoint-${endpoint.id}`"
+        class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+      >
+        <div class="min-w-0">
+          <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span class="text-xs tabular-nums text-af-ink-3">{{ index + 1 }}</span>
+            <p class="truncate text-sm font-medium text-af-ink">{{ endpoint.name }}</p>
+            <span class="text-xs text-af-ink-3">{{ endpoint.has_token ? t('admin.promptAudit.pool.configured') : t('admin.promptAudit.pool.missing') }}</span>
           </div>
-
-          <div class="min-w-0 xl:block">
-            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.model') }}</p>
-            <p class="truncate text-sm font-medium text-af-ink-2" :title="endpoint.model">{{ endpoint.model }}</p>
-          </div>
-
-          <div>
-            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.limits') }}</p>
-            <div class="flex flex-wrap gap-1.5 text-xs text-af-ink-2">
-              <span class="rounded-md bg-af-sunken px-2 py-1 tabular-nums">{{ endpoint.timeout_ms }} ms</span>
-              <span class="rounded-md bg-af-sunken px-2 py-1 tabular-nums">{{ endpoint.input_limit }} chars</span>
-            </div>
-          </div>
-
-          <div class="min-w-0">
-            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.credential') }}</p>
-            <div class="flex items-center gap-1.5 text-xs font-medium" :class="credentialInvalid(endpoint) ? 'text-af-danger' : hasCredential(endpoint) ? 'text-af-success' : 'text-af-ink-3'">
-              <span class="h-1.5 w-1.5 rounded-full" :class="credentialInvalid(endpoint) ? 'bg-af-danger' : hasCredential(endpoint) ? 'bg-af-success' : 'bg-af-ink-4'" aria-hidden="true" />
-              {{ credentialInvalid(endpoint) ? t('admin.promptAudit.pool.invalid') : hasCredential(endpoint) ? t('admin.promptAudit.pool.configured') : t('admin.promptAudit.pool.missing') }}
-            </div>
-            <p v-if="probingIds.includes(endpoint.id)" class="mt-1.5 text-xs text-af-brand">
-              {{ t('admin.promptAudit.pool.probeProgress') }}
-            </p>
-            <p v-if="probeResults[endpoint.id]" class="mt-1.5 line-clamp-2 text-xs leading-5" :class="probeResults[endpoint.id].ok ? 'text-af-success' : 'text-af-danger'">
-              {{ t('admin.promptAudit.pool.probeResult', { status: probeResults[endpoint.id].status, http: probeResults[endpoint.id].http_status || '—', latency: probeResults[endpoint.id].latency_ms }) }}
-              · {{ probeResults[endpoint.id].message }}
-            </p>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-end gap-1 border-t border-af-hairline pt-3 xl:flex-nowrap xl:border-0 xl:pt-0">
-            <button type="button" class="btn btn-secondary btn-sm" :disabled="probingIds.includes(endpoint.id)" @click="$emit('probe', endpoint)">
-              {{ probingIds.includes(endpoint.id) ? t('admin.promptAudit.pool.probing') : t('admin.promptAudit.pool.probe') }}
-            </button>
-            <button type="button" class="btn btn-ghost btn-sm" @click="openEdit(endpoint)">{{ t('common.edit') }}</button>
-            <button type="button" class="btn btn-ghost btn-sm text-af-danger hover:bg-af-danger-tint" @click="removeEndpoint(endpoint)">{{ t('common.delete') }}</button>
-          </div>
-        </article>
-      </div>
-    </div>
-
-    <BaseDialog :show="Boolean(editing)" :title="editingIndex < 0 ? t('admin.promptAudit.pool.add') : t('admin.promptAudit.pool.edit')" width="wide" @close="closeEditor">
-      <!-- 节点 id 由新增时自动生成（createDefaultEndpoint），不让站长看到或手填 -->
-      <form v-if="editing" class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveEditor">
-        <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
-          <span>{{ t('admin.promptAudit.pool.name') }}</span>
-          <input v-model="editing.name" class="input w-full" required :aria-label="t('admin.promptAudit.pool.name')" />
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
-          <span>{{ t('admin.promptAudit.pool.baseUrl') }}</span>
-          <input v-model="editing.base_url" class="input w-full" required inputmode="url" :aria-label="t('admin.promptAudit.pool.baseUrl')" />
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
-          <span>{{ t('admin.promptAudit.pool.apiKey') }}</span>
-          <input v-model="editing.token" class="input w-full" type="password" autocomplete="new-password" :placeholder="editing.has_token ? (editing.token_status === 'invalid' ? t('admin.promptAudit.pool.reenterSecret') : t('admin.promptAudit.pool.keepSecret')) : ''" :aria-label="t('admin.promptAudit.pool.apiKey')" />
-          <span class="block text-xs text-af-ink-3">{{ t('admin.promptAudit.pool.secretHint') }}</span>
-        </label>
-        <label v-if="editing.has_token" class="flex items-center gap-2 text-sm text-af-danger sm:col-span-2">
-          <input v-model="editing.clear_token" type="checkbox" :aria-label="t('admin.promptAudit.pool.clearSecret')" />
-          {{ t('admin.promptAudit.pool.clearSecret') }}
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2 sm:col-span-2">
-          <span>{{ t('admin.promptAudit.pool.model') }}</span>
-          <input v-model="editing.model" class="input w-full" :aria-label="t('admin.promptAudit.pool.model')" />
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2">
-          <span>{{ t('admin.promptAudit.pool.timeout') }}</span>
-          <input v-model.number="editing.timeout_ms" class="input w-full" type="number" min="100" max="30000" required :aria-label="t('admin.promptAudit.pool.timeout')" />
-        </label>
-        <label class="space-y-1 text-sm text-af-ink-2">
-          <span>{{ t('admin.promptAudit.pool.inputLimit') }}</span>
-          <input v-model.number="editing.input_limit" class="input w-full" type="number" min="128" max="100000" required :aria-label="t('admin.promptAudit.pool.inputLimit')" />
-        </label>
-      </form>
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn btn-secondary" @click="closeEditor">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn btn-primary" data-test="save-endpoint" @click="saveEditor">{{ t('common.save') }}</button>
+          <p class="mt-0.5 truncate font-mono text-xs text-af-ink-3" :title="`${endpoint.base_url} · ${endpoint.model}`">
+            {{ endpoint.base_url }} · {{ endpoint.model }}
+          </p>
+          <p v-if="probingIds.includes(endpoint.id)" class="mt-1 text-xs text-af-ink-3">{{ t('admin.promptAudit.pool.probing') }}</p>
+          <p
+            v-else-if="probeResults[endpoint.id]"
+            class="mt-1 inline-flex items-center gap-1.5 text-xs"
+            :class="probeResults[endpoint.id].ok ? 'text-af-ink-2' : 'text-af-danger'"
+            data-test="endpoint-probe-result"
+          >
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="probeResults[endpoint.id].ok ? 'bg-af-success' : 'bg-af-danger'" aria-hidden="true" />
+            {{ probeText(probeResults[endpoint.id]) }}
+          </p>
         </div>
-      </template>
-    </BaseDialog>
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm shrink-0 self-start sm:self-center"
+          :disabled="probingIds.includes(endpoint.id)"
+          :aria-label="t('admin.promptAudit.pool.probeNode', { name: endpoint.name })"
+          @click="$emit('probe', endpoint.id)"
+        >
+          {{ t('admin.promptAudit.pool.probe') }}
+        </button>
+      </li>
+    </ul>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import type { PromptAuditEndpointDraft, PromptProbeResult } from '../types'
-import { cloneData, createDefaultEndpoint } from '../viewModel'
+import type { PromptAuditEndpoint, PromptProbeResult } from '../types'
+import { guardErrorText } from '../viewModel'
 
-const props = defineProps<{
-  endpoints: PromptAuditEndpointDraft[]
+defineProps<{
+  endpoints: PromptAuditEndpoint[]
+  /** 节点 id → 最近一次探测结果（服务端记下的 + 本页刚测的） */
   probeResults: Record<string, PromptProbeResult>
   probingIds: string[]
 }>()
-const emit = defineEmits<{
-  (event: 'update:endpoints', value: PromptAuditEndpointDraft[]): void
-  (event: 'probe', endpoint: PromptAuditEndpointDraft): void
-}>()
-const { t } = useI18n()
-const editing = ref<PromptAuditEndpointDraft | null>(null)
-const editingIndex = ref(-1)
+defineEmits<{ (event: 'probe', endpointId: string): void }>()
+const { t, locale } = useI18n()
 
-function openCreate() {
-  editingIndex.value = -1
-  editing.value = createDefaultEndpoint(props.endpoints.length + 1)
-}
-function openEdit(endpoint: PromptAuditEndpointDraft) {
-  editingIndex.value = props.endpoints.findIndex((item) => item.id === endpoint.id)
-  editing.value = cloneData(endpoint)
-}
-function closeEditor() {
-  editing.value = null
-  editingIndex.value = -1
-}
-function saveEditor() {
-  if (!editing.value?.id.trim() || !editing.value.name.trim() || !editing.value.base_url.trim()) return
-  const next = props.endpoints.map((item) => cloneData(item))
-  const value = cloneData(editing.value)
-  if (value.token.trim()) value.clear_token = false
-  if (editingIndex.value < 0) next.push(value)
-  else next.splice(editingIndex.value, 1, value)
-  emit('update:endpoints', next)
-  closeEditor()
-}
-function toggleEndpoint(id: string) {
-  emit('update:endpoints', props.endpoints.map((item) => item.id === id ? { ...item, enabled: !item.enabled } : cloneData(item)))
-}
-// 只是从草稿里去掉，保存前点「重置」就能撤回，所以不弹确认（原来是浏览器原生 confirm）
-function removeEndpoint(endpoint: PromptAuditEndpointDraft) {
-  emit('update:endpoints', props.endpoints.filter((item) => item.id !== endpoint.id).map((item) => cloneData(item)))
-}
-function hasCredential(endpoint: PromptAuditEndpointDraft): boolean {
-  return Boolean(endpoint.token.trim() || (endpoint.has_token && !endpoint.clear_token))
-}
-function credentialInvalid(endpoint: PromptAuditEndpointDraft): boolean {
-  return endpoint.token_status === 'invalid' && !endpoint.token.trim() && !endpoint.clear_token
+function probeText(result: PromptProbeResult): string {
+  const parts: string[] = []
+  if (result.ok) {
+    parts.push(t('admin.promptAudit.pool.probeOk'))
+  } else {
+    parts.push(guardErrorText(t, result.error_code || ''))
+    if (result.http_status > 0) parts.push(`HTTP ${result.http_status}`)
+  }
+  parts.push(`${result.latency_ms} ms`)
+  if (result.checked_at) {
+    parts.push(new Intl.DateTimeFormat(locale.value, { timeStyle: 'medium' }).format(new Date(result.checked_at)))
+  }
+  return parts.join(' · ')
 }
 </script>

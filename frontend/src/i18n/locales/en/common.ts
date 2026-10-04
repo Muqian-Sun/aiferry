@@ -162,7 +162,7 @@ export default {
     groupDescriptions: {
       subscriptions: 'Subscriptions users hold and the plans on sale',
       orders: 'Top-up and subscription orders, collection overview',
-      review: 'Request content moderation and prompt review'
+      review: 'Moderate request content; block and record matches'
     },
     announcements: 'Announcements',
     usage: 'Usage',

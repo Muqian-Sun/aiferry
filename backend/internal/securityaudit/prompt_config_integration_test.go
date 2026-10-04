@@ -115,15 +115,9 @@ func promptAuditTestEncryptor(t *testing.T) service.SecretEncryptor {
 	return encryptor
 }
 
-func promptAuditUpdateRequest(version int64, workerCount int, token string) UpdateConfigRequest {
+func promptAuditUpdateRequest(version int64, blocking bool) UpdateConfigRequest {
 	return UpdateConfigRequest{
-		ExpectedConfigVersion: version, Enabled: true, BlockingEnabled: false, StorePassEvents: false,
-		Strategy: "priority", WorkerCount: workerCount, QueueCapacity: 64, Scanners: []string{"pii", "jailbreak"},
-		Endpoints: []UpdateEndpoint{{
-			ID: "guard-one", Name: "Guard One", Protocol: "openai_compatible",
-			BaseURL: "http://127.0.0.1:18080", Model: "", Token: token,
-			TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
-		}},
+		ExpectedConfigVersion: version, Enabled: true, BlockingEnabled: blocking, Scanners: []string{"pii", "jailbreak"},
 	}
 }
 
@@ -148,8 +142,9 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, redisClient.Close()) })
 	require.NoError(t, redisClient.Ping(context.Background()).Err())
 
-	managerOne := NewConfigManager(db, settingRepo, redisClient, encryptor, testTotpKeyConfig())
-	managerTwo := NewConfigManager(db, settingRepo, redisClient, encryptor, testTotpKeyConfig())
+	const canary = "GUARD_TOKEN_CANARY_SECRET_4_CONFIG"
+	managerOne := NewConfigManager(db, settingRepo, redisClient, encryptor, testGuardConfig(canary))
+	managerTwo := NewConfigManager(db, settingRepo, redisClient, encryptor, testGuardConfig(canary))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	require.NoError(t, managerOne.Start(ctx))
@@ -162,8 +157,7 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 		return redisClient.PubSubNumSub(context.Background(), ConfigInvalidationChannel).Val()[ConfigInvalidationChannel] >= 2
 	}, 2*time.Second, 20*time.Millisecond)
 
-	const canary = "GUARD_TOKEN_CANARY_SECRET_4_CONFIG"
-	public, err := managerOne.Save(context.Background(), promptAuditUpdateRequest(1, 1, canary), 101)
+	public, err := managerOne.Save(context.Background(), promptAuditUpdateRequest(1, false), 101)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), public.ConfigVersion)
 	require.True(t, public.Endpoints[0].HasToken)
@@ -172,17 +166,11 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 	require.NotContains(t, string(publicJSON), canary)
 	waitForConfigVersion(t, managerTwo, 2, 2*time.Second)
 
+	// 守卫节点只在部署配置里，库里的设置既没有密钥也没有节点地址
 	raw, err := settingRepo.GetValue(context.Background(), SettingKeyPromptAuditConfig)
 	require.NoError(t, err)
 	require.NotContains(t, raw, canary)
-	stored, err := ParseStorageConfig(raw)
-	require.NoError(t, err)
-	require.NotEmpty(t, stored.Endpoints[0].TokenCiphertext)
-	plain, err := encryptor.Decrypt(stored.Endpoints[0].TokenCiphertext)
-	require.NoError(t, err)
-	require.Equal(t, canary, plain)
-	require.NotContains(t, stored.ChangeSummary, canary)
-	require.NotContains(t, stored.ChangeSummary, stored.Endpoints[0].BaseURL)
+	require.NotContains(t, raw, "127.0.0.1:18080")
 
 	type saveResult struct {
 		config PublicConfig
@@ -196,7 +184,7 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 		go func(index int, manager *ConfigManager) {
 			defer wg.Done()
 			<-start
-			cfg, saveErr := manager.Save(context.Background(), promptAuditUpdateRequest(2, index+2, ""), int64(201+index))
+			cfg, saveErr := manager.Save(context.Background(), promptAuditUpdateRequest(2, index == 1), int64(201+index))
 			results <- saveResult{config: cfg, err: saveErr}
 		}(index, manager)
 	}
@@ -220,11 +208,11 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 
 	// A manager without Redis subscriptions must still converge through the
 	// bounded five-second refresh loop.
-	ttlManager := NewConfigManager(db, settingRepo, nil, encryptor, testTotpKeyConfig())
+	ttlManager := NewConfigManager(db, settingRepo, nil, encryptor, testGuardConfig(canary))
 	require.NoError(t, ttlManager.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, ttlManager.Shutdown(context.Background())) })
 	waitForConfigVersion(t, ttlManager, 3, time.Second)
-	updated, err := managerOne.Save(context.Background(), promptAuditUpdateRequest(3, 5, ""), 301)
+	updated, err := managerOne.Save(context.Background(), promptAuditUpdateRequest(3, false), 301)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), updated.ConfigVersion)
 	waitForConfigVersion(t, ttlManager, 4, 7*time.Second)
@@ -233,9 +221,9 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 	// successfully committed PostgreSQL config.
 	deadRedis := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", MaxRetries: 0, DialTimeout: 30 * time.Millisecond, ReadTimeout: 30 * time.Millisecond, WriteTimeout: 30 * time.Millisecond})
 	t.Cleanup(func() { _ = deadRedis.Close() })
-	degraded := NewConfigManager(db, settingRepo, deadRedis, encryptor, testTotpKeyConfig())
+	degraded := NewConfigManager(db, settingRepo, deadRedis, encryptor, testGuardConfig(canary))
 	require.NoError(t, degraded.Reload(context.Background()))
-	degradedSaved, err := degraded.Save(context.Background(), promptAuditUpdateRequest(4, 6, ""), 401)
+	degradedSaved, err := degraded.Save(context.Background(), promptAuditUpdateRequest(4, true), 401)
 	require.NoError(t, err)
 	require.Equal(t, int64(5), degradedSaved.ConfigVersion)
 	active, ok := degraded.Active()

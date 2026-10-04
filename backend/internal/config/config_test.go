@@ -253,6 +253,35 @@ func TestLoadTrustedProxiesFromEnvironment(t *testing.T) {
 	require.True(t, cfg.Server.TrustedProxiesConfigured)
 }
 
+// 守卫节点是结构化列表，AutomaticEnv 解不了，环境变量按 JSON 解析
+func TestLoadPromptAuditGuardEndpointsFromEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("PROMPT_AUDIT_GUARD_ENDPOINTS", `[{"name":"主节点","base_url":"http://guard:8000","api_key":"k1","model":"m1"},{"base_url":"https://guard-b.example.com"}]`)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, []PromptAuditGuardEndpoint{
+		{Name: "主节点", BaseURL: "http://guard:8000", APIKey: "k1", Model: "m1"},
+		{BaseURL: "https://guard-b.example.com"},
+	}, cfg.PromptAudit.GuardEndpoints)
+}
+
+func TestLoadPromptAuditGuardEndpointsRejectsBadInput(t *testing.T) {
+	for _, tc := range []struct{ name, env, want string }{
+		{name: "not json", env: `guard:8000`, want: "PROMPT_AUDIT_GUARD_ENDPOINTS must be a JSON array"},
+		{name: "not http", env: `[{"base_url":"ftp://guard"}]`, want: "prompt_audit.guard_endpoints[0].base_url must be an http(s) URL"},
+		{name: "credentials in url", env: `[{"base_url":"http://u:p@guard:8000"}]`, want: "must not contain credentials"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetViperWithJWTSecret(t)
+			t.Setenv("PROMPT_AUDIT_GUARD_ENDPOINTS", tc.env)
+			_, err := Load()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.want)
+		})
+	}
+}
+
 func TestLoadExplicitEmptyTrustedProxiesFromEnvironment(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("SERVER_TRUSTED_PROXIES", "")

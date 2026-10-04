@@ -136,7 +136,7 @@ func TestPromptAdminConfigRequiresVersionMapsConflictAndNeverEchoesToken(t *test
 		service := &fakePromptAdminService{save: func(context.Context, UpdateConfigRequest, int64) (PublicConfig, error) {
 			return PublicConfig{}, infraerrors.Conflict(ErrorCodeConfigConflict, "配置已被更新")
 		}}
-		response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPut, "/admin/prompt-audit/config", validHandlerUpdateRequest(canary))
+		response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPut, "/admin/prompt-audit/config", validHandlerUpdateRequest())
 		require.Equal(t, http.StatusConflict, response.Code)
 		require.Contains(t, response.Body.String(), ErrorCodeConfigConflict)
 		require.NotContains(t, response.Body.String(), canary)
@@ -145,10 +145,9 @@ func TestPromptAdminConfigRequiresVersionMapsConflictAndNeverEchoesToken(t *test
 	t.Run("success public DTO", func(t *testing.T) {
 		service := &fakePromptAdminService{save: func(_ context.Context, req UpdateConfigRequest, actorID int64) (PublicConfig, error) {
 			require.Equal(t, int64(42), actorID)
-			require.Equal(t, canary, req.Endpoints[0].Token)
-			return PublicConfig{ConfigVersion: 8, Endpoints: []PublicEndpoint{{ID: "guard-1", HasToken: true, TokenStatus: "configured"}}}, nil
+			return PublicConfig{ConfigVersion: 8, Endpoints: []PublicEndpoint{{ID: "guard-1", HasToken: true}}}, nil
 		}}
-		response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPut, "/admin/prompt-audit/config", validHandlerUpdateRequest(canary))
+		response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPut, "/admin/prompt-audit/config", validHandlerUpdateRequest())
 		require.Equal(t, http.StatusOK, response.Code)
 		body := response.Body.String()
 		require.NotContains(t, body, canary)
@@ -161,7 +160,7 @@ func TestPromptAdminConfigRequiresVersionMapsConflictAndNeverEchoesToken(t *test
 func TestPromptAdminGetConfigReturnsSecretFreeUnavailableError(t *testing.T) {
 	const canary = "persisted-config-secret-canary"
 	repository := &switchableSettingRepository{loadErr: errors.New("failed to load token " + canary)}
-	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testGuardConfig(""))
 	require.Error(t, manager.Reload(context.Background()))
 	service := &PromptService{config: manager}
 
@@ -173,29 +172,19 @@ func TestPromptAdminGetConfigReturnsSecretFreeUnavailableError(t *testing.T) {
 	require.NotContains(t, response.Body.String(), `"token"`)
 }
 
-func TestPromptAdminProbeSupportsTemporaryOrSavedTokenWithoutEcho(t *testing.T) {
-	const canary = "probe-token-canary"
-	for _, tc := range []struct {
-		name         string
-		token        string
-		tokenApplied bool
-	}{
-		{name: "temporary token", token: canary, tokenApplied: true},
-		{name: "saved token", token: "", tokenApplied: true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			service := &fakePromptAdminService{probe: func(_ context.Context, req ProbeRequest) ProbeResult {
-				require.Equal(t, tc.token, req.Endpoint.Token)
-				return ProbeResult{OK: true, Status: "healthy", Message: "ok", TokenApplied: tc.tokenApplied}
-			}}
-			endpoint := validHandlerUpdateRequest(tc.token).Endpoints[0]
-			response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPost, "/admin/prompt-audit/endpoints/probe", ProbeRequest{Endpoint: endpoint})
-			require.Equal(t, http.StatusOK, response.Code)
-			require.NotContains(t, response.Body.String(), canary)
-			require.NotContains(t, response.Body.String(), `"token":`)
-			require.Contains(t, response.Body.String(), `"token_applied":true`)
-		})
-	}
+// 探测按节点 ID 测部署配置里的节点；请求里不带地址和密钥，响应也不回显密钥
+func TestPromptAdminProbeByEndpointIDWithoutTokenEcho(t *testing.T) {
+	service := &fakePromptAdminService{probe: func(_ context.Context, req ProbeRequest) ProbeResult {
+		require.Equal(t, "guard-1", req.EndpointID)
+		return ProbeResult{OK: true, Status: "healthy", Message: "ok", TokenApplied: true}
+	}}
+	response := promptAdminRequest(t, promptAdminRouter(service), http.MethodPost, "/admin/prompt-audit/endpoints/probe", ProbeRequest{EndpointID: "guard-1"})
+	require.Equal(t, http.StatusOK, response.Code)
+	require.NotContains(t, response.Body.String(), `"token":`)
+	require.Contains(t, response.Body.String(), `"token_applied":true`)
+
+	missing := promptAdminRequest(t, promptAdminRouter(service), http.MethodPost, "/admin/prompt-audit/endpoints/probe", map[string]any{})
+	require.Equal(t, http.StatusBadRequest, missing.Code)
 }
 
 func TestPromptAdminRejectsInvalidEventIDsTimesAndPagination(t *testing.T) {
@@ -218,19 +207,8 @@ func TestPromptAdminRejectsInvalidEventIDsTimesAndPagination(t *testing.T) {
 	}
 }
 
-func validHandlerUpdateRequest(token string) UpdateConfigRequest {
-	return UpdateConfigRequest{
-		ExpectedConfigVersion: 7,
-		Strategy:              "priority",
-		WorkerCount:           1,
-		QueueCapacity:         10,
-		Scanners:              []string{"pii"},
-		Endpoints: []UpdateEndpoint{{
-			ID: "guard-1", Name: "Guard One", Protocol: "openai_compatible",
-			BaseURL: "http://127.0.0.1:18080", Model: DefaultGuardModel, Token: token,
-			TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
-		}},
-	}
+func validHandlerUpdateRequest() UpdateConfigRequest {
+	return UpdateConfigRequest{ExpectedConfigVersion: 7, Scanners: []string{"pii"}}
 }
 
 func TestPromptAdminDeleteConfirmationErrorsStayGeneric(t *testing.T) {

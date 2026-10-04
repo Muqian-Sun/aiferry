@@ -132,7 +132,6 @@ func runtimeCacheTestConfig(t *testing.T, keywords ...string) string {
 	cfg := defaultContentModerationConfig()
 	cfg.Enabled = true
 	cfg.Mode = ContentModerationModePreBlock
-	cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordOnly
 	cfg.BlockedKeywords = keywords
 	raw, err := json.Marshal(cfg)
 	require.NoError(t, err)

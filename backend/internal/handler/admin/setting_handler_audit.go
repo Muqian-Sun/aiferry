@@ -65,12 +65,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.RiskControlEnabled != after.RiskControlEnabled {
 		changed = append(changed, "risk_control_enabled")
 	}
-	if before.CyberSessionBlockEnabled != after.CyberSessionBlockEnabled {
-		changed = append(changed, "cyber_session_block_enabled")
-	}
-	if before.CyberSessionBlockTTLSeconds != after.CyberSessionBlockTTLSeconds {
-		changed = append(changed, "cyber_session_block_ttl_seconds")
-	}
 	if before.ProfitMinMargin != after.ProfitMinMargin {
 		changed = append(changed, service.SettingKeyProfitMinMargin)
 	}

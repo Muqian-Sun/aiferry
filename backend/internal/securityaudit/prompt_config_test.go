@@ -24,46 +24,23 @@ func (prefixEncryptor) Decrypt(value string) (string, error) {
 	return value[4:], nil
 }
 
-// testTotpKeyConfig mirrors a deployment with a fixed TOTP_ENCRYPTION_KEY so
-// unit tests may persist endpoint tokens.
-func testTotpKeyConfig() *config.Config {
-	return &config.Config{Totp: config.TotpConfig{EncryptionKeyConfigured: true}}
+// testGuardConfig 部署配置里有一个守卫节点（guard-1）
+func testGuardConfig(token string) *config.Config {
+	return &config.Config{PromptAudit: config.PromptAuditConfig{GuardEndpoints: []config.PromptAuditGuardEndpoint{
+		{Name: "Guard One", BaseURL: "http://127.0.0.1:18080/v1", APIKey: token},
+	}}}
 }
 
 func TestDefaultConfigIsOff(t *testing.T) {
 	storage, err := ParseStorageConfig("")
 	require.NoError(t, err)
 	require.False(t, storage.Enabled)
-	require.False(t, storage.BlockingLatestTurnOnly)
-	active, err := ActiveFromStorage(storage, true, prefixEncryptor{})
-	require.NoError(t, err)
+	active := ActiveFromStorage(storage, true, nil)
 	require.Equal(t, ModeOff, active.EffectiveMode())
 	require.Equal(t, AllScannerIDs, storage.Scanners)
 	publicJSON, err := json.Marshal(PublicFromStorage(storage, true, nil))
 	require.NoError(t, err)
 	require.Contains(t, string(publicJSON), `"endpoints":[]`)
-}
-
-func TestBlockingLatestTurnOnlyConfigRoundTrip(t *testing.T) {
-	manager := &ConfigManager{encryptor: prefixEncryptor{}, encryptionKeyConfigured: true}
-	request := UpdateConfigRequest{
-		ExpectedConfigVersion: 1, Enabled: true, BlockingEnabled: true, BlockingLatestTurnOnly: true,
-		Strategy: "priority", WorkerCount: 1, QueueCapacity: 10, Scanners: []string{"pii"},
-		Endpoints: []UpdateEndpoint{{
-			ID: "guard-1", Name: "Guard", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080",
-			Model: DefaultGuardModel, TimeoutMS: 1000, InputLimit: 1000, Enabled: true,
-		}},
-	}
-	next, err := manager.buildNextStorage(DefaultStorageConfig(), request, 9)
-	require.NoError(t, err)
-	require.True(t, next.BlockingLatestTurnOnly)
-	require.Contains(t, changeSummary(next), `"blocking_latest_turn_only":true`)
-
-	active, err := ActiveFromStorage(next, true, prefixEncryptor{})
-	require.NoError(t, err)
-	require.True(t, active.BlockingLatestTurnOnly)
-	public := PublicFromStorage(next, true, nil)
-	require.True(t, public.BlockingLatestTurnOnly)
 }
 
 func TestConfigRejectsBlockingWithoutAudit(t *testing.T) {
@@ -74,8 +51,7 @@ func TestConfigRejectsBlockingWithoutAudit(t *testing.T) {
 
 func TestPublicConfigNeverMarshalsToken(t *testing.T) {
 	storage := DefaultStorageConfig()
-	storage.Endpoints = []StorageEndpoint{{ID: "one", Name: "One", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080", Model: DefaultGuardModel, TokenCiphertext: "GUARD_TOKEN_CANARY_SECRET", TimeoutMS: 1000, InputLimit: 1000, Enabled: true}}
-	public := PublicFromStorage(storage, true, nil)
+	public := PublicFromStorage(storage, true, []ActiveEndpoint{{ID: "guard-1", Name: "One", BaseURL: "http://127.0.0.1:8080", Model: DefaultGuardModel, Token: "GUARD_TOKEN_CANARY_SECRET"}})
 	raw, err := json.Marshal(public)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "GUARD_TOKEN_CANARY_SECRET")
@@ -98,7 +74,7 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 		manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 			SettingKeyPromptAuditConfig: "",
 			SettingKeyRiskControl:       "false",
-		}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+		}}, nil, prefixEncryptor{}, testGuardConfig(""))
 		require.NoError(t, manager.Reload(context.Background()))
 
 		public, err := manager.Public()
@@ -110,11 +86,11 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 	t.Run("unparseable persisted config is unavailable", func(t *testing.T) {
 		const canary = "persisted-token-canary"
 		manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
-			// Endpoint without id/name fails validation, so no trustworthy
+			// A wrongly typed field cannot be decoded, so no trustworthy
 			// snapshot can be installed from this raw value.
-			SettingKeyPromptAuditConfig: `{"enabled":true,"config_version":9,"endpoints":[{"token_ciphertext":"` + canary + `"}]}`,
+			SettingKeyPromptAuditConfig: `{"enabled":"` + canary + `","config_version":9}`,
 			SettingKeyRiskControl:       "true",
-		}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+		}}, nil, prefixEncryptor{}, testGuardConfig(""))
 		require.Error(t, manager.Reload(context.Background()))
 
 		public, err := manager.Public()
@@ -134,7 +110,7 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 			SettingKeyPromptAuditConfig: string(raw),
 			SettingKeyRiskControl:       "false",
 		}}}
-		manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testTotpKeyConfig())
+		manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testGuardConfig(""))
 		require.NoError(t, manager.Reload(context.Background()))
 		repository.loadErr = errors.New("settings unavailable")
 		require.Error(t, manager.Reload(context.Background()))
@@ -144,118 +120,6 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 		require.Equal(t, int64(4), public.ConfigVersion)
 		require.Equal(t, "trusted snapshot", public.ChangeSummary)
 	})
-}
-
-// Regression coverage for issue #4887: a persisted config whose endpoint token
-// can no longer be decrypted (encryption key changed or auto-generated per
-// boot) must stay visible and editable for admins instead of falling back to a
-// default v1 config that makes every save fail the CAS version check.
-func TestConfigManagerUndecryptableTokenKeepsConfigVisibleAndRecoverable(t *testing.T) {
-	const canary = "persisted-token-canary"
-	persisted := `{"enabled":true,"blocking_enabled":false,"config_version":9,"endpoints":[{"id":"g1","name":"Guard","protocol":"openai_compatible","base_url":"http://127.0.0.1:8080","model":"m","token_ciphertext":"` + canary + `","timeout_ms":1000,"input_limit":1000,"enabled":true}]}`
-	manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
-		SettingKeyPromptAuditConfig: persisted,
-		SettingKeyRiskControl:       "true",
-	}}, nil, prefixEncryptor{}, testTotpKeyConfig())
-	require.NoError(t, manager.Reload(context.Background()), "an undecryptable token must not fail the whole config load")
-
-	public, err := manager.Public()
-	require.NoError(t, err)
-	require.Equal(t, int64(9), public.ConfigVersion, "admins must see the real persisted version so CAS saves can succeed")
-	require.Len(t, public.Endpoints, 1)
-	require.True(t, public.Endpoints[0].HasToken)
-	require.Equal(t, "invalid", public.Endpoints[0].TokenStatus)
-	raw, err := json.Marshal(public)
-	require.NoError(t, err)
-	require.NotContains(t, string(raw), canary)
-
-	active, ok := manager.Active()
-	require.True(t, ok)
-	require.Len(t, active.Endpoints, 1)
-	require.False(t, active.Endpoints[0].Enabled, "an endpoint with an undecryptable token must not be used at runtime")
-	require.True(t, active.Endpoints[0].TokenInvalid)
-	require.Empty(t, active.Endpoints[0].Token)
-	require.Empty(t, active.EnabledEndpoints())
-	require.Equal(t, []string{"g1"}, active.InvalidTokenEndpointIDs())
-
-	expected, activeVersion, _, _ := manager.RuntimeState()
-	require.Equal(t, int64(9), expected)
-	require.Equal(t, int64(9), activeVersion)
-}
-
-func TestConfigManagerUndecryptableTokenStillFailsClosedForBlockingIntent(t *testing.T) {
-	persisted := `{"enabled":true,"blocking_enabled":true,"config_version":9,"endpoints":[{"id":"g1","name":"Guard","protocol":"openai_compatible","base_url":"http://127.0.0.1:8080","model":"m","token_ciphertext":"undecryptable","timeout_ms":1000,"input_limit":1000,"enabled":true}]}`
-	manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
-		SettingKeyPromptAuditConfig: persisted,
-		SettingKeyRiskControl:       "true",
-	}}, nil, prefixEncryptor{}, testTotpKeyConfig())
-	require.NoError(t, manager.Reload(context.Background()))
-	require.Equal(t, ModeBlocking, manager.EffectiveMode())
-
-	service := &PromptService{config: manager, evaluator: NewGuardEvaluator(NewOpenAICompatibleScanner(), nil, nil)}
-	decision, err := service.Evaluate(context.Background(), Request{
-		Protocol: "openai_chat_completions",
-		Body:     []byte(`{"messages":[{"role":"user","content":"hi"}]}`),
-	})
-	require.Error(t, err, "blocking intent with no usable endpoint must not let requests pass unaudited")
-	require.Nil(t, decision)
-	var guardErr *GuardError
-	require.ErrorAs(t, err, &guardErr)
-	require.Equal(t, ErrorCodeUnavailable, guardErr.Code)
-}
-
-func TestBuildNextStoragePreserveReplaceAndClearToken(t *testing.T) {
-	manager := &ConfigManager{encryptor: prefixEncryptor{}, encryptionKeyConfigured: true}
-	current := DefaultStorageConfig()
-	current.Endpoints = []StorageEndpoint{{ID: "one", Name: "One", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080", Model: DefaultGuardModel, TokenCiphertext: "enc:old", TimeoutMS: 1000, InputLimit: 1000}}
-	base := UpdateConfigRequest{ExpectedConfigVersion: 1, Strategy: "priority", WorkerCount: 1, QueueCapacity: 10, Scanners: []string{"PII"},
-		Endpoints: []UpdateEndpoint{{ID: "one", Name: "One", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080", TimeoutMS: 1000, InputLimit: 1000}}}
-	preserved, err := manager.buildNextStorage(current, base, 9)
-	require.NoError(t, err)
-	require.Equal(t, "enc:old", preserved.Endpoints[0].TokenCiphertext)
-	replacedReq := base
-	replacedReq.Endpoints = append([]UpdateEndpoint(nil), base.Endpoints...)
-	replacedReq.Endpoints[0].Token = "new"
-	replaced, err := manager.buildNextStorage(current, replacedReq, 9)
-	require.NoError(t, err)
-	require.Equal(t, "enc:new", replaced.Endpoints[0].TokenCiphertext)
-	clearedReq := base
-	clearedReq.Endpoints = append([]UpdateEndpoint(nil), base.Endpoints...)
-	clearedReq.Endpoints[0].ClearToken = true
-	cleared, err := manager.buildNextStorage(current, clearedReq, 9)
-	require.NoError(t, err)
-	require.Empty(t, cleared.Endpoints[0].TokenCiphertext)
-}
-
-// Without a fixed encryption key the per-boot auto-generated key would make a
-// freshly saved token undecryptable after the next restart (issue #4887), so
-// saving a new token must be rejected with an actionable error. Preserving or
-// clearing an existing ciphertext stays allowed so admins can still edit or
-// disable the feature.
-func TestBuildNextStorageRejectsNewTokenWithoutConfiguredEncryptionKey(t *testing.T) {
-	manager := &ConfigManager{encryptor: prefixEncryptor{}, encryptionKeyConfigured: false}
-	current := DefaultStorageConfig()
-	current.Endpoints = []StorageEndpoint{{ID: "one", Name: "One", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080", Model: DefaultGuardModel, TokenCiphertext: "enc:old", TimeoutMS: 1000, InputLimit: 1000}}
-	base := UpdateConfigRequest{ExpectedConfigVersion: 1, Strategy: "priority", WorkerCount: 1, QueueCapacity: 10, Scanners: []string{"PII"},
-		Endpoints: []UpdateEndpoint{{ID: "one", Name: "One", Protocol: "openai_compatible", BaseURL: "http://127.0.0.1:8080", TimeoutMS: 1000, InputLimit: 1000}}}
-
-	newTokenReq := base
-	newTokenReq.Endpoints = append([]UpdateEndpoint(nil), base.Endpoints...)
-	newTokenReq.Endpoints[0].Token = "fresh-token"
-	_, err := manager.buildNextStorage(current, newTokenReq, 9)
-	require.Error(t, err)
-	require.Equal(t, ErrorCodeEncryptionKeyRequired, infraerrors.Reason(err))
-
-	preserved, err := manager.buildNextStorage(current, base, 9)
-	require.NoError(t, err)
-	require.Equal(t, "enc:old", preserved.Endpoints[0].TokenCiphertext)
-
-	clearedReq := base
-	clearedReq.Endpoints = append([]UpdateEndpoint(nil), base.Endpoints...)
-	clearedReq.Endpoints[0].ClearToken = true
-	cleared, err := manager.buildNextStorage(current, clearedReq, 9)
-	require.NoError(t, err)
-	require.Empty(t, cleared.Endpoints[0].TokenCiphertext)
 }
 
 func TestEffectiveModeTruthTable(t *testing.T) {
@@ -331,7 +195,7 @@ func (r *switchableSettingRepository) GetMultiple(ctx context.Context, keys []st
 func TestConfigManagerStartupLoadFailureDoesNotBlockWhenBlockingNotIntended(t *testing.T) {
 	// Settings unavailable and no prior blocking intent: stay ModeOff so the
 	// gateway remains usable and admins can still disable/configure Prompt Audit.
-	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testGuardConfig(""))
 	err := manager.Start(context.Background())
 	require.Error(t, err)
 	require.True(t, manager.configUntrusted.Load())
@@ -350,7 +214,7 @@ func TestConfigManagerStartupLoadFailureDoesNotBlockWhenBlockingNotIntended(t *t
 }
 
 func TestConfigManagerStartupLoadFailureFailsClosedWhenBlockingIntended(t *testing.T) {
-	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testGuardConfig(""))
 	// Simulate intent observed before a later load failure (e.g. decrypt error).
 	manager.observeExpectedState(`{"enabled":true,"blocking_enabled":true,"config_version":3}`, true)
 	manager.markConfigUntrusted()
@@ -381,8 +245,7 @@ func TestConfigManagerUntrustedClearsOnSuccessfulDisable(t *testing.T) {
 	disabled.ConfigVersion = 6
 	disabled.Enabled = false
 	disabled.BlockingEnabled = false
-	active, err := ActiveFromStorage(disabled, true, manager.encryptor)
-	require.NoError(t, err)
+	active := ActiveFromStorage(disabled, true, nil)
 	manager.expected.Store(disabled.ConfigVersion)
 	manager.expectedBlocking.Store(false)
 	manager.snapshot.Store(&activeConfigSnapshot{storage: disabled, active: active, loadedAt: manager.clock.Now()})
@@ -413,43 +276,50 @@ func TestParseLegacyConfigDefaultsMissingFieldsWithoutEnablingBlocking(t *testin
 	storage, err := ParseStorageConfig(`{"enabled":false,"config_version":9}`)
 	require.NoError(t, err)
 	require.False(t, storage.BlockingEnabled)
-	require.Equal(t, "priority", storage.Strategy)
-	require.Equal(t, DefaultWorkerCount, storage.WorkerCount)
-	require.Equal(t, DefaultQueueCapacity, storage.QueueCapacity)
 	require.Equal(t, AllScannerIDs, storage.Scanners)
 }
 
-func TestUpdateConfigStrictBoundsAndKnownValues(t *testing.T) {
-	valid := promptAuditUpdateRequest(1, 1, "")
-	require.NoError(t, validateUpdateConfigRequest(valid))
+func TestUpdateConfigValidatesScannersAndEndpoints(t *testing.T) {
+	valid := promptAuditUpdateRequest(1, false)
+	require.NoError(t, validateUpdateConfigRequest(valid, 1))
 
 	tests := []struct {
-		name   string
-		mutate func(*UpdateConfigRequest)
-		reason string
+		name      string
+		mutate    func(*UpdateConfigRequest)
+		endpoints int
+		reason    string
 	}{
-		{name: "strategy", mutate: func(req *UpdateConfigRequest) { req.Strategy = "round_robin" }, reason: "prompt_audit_invalid_strategy"},
-		{name: "worker low", mutate: func(req *UpdateConfigRequest) { req.WorkerCount = 0 }, reason: "prompt_audit_invalid_worker_count"},
-		{name: "worker high", mutate: func(req *UpdateConfigRequest) { req.WorkerCount = MaxWorkerCount + 1 }, reason: "prompt_audit_invalid_worker_count"},
-		{name: "capacity low", mutate: func(req *UpdateConfigRequest) { req.QueueCapacity = 0 }, reason: "prompt_audit_invalid_queue_capacity"},
-		{name: "capacity high", mutate: func(req *UpdateConfigRequest) { req.QueueCapacity = MaxQueueCapacity + 1 }, reason: "prompt_audit_invalid_queue_capacity"},
-		{name: "unknown scanner", mutate: func(req *UpdateConfigRequest) { req.Scanners = []string{"made_up"} }, reason: "prompt_audit_invalid_scanner"},
-		{name: "timeout low", mutate: func(req *UpdateConfigRequest) { req.Endpoints[0].TimeoutMS = MinTimeoutMS - 1 }, reason: "prompt_audit_invalid_timeout"},
-		{name: "timeout high", mutate: func(req *UpdateConfigRequest) { req.Endpoints[0].TimeoutMS = MaxTimeoutMS + 1 }, reason: "prompt_audit_invalid_timeout"},
-		{name: "input low", mutate: func(req *UpdateConfigRequest) { req.Endpoints[0].InputLimit = MinInputLimit - 1 }, reason: "prompt_audit_invalid_input_limit"},
-		{name: "input high", mutate: func(req *UpdateConfigRequest) { req.Endpoints[0].InputLimit = MaxInputLimit + 1 }, reason: "prompt_audit_invalid_input_limit"},
+		{name: "unknown scanner", mutate: func(req *UpdateConfigRequest) { req.Scanners = []string{"made_up"} }, endpoints: 1, reason: "prompt_audit_invalid_scanner"},
+		{name: "no scanner", mutate: func(req *UpdateConfigRequest) { req.Scanners = nil }, endpoints: 1, reason: "prompt_audit_scanners_required"},
+		{name: "enable without guard endpoints", mutate: func(req *UpdateConfigRequest) {}, endpoints: 0, reason: "prompt_audit_endpoint_required"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := valid
 			req.Scanners = append([]string(nil), valid.Scanners...)
-			req.Endpoints = append([]UpdateEndpoint(nil), valid.Endpoints...)
 			tt.mutate(&req)
-			err := validateUpdateConfigRequest(req)
+			err := validateUpdateConfigRequest(req, tt.endpoints)
 			require.Error(t, err)
 			require.Equal(t, tt.reason, infraerrors.Reason(err))
 		})
 	}
+
+	// 没有守卫节点时仍可以保存「关闭」
+	disabled := valid
+	disabled.Enabled = false
+	require.NoError(t, validateUpdateConfigRequest(disabled, 0))
+}
+
+// 部署配置里的守卫节点：按顺序编号 guard-N，地址去掉 /v1，没写名字用地址、没写模型用默认守卫模型
+func TestGuardEndpointsFromConfig(t *testing.T) {
+	endpoints := guardEndpointsFromConfig([]config.PromptAuditGuardEndpoint{
+		{Name: " 主节点 ", BaseURL: "http://guard-a:8000/v1/", APIKey: " key-a ", Model: "Qwen3Guard-Gen-8B"},
+		{BaseURL: "https://guard-b.example.com"},
+	})
+	require.Equal(t, []ActiveEndpoint{
+		{ID: "guard-1", Name: "主节点", BaseURL: "http://guard-a:8000", Model: "Qwen3Guard-Gen-8B", Token: "key-a"},
+		{ID: "guard-2", Name: "https://guard-b.example.com", BaseURL: "https://guard-b.example.com", Model: DefaultGuardModel},
+	}, endpoints)
 }
 
 // Regression coverage for issue #5732: refreshLoop reloads every 5s, so
@@ -465,7 +335,7 @@ func TestConfigLoadedIsLoggedOnlyWhenSomethingChanged(t *testing.T) {
 		SettingKeyPromptAuditConfig: string(raw),
 		SettingKeyRiskControl:       "false",
 	}}}
-	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testGuardConfig(""))
 
 	var output bytes.Buffer
 	previous := slog.Default()

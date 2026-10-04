@@ -56,8 +56,13 @@ func (h *GatewayHandler) responsesSecurityAuditError(c *gin.Context, decision *s
 		h.responsesErrorResponse(c, securityAuditStatus(decision), securityAuditErrorCode(decision), securityAuditMessage(decision))
 		return
 	}
+	// 与 chat / messages 一致：拦截是 permission_error，审计不可用是 api_error
+	errType := "api_error"
+	if decision.Kind == securityaudit.DecisionBlock {
+		errType = "permission_error"
+	}
 	c.JSON(securityAuditStatus(decision), gin.H{"error": gin.H{
-		"type": "api_error", "code": securityAuditErrorCode(decision), "message": securityAuditMessage(decision),
+		"type": errType, "code": securityAuditErrorCode(decision), "message": securityAuditMessage(decision),
 	}})
 }
 

@@ -39,7 +39,7 @@ func TestPromptServiceHasExplicitIdempotentLifecycle(t *testing.T) {
 	config := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 		SettingKeyPromptAuditConfig: "",
 		SettingKeyRiskControl:       "false",
-	}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	}}, nil, prefixEncryptor{}, testGuardConfig(""))
 	service := NewPromptService(
 		config,
 		NewPostgreSQLRepository(nil),
@@ -76,8 +76,8 @@ func TestPromptServiceBlockingLatestTurnOnlyUsesNarrowSnapshot(t *testing.T) {
 	}), nil, NewAtomicMetrics(), 2, 2)
 	service := &PromptService{
 		config: &fakeConfigStore{active: true, cfg: ActiveConfig{
-			RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, BlockingLatestTurnOnly: true,
-			Scanners: AllScannerIDs, Endpoints: []ActiveEndpoint{{ID: "guard-1", Enabled: true, TimeoutMS: 1000, InputLimit: 4096}},
+			RiskControlEnabled: true, Enabled: true, BlockingEnabled: true,
+			Scanners: AllScannerIDs, Endpoints: []ActiveEndpoint{{ID: "guard-1"}},
 		}},
 		evaluator: evaluator,
 	}

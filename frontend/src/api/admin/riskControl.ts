@@ -1,45 +1,17 @@
 import { apiClient } from '../client'
 
-export type ModerationMode = 'off' | 'observe' | 'pre_block'
-export type KeywordBlockingMode = 'keyword_only' | 'keyword_and_api' | 'api_only'
-export type ContentModerationModelFilterType = 'all' | 'include' | 'exclude'
+// 关闭靠「开启内容审计」开关，模式只有这两种
+export type ModerationMode = 'observe' | 'pre_block'
 
-export interface ContentModerationModelFilter {
-  type: ContentModerationModelFilterType
-  models: string[]
-}
-
+// 页面上能改的只有这几项；超时、重试、阈值、封禁次数、保留天数等写死在后端（content_moderation.go 常量）
 export interface ContentModerationConfig {
   enabled: boolean
   mode: ModerationMode
-  base_url: string
-  model: string
   proxy_id: number | null
-  api_key_configured: boolean
-  api_key_masked: string
   api_key_count: number
-  api_key_masks: string[]
   api_key_statuses: ContentModerationAPIKeyStatus[]
-  timeout_ms: number
-  sample_rate: number
-  record_non_hits: boolean
-  thresholds: Record<string, number>
-  worker_count: number
-  queue_size: number
-  block_status: number
-  block_message: string
-  email_on_hit: boolean
   auto_ban_enabled: boolean
-  ban_threshold: number
-  violation_window_hours: number
-  retry_count: number
-  hit_retention_days: number
-  non_hit_retention_days: number
-  pre_hash_check_enabled: boolean
   blocked_keywords: string[]
-  keyword_blocking_mode: KeywordBlockingMode
-  model_filter: ContentModerationModelFilter
-  cyber_policy_exclude_from_ban_count: boolean
 }
 
 export type ContentModerationAPIKeyStatusValue = 'unknown' | 'ok' | 'error' | 'frozen'
@@ -61,10 +33,8 @@ export interface ContentModerationAPIKeyStatus {
 }
 
 export interface TestContentModerationAPIKeysPayload {
+  // 不传 = 测已保存的密钥
   api_keys?: string[]
-  base_url?: string
-  model?: string
-  timeout_ms?: number
   // null/undefined 沿用已保存配置的代理；0 强制直连；>0 指定代理
   proxy_id?: number
   prompt?: string
@@ -89,35 +59,13 @@ export interface ContentModerationTestAuditResult {
 export interface UpdateContentModerationConfig {
   enabled?: boolean
   mode?: ModerationMode
-  base_url?: string
-  model?: string
   // undefined 不修改；0 清除（直连）；>0 指定代理
   proxy_id?: number
-  api_key?: string
+  // 追加的密钥；按哈希删除已保存的密钥
   api_keys?: string[]
-  api_keys_mode?: 'append' | 'replace'
   delete_api_key_hashes?: string[]
-  clear_api_key?: boolean
-  timeout_ms?: number
-  sample_rate?: number
-  record_non_hits?: boolean
-  thresholds?: Record<string, number>
-  worker_count?: number
-  queue_size?: number
-  block_status?: number
-  block_message?: string
-  email_on_hit?: boolean
   auto_ban_enabled?: boolean
-  ban_threshold?: number
-  violation_window_hours?: number
-  retry_count?: number
-  hit_retention_days?: number
-  non_hit_retention_days?: number
-  pre_hash_check_enabled?: boolean
   blocked_keywords?: string[]
-  keyword_blocking_mode?: KeywordBlockingMode
-  model_filter?: ContentModerationModelFilter
-  cyber_policy_exclude_from_ban_count?: boolean
 }
 
 export interface ContentModerationRuntimeStatus {

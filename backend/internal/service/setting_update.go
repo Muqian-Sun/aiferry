@@ -80,12 +80,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
 
-	// cyber 会话屏蔽开关 + TTL
-	updates[SettingKeyCyberSessionBlockEnabled] = strconv.FormatBool(settings.CyberSessionBlockEnabled)
-	if settings.CyberSessionBlockTTLSeconds > 0 {
-		updates[SettingKeyCyberSessionBlockTTLSeconds] = strconv.Itoa(settings.CyberSessionBlockTTLSeconds)
-	}
-
 	// 利润门只有最低毛利率一个数，0 = 关。
 	if settings.ProfitMinMargin < 0 || settings.ProfitMinMargin > ProfitControlRatioMax {
 		return nil, infraerrors.BadRequest("INVALID_PROFIT_CONTROL", fmt.Sprintf("profit control: min_margin must be within [0, %g]", ProfitControlRatioMax))

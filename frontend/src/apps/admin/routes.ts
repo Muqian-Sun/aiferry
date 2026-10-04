@@ -205,7 +205,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       titleKey: 'nav.review',
       descriptionKey: 'admin.promptAudit.description',
       requiresRiskControl: true,
-      pageGroup: 'review'
+      pageGroup: 'review',
+      siteFeature: 'promptAudit'
     }
   },
   {

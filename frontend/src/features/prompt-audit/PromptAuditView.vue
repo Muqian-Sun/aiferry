@@ -1,9 +1,9 @@
 <template>
   <!-- 提示词审查（A7）：页签与全站同一种下划线页签；内容不套卡片；配置版本放在页头右侧 -->
   <AppLayout>
-    <template v-if="draft" #header-actions>
+    <template v-if="serverConfig" #header-actions>
       <div class="text-right text-xs text-af-ink-3" data-test="config-version">
-        <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
+        <p>{{ t('admin.promptAudit.configVersion', { version: serverConfig.config_version }) }}</p>
         <p v-if="savedAt" class="mt-0.5">{{ formatDate(savedAt) }}</p>
       </div>
     </template>
@@ -22,14 +22,13 @@
           <!-- 探测、看详情、删除事件失败的原因；保存配置的失败在底部保存条 -->
           <FormError class="mb-3" :message="actionError" data-test="prompt-audit-action-error" />
           <div v-show="activeTab === 'config'" data-test="tab-panel-config">
-            <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" :endpoint-names="endpointNames" @refresh="loadRuntime" />
+            <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" @refresh="loadRuntime" />
 
-            <template v-if="draft">
+            <template v-if="draft && serverConfig">
               <EndpointPool
-                :endpoints="draft.endpoints"
-                :probe-results="probeResults"
+                :endpoints="serverConfig.endpoints"
+                :probe-results="endpointProbeResults"
                 :probing-ids="probingIds"
-                @update:endpoints="updateEndpoints"
                 @probe="runProbe"
               />
               <PolicyPanel :draft="draft" @update:draft="replaceDraft" />
@@ -37,17 +36,6 @@
           </div>
 
           <div v-show="activeTab === 'events'" data-test="tab-panel-events">
-            <div
-              v-if="draft?.enabled && !draft.store_pass_events"
-              data-test="pass-events-disabled-notice"
-              role="status"
-              class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-af-warning/30 bg-af-warning-tint px-4 py-3 text-sm text-af-warning"
-            >
-              <span>{{ t('admin.promptAudit.events.passEventsDisabled') }}</span>
-              <button type="button" class="btn btn-secondary btn-sm" @click="activeTab = 'config'">
-                {{ t('admin.promptAudit.events.openConfiguration') }}
-              </button>
-            </div>
             <EventWorkspace
               :events="events.items"
               :total="events.total"
@@ -81,8 +69,6 @@
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
           <SaveToggle :label="t('admin.promptAudit.saveBar.enabled')" :model-value="draft.enabled" data-test="enabled-toggle" @update:model-value="setEnabled" />
           <SaveToggle :label="t('admin.promptAudit.saveBar.blocking')" :model-value="draft.blocking_enabled" :disabled="!draft.enabled" data-test="blocking-toggle" @update:model-value="setBlocking" />
-          <SaveToggle :label="t('admin.promptAudit.saveBar.blockingLatestTurnOnly')" :model-value="draft.blocking_latest_turn_only" :disabled="!draft.enabled || !draft.blocking_enabled" data-test="blocking-latest-turn-only-toggle" @update:model-value="replaceDraft({ ...draft!, blocking_latest_turn_only: $event })" />
-          <SaveToggle :label="t('admin.promptAudit.saveBar.storePass')" :model-value="draft.store_pass_events" data-test="store-pass-toggle" @update:model-value="replaceDraft({ ...draft!, store_pass_events: $event })" />
         </div>
         <div class="flex items-center gap-3">
           <span class="text-sm" :class="saveError ? 'text-af-danger' : dirty ? 'text-af-warning' : 'text-af-ink-3'" role="status">
@@ -148,8 +134,8 @@ import EventDetailDialog from './components/EventDetailDialog.vue'
 import FilterDeleteDialog from './components/FilterDeleteDialog.vue'
 import promptAuditAPI from './api'
 import type {
+  PromptAuditConfig,
   PromptAuditDraft,
-  PromptAuditEndpointDraft,
   PromptAuditEvent,
   PromptAuditRuntime,
   PromptDeletePreview,
@@ -171,11 +157,11 @@ const pageTabs = computed<SectionTab[]>(() => [
 const onTabChange = (key: string) => {
   activeTab.value = key as PromptAuditPageTab
 }
-const serverConfig = ref<PromptAuditDraft | null>(null)
+const serverConfig = ref<PromptAuditConfig | null>(null)
 const draft = ref<PromptAuditDraft | null>(null)
 // 从没保存过的配置，后端给的是 Go 的零值时间 0001-01-01：当作没有，不显示「1年1月1日」
 const savedAt = computed(() => {
-  const value = draft.value?.updated_at
+  const value = serverConfig.value?.updated_at
   if (!value) return null
   return new Date(value).getUTCFullYear() > 1 ? value : null
 })
@@ -198,11 +184,13 @@ const showBlockingConfirmation = ref(false)
 const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>({ mode: '', ids: [] })
 const loading = reactive({ config: false, runtime: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
 const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', events: '' })
-const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
-// Guard 节点在运行态、事件详情里写名称（按已保存的配置），不写内部节点 id
+const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value ? configToDraft(serverConfig.value) : null))
+// Guard 节点在事件详情里写名称（按部署配置），不写内部节点 id
 const endpointNames = computed<Record<string, string> | undefined>(() =>
   serverConfig.value ? Object.fromEntries(serverConfig.value.endpoints.map((endpoint) => [endpoint.id, endpoint.name])) : undefined
 )
+// 每个节点最近一次探测：服务端记下的（运行态里带）+ 本页刚测的，后者优先
+const endpointProbeResults = computed<Record<string, PromptProbeResult>>(() => ({ ...(runtime.value?.endpoints ?? {}), ...probeResults }))
 
 const SaveToggle = defineComponent({
   inheritAttrs: false,
@@ -254,7 +242,7 @@ async function loadConfig() {
   loadErrors.config = ''
   try {
     const config = await promptAuditAPI.getConfig()
-    serverConfig.value = configToDraft(config)
+    serverConfig.value = config
     draft.value = configToDraft(config)
   } catch (error) {
     loadErrors.config = errorMessage(error, 'admin.promptAudit.errors.loadConfig')
@@ -268,7 +256,8 @@ async function loadRuntime() {
   try { runtime.value = await promptAuditAPI.getRuntime() }
   catch (error) { loadErrors.runtime = errorMessage(error, 'admin.promptAudit.errors.loadRuntime') }
   finally { loading.runtime = false }
-}async function loadEvents() {
+}
+async function loadEvents() {
   loading.events = true
   loadErrors.events = ''
   try {
@@ -286,10 +275,6 @@ async function loadInitial() {
 }
 
 function replaceDraft(value: PromptAuditDraft) { draft.value = cloneData(value) }
-function updateEndpoints(value: PromptAuditEndpointDraft[]) {
-  if (!draft.value) return
-  replaceDraft({ ...draft.value, endpoints: value })
-}
 function setEnabled(value: boolean) {
   if (!draft.value) return
   replaceDraft({ ...draft.value, enabled: value, blocking_enabled: value ? draft.value.blocking_enabled : false })
@@ -305,15 +290,15 @@ function confirmBlocking() {
 }
 function resetDraft() {
   saveError.value = ''
-  if (serverConfig.value) draft.value = cloneData(serverConfig.value)
+  if (serverConfig.value) draft.value = configToDraft(serverConfig.value)
 }
 async function saveConfig() {
-  if (!draft.value || !dirty.value) return
+  if (!draft.value || !serverConfig.value || !dirty.value) return
   loading.saving = true
   saveError.value = ''
   try {
-    const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(draft.value))
-    serverConfig.value = configToDraft(saved)
+    const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(draft.value, serverConfig.value.config_version))
+    serverConfig.value = saved
     draft.value = configToDraft(saved)
     await loadRuntime()
   } catch (error) {
@@ -323,17 +308,17 @@ async function saveConfig() {
     loading.saving = false
   }
 }
-async function runProbe(endpoint: PromptAuditEndpointDraft) {
-  if (probingIds.value.includes(endpoint.id)) return
-  probingIds.value = [...probingIds.value, endpoint.id]
+async function runProbe(endpointId: string) {
+  if (probingIds.value.includes(endpointId)) return
+  probingIds.value = [...probingIds.value, endpointId]
   actionError.value = ''
   try {
     // 探测结果（含失败原因）写在节点行里
-    probeResults[endpoint.id] = await promptAuditAPI.probeEndpoint(endpoint)
+    probeResults[endpointId] = await promptAuditAPI.probeEndpoint(endpointId)
   } catch (error) {
     actionError.value = errorMessage(error, 'admin.promptAudit.errors.probe')
   } finally {
-    probingIds.value = probingIds.value.filter((id) => id !== endpoint.id)
+    probingIds.value = probingIds.value.filter((id) => id !== endpointId)
   }
 }
 

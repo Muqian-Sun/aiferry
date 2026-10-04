@@ -56,6 +56,9 @@ func (s *fakeConfigStore) RuntimeState() (int64, int64, *time.Time, string) {
 	return s.cfg.ConfigVersion, s.cfg.ConfigVersion, nil, ""
 }
 func (s *fakeConfigStore) Encrypt(value string) (string, error) { return value, nil }
+func (s *fakeConfigStore) GuardEndpoints() []ActiveEndpoint {
+	return append([]ActiveEndpoint(nil), s.cfg.Endpoints...)
+}
 func (s *fakeConfigStore) Decrypt(value string) (string, error) { return value, nil }
 
 type fakeJobRepository struct {
@@ -233,9 +236,9 @@ func (s *fakePayloadStore) Ping(context.Context) error { return s.pingErr }
 
 func asyncConfig() ActiveConfig {
 	return ActiveConfig{
-		RiskControlEnabled: true, Enabled: true, BlockingEnabled: false, Strategy: "priority",
-		WorkerCount: 1, QueueCapacity: 8, Scanners: []string{"pii"}, ConfigVersion: 7,
-		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 3}},
+		RiskControlEnabled: true, Enabled: true, BlockingEnabled: false,
+		Scanners: []string{"pii"}, ConfigVersion: 7,
+		Endpoints: []ActiveEndpoint{{ID: "guard"}},
 	}
 }
 
@@ -360,7 +363,7 @@ func workerJob(attempts, maxAttempts int) *Job {
 
 func TestWorkerCompletesPassWithoutEventRefreshesEveryChunkAndDeletesPayload(t *testing.T) {
 	repo := &fakeJobRepository{}
-	payload := &fakePayloadStore{values: map[int64]string{51: "abcdef"}}
+	payload := &fakePayloadStore{values: map[int64]string{51: strings.Repeat("a", GuardInputLimit+1)}}
 	scannerCalls := 0
 	scanner := PromptScannerFunc(func(_ context.Context, endpoint ActiveEndpoint, chunk string, _ []string) (*NormalizedResult, error) {
 		scannerCalls++
@@ -435,7 +438,7 @@ func TestWorkerRetryBackoffTerminalFailureAndFailover(t *testing.T) {
 		return integrationResult(EventPass), nil
 	})
 	cfg := asyncConfig()
-	cfg.Endpoints = []ActiveEndpoint{{ID: "first", Enabled: true, InputLimit: 10}, {ID: "second", Enabled: true, InputLimit: 10}}
+	cfg.Endpoints = []ActiveEndpoint{{ID: "first"}, {ID: "second"}}
 	runner := NewRunner(&fakeConfigStore{cfg: cfg, active: true}, repo, payload, scanner, metrics)
 	require.NoError(t, runner.processJob(context.Background(), 0, cfg, workerJob(1, 3)))
 	require.Equal(t, int64(1), metrics.Snapshot().Failovers)
@@ -510,8 +513,6 @@ func TestWorkerPanicLeaseLossAndLifecycleAreContained(t *testing.T) {
 func TestPromptAuditSyntheticAsyncBaseline(t *testing.T) {
 	const totalRequests = 100
 	cfg := asyncConfig()
-	cfg.Endpoints[0].InputLimit = 256
-	cfg.StorePassEvents = false
 	repo := &fakeJobRepository{}
 	payload := &fakePayloadStore{values: make(map[int64]string, totalRequests)}
 	metrics := NewAtomicMetrics()

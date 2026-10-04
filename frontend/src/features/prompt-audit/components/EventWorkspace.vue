@@ -24,8 +24,8 @@
       <SearchInput
         :model-value="localFilters.keyword"
         compact
-        class="w-full sm:w-52"
-        :placeholder="t('admin.promptAudit.events.keyword')"
+        class="w-full sm:w-72"
+        :placeholder="t('admin.promptAudit.events.keywordPlaceholder')"
         @update:model-value="localFilters.keyword = $event"
         @search="applyFilters"
       />
@@ -72,15 +72,15 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-af-hairline bg-af-sheet">
-          <tr v-if="loading"><td colspan="8" class="px-4 py-12 text-center text-af-ink-3" aria-busy="true">{{ t('common.loading') }}</td></tr>
-          <tr v-else-if="events.length === 0"><td colspan="8" class="px-4 py-12 text-center text-af-ink-3">{{ t('admin.promptAudit.events.empty') }}</td></tr>
+          <tr v-if="loading"><td colspan="7" class="px-4 py-12 text-center text-af-ink-3" aria-busy="true">{{ t('common.loading') }}</td></tr>
+          <tr v-else-if="events.length === 0"><td colspan="7" class="px-4 py-12 text-center text-af-ink-3">{{ anyActive ? t('admin.promptAudit.events.emptyFiltered') : t('admin.promptAudit.events.empty') }}</td></tr>
           <tr v-for="event in events" v-else :key="event.id" :data-test="`event-${event.id}`" class="align-top hover:bg-af-sunken/70">
             <td class="px-3 py-3"><input type="checkbox" :checked="selectedIds.includes(event.id)" :aria-label="t('admin.promptAudit.events.selectEvent', { time: formatDate(event.created_at) })" @change="toggleOne(event.id)" /></td>
             <td class="whitespace-nowrap px-3 py-3 text-xs text-af-ink-2">{{ formatDate(event.created_at) }}</td>
-            <td class="px-3 py-3">
-              <CopyLine :label="t('admin.promptAudit.events.user')" :value="event.snapshot.username" />
-              <CopyLine :label="t('admin.promptAudit.events.email')" :value="event.snapshot.user_email" />
-              <CopyLine :label="t('admin.promptAudit.events.apiKey')" :value="event.snapshot.api_key_name" />
+            <!-- 身份：邮箱（没有就用户名）+ 密钥名，不带标签和复制按钮；要复制去详情里 -->
+            <td class="max-w-56 px-3 py-3">
+              <p class="truncate text-af-ink" :title="event.snapshot.user_email || event.snapshot.username">{{ event.snapshot.user_email || event.snapshot.username || '—' }}</p>
+              <p class="mt-1 truncate text-xs text-af-ink-3" :title="event.snapshot.api_key_name">{{ event.snapshot.api_key_name || '—' }}</p>
             </td>
             <td class="px-3 py-3">
               <p class="font-medium text-af-ink">{{ event.snapshot.endpoint }}</p>
@@ -88,7 +88,11 @@
             </td>
             <td class="px-3 py-3">
               <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="decisionClass(event.decision)">{{ formatDecisionRisk(event.decision, event.risk_level) }}</span>
-              <p class="mt-2 max-w-48 truncate text-xs text-af-ink-3" :title="formatCategories(event.categories)">{{ formatCategories(event.categories) }}</p>
+              <!-- 请求到底拦没拦：只有同步阻止下判 Block 才真拦；异步审计的事件只是记录，请求已放行 -->
+              <p class="mt-1.5 text-xs" :class="event.blocked ? 'font-medium text-af-danger' : 'text-af-ink-3'" data-test="event-outcome">
+                {{ event.blocked ? t('admin.promptAudit.events.outcomeBlocked') : t('admin.promptAudit.events.outcomeAllowed') }}
+              </p>
+              <p class="mt-1 max-w-48 truncate text-xs text-af-ink-3" :title="formatCategories(event.categories)">{{ formatCategories(event.categories) }}</p>
             </td>
             <td class="max-w-xs px-3 py-3"><p class="line-clamp-2 break-words text-af-ink-2">{{ event.snapshot.redacted_preview || '—' }}</p></td>
             <td class="whitespace-nowrap px-3 py-3 text-right">
@@ -104,10 +108,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
-import CopyButton from '@/components/common/CopyButton.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import FilterChip from '@/components/common/FilterChip.vue'
 import FormError from '@/components/common/FormError.vue'
@@ -161,20 +164,6 @@ const riskOptions = computed<FilterOption[]>(() => ['low', 'medium', 'high', 'cr
 const moreOpen = ref(false)
 const showMore = computed(() => moreOpen.value || Boolean(localFilters.endpoint || localFilters.request_id || localFilters.prompt_hash))
 const anyActive = computed(() => (Object.keys(localFilters) as Array<keyof PromptEventFilters>).some((key) => Boolean(localFilters[key])))
-
-const CopyLine = defineComponent({
-  props: { label: { type: String, required: true }, value: { type: String, default: '' } },
-  setup(componentProps) {
-    return () => h('div', { class: 'flex max-w-56 items-center gap-1 text-xs' }, [
-      h('span', { class: 'w-16 flex-none text-af-ink-3' }, componentProps.label),
-      h('span', { class: 'min-w-0 flex-1 truncate text-af-ink' }, componentProps.value || '—'),
-      // 复制后文字换成「已复制」（原来点了没有反馈）
-      componentProps.value ? h(CopyButton, {
-        variant: 'text', class: 'text-af-brand hover:underline', text: componentProps.value,
-      }) : null,
-    ])
-  },
-})
 
 function applyFilters() {
   const value = cloneData(localFilters)

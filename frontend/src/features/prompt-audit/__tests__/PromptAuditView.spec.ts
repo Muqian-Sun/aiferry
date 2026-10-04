@@ -18,9 +18,8 @@ vi.mock('vue-i18n', async () => {
 })
 
 const baseConfig = (): PromptAuditConfig => ({
-  enabled: true, blocking_enabled: false, blocking_latest_turn_only: false, store_pass_events: false, effective_mode: 'async_audit', strategy: 'priority',
-  worker_count: 4, queue_capacity: 100, scanners: SCANNER_CATALOG.map((item) => item.id),
-  endpoints: [{ id: 'guard-1', name: 'Guard One', protocol: 'openai_compatible', base_url: 'http://127.0.0.1:8000', model: 'guard-model', timeout_ms: 3000, input_limit: 4000, enabled: true, has_token: true, token_status: 'configured' }],
+  enabled: true, blocking_enabled: false, effective_mode: 'async_audit', scanners: SCANNER_CATALOG.map((item) => item.id),
+  endpoints: [{ id: 'guard-1', name: 'Guard One', base_url: 'http://127.0.0.1:8000', model: 'guard-model', has_token: true }],
   config_version: 7, updated_at: '2026-07-16T00:00:00Z', updated_by: 1, change_summary: '{}',
 })
 const runtime = (): PromptAuditRuntime => ({
@@ -34,10 +33,13 @@ const runtime = (): PromptAuditRuntime => ({
 const AppLayoutStub = { template: '<div><slot /></div>' }
 const RuntimeStub = defineComponent({ props: ['runtime', 'loading', 'error'], emits: ['refresh'], template: '<div data-test="runtime">{{ error }}</div>' })
 const EndpointStub = defineComponent({
-  props: ['endpoints', 'probeResults', 'probingIds'], emits: ['update:endpoints', 'probe'],
-  template: '<div data-test="endpoint"><button data-test="inject-secret" @click="$emit(\'update:endpoints\', endpoints.map((e) => ({ ...e, token: \'PROMPT_AUDIT_CANARY_SECRET_DO_NOT_PERSIST\' })))">secret</button><button data-test="probe" @click="$emit(\'probe\', endpoints[0])">probe</button></div>',
+  props: ['endpoints', 'probeResults', 'probingIds'], emits: ['probe'],
+  template: '<div data-test="endpoint"><button data-test="probe" @click="$emit(\'probe\', endpoints[0].id)">probe</button></div>',
 })
-const PolicyStub = defineComponent({ props: ['draft'], emits: ['update:draft'], template: '<div data-test="policy" />' })
+const PolicyStub = defineComponent({
+  props: ['draft'], emits: ['update:draft'],
+  template: '<div data-test="policy"><button data-test="drop-scanner" @click="$emit(\'update:draft\', { ...draft, scanners: draft.scanners.slice(1) })">drop</button></div>',
+})
 const EventsStub = defineComponent({
   props: ['events', 'filters', 'selectedIds', 'loading', 'error', 'total', 'page', 'pageSize'],
   emits: ['filters-change', 'search', 'selection', 'page', 'page-size', 'view', 'delete', 'batch-delete', 'preview-delete'],
@@ -93,7 +95,6 @@ describe('PromptAuditView', () => {
     expect(wrapper.get('[data-test="tab-panel-config"]').attributes('style') || '').toContain('display: none')
     expect(wrapper.find('[data-test="save-config"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="events"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="pass-events-disabled-notice"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="section-tab-events"]').text()).toContain('admin.promptAudit.tabs.events')
     expect(wrapper.get('[data-testid="section-tab-config"]').text()).toContain('admin.promptAudit.tabs.config')
 
@@ -108,11 +109,6 @@ describe('PromptAuditView', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="section-tab-events"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.find('[data-test="save-config"]').exists()).toBe(false)
-
-    await wrapper.get('[data-test="pass-events-disabled-notice"] button').trigger('click')
-    expect(wrapper.get('[data-testid="section-tab-config"]').attributes('aria-selected')).toBe('true')
-    expect(wrapper.find('[data-test="save-config"]').exists()).toBe(true)
-    expect(wrapper.get('[data-test="tab-panel-config"]').attributes('style') || '').not.toContain('display: none')
   })
 
   it('requires confirmation for blocking and disables it when audit is turned off', async () => {
@@ -123,27 +119,25 @@ describe('PromptAuditView', () => {
     expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes('aria-checked')).toBe('true')
-    await wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').trigger('click')
-    expect(wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').attributes('aria-checked')).toBe('true')
     await wrapper.get('[data-test="enabled-toggle"]').trigger('click')
     expect(wrapper.get('[data-test="enabled-toggle"]').attributes('aria-checked')).toBe('false')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes('aria-checked')).toBe('false')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes()).toHaveProperty('disabled')
-    expect(wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').attributes()).toHaveProperty('disabled')
   })
 
-  it('clears plaintext token state after a successful save', async () => {
+  // 保存只发开关、同步阻止和风险分类，带上当前配置版本
+  it('saves only the editable fields with the expected config version', async () => {
     const wrapper = mountView()
     await flushPromises()
     await wrapper.get('[data-testid="section-tab-config"]').trigger('click')
-    await wrapper.get('[data-test="inject-secret"]').trigger('click')
+    await wrapper.get('[data-test="drop-scanner"]').trigger('click')
     expect(wrapper.text()).toContain('admin.promptAudit.saveBar.dirty')
     await wrapper.get('[data-test="save-config"]').trigger('click')
     await flushPromises()
-    expect(mocks.updateConfig).toHaveBeenCalledWith(expect.objectContaining({ endpoints: [expect.objectContaining({ token: 'PROMPT_AUDIT_CANARY_SECRET_DO_NOT_PERSIST' })] }))
-    const endpointProps = wrapper.getComponent(EndpointStub).props('endpoints') as Array<{ token: string }>
-    expect(endpointProps[0].token).toBe('')
-    expect(wrapper.html()).not.toContain('PROMPT_AUDIT_CANARY_SECRET_DO_NOT_PERSIST')
+    expect(mocks.updateConfig).toHaveBeenCalledWith({
+      expected_config_version: 7, enabled: true, blocking_enabled: false, scanners: SCANNER_CATALOG.map((item) => item.id).slice(1),
+    })
+    expect(wrapper.text()).toContain('admin.promptAudit.saveBar.synced')
   })
 
   it('reports real probe progress/results and invalidates filter confirmation when filters change', async () => {
@@ -152,7 +146,7 @@ describe('PromptAuditView', () => {
     await wrapper.get('[data-testid="section-tab-config"]').trigger('click')
     await wrapper.get('[data-test="probe"]').trigger('click')
     await flushPromises()
-    expect(mocks.probeEndpoint).toHaveBeenCalledOnce()
+    expect(mocks.probeEndpoint).toHaveBeenCalledWith('guard-1')
     expect((wrapper.getComponent(EndpointStub).props('probeResults') as Record<string, unknown>)).toHaveProperty('guard-1')
 
     await wrapper.get('[data-testid="section-tab-events"]').trigger('click')
@@ -175,7 +169,7 @@ describe('PromptAuditView', () => {
     await flushPromises()
     await wrapper.get('[data-testid="section-tab-config"]').trigger('click')
     const switches = wrapper.findAll('[role="switch"]')
-    expect(switches).toHaveLength(4)
+    expect(switches).toHaveLength(2)
     expect(switches.every((item) => Boolean(item.attributes('aria-label')))).toBe(true)
     expect(wrapper.html()).toContain('fixed inset-x-0 bottom-0')
     expect(wrapper.html()).toContain('flex-wrap')

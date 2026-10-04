@@ -41,8 +41,6 @@ type UpdateSettingsRequest struct {
 	RiskControlEnabled *bool `json:"risk_control_enabled"`
 
 	// cyber 会话屏蔽开关 + TTL
-	CyberSessionBlockEnabled    *bool `json:"cyber_session_block_enabled"`
-	CyberSessionBlockTTLSeconds *int  `json:"cyber_session_block_ttl_seconds"`
 
 	// OpenAI fast/flex policy (optional, only updated when provided)
 
@@ -71,8 +69,6 @@ func (r UpdateSettingsRequest) settingKeys() []string {
 	add(r.ChannelMonitorShowQuota != nil, service.SettingKeyChannelMonitorShowQuota)
 	add(r.AffiliateEnabled != nil, service.SettingKeyAffiliateEnabled)
 	add(r.RiskControlEnabled != nil, service.SettingKeyRiskControlEnabled)
-	add(r.CyberSessionBlockEnabled != nil, service.SettingKeyCyberSessionBlockEnabled)
-	add(r.CyberSessionBlockTTLSeconds != nil, service.SettingKeyCyberSessionBlockTTLSeconds)
 	add(r.ProfitMinMargin != nil, service.SettingKeyProfitMinMargin)
 	return keys
 }
@@ -144,12 +140,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		req.OpsMetricsIntervalSeconds = &v
 	}
 
-	// cyber 会话屏蔽 TTL 校验：提供时必须 > 0
-	if req.CyberSessionBlockTTLSeconds != nil && *req.CyberSessionBlockTTLSeconds <= 0 {
-		response.BadRequest(c, "cyber_session_block_ttl_seconds must be > 0")
-		return
-	}
-
 	settings := &service.SystemSettings{
 
 		AffiliateRebateRate:          affiliateRebateRate,
@@ -211,18 +201,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.RiskControlEnabled
 		}(),
-		CyberSessionBlockEnabled: func() bool {
-			if req.CyberSessionBlockEnabled != nil {
-				return *req.CyberSessionBlockEnabled
-			}
-			return previousSettings.CyberSessionBlockEnabled
-		}(),
-		CyberSessionBlockTTLSeconds: func() int {
-			if req.CyberSessionBlockTTLSeconds != nil {
-				return *req.CyberSessionBlockTTLSeconds
-			}
-			return previousSettings.CyberSessionBlockTTLSeconds
-		}(),
 	}
 
 	if err := h.settingService.UpdateSettings(c.Request.Context(), settings, req.settingKeys()); err != nil {
@@ -256,10 +234,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 
-		RiskControlEnabled:          updatedSettings.RiskControlEnabled,
-		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,
-		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
-		ProfitMinMargin:             updatedSettings.ProfitMinMargin,
+		RiskControlEnabled: updatedSettings.RiskControlEnabled,
+		ProfitMinMargin:    updatedSettings.ProfitMinMargin,
 	}
 	response.Success(c, payload)
 }

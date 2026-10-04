@@ -86,30 +86,20 @@ func (s *OpenAIGatewayService) cyberSessionBlockStore() CyberSessionBlockStore {
 	return store
 }
 
-// CyberSessionBlockRuntime 返回 (开关, TTL)。开关默认关。
-// 委托给 SettingService.GetCyberSessionBlockRuntime，进程内缓存避免热路径 DB 往返。
-func (s *OpenAIGatewayService) CyberSessionBlockRuntime(ctx context.Context) (bool, time.Duration) {
-	if s == nil || s.settingService == nil {
-		return false, time.Hour
-	}
-	return s.settingService.GetCyberSessionBlockRuntime(ctx)
-}
+// cyberSessionBlockTTL cyber 命中后，同一会话自动屏蔽多久。会话屏蔽写死开启（2026-10-05，瘦身方案 B2-23/24）。
+const cyberSessionBlockTTL = time.Hour
 
 // MarkCyberSessionBlocked 把会话写入屏蔽表（写入点：cyber 命中后）。
-// 开关关闭、key 为空或存储不可用时静默跳过。
+// key 为空或存储不可用时静默跳过。
 func (s *OpenAIGatewayService) MarkCyberSessionBlocked(ctx context.Context, scopeKey string, keys []string) {
 	if s == nil || len(keys) == 0 {
-		return
-	}
-	enabled, ttl := s.CyberSessionBlockRuntime(ctx)
-	if !enabled {
 		return
 	}
 	store := s.cyberSessionBlockStore()
 	if store == nil {
 		return
 	}
-	if err := store.SetCyberSessionBlocked(ctx, scopeKey, keys, ttl); err != nil {
+	if err := store.SetCyberSessionBlocked(ctx, scopeKey, keys, cyberSessionBlockTTL); err != nil {
 		logger.LegacyPrintf("service.openai_gateway", "cyber session block write failed: err=%v", err)
 	}
 }
@@ -117,10 +107,6 @@ func (s *OpenAIGatewayService) MarkCyberSessionBlocked(ctx context.Context, scop
 // FindCyberSessionBlockedForRequest applies explicit-first lookup followed by
 // scope-gated transcript matching. All failures remain fail-open.
 func (s *OpenAIGatewayService) FindCyberSessionBlockedForRequest(ctx context.Context, apiKeyID int64, c *gin.Context, body []byte, clientIP, userAgent string) string {
-	enabled, _ := s.CyberSessionBlockRuntime(ctx)
-	if !enabled {
-		return ""
-	}
 	store := s.cyberSessionBlockStore()
 	if store == nil {
 		return ""

@@ -41,7 +41,7 @@ func (r *cyberOrderingTestRepo) ListLogs(ctx context.Context, filter ContentMode
 	return nil, nil, nil
 }
 
-func (r *cyberOrderingTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error) {
+func (r *cyberOrderingTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	return 0, nil
 }
 
@@ -155,65 +155,6 @@ func TestRecordCyberPolicyEvent_WritesLogWhenEnabled(t *testing.T) {
 		"Error should mention flagged or cyber_policy")
 }
 
-// 分组作用域已删：风控只按模型作用域收窄，任何 key（含无分组 key）都进审核。
-func TestRecordCyberPolicyEvent_RespectsContentModerationScope(t *testing.T) {
-	tests := []struct {
-		name       string
-		config     string
-		model      string
-		wantCalls  []bool
-		wantLogs   int
-		wantBanned bool
-	}{
-		{
-			name:     "excluded model",
-			config:   `{"model_filter":{"type":"include","models":["gpt-4o"]},"ban_threshold":1}`,
-			model:    "gpt-5",
-			wantLogs: 0,
-		},
-		{
-			name:       "included model",
-			config:     `{"enabled":false,"mode":"off","sample_rate":0,"model_filter":{"type":"include","models":["gpt-5"]},"ban_threshold":1}`,
-			model:      "gpt-5",
-			wantCalls:  []bool{false},
-			wantLogs:   1,
-			wantBanned: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := &banCountArgsTestRepo{}
-			userRepo := &contentModerationTestUserRepo{user: &User{ID: 1, Role: RoleUser, Status: StatusActive}}
-			svc := NewContentModerationService(
-				&contentModerationTestSettingRepo{values: map[string]string{
-					SettingKeyRiskControlEnabled:      "true",
-					SettingKeyContentModerationConfig: tt.config,
-				}},
-				repo, nil, userRepo, nil, nil, nil,
-			)
-
-			svc.RecordCyberPolicyEvent(context.Background(), CyberPolicyRecordInput{
-				UserID: 1,
-				Model:  tt.model,
-			})
-
-			if tt.wantCalls == nil {
-				require.Empty(t, repo.snapshotCountCalls())
-			} else {
-				require.Equal(t, tt.wantCalls, repo.snapshotCountCalls())
-			}
-			require.Len(t, repo.snapshotLogs(), tt.wantLogs)
-			require.Equal(t, tt.wantBanned, userRepo.user.Status == StatusDisabled)
-			if tt.wantBanned {
-				require.Len(t, userRepo.updated, 1)
-			} else {
-				require.Empty(t, userRepo.updated)
-			}
-		})
-	}
-}
-
 func TestRecordCyberPolicyEvent_InitialRuntimeSnapshotLoadFailureSkipsEvent(t *testing.T) {
 	repo := &banCountArgsTestRepo{}
 	settingRepo := &contentModerationRuntimeSettingRepo{values: map[string]string{
@@ -227,18 +168,18 @@ func TestRecordCyberPolicyEvent_InitialRuntimeSnapshotLoadFailureSkipsEvent(t *t
 		Model:  "gpt-5",
 	})
 
-	require.Empty(t, repo.snapshotCountCalls())
+	require.Zero(t, repo.snapshotCountCalls())
 	require.Empty(t, repo.snapshotLogs())
 	getValue, getMultiple := settingRepo.calls()
 	require.Zero(t, getValue)
 	require.GreaterOrEqual(t, getMultiple, 1)
 }
 
-func TestRecordCyberPolicyEvent_RuntimeSnapshotRefreshFailureKeepsStaleScope(t *testing.T) {
+func TestRecordCyberPolicyEvent_RuntimeSnapshotRefreshFailureKeepsStaleSnapshot(t *testing.T) {
 	repo := &banCountArgsTestRepo{}
 	settingRepo := &contentModerationRuntimeSettingRepo{values: map[string]string{
 		SettingKeyRiskControlEnabled:      "true",
-		SettingKeyContentModerationConfig: `{"all_groups":true,"model_filter":{"type":"include","models":["gpt-5"]}}`,
+		SettingKeyContentModerationConfig: `{"enabled":true}`,
 	}}
 	svc := NewContentModerationService(settingRepo, repo, nil, nil, nil, nil, nil)
 	svc.runtimeCacheTTL = time.Minute
@@ -319,77 +260,27 @@ func TestRecordCyberPolicyEvent_CreateLogBeforeEmail(t *testing.T) {
 		"UpdateLogEmailSent must not be called when no email was sent")
 }
 
-// banCountArgsTestRepo 在 contentModerationTestRepo 基础上记录
-// CountFlaggedByUserSince 收到的 excludeCyberPolicy 参数，供透传断言。
+// banCountArgsTestRepo 在 contentModerationTestRepo 基础上记录 CountFlaggedByUserSince 被调了几次
 type banCountArgsTestRepo struct {
 	contentModerationTestRepo
 	argsMu     sync.Mutex
-	countCalls []bool
+	countCalls int
 }
 
-func (r *banCountArgsTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error) {
+func (r *banCountArgsTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	r.argsMu.Lock()
-	r.countCalls = append(r.countCalls, excludeCyberPolicy)
+	r.countCalls++
 	r.argsMu.Unlock()
-	return r.contentModerationTestRepo.CountFlaggedByUserSince(ctx, userID, since, excludeCyberPolicy)
+	return r.contentModerationTestRepo.CountFlaggedByUserSince(ctx, userID, since)
 }
 
-func (r *banCountArgsTestRepo) snapshotCountCalls() []bool {
+func (r *banCountArgsTestRepo) snapshotCountCalls() int {
 	r.argsMu.Lock()
 	defer r.argsMu.Unlock()
-	out := make([]bool, len(r.countCalls))
-	copy(out, r.countCalls)
-	return out
+	return r.countCalls
 }
 
-func TestApplyFlaggedAccountSideEffects_PassesExcludeCyberFlag(t *testing.T) {
-	repo := &banCountArgsTestRepo{}
-	svc := NewContentModerationService(
-		&contentModerationTestSettingRepo{values: map[string]string{}},
-		repo, nil, nil, nil, nil, nil,
-	)
-	userID := int64(42)
-
-	cfgExclude := defaultContentModerationConfig()
-	cfgExclude.CyberPolicyExcludeFromBanCount = true
-	svc.applyFlaggedAccountSideEffects(context.Background(), cfgExclude, &ContentModerationLog{Flagged: true, UserID: &userID})
-
-	cfgDefault := defaultContentModerationConfig() // 默认 false
-	svc.applyFlaggedAccountSideEffects(context.Background(), cfgDefault, &ContentModerationLog{Flagged: true, UserID: &userID})
-
-	require.Equal(t, []bool{true, false}, repo.snapshotCountCalls(),
-		"applyFlaggedAccountSideEffects 必须把 cfg.CyberPolicyExcludeFromBanCount 透传给 COUNT 查询")
-}
-
-func TestRecordCyberPolicyEvent_ExcludeFromBanCount_SkipsBanJudgment(t *testing.T) {
-	repo := &banCountArgsTestRepo{}
-	svc := NewContentModerationService(
-		&contentModerationTestSettingRepo{values: map[string]string{
-			SettingKeyRiskControlEnabled:      "true",
-			SettingKeyContentModerationConfig: `{"cyber_policy_exclude_from_ban_count":true}`,
-		}},
-		repo, nil, nil, nil, nil, nil,
-	)
-
-	svc.RecordCyberPolicyEvent(context.Background(), CyberPolicyRecordInput{
-		UserID:          1,
-		UserEmail:       "u@x.com",
-		Model:           "gpt-5",
-		Endpoint:        "/v1/responses",
-		UpstreamMessage: "flagged",
-		UpstreamStatus:  400,
-	})
-
-	require.Empty(t, repo.snapshotCountCalls(), "开关开时不得执行封号计数查询")
-	logs := repo.snapshotLogs()
-	require.Len(t, logs, 1, "风控日志必须照记")
-	require.True(t, logs[0].Flagged, "日志仍标记 Flagged=true（列表可见可筛）")
-	require.Equal(t, "cyber_policy", logs[0].Action)
-	require.Equal(t, 0, logs[0].ViolationCount, "不参与计数时 ViolationCount 保持 0")
-	require.False(t, logs[0].AutoBanned)
-}
-
-func TestRecordCyberPolicyEvent_DefaultCountsTowardBan(t *testing.T) {
+func TestRecordCyberPolicyEvent_CountsTowardBan(t *testing.T) {
 	repo := &banCountArgsTestRepo{}
 	svc := NewContentModerationService(
 		&contentModerationTestSettingRepo{values: map[string]string{
@@ -407,8 +298,7 @@ func TestRecordCyberPolicyEvent_DefaultCountsTowardBan(t *testing.T) {
 		UpstreamStatus:  400,
 	})
 
-	require.Equal(t, []bool{false}, repo.snapshotCountCalls(),
-		"默认配置必须执行计数查询且不排除 cyber 行")
+	require.Equal(t, 1, repo.snapshotCountCalls(), "cyber 命中必须计入封号次数")
 	logs := repo.snapshotLogs()
 	require.Len(t, logs, 1)
 	require.GreaterOrEqual(t, logs[0].ViolationCount, 1, "默认路径行为不变（现状回归）")

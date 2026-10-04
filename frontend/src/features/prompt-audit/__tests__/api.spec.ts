@@ -19,14 +19,11 @@ describe('Prompt Audit API', () => {
     expect(client.get).toHaveBeenCalledWith('/admin/prompt-audit/runtime')
   })
 
-  it('sends a temporary probe token only in the request and never invents response credentials', async () => {
+  // 探测只传节点 id：地址和密钥在服务端的部署配置里
+  it('probes a deployment node by id without sending any address or secret', async () => {
     client.post.mockResolvedValue({ data: { ok: true, token_applied: true } })
-    const result = await promptAuditAPI.probeEndpoint({
-      id: 'guard-1', name: 'Guard', protocol: 'openai_compatible', base_url: 'http://127.0.0.1:8000', model: 'guard',
-      token: 'api-canary-secret', clear_token: false, timeout_ms: 1000, input_limit: 1000, enabled: true, has_token: false, token_status: 'missing',
-    })
-    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/endpoints/probe', expect.objectContaining({ endpoint: expect.objectContaining({ token: 'api-canary-secret' }) }))
-    expect(JSON.stringify(result)).not.toContain('api-canary-secret')
+    await promptAuditAPI.probeEndpoint('guard-1')
+    expect(client.post).toHaveBeenCalledWith('/admin/prompt-audit/endpoints/probe', { endpoint_id: 'guard-1' })
   })
 
   it('passes a server preview token through the confirmed filter-delete contract', async () => {

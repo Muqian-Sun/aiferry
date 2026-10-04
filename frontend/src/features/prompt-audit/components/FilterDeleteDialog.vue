@@ -5,17 +5,14 @@
 
       <fieldset>
         <legend class="text-xs font-medium text-af-ink-2">{{ t('admin.promptAudit.events.filterTimeRange') }}</legend>
-        <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" :aria-label="t('admin.promptAudit.events.filterTimeRange')">
-          <label
-            v-for="option in DELETE_RANGE_PRESETS"
-            :key="option.id"
-            class="cursor-pointer"
-          >
-            <input v-model="preset" type="radio" name="prompt-delete-range" :value="option.id" class="peer sr-only" :data-test="`range-preset-${option.id}`" @change="criteriaChanged" />
-            <span class="inline-flex items-center rounded-full border border-af-hairline px-3 py-1.5 text-xs font-medium text-af-ink-2 transition-colors peer-checked:border-af-danger peer-checked:bg-af-danger-tint peer-checked:text-af-danger peer-focus-visible:ring-2 peer-focus-visible:ring-af-danger/30">
-              {{ t(`admin.promptAudit.events.timePresets.${option.id}`) }}
-            </span>
-          </label>
+        <div class="mt-2 max-w-full overflow-x-auto">
+          <SegmentedControl
+            :model-value="preset"
+            :options="presetOptions"
+            :label="t('admin.promptAudit.events.filterTimeRange')"
+            test-id-prefix="range-preset"
+            @update:model-value="setPreset"
+          />
         </div>
         <p class="mt-2 text-xs text-af-ink-3">{{ t('admin.promptAudit.events.filterTimeRangeHint') }}</p>
         <div v-if="preset === 'custom'" class="mt-3 grid gap-3 sm:grid-cols-2" data-test="custom-range">
@@ -31,29 +28,13 @@
         </div>
       </fieldset>
 
-      <div class="grid gap-3 sm:grid-cols-2">
-        <label class="text-xs text-af-ink-2">
-          <span>{{ t('admin.promptAudit.events.decision') }}</span>
-          <select v-model="local.decision" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.decision')" data-test="delete-decision" @change="criteriaChanged">
-            <option value="">{{ t('common.all') }}</option>
-            <option value="pass">{{ t('admin.promptAudit.decisions.pass') }}</option>
-            <option value="flag">{{ t('admin.promptAudit.decisions.flag') }}</option>
-            <option value="critical">{{ t('admin.promptAudit.decisions.critical') }}</option>
-          </select>
-        </label>
-        <label class="text-xs text-af-ink-2">
-          <span>{{ t('admin.promptAudit.events.risk') }}</span>
-          <select v-model="local.risk_level" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.risk')" data-test="delete-risk" @change="criteriaChanged">
-            <option value="">{{ t('common.all') }}</option>
-            <option value="low">{{ t('admin.promptAudit.riskLevels.low') }}</option>
-            <option value="medium">{{ t('admin.promptAudit.riskLevels.medium') }}</option>
-            <option value="high">{{ t('admin.promptAudit.riskLevels.high') }}</option>
-            <option value="critical">{{ t('admin.promptAudit.riskLevels.critical') }}</option>
-          </select>
-        </label>
+      <!-- 判定 / 风险等级：与事件列表同一种筛选小控件，不选 = 全部 -->
+      <div class="flex flex-wrap items-center gap-2">
+        <FilterChip v-model="local.decision" :label="t('admin.promptAudit.events.decision')" :options="decisionOptions" test-id="delete-decision" @change="criteriaChanged" />
+        <FilterChip v-model="local.risk_level" :label="t('admin.promptAudit.events.risk')" :options="riskOptions" test-id="delete-risk" @change="criteriaChanged" />
       </div>
 
-      <details class="rounded-xl border border-af-hairline px-4 py-3" data-test="more-conditions">
+      <details data-test="more-conditions">
         <summary class="cursor-pointer select-none text-xs font-medium text-af-ink-2">{{ t('admin.promptAudit.events.moreConditions') }}</summary>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
           <label class="text-xs text-af-ink-2">
@@ -72,17 +53,12 @@
         </div>
       </details>
 
-      <div v-if="preview" class="rounded-xl border border-af-danger/30 bg-af-danger-tint/60 px-4 py-3" data-test="delete-preview-result">
+      <div v-if="preview" class="space-y-1 border-t border-af-hairline pt-4" data-test="delete-preview-result">
         <p class="text-sm font-semibold text-af-danger">{{ t('admin.promptAudit.events.filterDeleteCount', { count: preview.matched_count }) }}</p>
-        <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-af-ink-2">
-          <dt>Filter SHA-256</dt>
-          <dd class="break-all font-mono">{{ preview.filter_hash }}</dd>
-          <dt>{{ t('admin.promptAudit.events.expiresAt') }}</dt>
-          <dd>{{ formatDate(preview.expires_at) }}</dd>
-        </dl>
-        <p class="mt-2 rounded-lg bg-af-warning-tint px-3 py-2 text-xs text-af-warning">{{ t('admin.promptAudit.events.filterDeleteWarning') }}</p>
+        <p class="text-xs text-af-ink-3">{{ t('admin.promptAudit.events.expiresAt', { time: formatDate(preview.expires_at) }) }}</p>
+        <p class="text-xs text-af-warning">{{ t('admin.promptAudit.events.filterDeleteWarning') }}</p>
       </div>
-      <p v-else class="rounded-xl border border-dashed border-af-hairline-strong px-4 py-3 text-xs text-af-ink-3" data-test="delete-preview-empty">
+      <p v-else class="border-t border-af-hairline pt-4 text-xs text-af-ink-3" data-test="delete-preview-empty">
         {{ t('admin.promptAudit.events.filterDeleteNeedPreview') }}
       </p>
     </div>
@@ -116,7 +92,10 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
 import FormError from '@/components/common/FormError.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
+import type { FilterOption } from '@/components/common/types'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import { adminAPI } from '@/api/admin'
 import type { PromptDeletePreview, PromptEventFilters } from '../types'
@@ -148,6 +127,13 @@ const { t, locale } = useI18n()
 
 const preset = ref<DeleteRangePreset>('7d')
 const local = reactive<PromptEventFilters>(emptyEventFilters())
+const presetOptions = computed(() => DELETE_RANGE_PRESETS.map((option) => ({ key: option.id, label: t(`admin.promptAudit.events.timePresets.${option.id}`) })))
+const decisionOptions = computed<FilterOption[]>(() => ['pass', 'flag', 'critical'].map((value) => ({ value, label: t(`admin.promptAudit.decisions.${value}`) })))
+const riskOptions = computed<FilterOption[]>(() => ['low', 'medium', 'high', 'critical'].map((value) => ({ value, label: t(`admin.promptAudit.riskLevels.${value}`) })))
+function setPreset(value: DeleteRangePreset) {
+  preset.value = value
+  criteriaChanged()
+}
 
 // 用户条件：按邮箱选；从列表筛选继承来的只有 id，打开时查出邮箱显示（查不到就是已删除用户），不显示数字
 const userPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)

@@ -5,13 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,29 +26,16 @@ import (
 )
 
 const (
-	ContentModerationModeOff      = "off"
 	ContentModerationModeObserve  = "observe"
 	ContentModerationModePreBlock = "pre_block"
 
-	contentModerationAPIKeysModeAppend  = "append"
-	contentModerationAPIKeysModeReplace = "replace"
-
 	ContentModerationActionAllow        = "allow"
 	ContentModerationActionBlock        = "block"
-	ContentModerationActionHashBlock    = "hash_block"
 	ContentModerationActionKeywordBlock = "keyword_block"
 	ContentModerationActionError        = "error"
-	ContentModerationActionCyberPolicy  = "cyber_policy" // cyber_policy 硬阻断的风控日志 action（封号计数排除按此值过滤）
+	ContentModerationActionCyberPolicy  = "cyber_policy" // cyber_policy 硬阻断的风控日志 action
 
 	contentModerationKeywordCategory = "keyword"
-
-	ContentModerationKeywordModeKeywordOnly   = "keyword_only"
-	ContentModerationKeywordModeKeywordAndAPI = "keyword_and_api"
-	ContentModerationKeywordModeAPIOnly       = "api_only"
-
-	ContentModerationModelFilterAll     = "all"
-	ContentModerationModelFilterInclude = "include"
-	ContentModerationModelFilterExclude = "exclude"
 
 	ContentModerationProtocolAnthropicMessages = "anthropic_messages"
 	ContentModerationProtocolOpenAIResponses   = "openai_responses"
@@ -56,38 +43,32 @@ const (
 	ContentModerationProtocolGemini            = "gemini"
 	ContentModerationProtocolOpenAIImages      = "openai_images"
 
-	defaultContentModerationBaseURL   = "https://api.openai.com"
-	defaultContentModerationModel     = "omni-moderation-latest"
-	defaultContentModerationTimeoutMS = 3000
-	maxContentModerationTimeoutMS     = 30000
-	maxModerationInputRunes           = 12000
-	maxModerationExcerptRunes         = 240
+	maxModerationInputRunes   = 12000
+	maxModerationExcerptRunes = 240
 
-	defaultContentModerationWorkerCount          = 4
-	maxContentModerationWorkerCount              = 32
-	defaultContentModerationQueueSize            = 32768
-	maxContentModerationQueueSize                = 100000
-	defaultContentModerationBanThreshold         = 10
-	defaultContentModerationViolationWindowHours = 720
-	defaultContentModerationBlockHTTPStatus      = http.StatusForbidden
-	defaultContentModerationBlockMessage         = "Content audit matched a risk rule. Please adjust your input and try again."
-	defaultContentModerationRetryCount           = 2
-	maxContentModerationRetryCount               = 5
-	defaultContentModerationHitRetentionDays     = 180
-	defaultContentModerationNonHitRetentionDays  = 3
-	maxContentModerationRetentionDays            = 3650
-	maxContentModerationNonHitRetentionDays      = 3
-	contentModerationKeyRateLimitFreezeDuration  = time.Minute
-	contentModerationKeyAuthFreezeDuration       = 10 * time.Minute
-	contentModerationKeyHTTPErrorFreezeDuration  = 10 * time.Second
-	maxContentModerationInputImages              = 1
-	maxContentModerationTestImages               = maxContentModerationInputImages
-	maxContentModerationTestImageBytes           = 8 * 1024 * 1024
-	maxContentModerationTestImageDataURLBytes    = 12 * 1024 * 1024
-	maxContentModerationBlockedKeywords          = 10000
-	maxContentModerationBlockedKeywordRunes      = 200
-	maxContentModerationModelFilterModels        = 1000
-	maxContentModerationModelFilterRunes         = 200
+	// 内容审核的运行参数写死在代码里（2026-10-05，瘦身方案 B2）：页面只留开关、模式、代理、审核密钥、自动封禁与拦截关键词。
+	contentModerationBaseURL             = "https://api.openai.com"
+	contentModerationModel               = "omni-moderation-latest"
+	contentModerationTimeout             = 3 * time.Second
+	contentModerationRetryCount          = 2
+	contentModerationWorkerCount         = 4
+	contentModerationQueueSize           = 32768
+	contentModerationBlockHTTPStatus     = http.StatusForbidden
+	contentModerationBlockMessage        = "Content audit matched a risk rule. Please adjust your input and try again."
+	contentModerationBanThreshold        = 10
+	contentModerationViolationWindow     = 720 * time.Hour
+	contentModerationHitRetentionDays    = 180
+	contentModerationNonHitRetentionDays = 3
+
+	contentModerationKeyRateLimitFreezeDuration = time.Minute
+	contentModerationKeyAuthFreezeDuration      = 10 * time.Minute
+	contentModerationKeyHTTPErrorFreezeDuration = 10 * time.Second
+	maxContentModerationInputImages             = 1
+	maxContentModerationTestImages              = maxContentModerationInputImages
+	maxContentModerationTestImageBytes          = 8 * 1024 * 1024
+	maxContentModerationTestImageDataURLBytes   = 12 * 1024 * 1024
+	maxContentModerationBlockedKeywords         = 10000
+	maxContentModerationBlockedKeywordRunes     = 200
 
 	contentModerationCleanupInterval = 24 * time.Hour
 	contentModerationCleanupTimeout  = 30 * time.Minute
@@ -113,7 +94,8 @@ var contentModerationCategoryOrder = []string{
 	"violence/graphic",
 }
 
-func ContentModerationDefaultThresholds() map[string]float64 {
+// contentModerationThresholds 各分类的命中阈值（写死，每次返回新 map，调用方可放心改）
+func contentModerationThresholds() map[string]float64 {
 	return map[string]float64{
 		"harassment":             0.98,
 		"harassment/threatening": 0.90,
@@ -137,71 +119,25 @@ func ContentModerationCategories() []string {
 	return out
 }
 
+// ContentModerationConfig 页面上能改的内容审核设置（存在 content_moderation_config 里）；其余参数见上方常量。
 type ContentModerationConfig struct {
 	Enabled bool   `json:"enabled"`
 	Mode    string `json:"mode"`
-	BaseURL string `json:"base_url"`
-	Model   string `json:"model"`
-	// ProxyID 指定审计请求使用的代理服务器（IP管理-代理服务器），nil 表示直连。
-	ProxyID              *int64                       `json:"proxy_id,omitempty"`
-	APIKey               string                       `json:"api_key,omitempty"`
-	APIKeys              []string                     `json:"api_keys,omitempty"`
-	TimeoutMS            int                          `json:"timeout_ms"`
-	SampleRate           int                          `json:"sample_rate"`
-	RecordNonHits        bool                         `json:"record_non_hits"`
-	Thresholds           map[string]float64           `json:"thresholds"`
-	WorkerCount          int                          `json:"worker_count"`
-	QueueSize            int                          `json:"queue_size"`
-	BlockStatus          int                          `json:"block_status"`
-	BlockMessage         string                       `json:"block_message"`
-	EmailOnHit           bool                         `json:"email_on_hit"`
-	AutoBanEnabled       bool                         `json:"auto_ban_enabled"`
-	BanThreshold         int                          `json:"ban_threshold"`
-	ViolationWindowHours int                          `json:"violation_window_hours"`
-	RetryCount           int                          `json:"retry_count"`
-	HitRetentionDays     int                          `json:"hit_retention_days"`
-	NonHitRetentionDays  int                          `json:"non_hit_retention_days"`
-	PreHashCheckEnabled  bool                         `json:"pre_hash_check_enabled"`
-	BlockedKeywords      []string                     `json:"blocked_keywords"`
-	KeywordBlockingMode  string                       `json:"keyword_blocking_mode"`
-	ModelFilter          ContentModerationModelFilter `json:"model_filter"`
-	// CyberPolicyExcludeFromBanCount 为 true 时，cyber_policy 命中不参与自动封号计数：
-	// 当次不判定封号，且历史 cyber 行在 CountFlaggedByUserSince 中被排除。
-	// 默认 false（计入，与历史行为一致；旧配置 JSON 无此字段时反序列化为 false）。
-	CyberPolicyExcludeFromBanCount bool `json:"cyber_policy_exclude_from_ban_count"`
+	// ProxyID 指定审计请求使用的代理服务器（「代理」页里配置的），nil 表示直连。
+	ProxyID         *int64   `json:"proxy_id,omitempty"`
+	APIKeys         []string `json:"api_keys,omitempty"`
+	AutoBanEnabled  bool     `json:"auto_ban_enabled"`
+	BlockedKeywords []string `json:"blocked_keywords"`
 }
 
 type ContentModerationConfigView struct {
-	Enabled                        bool                            `json:"enabled"`
-	Mode                           string                          `json:"mode"`
-	BaseURL                        string                          `json:"base_url"`
-	Model                          string                          `json:"model"`
-	ProxyID                        *int64                          `json:"proxy_id"`
-	APIKeyConfigured               bool                            `json:"api_key_configured"`
-	APIKeyMasked                   string                          `json:"api_key_masked"`
-	APIKeyCount                    int                             `json:"api_key_count"`
-	APIKeyMasks                    []string                        `json:"api_key_masks"`
-	APIKeyStatuses                 []ContentModerationAPIKeyStatus `json:"api_key_statuses"`
-	TimeoutMS                      int                             `json:"timeout_ms"`
-	SampleRate                     int                             `json:"sample_rate"`
-	RecordNonHits                  bool                            `json:"record_non_hits"`
-	Thresholds                     map[string]float64              `json:"thresholds"`
-	WorkerCount                    int                             `json:"worker_count"`
-	QueueSize                      int                             `json:"queue_size"`
-	BlockStatus                    int                             `json:"block_status"`
-	BlockMessage                   string                          `json:"block_message"`
-	EmailOnHit                     bool                            `json:"email_on_hit"`
-	AutoBanEnabled                 bool                            `json:"auto_ban_enabled"`
-	BanThreshold                   int                             `json:"ban_threshold"`
-	ViolationWindowHours           int                             `json:"violation_window_hours"`
-	RetryCount                     int                             `json:"retry_count"`
-	HitRetentionDays               int                             `json:"hit_retention_days"`
-	NonHitRetentionDays            int                             `json:"non_hit_retention_days"`
-	PreHashCheckEnabled            bool                            `json:"pre_hash_check_enabled"`
-	BlockedKeywords                []string                        `json:"blocked_keywords"`
-	KeywordBlockingMode            string                          `json:"keyword_blocking_mode"`
-	ModelFilter                    ContentModerationModelFilter    `json:"model_filter"`
-	CyberPolicyExcludeFromBanCount bool                            `json:"cyber_policy_exclude_from_ban_count"`
+	Enabled         bool                            `json:"enabled"`
+	Mode            string                          `json:"mode"`
+	ProxyID         *int64                          `json:"proxy_id"`
+	APIKeyCount     int                             `json:"api_key_count"`
+	APIKeyStatuses  []ContentModerationAPIKeyStatus `json:"api_key_statuses"`
+	AutoBanEnabled  bool                            `json:"auto_ban_enabled"`
+	BlockedKeywords []string                        `json:"blocked_keywords"`
 }
 
 type ContentModerationAPIKeyStatus struct {
@@ -235,10 +171,7 @@ type ContentModerationAPIKeyLoad struct {
 }
 
 type TestContentModerationAPIKeysInput struct {
-	APIKeys   []string `json:"api_keys"`
-	BaseURL   string   `json:"base_url"`
-	Model     string   `json:"model"`
-	TimeoutMS int      `json:"timeout_ms"`
+	APIKeys []string `json:"api_keys"`
 	// ProxyID nil 表示沿用已保存配置的代理；<=0 表示强制直连测试；>0 表示指定代理测试。
 	ProxyID *int64   `json:"proxy_id"`
 	Prompt  string   `json:"prompt"`
@@ -263,40 +196,13 @@ type ContentModerationTestAuditResult struct {
 type UpdateContentModerationConfigInput struct {
 	Enabled *bool   `json:"enabled"`
 	Mode    *string `json:"mode"`
-	BaseURL *string `json:"base_url"`
-	Model   *string `json:"model"`
 	// ProxyID nil 表示不修改；<=0 表示清除代理（恢复直连）；>0 表示指定代理。
-	ProxyID                        *int64                        `json:"proxy_id"`
-	APIKey                         *string                       `json:"api_key"`
-	APIKeys                        *[]string                     `json:"api_keys"`
-	APIKeysMode                    string                        `json:"api_keys_mode"`
-	DeleteAPIKeyHashes             *[]string                     `json:"delete_api_key_hashes"`
-	ClearAPIKey                    bool                          `json:"clear_api_key"`
-	TimeoutMS                      *int                          `json:"timeout_ms"`
-	SampleRate                     *int                          `json:"sample_rate"`
-	RecordNonHits                  *bool                         `json:"record_non_hits"`
-	Thresholds                     *map[string]float64           `json:"thresholds"`
-	WorkerCount                    *int                          `json:"worker_count"`
-	QueueSize                      *int                          `json:"queue_size"`
-	BlockStatus                    *int                          `json:"block_status"`
-	BlockMessage                   *string                       `json:"block_message"`
-	EmailOnHit                     *bool                         `json:"email_on_hit"`
-	AutoBanEnabled                 *bool                         `json:"auto_ban_enabled"`
-	BanThreshold                   *int                          `json:"ban_threshold"`
-	ViolationWindowHours           *int                          `json:"violation_window_hours"`
-	RetryCount                     *int                          `json:"retry_count"`
-	HitRetentionDays               *int                          `json:"hit_retention_days"`
-	NonHitRetentionDays            *int                          `json:"non_hit_retention_days"`
-	PreHashCheckEnabled            *bool                         `json:"pre_hash_check_enabled"`
-	BlockedKeywords                *[]string                     `json:"blocked_keywords"`
-	KeywordBlockingMode            *string                       `json:"keyword_blocking_mode"`
-	ModelFilter                    *ContentModerationModelFilter `json:"model_filter"`
-	CyberPolicyExcludeFromBanCount *bool                         `json:"cyber_policy_exclude_from_ban_count"`
-}
-
-type ContentModerationModelFilter struct {
-	Type   string   `json:"type"`
-	Models []string `json:"models"`
+	ProxyID *int64 `json:"proxy_id"`
+	// APIKeys 追加的审核密钥；DeleteAPIKeyHashes 按哈希删除已保存的密钥。
+	APIKeys            *[]string `json:"api_keys"`
+	DeleteAPIKeyHashes *[]string `json:"delete_api_key_hashes"`
+	AutoBanEnabled     *bool     `json:"auto_ban_enabled"`
+	BlockedKeywords    *[]string `json:"blocked_keywords"`
 }
 
 type ContentModerationCheckInput struct {
@@ -469,9 +375,8 @@ type ContentModerationClearHashesResult struct {
 type ContentModerationRepository interface {
 	CreateLog(ctx context.Context, log *ContentModerationLog) error
 	ListLogs(ctx context.Context, filter ContentModerationLogFilter) ([]ContentModerationLog, *pagination.PaginationResult, error)
-	// CountFlaggedByUserSince 统计窗口内计入封号的违规次数（排除 hash_block；
-	// excludeCyberPolicy 为 true 时额外排除 cyber_policy 行）。
-	CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error)
+	// CountFlaggedByUserSince 统计窗口内（且在最近一次自动封禁之后）计入封号的违规次数
+	CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error)
 	CleanupExpiredLogs(ctx context.Context, hitBefore time.Time, nonHitBefore time.Time) (*ContentModerationCleanupResult, error)
 	// UpdateLogEmailSent 回写邮件发送结果（F7：CreateLog 先行后补 EmailSent）。
 	UpdateLogEmailSent(ctx context.Context, id int64, sent bool) error
@@ -494,6 +399,7 @@ type ContentModerationService struct {
 	authCacheInvalidator     APIKeyAuthCacheInvalidator
 	emailService             *EmailService
 	httpClient               *http.Client
+	apiBaseURL               string // 审核接口地址；生产固定为 contentModerationBaseURL，测试指向本地假服务
 	moderationProxyCache     atomic.Pointer[moderationProxyURLCacheEntry]
 	asyncQueue               chan contentModerationTask
 	workerCount              int
@@ -531,10 +437,8 @@ type contentModerationRuntimeSnapshot struct {
 type contentModerationTask struct {
 	input            ContentModerationCheckInput
 	content          ContentModerationInput
-	inputHash        string
 	log              *ContentModerationLog
 	config           *ContentModerationConfig
-	recordHash       bool
 	applySideEffects bool
 	enqueuedAt       time.Time
 }
@@ -575,8 +479,9 @@ func NewContentModerationService(
 		authCacheInvalidator: authCacheInvalidator,
 		emailService:         emailService,
 		httpClient:           servertiming.InstrumentClient(nil),
-		workerCount:          maxContentModerationWorkerCount,
-		asyncQueue:           make(chan contentModerationTask, maxContentModerationQueueSize),
+		apiBaseURL:           contentModerationBaseURL,
+		workerCount:          contentModerationWorkerCount,
+		asyncQueue:           make(chan contentModerationTask, contentModerationQueueSize),
 		keyHealth:            make(map[string]*contentModerationKeyHealth),
 	}
 	if settingRepo != nil && repo != nil {
@@ -607,12 +512,6 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	if input.Mode != nil {
 		cfg.Mode = strings.TrimSpace(*input.Mode)
 	}
-	if input.BaseURL != nil {
-		cfg.BaseURL = strings.TrimSpace(*input.BaseURL)
-	}
-	if input.Model != nil {
-		cfg.Model = strings.TrimSpace(*input.Model)
-	}
 	if input.ProxyID != nil {
 		if *input.ProxyID > 0 {
 			id := *input.ProxyID
@@ -621,87 +520,17 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 			cfg.ProxyID = nil
 		}
 	}
-	if input.TimeoutMS != nil {
-		cfg.TimeoutMS = *input.TimeoutMS
-	}
-	if input.SampleRate != nil {
-		cfg.SampleRate = *input.SampleRate
-	}
-	if input.WorkerCount != nil {
-		cfg.WorkerCount = *input.WorkerCount
-	}
-	if input.QueueSize != nil {
-		cfg.QueueSize = *input.QueueSize
-	}
-	if input.BlockStatus != nil {
-		cfg.BlockStatus = *input.BlockStatus
-	}
-	if input.BlockMessage != nil {
-		cfg.BlockMessage = strings.TrimSpace(*input.BlockMessage)
-	}
-	if input.EmailOnHit != nil {
-		cfg.EmailOnHit = *input.EmailOnHit
-	}
 	if input.AutoBanEnabled != nil {
 		cfg.AutoBanEnabled = *input.AutoBanEnabled
-	}
-	if input.BanThreshold != nil {
-		cfg.BanThreshold = *input.BanThreshold
-	}
-	if input.ViolationWindowHours != nil {
-		cfg.ViolationWindowHours = *input.ViolationWindowHours
-	}
-	if input.RetryCount != nil {
-		cfg.RetryCount = *input.RetryCount
-	}
-	if input.HitRetentionDays != nil {
-		cfg.HitRetentionDays = *input.HitRetentionDays
-	}
-	if input.NonHitRetentionDays != nil {
-		cfg.NonHitRetentionDays = *input.NonHitRetentionDays
-	}
-	if input.PreHashCheckEnabled != nil {
-		cfg.PreHashCheckEnabled = *input.PreHashCheckEnabled
 	}
 	if input.BlockedKeywords != nil {
 		cfg.BlockedKeywords = normalizeBlockedKeywords(*input.BlockedKeywords)
 	}
-	if input.KeywordBlockingMode != nil {
-		cfg.KeywordBlockingMode = strings.TrimSpace(*input.KeywordBlockingMode)
+	if input.DeleteAPIKeyHashes != nil {
+		cfg.APIKeys = deleteModerationAPIKeysByHash(cfg.apiKeys(), *input.DeleteAPIKeyHashes)
 	}
-	if input.ModelFilter != nil {
-		cfg.ModelFilter = *input.ModelFilter
-	}
-	if input.RecordNonHits != nil {
-		cfg.RecordNonHits = *input.RecordNonHits
-	}
-	if input.CyberPolicyExcludeFromBanCount != nil {
-		cfg.CyberPolicyExcludeFromBanCount = *input.CyberPolicyExcludeFromBanCount
-	}
-	if input.Thresholds != nil {
-		cfg.Thresholds = mergeContentModerationThresholds(ContentModerationDefaultThresholds(), *input.Thresholds)
-	}
-	if input.ClearAPIKey {
-		cfg.APIKey = ""
-		cfg.APIKeys = []string{}
-	} else {
-		apiKeysMode := normalizeContentModerationAPIKeysMode(input.APIKeysMode)
-		if input.DeleteAPIKeyHashes != nil && apiKeysMode != contentModerationAPIKeysModeReplace {
-			cfg.APIKeys = deleteModerationAPIKeysByHash(cfg.apiKeys(), *input.DeleteAPIKeyHashes)
-			cfg.APIKey = ""
-		}
-		if input.APIKeys != nil {
-			if apiKeysMode == contentModerationAPIKeysModeReplace {
-				cfg.APIKeys = normalizeModerationAPIKeys(*input.APIKeys)
-			} else {
-				cfg.APIKeys = normalizeModerationAPIKeys(append(cfg.apiKeys(), *input.APIKeys...))
-			}
-			cfg.APIKey = ""
-		}
-		if input.APIKey != nil && strings.TrimSpace(*input.APIKey) != "" {
-			cfg.APIKeys = normalizeModerationAPIKeys(append(cfg.APIKeys, *input.APIKey))
-			cfg.APIKey = ""
-		}
+	if input.APIKeys != nil {
+		cfg.APIKeys = normalizeModerationAPIKeys(append(cfg.apiKeys(), *input.APIKeys...))
 	}
 	if err := s.validateConfig(ctx, cfg); err != nil {
 		return nil, err
@@ -730,15 +559,6 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 	if len(keys) == 0 {
 		keys = cfg.apiKeys()
 		configured = true
-	}
-	if strings.TrimSpace(input.BaseURL) != "" {
-		cfg.BaseURL = input.BaseURL
-	}
-	if strings.TrimSpace(input.Model) != "" {
-		cfg.Model = input.Model
-	}
-	if input.TimeoutMS > 0 {
-		cfg.TimeoutMS = input.TimeoutMS
 	}
 	if input.ProxyID != nil {
 		if *input.ProxyID > 0 {
@@ -776,11 +596,13 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 		latency := int(time.Since(start).Milliseconds())
 		keyHash := moderationAPIKeyHash(key)
 		if err != nil {
-			s.markAPIKeyError(key, err.Error(), latency, httpStatus)
+			// 与线上调用同一冻结规则：手动测试也不能把最后一个可用密钥冻住，否则冻结期间前置拦截无钥可用、请求不审就放行
+			s.markAPIKeyError(key, moderationErrorCode(err), latency, httpStatus, s.freezeDurationAfterError(cfg, key, httpStatus))
 		} else {
 			s.markAPIKeySuccess(key, latency, httpStatus)
-			if auditResult == nil {
-				auditResult = buildContentModerationTestAuditResult(result, cfg.Thresholds)
+			// 只填了密钥、没填试跑文本时不出试跑结果：那是内置探测文本的结果，不是管理员要看的
+			if auditResult == nil && auditOnly {
+				auditResult = buildContentModerationTestAuditResult(result)
 			}
 		}
 		status := s.apiKeyStatusForHash(idx, keyHash, maskSecretTail(key), configured)
@@ -819,7 +641,6 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		return allow, nil
 	}
 	cfg := runtimeSnapshot.config
-	inModelScope := cfg.includesModel(input.Model)
 	slog.Info("content_moderation.config_loaded",
 		"user_id", input.UserID,
 		"api_key_id", input.APIKeyID,
@@ -829,38 +650,13 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		"model", input.Model,
 		"enabled", cfg.Enabled,
 		"mode", cfg.Mode,
-		"model_filter_type", cfg.ModelFilter.Type,
-		"configured_models", cfg.ModelFilter.Models,
-		"in_model_scope", inModelScope,
-		"sample_rate", cfg.SampleRate,
-		"api_key_count", len(cfg.apiKeys()),
-		"pre_hash_check_enabled", cfg.PreHashCheckEnabled,
-		"record_non_hits", cfg.RecordNonHits)
+		"api_key_count", len(cfg.apiKeys()))
 	if !cfg.Enabled {
 		slog.Info("content_moderation.skip_config_disabled",
 			"user_id", input.UserID,
 			"api_key_id", input.APIKeyID,
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol)
-		return allow, nil
-	}
-	if cfg.Mode == ContentModerationModeOff {
-		slog.Info("content_moderation.skip_mode_off",
-			"user_id", input.UserID,
-			"api_key_id", input.APIKeyID,
-			"endpoint", input.Endpoint,
-			"protocol", input.Protocol)
-		return allow, nil
-	}
-	if !inModelScope {
-		slog.Info("content_moderation.skip_model_out_of_scope",
-			"user_id", input.UserID,
-			"api_key_id", input.APIKeyID,
-			"endpoint", input.Endpoint,
-			"protocol", input.Protocol,
-			"model", input.Model,
-			"model_filter_type", cfg.ModelFilter.Type,
-			"configured_models", cfg.ModelFilter.Models)
 		return allow, nil
 	}
 	content := ExtractContentModerationInput(input.Protocol, input.Body)
@@ -881,89 +677,32 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		"protocol", input.Protocol,
 		"text_runes", len([]rune(content.Text)),
 		"image_count", len(content.Images))
-	hashText := content.Hash()
-	if cfg.Mode == ContentModerationModePreBlock {
-		if cfg.KeywordBlockingMode != ContentModerationKeywordModeAPIOnly && len(cfg.BlockedKeywords) > 0 {
-			if keyword, hit := runtimeSnapshot.matchBlockedKeyword(content.Text); hit {
-				s.recordPreBlockSyncMetric(0, ContentModerationActionKeywordBlock)
-				slog.Info("content_moderation.keyword_block",
-					"user_id", input.UserID,
-					"api_key_id", input.APIKeyID,
-					"endpoint", input.Endpoint,
-					"protocol", input.Protocol,
-					"keyword_blocking_mode", cfg.KeywordBlockingMode,
-					"keyword", keyword)
-				scores := map[string]float64{contentModerationKeywordCategory: 1.0}
-				log := s.buildLog(input, cfg, ContentModerationActionKeywordBlock, true, contentModerationKeywordCategory, 1.0, scores, content.ExcerptText(), nil, nil, "")
-				log.MatchedKeyword = keyword
-				s.enqueueRecord(input, cfg, log, hashText, false, true)
-				return &ContentModerationDecision{
-					Allowed:         false,
-					Blocked:         true,
-					Flagged:         true,
-					Message:         cfg.BlockMessage,
-					StatusCode:      cfg.BlockStatus,
-					HighestCategory: contentModerationKeywordCategory,
-					HighestScore:    1.0,
-					CategoryScores:  scores,
-					Action:          ContentModerationActionKeywordBlock,
-				}, nil
-			}
-		}
-		if cfg.KeywordBlockingMode == ContentModerationKeywordModeKeywordOnly {
-			s.recordPreBlockSyncMetric(0, ContentModerationActionAllow)
-			slog.Info("content_moderation.skip_api_keyword_only",
-				"user_id", input.UserID,
-				"api_key_id", input.APIKeyID,
-				"endpoint", input.Endpoint,
-				"protocol", input.Protocol)
-			return allow, nil
-		}
-	}
-	if cfg.PreHashCheckEnabled && s.hashCache != nil {
-		matched, err := s.hashCache.HasFlaggedInputHash(ctx, hashText)
-		if err != nil {
-			slog.Warn("content_moderation.hash_check_failed", "user_id", input.UserID, "endpoint", input.Endpoint, "error", err)
-		}
-		if matched {
-			if cfg.Mode == ContentModerationModePreBlock {
-				s.recordPreBlockSyncMetric(0, ContentModerationActionHashBlock)
-			}
-			slog.Info("content_moderation.hash_block",
+	// 关键词只在前置拦截下生效：命中直接拦，不再调审核接口；没命中再调接口
+	if cfg.Mode == ContentModerationModePreBlock && len(cfg.BlockedKeywords) > 0 {
+		if keyword, hit := runtimeSnapshot.matchBlockedKeyword(content.Text); hit {
+			s.recordPreBlockSyncMetric(0, ContentModerationActionKeywordBlock)
+			slog.Info("content_moderation.keyword_block",
 				"user_id", input.UserID,
 				"api_key_id", input.APIKeyID,
 				"endpoint", input.Endpoint,
 				"protocol", input.Protocol,
-				"input_hash", hashText)
-			message := cfg.BlockMessage
-			if message != "" {
-				message = fmt.Sprintf("%s（hash: %s）", message, hashText)
-			}
-			scores := map[string]float64{"hash": 1.0}
-			log := s.buildLog(input, cfg, ContentModerationActionHashBlock, true, "hash", 1.0, scores, content.ExcerptText(), nil, nil, "")
-			s.enqueueRecord(input, cfg, log, hashText, false, false)
+				"keyword", keyword)
+			scores := map[string]float64{contentModerationKeywordCategory: 1.0}
+			log := s.buildLog(input, cfg, ContentModerationActionKeywordBlock, true, contentModerationKeywordCategory, 1.0, scores, content.ExcerptText(), nil, nil, "")
+			log.MatchedKeyword = keyword
+			s.enqueueRecord(input, cfg, log, true)
 			return &ContentModerationDecision{
-				Allowed:    false,
-				Blocked:    true,
-				Flagged:    true,
-				Message:    message,
-				StatusCode: cfg.BlockStatus,
-				InputHash:  hashText,
-				Action:     ContentModerationActionHashBlock,
+				Allowed:         false,
+				Blocked:         true,
+				Flagged:         true,
+				Message:         contentModerationBlockMessage,
+				StatusCode:      contentModerationBlockHTTPStatus,
+				HighestCategory: contentModerationKeywordCategory,
+				HighestScore:    1.0,
+				CategoryScores:  scores,
+				Action:          ContentModerationActionKeywordBlock,
 			}, nil
 		}
-	}
-	if !cfg.shouldSample(hashText) {
-		if cfg.Mode == ContentModerationModePreBlock {
-			s.recordPreBlockSyncMetric(0, ContentModerationActionAllow)
-		}
-		slog.Info("content_moderation.skip_sample_rate",
-			"user_id", input.UserID,
-			"api_key_id", input.APIKeyID,
-			"endpoint", input.Endpoint,
-			"protocol", input.Protocol,
-			"sample_rate", cfg.SampleRate)
-		return allow, nil
 	}
 	if len(cfg.apiKeys()) == 0 {
 		if cfg.Mode == ContentModerationModePreBlock {
@@ -983,14 +722,14 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol,
 			"queue_len", len(s.asyncQueue))
-		s.enqueueAsync(input, cfg, content, hashText)
+		s.enqueueAsync(input, content)
 		return allow, nil
 	}
 
-	return s.checkSync(ctx, input, cfg, content, hashText, nil, true), nil
+	return s.checkSync(ctx, input, cfg, content, nil, true), nil
 }
 
-func (s *ContentModerationService) checkSync(ctx context.Context, input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, hashText string, queueDelay *int, allowBlock bool) *ContentModerationDecision {
+func (s *ContentModerationService) checkSync(ctx context.Context, input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, queueDelay *int, allowBlock bool) *ContentModerationDecision {
 	allow := &ContentModerationDecision{Allowed: true, Action: ContentModerationActionAllow}
 	trackPreBlock := queueDelay == nil && allowBlock && cfg != nil && cfg.Mode == ContentModerationModePreBlock
 	if trackPreBlock {
@@ -1017,14 +756,18 @@ func (s *ContentModerationService) checkSync(ctx context.Context, input ContentM
 		if queueDelay != nil {
 			s.asyncErrors.Add(1)
 		}
-		if cfg.RecordNonHits {
-			log := s.buildLog(input, cfg, ContentModerationActionError, false, "", 0, nil, content.ExcerptText(), &latency, queueDelay, err.Error())
-			_ = s.repo.CreateLog(ctx, log)
+		// 审核失败时请求照常放行，但一律留一条「异常」记录（2026-10-05 E2E：原来只在「记录未命中」打开时才写，
+		// 默认配置下放过去的请求查不到）。记的是错误码，界面按码显示原因，不显示上游原文。
+		log := s.buildLog(input, cfg, ContentModerationActionError, false, "", 0, nil, content.ExcerptText(), &latency, queueDelay, moderationErrorCode(err))
+		if queueDelay == nil && cfg.Mode == ContentModerationModePreBlock {
+			s.enqueueRecord(input, cfg, log, false)
+		} else {
+			s.persistContentModerationLog(ctx, cfg, log, false)
 		}
 		return allow
 	}
 
-	flagged, highestCategory, highestScore := evaluateModerationScores(result.CategoryScores, cfg.Thresholds)
+	flagged, highestCategory, highestScore := evaluateModerationScores(result.CategoryScores, contentModerationThresholds())
 	action := ContentModerationActionAllow
 	blocked := false
 	if allowBlock && flagged && cfg.Mode == ContentModerationModePreBlock {
@@ -1048,12 +791,13 @@ func (s *ContentModerationService) checkSync(ctx context.Context, input ContentM
 		"highest_score", highestScore,
 		"latency_ms", latency,
 		"queue_delay_ms", queueDelay)
-	if flagged || cfg.RecordNonHits {
+	// 只记命中；没命中的请求不留记录
+	if flagged {
 		log := s.buildLog(input, cfg, action, flagged, highestCategory, highestScore, result.CategoryScores, content.ExcerptText(), &latency, queueDelay, "")
 		if queueDelay == nil && cfg.Mode == ContentModerationModePreBlock {
-			s.enqueueRecord(input, cfg, log, hashText, flagged, flagged)
+			s.enqueueRecord(input, cfg, log, true)
 		} else {
-			s.persistContentModerationLog(ctx, cfg, log, hashText, flagged, flagged)
+			s.persistContentModerationLog(ctx, cfg, log, true)
 		}
 	}
 	if blocked {
@@ -1061,8 +805,8 @@ func (s *ContentModerationService) checkSync(ctx context.Context, input ContentM
 			Allowed:         false,
 			Blocked:         true,
 			Flagged:         true,
-			Message:         cfg.BlockMessage,
-			StatusCode:      cfg.BlockStatus,
+			Message:         contentModerationBlockMessage,
+			StatusCode:      contentModerationBlockHTTPStatus,
 			HighestCategory: highestCategory,
 			HighestScore:    highestScore,
 			CategoryScores:  result.CategoryScores,
@@ -1090,7 +834,7 @@ func (s *ContentModerationService) recordPreBlockSyncMetric(latencyMS int, actio
 	}
 	s.preBlockLatencyTotalMS.Add(int64(latencyMS))
 	switch action {
-	case ContentModerationActionBlock, ContentModerationActionHashBlock, ContentModerationActionKeywordBlock:
+	case ContentModerationActionBlock, ContentModerationActionKeywordBlock:
 		s.preBlockBlocked.Add(1)
 	case ContentModerationActionError:
 		s.preBlockErrors.Add(1)
@@ -1099,23 +843,13 @@ func (s *ContentModerationService) recordPreBlockSyncMetric(latencyMS int, actio
 	}
 }
 
-func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, hashText string) {
+func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInput, content ContentModerationInput) {
 	if s == nil || s.asyncQueue == nil {
-		return
-	}
-	queueSize := defaultContentModerationQueueSize
-	if cfg != nil && cfg.QueueSize > 0 {
-		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.async_queue_full", "user_id", input.UserID, "endpoint", input.Endpoint, "queue_size", queueSize)
-		s.asyncDropped.Add(1)
 		return
 	}
 	task := contentModerationTask{
 		input:      input,
 		content:    content,
-		inputHash:  hashText,
 		enqueuedAt: time.Now(),
 	}
 	select {
@@ -1127,29 +861,14 @@ func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInpu
 	}
 }
 
-func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInput, cfg *ContentModerationConfig, log *ContentModerationLog, inputHash string, recordHash bool, applySideEffects bool) {
+func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInput, cfg *ContentModerationConfig, log *ContentModerationLog, applySideEffects bool) {
 	if s == nil || s.asyncQueue == nil || log == nil {
-		return
-	}
-	queueSize := defaultContentModerationQueueSize
-	if cfg != nil && cfg.QueueSize > 0 {
-		queueSize = cfg.QueueSize
-	}
-	if len(s.asyncQueue) >= queueSize {
-		slog.Warn("content_moderation.record_queue_full",
-			"user_id", input.UserID,
-			"endpoint", input.Endpoint,
-			"action", log.Action,
-			"queue_size", queueSize)
-		s.asyncDropped.Add(1)
 		return
 	}
 	task := contentModerationTask{
 		input:            input,
-		inputHash:        inputHash,
 		log:              log,
 		config:           cloneContentModerationConfig(cfg),
-		recordHash:       recordHash,
 		applySideEffects: applySideEffects,
 		enqueuedAt:       time.Now(),
 	}
@@ -1167,9 +886,9 @@ func (s *ContentModerationService) enqueueRecord(input ContentModerationCheckInp
 
 func (s *ContentModerationService) worker(id int) {
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), maxContentModerationTimeoutMS*time.Millisecond+10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(contentModerationRetryCount+1)*contentModerationTimeout+10*time.Second)
 		runtimeSnapshot, err := s.loadRuntimeSnapshot(ctx)
-		if err != nil || runtimeSnapshot == nil || runtimeSnapshot.config == nil || id >= runtimeSnapshot.config.WorkerCount {
+		if err != nil || runtimeSnapshot == nil || runtimeSnapshot.config == nil {
 			cancel()
 			time.Sleep(time.Second)
 			continue
@@ -1196,20 +915,17 @@ func (s *ContentModerationService) worker(id int) {
 				if taskCfg == nil {
 					taskCfg = cfg
 				}
-				s.persistContentModerationLog(ctx, taskCfg, task.log, task.inputHash, task.recordHash, task.applySideEffects)
+				s.persistContentModerationLog(ctx, taskCfg, task.log, task.applySideEffects)
 				s.asyncProcessed.Add(1)
 				return
 			}
-			if !cfg.Enabled || cfg.Mode == ContentModerationModeOff || len(cfg.apiKeys()) == 0 {
-				return
-			}
-			if !cfg.includesModel(task.input.Model) {
+			if !cfg.Enabled || len(cfg.apiKeys()) == 0 {
 				return
 			}
 			s.asyncActive.Add(1)
 			defer s.asyncActive.Add(-1)
 			queueDelay := int(time.Since(task.enqueuedAt).Milliseconds())
-			_ = s.checkSync(ctx, task.input, cfg, task.content, task.inputHash, &queueDelay, false)
+			_ = s.checkSync(ctx, task.input, cfg, task.content, &queueDelay, false)
 			s.asyncProcessed.Add(1)
 		}()
 	}
@@ -1322,8 +1038,8 @@ func (s *ContentModerationService) GetStatus(ctx context.Context) (*ContentModer
 	if active < 0 {
 		active = 0
 	}
-	if active > cfg.WorkerCount {
-		active = cfg.WorkerCount
+	if active > contentModerationWorkerCount {
+		active = contentModerationWorkerCount
 	}
 	preBlockActive := int(s.preBlockActive.Load())
 	if preBlockActive < 0 {
@@ -1338,10 +1054,7 @@ func (s *ContentModerationService) GetStatus(ctx context.Context) (*ContentModer
 	if s.asyncQueue != nil {
 		queueLength = len(s.asyncQueue)
 	}
-	queueUsage := 0.0
-	if cfg.QueueSize > 0 {
-		queueUsage = float64(queueLength) * 100 / float64(cfg.QueueSize)
-	}
+	queueUsage := float64(queueLength) * 100 / float64(contentModerationQueueSize)
 	var flaggedHashCount int64
 	if s.hashCache != nil {
 		if n, err := s.hashCache.CountFlaggedInputHashes(ctx); err == nil {
@@ -1359,11 +1072,11 @@ func (s *ContentModerationService) GetStatus(ctx context.Context) (*ContentModer
 		Enabled:                      cfg.Enabled,
 		RiskControlEnabled:           riskEnabled,
 		Mode:                         cfg.Mode,
-		WorkerCount:                  cfg.WorkerCount,
-		MaxWorkers:                   maxContentModerationWorkerCount,
+		WorkerCount:                  contentModerationWorkerCount,
+		MaxWorkers:                   contentModerationWorkerCount,
 		ActiveWorkers:                active,
-		IdleWorkers:                  cfg.WorkerCount - active,
-		QueueSize:                    cfg.QueueSize,
+		IdleWorkers:                  contentModerationWorkerCount - active,
+		QueueSize:                    contentModerationQueueSize,
 		QueueLength:                  queueLength,
 		QueueUsagePercent:            queueUsage,
 		Enqueued:                     s.asyncEnqueued.Load(),
@@ -1404,14 +1117,9 @@ func (s *ContentModerationService) runCleanupOnce() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), contentModerationCleanupTimeout)
 	defer cancel()
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		slog.Warn("content_moderation.cleanup_load_config_failed", "error", err)
-		return
-	}
 	now := time.Now()
-	hitBefore := now.AddDate(0, 0, -cfg.HitRetentionDays)
-	nonHitBefore := now.AddDate(0, 0, -cfg.NonHitRetentionDays)
+	hitBefore := now.AddDate(0, 0, -contentModerationHitRetentionDays)
+	nonHitBefore := now.AddDate(0, 0, -contentModerationNonHitRetentionDays)
 	result, err := s.repo.CleanupExpiredLogs(ctx, hitBefore, nonHitBefore)
 	if err != nil {
 		slog.Warn("content_moderation.cleanup_failed", "error", err)
@@ -1594,41 +1302,29 @@ func (s *ContentModerationService) validateConfig(ctx context.Context, cfg *Cont
 	}
 	cfg.normalize()
 	switch cfg.Mode {
-	case ContentModerationModeOff, ContentModerationModeObserve, ContentModerationModePreBlock:
+	case ContentModerationModeObserve, ContentModerationModePreBlock:
 	default:
 		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_MODE", "内容审计模式无效")
-	}
-	if _, err := url.ParseRequestURI(cfg.BaseURL); err != nil {
-		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_BASE_URL", "OpenAI Base URL 无效")
 	}
 	if cfg.ProxyID != nil && s.proxyRepo != nil {
 		if _, err := s.proxyRepo.GetByID(ctx, *cfg.ProxyID); err != nil {
 			return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_PROXY", fmt.Sprintf("代理服务器不存在: %d", *cfg.ProxyID))
 		}
 	}
-	if cfg.BlockStatus < 400 || cfg.BlockStatus > 599 {
-		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_BLOCK_STATUS", "拦截 HTTP 状态码必须在 400-599 之间")
-	}
-	if cfg.ModelFilter.Type != ContentModerationModelFilterAll && len(cfg.ModelFilter.Models) == 0 {
-		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_MODEL_FILTER", "指定或排除模型时至少需要配置 1 个模型")
-	}
 	return nil
 }
 
 func (s *ContentModerationService) callModeration(ctx context.Context, cfg *ContentModerationConfig, input any, trackKeyLoad ...bool) (*moderationAPIResult, error) {
-	attempts := cfg.RetryCount + 1
-	if attempts <= 0 {
-		attempts = 1
-	}
-	if attempts > maxContentModerationRetryCount+1 {
-		attempts = maxContentModerationRetryCount + 1
-	}
+	const attempts = contentModerationRetryCount + 1
 	trackLoad := len(trackKeyLoad) > 0 && trackKeyLoad[0]
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {
 		key, ok := s.nextUsableAPIKey(cfg)
 		if !ok {
-			lastErr = errors.New("no moderation api key available")
+			// 已经出过错就保留那个原因（原来会被「没有可用密钥」盖掉，看不出是 500 还是超时）
+			if lastErr == nil {
+				lastErr = errNoModerationAPIKey
+			}
 			break
 		}
 		if trackLoad {
@@ -1648,7 +1344,7 @@ func (s *ContentModerationService) callModeration(ctx context.Context, cfg *Cont
 		if trackLoad {
 			s.finishModerationAPIKeyCall(key, latency, false)
 		}
-		s.markAPIKeyError(key, err.Error(), latency, httpStatus)
+		s.markAPIKeyError(key, moderationErrorCode(err), latency, httpStatus, s.freezeDurationAfterError(cfg, key, httpStatus))
 		lastErr = err
 		if httpStatus == http.StatusBadRequest {
 			break
@@ -1666,22 +1362,79 @@ func (s *ContentModerationService) callModeration(ctx context.Context, cfg *Cont
 	return nil, lastErr
 }
 
+// freezeDurationAfterError 出错后这把密钥冻结多久。
+// 偶发的 5xx / 限流不冻结最后一把可用的密钥：冻了之后其它请求全都「没有可用密钥」直接放行，
+// 一次 500 就会变成 10 秒不审核（2026-10-05 E2E）；401/403 说明密钥本身坏了，照常冻结。
+func (s *ContentModerationService) freezeDurationAfterError(cfg *ContentModerationConfig, key string, httpStatus int) time.Duration {
+	freeze := contentModerationFreezeDurationForHTTPStatus(httpStatus)
+	if freeze == 0 || httpStatus == http.StatusUnauthorized || httpStatus == http.StatusForbidden {
+		return freeze
+	}
+	if !s.hasOtherUsableAPIKey(cfg, key) {
+		return 0
+	}
+	return freeze
+}
+
+func (s *ContentModerationService) hasOtherUsableAPIKey(cfg *ContentModerationConfig, key string) bool {
+	now := time.Now()
+	for _, other := range cfg.apiKeys() {
+		if other != key && !s.isAPIKeyFrozen(other, now) {
+			return true
+		}
+	}
+	return false
+}
+
+var errNoModerationAPIKey = errors.New("no moderation api key available")
+
+// moderationAPIError 审核接口返回了非 2xx
+type moderationAPIError struct {
+	status int
+	body   string
+}
+
+func (e *moderationAPIError) Error() string {
+	return fmt.Sprintf("moderation api status %d: %s", e.status, e.body)
+}
+
+// moderationErrorCode 把审核调用的错误归成几类码，写进审核记录与密钥状态；界面按码显示原因，不显示上游原文
+func moderationErrorCode(err error) string {
+	var apiErr *moderationAPIError
+	var netErr net.Error
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, errNoModerationAPIKey):
+		return "no_api_key"
+	case errors.As(err, &apiErr):
+		return fmt.Sprintf("http_%d", apiErr.status)
+	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &netErr) && netErr.Timeout():
+		return "timeout"
+	case errors.Is(err, errModerationInvalidResponse):
+		return "invalid_response"
+	default:
+		return "network"
+	}
+}
+
+var errModerationInvalidResponse = errors.New("moderation api returned an invalid response")
+
 func (s *ContentModerationService) callModerationOnceWithInput(ctx context.Context, cfg *ContentModerationConfig, apiKey string, input any, httpStatus *int) (*moderationAPIResult, error) {
-	base := strings.TrimRight(cfg.BaseURL, "/")
+	base := strings.TrimRight(s.apiBaseURL, "/")
 	endpoint, err := url.JoinPath(base, "/v1/moderations")
 	if err != nil {
 		return nil, err
 	}
 	payload := moderationAPIRequest{
-		Model: cfg.Model,
+		Model: contentModerationModel,
 		Input: input,
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-	timeout := time.Duration(cfg.TimeoutMS) * time.Millisecond
-	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	reqCtx, cancel := context.WithTimeout(ctx, contentModerationTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint, bytes.NewReader(raw))
@@ -1706,14 +1459,14 @@ func (s *ContentModerationService) callModerationOnceWithInput(ctx context.Conte
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("moderation api status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, &moderationAPIError{status: resp.StatusCode, body: strings.TrimSpace(string(body))}
 	}
 	var out moderationAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", errModerationInvalidResponse, err)
 	}
 	if len(out.Results) == 0 {
-		return nil, errors.New("moderation api returned empty results")
+		return nil, fmt.Errorf("%w: empty results", errModerationInvalidResponse)
 	}
 	return &out.Results[0], nil
 }
@@ -1809,7 +1562,7 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 		HighestCategory:   highestCategory,
 		HighestScore:      highestScore,
 		CategoryScores:    cloneFloatMap(scores),
-		ThresholdSnapshot: cloneFloatMap(cfg.Thresholds),
+		ThresholdSnapshot: contentModerationThresholds(),
 		InputExcerpt:      trimRunes(redactContentModerationSecrets(text), maxModerationExcerptRunes),
 		UpstreamLatencyMS: latency,
 		QueueDelayMS:      queueDelay,
@@ -1817,19 +1570,14 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 	}
 }
 
-func (s *ContentModerationService) persistContentModerationLog(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, hashText string, recordHash bool, applySideEffects bool) {
+func (s *ContentModerationService) persistContentModerationLog(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, applySideEffects bool) {
 	if s == nil || log == nil {
 		return
-	}
-	if recordHash && s.hashCache != nil {
-		if err := s.hashCache.RecordFlaggedInputHash(ctx, hashText); err != nil {
-			slog.Warn("content_moderation.record_hash_failed", "user_id", contentModerationEmailUserID(log), "endpoint", log.Endpoint, "error", err)
-		}
 	}
 	autoBanJustApplied := false
 	if applySideEffects {
 		autoBanJustApplied = s.applyFlaggedAccountSideEffects(ctx, cfg, log)
-		s.sendFlaggedNotificationSideEffects(ctx, cfg, log, autoBanJustApplied)
+		s.sendFlaggedNotificationSideEffects(ctx, log, autoBanJustApplied)
 	}
 	if s.repo != nil {
 		if err := s.repo.CreateLog(ctx, log); err != nil {
@@ -1844,22 +1592,22 @@ func (s *ContentModerationService) applyFlaggedAccountSideEffects(ctx context.Co
 		return false
 	}
 	count := 1
-	if s.repo != nil && cfg.ViolationWindowHours > 0 {
-		since := time.Now().Add(-time.Duration(cfg.ViolationWindowHours) * time.Hour)
-		if n, err := s.repo.CountFlaggedByUserSince(ctx, *log.UserID, since, cfg.CyberPolicyExcludeFromBanCount); err == nil {
+	if s.repo != nil {
+		since := time.Now().Add(-contentModerationViolationWindow)
+		if n, err := s.repo.CountFlaggedByUserSince(ctx, *log.UserID, since); err == nil {
 			count = n + 1
 		}
 	}
 	log.ViolationCount = count
 	autoBanJustApplied := false
-	if cfg.AutoBanEnabled && cfg.BanThreshold > 0 && count >= cfg.BanThreshold && s.userRepo != nil {
+	if cfg.AutoBanEnabled && count >= contentModerationBanThreshold && s.userRepo != nil {
 		user, err := s.userRepo.GetByID(ctx, *log.UserID)
 		if err != nil {
 			slog.Warn("content_moderation.ban_get_user_failed", "user_id", *log.UserID, "error", err)
 			return false
 		}
 		if user.IsAdmin() {
-			slog.Warn("content_moderation.autoban_skipped_admin", "user_id", *log.UserID, "role", user.Role, "count", count, "threshold", cfg.BanThreshold)
+			slog.Warn("content_moderation.autoban_skipped_admin", "user_id", *log.UserID, "role", user.Role, "count", count, "threshold", contentModerationBanThreshold)
 			// TODO: Disable the triggering API key instead when API key mutation is available here.
 			return false
 		}
@@ -1879,23 +1627,21 @@ func (s *ContentModerationService) applyFlaggedAccountSideEffects(ctx context.Co
 	return autoBanJustApplied
 }
 
-func (s *ContentModerationService) sendFlaggedNotificationSideEffects(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, autoBanJustApplied bool) {
-	if s == nil || cfg == nil || log == nil || !log.Flagged {
+func (s *ContentModerationService) sendFlaggedNotificationSideEffects(ctx context.Context, log *ContentModerationLog, autoBanJustApplied bool) {
+	if s == nil || log == nil || !log.Flagged {
 		return
 	}
 	if s.emailService == nil || strings.TrimSpace(log.UserEmail) == "" {
 		return
 	}
 	emailSent := false
-	if cfg.EmailOnHit {
-		if err := s.sendViolationEmail(ctx, cfg, log); err != nil {
-			slog.Warn("content_moderation.email_failed", "user_id", *log.UserID, "email", log.UserEmail, "error", err)
-		} else {
-			emailSent = true
-		}
+	if err := s.sendViolationEmail(ctx, log); err != nil {
+		slog.Warn("content_moderation.email_failed", "user_id", *log.UserID, "email", log.UserEmail, "error", err)
+	} else {
+		emailSent = true
 	}
 	if autoBanJustApplied {
-		if err := s.sendAccountDisabledEmail(ctx, cfg, log); err != nil {
+		if err := s.sendAccountDisabledEmail(ctx, log); err != nil {
 			slog.Warn("content_moderation.ban_email_failed", "user_id", *log.UserID, "email", log.UserEmail, "error", err)
 		} else {
 			emailSent = true
@@ -1904,7 +1650,7 @@ func (s *ContentModerationService) sendFlaggedNotificationSideEffects(ctx contex
 	log.EmailSent = emailSent
 }
 
-func (s *ContentModerationService) sendViolationEmail(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog) error {
+func (s *ContentModerationService) sendViolationEmail(ctx context.Context, log *ContentModerationLog) error {
 	siteName := SiteName
 	if s.emailService.notificationEmailService != nil {
 		if err := s.emailService.notificationEmailService.Send(ctx, NotificationEmailSendInput{
@@ -1914,7 +1660,7 @@ func (s *ContentModerationService) sendViolationEmail(ctx context.Context, cfg *
 			UserID:         contentModerationEmailUserID(log),
 			SourceType:     "content_moderation",
 			SourceID:       contentModerationEmailSourceID(log),
-			Variables:      contentModerationEmailVariables(log, cfg),
+			Variables:      contentModerationEmailVariables(log),
 		}); err == nil {
 			return nil
 		} else {
@@ -1925,11 +1671,11 @@ func (s *ContentModerationService) sendViolationEmail(ctx context.Context, cfg *
 		}
 	}
 	subject := fmt.Sprintf("[%s] 账户风控提醒 / Risk Control Notice", sanitizeEmailHeader(siteName))
-	body := buildContentModerationViolationEmailBody(siteName, log, cfg)
+	body := buildContentModerationViolationEmailBody(siteName, log)
 	return s.emailService.SendEmail(ctx, log.UserEmail, subject, body)
 }
 
-func (s *ContentModerationService) sendAccountDisabledEmail(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog) error {
+func (s *ContentModerationService) sendAccountDisabledEmail(ctx context.Context, log *ContentModerationLog) error {
 	siteName := SiteName
 	if s.emailService.notificationEmailService != nil {
 		if err := s.emailService.notificationEmailService.Send(ctx, NotificationEmailSendInput{
@@ -1939,7 +1685,7 @@ func (s *ContentModerationService) sendAccountDisabledEmail(ctx context.Context,
 			UserID:         contentModerationEmailUserID(log),
 			SourceType:     "content_moderation",
 			SourceID:       contentModerationEmailSourceID(log),
-			Variables:      contentModerationEmailVariables(log, cfg),
+			Variables:      contentModerationEmailVariables(log),
 		}); err == nil {
 			return nil
 		} else {
@@ -1950,7 +1696,7 @@ func (s *ContentModerationService) sendAccountDisabledEmail(ctx context.Context,
 		}
 	}
 	subject := fmt.Sprintf("[%s] 账户已被禁用 / Account Disabled", sanitizeEmailHeader(siteName))
-	body := buildContentModerationAccountDisabledEmailBody(siteName, log, cfg)
+	body := buildContentModerationAccountDisabledEmailBody(siteName, log)
 	return s.emailService.SendEmail(ctx, log.UserEmail, subject, body)
 }
 
@@ -1968,13 +1714,12 @@ func contentModerationEmailSourceID(log *ContentModerationLog) string {
 	return fmt.Sprintf("%d", log.ID)
 }
 
-func contentModerationEmailVariables(log *ContentModerationLog, cfg *ContentModerationConfig) map[string]string {
+func contentModerationEmailVariables(log *ContentModerationLog) map[string]string {
 	variables := map[string]string{
 		"triggered_at":        time.Now().UTC().Format(time.RFC3339),
 		"moderation_category": "-",
 		"moderation_score":    "0.000",
 		"violation_count":     "0",
-		"ban_threshold":       "0",
 	}
 	if log != nil {
 		if !log.CreatedAt.IsZero() {
@@ -1986,41 +1731,16 @@ func contentModerationEmailVariables(log *ContentModerationLog, cfg *ContentMode
 		variables["moderation_score"] = fmt.Sprintf("%.3f", log.HighestScore)
 		variables["violation_count"] = fmt.Sprintf("%d", log.ViolationCount)
 	}
-	if cfg != nil {
-		variables["ban_threshold"] = fmt.Sprintf("%d", cfg.BanThreshold)
-	}
+	variables["ban_threshold"] = fmt.Sprintf("%d", contentModerationBanThreshold)
 	return variables
 }
 
 func defaultContentModerationConfig() *ContentModerationConfig {
 	return &ContentModerationConfig{
-		Enabled:              false,
-		Mode:                 ContentModerationModePreBlock,
-		BaseURL:              defaultContentModerationBaseURL,
-		Model:                defaultContentModerationModel,
-		TimeoutMS:            defaultContentModerationTimeoutMS,
-		SampleRate:           100,
-		RecordNonHits:        false,
-		Thresholds:           ContentModerationDefaultThresholds(),
-		WorkerCount:          defaultContentModerationWorkerCount,
-		QueueSize:            defaultContentModerationQueueSize,
-		BlockStatus:          defaultContentModerationBlockHTTPStatus,
-		BlockMessage:         defaultContentModerationBlockMessage,
-		EmailOnHit:           true,
-		AutoBanEnabled:       true,
-		BanThreshold:         defaultContentModerationBanThreshold,
-		ViolationWindowHours: defaultContentModerationViolationWindowHours,
-		RetryCount:           defaultContentModerationRetryCount,
-		HitRetentionDays:     defaultContentModerationHitRetentionDays,
-		NonHitRetentionDays:  defaultContentModerationNonHitRetentionDays,
-		PreHashCheckEnabled:  false,
-		BlockedKeywords:      []string{},
-		KeywordBlockingMode:  ContentModerationKeywordModeKeywordAndAPI,
-		ModelFilter: ContentModerationModelFilter{
-			Type:   ContentModerationModelFilterAll,
-			Models: []string{},
-		},
-		CyberPolicyExcludeFromBanCount: false,
+		Enabled:         false,
+		Mode:            ContentModerationModePreBlock,
+		AutoBanEnabled:  true,
+		BlockedKeywords: []string{},
 	}
 }
 
@@ -2032,123 +1752,18 @@ func cloneContentModerationConfig(cfg *ContentModerationConfig) *ContentModerati
 	clone.ProxyID = cloneInt64Ptr(cfg.ProxyID)
 	clone.APIKeys = append([]string(nil), cfg.APIKeys...)
 	clone.BlockedKeywords = append([]string(nil), cfg.BlockedKeywords...)
-	clone.Thresholds = cloneFloatMap(cfg.Thresholds)
-	clone.ModelFilter = ContentModerationModelFilter{
-		Type:   cfg.ModelFilter.Type,
-		Models: append([]string(nil), cfg.ModelFilter.Models...),
-	}
 	return &clone
 }
 
 func (cfg *ContentModerationConfig) normalize() {
-	if cfg.APIKey != "" {
-		cfg.APIKeys = normalizeModerationAPIKeys(append(cfg.APIKeys, cfg.APIKey))
-		cfg.APIKey = ""
-	} else {
-		cfg.APIKeys = normalizeModerationAPIKeys(cfg.APIKeys)
-	}
+	cfg.APIKeys = normalizeModerationAPIKeys(cfg.APIKeys)
 	if cfg.Mode == "" {
 		cfg.Mode = ContentModerationModePreBlock
 	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = defaultContentModerationBaseURL
-	}
-	cfg.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
-	if cfg.Model == "" {
-		cfg.Model = defaultContentModerationModel
-	}
-	cfg.Model = strings.TrimSpace(cfg.Model)
 	if cfg.ProxyID != nil && *cfg.ProxyID <= 0 {
 		cfg.ProxyID = nil
 	}
-	if cfg.TimeoutMS <= 0 {
-		cfg.TimeoutMS = defaultContentModerationTimeoutMS
-	}
-	if cfg.TimeoutMS > maxContentModerationTimeoutMS {
-		cfg.TimeoutMS = maxContentModerationTimeoutMS
-	}
-	if cfg.SampleRate < 0 {
-		cfg.SampleRate = 0
-	}
-	if cfg.SampleRate > 100 {
-		cfg.SampleRate = 100
-	}
-	if cfg.WorkerCount <= 0 {
-		cfg.WorkerCount = defaultContentModerationWorkerCount
-	}
-	if cfg.WorkerCount > maxContentModerationWorkerCount {
-		cfg.WorkerCount = maxContentModerationWorkerCount
-	}
-	if cfg.QueueSize <= 0 {
-		cfg.QueueSize = defaultContentModerationQueueSize
-	}
-	if cfg.QueueSize > maxContentModerationQueueSize {
-		cfg.QueueSize = maxContentModerationQueueSize
-	}
-	if strings.TrimSpace(cfg.BlockMessage) == "" {
-		cfg.BlockMessage = defaultContentModerationBlockMessage
-	}
-	cfg.BlockMessage = strings.TrimSpace(cfg.BlockMessage)
-	if cfg.BlockStatus <= 0 {
-		cfg.BlockStatus = defaultContentModerationBlockHTTPStatus
-	}
-	if cfg.BanThreshold <= 0 {
-		cfg.BanThreshold = defaultContentModerationBanThreshold
-	}
-	if cfg.ViolationWindowHours <= 0 {
-		cfg.ViolationWindowHours = defaultContentModerationViolationWindowHours
-	}
-	if cfg.RetryCount < 0 {
-		cfg.RetryCount = 0
-	}
-	if cfg.RetryCount > maxContentModerationRetryCount {
-		cfg.RetryCount = maxContentModerationRetryCount
-	}
-	if cfg.HitRetentionDays <= 0 {
-		cfg.HitRetentionDays = defaultContentModerationHitRetentionDays
-	}
-	if cfg.HitRetentionDays > maxContentModerationRetentionDays {
-		cfg.HitRetentionDays = maxContentModerationRetentionDays
-	}
-	if cfg.NonHitRetentionDays <= 0 {
-		cfg.NonHitRetentionDays = defaultContentModerationNonHitRetentionDays
-	}
-	if cfg.NonHitRetentionDays > maxContentModerationNonHitRetentionDays {
-		cfg.NonHitRetentionDays = maxContentModerationNonHitRetentionDays
-	}
-	cfg.Thresholds = mergeContentModerationThresholds(ContentModerationDefaultThresholds(), cfg.Thresholds)
 	cfg.BlockedKeywords = normalizeBlockedKeywords(cfg.BlockedKeywords)
-	cfg.KeywordBlockingMode = normalizeKeywordBlockingMode(cfg.KeywordBlockingMode)
-	cfg.ModelFilter = normalizeContentModerationModelFilter(cfg.ModelFilter)
-}
-
-func (cfg *ContentModerationConfig) includesModel(model string) bool {
-	if cfg == nil {
-		return true
-	}
-	filter := normalizeContentModerationModelFilter(cfg.ModelFilter)
-	switch filter.Type {
-	case ContentModerationModelFilterInclude:
-		return contentModerationModelListContains(filter.Models, model)
-	case ContentModerationModelFilterExclude:
-		return !contentModerationModelListContains(filter.Models, model)
-	default:
-		return true
-	}
-}
-
-func (cfg *ContentModerationConfig) shouldSample(hashText string) bool {
-	if cfg.SampleRate >= 100 {
-		return true
-	}
-	if cfg.SampleRate <= 0 {
-		return false
-	}
-	raw, err := hex.DecodeString(hashText)
-	if err != nil || len(raw) < 2 {
-		return true
-	}
-	return int(binary.BigEndian.Uint16(raw[:2])%100) < cfg.SampleRate
 }
 
 func (cfg *ContentModerationConfig) apiKeys() []string {
@@ -2237,7 +1852,8 @@ func (s *ContentModerationService) markAPIKeySuccess(key string, latencyMS int, 
 	state.LastTested = true
 }
 
-func (s *ContentModerationService) markAPIKeyError(key string, errText string, latencyMS int, httpStatus int) {
+// markAPIKeyError 记一次失败；errCode 是 moderationErrorCode 的错误码，freeze 为 0 时不冻结
+func (s *ContentModerationService) markAPIKeyError(key string, errCode string, latencyMS int, httpStatus int, freeze time.Duration) {
 	hash := moderationAPIKeyHash(key)
 	if hash == "" || s == nil {
 		return
@@ -2248,13 +1864,13 @@ func (s *ContentModerationService) markAPIKeyError(key string, errText string, l
 	if contentModerationFreezeDurationForHTTPStatus(httpStatus) > 0 {
 		state.FailureCount++
 	}
-	state.LastError = trimRunes(errText, 180)
+	state.LastError = errCode
 	state.LastCheckedAt = time.Now()
 	state.LastLatencyMS = latencyMS
 	state.LastHTTPStatus = httpStatus
 	state.LastTested = true
-	if freezeDuration := contentModerationFreezeDurationForHTTPStatus(httpStatus); freezeDuration > 0 {
-		state.FrozenUntil = time.Now().Add(freezeDuration)
+	if freeze > 0 {
+		state.FrozenUntil = time.Now().Add(freeze)
 	}
 }
 
@@ -2288,45 +1904,14 @@ func (s *ContentModerationService) ensureAPIKeyHealthLocked(hash string, masked 
 
 func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *ContentModerationConfigView {
 	keys := cfg.apiKeys()
-	masks := make([]string, 0, len(keys))
-	for _, key := range keys {
-		masks = append(masks, maskSecretTail(key))
-	}
-	apiKeyMasked := ""
-	if len(masks) > 0 {
-		apiKeyMasked = masks[0]
-	}
 	return &ContentModerationConfigView{
-		Enabled:                        cfg.Enabled,
-		Mode:                           cfg.Mode,
-		BaseURL:                        cfg.BaseURL,
-		Model:                          cfg.Model,
-		ProxyID:                        cloneInt64Ptr(cfg.ProxyID),
-		APIKeyConfigured:               len(keys) > 0,
-		APIKeyMasked:                   apiKeyMasked,
-		APIKeyCount:                    len(keys),
-		APIKeyMasks:                    masks,
-		APIKeyStatuses:                 s.apiKeyStatuses(keys),
-		TimeoutMS:                      cfg.TimeoutMS,
-		SampleRate:                     cfg.SampleRate,
-		RecordNonHits:                  cfg.RecordNonHits,
-		Thresholds:                     cloneFloatMap(cfg.Thresholds),
-		WorkerCount:                    cfg.WorkerCount,
-		QueueSize:                      cfg.QueueSize,
-		BlockStatus:                    cfg.BlockStatus,
-		BlockMessage:                   cfg.BlockMessage,
-		EmailOnHit:                     cfg.EmailOnHit,
-		AutoBanEnabled:                 cfg.AutoBanEnabled,
-		BanThreshold:                   cfg.BanThreshold,
-		ViolationWindowHours:           cfg.ViolationWindowHours,
-		RetryCount:                     cfg.RetryCount,
-		HitRetentionDays:               cfg.HitRetentionDays,
-		NonHitRetentionDays:            cfg.NonHitRetentionDays,
-		PreHashCheckEnabled:            cfg.PreHashCheckEnabled,
-		BlockedKeywords:                append([]string(nil), cfg.BlockedKeywords...),
-		KeywordBlockingMode:            cfg.KeywordBlockingMode,
-		ModelFilter:                    cloneContentModerationModelFilter(cfg.ModelFilter),
-		CyberPolicyExcludeFromBanCount: cfg.CyberPolicyExcludeFromBanCount,
+		Enabled:         cfg.Enabled,
+		Mode:            cfg.Mode,
+		ProxyID:         cloneInt64Ptr(cfg.ProxyID),
+		APIKeyCount:     len(keys),
+		APIKeyStatuses:  s.apiKeyStatuses(keys),
+		AutoBanEnabled:  cfg.AutoBanEnabled,
+		BlockedKeywords: append([]string(nil), cfg.BlockedKeywords...),
 	}
 }
 
@@ -2524,7 +2109,7 @@ func validateModerationTestImageDataURL(value string) error {
 	return nil
 }
 
-func buildContentModerationTestAuditResult(result *moderationAPIResult, thresholds map[string]float64) *ContentModerationTestAuditResult {
+func buildContentModerationTestAuditResult(result *moderationAPIResult) *ContentModerationTestAuditResult {
 	if result == nil {
 		return nil
 	}
@@ -2532,7 +2117,7 @@ func buildContentModerationTestAuditResult(result *moderationAPIResult, threshol
 	for category, score := range result.CategoryScores {
 		scores[category] = score
 	}
-	thresholdSnapshot := mergeContentModerationThresholds(ContentModerationDefaultThresholds(), thresholds)
+	thresholdSnapshot := contentModerationThresholds()
 	flagged, highestCategory, highestScore := evaluateModerationScores(scores, thresholdSnapshot)
 	compositeScore := highestScore
 	return &ContentModerationTestAuditResult{
@@ -2592,25 +2177,6 @@ func evaluateModerationScores(scores map[string]float64, thresholds map[string]f
 	return flagged, highestCategory, highestScore
 }
 
-func mergeContentModerationThresholds(base map[string]float64, override map[string]float64) map[string]float64 {
-	out := cloneFloatMap(base)
-	if out == nil {
-		out = map[string]float64{}
-	}
-	for _, category := range contentModerationCategoryOrder {
-		if v, ok := override[category]; ok {
-			if v < 0 {
-				v = 0
-			}
-			if v > 1 {
-				v = 1
-			}
-			out[category] = v
-		}
-	}
-	return out
-}
-
 func normalizeBlockedKeywords(in []string) []string {
 	if len(in) == 0 {
 		return []string{}
@@ -2634,86 +2200,6 @@ func normalizeBlockedKeywords(in []string) []string {
 		}
 	}
 	return out
-}
-
-func normalizeKeywordBlockingMode(mode string) string {
-	switch strings.TrimSpace(mode) {
-	case ContentModerationKeywordModeKeywordOnly:
-		return ContentModerationKeywordModeKeywordOnly
-	case ContentModerationKeywordModeAPIOnly:
-		return ContentModerationKeywordModeAPIOnly
-	case ContentModerationKeywordModeKeywordAndAPI:
-		return ContentModerationKeywordModeKeywordAndAPI
-	default:
-		return ContentModerationKeywordModeKeywordAndAPI
-	}
-}
-
-func normalizeContentModerationModelFilter(filter ContentModerationModelFilter) ContentModerationModelFilter {
-	out := ContentModerationModelFilter{
-		Type:   normalizeContentModerationModelFilterType(filter.Type),
-		Models: normalizeContentModerationModelNames(filter.Models),
-	}
-	if out.Type == ContentModerationModelFilterAll {
-		out.Models = []string{}
-	}
-	return out
-}
-
-func cloneContentModerationModelFilter(filter ContentModerationModelFilter) ContentModerationModelFilter {
-	normalized := normalizeContentModerationModelFilter(filter)
-	normalized.Models = append([]string(nil), normalized.Models...)
-	return normalized
-}
-
-func normalizeContentModerationModelFilterType(filterType string) string {
-	switch strings.ToLower(strings.TrimSpace(filterType)) {
-	case ContentModerationModelFilterInclude:
-		return ContentModerationModelFilterInclude
-	case ContentModerationModelFilterExclude:
-		return ContentModerationModelFilterExclude
-	case ContentModerationModelFilterAll:
-		return ContentModerationModelFilterAll
-	default:
-		return ContentModerationModelFilterAll
-	}
-}
-
-func normalizeContentModerationModelNames(models []string) []string {
-	if len(models) == 0 {
-		return []string{}
-	}
-	out := make([]string, 0, len(models))
-	seen := make(map[string]struct{}, len(models))
-	for _, raw := range models {
-		model := trimRunes(strings.TrimSpace(raw), maxContentModerationModelFilterRunes)
-		if model == "" {
-			continue
-		}
-		key := strings.ToLower(model)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, model)
-		if len(out) >= maxContentModerationModelFilterModels {
-			break
-		}
-	}
-	return out
-}
-
-func contentModerationModelListContains(models []string, model string) bool {
-	model = strings.ToLower(strings.TrimSpace(model))
-	if model == "" {
-		return false
-	}
-	for _, candidate := range models {
-		if strings.ToLower(strings.TrimSpace(candidate)) == model {
-			return true
-		}
-	}
-	return false
 }
 
 func matchBlockedKeyword(text string, keywords []string) (string, bool) {
@@ -2772,15 +2258,6 @@ func deleteModerationAPIKeysByHash(keys []string, hashes []string) []string {
 		out = append(out, key)
 	}
 	return out
-}
-
-func normalizeContentModerationAPIKeysMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case contentModerationAPIKeysModeReplace:
-		return contentModerationAPIKeysModeReplace
-	default:
-		return contentModerationAPIKeysModeAppend
-	}
 }
 
 func normalizeContentModerationHash(inputHash string) string {
@@ -2853,8 +2330,7 @@ type CyberPolicyRecordInput struct {
 
 // RecordCyberPolicyEvent 把一次 cyber_policy 硬阻断写入风控中心日志、计入违规计数、
 // 并给用户发邮件。当前请求已由 gateway 透传给用户；本方法仅做事后记录/通知/计数。
-// 受 risk_control_enabled 总开关和内容审核 group/model scope 约束，
-// 不受内容审核 Enabled/Mode/sample 约束。
+// 只受 risk_control_enabled 总开关约束，不受内容审核 Enabled/Mode 约束。
 func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, in CyberPolicyRecordInput) {
 	if s == nil || s.repo == nil {
 		return
@@ -2868,9 +2344,6 @@ func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, i
 		return
 	}
 	cfg := runtimeSnapshot.config
-	if !cfg.includesModel(in.Model) {
-		return
-	}
 	var userID *int64
 	if in.UserID > 0 {
 		userID = &in.UserID
@@ -2904,12 +2377,7 @@ func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, i
 		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationExcerptRunes*4),
 		CreatedAt:       time.Now(),
 	}
-	// 开关开时 cyber_policy 不参与封号计数：当次不判定（此处跳过），
-	// 历史行由 CountFlaggedByUserSince 的 excludeCyberPolicy 排除。
-	autoBanned := false
-	if !cfg.CyberPolicyExcludeFromBanCount {
-		autoBanned = s.applyFlaggedAccountSideEffects(ctx, cfg, log)
-	}
+	autoBanned := s.applyFlaggedAccountSideEffects(ctx, cfg, log)
 	log.EmailSent = false
 	logPersisted := true
 	if err := s.repo.CreateLog(ctx, log); err != nil {
@@ -2924,7 +2392,7 @@ func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, i
 			emailSent = true
 		}
 		if autoBanned {
-			if err := s.sendAccountDisabledEmail(ctx, cfg, log); err != nil {
+			if err := s.sendAccountDisabledEmail(ctx, log); err != nil {
 				slog.Warn("content_moderation.cyber_ban_email_failed", "user_id", in.UserID, "error", err)
 			} else {
 				emailSent = true

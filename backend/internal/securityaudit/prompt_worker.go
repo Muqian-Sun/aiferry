@@ -52,7 +52,7 @@ func (r *Runner) Start(ctx context.Context) error {
 	if err := r.payload.Ping(runCtx); err != nil {
 		r.setLastError("payload_store_unavailable", err.Error())
 	}
-	for workerID := 0; workerID < MaxWorkerCount; workerID++ {
+	for workerID := 0; workerID < WorkerCount; workerID++ {
 		r.wg.Add(1)
 		go r.worker(runCtx, workerID)
 	}
@@ -94,7 +94,7 @@ func (r *Runner) worker(ctx context.Context, workerID int) {
 		case <-ticker.C:
 			r.runtime.heartbeatNS.Store(r.clock.Now().UnixNano())
 			cfg, ok := r.config.Active()
-			if !ok || !cfg.RiskControlEnabled || !cfg.Enabled || workerID >= cfg.WorkerCount {
+			if !ok || !cfg.RiskControlEnabled || !cfg.Enabled {
 				continue
 			}
 			for {
@@ -143,11 +143,11 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 	// The job row only carries redacted metadata; the full prompt for the audit
 	// event is reconstructed here from the transient scan payload.
 	job.Snapshot.FullPrompt = FullPromptFromScanText(scanText)
-	endpoints := cfg.EnabledEndpoints()
+	endpoints := cfg.Endpoints
 	if len(endpoints) == 0 {
 		return r.finishFailure(ctx, job, &GuardError{Code: "no_enabled_endpoint", Retryable: true})
 	}
-	chunks := SplitRunes(scanText, minimumInputLimit(endpoints))
+	chunks := SplitRunes(scanText, GuardInputLimit)
 	results := make([]*NormalizedResult, 0, len(chunks))
 	started := r.clock.Now()
 	for index, chunk := range chunks {
@@ -155,13 +155,13 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 			return err
 		}
 		chunkStarted := r.clock.Now()
-		LogInfo(EventChunkStarted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks), "chunk_chars": len([]rune(chunk)), "input_chars": job.Snapshot.PromptLength, "input_limit": minimumInputLimit(endpoints), "status": "started"}))
+		LogInfo(EventChunkStarted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks), "chunk_chars": len([]rune(chunk)), "input_chars": job.Snapshot.PromptLength, "input_limit": GuardInputLimit, "status": "started"}))
 		result, scanErr := scanWithFailover(ctx, r.scanner, cfg.Scanners, endpoints, chunk, r.metrics)
 		if scanErr != nil {
 			LogWarn(EventChunkFailed, mergeLogFields(baseFields, map[string]any{
 				"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks),
 				"chunk_chars": len([]rune(chunk)), "input_chars": job.Snapshot.PromptLength,
-				"input_limit": minimumInputLimit(endpoints), "latency_ms": r.clock.Now().Sub(chunkStarted).Milliseconds(),
+				"input_limit": GuardInputLimit, "latency_ms": r.clock.Now().Sub(chunkStarted).Milliseconds(),
 				"error_code": guardErrorCode(scanErr), "status": "failed",
 			}))
 			r.observeAsyncFailure(scanErr, r.clock.Now().Sub(started))
@@ -189,7 +189,7 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 		"action": aggregated.Action, "chunk_total": aggregated.ChunkTotal,
 		"latency_ms": aggregated.LatencyMS, "guard_endpoint_id": aggregated.GuardEndpointID, "status": "completed",
 	}))
-	event, err := r.repo.Complete(ctx, job, aggregated, cfg.StorePassEvents)
+	event, err := r.repo.Complete(ctx, job, aggregated, StorePassEvents)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,7 @@
  * 由代码决定的功能开关：功能的启用 / 隐藏改这里、重新发版，不走后台设置（muqian 2026-09-25）。
  * 路由用 meta.siteFeature 挂到某个开关上，关着时守卫拦回首页（router/siteGuard.ts）。
  */
-export type SiteFeature = 'subscription' | 'batchImage' | 'accountSecurity'
+export type SiteFeature = 'subscription' | 'batchImage' | 'accountSecurity' | 'promptAudit'
 
 export const SITE_FEATURES: Readonly<Record<SiteFeature, boolean>> = {
   /**
@@ -16,5 +16,10 @@ export const SITE_FEATURES: Readonly<Record<SiteFeature, boolean>> = {
    * 用户站账户「安全」页：先不显示（muqian 2026-09-26）。第三方绑定、改密码、两步验证、通行密钥整页不可见；
    * 已开两步验证的用户照常登录。
    */
-  accountSecurity: false
+  accountSecurity: false,
+  /**
+   * 管理站「审查 · 提示词」页：先不显示（muqian 2026-10-05：要调守卫模型，有成本）。页签与页面都不可见；
+   * 功能本身默认关、部署配置里没配守卫节点也开不起来。
+   */
+  promptAudit: false
 }

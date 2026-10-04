@@ -70,7 +70,7 @@ func (h *PromptAdminHandler) ProbeEndpoint(c *gin.Context) {
 		status = "success"
 	}
 	setPromptAdminAudit(c, status, result.ErrorCode, map[string]any{
-		"guard_endpoint_id": request.Endpoint.ID, "http_status": result.HTTPStatus,
+		"guard_endpoint_id": request.EndpointID, "http_status": result.HTTPStatus,
 		"latency_ms": result.LatencyMS, "token_applied": result.TokenApplied, "retryable": result.Retryable,
 	})
 	response.Success(c, result)
@@ -228,9 +228,7 @@ func configAuditFields(request UpdateConfigRequest, saved *PublicConfig) map[str
 	}
 	return map[string]any{
 		"enabled": request.Enabled, "blocking_enabled": request.BlockingEnabled,
-		"blocking_latest_turn_only": request.BlockingLatestTurnOnly,
-		"config_version":            version, "endpoint_count": len(request.Endpoints),
-		"scanner_count": len(request.Scanners),
+		"config_version": version, "scanner_count": len(request.Scanners),
 	}
 }
 

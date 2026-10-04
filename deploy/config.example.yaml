@@ -1191,3 +1191,18 @@ image_storage:
   presign_expiry_hours: 24
   # 当上游返回的是图片 url 时，下载该图片再转存的字节上限（默认 32MB）
   max_download_bytes: 33554432
+
+# =============================================================================
+# 提示词审计守卫节点（Prompt Audit Guard Endpoints）
+# =============================================================================
+# OpenAI 兼容的 Qwen3Guard 服务（/v1/chat/completions）。按顺序优先，出错切下一个；
+# 同步阻止模式下所有节点都不可用时请求会被拒绝（503），建议至少配两个。
+# 管理站「审查 → 提示词 → 设置」只开关审计与同步阻止、选风险分类，节点在这里配，改完重启生效。
+# 环境变量写法（JSON 数组）：PROMPT_AUDIT_GUARD_ENDPOINTS='[{"name":"主节点","base_url":"http://guard:8000","api_key":"","model":""}]'
+prompt_audit:
+  guard_endpoints: []
+  # - name: "主节点"
+  #   base_url: "http://guard:8000"        # 不带 /v1；不能带账号密码、查询参数
+  #   api_key: ""                         # 节点要求鉴权时填
+  #   model: ""                           # 留空用 sileader/qwen3guard:0.6b
+

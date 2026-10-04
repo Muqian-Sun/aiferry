@@ -129,9 +129,9 @@ func TestContentModerationCallRoutesThroughProxy(t *testing.T) {
 		7: {ID: 7, Name: "audit-proxy", Protocol: "http", Host: host, Port: port, Status: StatusActive},
 	}}
 	svc := NewContentModerationService(nil, nil, nil, nil, proxyRepo, nil, nil)
+	svc.apiBaseURL = "http://moderation-proxy-test.invalid"
 
 	cfg := defaultContentModerationConfig()
-	cfg.BaseURL = "http://moderation-proxy-test.invalid"
 	cfg.ProxyID = moderationProxyIDPtr(7)
 	cfg.normalize()
 
@@ -156,9 +156,9 @@ func TestContentModerationProxyResolveFailureDoesNotFallBackToDirect(t *testing.
 
 	proxyRepo := &contentModerationTestProxyRepo{getByIDErr: errors.New("proxy deleted")}
 	svc := NewContentModerationService(nil, nil, nil, nil, proxyRepo, nil, nil)
+	svc.apiBaseURL = directSrv.URL
 
 	cfg := defaultContentModerationConfig()
-	cfg.BaseURL = directSrv.URL
 	cfg.ProxyID = moderationProxyIDPtr(9)
 	cfg.normalize()
 
@@ -245,7 +245,6 @@ func TestContentModerationTestAPIKeysProxySemantics(t *testing.T) {
 	port, _ := strconv.Atoi(portStr)
 
 	savedCfg := defaultContentModerationConfig()
-	savedCfg.BaseURL = "http://moderation-proxy-test.invalid"
 	savedCfg.ProxyID = moderationProxyIDPtr(7)
 	savedCfg.APIKeys = []string{"sk-saved"}
 	rawCfg, err := json.Marshal(savedCfg)
@@ -260,6 +259,7 @@ func TestContentModerationTestAPIKeysProxySemantics(t *testing.T) {
 		7: {ID: 7, Name: "audit-proxy", Protocol: "http", Host: host, Port: port, Status: StatusActive},
 	}}
 	svc := NewContentModerationService(settingRepo, nil, nil, nil, proxyRepo, nil, nil)
+	svc.apiBaseURL = "http://moderation-proxy-test.invalid"
 
 	// nil：沿用已保存配置的代理，测试请求应经过代理成功。
 	result, err := svc.TestAPIKeys(context.Background(), TestContentModerationAPIKeysInput{APIKeys: []string{"sk-input"}})
@@ -283,9 +283,9 @@ func TestContentModerationTestAPIKeysProxySemantics(t *testing.T) {
 	defer directSrv.Close()
 
 	before := proxied.Load()
+	svc.apiBaseURL = directSrv.URL
 	result, err = svc.TestAPIKeys(context.Background(), TestContentModerationAPIKeysInput{
 		APIKeys: []string{"sk-input"},
-		BaseURL: directSrv.URL,
 		ProxyID: moderationProxyIDPtr(0),
 	})
 	if err != nil {

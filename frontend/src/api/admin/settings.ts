@@ -18,10 +18,6 @@ export interface SystemSettings {
   // 风控中心功能开关
   risk_control_enabled: boolean;
 
-  // Cyber session block
-  cyber_session_block_enabled: boolean;
-  cyber_session_block_ttl_seconds: number;
-
   // 利润门（全站一档）：上游成本比（渠道给该模型的上游价 ÷ 官方价，逐项、逐段取最高）> 用户倍率 × (1 − profit_min_margin) 的渠道这次请求不派；0 = 关
   profit_min_margin: number;
 }
@@ -32,10 +28,6 @@ export interface UpdateSettingsRequest {
   ops_metrics_interval_seconds?: number;
   // 风控中心功能开关
   risk_control_enabled?: boolean;
-
-  // Cyber session block
-  cyber_session_block_enabled?: boolean;
-  cyber_session_block_ttl_seconds?: number;
 
   profit_min_margin?: number;
 }

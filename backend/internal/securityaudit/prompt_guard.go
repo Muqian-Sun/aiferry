@@ -45,7 +45,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 	start := g.clock.Now()
 	baseFields := snapshotLogFields(snapshot)
 	baseFields["config_version"] = cfg.ConfigVersion
-	endpoints := cfg.EnabledEndpoints()
+	endpoints := cfg.Endpoints
 	if len(endpoints) == 0 {
 		if g.metrics != nil {
 			g.metrics.Observe(DecisionUnavailable, g.clock.Now().Sub(start))
@@ -64,14 +64,9 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		logGuardFailure(snapshot, cfg, DecisionUnavailable, ErrorCodeUnavailable, "", g.clock.Now().Sub(start))
 		return nil, &GuardError{Code: ErrorCodeUnavailable}
 	}
-	timeout := time.Duration(endpoints[0].TimeoutMS) * time.Millisecond
-	if timeout <= 0 {
-		timeout = DefaultTimeoutMS * time.Millisecond
-	}
-	evalCtx, cancel := context.WithTimeout(ctx, timeout)
+	evalCtx, cancel := context.WithTimeout(ctx, GuardTimeoutMS*time.Millisecond)
 	defer cancel()
-	inputLimit := minimumInputLimit(endpoints)
-	chunks := SplitRunes(snapshot.ScanText, inputLimit)
+	chunks := SplitRunes(snapshot.ScanText, GuardInputLimit)
 	if len(chunks) == 0 {
 		if g.metrics != nil {
 			g.metrics.Observe(DecisionAllow, g.clock.Now().Sub(start))
@@ -84,7 +79,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		chunkStarted := g.clock.Now()
 		LogInfo(EventChunkStarted, mergeLogFields(baseFields, map[string]any{
 			"chunk_index": index + 1, "chunk_total": len(chunks),
-			"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": inputLimit,
+			"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": GuardInputLimit,
 			"status": "started",
 		}))
 		result, err := g.scanChunk(evalCtx, cfg, endpoints, chunk)
@@ -92,7 +87,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			code := guardErrorCode(err)
 			LogWarn(EventChunkFailed, mergeLogFields(baseFields, map[string]any{
 				"chunk_index": index + 1, "chunk_total": len(chunks),
-				"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": inputLimit,
+				"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": GuardInputLimit,
 				"latency_ms": g.clock.Now().Sub(chunkStarted).Milliseconds(), "error_code": code, "status": "failed",
 			}))
 			kind := DecisionUnavailable
@@ -113,7 +108,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{
 			"chunk_index": index + 1, "chunk_total": len(chunks),
-			"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": inputLimit,
+			"chunk_chars": len([]rune(chunk)), "input_chars": snapshot.PromptLength, "input_limit": GuardInputLimit,
 			"guard_endpoint_id": result.GuardEndpointID, "action": result.Action,
 			"latency_ms": g.clock.Now().Sub(chunkStarted).Milliseconds(), "status": "completed",
 		}))
@@ -151,7 +146,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		"status": "completed",
 	}))
 	if g.repo != nil {
-		if _, recordErr := g.repo.RecordBlocking(ctx, snapshot.Redacted(), cfg.ConfigVersion, aggregated, cfg.StorePassEvents); recordErr != nil {
+		if _, recordErr := g.repo.RecordBlocking(ctx, snapshot.Redacted(), cfg.ConfigVersion, aggregated, StorePassEvents); recordErr != nil {
 			if g.metrics != nil {
 				g.metrics.IncRecordFailed()
 			}
@@ -247,20 +242,6 @@ func (g *GuardEvaluator) nodeSemaphore(id string) chan struct{} {
 		g.nodes[id] = semaphore
 	}
 	return semaphore
-}
-
-func minimumInputLimit(endpoints []ActiveEndpoint) int {
-	limit := DefaultInputLimit
-	for index, endpoint := range endpoints {
-		value := endpoint.InputLimit
-		if value <= 0 {
-			value = DefaultInputLimit
-		}
-		if index == 0 || value < limit {
-			limit = value
-		}
-	}
-	return limit
 }
 
 func guardErrorCode(err error) string {
