@@ -137,41 +137,6 @@ func (f *fakeCyberBlockStore) FindCyberSessionBlocked(_ context.Context, keys []
 	return "", nil
 }
 
-// fakeSettingRepo is a minimal SettingRepository stub for unit tests.
-// Only GetValue is exercised by GetCyberSessionBlockRuntime; all other methods
-// panic so accidental calls are caught immediately.
-type fakeSettingRepo struct {
-	vals map[string]string
-}
-
-func (r *fakeSettingRepo) GetValue(_ context.Context, key string) (string, error) {
-	v, ok := r.vals[key]
-	if !ok {
-		return "", ErrSettingNotFound
-	}
-	return v, nil
-}
-func (r *fakeSettingRepo) Get(_ context.Context, _ string) (*Setting, error) {
-	panic("fakeSettingRepo.Get not implemented")
-}
-func (r *fakeSettingRepo) Set(_ context.Context, _, _ string) error {
-	panic("fakeSettingRepo.Set not implemented")
-}
-func (r *fakeSettingRepo) GetMultiple(_ context.Context, _ []string) (map[string]string, error) {
-	panic("fakeSettingRepo.GetMultiple not implemented")
-}
-func (r *fakeSettingRepo) SetMultiple(_ context.Context, _ map[string]string) error {
-	panic("fakeSettingRepo.SetMultiple not implemented")
-}
-func (r *fakeSettingRepo) GetAll(_ context.Context) (map[string]string, error) {
-	panic("fakeSettingRepo.GetAll not implemented")
-}
-func (r *fakeSettingRepo) Delete(_ context.Context, _ string) error {
-	panic("fakeSettingRepo.Delete not implemented")
-}
-
-var _ SettingRepository = (*fakeSettingRepo)(nil)
-
 // comboCacheAndStore implements both GatewayCache (no-op stubs) and
 // CyberSessionBlockStore (delegates to fakeCyberBlockStore) so it can be
 // injected as s.cache and successfully type-asserted to CyberSessionBlockStore.
@@ -243,22 +208,8 @@ func TestFindCyberSessionBlocked_EmptyAndNilService(t *testing.T) {
 // mark a session blocked via a combo cache+store, then confirm IsCyberSessionBlocked
 // returns true, and an unrelated key returns false.
 func TestCyberSessionBlock_RoundTrip(t *testing.T) {
-	// SettingService with only settingRepo set — GetCyberSessionBlockRuntime needs
-	// nothing else (cfg/proxyRepo/etc. are not touched by this code path).
-	settingSvc := &SettingService{
-		settingRepo: &fakeSettingRepo{
-			vals: map[string]string{
-				SettingKeyCyberSessionBlockEnabled:    "true",
-				SettingKeyCyberSessionBlockTTLSeconds: "60",
-			},
-		},
-	}
-
 	combo := &comboCacheAndStore{}
-	svc := &OpenAIGatewayService{
-		cache:          combo,
-		settingService: settingSvc,
-	}
+	svc := &OpenAIGatewayService{cache: combo}
 
 	ctx := context.Background()
 	const testKey = "deadbeef1234"
@@ -273,12 +224,8 @@ func TestCyberSessionBlock_RoundTrip(t *testing.T) {
 }
 
 func TestFindCyberSessionBlockedForRequestUsesScopeForTranscript(t *testing.T) {
-	settingSvc := &SettingService{settingRepo: &fakeSettingRepo{vals: map[string]string{
-		SettingKeyCyberSessionBlockEnabled:    "true",
-		SettingKeyCyberSessionBlockTTLSeconds: "60",
-	}}}
 	combo := &comboCacheAndStore{}
-	svc := &OpenAIGatewayService{cache: combo, settingService: settingSvc}
+	svc := &OpenAIGatewayService{cache: combo}
 	ctx := context.Background()
 
 	hitBody := []byte(`{"messages":[{"role":"user","content":"setup"},{"role":"assistant","content":"ready"},{"role":"user","content":"trigger"}]}`)
@@ -296,12 +243,8 @@ func TestFindCyberSessionBlockedForRequestUsesScopeForTranscript(t *testing.T) {
 }
 
 func TestFindCyberSessionBlockedForRequestFailsClosedOnScopedTranscriptOverflow(t *testing.T) {
-	settingSvc := &SettingService{settingRepo: &fakeSettingRepo{vals: map[string]string{
-		SettingKeyCyberSessionBlockEnabled:    "true",
-		SettingKeyCyberSessionBlockTTLSeconds: "60",
-	}}}
 	combo := &comboCacheAndStore{}
-	svc := &OpenAIGatewayService{cache: combo, settingService: settingSvc}
+	svc := &OpenAIGatewayService{cache: combo}
 	ctx := context.Background()
 	const apiKeyID = int64(9)
 	const clientIP = "203.0.113.20"

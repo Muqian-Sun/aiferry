@@ -1367,4 +1367,3 @@ func TestContentModerationUnbanUser_ActiveUserOnlyInvalidatesAuthCache(t *testin
 func contentModerationIntPtr(v int) *int {
 	return &v
 }
-

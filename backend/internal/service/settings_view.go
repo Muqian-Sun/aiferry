@@ -13,8 +13,6 @@ func firstNonEmpty(values ...string) string {
 
 type SystemSettings struct {
 	RiskControlEnabled           bool
-	CyberSessionBlockEnabled     bool
-	CyberSessionBlockTTLSeconds  int
 	AffiliateEnabled             bool
 	AffiliateRebateRate          float64
 	AffiliateRebateFreezeHours   int

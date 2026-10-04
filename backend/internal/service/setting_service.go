@@ -84,9 +84,6 @@ type SettingService struct {
 	openAICodexVersionCache atomic.Value // *cachedOpenAICodexClientVersion
 	openAICodexVersionSF    singleflight.Group
 
-	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
-	cyberSessionBlockRuntimeSF    singleflight.Group
-
 	// openAIQuotaAutoPauseSettingsCache holds the most recently observed quota auto-pause
 	// settings. GetOpenAIQuotaAutoPauseSettings reads this atomic.Value on the request hot
 	// path without ever blocking on the DB; when the cached entry expires, a background

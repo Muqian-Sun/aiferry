@@ -24,14 +24,9 @@ type cyberPolicyDeps struct {
 
 // rejectIfCyberSessionBlocked checks the session-block table BEFORE account
 // selection. Returns true when the request was rejected (response already
-// written + ops entry enqueued). Fail-open: disabled switch / empty key /
-// store error → false.
+// written + ops entry enqueued). Fail-open: empty key / store error → false.
 func rejectIfCyberSessionBlocked(c *gin.Context, deps cyberPolicyDeps, apiKey *service.APIKey, body []byte, model string, format cyberSessionBlockFormat) bool {
 	if deps.openAIGateway == nil || apiKey == nil {
-		return false
-	}
-	// 开关默认关：先走 ~ns 级缓存开关检查，再付出 key 派生(gjson+sha256)成本。
-	if enabled, _ := deps.openAIGateway.CyberSessionBlockRuntime(c.Request.Context()); !enabled {
 		return false
 	}
 	key := findBlockedCyberSessionKey(c.Request.Context(), deps.openAIGateway, apiKey.ID, c, body)
