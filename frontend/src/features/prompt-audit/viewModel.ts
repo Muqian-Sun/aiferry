@@ -1,12 +1,9 @@
 import type {
   PromptAuditConfig,
   PromptAuditDraft,
-  PromptAuditEndpointDraft,
   PromptAuditUpdateRequest,
   PromptEventFilters,
 } from './types'
-
-export const DEFAULT_GUARD_MODEL = 'sileader/qwen3guard:0.6b'
 
 export const SCANNER_CATALOG = [
   { id: 'violent', label: 'Violent' },
@@ -29,62 +26,24 @@ export function cloneData<T>(value: T): T {
 
 export function configToDraft(config: PromptAuditConfig): PromptAuditDraft {
   return {
-    ...cloneData(config),
+    enabled: config.enabled,
+    blocking_enabled: config.blocking_enabled,
     scanners: [...(config.scanners ?? [])],
-    endpoints: (config.endpoints ?? []).map((endpoint) => ({
-      ...endpoint,
-      token: '',
-      clear_token: false,
-    })),
   }
 }
 
-export function createDefaultEndpoint(index = 1): PromptAuditEndpointDraft {
+export function buildUpdateRequest(draft: PromptAuditDraft, configVersion: number): PromptAuditUpdateRequest {
   return {
-    id: `guard-${Date.now()}-${index}`,
-    name: `Guard ${index}`,
-    protocol: 'openai_compatible',
-    base_url: 'http://127.0.0.1:8000',
-    model: DEFAULT_GUARD_MODEL,
-    timeout_ms: 3000,
-    input_limit: 4000,
-    enabled: true,
-    has_token: false,
-    token_status: 'missing',
-    token: '',
-    clear_token: false,
-  }
-}
-
-export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRequest {
-  return {
-    expected_config_version: draft.config_version,
+    expected_config_version: configVersion,
     enabled: draft.enabled,
     blocking_enabled: draft.enabled && draft.blocking_enabled,
-    blocking_latest_turn_only: draft.blocking_latest_turn_only,
-    store_pass_events: draft.store_pass_events,
-    strategy: 'priority',
-    worker_count: Number(draft.worker_count),
-    queue_capacity: Number(draft.queue_capacity),
     scanners: [...draft.scanners],
-    endpoints: draft.endpoints.map((endpoint) => ({
-      id: endpoint.id.trim(),
-      name: endpoint.name.trim(),
-      protocol: 'openai_compatible',
-      base_url: endpoint.base_url.trim(),
-      model: endpoint.model.trim() || DEFAULT_GUARD_MODEL,
-      token: endpoint.token.trim() || undefined,
-      clear_token: endpoint.clear_token,
-      timeout_ms: Number(endpoint.timeout_ms),
-      input_limit: Number(endpoint.input_limit),
-      enabled: endpoint.enabled,
-    })),
   }
 }
 
 export function draftFingerprint(draft: PromptAuditDraft | null): string {
   if (!draft) return ''
-  return JSON.stringify(buildUpdateRequest(draft))
+  return JSON.stringify({ ...buildUpdateRequest(draft, 0), scanners: [...draft.scanners].sort() })
 }
 
 export function emptyEventFilters(): PromptEventFilters {
@@ -162,4 +121,31 @@ export function resolveDeleteRangeFilters(
   resolved.start_at = new Date(0).toISOString()
   resolved.end_at = new Date(days === null ? now : now - days * DAY_MS).toISOString()
   return resolved
+}
+
+// 守卫节点探测、审计线程最近一次出错的错误码（prompt_service.go Probe / prompt_worker.go setLastError）；
+// 页面按码给文案，不显示后端原文。认不出的码走通用文案并带上码。
+const GUARD_ERROR_KEYS: Record<string, string> = {
+  prompt_guard_unavailable: 'admin.promptAudit.guardErrors.unavailable',
+  prompt_guard_invalid_response: 'admin.promptAudit.guardErrors.invalidResponse',
+  connection_failed: 'admin.promptAudit.guardErrors.connectionFailed',
+  timeout: 'admin.promptAudit.guardErrors.timeout',
+  authentication_failed: 'admin.promptAudit.guardErrors.authenticationFailed',
+  probe_http_error: 'admin.promptAudit.guardErrors.httpError',
+  response_read_failed: 'admin.promptAudit.guardErrors.responseReadFailed',
+  response_too_large: 'admin.promptAudit.guardErrors.responseTooLarge',
+  endpoint_not_found: 'admin.promptAudit.guardErrors.endpointNotFound',
+  endpoint_unsafe: 'admin.promptAudit.guardErrors.endpointUnsafe',
+  probe_request_invalid: 'admin.promptAudit.guardErrors.probeRequestInvalid',
+  database_unavailable: 'admin.promptAudit.guardErrors.databaseUnavailable',
+  payload_store_unavailable: 'admin.promptAudit.guardErrors.payloadStoreUnavailable',
+  payload_missing: 'admin.promptAudit.guardErrors.payloadMissing',
+  claim_job_failed: 'admin.promptAudit.guardErrors.claimJobFailed',
+  reclaim_failed: 'admin.promptAudit.guardErrors.reclaimFailed',
+  worker_panic: 'admin.promptAudit.guardErrors.workerPanic',
+}
+
+export function guardErrorText(t: (key: string, params?: Record<string, unknown>) => string, code: string): string {
+  const key = GUARD_ERROR_KEYS[code]
+  return key ? t(key) : t('admin.promptAudit.guardErrors.unknown', { code })
 }

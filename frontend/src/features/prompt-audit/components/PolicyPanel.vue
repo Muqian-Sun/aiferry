@@ -1,38 +1,20 @@
 <template>
+  <!-- 页面上能改的只有风险分类（2026-10-05）；工作线程、队列、节点策略写死在后端 -->
   <section aria-labelledby="prompt-policy-title" class="py-6">
     <div>
       <h2 id="prompt-policy-title" class="text-base font-semibold text-af-ink">{{ t('admin.promptAudit.policy.title') }}</h2>
       <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.promptAudit.policy.description') }}</p>
     </div>
 
-    <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.45fr)]">
-      <div class="rounded-xl border border-af-hairline p-4 sm:p-5">
-        <fieldset>
-          <legend class="text-sm font-medium text-af-ink">{{ t('admin.promptAudit.policy.scanners') }}</legend>
-          <div class="mt-3 grid gap-2 sm:grid-cols-2">
-            <label v-for="scanner in SCANNER_CATALOG" :key="scanner.id" class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-af-ink-2 hover:bg-af-sunken">
-              <input type="checkbox" :checked="draft.scanners.includes(scanner.id)" :aria-label="scannerLabel(scanner.id)" @change="toggleScanner(scanner.id)" />
-              <span>{{ scannerLabel(scanner.id) }}</span>
-            </label>
-          </div>
-        </fieldset>
-      </div>
-
-      <div class="space-y-4 rounded-xl border border-af-hairline p-4 sm:p-5">
-        <label class="block text-sm text-af-ink-2">
-          <span>{{ t('admin.promptAudit.policy.workerCount') }}</span>
-          <input :value="draft.worker_count" type="number" min="1" max="32" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.workerCount')" @input="patch({ worker_count: Number(($event.target as HTMLInputElement).value) })" />
+    <fieldset class="mt-4">
+      <legend class="sr-only">{{ t('admin.promptAudit.policy.title') }}</legend>
+      <div class="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+        <label v-for="scanner in SCANNER_CATALOG" :key="scanner.id" class="flex cursor-pointer items-center gap-2 py-1.5 text-sm text-af-ink-2">
+          <input type="checkbox" :checked="draft.scanners.includes(scanner.id)" :aria-label="scannerLabel(scanner.id)" @change="toggleScanner(scanner.id)" />
+          <span>{{ scannerLabel(scanner.id) }}</span>
         </label>
-        <label class="block text-sm text-af-ink-2">
-          <span>{{ t('admin.promptAudit.policy.queueCapacity') }}</span>
-          <input :value="draft.queue_capacity" type="number" min="1" max="100000" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.queueCapacity')" @input="patch({ queue_capacity: Number(($event.target as HTMLInputElement).value) })" />
-        </label>
-        <div class="rounded-lg bg-af-sunken px-4 py-3 text-sm text-af-ink-2">
-          <p class="font-medium text-af-ink">{{ t('admin.promptAudit.policy.strategy') }}</p>
-          <p class="mt-1">{{ t(`admin.promptAudit.policy.strategies.${draft.strategy}`) }} · {{ t('admin.promptAudit.policy.strategyHint') }}</p>
-        </div>
       </div>
-    </div>
+    </fieldset>
   </section>
 </template>
 
@@ -44,14 +26,11 @@ import { cloneData, SCANNER_CATALOG } from '../viewModel'
 const props = defineProps<{ draft: PromptAuditDraft }>()
 const emit = defineEmits<{ (event: 'update:draft', value: PromptAuditDraft): void }>()
 const { t } = useI18n()
-function patch(value: Partial<PromptAuditDraft>) {
-  emit('update:draft', { ...cloneData(props.draft), ...value })
-}
 function toggleScanner(id: string) {
   const selected = new Set(props.draft.scanners)
   if (selected.has(id)) selected.delete(id)
   else selected.add(id)
-  patch({ scanners: SCANNER_CATALOG.map((item) => item.id).filter((item) => selected.has(item)) })
+  emit('update:draft', { ...cloneData(props.draft), scanners: SCANNER_CATALOG.map((item) => item.id).filter((item) => selected.has(item)) })
 }
 function scannerLabel(id: string): string {
   return t(`admin.promptAudit.scanners.${id}`)

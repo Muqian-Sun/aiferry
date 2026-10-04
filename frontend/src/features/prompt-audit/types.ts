@@ -2,33 +2,20 @@ export type PromptAuditMode = 'off' | 'async_audit' | 'blocking'
 export type PromptDecision = 'pass' | 'flag' | 'critical'
 export type PromptRiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
+/** 守卫节点：来自部署配置（prompt_audit.guard_endpoints / PROMPT_AUDIT_GUARD_ENDPOINTS），页面上只读、可探测 */
 export interface PromptAuditEndpoint {
   id: string
   name: string
-  protocol: 'openai_compatible'
   base_url: string
   model: string
-  timeout_ms: number
-  input_limit: number
-  enabled: boolean
   has_token: boolean
-  token_status: 'configured' | 'missing' | 'invalid' | string
 }
 
-export interface PromptAuditEndpointDraft extends PromptAuditEndpoint {
-  token: string
-  clear_token: boolean
-}
-
+/** 页面上能改的只有开关、同步阻止和风险分类；工作线程、队列、超时等写死在后端（prompt_config.go 常量） */
 export interface PromptAuditConfig {
   enabled: boolean
   blocking_enabled: boolean
-  blocking_latest_turn_only: boolean
-  store_pass_events: boolean
   effective_mode: PromptAuditMode
-  strategy: 'priority'
-  worker_count: number
-  queue_capacity: number
   scanners: string[]
   endpoints: PromptAuditEndpoint[]
   config_version: number
@@ -37,32 +24,17 @@ export interface PromptAuditConfig {
   change_summary: string
 }
 
-export interface PromptAuditDraft extends Omit<PromptAuditConfig, 'endpoints'> {
-  endpoints: PromptAuditEndpointDraft[]
+export interface PromptAuditDraft {
+  enabled: boolean
+  blocking_enabled: boolean
+  scanners: string[]
 }
 
 export interface PromptAuditUpdateRequest {
   expected_config_version: number
   enabled: boolean
   blocking_enabled: boolean
-  blocking_latest_turn_only: boolean
-  store_pass_events: boolean
-  strategy: 'priority'
-  worker_count: number
-  queue_capacity: number
   scanners: string[]
-  endpoints: Array<{
-    id: string
-    name: string
-    protocol: 'openai_compatible'
-    base_url: string
-    model: string
-    token?: string
-    clear_token: boolean
-    timeout_ms: number
-    input_limit: number
-    enabled: boolean
-  }>
 }
 
 export interface PromptProbeResult {
@@ -173,6 +145,8 @@ export interface PromptAuditEvent {
   decision: PromptDecision
   risk_level: PromptRiskLevel
   action: 'Allow' | 'Warn' | 'Block' | string
+  /** 请求真的被拦下了（同步阻止模式下判了 Block）；异步审计的事件即使 action 是 Block 也只记录、请求已放行 */
+  blocked: boolean
   categories: string[]
   matched_scanners: string[]
   scanner_scores: Record<string, number>

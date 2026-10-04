@@ -2,21 +2,21 @@
   <BaseDialog :show="show" :title="t('admin.promptAudit.events.detailTitle')" width="extra-wide" @close="$emit('close')">
     <div v-if="loading" class="py-12 text-center text-sm text-af-ink-3" aria-busy="true">{{ t('common.loading') }}</div>
     <div v-else-if="event" class="flex flex-col">
-      <div class="flex flex-wrap gap-2 border-b border-af-hairline pb-3" role="tablist">
-        <button v-for="tab in tabs" :key="tab" type="button" role="tab" :aria-selected="activeTab === tab" class="rounded-md px-3 py-1.5 text-sm" :class="activeTab === tab ? 'bg-af-brand-tint text-af-brand' : 'text-af-ink-2'" @click="activeTab = tab">
-          {{ t(`admin.promptAudit.events.tabs.${tab}`) }}
-        </button>
-      </div>
+      <SectionTabs v-model="activeTab" :tabs="tabItems" :label="t('admin.promptAudit.events.detailTitle')" />
 
       <!-- Fixed panel height so switching tabs does not resize the dialog -->
       <div class="mt-5 h-[min(62vh,36rem)] overflow-y-auto" data-test="event-detail-tab-panel">
         <div v-show="activeTab === 'summary'" class="grid gap-5 lg:grid-cols-2" role="tabpanel">
           <div>
             <h4 class="text-sm font-medium text-af-ink">{{ t('admin.promptAudit.events.promptFull') }}</h4>
-            <pre class="mt-2 max-h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-af-sunken p-4 text-sm text-af-ink-2" data-test="summary-prompt-full">{{ displayPrompt(event) }}</pre>
+            <pre class="mt-2 max-h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-af-hairline p-4 font-sans text-sm text-af-ink-2" data-test="summary-prompt-full">{{ displayPrompt(event) }}</pre>
           </div>
           <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.decision') }}</dt><dd class="font-medium text-af-ink">{{ formatDecisionAction(event.decision, event.action) }}</dd>
+            <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.decision') }}</dt><dd class="font-medium text-af-ink">{{ formatDecisionRisk(event.decision, event.risk_level) }}</dd>
+            <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.outcome') }}</dt>
+            <dd :class="event.blocked ? 'font-medium text-af-danger' : 'text-af-ink-2'" data-test="detail-outcome">
+              {{ event.blocked ? t('admin.promptAudit.events.outcomeBlocked') : t('admin.promptAudit.events.outcomeAllowed') }}
+            </dd>
             <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.user') }}</dt><dd>{{ event.snapshot.username || '—' }}</dd>
             <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.email') }}</dt><dd>{{ event.snapshot.user_email || '—' }}</dd>
             <dt class="text-af-ink-3">{{ t('admin.promptAudit.events.apiKey') }}</dt><dd>{{ event.snapshot.api_key_name || '—' }}</dd>
@@ -30,12 +30,12 @@
             <section data-test="risk-prompt-preview">
               <h4 class="text-sm font-medium text-af-ink">{{ t('admin.promptAudit.events.promptFull') }}</h4>
               <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.promptAudit.events.promptFullHint') }}</p>
-              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-af-sunken p-4 text-sm text-af-ink-2" data-test="risk-prompt-full">{{ displayPrompt(event) }}</pre>
+              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-af-hairline p-4 font-sans text-sm text-af-ink-2" data-test="risk-prompt-full">{{ displayPrompt(event) }}</pre>
             </section>
             <section data-test="risk-guard-return">
               <h4 class="text-sm font-medium text-af-ink">{{ t('admin.promptAudit.events.guardReturn') }}</h4>
               <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.promptAudit.events.guardReturnHint') }}</p>
-              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-af-sunken p-4 font-mono text-xs text-af-ink-2">{{ formatGuardReturn(event) }}</pre>
+              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-af-hairline p-4 font-mono text-xs text-af-ink-2">{{ formatGuardReturn(event) }}</pre>
             </section>
           </div>
 
@@ -75,9 +75,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import SectionTabs from '@/components/user/shell/SectionTabs.vue'
+import type { SectionTab } from '@/components/user/shell/types'
 import type { PromptAuditEvent, PromptIssueSummary } from '../types'
 import { SCANNER_CATALOG } from '../viewModel'
 
@@ -90,8 +92,12 @@ const props = defineProps<{
 }>()
 defineEmits<{ (event: 'close'): void }>()
 const { t } = useI18n()
-const tabs = ['summary', 'risks', 'technical'] as const
-const activeTab = ref<(typeof tabs)[number]>('summary')
+const activeTab = ref('summary')
+const tabItems = computed<SectionTab[]>(() => [
+  { key: 'summary', label: t('admin.promptAudit.events.tabs.summary') },
+  { key: 'risks', label: t('admin.promptAudit.events.tabs.risks') },
+  { key: 'technical', label: t('admin.promptAudit.events.tabs.technical') },
+])
 watch(() => props.event?.id, () => { activeTab.value = 'summary' })
 
 const DECISIONS = new Set(['pass', 'flag', 'critical'])
@@ -108,10 +114,10 @@ function displayPrompt(event: PromptAuditEvent): string {
   return event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
 }
 
-function formatDecisionAction(decision: string, action: string): string {
+function formatDecisionRisk(decision: string, riskLevel: string): string {
   const decisionLabel = DECISIONS.has(decision) ? t(`admin.promptAudit.decisions.${decision}`) : decision
-  const actionLabel = ACTIONS.has(action) ? t(`admin.promptAudit.actions.${action}`) : action
-  return `${decisionLabel} · ${actionLabel}`
+  const riskLabel = RISK_LEVELS.has(riskLevel) ? t(`admin.promptAudit.riskLevels.${riskLevel}`) : riskLevel
+  return `${decisionLabel} · ${riskLabel}`
 }
 function translateCategory(category: string): string {
   return SCANNER_CATALOG.some((scanner) => scanner.id === category)

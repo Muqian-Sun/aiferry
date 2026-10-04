@@ -13,18 +13,9 @@ import {
 const config = (): PromptAuditConfig => ({
   enabled: true,
   blocking_enabled: false,
-  blocking_latest_turn_only: false,
-  store_pass_events: false,
   effective_mode: 'async_audit',
-  strategy: 'priority',
-  worker_count: 4,
-  queue_capacity: 100,
   scanners: SCANNER_CATALOG.map((item) => item.id),
-  endpoints: [{
-    id: 'guard-1', name: 'Guard One', protocol: 'openai_compatible', base_url: 'http://127.0.0.1:8000',
-    model: 'sileader/qwen3guard:0.6b', timeout_ms: 3000, input_limit: 4000, enabled: true,
-    has_token: true, token_status: 'configured',
-  }],
+  endpoints: [{ id: 'guard-1', name: 'Guard One', base_url: 'http://127.0.0.1:8000', model: 'sileader/qwen3guard:0.6b', has_token: true }],
   config_version: 7,
   updated_at: '2026-07-16T00:00:00Z',
   updated_by: 1,
@@ -33,8 +24,8 @@ const config = (): PromptAuditConfig => ({
 
 describe('Prompt Audit view model', () => {
   it('normalizes legacy null collections from the public config', () => {
-    const legacy = { ...config(), scanners: null, endpoints: null } as unknown as PromptAuditConfig
-    expect(configToDraft(legacy)).toMatchObject({ scanners: [], endpoints: [] })
+    const legacy = { ...config(), scanners: null } as unknown as PromptAuditConfig
+    expect(configToDraft(legacy)).toMatchObject({ scanners: [] })
   })
 
   it('models all nine official input scanners', () => {
@@ -42,30 +33,22 @@ describe('Prompt Audit view model', () => {
     expect(SCANNER_CATALOG.map((item) => item.id)).toContain('suicide_and_self_harm')
   })
 
-  it('keeps, replaces, or explicitly clears a saved token without copying plaintext from the server', () => {
+  // 只发页面上能改的三项；工作线程、队列、节点都不在请求里
+  it('sends only the editable fields with the expected config version', () => {
     const draft = configToDraft(config())
-    expect(draft.endpoints[0].token).toBe('')
-    expect(buildUpdateRequest(draft).endpoints[0]).toMatchObject({ token: undefined, clear_token: false })
-
-    draft.endpoints[0].token = 'temporary-canary-token'
-    expect(buildUpdateRequest(draft).endpoints[0]).toMatchObject({ token: 'temporary-canary-token', clear_token: false })
-
-    draft.endpoints[0].token = ''
-    draft.endpoints[0].clear_token = true
-    expect(buildUpdateRequest(draft).endpoints[0]).toMatchObject({ token: undefined, clear_token: true })
-  })
-
-  it('includes the optional narrow blocking scope in the update payload', () => {
-    const draft = configToDraft(config())
-    draft.blocking_latest_turn_only = true
-    expect(buildUpdateRequest(draft)).toMatchObject({ blocking_latest_turn_only: true })
+    draft.blocking_enabled = true
+    expect(buildUpdateRequest(draft, 7)).toEqual({
+      expected_config_version: 7, enabled: true, blocking_enabled: true, scanners: SCANNER_CATALOG.map((item) => item.id),
+    })
+    draft.enabled = false
+    expect(buildUpdateRequest(draft, 7).blocking_enabled).toBe(false)
   })
 
   it('tracks dirty state from the full normalized save payload', () => {
     const original = configToDraft(config())
     const changed = configToDraft(config())
     expect(draftFingerprint(changed)).toBe(draftFingerprint(original))
-    changed.queue_capacity += 1
+    changed.scanners = changed.scanners.slice(1)
     expect(draftFingerprint(changed)).not.toBe(draftFingerprint(original))
   })
 
