@@ -104,6 +104,21 @@ export function createSiteGuard(options: SiteGuardOptions) {
           return
         }
       }
+      // 找回 / 重置密码没配好（发不了信或没配站点访问地址）时整个不出现：直接访问也回登录页（2026-10-04 D2）。
+      // 只认加载成功的设置里明确的 false，读设置失败不拦（同 requiresPayment）
+      if (to.meta.requiresPasswordReset) {
+        if (!appStore.publicSettingsLoaded) {
+          try {
+            await appStore.fetchPublicSettings()
+          } catch (error) {
+            console.warn('Failed to load public settings in route guard', error)
+          }
+        }
+        if (appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.password_reset_enabled === false) {
+          next('/login')
+          return
+        }
+      }
       next()
       return
     }

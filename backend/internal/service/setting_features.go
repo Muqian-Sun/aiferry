@@ -130,9 +130,10 @@ func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) fl
 	return cap
 }
 
-// IsPasswordResetEnabled 忘记密码跟着邮箱验证走：能发信就允许重置，不再有单独的开关。
+// IsPasswordResetEnabled 找回密码能不能用：要能发信（邮箱验证开着），还要配了站点访问地址——重置链接指向它，
+// 没配时后端发不出链接。公开设置的 password_reset_enabled 也用它，前端没配好时整个不显示找回密码（2026-10-04 D2）。
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
-	return s.IsEmailVerifyEnabled(ctx)
+	return s.IsEmailVerifyEnabled(ctx) && s.GetFrontendURL(ctx) != ""
 }
 
 // IsTotpEnabled 双因素认证是否可用：配了 TOTP_ENCRYPTION_KEY 就开，不再有后台开关。

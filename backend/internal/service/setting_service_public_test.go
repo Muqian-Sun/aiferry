@@ -168,6 +168,12 @@ func TestSettingService_GetPublicSettings_EmailAndNotifyFollowSMTP(t *testing.T)
 	require.True(t, on.AccountQuotaNotifyEnabled)
 	require.Equal(t, BalanceLowNotifyThreshold, on.BalanceLowNotifyThreshold)
 	require.Equal(t, "https://user.example/billing/recharge", on.BalanceLowNotifyRechargeURL)
+
+	// 能发信但没配站点访问地址：重置链接没处指，找回密码不开（邮箱验证照开）（2026-10-04 D2）
+	noURL, err := NewSettingService(&settingPublicRepoStub{values: stale}, &config.Config{SMTP: testSMTPConfigured}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, noURL.EmailVerifyEnabled)
+	require.False(t, noURL.PasswordResetEnabled)
 }
 
 func TestSettingService_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
