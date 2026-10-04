@@ -596,7 +596,8 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 		latency := int(time.Since(start).Milliseconds())
 		keyHash := moderationAPIKeyHash(key)
 		if err != nil {
-			s.markAPIKeyError(key, moderationErrorCode(err), latency, httpStatus, contentModerationFreezeDurationForHTTPStatus(httpStatus))
+			// 与线上调用同一冻结规则：手动测试也不能把最后一个可用密钥冻住，否则冻结期间前置拦截无钥可用、请求不审就放行
+			s.markAPIKeyError(key, moderationErrorCode(err), latency, httpStatus, s.freezeDurationAfterError(cfg, key, httpStatus))
 		} else {
 			s.markAPIKeySuccess(key, latency, httpStatus)
 			// 只填了密钥、没填试跑文本时不出试跑结果：那是内置探测文本的结果，不是管理员要看的

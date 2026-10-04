@@ -1172,6 +1172,30 @@ func TestContentModerationTestAPIKeys_400DoesNotFreezeAPIKey(t *testing.T) {
 	require.Nil(t, result.Items[0].FrozenUntil)
 }
 
+// 设置弹窗里点「测试已保存密钥」遇到 5xx：唯一的已保存密钥不能被冻结（线上调用同一规则，见 TransientErrorKeepsLastUsableKey）
+func TestContentModerationTestAPIKeys_TransientErrorKeepsLastStoredKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	svc := NewContentModerationService(
+		&contentModerationTestSettingRepo{values: map[string]string{
+			SettingKeyContentModerationConfig: `{"enabled":true,"mode":"pre_block","api_keys":["sk-only"]}`,
+		}},
+		nil, nil, nil, nil, nil, nil,
+	)
+	svc.apiBaseURL = server.URL
+	result, err := svc.TestAPIKeys(context.Background(), TestContentModerationAPIKeysInput{})
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	require.True(t, result.Items[0].Configured)
+	require.Equal(t, "error", result.Items[0].Status)
+	require.Equal(t, "http_500", result.Items[0].LastError)
+	require.Nil(t, result.Items[0].FrozenUntil)
+}
+
 func TestContentModerationAutoBanSkipsAdminAccount(t *testing.T) {
 	var slogOutput bytes.Buffer
 	previousLogger := slog.Default()
