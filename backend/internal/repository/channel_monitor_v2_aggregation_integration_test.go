@@ -4,11 +4,14 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,7 +147,7 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	require.Equal(t, int64(2), row.Metrics.RequestCount)
 	require.Equal(t, int64(2), row.Metrics.TTFT.SampleCount)
 	require.NotNil(t, row.Metrics.TTFT.P50Ms)
-	require.Equal(t, int64(100), *row.Metrics.TTFT.P50Ms, "首字 100 / 200 落 100、250 两档，P50 取 100 档")
+	require.Equal(t, int64(100), *row.Metrics.TTFT.P50Ms, "首字 100 / 200：P50 是第 1 个样本，在 (50, 100] 档、下沿收紧到最小值 100")
 	require.Len(t, row.Buckets, 1)
 
 	snapshot, err := repo.GetSnapshot(ctx, filter, cfg)
@@ -177,4 +180,124 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	require.Equal(t, int64(2), fable.Metrics.RequestCount)
 	require.Equal(t, int64(2), fable.Metrics.TTFT.SampleCount)
 	require.Equal(t, int64(2), channels.Metrics.RequestCount)
+}
+
+// newChannelMonitorV2UsageFixture 造一个用户、一把 key、一个渠道；返回的 insert 写一条成功用量（模型、时刻、首字延迟由调用方给）。
+// 清理时删掉这些行，以及 models 在汇总表里的行。
+func newChannelMonitorV2UsageFixture(t *testing.T, ctx context.Context, tag string, models ...string) func(requestID, model string, at time.Time, firstTokenMs int) {
+	t.Helper()
+	var userID, apiKeyID, accountID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		INSERT INTO users (email, password_hash, role, status, concurrency)
+		VALUES ($1, 'x', 'user', 'active', 5) RETURNING id`, tag+"@example.com").Scan(&userID))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		INSERT INTO api_keys (user_id, key, name, status)
+		VALUES ($1, $2, $2, 'active') RETURNING id`, userID, "sk-"+tag).Scan(&apiKeyID))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		INSERT INTO accounts (name, platform, type, status, concurrency, credentials, extra, protocol_endpoints)
+		VALUES ($1, 'openai', 'api_key', 'active', 1, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb)
+		RETURNING id`, tag).Scan(&accountID))
+	t.Cleanup(func() {
+		bg := context.Background()
+		_, _ = integrationDB.ExecContext(bg, "DELETE FROM usage_logs WHERE account_id = $1", accountID)
+		for _, table := range []string{
+			"channel_monitor_v2_metrics_1m", "channel_monitor_v2_metrics_rollup",
+			"channel_monitor_v2_error_metrics_1m", "channel_monitor_v2_error_metrics_rollup",
+			"channel_monitor_v2_latency_histograms_1m", "channel_monitor_v2_latency_histograms_rollup",
+		} {
+			_, _ = integrationDB.ExecContext(bg, "DELETE FROM "+table+" WHERE model = ANY($1)", pq.Array(models))
+		}
+		_, _ = integrationDB.ExecContext(bg, "DELETE FROM accounts WHERE id = $1", accountID)
+		_, _ = integrationDB.ExecContext(bg, "DELETE FROM api_keys WHERE id = $1", apiKeyID)
+		_, _ = integrationDB.ExecContext(bg, "DELETE FROM users WHERE id = $1", userID)
+	})
+	return func(requestID, model string, at time.Time, firstTokenMs int) {
+		_, err := integrationDB.ExecContext(ctx, `
+			INSERT INTO usage_logs (
+				request_id, user_id, api_key_id, account_id, model, requested_model,
+				input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
+				total_cost, actual_cost, rate_multiplier, billing_type, request_type,
+				first_token_ms, duration_ms, created_at
+			) VALUES ($1, $2, $3, $4, $5, $5, 10, 1, 0, 0, 0.01, 0.01, 1, 0, 2, $6, $6 + 100, $7)`,
+			requestID, userID, apiKeyID, accountID, model, firstTokenMs, at)
+		require.NoError(t, err)
+	}
+}
+
+func channelMonitorV2TestRoster(models ...string) service.ChannelMonitorV2Config {
+	return service.ChannelMonitorV2Config{Roster: service.ChannelMonitorV2ModelRoster{
+		Models:  models,
+		Resolve: func(model string) (string, bool) { return model, slices.Contains(models, model) },
+	}}
+}
+
+// 聚合任务每分钟只重算最近 10 分钟，窗口几乎总落在同一个 12 小时段、同一天里。
+// 12 小时、1 天两档（7 天 / 30 天读的就是它们）也必须把还没走完的当前段跟着重算，
+// 否则这两个窗口停在上一个整 12 小时 / 整天，比 24 小时窗口还少请求（2026-10-04 走查）。
+func TestChannelMonitorV2TrailingRefreshKeepsCoarseBucketsCurrent(t *testing.T) {
+	ctx := context.Background()
+	repo := NewChannelMonitorV2Repository(integrationDB)
+	const model = "cmv2-coarse-model"
+	insert := newChannelMonitorV2UsageFixture(t, ctx, "cmv2-coarse", model)
+	// 昨天 UTC 零点：在保留窗口内，也和别的用例用的「现在附近」错开
+	day := time.Now().UTC().Truncate(24 * time.Hour).Add(-24 * time.Hour)
+
+	// 跨过 12 小时 / 天边界的一轮：00:03 的请求进了这两档的当天段
+	insert("cmv2-coarse-1", model, day.Add(3*time.Minute), 1000)
+	require.NoError(t, repo.RecomputeRange(ctx, day.Add(-5*time.Minute), day.Add(5*time.Minute)))
+	// 当天中途的一轮：窗口 [05:00, 05:10) 落在同一个 12 小时段、同一天里
+	insert("cmv2-coarse-2", model, day.Add(5*time.Hour+3*time.Minute), 2000)
+	require.NoError(t, repo.RecomputeRange(ctx, day.Add(5*time.Hour), day.Add(5*time.Hour+10*time.Minute)))
+
+	cfg := channelMonitorV2TestRoster(model)
+	for _, bucket := range []time.Duration{time.Hour, 12 * time.Hour, 24 * time.Hour} {
+		filter := service.ChannelMonitorV2Filter{Start: day, End: day.Add(24 * time.Hour), Bucket: bucket}
+		snapshot, err := repo.GetSnapshot(ctx, filter, cfg)
+		require.NoError(t, err)
+		require.Equalf(t, int64(2), snapshot.Metrics.RequestCount, "段长 %s 的窗口要含到最近一轮", bucket)
+		require.Equalf(t, int64(2), snapshot.Metrics.TTFT.SampleCount, "段长 %s 的首字延迟样本", bucket)
+	}
+}
+
+// 首字延迟的实测最小 / 最大值要从分钟事实一路带进各档汇总，读数才能把分位数收紧到实测范围里
+// （2026-10-04 走查：只有一个 146 秒的请求，页面显示所在档的上沿「300 s」）。
+func TestChannelMonitorV2TTFTPercentilesStayWithinObservedRange(t *testing.T) {
+	ctx := context.Background()
+	repo := NewChannelMonitorV2Repository(integrationDB)
+	const single, several = "cmv2-ttft-single", "cmv2-ttft-several"
+	insert := newChannelMonitorV2UsageFixture(t, ctx, "cmv2-ttft", single, several)
+	day := time.Now().UTC().Truncate(24 * time.Hour).Add(-24 * time.Hour)
+	at := day.Add(7*time.Hour + 3*time.Minute)
+	insert("cmv2-ttft-1", single, at, 146278)
+	for i, ms := range []int{1200, 2500, 2600, 24685} {
+		insert(fmt.Sprintf("cmv2-ttft-%d", i+2), several, at, ms)
+	}
+	// 从当天零点算起：读数的覆盖起点不晚于 12 小时 / 1 天两档的段起点
+	require.NoError(t, repo.RecomputeRange(ctx, day, at.Add(7*time.Minute)))
+
+	ms := func(v *int64, msg string) int64 {
+		require.NotNil(t, v, msg)
+		return *v
+	}
+	cfg := channelMonitorV2TestRoster(single, several)
+	for _, bucket := range []time.Duration{time.Minute, time.Hour, 12 * time.Hour, 24 * time.Hour} {
+		matrix, err := repo.GetMatrix(ctx, service.ChannelMonitorV2Filter{Start: day, End: day.Add(24 * time.Hour), Bucket: bucket}, cfg)
+		require.NoError(t, err)
+		rows := map[string]service.ChannelMonitorV2MatrixRow{}
+		for _, row := range matrix.Items {
+			rows[row.Model] = row
+		}
+		label := "段长 " + bucket.String()
+		// 只有一个 146278 毫秒的样本：分位数就是它本身，总量与它所在那一段都是
+		one := rows[single]
+		require.Equal(t, int64(146278), ms(one.Metrics.TTFT.P50Ms, label), label)
+		require.Equal(t, int64(146278), ms(one.Metrics.TTFT.P90Ms, label), label)
+		require.Len(t, one.Buckets, 1, label)
+		require.Equal(t, int64(146278), ms(one.Buckets[0].Metrics.TTFT.P50Ms, label), label)
+		// 1200 / 2500 / 2600 / 24685：P50 在 (2000, 3000] 档内插值；P90 落在 (15000, 30000] 档，上沿收紧到最大值
+		// 24685 → 15000 + 9685 × 0.6（原来分别显示 3000 与 30000）
+		many := rows[several]
+		require.Equal(t, int64(2500), ms(many.Metrics.TTFT.P50Ms, label), label)
+		require.Equal(t, int64(20811), ms(many.Metrics.TTFT.P90Ms, label), label)
+	}
 }

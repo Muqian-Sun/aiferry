@@ -57,7 +57,10 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        pointRadius: 0,
+        // 每段画一个小圆点：前后都没有请求的段连不成线，点半径为 0 时什么也看不到（2026-10-04 走查：
+        // 24 小时里隔了十个小时才又有请求的那一段没画出来，像是数据停在了凌晨）
+        pointRadius: 2,
+        pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
