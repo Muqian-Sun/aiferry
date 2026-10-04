@@ -57,7 +57,7 @@ func TestAccountWriteEntriesRejectLegacyUpstreamType(t *testing.T) {
 		t.Helper()
 		gin.SetMode(gin.TestMode)
 		stub := newStubAdminService()
-		handler := NewAccountHandler(stub, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		handler := NewAccountHandler(stub, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		router := gin.New()
 		mount(router, handler)
 		recorder := httptest.NewRecorder()

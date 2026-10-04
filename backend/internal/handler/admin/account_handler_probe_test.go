@@ -24,7 +24,7 @@ func setupProbeRouter(adminSvc service.AdminService, upstream service.HTTPUpstre
 	router := gin.New()
 	accountTestSvc := service.NewAccountTestService(nil, nil, nil, nil, nil, upstream,
 		&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, nil)
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil, nil)
 	router.POST("/api/v1/admin/accounts/models/probe", handler.ProbeUpstreamModels)
 	return router
 }
@@ -137,7 +137,7 @@ func postProtocolProbe(t *testing.T, adminSvc service.AdminService, upstream ser
 	router := gin.New()
 	accountTestSvc := service.NewAccountTestService(nil, nil, nil, nil, nil, upstream,
 		&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}, nil)
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil, nil)
 	router.POST("/api/v1/admin/accounts/protocols/probe", handler.ProbeUpstreamProtocols)
 	raw, err := json.Marshal(body)
 	require.NoError(t, err)

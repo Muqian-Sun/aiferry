@@ -20,14 +20,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -61,9 +56,11 @@ type AccountHandler struct {
 	sessionLimitCache       service.SessionLimitCache
 	rpmCache                service.RPMCache
 	tokenCacheInvalidator   service.TokenCacheInvalidator
-	grokImportProber        grokImportProber
-	ollamaCloudUsage        *service.OllamaCloudUsageService
-	cfg                     *config.Config
+	// modelCatalog 渠道测试的模型下拉按这个渠道的承接关系出（GetAvailableModels）。
+	modelCatalog     *service.ModelCatalogService
+	grokImportProber grokImportProber
+	ollamaCloudUsage *service.OllamaCloudUsageService
+	cfg              *config.Config
 }
 
 func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
@@ -85,6 +82,7 @@ func NewAccountHandler(
 	sessionLimitCache service.SessionLimitCache,
 	rpmCache service.RPMCache,
 	tokenCacheInvalidator service.TokenCacheInvalidator,
+	modelCatalog *service.ModelCatalogService,
 ) *AccountHandler {
 	return &AccountHandler{
 		adminService:            adminService,
@@ -100,6 +98,7 @@ func NewAccountHandler(
 		sessionLimitCache:       sessionLimitCache,
 		rpmCache:                rpmCache,
 		tokenCacheInvalidator:   tokenCacheInvalidator,
+		modelCatalog:            modelCatalog,
 	}
 }
 
@@ -2008,7 +2007,16 @@ func (h *AccountHandler) SetSchedulable(c *gin.Context) {
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
 }
 
-// GetAvailableModels handles getting available models for an account
+// AccountTestModel 渠道测试（测试连接 / 定时测试）可选的一个模型：这个渠道承接的目录模型。
+type AccountTestModel struct {
+	// ID 目录模型标识。测试请求发的就是它，测试服务和真实转发一样，按承接关系把它换成上游模型名（只换一次）。
+	ID string `json:"id"`
+	// DisplayName 目录展示名；没填时用模型标识。
+	DisplayName string `json:"display_name"`
+}
+
+// GetAvailableModels 返回渠道测试可选的模型：这个渠道承接的目录模型（价格页加的行）。
+// 没有承接返回空列表，不回退到按平台写死的模型表。
 // GET /api/v1/admin/accounts/:id/models
 func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -2017,152 +2025,24 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	account, err := h.adminService.GetAccount(c.Request.Context(), accountID)
-	if err != nil {
+	if _, err := h.adminService.GetAccount(c.Request.Context(), accountID); err != nil {
 		response.NotFound(c, "Account not found")
 		return
 	}
 
-	// 默认模型表按厂商族选：成品号看平台；第三方 key 不看标签——按地址识别出国产厂商 / OpenCode
-	// 就用该厂商的表，其余按中转、按主协议归到对应协议族（Anthropic / Gemini / OpenAI 兼容）。
-	family := service.AccountModelFamily(account)
-
-	// Handle OpenAI-compatible accounts
-	if family == service.PlatformOpenAI {
-		// Prefer the shared, account-keyed upstream catalog. If discovery fails,
-		// retain the legacy local catalog below so the test dialog remains usable.
-		if h.accountTestService != nil {
-			if models, fetchErr := h.accountTestService.FetchOpenAIAccountModels(c.Request.Context(), account); fetchErr == nil {
-				response.Success(c, models)
-				return
-			}
-		}
-
-		mapping := account.GetModelMapping()
-		if len(mapping) == 0 {
-			response.Success(c, openai.DefaultModels)
-			return
-		}
-
-		// Return mapped models
-		var models []openai.Model
-		for requestedModel := range mapping {
-			var found bool
-			for _, dm := range openai.DefaultModels {
-				if dm.ID == requestedModel {
-					models = append(models, dm)
-					found = true
-					break
-				}
-			}
-			if !found {
-				models = append(models, openai.Model{
-					ID:          requestedModel,
-					Object:      "model",
-					Type:        "model",
-					DisplayName: requestedModel,
-				})
-			}
-		}
-		response.Success(c, models)
+	entries, err := h.modelCatalog.ListAccountEntries(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
-
-	// Handle Gemini accounts
-	if family == service.PlatformGemini {
-		// Consumer Google One OAuth still uses the legacy Gemini CLI / Code
-		// Assist channel. Do not advertise newer 3.x or image models that the
-		// channel cannot serve.
-		if account.IsOAuth() {
-			if account.IsGeminiGoogleOne() {
-				response.Success(c, geminicli.GoogleOneModels)
-				return
-			}
-			response.Success(c, geminicli.DefaultModels)
-			return
+	models := make([]AccountTestModel, 0, len(entries))
+	for _, entry := range entries {
+		displayName := strings.TrimSpace(entry.DisplayName)
+		if displayName == "" {
+			displayName = entry.ModelID
 		}
-
-		// For API Key accounts: return models based on model_mapping
-		mapping := account.GetModelMapping()
-		if len(mapping) == 0 {
-			response.Success(c, geminicli.DefaultModels)
-			return
-		}
-
-		var models []geminicli.Model
-		for requestedModel := range mapping {
-			var found bool
-			for _, dm := range geminicli.DefaultModels {
-				if dm.ID == requestedModel {
-					models = append(models, dm)
-					found = true
-					break
-				}
-			}
-			if !found {
-				models = append(models, geminicli.Model{
-					ID:          requestedModel,
-					Type:        "model",
-					DisplayName: requestedModel,
-					CreatedAt:   "",
-				})
-			}
-		}
-		response.Success(c, models)
-		return
+		models = append(models, AccountTestModel{ID: entry.ModelID, DisplayName: displayName})
 	}
-
-	// Handle Antigravity accounts: return Claude + Gemini models
-	if family == service.PlatformAntigravity {
-		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
-		response.Success(c, antigravity.DefaultModels())
-		return
-	}
-
-	// Handle Grok accounts：xAI 模型目录（渠道上的「模型改名」已删，改名在承接关系上）
-	if family == service.PlatformGrok {
-		response.Success(c, xai.DefaultModels())
-		return
-	}
-
-	// Handle Claude/Anthropic accounts
-	// For OAuth and Setup-Token accounts: return default models
-	if account.IsOAuth() {
-		response.Success(c, claude.DefaultModels)
-		return
-	}
-
-	// For API Key accounts: return models based on model_mapping
-	mapping := account.GetModelMapping()
-	if len(mapping) == 0 {
-		// No mapping configured, return default models
-		response.Success(c, claude.DefaultModels)
-		return
-	}
-
-	// Return mapped models (keys of the mapping are the available model IDs)
-	var models []claude.Model
-	for requestedModel := range mapping {
-		// Try to find display info from default models
-		var found bool
-		for _, dm := range claude.DefaultModels {
-			if dm.ID == requestedModel {
-				models = append(models, dm)
-				found = true
-				break
-			}
-		}
-		// If not found in defaults, create a basic entry
-		if !found {
-			models = append(models, claude.Model{
-				ID:          requestedModel,
-				Type:        "model",
-				DisplayName: requestedModel,
-				CreatedAt:   "",
-			})
-		}
-	}
-
 	response.Success(c, models)
 }
 

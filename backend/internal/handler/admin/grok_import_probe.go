@@ -209,6 +209,7 @@ func ProvideAccountHandler(
 	sessionLimitCache service.SessionLimitCache,
 	rpmCache service.RPMCache,
 	tokenCacheInvalidator service.TokenCacheInvalidator,
+	modelCatalog *service.ModelCatalogService,
 	grokQuotaService *service.GrokQuotaService,
 ) *AccountHandler {
 	handler := NewAccountHandler(
@@ -225,6 +226,7 @@ func ProvideAccountHandler(
 		sessionLimitCache,
 		rpmCache,
 		tokenCacheInvalidator,
+		modelCatalog,
 	)
 	handler.grokImportProber = grokQuotaService
 	handler.cfg = cfg

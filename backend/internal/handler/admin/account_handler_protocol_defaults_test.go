@@ -16,7 +16,7 @@ import (
 func TestAccountHandler_GetProtocolDefaults_VendorHosts(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	handler := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router.GET("/api/v1/admin/accounts/protocol-defaults", handler.GetProtocolDefaults)
 
 	rec := httptest.NewRecorder()
