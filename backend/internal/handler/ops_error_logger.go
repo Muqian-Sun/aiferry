@@ -2227,7 +2227,9 @@ func classifyOpsErrorLog(c *gin.Context, errType, message, code string, status i
 	effectiveUpstreamError := upstreamError && !localModelConfiguration
 	localClientAuthError := !effectiveUpstreamError && phase == "auth" && isOpsClientAuthError(code, msg)
 	localBusinessLimited := !effectiveUpstreamError && classifyOpsIsBusinessLimited(errType, phase, code, status, message, localClientAuthError)
-	isBusinessLimited = localModelConfiguration || routingCapacityLimited || (clientBusinessLimited && !effectiveUpstreamError) || localBusinessLimited
+	// 没选到渠道（所有承接渠道都不可用、并发满且不能排队、利润门全拦）用户实际收到了 503，算失败、进 SLA；
+	// 只有用户自己的限制（余额、限额、并发、本地模型配置）才算业务限制（muqian 2026-10-04「按用户收到的结果算」）。
+	isBusinessLimited = localModelConfiguration || (clientBusinessLimited && !effectiveUpstreamError) || localBusinessLimited
 	errorOwner = classifyOpsErrorOwner(phase, message)
 	errorSource = classifyOpsErrorSource(phase, message)
 	return phase, isBusinessLimited, errorOwner, errorSource

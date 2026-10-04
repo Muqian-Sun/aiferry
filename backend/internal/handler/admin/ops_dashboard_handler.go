@@ -30,11 +30,10 @@ func (h *OpsHandler) GetDashboardOverview(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 
 	data, err := h.opsService.GetDashboardOverview(c.Request.Context(), filter)
@@ -63,11 +62,10 @@ func (h *OpsHandler) GetDashboardThroughputTrend(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 
 	bucketSeconds := pickThroughputBucketSeconds(endTime.Sub(startTime))
@@ -97,11 +95,10 @@ func (h *OpsHandler) GetDashboardLatencyHistogram(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 
 	data, err := h.opsService.GetLatencyHistogram(c.Request.Context(), filter)
@@ -130,11 +127,10 @@ func (h *OpsHandler) GetDashboardErrorTrend(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 
 	bucketSeconds := pickThroughputBucketSeconds(endTime.Sub(startTime))
@@ -164,11 +160,10 @@ func (h *OpsHandler) GetDashboardErrorDistribution(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 
 	data, err := h.opsService.GetErrorDistribution(c.Request.Context(), filter)
@@ -303,4 +298,23 @@ func parseOpsQueryMode(c *gin.Context) service.OpsQueryMode {
 		return ""
 	}
 	return service.ParseOpsQueryMode(raw)
+}
+
+// parseOpsDashboardFilter 运维看板的通用筛选：时间范围之外，平台、模型（目录模型标识）、渠道（account_id）、查询模式。
+func parseOpsDashboardFilter(c *gin.Context, startTime, endTime time.Time) (*service.OpsDashboardFilter, error) {
+	filter := &service.OpsDashboardFilter{
+		StartTime: startTime,
+		EndTime:   endTime,
+		Platform:  strings.TrimSpace(c.Query("platform")),
+		Model:     strings.TrimSpace(c.Query("model")),
+		QueryMode: parseOpsQueryMode(c),
+	}
+	if raw := strings.TrimSpace(c.Query("account_id")); raw != "" {
+		accountID, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || accountID <= 0 {
+			return nil, fmt.Errorf("invalid account_id")
+		}
+		filter.AccountID = accountID
+	}
+	return filter, nil
 }

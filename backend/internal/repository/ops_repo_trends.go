@@ -42,7 +42,9 @@ func (r *opsRepository) GetThroughputTrend(ctx context.Context, filter *service.
 WITH usage_buckets AS (
   SELECT ` + usageBucketExpr + ` AS bucket,
          COUNT(*) AS success_count,
-         COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
+         COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed,
+         percentile_cont(0.50) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p50,
+         percentile_cont(0.99) WITHIN GROUP (ORDER BY first_token_ms) FILTER (WHERE first_token_ms IS NOT NULL) AS ttft_p99
   FROM usage_logs ul
   ` + usageJoin + `
   ` + usageWhere + `
@@ -90,12 +92,15 @@ combined AS (
   GROUP BY bucket
 )
 SELECT
-  bucket,
-  (success_count + error_count) AS request_count,
-  token_consumed,
-  switch_count
-FROM combined
-ORDER BY bucket ASC`
+  c.bucket,
+  (c.success_count + c.error_count) AS request_count,
+  c.token_consumed,
+  c.switch_count,
+  u.ttft_p50,
+  u.ttft_p99
+FROM combined c
+LEFT JOIN usage_buckets u ON u.bucket = c.bucket
+ORDER BY c.bucket ASC`
 
 	args := append(usageArgs, errorArgs...)
 
@@ -111,7 +116,8 @@ ORDER BY bucket ASC`
 		var requests int64
 		var tokens sql.NullInt64
 		var switches sql.NullInt64
-		if err := rows.Scan(&bucket, &requests, &tokens, &switches); err != nil {
+		var ttftP50, ttftP99 sql.NullFloat64
+		if err := rows.Scan(&bucket, &requests, &tokens, &switches, &ttftP50, &ttftP99); err != nil {
 			return nil, err
 		}
 		tokenConsumed := int64(0)
@@ -137,6 +143,8 @@ ORDER BY bucket ASC`
 			SwitchCount:   switchCount,
 			QPS:           qps,
 			TPS:           tps,
+			TTFTP50Ms:     floatToIntPtr(ttftP50),
+			TTFTP99Ms:     floatToIntPtr(ttftP99),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -358,7 +366,10 @@ SELECT
   COUNT(*) FILTER (WHERE COALESCE(status_code, 0) >= 400 AND NOT is_business_limited) AS error_sla,
   COUNT(*) FILTER (WHERE error_owner = 'provider' AND NOT is_business_limited AND COALESCE(upstream_status_code, status_code, 0) NOT IN (429, 529)) AS upstream_excl,
   COUNT(*) FILTER (WHERE error_owner = 'provider' AND NOT is_business_limited AND COALESCE(upstream_status_code, status_code, 0) = 429) AS upstream_429,
-  COUNT(*) FILTER (WHERE error_owner = 'provider' AND NOT is_business_limited AND COALESCE(upstream_status_code, status_code, 0) = 529) AS upstream_529
+  COUNT(*) FILTER (WHERE error_owner = 'provider' AND NOT is_business_limited AND COALESCE(upstream_status_code, status_code, 0) = 529) AS upstream_529,
+  COUNT(*) FILTER (WHERE COALESCE(status_code, 0) >= 400 AND NOT is_business_limited AND error_owner = 'provider') AS upstream_failed,
+  COUNT(*) FILTER (WHERE COALESCE(status_code, 0) >= 400 AND NOT is_business_limited AND error_phase = 'routing') AS routing_failed,
+  COUNT(*) FILTER (WHERE COALESCE(status_code, 0) BETWEEN 1 AND 399) AS recovered
 FROM ops_error_logs
 ` + where + `
 GROUP BY 1
@@ -374,7 +385,9 @@ ORDER BY 1 ASC`
 	for rows.Next() {
 		var bucket time.Time
 		var total, businessLimited, sla, upstreamExcl, upstream429, upstream529 int64
-		if err := rows.Scan(&bucket, &total, &businessLimited, &sla, &upstreamExcl, &upstream429, &upstream529); err != nil {
+		var upstreamFailed, routingFailed, recovered int64
+		if err := rows.Scan(&bucket, &total, &businessLimited, &sla, &upstreamExcl, &upstream429, &upstream529,
+			&upstreamFailed, &routingFailed, &recovered); err != nil {
 			return nil, err
 		}
 		points = append(points, &service.OpsErrorTrendPoint{
@@ -387,6 +400,10 @@ ORDER BY 1 ASC`
 			UpstreamErrorCountExcl429529: upstreamExcl,
 			Upstream429Count:             upstream429,
 			Upstream529Count:             upstream529,
+
+			UpstreamFailedCount: upstreamFailed,
+			RoutingFailedCount:  routingFailed,
+			RecoveredCount:      recovered,
 		})
 	}
 	if err := rows.Err(); err != nil {

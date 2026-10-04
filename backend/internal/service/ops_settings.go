@@ -525,7 +525,9 @@ const SettingKeyOpsMetricThresholds = "ops_metric_thresholds"
 
 func defaultOpsMetricThresholds() *OpsMetricThresholds {
 	slaMin := 99.5
-	ttftMax := 500.0
+	// 首字延迟 P99 上限取服务状态的「异常」线（channelMonitorV2Config.CriticalTTFTMs = 20 秒，muqian 2026-10-04 定）；
+	// 原来的 500 ms 是拍的，大模型首字 P50 就在秒级，几乎一直标红。
+	ttftMax := float64(channelMonitorV2Config.HealthThresholds.CriticalTTFTMs)
 	reqErrMax := 5.0
 	upstreamErrMax := 5.0
 	return &OpsMetricThresholds{

@@ -8,6 +8,10 @@ type OpsDashboardFilter struct {
 
 	Platform string
 
+	// Model / AccountID 按模型、渠道收窄（运维页筛选，2026-10-04）。预聚合表没有这两个维度，设了就只查原始表。
+	Model     string
+	AccountID int64
+
 	// QueryMode controls whether dashboard queries should use raw logs or pre-aggregated tables.
 	// Expected values: auto/raw/preagg (see OpsQueryMode).
 	QueryMode OpsQueryMode
@@ -59,6 +63,8 @@ type OpsDashboardOverview struct {
 	UpstreamErrorCountExcl429529 int64   `json:"upstream_error_count_excl_429_529"`
 	Upstream429Count             int64   `json:"upstream_429_count"`
 	Upstream529Count             int64   `json:"upstream_529_count"`
+	// UpstreamRecoveredCount 上游出错、换渠道后成功的请求数（用户没受影响，不计入失败）。
+	UpstreamRecoveredCount int64 `json:"upstream_recovered_count"`
 
 	QPS OpsRateSummary `json:"qps"`
 	TPS OpsRateSummary `json:"tps"`

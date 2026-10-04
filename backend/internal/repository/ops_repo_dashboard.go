@@ -32,19 +32,48 @@ func (r *opsRepository) GetDashboardOverview(ctx context.Context, filter *servic
 	if !mode.IsValid() {
 		mode = service.OpsQueryModeRaw
 	}
+	// 预聚合表没有模型、渠道维度：按这两个筛选时只能查原始表。
+	if strings.TrimSpace(filter.Model) != "" || filter.AccountID > 0 {
+		mode = service.OpsQueryModeRaw
+	}
 
+	var (
+		out *service.OpsDashboardOverview
+		err error
+	)
 	switch mode {
 	case service.OpsQueryModePreagg:
-		return r.getDashboardOverviewPreaggregated(ctx, filter)
+		out, err = r.getDashboardOverviewPreaggregated(ctx, filter)
 	case service.OpsQueryModeAuto:
-		out, err := r.getDashboardOverviewPreaggregated(ctx, filter)
+		out, err = r.getDashboardOverviewPreaggregated(ctx, filter)
 		if err != nil && errors.Is(err, service.ErrOpsPreaggregatedNotPopulated) {
-			return r.getDashboardOverviewRaw(ctx, filter)
+			out, err = r.getDashboardOverviewRaw(ctx, filter)
 		}
-		return out, err
 	default:
-		return r.getDashboardOverviewRaw(ctx, filter)
+		out, err = r.getDashboardOverviewRaw(ctx, filter)
 	}
+	if err != nil {
+		return nil, err
+	}
+	// 换渠道恢复的请求预聚合表里没有，原始错误表量小，两条路径都直接查。
+	recovered, err := r.queryRecoveredUpstreamCount(ctx, filter, filter.StartTime.UTC(), filter.EndTime.UTC())
+	if err != nil {
+		return nil, err
+	}
+	out.UpstreamRecoveredCount = recovered
+	return out, nil
+}
+
+// queryRecoveredUpstreamCount 上游出错、换渠道后成功的请求数：错误表里状态码小于 400 的行
+// （logOpsRecoveredUpstream 每个请求记一行，状态码是最后返回给用户的）。
+func (r *opsRepository) queryRecoveredUpstreamCount(ctx context.Context, filter *service.OpsDashboardFilter, start, end time.Time) (int64, error) {
+	where, args, _ := buildErrorWhere(filter, start, end, 1)
+	var count int64
+	q := `SELECT COUNT(*) FROM ops_error_logs ` + where + ` AND COALESCE(status_code, 0) BETWEEN 1 AND 399`
+	if err := r.db.QueryRowContext(ctx, q, args...).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *opsRepository) getDashboardOverviewRaw(ctx context.Context, filter *service.OpsDashboardFilter) (*service.OpsDashboardOverview, error) {
@@ -981,6 +1010,19 @@ func buildUsageWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 		clauses = append(clauses, fmt.Sprintf("a.platform = $%d", idx))
 		idx++
 	}
+	if filter != nil {
+		// 用量行的 model 是实际计费 / 执行的目录模型。
+		if model := strings.TrimSpace(filter.Model); model != "" {
+			args = append(args, model)
+			clauses = append(clauses, fmt.Sprintf("ul.model = $%d", idx))
+			idx++
+		}
+		if filter.AccountID > 0 {
+			args = append(args, filter.AccountID)
+			clauses = append(clauses, fmt.Sprintf("ul.account_id = $%d", idx))
+			idx++
+		}
+	}
 
 	where = "WHERE " + strings.Join(clauses, " AND ")
 	return join, where, args, idx
@@ -1009,6 +1051,19 @@ func buildErrorWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 		args = append(args, platform)
 		clauses = append(clauses, fmt.Sprintf("platform = $%d", idx))
 		idx++
+	}
+	if filter != nil {
+		// 与错误列表的按模型精确匹配同一口径（buildOpsErrorLogsWhere）：先看请求的模型，再看 model。
+		if model := strings.TrimSpace(filter.Model); model != "" {
+			args = append(args, model)
+			clauses = append(clauses, fmt.Sprintf("COALESCE(requested_model, model, '') = $%d", idx))
+			idx++
+		}
+		if filter.AccountID > 0 {
+			args = append(args, filter.AccountID)
+			clauses = append(clauses, fmt.Sprintf("account_id = $%d", idx))
+			idx++
+		}
 	}
 
 	where = "WHERE " + strings.Join(clauses, " AND ")

@@ -3,7 +3,6 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -26,6 +25,8 @@ type opsDashboardSnapshotV2CacheKey struct {
 	StartTime    string               `json:"start_time"`
 	EndTime      string               `json:"end_time"`
 	Platform     string               `json:"platform"`
+	Model        string               `json:"model"`
+	AccountID    int64                `json:"account_id"`
 	QueryMode    service.OpsQueryMode `json:"mode"`
 	BucketSecond int                  `json:"bucket_second"`
 }
@@ -48,11 +49,10 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		return
 	}
 
-	filter := &service.OpsDashboardFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-		Platform:  strings.TrimSpace(c.Query("platform")),
-		QueryMode: parseOpsQueryMode(c),
+	filter, err := parseOpsDashboardFilter(c, startTime, endTime)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
 	bucketSeconds := pickThroughputBucketSeconds(endTime.Sub(startTime))
 
@@ -60,6 +60,8 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		StartTime:    startTime.UTC().Format(time.RFC3339),
 		EndTime:      endTime.UTC().Format(time.RFC3339),
 		Platform:     filter.Platform,
+		Model:        filter.Model,
+		AccountID:    filter.AccountID,
 		QueryMode:    filter.QueryMode,
 		BucketSecond: bucketSeconds,
 	})
