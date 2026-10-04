@@ -271,7 +271,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	handlerPaymentHandler := handler.NewPaymentHandler(paymentService, paymentConfigService)
 	paymentWebhookHandler := handler.NewPaymentWebhookHandler(paymentService, registry)
 	modelPlazaService := service.NewModelPlazaService(modelCatalogService, modelCatalogService)
-	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, settingService)
+	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, settingService, userService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
 	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler)

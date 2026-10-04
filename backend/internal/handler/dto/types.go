@@ -30,12 +30,7 @@ type User struct {
 	TotalRecharged             float64            `json:"total_recharged"`
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
-	RPMLimit int `json:"rpm_limit"`
-	// RateMultiplier 生效的计费倍率（相对官方价）：用户价 = 目录官方价 × 它；0 = 免费。
-	RateMultiplier float64 `json:"rate_multiplier"`
-	// CustomRateMultiplier 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）。
-	CustomRateMultiplier *float64 `json:"custom_rate_multiplier"`
-
+	RPMLimit      int                `json:"rpm_limit"`
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
 }
@@ -47,6 +42,11 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
+	// RateMultiplier 生效的计费倍率（相对官方价）：用户价 = 目录官方价 × 它；0 = 免费。
+	// 倍率与官方价只给管理站：用户站接口只给售价与实付（2026-10-04 D1）。
+	RateMultiplier float64 `json:"rate_multiplier"`
+	// CustomRateMultiplier 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）。
+	CustomRateMultiplier *float64 `json:"custom_rate_multiplier"`
 }
 
 type APIKey struct {
@@ -434,14 +434,9 @@ type UsageLog struct {
 	CacheCreation5mTokens int `json:"cache_creation_5m_tokens"`
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens"`
 
-	InputCost         float64 `json:"input_cost"`
-	OutputCost        float64 `json:"output_cost"`
-	CacheCreationCost float64 `json:"cache_creation_cost"`
-	CacheReadCost     float64 `json:"cache_read_cost"`
-	TotalCost         float64 `json:"total_cost"`
-	ActualCost        float64 `json:"actual_cost"`
-	RateMultiplier    float64 `json:"rate_multiplier"`
-	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）。
+	// ActualCost 实付（向用户扣的钱）。按官方价算的分项费用、标准计费与用户倍率只在 AdminUsageLog 里（2026-10-04 D1）。
+	ActualCost float64 `json:"actual_cost"`
+	// WebSearchCount / WebSearchCost 联网搜索的次数与搜索费（按原价收、不乘用户倍率，已含在 actual_cost 里）。
 	WebSearchCount int     `json:"web_search_count"`
 	WebSearchCost  float64 `json:"web_search_cost"`
 	// WebSearchDelegated 这一行是 Claude Code 联网搜索（交给代执行模型去搜）：用户站标「联网搜索」，Model 是客户端请求的模型。
@@ -463,9 +458,7 @@ type UsageLog struct {
 	ImageInputSize     *string        `json:"image_input_size"`
 	ImageOutputSize    *string        `json:"image_output_size"`
 	ImageInputTokens   int            `json:"image_input_tokens"`
-	ImageInputCost     float64        `json:"image_input_cost"`
 	ImageOutputTokens  int            `json:"image_output_tokens"`
-	ImageOutputCost    float64        `json:"image_output_cost"`
 	ImageSizeSource    *string        `json:"image_size_source"`
 	ImageSizeBreakdown map[string]int `json:"image_size_breakdown"`
 	MediaType          *string        `json:"media_type"`
@@ -499,6 +492,16 @@ type UsageAPIKeyRef struct {
 // 渠道 id、会话 id、上游端点只放这里：用户接口不能让人看出请求走了哪个渠道。
 type AdminUsageLog struct {
 	UsageLog
+
+	// 按目录官方价算的分项费用与标准计费（未乘用户倍率）、用户倍率：只给管理站。
+	InputCost         float64 `json:"input_cost"`
+	OutputCost        float64 `json:"output_cost"`
+	CacheCreationCost float64 `json:"cache_creation_cost"`
+	CacheReadCost     float64 `json:"cache_read_cost"`
+	ImageInputCost    float64 `json:"image_input_cost"`
+	ImageOutputCost   float64 `json:"image_output_cost"`
+	TotalCost         float64 `json:"total_cost"`
+	RateMultiplier    float64 `json:"rate_multiplier"`
 
 	AccountID int64 `json:"account_id"`
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.

@@ -31,8 +31,6 @@ func UserFromServiceShallow(u *service.User) *User {
 		BalanceNotifyExtraEmails:   NotifyEmailEntriesFromService(u.BalanceNotifyExtraEmails),
 		TotalRecharged:             u.TotalRecharged,
 		RPMLimit:                   u.RPMLimit,
-		RateMultiplier:             service.UserRateMultiplier(u),
-		CustomRateMultiplier:       u.RateMultiplier,
 		DeletedAt:                  u.DeletedAt,
 	}
 }
@@ -70,9 +68,11 @@ func UserFromServiceAdmin(u *service.User) *AdminUser {
 		return nil
 	}
 	return &AdminUser{
-		User:       *base,
-		Notes:      u.Notes,
-		LastUsedAt: u.LastUsedAt,
+		User:                 *base,
+		Notes:                u.Notes,
+		LastUsedAt:           u.LastUsedAt,
+		RateMultiplier:       service.UserRateMultiplier(u),
+		CustomRateMultiplier: u.RateMultiplier,
 	}
 }
 
@@ -464,13 +464,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CacheReadTokens:       l.CacheReadTokens,
 		CacheCreation5mTokens: l.CacheCreation5mTokens,
 		CacheCreation1hTokens: l.CacheCreation1hTokens,
-		InputCost:             l.InputCost,
-		OutputCost:            l.OutputCost,
-		CacheCreationCost:     l.CacheCreationCost,
-		CacheReadCost:         l.CacheReadCost,
-		TotalCost:             l.TotalCost,
 		ActualCost:            l.ActualCost,
-		RateMultiplier:        l.RateMultiplier,
 		WebSearchCount:        l.WebSearchCount,
 		WebSearchCost:         l.WebSearchCost,
 		WebSearchDelegated:    l.WebSearchDelegated,
@@ -486,9 +480,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ImageInputSize:        l.ImageInputSize,
 		ImageOutputSize:       l.ImageOutputSize,
 		ImageInputTokens:      l.ImageInputTokens,
-		ImageInputCost:        l.ImageInputCost,
 		ImageOutputTokens:     l.ImageOutputTokens,
-		ImageOutputCost:       l.ImageOutputCost,
 		ImageSizeSource:       l.ImageSizeSource,
 		ImageSizeBreakdown:    l.ImageSizeBreakdown,
 		MediaType:             l.MediaType,
@@ -528,6 +520,14 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	}
 	return &AdminUsageLog{
 		UsageLog:                usageLogFromServiceUser(l),
+		InputCost:               l.InputCost,
+		OutputCost:              l.OutputCost,
+		CacheCreationCost:       l.CacheCreationCost,
+		CacheReadCost:           l.CacheReadCost,
+		ImageInputCost:          l.ImageInputCost,
+		ImageOutputCost:         l.ImageOutputCost,
+		TotalCost:               l.TotalCost,
+		RateMultiplier:          l.RateMultiplier,
 		AccountID:               l.AccountID,
 		UpstreamEndpoint:        l.UpstreamEndpoint,
 		SessionID:               l.SessionID,

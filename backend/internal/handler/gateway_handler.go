@@ -1110,7 +1110,6 @@ func (h *GatewayHandler) buildUsageData(ctx context.Context, apiKeyID int64) gin
 			"cache_creation_tokens": dashStats.TodayCacheCreationTokens,
 			"cache_read_tokens":     dashStats.TodayCacheReadTokens,
 			"total_tokens":          dashStats.TodayTokens,
-			"cost":                  dashStats.TodayCost,
 			"actual_cost":           dashStats.TodayActualCost,
 		},
 		"total": gin.H{
@@ -1120,7 +1119,6 @@ func (h *GatewayHandler) buildUsageData(ctx context.Context, apiKeyID int64) gin
 			"cache_creation_tokens": dashStats.TotalCacheCreationTokens,
 			"cache_read_tokens":     dashStats.TotalCacheReadTokens,
 			"total_tokens":          dashStats.TotalTokens,
-			"cost":                  dashStats.TotalCost,
 			"actual_cost":           dashStats.TotalActualCost,
 		},
 		"average_duration_ms": dashStats.AverageDurationMs,
@@ -1138,7 +1136,8 @@ func (h *GatewayHandler) buildAPIKeyDailyUsage(c *gin.Context, userID, apiKeyID 
 	if err != nil {
 		return nil
 	}
-	return stats
+	// 持 key 的人能看到的只有实付；按官方价算的标准计费不给（2026-10-04 D1）
+	return userAPIKeyDailyUsageFrom(stats)
 }
 
 // usageQuotaLimited 处理 quota_limited 模式的响应

@@ -54,3 +54,43 @@ func TestGatewayHandlerUsage_ModelStatsHideAccountCost(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"actual_cost":0.0001`)
 	require.NotContains(t, rec.Body.String(), "account_cost")
 }
+
+// keyUsagePriceRepoStub 今日 / 累计、按天、按模型都带按官方价算的标准计费（cost）与实付（actual_cost）。
+type keyUsagePriceRepoStub struct {
+	service.UsageLogRepository
+}
+
+func (keyUsagePriceRepoStub) GetModelStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, *int16, *bool, *int8) ([]usagestats.ModelStat, error) {
+	return []usagestats.ModelStat{{Model: "gpt-5.5", Requests: 2, Cost: 0.002, ActualCost: 0.0001}}, nil
+}
+
+func (keyUsagePriceRepoStub) GetAPIKeyDashboardStats(context.Context, int64) (*usagestats.UserDashboardStats, error) {
+	return &usagestats.UserDashboardStats{TodayRequests: 2, TodayCost: 0.002, TodayActualCost: 0.0001, TotalCost: 0.02, TotalActualCost: 0.001}, nil
+}
+
+func (keyUsagePriceRepoStub) GetUsageTrendWithFilters(context.Context, time.Time, time.Time, string, int64, int64, int64, string, *int16, *bool, *int8) ([]usagestats.TrendDataPoint, error) {
+	return []usagestats.TrendDataPoint{{Date: time.Now().Format("2006-01-02"), Requests: 2, Cost: 0.002, ActualCost: 0.0001}}, nil
+}
+
+// 按 key 查用量只给实付：今日 / 累计、按天、按模型都不带按官方价算的标准计费（2026-10-04 D1：
+// 用户侧不露官方价与倍率，标准计费 ÷ 实付就是倍率）。
+func TestGatewayHandlerUsage_OnlyActualCost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &GatewayHandler{usageService: service.NewUsageService(keyUsagePriceRepoStub{}, nil, nil, nil)}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/usage", nil)
+	apiKey := &service.APIKey{ID: 7, UserID: 3, Status: service.StatusActive, Quota: 10, User: &service.User{ID: 3}}
+	c.Set(string(middleware.ContextKeyAPIKey), apiKey)
+	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 3})
+
+	h.Usage(c)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	require.Contains(t, body, `"today"`)
+	require.Contains(t, body, `"daily_usage"`)
+	require.Contains(t, body, `"model_stats"`)
+	require.Contains(t, body, `"actual_cost":0.0001`)
+	require.NotContains(t, body, `"cost":`)
+}

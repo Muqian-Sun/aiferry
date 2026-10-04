@@ -47,11 +47,57 @@ func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCata
 	}
 }
 
+// plazaUserStub 登录访问者：7 号单独设了倍率 0.1，8 号跟全站默认；别的 id 查不到
+type plazaUserStub struct{}
+
+func (plazaUserStub) GetByID(_ context.Context, id int64) (*service.User, error) {
+	custom := 0.1
+	switch id {
+	case 7:
+		return &service.User{ID: 7, RateMultiplier: &custom}, nil
+	case 8:
+		return &service.User{ID: 8}, nil
+	}
+	return nil, service.ErrUserNotFound
+}
+
 func newPlazaHandlerForTest(values map[string]string) *ModelPlazaHandler {
 	return NewModelPlazaHandler(
 		service.NewModelPlazaService(plazaCatalogStub{}, nil),
 		service.NewSettingService(plazaSettingRepoStub{values: values}, &config.Config{}),
+		plazaUserStub{},
 	)
+}
+
+// getPlaza 以 userID 登录（0 = 未登录）请求广场
+func getPlaza(t *testing.T, h *ModelPlazaHandler, userID int64) *httptest.ResponseRecorder {
+	t.Helper()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
+	if userID > 0 {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: userID})
+	}
+	h.Get(c)
+	return w
+}
+
+// firstInputPrice 广场第一个模型（claude-sonnet-4，官方输入价 1e-6）的输入价
+func firstInputPrice(t *testing.T, body []byte) float64 {
+	t.Helper()
+	var envelope struct {
+		Data struct {
+			Models []struct {
+				Pricing struct {
+					InputPrice *float64 `json:"input_price"`
+				} `json:"pricing"`
+			} `json:"models"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(body, &envelope))
+	require.NotEmpty(t, envelope.Data.Models)
+	require.NotNil(t, envelope.Data.Models[0].Pricing.InputPrice)
+	return *envelope.Data.Models[0].Pricing.InputPrice
 }
 
 func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
@@ -69,15 +115,14 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	var envelope struct {
 		Data struct {
-			Description           string            `json:"description"`
-			DefaultRateMultiplier float64           `json:"default_rate_multiplier"`
-			Models                []json.RawMessage `json:"models"`
+			Description string            `json:"description"`
+			Models      []json.RawMessage `json:"models"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
 	require.Equal(t, service.ModelPlazaDescription, envelope.Data.Description)
-	// 接口给官方价 + 新用户默认倍率（官方价的 1/15），未登录的展示价 = 官方价 × 它
-	require.InDelta(t, 1.0/15, envelope.Data.DefaultRateMultiplier, 1e-15)
+	// 官方价与倍率都不出接口：只给售价（2026-10-04 D1）
+	require.NotContains(t, w.Body.String(), "rate_multiplier")
 	require.Len(t, envelope.Data.Models, 2)
 	require.NotContains(t, w.Body.String(), `"groups"`, "the plaza is flat: no groups")
 
@@ -94,12 +139,12 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(gpt["pricing"], &pricing))
 	require.NotNil(t, pricing.InputPrice)
-	require.InDelta(t, 1e-6, *pricing.InputPrice, 1e-18, "广场接口给目录官方价，展示时再乘访问者倍率")
-	// 计费项列全：音频价也带出来
+	require.InDelta(t, 1e-6/15, *pricing.InputPrice, 1e-18, "未登录给新用户的售价：官方价 × 1/15")
+	// 计费项列全：音频价也带出来，同样是售价
 	require.NotNil(t, pricing.AudioInputPrice)
-	require.InDelta(t, 3e-6, *pricing.AudioInputPrice, 1e-18)
+	require.InDelta(t, 3e-6/15, *pricing.AudioInputPrice, 1e-18)
 
-	// 联网搜索价（官方价，不乘倍率）：有官方搜索工具的厂商都给，条目没配按厂商公开价；X 帖子 / 主页价只有 xAI 有
+	// 联网搜索按次价（按原价收，不乘倍率）：有官方搜索工具的厂商都给，条目没配按厂商公开价；X 帖子 / 主页价只有 xAI 有
 	require.Contains(t, string(gpt["pricing"]), `"search_price_per_call":0.01`)
 	require.NotContains(t, string(gpt["pricing"]), "x_post_price")
 	var sonnetPricing map[string]json.RawMessage
@@ -115,26 +160,28 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.False(t, hasTimePricing)
 }
 
-// 模型广场没有开关：未登录直接拿到完整目录，登录与否结果一致。
-func TestModelPlazaHandler_AnonymousSeesFullCatalog(t *testing.T) {
+// 模型广场没有开关，未登录也能看完整目录；价格是访问者自己的售价：
+// 未登录与跟默认倍率的用户 = 官方价 × 1/15，单独设了倍率的用户 = 官方价 × 他的倍率。
+func TestModelPlazaHandler_PricesAreTheViewersSalePrice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := newPlazaHandlerForTest(map[string]string{})
 
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
-	h.Get(c)
-	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	anonymous := w.Body.String()
+	anonymous := getPlaza(t, h, 0)
+	require.Equal(t, http.StatusOK, anonymous.Code, anonymous.Body.String())
+	require.Contains(t, anonymous.Body.String(), `"model_id":"gpt-5.6"`)
+	require.InDelta(t, 1e-6/15, firstInputPrice(t, anonymous.Body.Bytes()), 1e-18)
 
-	w = httptest.NewRecorder()
-	c, _ = gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
-	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
-	h.Get(c)
-	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	require.JSONEq(t, anonymous, w.Body.String())
-	require.Contains(t, anonymous, `"model_id":"gpt-5.6"`)
+	custom := getPlaza(t, h, 7)
+	require.Equal(t, http.StatusOK, custom.Code, custom.Body.String())
+	require.InDelta(t, 1e-7, firstInputPrice(t, custom.Body.Bytes()), 1e-18)
+
+	byDefault := getPlaza(t, h, 8)
+	require.Equal(t, http.StatusOK, byDefault.Code, byDefault.Body.String())
+	require.JSONEq(t, anonymous.Body.String(), byDefault.Body.String())
+
+	// 登录了却查不到用户：报错，不拿默认价顶上
+	missing := getPlaza(t, h, 99)
+	require.Equal(t, http.StatusNotFound, missing.Code, missing.Body.String())
 }
 
 type plazaPricingStub struct{ entry *service.ModelCatalogEntry }
@@ -146,13 +193,13 @@ func (s plazaPricingStub) LookupPricingEntry(_ context.Context, model string) *s
 	return nil
 }
 
-// Claude Code 配非 Anthropic 模型时那次搜索请求的计费项：给官方价（token 由前端 × 访问者倍率），不提代执行的模型。
+// Claude Code 配非 Anthropic 模型时那次搜索请求的计费项：token 给售价，每次搜索按原价，不提代执行的模型。
 func TestModelPlazaHandler_ClaudeCodeWebSearchBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	input, output := 1e-6, 5e-6
 	haiku := &service.ModelCatalogEntry{ID: 9, ModelID: service.WebSearchDelegateModel, Vendor: "anthropic", Status: service.ModelCatalogStatusUnlisted, InputPrice: &input, OutputPrice: &output}
 	get := func(pricing service.ModelCatalogPricingSource) string {
-		h := NewModelPlazaHandler(service.NewModelPlazaService(plazaCatalogStub{}, pricing), service.NewSettingService(plazaSettingRepoStub{}, &config.Config{}))
+		h := NewModelPlazaHandler(service.NewModelPlazaService(plazaCatalogStub{}, pricing), service.NewSettingService(plazaSettingRepoStub{}, &config.Config{}), plazaUserStub{})
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
@@ -173,9 +220,9 @@ func TestModelPlazaHandler_ClaudeCodeWebSearchBilling(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(body), &envelope))
 	require.NotNil(t, envelope.Data.ClaudeCodeWebSearch)
-	require.InDelta(t, 1e-6, *envelope.Data.ClaudeCodeWebSearch.InputPrice, 1e-18)
-	require.InDelta(t, 5e-6, *envelope.Data.ClaudeCodeWebSearch.OutputPrice, 1e-18)
-	require.InDelta(t, 0.01, envelope.Data.ClaudeCodeWebSearch.SearchPricePerCall, 1e-12, "Anthropic 每次 web 搜索公开价")
+	require.InDelta(t, 1e-6/15, *envelope.Data.ClaudeCodeWebSearch.InputPrice, 1e-18, "token 价是售价")
+	require.InDelta(t, 5e-6/15, *envelope.Data.ClaudeCodeWebSearch.OutputPrice, 1e-18)
+	require.InDelta(t, 0.01, envelope.Data.ClaudeCodeWebSearch.SearchPricePerCall, 1e-12, "每次搜索按原价：Anthropic 公开价，不乘倍率")
 	require.NotContains(t, body, "haiku", "广场不提代执行的模型")
 
 	require.NotContains(t, get(plazaPricingStub{}), "claude_code_web_search", "目录里没有代执行模型时不给")
