@@ -7,9 +7,6 @@ export function userCustomMenuItems() {
   return useAppStore().cachedPublicSettings?.custom_menu_items ?? []
 }
 
-const router = createSiteRouter(userRoutes, {
-  site: 'user',
-  getCustomMenuItems: userCustomMenuItems,
-})
+const router = createSiteRouter(userRoutes, { site: 'user' })
 
 export default router

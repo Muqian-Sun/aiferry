@@ -6,9 +6,6 @@ export function adminCustomMenuItems() {
   return []
 }
 
-const router = createSiteRouter(adminRoutes, {
-  site: 'admin',
-  getCustomMenuItems: adminCustomMenuItems,
-})
+const router = createSiteRouter(adminRoutes, { site: 'admin' })
 
 export default router
