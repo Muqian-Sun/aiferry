@@ -327,6 +327,8 @@ const handleClickOutside = (event: MouseEvent) => {
 
 const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && isOpen.value) {
+    // 告诉外层弹层这次 Esc 已经处理过，只收起面板、不关弹窗（useModalLayer 会跳过 defaultPrevented）
+    event.preventDefault()
     isOpen.value = false
   }
 }
