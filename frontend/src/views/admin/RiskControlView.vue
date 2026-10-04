@@ -747,7 +747,7 @@
                     type="button"
                     class="btn btn-secondary inline-flex items-center justify-center gap-2 text-af-danger hover:text-af-danger"
                     :disabled="hashActionLoading || (status?.flagged_hash_count ?? 0) === 0"
-                    @click="clearFlaggedHashes"
+                    @click="clearHashesConfirm = true"
                   >
                     <Icon name="trash" size="sm" :class="hashActionLoading ? 'animate-pulse' : ''" />
                     {{ t('admin.riskControl.clearFlaggedHashes') }}
@@ -1035,14 +1035,29 @@
         </template>
       </BaseDialog>
     </div>
+    <!-- 清空风险哈希：站内确认框（原来是浏览器原生 confirm），失败就地写出来 -->
+    <ConfirmDialog
+      :show="clearHashesConfirm"
+      :title="t('admin.riskControl.clearFlaggedHashesTitle')"
+      :message="t('admin.riskControl.clearFlaggedHashesConfirm')"
+      :confirm-text="t('admin.riskControl.clearFlaggedHashes')"
+      danger
+      :loading="hashActionLoading"
+      @confirm="clearFlaggedHashes"
+      @cancel="clearHashesConfirm = false"
+    >
+      <FormError :message="clearHashesError" />
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
@@ -1792,16 +1807,19 @@ async function deleteFlaggedHash() {
   }
 }
 
+const clearHashesConfirm = ref(false)
+const clearHashesError = ref('')
+watch(clearHashesConfirm, (open) => { if (open) clearHashesError.value = '' })
+
 async function clearFlaggedHashes() {
   if (hashActionLoading.value) return
-  const confirmed = window.confirm(t('admin.riskControl.clearFlaggedHashesConfirm'))
-  if (!confirmed) return
   hashActionLoading.value = true
   try {
     await adminAPI.riskControl.clearFlaggedHashes()
+    clearHashesConfirm.value = false
     await loadStatus(true)
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')), err)
+    clearHashesError.value = extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed'))
   } finally {
     hashActionLoading.value = false
   }

@@ -180,8 +180,8 @@ function saveEditor() {
 function toggleEndpoint(id: string) {
   emit('update:endpoints', props.endpoints.map((item) => item.id === id ? { ...item, enabled: !item.enabled } : cloneData(item)))
 }
+// 只是从草稿里去掉，保存前点「重置」就能撤回，所以不弹确认（原来是浏览器原生 confirm）
 function removeEndpoint(endpoint: PromptAuditEndpointDraft) {
-  if (!window.confirm(t('admin.promptAudit.pool.deleteConfirm', { name: endpoint.name }))) return
   emit('update:endpoints', props.endpoints.filter((item) => item.id !== endpoint.id).map((item) => cloneData(item)))
 }
 function hasCredential(endpoint: PromptAuditEndpointDraft): boolean {

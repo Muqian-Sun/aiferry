@@ -602,7 +602,13 @@ export default {
         clear: '清除选择',
         edit: '批量编辑',
         delete: '删除',
-        confirmDelete: '确认删除选中的 {count} 个渠道吗？此操作不可恢复。',
+        confirmDeleteTitle: '删除 {count} 个渠道',
+        confirmDelete: '删除后不能恢复，这些渠道承接的模型会少掉它们。',
+        confirmResetTitle: '重置 {count} 个渠道的状态',
+        confirmResetMessage: '清掉这些渠道的出错和限流标记，让它们重新参与调度。',
+        confirmRefreshTitle: '刷新 {count} 个渠道的令牌',
+        confirmRefreshMessage: '向上游重新获取访问令牌，只对需要登录授权的渠道生效。',
+        failed: '批量操作没有完成，请稍后再试',
         deleteSuccess: '已成功删除 {count} 个渠道',
         enableScheduling: '开启调度',
         disableScheduling: '关闭调度',
@@ -610,7 +616,7 @@ export default {
         refreshToken: '刷新令牌',
         resetStatusSuccess: '已成功重置 {count} 个渠道状态',
         refreshTokenSuccess: '已成功刷新 {count} 个渠道令牌',
-        partialSuccess: '操作部分完成：{success} 成功，{failed} 失败'
+        partialSuccess: '只完成了一部分：{success} 个成功，{failed} 个失败'
       },
       bulkEdit: {
         title: '批量编辑渠道',
