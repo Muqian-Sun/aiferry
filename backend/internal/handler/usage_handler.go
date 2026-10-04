@@ -147,31 +147,15 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 		return nil, false
 	}
 
+	// 时间范围：半开区间 [start, end)，精确时刻或按天，见 timezone.ParseQueryRange
+	startPtr, endPtr, err := timezone.ParseQueryRange(c.Request.URL.Query())
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return nil, false
+	}
 	userTZ := c.Query("timezone")
 	now := timezone.NowInUserLocation(userTZ)
 	var startTime, endTime time.Time
-	var startPtr, endPtr *time.Time
-	startDateStr := strings.TrimSpace(c.Query("start_date"))
-	endDateStr := strings.TrimSpace(c.Query("end_date"))
-
-	if startDateStr != "" {
-		t, err := timezone.ParseInUserLocation("2006-01-02", startDateStr, userTZ)
-		if err != nil {
-			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
-			return nil, false
-		}
-		startTime = t
-		startPtr = &startTime
-	}
-	if endDateStr != "" {
-		t, err := timezone.ParseInUserLocation("2006-01-02", endDateStr, userTZ)
-		if err != nil {
-			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
-			return nil, false
-		}
-		endTime = t.AddDate(0, 0, 1)
-		endPtr = &endTime
-	}
 
 	if requireRange {
 		if startPtr == nil {
@@ -278,25 +262,14 @@ func (h *UsageHandler) ListErrors(c *gin.Context) {
 
 	filter := &service.OpsErrorLogFilter{Page: page, PageSize: pageSize}
 
-	// Date range (half-open [start, end)), reuse usage-list semantics.
-	userTZ := c.Query("timezone")
-	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		t, err := timezone.ParseInUserLocation("2006-01-02", startDateStr, userTZ)
-		if err != nil {
-			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
-			return
-		}
-		filter.StartTime = &t
+	// 时间范围与用量明细同一套（半开区间 [start, end)，精确时刻或按天）：摘要里的失败数和明细数的是同一段时间
+	startTime, endTime, err := timezone.ParseQueryRange(c.Request.URL.Query())
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
 	}
-	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		t, err := timezone.ParseInUserLocation("2006-01-02", endDateStr, userTZ)
-		if err != nil {
-			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
-			return
-		}
-		t = t.AddDate(0, 0, 1)
-		filter.EndTime = &t
-	}
+	filter.StartTime = startTime
+	filter.EndTime = endTime
 
 	filter.Model = strings.TrimSpace(c.Query("model"))
 

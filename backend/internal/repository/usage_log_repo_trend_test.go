@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +15,8 @@ import (
 // 管理站概览的「利润」趋势要每个时间桶的渠道成本：三条趋势查询（明细表、小时预聚合、天预聚合）
 // 和按用户的趋势共用 scanTrendRows，都得把 account_cost 带出来。明细表直接累加逐行落的 usage_logs.account_cost。
 func TestUsageLogRepositoryTrendCarriesAccountCost(t *testing.T) {
-	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	// 起止取服务器时区的零点：预聚合表按服务器时区分桶，落在桶边界上才走预聚合（见 trendRangeAlignedToBuckets）
+	start := time.Date(2025, 1, 1, 0, 0, 0, 0, timezone.Location())
 	end := start.Add(24 * time.Hour)
 	columns := []string{
 		"date", "requests", "input_tokens", "output_tokens", "cache_creation_tokens",
@@ -78,4 +80,45 @@ func TestUsageLogRepositoryTrendCarriesAccountCost(t *testing.T) {
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
+}
+
+// 「近 24 小时」这类精确时刻的区间落在桶中间：不能截取预聚合表（小时表漏掉起点那一小时，天表按 ::date 多算起点那天、丢掉终点那天），
+// 要走明细表。两张表的查询都备好、不限顺序，看最后用的是哪份数据。
+func TestUsageLogRepositoryTrendUnalignedRangeSkipsAggregates(t *testing.T) {
+	start := time.Date(2026, 10, 3, 10, 45, 0, 0, timezone.Location())
+	end := start.Add(24 * time.Hour)
+	columns := []string{
+		"date", "requests", "input_tokens", "output_tokens", "cache_creation_tokens",
+		"cache_read_tokens", "total_tokens", "cost", "actual_cost", "account_cost",
+	}
+
+	for granularity, aggregateTable := range map[string]string{"hour": "usage_dashboard_hourly", "day": "usage_dashboard_daily"} {
+		t.Run(granularity, func(t *testing.T) {
+			db, mock := newSQLMock(t)
+			repo := &usageLogRepository{sql: db}
+			mock.MatchExpectationsInOrder(false)
+			mock.ExpectQuery(`FROM ` + aggregateTable).
+				WillReturnRows(sqlmock.NewRows(columns).AddRow("from-aggregate", int64(1), int64(0), int64(0), int64(0), int64(0), int64(0), 0.0, 0.0, 0.0))
+			mock.ExpectQuery(`(?s)FROM usage_logs\s+WHERE created_at >= \$1 AND created_at < \$2`).
+				WithArgs(start, end).
+				WillReturnRows(sqlmock.NewRows(columns).AddRow("from-usage-logs", int64(1), int64(0), int64(0), int64(0), int64(0), int64(0), 0.0, 0.0, 0.0))
+
+			trend, err := repo.GetUsageTrendWithUsageFilters(context.Background(), start, end, granularity, usagestats.UsageLogFilters{})
+			require.NoError(t, err)
+			require.Len(t, trend, 1)
+			require.Equal(t, "from-usage-logs", trend[0].Date)
+		})
+	}
+}
+
+func TestTrendRangeAlignedToBuckets(t *testing.T) {
+	loc := timezone.Location()
+	midnight := time.Date(2026, 10, 3, 0, 0, 0, 0, loc)
+	onHour := time.Date(2026, 10, 3, 10, 0, 0, 0, loc)
+	offHour := time.Date(2026, 10, 3, 10, 45, 0, 0, loc)
+
+	require.True(t, trendRangeAlignedToBuckets("day", midnight, midnight.AddDate(0, 0, 7)))
+	require.False(t, trendRangeAlignedToBuckets("day", onHour, onHour.Add(24*time.Hour)))
+	require.True(t, trendRangeAlignedToBuckets("hour", onHour, onHour.Add(24*time.Hour)))
+	require.False(t, trendRangeAlignedToBuckets("hour", offHour, offHour.Add(24*time.Hour)))
 }
