@@ -34,14 +34,16 @@ const formatLocalDate = (date: Date): string => {
 }
 
 describe('DateRangePicker', () => {
-  it('uses last 24 hours as the default recognized preset', () => {
+  // 近 24 小时由页面通过 preset 告知：它的两个日期和自定义的「昨天 → 今天」一样，不靠日期反推
+  it('shows last 24 hours when the page passes that preset', () => {
     const now = new Date()
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
     const wrapper = mount(DateRangePicker, {
       props: {
         startDate: formatLocalDate(yesterday),
-        endDate: formatLocalDate(now)
+        endDate: formatLocalDate(now),
+        preset: 'last24Hours'
       },
       global: {
         stubs: {
@@ -60,7 +62,8 @@ describe('DateRangePicker', () => {
     const wrapper = mount(DateRangePicker, {
       props: {
         startDate: today,
-        endDate: today
+        endDate: today,
+        preset: null
       },
       global: {
         stubs: {

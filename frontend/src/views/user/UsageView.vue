@@ -8,8 +8,8 @@
   -->
   <SiteShell>
     <template #actions>
-      <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
-      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="refreshData">
+      <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" :preset="datePreset" @change="onDateRangeChange" />
+      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="onRefresh">
         <Icon name="refresh" size="sm" />
         {{ t('common.refresh') }}
       </button>
@@ -265,6 +265,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCurrency, formatDateTime, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
 import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode } from '@/utils/billingMode'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import { LAST_24_HOURS_PRESET, windowForPreset } from '@/utils/dateRange'
 import type {
   ApiKey,
   ModelStat,
@@ -288,6 +289,7 @@ import {
   usageErrorListParams,
   usageListParams,
   usageModelStatsParams,
+  usageRangeParams,
   usageRequestKey,
   type UsageErrorFilter,
 } from './usageQuery'
@@ -314,9 +316,14 @@ const logsError = ref(false)
 
 // ---------- 地址栏参数（解析与请求参数和进入页面前的预加载共用，见 ./usageQuery.ts） ----------
 const routeState = readUsageRoute(route?.query ?? {})
-const { defaultRange, wantsErrorTab } = routeState
+const { wantsErrorTab } = routeState
 const startDate = ref(routeState.startDate)
 const endDate = ref(routeState.endDate)
+// 近 24 小时按精确时刻查：窗口在应用筛选、点刷新时按此刻重算，翻页 / 排序沿用同一个窗口；首屏沿用地址栏解析时算的那个（与预加载同参）
+const datePreset = ref(routeState.preset)
+const timeWindow = ref(routeState.timeWindow)
+const renewWindow = () => { timeWindow.value = windowForPreset(datePreset.value) }
+const rangeQuery = computed(() => usageRangeParams({ startDate: startDate.value, endDate: endDate.value, timeWindow: timeWindow.value }))
 
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
 // 地址栏要错误页签时先记下：公开设置可能比页面晚到，到了且允许看错误才切过去
@@ -331,7 +338,8 @@ function syncQuery() {
   for (const [key, value] of Object.entries(route.query)) {
     if (typeof value === 'string' && !['start', 'end', 'key', 'model', 'tab'].includes(key)) next[key] = value
   }
-  if (startDate.value !== defaultRange.start || endDate.value !== defaultRange.end) {
+  // 默认的近 24 小时不写；其余（含日期恰好是「昨天 → 今天」的自定义范围）都写，刷新后还是同一段自然日
+  if (datePreset.value !== LAST_24_HOURS_PRESET) {
     next.start = startDate.value
     next.end = endDate.value
   }
@@ -522,7 +530,7 @@ const moreFiltersOpen = ref(false)
 const showMoreFilters = computed(() => moreFiltersOpen.value || moreFiltersActive.value)
 const usageFiltersActive = computed(() => Boolean(filters.value.api_key_id || filters.value.model) || moreFiltersActive.value)
 
-const normalizedFilters = computed<UsageQueryParams>(() => normalizeUsageFilters(filters.value, startDate.value, endDate.value))
+const normalizedFilters = computed<UsageQueryParams>(() => normalizeUsageFilters(filters.value, rangeQuery.value))
 
 const buildUsageListParams = (page: number, pageSize: number): UsageQueryParams =>
   usageListParams(normalizedFilters.value, page, pageSize, sortState)
@@ -574,7 +582,7 @@ const loadErrorCount = async () => {
   if (!errorViewEnabled.value) return
   const seq = ++errorCountSeq
   try {
-    const params = usageErrorCountParams(startDate.value, endDate.value, filters.value)
+    const params = usageErrorCountParams(rangeQuery.value, filters.value)
     const resp = await adoptPreloaded(usageRequestKey.errors(params), () => usageAPI.listMyErrorRequests(params))
     if (seq === errorCountSeq) errorCount.value = resp.total
   } catch (error) {
@@ -614,6 +622,7 @@ const refreshModelOptions = (models: ModelStat[]) => {
 }
 
 const applyFilters = () => {
+  renewWindow()
   pagination.page = 1
   void loadLogs()
   void loadStats()
@@ -621,6 +630,12 @@ const applyFilters = () => {
   void loadErrorCount()
   resetErrorRows()
   syncQuery()
+}
+
+/** 页头「刷新」：近 24 小时挪到此刻再查 */
+const onRefresh = () => {
+  renewWindow()
+  void refreshData()
 }
 
 /** 各加载函数自己吞掉错误、显示在各自区块里，这里的 Promise 不会 reject */
@@ -642,8 +657,6 @@ const toggleModelFilter = (model: string) => {
 /** 清掉维度筛选（时间范围在页头，不跟着重置） */
 const resetFilters = () => {
   filters.value = {
-    start_date: startDate.value,
-    end_date: endDate.value,
     request_type: undefined,
     native_compaction_v2: null,
     billing_type: null,
@@ -656,8 +669,7 @@ const resetFilters = () => {
 const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
   startDate.value = range.startDate
   endDate.value = range.endDate
-  filters.value.start_date = range.startDate
-  filters.value.end_date = range.endDate
+  datePreset.value = range.preset
   applyFilters()
 }
 
@@ -737,6 +749,8 @@ const exportToCSV = async () => {
     const allLogs: UsageLog[] = []
     const pageSize = 100
     const exportParams = buildUsageListParams(1, pageSize)
+    // 文件名按开始导出时的范围取：导出过程中改了范围也不影响这一份
+    const fileName = `usage_${startDate.value}_to_${endDate.value}.csv`
     const totalPages = Math.ceil(pagination.total / pageSize)
     for (let page = 1; page <= totalPages; page++) {
       const response = await usageAPI.query({ ...exportParams, page })
@@ -787,7 +801,7 @@ const exportToCSV = async () => {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `usage_${exportParams.start_date}_to_${exportParams.end_date}.csv`
+    link.download = fileName
     link.click()
     window.URL.revokeObjectURL(url)
   } catch (error) {
@@ -880,8 +894,7 @@ const loadErrors = async () => {
     const params = usageErrorListParams({
       page: errorPage.value,
       pageSize: errorPageSize.value,
-      startDate: startDate.value,
-      endDate: endDate.value,
+      range: rangeQuery.value,
       filter: errorFilter.value,
       sort: { sort_by: errorSortBy.value, sort_order: errorSortOrder.value },
     })

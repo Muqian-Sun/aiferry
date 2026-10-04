@@ -20,15 +20,24 @@ func TestParseTimeRange(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?start_date=2024-01-01&end_date=2024-01-02&timezone=UTC", nil)
 	c.Request = req
 
-	start, end := parseTimeRange(c)
+	start, end, err := parseTimeRange(c)
+	require.NoError(t, err)
 	require.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), start)
 	require.Equal(t, time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC), end)
 
-	req = httptest.NewRequest(http.MethodGet, "/?start_date=bad&timezone=UTC", nil)
-	c.Request = req
-	start, end = parseTimeRange(c)
-	require.False(t, start.IsZero())
-	require.False(t, end.IsZero())
+	// 「近 24 小时」：精确时刻原样使用
+	c.Request = httptest.NewRequest(http.MethodGet, "/?start_time=2026-10-03T02:45:00Z&end_time=2026-10-04T02:45:00Z&timezone=UTC", nil)
+	start, end, err = parseTimeRange(c)
+	require.NoError(t, err)
+	require.True(t, start.Equal(time.Date(2026, 10, 3, 2, 45, 0, 0, time.UTC)), "start=%s", start)
+	require.True(t, end.Equal(time.Date(2026, 10, 4, 2, 45, 0, 0, time.UTC)), "end=%s", end)
+
+	// 格式错、起止颠倒：报错，不再悄悄换成默认的近 7 天
+	for _, query := range []string{"/?start_date=bad&timezone=UTC", "/?start_date=2024-01-05&end_date=2024-01-02&timezone=UTC"} {
+		c.Request = httptest.NewRequest(http.MethodGet, query, nil)
+		_, _, err = parseTimeRange(c)
+		require.Error(t, err, query)
+	}
 }
 
 func TestParseOpsViewParam(t *testing.T) {

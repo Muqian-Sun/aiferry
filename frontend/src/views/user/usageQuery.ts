@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { preloadKey, type Prefetch } from '@/router/routePreload'
 import { formatLocalDate } from '@/utils/trendBuckets'
+import { LAST_24_HOURS_PRESET, rangeParams, windowForPreset, type RangeParams, type TimeWindow } from '@/utils/dateRange'
 import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import type { UsageQueryParams, UserErrorListParams } from '@/types'
 
@@ -18,7 +19,7 @@ const queryString = (query: LocationQuery, key: string): string => {
   return typeof value === 'string' ? value : ''
 }
 
-/** 默认时间范围：近 24 小时（按本地日期，起止各取一天） */
+/** 默认时间范围近 24 小时在日期选择器里显示的两个日期（查询按精确时刻，见 windowForPreset） */
 export function last24HoursRange(): { start: string; end: string } {
   const end = new Date()
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
@@ -26,9 +27,12 @@ export function last24HoursRange(): { start: string; end: string } {
 }
 
 export interface UsageRouteState {
-  defaultRange: { start: string; end: string }
   startDate: string
   endDate: string
+  /** 地址栏没带范围 = 默认的近 24 小时；带了就是按天的范围 */
+  preset: string | null
+  /** 近 24 小时的精确窗口（按天的范围为 null）；预加载和页面挂载各读一次地址栏，同一分钟里算出的窗口相同 */
+  timeWindow: TimeWindow | null
   apiKeyId?: number
   model: string
   /** 地址栏要错误页签（还要看管理员是否允许用户看错误） */
@@ -42,20 +46,21 @@ export function readUsageRoute(query: LocationQuery): UsageRouteState {
   const end = queryString(query, 'end')
   const hasRange = DATE_RE.test(start) && DATE_RE.test(end) && start <= end
   const keyId = Number(queryString(query, 'key'))
+  const preset = hasRange ? null : LAST_24_HOURS_PRESET
   return {
-    defaultRange,
     startDate: hasRange ? start : defaultRange.start,
     endDate: hasRange ? end : defaultRange.end,
+    preset,
+    timeWindow: windowForPreset(preset),
     apiKeyId: Number.isInteger(keyId) && keyId > 0 ? keyId : undefined,
     model: queryString(query, 'model').trim(),
     wantsErrorTab: queryString(query, 'tab') === 'errors'
   }
 }
 
+/** 维度筛选（密钥 / 模型 / 类型……）；时间范围不放这里，发请求时由 usageRangeParams 给 */
 export function initialUsageFilters(state: UsageRouteState): UsageQueryParams {
   return {
-    start_date: state.startDate,
-    end_date: state.endDate,
     api_key_id: state.apiKeyId,
     model: state.model || undefined,
     request_type: undefined,
@@ -65,14 +70,18 @@ export function initialUsageFilters(state: UsageRouteState): UsageQueryParams {
   }
 }
 
+/** 页面状态里的时间范围 → 接口参数（近 24 小时给精确时刻，其余给日期） */
+export function usageRangeParams(state: Pick<UsageRouteState, 'startDate' | 'endDate' | 'timeWindow'>): RangeParams {
+  return rangeParams(state.startDate, state.endDate, state.timeWindow)
+}
+
 /** 统计 / 分布 / 列表共用的筛选：时间范围取当前值，请求类型折成旧的 stream 参数 */
-export function normalizeUsageFilters(filters: UsageQueryParams, startDate: string, endDate: string): UsageQueryParams {
+export function normalizeUsageFilters(filters: UsageQueryParams, range: RangeParams): UsageQueryParams {
   const requestType = filters.request_type
   const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.stream
   return {
     ...filters,
-    start_date: startDate,
-    end_date: endDate,
+    ...range,
     stream: legacyStream === null ? undefined : legacyStream
   }
 }
@@ -93,12 +102,11 @@ export function usageModelStatsParams(normalized: UsageQueryParams) {
 }
 
 /** 摘要里的失败请求数：同一时间范围、同一密钥 / 模型筛选，只要 total */
-export function usageErrorCountParams(startDate: string, endDate: string, filters: UsageQueryParams): UserErrorListParams {
+export function usageErrorCountParams(range: RangeParams, filters: UsageQueryParams): UserErrorListParams {
   return {
     page: 1,
     page_size: 1,
-    start_date: startDate,
-    end_date: endDate,
+    ...range,
     api_key_id: filters.api_key_id ?? undefined,
     model: filters.model || undefined
   }
@@ -117,16 +125,14 @@ export const ERROR_PAGE_SIZE = 20
 export function usageErrorListParams(opts: {
   page: number
   pageSize: number
-  startDate: string
-  endDate: string
+  range: RangeParams
   filter: UsageErrorFilter
   sort: UsageSort
 }): UserErrorListParams {
   return {
     page: opts.page,
     page_size: opts.pageSize,
-    start_date: opts.startDate,
-    end_date: opts.endDate,
+    ...opts.range,
     model: opts.filter.model.trim() || undefined,
     category: opts.filter.category || undefined,
     api_key_id: opts.filter.api_key_id ?? undefined,
@@ -148,7 +154,8 @@ export const usageRequestKey = {
 export function preloadUsage(to: RouteLocationNormalized, prefetch: Prefetch): void {
   const state = readUsageRoute(to.query)
   const filters = initialUsageFilters(state)
-  const normalized = normalizeUsageFilters(filters, state.startDate, state.endDate)
+  const range = usageRangeParams(state)
+  const normalized = normalizeUsageFilters(filters, range)
 
   const listParams = usageListParams(normalized, 1, getPersistedPageSize(), USAGE_DEFAULT_SORT)
   prefetch(usageRequestKey.logs(listParams), () => usageAPI.query(listParams))
@@ -157,14 +164,13 @@ export function preloadUsage(to: RouteLocationNormalized, prefetch: Prefetch): v
   prefetch(usageRequestKey.modelStats(modelParams), () => usageAPI.getDashboardModels(modelParams))
 
   if (!(useAppStore().cachedPublicSettings?.allow_user_view_error_requests ?? false)) return
-  const countParams = usageErrorCountParams(state.startDate, state.endDate, filters)
+  const countParams = usageErrorCountParams(range, filters)
   prefetch(usageRequestKey.errors(countParams), () => usageAPI.listMyErrorRequests(countParams))
   if (state.wantsErrorTab) {
     const errorParams = usageErrorListParams({
       page: 1,
       pageSize: ERROR_PAGE_SIZE,
-      startDate: state.startDate,
-      endDate: state.endDate,
+      range,
       filter: EMPTY_ERROR_FILTER,
       sort: USAGE_DEFAULT_SORT
     })

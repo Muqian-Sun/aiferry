@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
 
@@ -193,7 +194,8 @@ func (r *usageLogRepository) GetUsageTrendWithUsageFilters(ctx context.Context, 
 }
 
 func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID int64, model string, modelSource string, requestType *int16, stream *bool, billingType *int8, billingMode string, upstreamModelMismatch *bool, nativeCompactionV2 *bool) (results []TrendDataPoint, err error) {
-	if shouldUsePreaggregatedTrend(granularity, userID, apiKeyID, accountID, model, requestType, stream, billingType, billingMode, upstreamModelMismatch, nativeCompactionV2) {
+	if shouldUsePreaggregatedTrend(granularity, userID, apiKeyID, accountID, model, requestType, stream, billingType, billingMode, upstreamModelMismatch, nativeCompactionV2) &&
+		trendRangeAlignedToBuckets(granularity, startTime, endTime) {
 		aggregated, aggregatedErr := r.getUsageTrendFromAggregates(ctx, startTime, endTime, granularity)
 		if aggregatedErr == nil && len(aggregated) > 0 {
 			return aggregated, nil
@@ -331,6 +333,21 @@ func shouldUsePreaggregatedTrend(granularity string, userID, apiKeyID, accountID
 		billingMode == "" &&
 		upstreamModelMismatch == nil &&
 		nativeCompactionV2 == nil
+}
+
+// trendRangeAlignedToBuckets：区间两端是否都落在预聚合表的桶边界上（按服务器时区的整点 / 零点，与汇总任务分桶一致）。
+// 「近 24 小时」这类精确时刻的区间落在桶中间：小时表按 bucket_start 截取会漏掉起点所在那一小时，
+// 天表按 ::date 截取会把起点那天整天算进来、把终点那天整天丢掉——这种区间改走明细表。
+func trendRangeAlignedToBuckets(granularity string, startTime, endTime time.Time) bool {
+	loc := timezone.Location()
+	aligned := func(t time.Time) bool {
+		t = t.In(loc)
+		if t.Minute() != 0 || t.Second() != 0 || t.Nanosecond() != 0 {
+			return false
+		}
+		return granularity == "hour" || t.Hour() == 0
+	}
+	return aligned(startTime) && aligned(endTime)
 }
 
 func (r *usageLogRepository) getUsageTrendFromAggregates(ctx context.Context, startTime, endTime time.Time, granularity string) (results []TrendDataPoint, err error) {

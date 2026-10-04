@@ -45,7 +45,8 @@
               v-model="localStartDate"
               :max="localEndDate || tomorrow"
               class="date-picker-input"
-              @change="onDateChange"
+              :aria-invalid="rangeReversed"
+              @change="onDateInput"
             />
           </div>
           <div class="date-picker-separator">
@@ -59,14 +60,20 @@
               :min="localStartDate"
               :max="tomorrow"
               class="date-picker-input"
-              @change="onDateChange"
+              :aria-invalid="rangeReversed"
+              @change="onDateInput"
             />
           </div>
         </div>
 
+        <!-- 起止颠倒：日期框的 min / max 拦不住手输，应用前再查一次，不让一个必然为空的范围发出去 -->
+        <p v-if="rangeReversed" class="date-picker-error" role="alert" data-testid="date-range-reversed">
+          {{ t('dates.rangeReversed') }}
+        </p>
+
         <!-- Apply button -->
         <div class="date-picker-actions">
-          <button @click="apply" class="date-picker-apply">
+          <button @click="apply" class="date-picker-apply" :disabled="rangeReversed">
             {{ t('dates.apply') }}
           </button>
         </div>
@@ -80,6 +87,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { IS_ADMIN_SITE } from '@/app/site'
+import { LAST_24_HOURS_PRESET, isReversedDateRange } from '@/utils/dateRange'
 
 interface DatePreset {
   labelKey: string
@@ -90,6 +98,11 @@ interface DatePreset {
 interface Props {
   startDate: string
   endDate: string
+  /**
+   * 当前生效的预设，由页面给：「近 24 小时」按精确时刻查，它的两个日期和自定义的「昨天 → 今天」长得一样，
+   * 不能靠日期反推（反推会把自定义的两个自然日认成近 24 小时）。给 null 时按日期认按天的预设，认不出就显示日期。
+   */
+  preset: string | null
 }
 
 interface Emits {
@@ -122,7 +135,8 @@ watch(isOpen, async (open) => {
 })
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
-const activePreset = ref<string | null>('last24Hours')
+const activePreset = ref<string | null>(null)
+const rangeReversed = computed(() => isReversedDateRange(localStartDate.value, localEndDate.value))
 
 const today = computed(() => {
   // Use local timezone to avoid UTC timezone issues
@@ -170,7 +184,7 @@ const presets: DatePreset[] = [
   },
   {
     labelKey: 'dates.last24Hours',
-    value: 'last24Hours',
+    value: LAST_24_HOURS_PRESET,
     getRange: () => {
       const end = new Date()
       const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
@@ -267,16 +281,26 @@ const selectPreset = (preset: DatePreset) => {
   activePreset.value = preset.value
 }
 
-const onDateChange = () => {
-  // Check if current dates match any preset
-  activePreset.value = null
+/** 按日期认按天的预设（今天、近 7 天……）；近 24 小时不参与：它的日期对上了也可能是自定义的两个自然日 */
+const matchDayPreset = (start: string, end: string): string | null => {
   for (const preset of presets) {
+    if (preset.value === LAST_24_HOURS_PRESET) continue
     const range = preset.getRange()
-    if (range.start === localStartDate.value && range.end === localEndDate.value) {
-      activePreset.value = preset.value
-      break
-    }
+    if (range.start === start && range.end === end) return preset.value
   }
+  return null
+}
+
+/** 手动改了日期：不再是近 24 小时，只可能是某个按天的预设或自定义 */
+const onDateInput = () => {
+  activePreset.value = matchDayPreset(localStartDate.value, localEndDate.value)
+}
+
+/** 页面给的范围：有预设就用，没有就按日期认 */
+const syncFromProps = () => {
+  localStartDate.value = props.startDate
+  localEndDate.value = props.endDate
+  activePreset.value = props.preset ?? matchDayPreset(props.startDate, props.endDate)
 }
 
 const toggle = () => {
@@ -284,6 +308,7 @@ const toggle = () => {
 }
 
 const apply = () => {
+  if (rangeReversed.value) return
   emit('update:startDate', localStartDate.value)
   emit('update:endDate', localEndDate.value)
   emit('change', {
@@ -306,28 +331,17 @@ const handleEscape = (event: KeyboardEvent) => {
   }
 }
 
-// Sync local state with props
-watch(
-  () => props.startDate,
-  (val) => {
-    localStartDate.value = val
-    onDateChange()
-  }
-)
-
-watch(
-  () => props.endDate,
-  (val) => {
-    localEndDate.value = val
-    onDateChange()
-  }
-)
+// 首次渲染就显示页面给的范围；之后页面的范围变了（应用、重置、地址栏带入）就跟上；
+// 关掉面板也回到页面当前的范围，没应用的改动和颠倒提示一起丢掉
+syncFromProps()
+watch(() => [props.startDate, props.endDate, props.preset], syncFromProps)
+watch(isOpen, (open) => {
+  if (!open) syncFromProps()
+})
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscape)
-  // Initialize active preset detection
-  onDateChange()
 })
 
 onUnmounted(() => {
@@ -436,11 +450,16 @@ onUnmounted(() => {
   @apply flex justify-end p-2 pt-0;
 }
 
+.date-picker-error {
+  @apply px-3 pb-2 text-xs text-af-danger;
+}
+
 .date-picker-apply {
   @apply rounded-md px-4 py-1.5 text-sm font-medium;
   @apply bg-af-brand text-af-on-brand;
   @apply hover:bg-af-brand-hover;
   @apply transition-colors duration-150;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 /* Dropdown animation */

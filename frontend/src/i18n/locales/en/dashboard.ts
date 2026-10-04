@@ -787,7 +787,8 @@ export default {
     startDate: 'Start Date',
     endDate: 'End Date',
     apply: 'Apply',
-    selectDateRange: 'Select date range'
+    selectDateRange: 'Select date range',
+    rangeReversed: 'Start date cannot be later than end date'
   },
 
   // Admin

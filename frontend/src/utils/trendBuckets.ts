@@ -16,13 +16,26 @@ export function trendBucketKeys(startDate: string, endDate: string, granularity:
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T00:00:00`)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+  end.setDate(end.getDate() + 1)
+  return trendBucketKeysBetween(start, end, granularity)
+}
+
+/**
+ * [start, end) 覆盖到的桶：从起点所在的桶开始，到终点前一刻所在的桶为止；按小时截到当前小时（还没到的小时不画）。
+ * 按天的范围是 [起始日零点, 结束日次日零点)；「近 24 小时」是精确时刻，首尾两个桶只有一部分在区间里。
+ */
+export function trendBucketKeysBetween(start: Date, end: Date, granularity: TrendGranularity): string[] {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
   const keys: string[] = []
+  const d = new Date(start)
   if (granularity === 'day') {
-    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) keys.push(formatLocalDate(d))
+    d.setHours(0, 0, 0, 0)
+    for (; d.getTime() < end.getTime(); d.setDate(d.getDate() + 1)) keys.push(formatLocalDate(d))
     return keys
   }
-  const last = Math.min(end.getTime() + 23 * 60 * 60 * 1000, Date.now())
-  for (const d = new Date(start); d.getTime() <= last; d.setHours(d.getHours() + 1)) {
+  d.setMinutes(0, 0, 0)
+  const last = Math.min(end.getTime() - 1, Date.now())
+  for (; d.getTime() <= last; d.setHours(d.getHours() + 1)) {
     keys.push(`${formatLocalDate(d)} ${pad(d.getHours())}:00`)
   }
   return keys
