@@ -13,7 +13,7 @@ const props = defineProps<{
   jobs: OpsJobHeartbeat[]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 type Level = 'normal' | 'warning' | 'critical'
 
@@ -133,6 +133,33 @@ function formatTime(value?: string | null): string {
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
 }
+
+
+function jobLabel(name: string): string {
+  const key = `admin.ops.page.resources.jobNames.${name}`
+  return te(key) ? t(key) : name
+}
+
+// 后端把任务结果写成空格分隔的 key=value（如 rules=0 enabled=0、window=开始..结束）：认得的项换成中文叫法，
+// 时间段按本地时间显示；不是 key=value 的部分与不认得的项原样留着
+function formatJobResult(result?: string | null): string {
+  if (!result) return '-'
+  return result
+    .trim()
+    .split(/\s+/)
+    .map((part) => {
+      const eq = part.indexOf('=')
+      if (eq <= 0) return part
+      const key = part.slice(0, eq)
+      let value = part.slice(eq + 1)
+      if (key === 'window' && value.includes('..')) {
+        value = value.split('..').map((bound) => formatTime(bound)).join(' – ')
+      }
+      const labelKey = `admin.ops.page.resources.jobResultKeys.${key}`
+      return `${te(labelKey) ? t(labelKey) : key} ${value}`
+    })
+    .join(' · ')
+}
 </script>
 
 <template>
@@ -173,13 +200,13 @@ function formatTime(value?: string | null): string {
         </thead>
         <tbody>
           <tr v-for="hb in props.jobs" :key="hb.job_name" class="border-b border-af-hairline align-top">
-            <td class="py-2 pr-4 font-mono text-xs text-af-ink">{{ hb.job_name }}</td>
+            <td class="py-2 pr-4 text-xs text-af-ink" :title="hb.job_name">{{ jobLabel(hb.job_name) }}</td>
             <td class="py-2 pr-4 text-xs tabular-nums text-af-ink-2">{{ formatTime(hb.last_success_at) }}</td>
             <td class="py-2 pr-4 text-xs tabular-nums" :class="jobFailed(hb) ? 'text-af-danger' : 'text-af-ink-2'">
               {{ formatTime(hb.last_error_at) }}
               <div v-if="jobFailed(hb) && hb.last_error" class="mt-1 break-all">{{ hb.last_error }}</div>
             </td>
-            <td class="py-2 text-xs text-af-ink-2">{{ hb.last_result || '-' }}</td>
+            <td class="py-2 text-xs text-af-ink-2">{{ formatJobResult(hb.last_result) }}</td>
           </tr>
         </tbody>
       </table>
