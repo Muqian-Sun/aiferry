@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -272,6 +273,28 @@ func TestProbeUpstreamProtocols_KeepsUncertainWhenRealRequestCannotDecide(t *tes
 			require.Equal(t, ProtocolProbeReasonNoModel, r.Reason, r.Protocol)
 		}
 	})
+}
+
+// unreachableProbeUpstream 每个请求都连不上（连接被拒绝之类）。
+type unreachableProbeUpstream struct{}
+
+func (unreachableProbeUpstream) Do(*http.Request, string, int64, int) (*http.Response, error) {
+	return nil, errors.New("dial tcp 127.0.0.1:9: connect: connection refused")
+}
+
+func (unreachableProbeUpstream) DoWithTLS(*http.Request, string, int64, int, *tlsfingerprint.Profile) (*http.Response, error) {
+	return nil, errors.New("dial tcp 127.0.0.1:9: connect: connection refused")
+}
+
+// 连不上上游：保留「连不上」，不改写成「拿不到模型名」（2026-10-04 UI E2E：地址 127.0.0.1:9 四个协议都显示
+// 「拿不到模型名，无法用真实请求确认」）。
+func TestProbeUpstreamProtocols_UnreachableKeepsNetworkError(t *testing.T) {
+	results, err := newProtocolProbeService(unreachableProbeUpstream{}).ProbeUpstreamProtocols(context.Background(), protocolProbeKey(), "https://127.0.0.1:9/v1")
+	require.NoError(t, err)
+	for _, r := range probeResultsByProtocol(t, results) {
+		require.Equal(t, ProtocolProbeUnknown, r.Status, r.Protocol)
+		require.Equal(t, ProtocolProbeReasonNetworkError, r.Reason, r.Protocol)
+	}
 }
 
 func TestProbeUpstreamProtocols_RejectsBadInput(t *testing.T) {

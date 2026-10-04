@@ -580,6 +580,11 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 	if _, err := txClient.ExecContext(ctx, "DELETE FROM scheduled_test_plans WHERE account_id = $1", id); err != nil {
 		return err
 	}
+	// 渠道是软删，外键的 ON DELETE CASCADE 不会触发：承接关系要一起删，否则价格页留「渠道不存在」的行、
+	// 模型的渠道数与「上架要有渠道」的检查都会把已删的渠道算进去（2026-10-04 UI E2E）。
+	if _, err := txClient.ExecContext(ctx, "DELETE FROM model_catalog_bindings WHERE account_id = $1", id); err != nil {
+		return err
+	}
 	if _, err := txClient.Account.Delete().Where(dbaccount.IDEQ(id)).Exec(ctx); err != nil {
 		return err
 	}

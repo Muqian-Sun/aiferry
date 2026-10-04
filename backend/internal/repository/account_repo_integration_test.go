@@ -251,6 +251,38 @@ func (s *AccountRepoSuite) TestDelete() {
 	s.Require().Error(err, "expected error after delete")
 }
 
+// 渠道是软删：承接关系要一起删（外键级联不会触发），别的渠道的承接不动。
+func (s *AccountRepoSuite) TestDelete_RemovesCatalogBindings() {
+	entry, err := s.client.ModelCatalogEntry.Create().
+		SetModelID("delete-binding-entry").
+		SetStatus(service.ModelCatalogStatusListed).
+		SetManagedBy(service.ModelCatalogManagedByAdmin).
+		Save(s.ctx)
+	s.Require().NoError(err)
+	deleted := mustCreateAccount(s.T(), s.client, &service.Account{Name: "delete-with-binding"})
+	kept := mustCreateAccount(s.T(), s.client, &service.Account{Name: "keep-binding"})
+	for _, accountID := range []int64{deleted.ID, kept.ID} {
+		_, err := s.client.ModelCatalogBinding.Create().
+			SetEntryID(entry.ID).SetAccountID(accountID).SetInputPrice(1e-6).SetOutputPrice(2e-6).
+			Save(s.ctx)
+		s.Require().NoError(err)
+	}
+
+	s.Require().NoError(s.repo.Delete(s.ctx, deleted.ID))
+
+	var remaining []int64
+	rows, err := s.repo.sql.QueryContext(s.ctx, "SELECT account_id FROM model_catalog_bindings WHERE entry_id = $1", entry.ID)
+	s.Require().NoError(err)
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id int64
+		s.Require().NoError(rows.Scan(&id))
+		remaining = append(remaining, id)
+	}
+	s.Require().NoError(rows.Err())
+	s.Require().Equal([]int64{kept.ID}, remaining)
+}
+
 func (s *AccountRepoSuite) TestDelete_RemovesSchedulerAccountSnapshot() {
 	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "to-delete-cache"})
 	cacheRecorder := &schedulerCacheRecorder{

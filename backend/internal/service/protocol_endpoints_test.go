@@ -70,6 +70,19 @@ func TestNormalizeProtocolEndpoints(t *testing.T) {
 		_, err := NormalizeProtocolEndpoints(map[string]string{APIProtocolAnthropic: "   "})
 		require.Error(t, err)
 	})
+
+	// 2026-10-04 UI E2E：「not a url」原来也能存，渠道显示正常、可调度，到转发时才失败。
+	t.Run("地址必须是带主机名的 http(s) 地址", func(t *testing.T) {
+		for _, bad := range []string{"not a url", "relay.example.com/v1", "ftp://relay.example.com", "https://", "http:///v1"} {
+			_, err := NormalizeProtocolEndpoints(map[string]string{APIProtocolChatCompletions: bad})
+			require.Error(t, err, bad)
+			require.Contains(t, err.Error(), "must be an http(s) URL with a host", bad)
+		}
+		for _, good := range []string{"http://127.0.0.1:9/v1", "https://api.moonshot.cn/anthropic"} {
+			_, err := NormalizeProtocolEndpoints(map[string]string{APIProtocolChatCompletions: good})
+			require.NoError(t, err, good)
+		}
+	})
 }
 
 // TestPlatformProtocolDefaultsOnlyDomesticProviders 官方预填只有国产厂商与 OpenCode：海外四家只认成品号，

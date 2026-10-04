@@ -168,6 +168,7 @@ export default {
         protocolFailed: '协议检测失败',
         modelsLoading: '正在获取上游的模型名单…',
         modelsFailed: '模型名单获取失败',
+        modelsUnreachable: '模型名单获取失败：连不上上游，或上游出错',
         summary: '上游列出 {total} 个模型：{listed} 个目录里已上架 · {unlisted} 个目录里未上架 · {missing} 个目录里没有',
         referenceOnly: '名单只作参考：有的中转承接的模型并不在自己的名单里。',
         unbound: '其中 {count} 个这个渠道还没承接，',
@@ -678,7 +679,8 @@ export default {
         errors: {
           empty: '请选择协议并填写地址',
           multiple: '一个渠道只能承接一个协议',
-          blank: '{protocol} 的地址不能为空'
+          blank: '{protocol} 的地址不能为空',
+          invalidUrl: '{protocol} 的地址要以 http:// 或 https:// 开头，并带上域名或 IP'
         },
         protocols: {
           anthropic: 'Anthropic Messages',

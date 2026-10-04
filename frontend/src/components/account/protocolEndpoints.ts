@@ -101,10 +101,24 @@ export function currentProtocolOf(endpoints: ProtocolEndpoints): UpstreamProtoco
   return configuredProtocols(endpoints)[0] ?? null
 }
 
-export type ProtocolEndpointsIssue = { kind: 'empty' } | { kind: 'multiple' } | { kind: 'blank'; protocol: UpstreamProtocol }
+export type ProtocolEndpointsIssue =
+  | { kind: 'empty' }
+  | { kind: 'multiple' }
+  | { kind: 'blank'; protocol: UpstreamProtocol }
+  | { kind: 'invalidUrl'; protocol: UpstreamProtocol }
+
+/** 带主机名的 http(s) 地址（与后端 NormalizeProtocolEndpoints 同一口径）。 */
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim())
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname !== ''
+  } catch {
+    return false
+  }
+}
 
 /**
- * 提交前校验。与后端同一口径：恰好一个协议地址、地址不能为空。
+ * 提交前校验。与后端同一口径：恰好一个协议地址、地址不能为空、必须是带主机名的 http(s) 地址。
  * 转发协议由已配置的地址决定，不存在「必须配某个协议」的约束。
  */
 export function validateProtocolEndpoints(endpoints: ProtocolEndpoints): ProtocolEndpointsIssue | null {
@@ -118,6 +132,10 @@ export function validateProtocolEndpoints(endpoints: ProtocolEndpoints): Protoco
   const blank = protocols.find((protocol) => !endpoints[protocol]?.trim())
   if (blank) {
     return { kind: 'blank', protocol: blank }
+  }
+  const invalid = protocols.find((protocol) => !isHttpUrl(endpoints[protocol] ?? ''))
+  if (invalid) {
+    return { kind: 'invalidUrl', protocol: invalid }
   }
   return null
 }
@@ -133,6 +151,9 @@ export function describeProtocolEndpointsIssue(issue: ProtocolEndpointsIssue, t:
     return t('admin.accounts.protocolEndpoints.errors.multiple')
   }
   const protocol = t(`admin.accounts.protocolEndpoints.protocols.${issue.protocol}`)
+  if (issue.kind === 'invalidUrl') {
+    return t('admin.accounts.protocolEndpoints.errors.invalidUrl', { protocol })
+  }
   return t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
 }
 

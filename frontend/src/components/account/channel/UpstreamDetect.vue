@@ -183,7 +183,10 @@ async function probeModels(endpoints: ProtocolEndpoints) {
     classified.value = classifyUpstreamModels(models, catalog)
     emit('models', { names: models, classified: classified.value })
   } catch (err) {
-    modelsError.value = extractApiErrorMessage(err, t('admin.accounts.upstreamDetect.modelsFailed'))
+    // 502 = 上游那边的问题（连不上 / 出错），后端回的是英文原句，换成中文说明
+    modelsError.value = (err as { status?: number })?.status === 502
+      ? t('admin.accounts.upstreamDetect.modelsUnreachable')
+      : extractApiErrorMessage(err, t('admin.accounts.upstreamDetect.modelsFailed'))
     emit('models', null)
   } finally {
     modelsState.value = 'done'
