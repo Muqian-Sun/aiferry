@@ -52,7 +52,7 @@
         <p v-if="rows.length === 0" class="py-10 text-center text-sm text-af-ink-3">{{ t('admin.channelStatus.channels.empty') }}</p>
         <template v-else>
           <!-- hairline 分格（不是卡片）：窄屏一列、sm 两列；有侧栏、内容区窄一截，宽屏（xl）才排 3 列 -->
-          <ul v-if="visibleActive.length" class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 xl:grid-cols-3" data-testid="channel-status-channels">
+          <ul v-if="visibleActive.length" class="-mx-4 grid border-t border-af-hairline sm:grid-cols-2 md:-mx-6 xl:grid-cols-3" data-testid="channel-status-channels">
             <li
               v-for="row in visibleActive"
               :key="row.account_id"
@@ -62,7 +62,7 @@
               <component
                 :is="row.account_id > 0 && !row.deleted ? RouterLink : 'div'"
                 v-bind="row.account_id > 0 && !row.deleted ? { to: `/accounts?edit=${row.account_id}` } : {}"
-                class="block px-6 py-4"
+                class="block px-4 py-4 md:px-6"
                 :class="row.account_id > 0 && !row.deleted ? 'transition-colors hover:bg-af-sunken/60' : ''"
               >
                 <div class="flex items-center gap-2.5">

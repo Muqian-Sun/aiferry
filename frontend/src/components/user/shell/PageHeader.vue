@@ -9,7 +9,7 @@
         <h1 class="text-28 font-semibold leading-tight tracking-[-0.015em] text-af-ink">{{ title }}</h1>
         <p v-if="description" class="mt-1.5 text-sm text-af-ink-3">{{ description }}</p>
       </div>
-      <div v-if="$slots.actions" class="flex shrink-0 items-center gap-2">
+      <div v-if="$slots.actions" class="flex max-w-full shrink-0 flex-wrap items-center gap-2">
         <slot name="actions" />
       </div>
     </div>
