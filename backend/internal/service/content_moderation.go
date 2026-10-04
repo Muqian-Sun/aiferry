@@ -70,7 +70,7 @@ const (
 	defaultContentModerationBanThreshold         = 10
 	defaultContentModerationViolationWindowHours = 720
 	defaultContentModerationBlockHTTPStatus      = http.StatusForbidden
-	defaultContentModerationBlockMessage         = "内容审计命中风险规则，请调整输入后重试"
+	defaultContentModerationBlockMessage         = "Content audit matched a risk rule. Please adjust your input and try again."
 	defaultContentModerationRetryCount           = 2
 	maxContentModerationRetryCount               = 5
 	defaultContentModerationHitRetentionDays     = 180

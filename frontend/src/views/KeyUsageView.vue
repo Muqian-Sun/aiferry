@@ -506,6 +506,10 @@ function triggerRingAnimation(items: RingItem[]) {
 
 // ==================== Computed Data ====================
 
+// 余额模式（响应带 balance）显示前端文案「余额」；订阅模式的 planName 是管理员起的套餐名，属于数据
+const billingLabel = (data: { balance?: unknown; planName?: string }) =>
+  data.balance !== undefined ? t('keyUsage.walletBalance') : data.planName || t('keyUsage.walletBalance')
+
 const statusInfo = computed(() => {
   const data = resultData.value
   if (!data) return null
@@ -521,7 +525,7 @@ const statusInfo = computed(() => {
   }
 
   return {
-    label: data.planName || t('keyUsage.walletBalance'),
+    label: billingLabel(data),
     statusText: t('keyUsage.keyStatus.active'),
     isActive: true,
   }
@@ -654,7 +658,7 @@ const detailRows = computed<DetailRow[]>(() => {
       iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_CHECK,
       // 订阅不显示时这一行只会是「钱包余额」，标签改用不带「订阅」字样的「计费方式」。
       label: SITE_FEATURES.subscription ? t('keyUsage.subscriptionType') : t('keyUsage.billingType'),
-      value: data.planName || t('keyUsage.walletBalance'), valueClass: '',
+      value: billingLabel(data), valueClass: '',
     })
 
     if (data.subscription) {
