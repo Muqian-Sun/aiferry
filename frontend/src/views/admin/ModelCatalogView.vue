@@ -238,7 +238,7 @@
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.modelCatalog.deleteTitle')"
-      :message="t('admin.modelCatalog.deleteConfirm')"
+      :message="deleteConfirmMessage"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       danger
@@ -274,7 +274,7 @@ import ModelEditDialog from '@/components/admin/catalog/ModelEditDialog.vue'
 import PriceCell from '@/components/admin/catalog/CatalogPriceCell.vue'
 import { entryToRequest } from '@/components/admin/catalog/entryRequest'
 import { LIST_PRICE_MAX_DECIMALS, listPriceValues, sharedPriceDecimals } from '@/components/admin/catalog/priceFormat'
-import { catalogVendorLabel } from '@/components/admin/catalog/vendorLabel'
+import { catalogVendorChoices, catalogVendorLabel } from '@/components/admin/catalog/vendorLabel'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
@@ -455,7 +455,7 @@ async function loadEntries() {
 const showCreate = ref(false)
 const editingEntry = ref<ModelCatalogEntry | null>(null)
 /** 弹窗厂商下拉的选项：目录里已有的厂商 */
-const catalogVendors = computed(() => [...new Set(entries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+const catalogVendors = computed(() => catalogVendorChoices(entries.value))
 const catalogModelIds = computed(() => entries.value.map((entry) => entry.model_id))
 
 function openCreate() {
@@ -495,6 +495,17 @@ function rowActions(entry: ModelCatalogEntry): RowAction[] {
     { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => askDelete(entry) }
   ]
 }
+
+// 删除确认写上模型标识；按 Token 计费的价格分「段」，按次 / 图片 / 视频分「档」（与条目详情同一叫法）
+const deleteConfirmMessage = computed(() => {
+  const entry = pendingDelete.value
+  if (!entry) return ''
+  const isToken = !entry.billing_mode || entry.billing_mode === 'token'
+  return t('admin.modelCatalog.deleteConfirm', {
+    model: entry.model_id,
+    intervals: t(isToken ? 'admin.modelCatalog.deleteIntervals.segments' : 'admin.modelCatalog.deleteIntervals.tiers')
+  })
+})
 
 function askDelete(entry: ModelCatalogEntry) {
   pendingDelete.value = entry

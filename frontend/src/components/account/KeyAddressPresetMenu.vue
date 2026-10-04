@@ -8,7 +8,7 @@
     @change="onChange"
   >
     <option value="" disabled>{{ t('admin.accounts.keyAddress.presetPlaceholder') }}</option>
-    <optgroup v-for="group in groups" :key="group.vendor" :label="platformLabel(group.vendor)">
+    <optgroup v-for="group in groups" :key="group.vendor" :label="vendorLabel(group.vendor)">
       <option
         v-for="item in group.items"
         :key="item.index"
@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { platformLabel } from '@/utils/platformLabel'
+import { vendorLabel } from '@/components/modelPlaza/catalog'
 import type { KeyAddressPreset } from './keyAddress'
 
 const props = defineProps<{

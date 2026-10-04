@@ -178,7 +178,8 @@ export default {
     seedDone: '导入完成：新增 {inserted}，更新 {refreshed}，跳过手动改过的 {skipped}',
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
-    deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
+    deleteConfirm: '删除 {model} 后，它的别名、{intervals}和分时定价会一起删掉。确定删除？',
+    deleteIntervals: { segments: '分段', tiers: '分档' },
     noResources: '无渠道',
     fields: {
       modelId: '模型标识',

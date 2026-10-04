@@ -196,15 +196,20 @@ export function catalogVendors(entries: CatalogModel[]): string[] {
   return [...new Set(entries.map((entry) => entry.vendor).filter(Boolean))].sort()
 }
 
-// 厂商一律显示公司名，不写产品名（muqian 2026-09-29：「用公司名称」）
+// 厂商一律显示公司名，不写产品名（muqian 2026-09-29：「用公司名称」）。
+// 键有两种来源：目录条目的厂商串（价格文件的 litellm provider），以及渠道平台标识（grok / kimi / opencode_go，
+// 管理站的目录厂商列与第三方 key 的厂商按平台归族后也用这张表）。
 const VENDOR_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   gemini: 'Google',
   google: 'Google',
   xai: 'xAI',
+  grok: 'xAI',
   deepseek: 'DeepSeek',
   moonshot: 'Moonshot AI',
+  kimi: 'Moonshot AI',
+  opencode_go: 'OpenCode',
   minimax: 'MiniMax',
   zhipu: 'Zhipu AI',
   volcengine: 'Volcengine',
