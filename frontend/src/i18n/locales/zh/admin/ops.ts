@@ -1,5 +1,105 @@
 export default {
     ops: {
+      // 运维页重排（2026-10-04，方案页 8ARyR9…）
+      page: {
+        allModels: '全部模型',
+        allChannels: '全部渠道',
+        updatedAt: '更新于 {time}',
+        loadFailed: '加载失败，请刷新重试',
+        saveFailed: '保存失败，请重试',
+        noDataInRange: '这段时间没有数据',
+        viewAll: '查看全部',
+        resources: {
+          title: '系统资源',
+          cpu: 'CPU',
+          memory: '内存',
+          db: '数据库连接',
+          redis: 'Redis 连接',
+          goroutines: '协程',
+          jobs: '后台任务',
+          jobsOk: '{count} 个正常',
+          jobsFailed: '{count} 个出错',
+          jobName: '任务',
+          down: '连不上',
+          waiting: '排队 {count}'
+        },
+        metrics: {
+          title: '请求',
+          requests: '请求',
+          currentQps: '当前 {qps} QPS',
+          successRate: '成功率',
+          failed: '失败 {count}',
+          ttft: '首字延迟 P50',
+          p99: 'P99 {value}',
+          recovered: '换渠道恢复',
+          recoveredHint: '上游出错、用户没受影响'
+        },
+        phase: {
+          upstream: '上游',
+          routing: '选渠道',
+          client: '客户端',
+          other: '其它'
+        },
+        channels: {
+          title: '渠道',
+          history: '渠道状态',
+          name: '渠道',
+          status: '状态',
+          inUse: '占用',
+          waiting: '排队',
+          total: '合计',
+          empty: '还没有渠道',
+          deleted: '已删除渠道',
+          showMore: '展开其余 {count} 个正常渠道',
+          inSeconds: '约 {n} 秒后恢复',
+          inMinutes: '约 {n} 分钟后恢复',
+          state: {
+            error: '停调',
+            rateLimited: '限流',
+            overloaded: '过载',
+            unavailable: '不可用',
+            normal: '正常'
+          }
+        },
+        alerts: {
+          title: '未恢复的告警（{count}）',
+          history: '历史告警',
+          firedAt: '开始',
+          name: '告警',
+          value: '当前值',
+          threshold: '阈值'
+        },
+        failures: {
+          title: '最近失败的请求',
+          empty: '这段时间没有失败的请求',
+          kinds: {
+            all: '全部',
+            failed: '用户失败',
+            recovered: '换渠道恢复',
+            routing: '没选到渠道'
+          },
+          time: '时间',
+          result: '结果',
+          user: '用户',
+          model: '模型',
+          channel: '渠道',
+          phase: '环节',
+          status: '状态码',
+          message: '说明',
+          failedTag: '失败',
+          recoveredTag: '换渠道恢复'
+        },
+        slow: {
+          title: '首字最慢的请求',
+          ttft: '首字',
+          duration: '总时长'
+        },
+        logs: {
+          config: '日志配置',
+          searchPlaceholder: '按请求 ID 或关键词搜索',
+          moreFilters: '更多筛选'
+        }
+      },
       description: '运维监控与排障',
       // Dashboard
       systemHealth: '系统健康',
@@ -180,7 +280,8 @@ export default {
         endTime: '结束时间'
       },
       fullscreen: {
-        enter: '进入全屏'
+        enter: '进入全屏',
+        exit: '退出全屏'
       },
       diagnosis: {
         title: '智能诊断',
@@ -584,7 +685,7 @@ export default {
         slaMinPercent: 'SLA最低百分比',
         slaMinPercentHint: 'SLA低于此值时显示为红色（默认：99.5%）',
         ttftP99MaxMs: 'TTFT P99最大值（毫秒）',
-        ttftP99MaxMsHint: 'TTFT P99高于此值时显示为红色（默认：500ms）',
+        ttftP99MaxMsHint: 'TTFT P99高于此值时显示为红色（默认：20000ms，与服务状态的「异常」线一致）',
         requestErrorRateMaxPercent: '请求错误率最大值（%）',
         requestErrorRateMaxPercentHint: '请求错误率高于此值时显示为红色（默认：5%）',
         upstreamErrorRateMaxPercent: '上游错误率最大值（%）',

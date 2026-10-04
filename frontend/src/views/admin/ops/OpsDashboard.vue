@@ -1,109 +1,73 @@
 <template>
-  <component :is="isFullscreen ? 'div' : AppLayout" :class="isFullscreen ? 'flex min-h-screen flex-col justify-center bg-af-sunken' : ''">
-    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'space-y-6 pb-12']">
-      <div
-        v-if="errorMessage"
-        class="rounded-lg bg-af-danger-tint p-4 text-sm text-af-danger"
-      >
-        {{ errorMessage }}
-      </div>
-
-      <OpsDashboardSkeleton v-if="loading && !hasLoadedOnce" :fullscreen="isFullscreen" />
-
-      <OpsDashboardHeader
-        v-else-if="opsEnabled"
-        :overview="overview"
-        :platform="platform"
+  <component :is="isFullscreen ? 'div' : AppLayout" :class="isFullscreen ? 'min-h-screen bg-af-sheet p-4 md:p-6' : ''">
+    <!--
+      运维页（2026-10-04 重排，方案页 8ARyR9…）：不用卡片，分区靠标题和分隔线，同一个数只出现一次。
+      从上到下：系统资源 → 请求（四个数 = 趋势图的切换按钮）→ 渠道 → 未恢复的告警 → 最近失败的请求 → 首字最慢的请求 → 系统日志。
+    -->
+    <div class="pb-12">
+      <OpsToolbar
         :time-range="timeRange"
-        :query-mode="queryMode"
+        :custom-start-time="customStartTime"
+        :custom-end-time="customEndTime"
+        :model="model"
+        :account-id="accountId"
+        :model-options="modelOptions"
+        :channel-options="channelOptions"
         :loading="loading"
         :last-updated="lastUpdated"
-        :thresholds="metricThresholds"
         :auto-refresh-enabled="autoRefreshEnabled"
         :auto-refresh-countdown="autoRefreshCountdown"
         :fullscreen="isFullscreen"
-        :custom-start-time="customStartTime"
-        :custom-end-time="customEndTime"
         @update:time-range="onTimeRangeChange"
-        @update:platform="onPlatformChange"
-        @update:query-mode="onQueryModeChange"
         @update:custom-time-range="onCustomTimeRangeChange"
+        @update:model="(v) => (model = v)"
+        @update:account-id="(v) => (accountId = v)"
         @refresh="fetchData"
-        @open-request-details="handleOpenRequestDetails"
-        @open-error-details="openErrorDetails"
-        @open-settings="showSettingsDialog = true"
         @open-alert-rules="showAlertRulesCard = true"
+        @open-settings="showSettingsDialog = true"
         @enter-fullscreen="enterFullscreen"
         @exit-fullscreen="exitFullscreen"
       />
 
-      <!-- Row: Concurrency + Throughput -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <div class="lg:col-span-1 min-h-[360px]">
-          <OpsConcurrencyCard :platform-filter="platform" :refresh-token="dashboardRefreshToken" />
-        </div>
-        <div class="lg:col-span-1 h-[360px]">
-          <OpsSwitchRateTrendChart
-            :points="switchTrend?.points ?? []"
-            :loading="loadingSwitchTrend"
-            :time-range="switchTrendTimeRange"
-            :fullscreen="isFullscreen"
-          />
-        </div>
-        <div class="lg:col-span-2 h-[360px]">
-          <OpsThroughputTrendChart
-            :points="throughputTrend?.points ?? []"
-            :by-platform="throughputTrend?.by_platform ?? []"
-            :loading="loadingTrend"
-            :time-range="timeRange"
-            :fullscreen="isFullscreen"
-            @select-platform="handleThroughputSelectPlatform"
-            @open-details="handleOpenRequestDetails"
-          />
-        </div>
-      </div>
+      <p v-if="errorMessage" class="mb-3 text-sm text-af-danger">{{ errorMessage }}</p>
 
-      <!-- Row: Visual Analysis (baseline 3-up grid) -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <OpsLatencyChart :latency-data="latencyHistogram" :loading="loadingLatency" />
-        <OpsErrorDistributionChart
-          :data="errorDistribution"
-          :loading="loadingErrorDistribution"
-          @open-details="openErrorDetails('request')"
-        />
-        <OpsErrorTrendChart
-          :points="errorTrend?.points ?? []"
-          :loading="loadingErrorTrend"
+      <template v-if="opsEnabled">
+        <OpsSystemResources :metrics="overview?.system_metrics ?? null" :jobs="overview?.job_heartbeats ?? []" />
+        <OpsRequestPanel
+          :overview="overview"
+          :throughput="throughputTrend?.points ?? []"
+          :errors="errorTrend?.points ?? []"
+          :thresholds="metricThresholds"
           :time-range="timeRange"
-          @open-request-errors="openErrorDetails('request')"
-          @open-upstream-errors="openErrorDetails('upstream')"
+          :loading="loading"
         />
-      </div>
-
-      <!-- Row: Token Stats -->
-      <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
-        <OpsOpenAITokenStatsCard
-          :platform-filter="platform"
+        <OpsChannelTable :account-id="accountId" :refresh-token="dashboardRefreshToken" @loaded="(list) => (channelOptions = list)" />
+        <OpsActiveAlerts :refresh-token="dashboardRefreshToken" @open-alert-rules="showAlertRulesCard = true" />
+        <OpsRecentFailures
+          :params="scopeParams"
           :refresh-token="dashboardRefreshToken"
+          @open-error="openErrorFromList"
+          @open-all="openErrorDetails"
         />
-      </div>
-
-      <!-- Alert Events -->
-      <OpsAlertEventsCard v-if="opsEnabled && showAlertEvents && !(loading && !hasLoadedOnce)" />
-
-      <!-- System Logs -->
-      <OpsSystemLogTable
-        v-if="opsEnabled && !(loading && !hasLoadedOnce)"
-        :platform-filter="platform"
-        :refresh-token="dashboardRefreshToken"
-      />
+        <OpsSlowRequests
+          :params="scopeParams"
+          :channels="channelOptions"
+          :refresh-token="dashboardRefreshToken"
+          @open-all="handleOpenRequestDetails({ title: t('admin.ops.page.slow.title'), kind: 'success', sort: 'ttft_desc' })"
+        />
+        <OpsSystemLogTable :time-params="timeParams" :refresh-token="dashboardRefreshToken" />
+      </template>
 
       <!-- Settings Dialog (hidden in fullscreen mode) -->
       <template v-if="!isFullscreen">
         <OpsSettingsDialog :show="showSettingsDialog" @close="showSettingsDialog = false" @saved="onSettingsSaved" />
 
+        <!-- 告警规则与历史告警事件放在一起 -->
         <BaseDialog :show="showAlertRulesCard" :title="t('admin.ops.alertRules.title')" width="extra-wide" @close="showAlertRulesCard = false">
           <OpsAlertRulesCard />
+          <div class="mt-6">
+            <OpsAlertEventsCard />
+          </div>
         </BaseDialog>
 
         <OpsErrorDetailsModal
@@ -111,7 +75,6 @@
           :time-range="timeRange"
           :custom-start-time="customStartTime"
           :custom-end-time="customEndTime"
-          :platform="platform"
           :error-type="errorDetailsType"
           :resume-state="resumeListState"
           @update:show="showErrorDetails = $event"
@@ -124,7 +87,6 @@
           v-model="showRequestDetails"
           :time-range="timeRange"
           :preset="requestDetailsPreset"
-          :platform="platform"
           :resume-state="resumeListState"
           @openErrorDetail="openError"
         />
@@ -140,28 +102,26 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import { adminAPI } from '@/api/admin'
 import {
   opsAPI,
   type OpsDashboardOverview,
-  type OpsErrorDistributionResponse,
+  type OpsDashboardParams,
   type OpsErrorTrendResponse,
-  type OpsLatencyHistogramResponse,
   type OpsThroughputTrendResponse,
   type OpsMetricThresholds
 } from '@/api/admin/ops'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
-import OpsDashboardHeader from './components/OpsDashboardHeader.vue'
-import OpsDashboardSkeleton from './components/OpsDashboardSkeleton.vue'
-import OpsConcurrencyCard from './components/OpsConcurrencyCard.vue'
+import OpsToolbar, { type OpsChannelOption } from './components/OpsToolbar.vue'
+import OpsSystemResources from './components/OpsSystemResources.vue'
+import OpsRequestPanel from './components/OpsRequestPanel.vue'
+import OpsChannelTable from './components/OpsChannelTable.vue'
+import OpsActiveAlerts from './components/OpsActiveAlerts.vue'
+import OpsRecentFailures from './components/OpsRecentFailures.vue'
+import OpsSlowRequests from './components/OpsSlowRequests.vue'
 import OpsErrorDetailModal from './components/OpsErrorDetailModal.vue'
-import OpsErrorDistributionChart from './components/OpsErrorDistributionChart.vue'
 import OpsErrorDetailsModal from './components/OpsErrorDetailsModal.vue'
-import OpsErrorTrendChart from './components/OpsErrorTrendChart.vue'
-import OpsLatencyChart from './components/OpsLatencyChart.vue'
-import OpsThroughputTrendChart from './components/OpsThroughputTrendChart.vue'
-import OpsSwitchRateTrendChart from './components/OpsSwitchRateTrendChart.vue'
 import OpsAlertEventsCard from './components/OpsAlertEventsCard.vue'
-import OpsOpenAITokenStatsCard from './components/OpsOpenAITokenStatsCard.vue'
 import OpsSystemLogTable from './components/OpsSystemLogTable.vue'
 import OpsRequestDetailsModal, { type OpsRequestDetailsPreset } from './components/OpsRequestDetailsModal.vue'
 import OpsSettingsDialog from './components/OpsSettingsDialog.vue'
@@ -181,22 +141,23 @@ type QueryMode = 'auto' | 'raw' | 'preagg'
 const allowedQueryModes = new Set<QueryMode>(['auto', 'raw', 'preagg'])
 
 const loading = ref(true)
-const hasLoadedOnce = ref(false)
 const errorMessage = ref('')
 const lastUpdated = ref<Date | null>(new Date())
 
 const timeRange = ref<TimeRange>('1h')
-const platform = ref<string>('')
+// 按模型、渠道收窄（2026-10-04 取代平台筛选）
+const model = ref<string>('')
+const accountId = ref<number | null>(null)
 const queryMode = ref<QueryMode>('auto')
 const customStartTime = ref<string | null>(null)
 const customEndTime = ref<string | null>(null)
-const switchTrendWindowHours = 5
-const switchTrendTimeRange = `${switchTrendWindowHours}h`
-const switchTrendWindowMs = switchTrendWindowHours * 60 * 60 * 1000
+const modelOptions = ref<string[]>([])
+const channelOptions = ref<OpsChannelOption[]>([])
 
 const QUERY_KEYS = {
   timeRange: 'tr',
-  platform: 'platform',
+  model: 'model',
+  accountId: 'account_id',
   queryMode: 'mode',
   fullscreen: 'fullscreen',
 
@@ -272,7 +233,9 @@ const applyRouteQueryToState = () => {
     timeRange.value = nextTimeRange as TimeRange
   }
 
-  platform.value = readQueryString(QUERY_KEYS.platform) || ''
+  model.value = readQueryString(QUERY_KEYS.model) || ''
+  const nextAccount = readQueryNumber(QUERY_KEYS.accountId)
+  accountId.value = typeof nextAccount === 'number' && nextAccount > 0 ? nextAccount : null
 
   const nextMode = readQueryString(QUERY_KEYS.queryMode)
   if (nextMode && allowedQueryModes.has(nextMode as QueryMode)) {
@@ -309,7 +272,8 @@ const buildQueryFromState = () => {
   })
 
   if (timeRange.value !== '1h') next[QUERY_KEYS.timeRange] = timeRange.value
-  if (platform.value) next[QUERY_KEYS.platform] = platform.value
+  if (model.value) next[QUERY_KEYS.model] = model.value
+  if (accountId.value) next[QUERY_KEYS.accountId] = String(accountId.value)
   if (queryMode.value !== 'auto') next[QUERY_KEYS.queryMode] = queryMode.value
 
   return next
@@ -338,19 +302,7 @@ const overview = ref<OpsDashboardOverview | null>(null)
 const metricThresholds = ref<OpsMetricThresholds | null>(null)
 
 const throughputTrend = ref<OpsThroughputTrendResponse | null>(null)
-const loadingTrend = ref(false)
-
-const switchTrend = ref<OpsThroughputTrendResponse | null>(null)
-const loadingSwitchTrend = ref(false)
-
-const latencyHistogram = ref<OpsLatencyHistogramResponse | null>(null)
-const loadingLatency = ref(false)
-
 const errorTrend = ref<OpsErrorTrendResponse | null>(null)
-const loadingErrorTrend = ref(false)
-
-const errorDistribution = ref<OpsErrorDistributionResponse | null>(null)
-const loadingErrorDistribution = ref(false)
 
 const selectedErrorId = ref<number | null>(null)
 const showErrorModal = ref(false)
@@ -378,8 +330,6 @@ const showAlertRulesCard = ref(false)
 applyRouteQueryToState()
 
 // Auto refresh settings
-const showAlertEvents = ref(true)
-const showOpenAITokenStats = ref(false)
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalMs = ref(30000) // default 30 seconds
 const autoRefreshCountdown = ref(0)
@@ -411,23 +361,15 @@ const { pause: pauseCountdown, resume: resumeCountdown } = useIntervalFn(
 async function loadDashboardAdvancedSettings() {
   try {
     const settings = await opsAPI.getAdvancedSettings()
-    showAlertEvents.value = settings.display_alert_events
-    showOpenAITokenStats.value = settings.display_openai_token_stats
     autoRefreshEnabled.value = settings.auto_refresh_enabled
     autoRefreshIntervalMs.value = settings.auto_refresh_interval_seconds * 1000
     autoRefreshCountdown.value = settings.auto_refresh_interval_seconds
   } catch (err) {
     console.error('[OpsDashboard] Failed to load dashboard advanced settings', err)
-    showAlertEvents.value = true
-    showOpenAITokenStats.value = false
     autoRefreshEnabled.value = false
     autoRefreshIntervalMs.value = 30000
     autoRefreshCountdown.value = 0
   }
-}
-
-function handleThroughputSelectPlatform(nextPlatform: string) {
-  platform.value = nextPlatform || ''
 }
 
 function handleOpenRequestDetails(preset?: OpsRequestDetailsPreset) {
@@ -470,16 +412,6 @@ async function onSettingsSaved() {
   fetchData()
 }
 
-function onPlatformChange(v: string | number | boolean | null) {
-  platform.value = typeof v === 'string' ? v : ''
-}
-
-function onQueryModeChange(v: string | number | boolean | null) {
-  if (typeof v !== 'string') return
-  if (!allowedQueryModes.has(v as QueryMode)) return
-  queryMode.value = v as QueryMode
-}
-
 function openError(id: number) {
   selectedErrorId.value = id
   // 记录来源列表，便于详情页"返回列表"。
@@ -488,6 +420,12 @@ function openError(id: number) {
   showErrorDetails.value = false
   showRequestDetails.value = false
   showErrorModal.value = true
+}
+
+// 「最近失败的请求」里点一行：换渠道恢复的是上游错误详情，其余是请求错误详情
+function openErrorFromList(id: number, type: 'request' | 'upstream') {
+  errorDetailsType.value = type
+  openError(id)
 }
 
 // 从单条错误详情返回其来源列表，重新打开关联弹窗（保留筛选/分页状态）。
@@ -510,174 +448,48 @@ function handleBackToList() {
   }, 0)
 }
 
-function buildApiParams() {
-  const params: any = {
-    platform: platform.value || undefined,
-    mode: queryMode.value
-  }
-
+// 时间范围参数：页头选的相对范围，或自定义起止时间
+const timeParams = computed<Pick<OpsDashboardParams, 'time_range' | 'start_time' | 'end_time'>>(() => {
   if (timeRange.value === 'custom') {
-    if (customStartTime.value && customEndTime.value) {
-      params.start_time = customStartTime.value
-      params.end_time = customEndTime.value
-    } else {
-      // Safety fallback: avoid sending time_range=custom (backend may not support it)
-      params.time_range = '1h'
-    }
-  } else {
-    params.time_range = timeRange.value
+    if (customStartTime.value && customEndTime.value) return { start_time: customStartTime.value, end_time: customEndTime.value }
+    return { time_range: '1h' }
   }
+  return { time_range: timeRange.value }
+})
 
-  return params
-}
+// 时间 + 模型 + 渠道：看板、失败列表、慢请求共用
+const scopeParams = computed(() => ({
+  ...timeParams.value,
+  model: model.value || undefined,
+  account_id: accountId.value ?? undefined
+}))
 
-function buildSwitchTrendParams() {
-  const params: any = {
-    platform: platform.value || undefined,
-    mode: queryMode.value
-  }
-  const endTime = new Date()
-  const startTime = new Date(endTime.getTime() - switchTrendWindowMs)
-  params.start_time = startTime.toISOString()
-  params.end_time = endTime.toISOString()
-  return params
-}
-
-async function refreshOverviewWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  try {
-    const data = await opsAPI.getDashboardOverview(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    overview.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    overview.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadOverview'), err)
-  }
-}
-
-async function refreshSwitchTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  loadingSwitchTrend.value = true
-  try {
-    const data = await opsAPI.getThroughputTrend(buildSwitchTrendParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    switchTrend.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    switchTrend.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadSwitchTrend'), err)
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingSwitchTrend.value = false
-    }
-  }
-}
-
-async function refreshThroughputTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  loadingTrend.value = true
-  try {
-    const data = await opsAPI.getThroughputTrend(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    throughputTrend.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    throughputTrend.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadThroughputTrend'), err)
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingTrend.value = false
-    }
-  }
+function buildApiParams(): OpsDashboardParams {
+  return { ...scopeParams.value, mode: queryMode.value }
 }
 
 async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSignal) {
   if (!opsEnabled.value) return
-  loadingTrend.value = true
-  loadingErrorTrend.value = true
-  try {
-    const data = await opsAPI.getDashboardSnapshotV2(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    overview.value = data.overview
-    throughputTrend.value = data.throughput_trend
-    errorTrend.value = data.error_trend
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    // Fallback to legacy split endpoints when snapshot endpoint is unavailable.
-    await Promise.all([
-      refreshOverviewWithCancel(fetchSeq, signal),
-      refreshThroughputTrendWithCancel(fetchSeq, signal),
-      refreshErrorTrendWithCancel(fetchSeq, signal)
-    ])
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingTrend.value = false
-      loadingErrorTrend.value = false
-    }
-  }
+  const data = await opsAPI.getDashboardSnapshotV2(buildApiParams(), { signal })
+  if (fetchSeq !== dashboardFetchSeq) return
+  overview.value = data.overview
+  throughputTrend.value = data.throughput_trend
+  errorTrend.value = data.error_trend
 }
 
-async function refreshLatencyHistogramWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  loadingLatency.value = true
+// 模型下拉：近 7 天有流量的模型（与用量页同一来源）
+async function loadModelOptions() {
+  const end = new Date()
+  const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000)
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   try {
-    const data = await opsAPI.getLatencyHistogram(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    latencyHistogram.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    latencyHistogram.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadLatencyHistogram'), err)
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingLatency.value = false
-    }
+    const res = await adminAPI.dashboard.getModelStats({ start_date: ymd(start), end_date: ymd(end), model_source: 'requested' })
+    const names = new Set((res.models || []).map((m) => m.model).filter(Boolean))
+    if (model.value) names.add(model.value)
+    modelOptions.value = [...names].sort()
+  } catch (err) {
+    console.error('[OpsDashboard] failed to load model options', err)
   }
-}
-
-async function refreshErrorTrendWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  loadingErrorTrend.value = true
-  try {
-    const data = await opsAPI.getErrorTrend(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    errorTrend.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    errorTrend.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadErrorTrend'), err)
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingErrorTrend.value = false
-    }
-  }
-}
-
-async function refreshErrorDistributionWithCancel(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  loadingErrorDistribution.value = true
-  try {
-    const data = await opsAPI.getErrorDistribution(buildApiParams(), { signal })
-    if (fetchSeq !== dashboardFetchSeq) return
-    errorDistribution.value = data
-  } catch (err: any) {
-    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
-    errorDistribution.value = null
-    console.error(err?.message || t('admin.ops.failedToLoadErrorDistribution'), err)
-  } finally {
-    if (fetchSeq === dashboardFetchSeq) {
-      loadingErrorDistribution.value = false
-    }
-  }
-}
-
-async function refreshDeferredPanels(fetchSeq: number, signal: AbortSignal) {
-  if (!opsEnabled.value) return
-  await Promise.all([
-    refreshLatencyHistogramWithCancel(fetchSeq, signal),
-    refreshErrorDistributionWithCancel(fetchSeq, signal)
-  ])
 }
 
 function isOpsDisabledError(err: unknown): boolean {
@@ -701,10 +513,7 @@ async function fetchData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    await Promise.all([
-      refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal),
-      refreshSwitchTrendWithCancel(fetchSeq, dashboardFetchController.signal),
-    ])
+    await refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal)
     if (fetchSeq !== dashboardFetchSeq) return
 
     lastUpdated.value = new Date()
@@ -716,10 +525,8 @@ async function fetchData() {
     if (autoRefreshEnabled.value) {
       autoRefreshCountdown.value = Math.floor(autoRefreshIntervalMs.value / 1000)
     }
-
-    // Defer non-core visual panels to reduce initial blocking.
-    void refreshDeferredPanels(fetchSeq, dashboardFetchController.signal)
   } catch (err) {
+    if (fetchSeq !== dashboardFetchSeq || isCanceledRequest(err)) return
     if (!isOpsDisabledError(err)) {
       console.error('[ops] failed to fetch dashboard data', err)
       errorMessage.value = t('admin.ops.failedToLoadData')
@@ -727,13 +534,12 @@ async function fetchData() {
   } finally {
     if (fetchSeq === dashboardFetchSeq) {
       loading.value = false
-      hasLoadedOnce.value = true
     }
   }
 }
 
 watch(
-  () => [timeRange.value, platform.value, queryMode.value] as const,
+  () => [timeRange.value, model.value, accountId.value, queryMode.value, customStartTime.value, customEndTime.value] as const,
   () => {
     if (isApplyingRouteQuery.value) return
     if (opsEnabled.value) {
@@ -749,14 +555,15 @@ watch(
     if (isSyncingRouteQuery.value) return
 
     const prevTimeRange = timeRange.value
-    const prevPlatform = platform.value
+    const prevModel = model.value
+    const prevAccount = accountId.value
 
     isApplyingRouteQuery.value = true
     applyRouteQueryToState()
     isApplyingRouteQuery.value = false
 
     const changed =
-      prevTimeRange !== timeRange.value || prevPlatform !== platform.value
+      prevTimeRange !== timeRange.value || prevModel !== model.value || prevAccount !== accountId.value
     if (changed) {
       if (opsEnabled.value) {
         fetchData()
@@ -780,6 +587,7 @@ onMounted(async () => {
 
   // Load auto refresh settings
   await loadDashboardAdvancedSettings()
+  void loadModelOptions()
 
   if (opsEnabled.value) {
     await fetchData()

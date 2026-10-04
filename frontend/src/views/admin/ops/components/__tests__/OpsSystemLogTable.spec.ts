@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import OpsSystemLogTable from '../OpsSystemLogTable.vue'
+import OpsRuntimeLogConfigDialog from '../OpsRuntimeLogConfigDialog.vue'
 import enLocale from '@/i18n/locales/en'
 import zhLocale from '@/i18n/locales/zh'
 
@@ -51,6 +52,20 @@ const PaginationStub = defineComponent({
   template: '<div class="pagination-stub" />',
 })
 
+// 清理改成页面内确认（2026-10-04）：打开时给一个「确认」按钮
+const ConfirmDialogStub = defineComponent({
+  name: 'ConfirmDialogStub',
+  props: { show: Boolean },
+  emits: ['confirm', 'cancel'],
+  template: '<button v-if="show" class="confirm-stub" @click="$emit(\'confirm\')">confirm</button>',
+})
+
+const BaseDialogStub = defineComponent({
+  name: 'BaseDialogStub',
+  props: { show: Boolean },
+  template: '<div v-if="show"><slot /></div>',
+})
+
 const runtimeConfig = {
   level: 'info',
   persist_access_logs: false,
@@ -97,16 +112,22 @@ describe('OpsSystemLogTable host support', () => {
 
   it('renders the host and sends it with list and cleanup filters', async () => {
     const wrapper = mount(OpsSystemLogTable, {
+      props: { timeParams: { time_range: '1h' } },
       global: {
         stubs: {
           Select: SelectStub,
           Pagination: PaginationStub,
+          ConfirmDialog: ConfirmDialogStub,
+          OpsRuntimeLogConfigDialog: true,
         },
       },
     })
     await flushPromises()
 
     expect(wrapper.text()).toContain('api-node-1')
+
+    // 主机等筛选收在「更多筛选」里
+    await wrapper.findAll('button').find((button) => button.text().startsWith('admin.ops.page.logs.moreFilters'))!.trigger('click')
 
     const hostLabel = wrapper.findAll('label').find((label) => label.text().includes('admin.ops.systemLogs.host'))
     expect(hostLabel).toBeDefined()
@@ -122,17 +143,24 @@ describe('OpsSystemLogTable host support', () => {
     const cleanupButton = wrapper.findAll('button').find((button) => button.text() === 'admin.ops.systemLogs.cleanCurrentFilters')
     expect(cleanupButton).toBeDefined()
     await cleanupButton!.trigger('click')
+    await wrapper.find('.confirm-stub').trigger('click')
     await flushPromises()
 
-    expect(mockCleanupSystemLogs).toHaveBeenCalledWith(expect.objectContaining({ host: 'api-node-2' }))
+    // 页头是相对时间范围时，清理也带上换算出的起止时间，不会删到范围外
+    expect(mockCleanupSystemLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ host: 'api-node-2', start_time: expect.any(String), end_time: expect.any(String) }),
+    )
   })
 
+  // 运行时日志配置挪进「日志配置」弹窗（2026-10-04）
   it('keeps database access-log persistence opt-in', async () => {
-    const wrapper = mount(OpsSystemLogTable, {
+    const wrapper = mount(OpsRuntimeLogConfigDialog, {
+      props: { show: true },
       global: {
         stubs: {
           Select: SelectStub,
-          Pagination: PaginationStub,
+          BaseDialog: BaseDialogStub,
+          ConfirmDialog: true,
         },
       },
     })

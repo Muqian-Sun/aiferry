@@ -4,7 +4,7 @@
  * - Dashboard overview (raw path)
  */
 
-import { apiClient, buildGatewayUrl } from '../client'
+import { apiClient } from '../client'
 import type { PaginatedResponse } from '@/types'
 
 export type OpsQueryMode = 'auto' | 'raw' | 'preagg'
@@ -50,6 +50,8 @@ export interface OpsDashboardOverview {
   upstream_error_count_excl_429_529: number
   upstream_429_count: number
   upstream_529_count: number
+  /** 上游出错、换渠道后成功的请求数（用户没受影响，不算失败） */
+  upstream_recovered_count: number
 
   qps: {
     current: number
@@ -82,6 +84,9 @@ export interface OpsThroughputTrendPoint {
   switch_count?: number
   qps: number
   tps: number
+  /** 这个时间段成功请求的首字延迟分位数，没有样本时为空 */
+  ttft_p50_ms?: number | null
+  ttft_p99_ms?: number | null
 }
 
 export interface OpsThroughputPlatformBreakdownItem {
@@ -151,19 +156,7 @@ export interface OpsRequestDetailsParams {
 
 export type OpsRequestDetailsResponse = PaginatedResponse<OpsRequestDetail>
 
-export interface OpsLatencyHistogramBucket {
-  range: string
-  count: number
-}
 
-export interface OpsLatencyHistogramResponse {
-  start_time: string
-  end_time: string
-  platform: string
-
-  total_requests: number
-  buckets: OpsLatencyHistogramBucket[]
-}
 
 export interface OpsErrorTrendPoint {
   bucket_start: string
@@ -173,6 +166,10 @@ export interface OpsErrorTrendPoint {
   upstream_error_count_excl_429_529: number
   upstream_429_count: number
   upstream_529_count: number
+  /** 用户收到错误的里面：上游导致的、没选到渠道的；以及上游出错、换渠道后成功的（不算失败） */
+  upstream_failed_count: number
+  routing_failed_count: number
+  recovered_count: number
 }
 
 export interface OpsErrorTrendResponse {
@@ -180,17 +177,7 @@ export interface OpsErrorTrendResponse {
   points: OpsErrorTrendPoint[]
 }
 
-export interface OpsErrorDistributionItem {
-  status_code: number
-  total: number
-  sla: number
-  business_limited: number
-}
 
-export interface OpsErrorDistributionResponse {
-  total: number
-  items: OpsErrorDistributionItem[]
-}
 
 export interface OpsDashboardSnapshotV2Response {
   generated_at: string
@@ -199,37 +186,9 @@ export interface OpsDashboardSnapshotV2Response {
   error_trend: OpsErrorTrendResponse
 }
 
-export type OpsOpenAITokenStatsTimeRange = '30m' | '1h' | '1d' | '15d' | '30d'
 
-export interface OpsOpenAITokenStatsItem {
-  model: string
-  request_count: number
-  avg_tokens_per_sec?: number | null
-  avg_first_token_ms?: number | null
-  total_output_tokens: number
-  avg_duration_ms: number
-  requests_with_first_token: number
-}
 
-export interface OpsOpenAITokenStatsResponse {
-  time_range: OpsOpenAITokenStatsTimeRange
-  start_time: string
-  end_time: string
-  platform?: string
-  items: OpsOpenAITokenStatsItem[]
-  total: number
-  page?: number
-  page_size?: number
-  top_n?: number | null
-}
 
-export interface OpsOpenAITokenStatsParams {
-  time_range?: OpsOpenAITokenStatsTimeRange
-  platform?: string
-  page?: number
-  page_size?: number
-  top_n?: number
-}
 
 export interface OpsSystemMetricsSnapshot {
   id: number
@@ -296,21 +255,7 @@ export interface OpsConcurrencyStatsResponse {
   timestamp?: string
 }
 
-export interface UserConcurrencyInfo {
-  user_id: number
-  user_email: string
-  username: string
-  current_in_use: number
-  max_capacity: number
-  load_percentage: number
-  waiting_in_queue: number
-}
 
-export interface OpsUserConcurrencyStatsResponse {
-  enabled: boolean
-  user: Record<string, UserConcurrencyInfo>
-  timestamp?: string
-}
 
 export async function getConcurrencyStats(platform?: string): Promise<OpsConcurrencyStatsResponse> {
   const params: Record<string, any> = {}
@@ -322,10 +267,6 @@ export async function getConcurrencyStats(platform?: string): Promise<OpsConcurr
   return data
 }
 
-export async function getUserConcurrencyStats(): Promise<OpsUserConcurrencyStatsResponse> {
-  const { data } = await apiClient.get<OpsUserConcurrencyStatsResponse>('/admin/ops/user-concurrency')
-  return data
-}
 
 export interface PlatformAvailability {
   platform: string
@@ -373,250 +314,11 @@ export interface OpsRateSummary {
   avg: number
 }
 
-export interface OpsRealtimeTrafficSummary {
-  window: string
-  start_time: string
-  end_time: string
-  platform: string
-  qps: OpsRateSummary
-  tps: OpsRateSummary
-}
 
-export interface OpsRealtimeTrafficSummaryResponse {
-  enabled: boolean
-  summary: OpsRealtimeTrafficSummary | null
-  timestamp?: string
-}
 
-export async function getRealtimeTrafficSummary(
-  window: string,
-  platform?: string
-): Promise<OpsRealtimeTrafficSummaryResponse> {
-  const params: Record<string, any> = { window }
-  if (platform) {
-    params.platform = platform
-  }
 
-  const { data } = await apiClient.get<OpsRealtimeTrafficSummaryResponse>('/admin/ops/realtime-traffic', { params })
-  return data
-}
 
-/**
- * Subscribe to realtime QPS updates via WebSocket.
- *
- * Note: browsers cannot set Authorization headers for WebSockets.
- * We authenticate via Sec-WebSocket-Protocol using a prefixed token item:
- *   ["sub2api-admin", "jwt.<token>"]
- */
-export interface SubscribeQPSOptions {
-  token?: string | null
-  onOpen?: () => void
-  onClose?: (event: CloseEvent) => void
-  onError?: (event: Event) => void
-  /**
-   * Called when the server closes with an application close code that indicates
-   * reconnecting is not useful (e.g. feature flag disabled).
-   */
-  onFatalClose?: (event: CloseEvent) => void
-  /**
-   * More granular status updates for UI (connecting/reconnecting/offline/etc).
-   */
-  onStatusChange?: (status: OpsWSStatus) => void
-  /**
-   * Called when a reconnect is scheduled (helps display "retry in Xs").
-   */
-  onReconnectScheduled?: (info: { attempt: number, delayMs: number }) => void
-  wsBaseUrl?: string
-  /**
-   * Maximum reconnect attempts. Defaults to Infinity to keep the dashboard live.
-   * Set to 0 to disable reconnect.
-   */
-  maxReconnectAttempts?: number
-  reconnectBaseDelayMs?: number
-  reconnectMaxDelayMs?: number
-  /**
-   * Stale connection detection (heartbeat-by-observation).
-   * If no messages are received within this window, the socket is closed to trigger a reconnect.
-   * Set to 0 to disable.
-   */
-  staleTimeoutMs?: number
-  /**
-   * How often to check staleness. Only used when `staleTimeoutMs > 0`.
-   */
-  staleCheckIntervalMs?: number
-}
 
-export type OpsWSStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline' | 'closed'
-
-export const OPS_WS_CLOSE_CODES = {
-  REALTIME_DISABLED: 4001
-} as const
-
-const OPS_WS_BASE_PROTOCOL = 'sub2api-admin'
-
-export function subscribeQPS(onMessage: (data: any) => void, options: SubscribeQPSOptions = {}): () => void {
-  let ws: WebSocket | null = null
-  let reconnectAttempts = 0
-  const maxReconnectAttempts = Number.isFinite(options.maxReconnectAttempts as number)
-    ? (options.maxReconnectAttempts as number)
-    : Infinity
-  const baseDelayMs = options.reconnectBaseDelayMs ?? 1000
-  const maxDelayMs = options.reconnectMaxDelayMs ?? 30000
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  let shouldReconnect = true
-  let isConnecting = false
-  let hasConnectedOnce = false
-  let lastMessageAt = 0
-  const staleTimeoutMs = options.staleTimeoutMs ?? 120_000
-  const staleCheckIntervalMs = options.staleCheckIntervalMs ?? 30_000
-  let staleTimer: ReturnType<typeof setInterval> | null = null
-
-  const setStatus = (status: OpsWSStatus) => {
-    options.onStatusChange?.(status)
-  }
-
-  const clearReconnectTimer = () => {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
-    }
-  }
-
-  const clearStaleTimer = () => {
-    if (staleTimer) {
-      clearInterval(staleTimer)
-      staleTimer = null
-    }
-  }
-
-  const startStaleTimer = () => {
-    clearStaleTimer()
-    if (!staleTimeoutMs || staleTimeoutMs <= 0) return
-    staleTimer = setInterval(() => {
-      if (!shouldReconnect) return
-      if (!ws || ws.readyState !== WebSocket.OPEN) return
-      if (!lastMessageAt) return
-      const ageMs = Date.now() - lastMessageAt
-      if (ageMs > staleTimeoutMs) {
-        // Treat as a half-open connection; closing triggers the normal reconnect path.
-        ws.close()
-      }
-    }, staleCheckIntervalMs)
-  }
-
-  const scheduleReconnect = () => {
-    if (!shouldReconnect) return
-    if (hasConnectedOnce && reconnectAttempts >= maxReconnectAttempts) return
-
-    // If we're offline, wait for the browser to come back online.
-    if (typeof navigator !== 'undefined' && 'onLine' in navigator && !navigator.onLine) {
-      setStatus('offline')
-      return
-    }
-
-    const expDelay = baseDelayMs * Math.pow(2, reconnectAttempts)
-    const delay = Math.min(expDelay, maxDelayMs)
-    const jitter = Math.floor(Math.random() * 250)
-    clearReconnectTimer()
-    reconnectTimer = setTimeout(() => {
-      reconnectAttempts++
-      connect()
-    }, delay + jitter)
-    options.onReconnectScheduled?.({ attempt: reconnectAttempts + 1, delayMs: delay + jitter })
-  }
-
-  const handleOnline = () => {
-    if (!shouldReconnect) return
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
-    connect()
-  }
-
-  const handleOffline = () => {
-    setStatus('offline')
-  }
-
-  const connect = () => {
-    if (!shouldReconnect) return
-    if (isConnecting) return
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
-    if (hasConnectedOnce && reconnectAttempts >= maxReconnectAttempts) return
-
-    isConnecting = true
-    setStatus(hasConnectedOnce ? 'reconnecting' : 'connecting')
-    const wsBaseUrl = options.wsBaseUrl || import.meta.env.VITE_WS_BASE_URL
-    const wsURL = wsBaseUrl
-      ? new URL(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${wsBaseUrl}/api/v1/admin/ops/ws/qps`)
-      : new URL(buildGatewayUrl('/api/v1/admin/ops/ws/qps').replace(/^http/, 'ws'))
-
-    // Do NOT put admin JWT in the URL query string (it can leak via access logs, proxies, etc).
-    // Browsers cannot set Authorization headers for WebSockets, so we pass the token via
-    // Sec-WebSocket-Protocol (subprotocol list): ["sub2api-admin", "jwt.<token>"].
-    const rawToken = String(options.token ?? localStorage.getItem('auth_token') ?? '').trim()
-    const protocols: string[] = [OPS_WS_BASE_PROTOCOL]
-    if (rawToken) protocols.push(`jwt.${rawToken}`)
-
-    ws = new WebSocket(wsURL.toString(), protocols)
-
-    ws.onopen = () => {
-      reconnectAttempts = 0
-      isConnecting = false
-      hasConnectedOnce = true
-      clearReconnectTimer()
-      lastMessageAt = Date.now()
-      startStaleTimer()
-      setStatus('connected')
-      options.onOpen?.()
-    }
-
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        lastMessageAt = Date.now()
-        onMessage(data)
-      } catch (err) {
-        console.warn('[OpsWS] Failed to parse message:', err)
-      }
-    }
-
-    ws.onerror = (error) => {
-      console.error('[OpsWS] Connection error:', error)
-      options.onError?.(error)
-    }
-
-    ws.onclose = (event) => {
-      isConnecting = false
-      options.onClose?.(event)
-      clearStaleTimer()
-      ws = null
-
-      // If the server explicitly tells us to stop reconnecting, honor it.
-      if (event && typeof event.code === 'number' && event.code === OPS_WS_CLOSE_CODES.REALTIME_DISABLED) {
-        shouldReconnect = false
-        clearReconnectTimer()
-        setStatus('closed')
-        options.onFatalClose?.(event)
-        return
-      }
-
-      scheduleReconnect()
-    }
-  }
-
-  window.addEventListener('online', handleOnline)
-  window.addEventListener('offline', handleOffline)
-  connect()
-
-  return () => {
-    shouldReconnect = false
-    window.removeEventListener('online', handleOnline)
-    window.removeEventListener('offline', handleOffline)
-    clearReconnectTimer()
-    clearStaleTimer()
-    if (ws) ws.close()
-    ws = null
-    setStatus('closed')
-  }
-}
 
 export type OpsSeverity = string
 export type OpsPhase = string
@@ -906,31 +608,19 @@ export interface OpsErrorDetail extends OpsErrorLog {
 
 export type OpsErrorLogsResponse = PaginatedResponse<OpsErrorLog>
 
-export async function getDashboardOverview(
-  params: {
+/** 运维看板的通用筛选：时间范围之外按模型（目录模型标识）、渠道收窄（2026-10-04，平台筛选去掉）。 */
+export interface OpsDashboardParams {
   time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
   start_time?: string
   end_time?: string
-  platform?: string
+  model?: string
+  account_id?: number
   mode?: OpsQueryMode
-  },
-  options: OpsRequestOptions = {}
-): Promise<OpsDashboardOverview> {
-  const { data } = await apiClient.get<OpsDashboardOverview>('/admin/ops/dashboard/overview', {
-    params,
-    signal: options.signal
-  })
-  return data
 }
 
+
 export async function getDashboardSnapshotV2(
-  params: {
-  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
-  start_time?: string
-  end_time?: string
-  platform?: string
-  mode?: OpsQueryMode
-  },
+  params: OpsDashboardParams,
   options: OpsRequestOptions = {}
 ): Promise<OpsDashboardSnapshotV2Response> {
   const { data } = await apiClient.get<OpsDashboardSnapshotV2Response>('/admin/ops/dashboard/snapshot-v2', {
@@ -940,84 +630,10 @@ export async function getDashboardSnapshotV2(
   return data
 }
 
-export async function getThroughputTrend(
-  params: {
-  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
-  start_time?: string
-  end_time?: string
-  platform?: string
-  mode?: OpsQueryMode
-  },
-  options: OpsRequestOptions = {}
-): Promise<OpsThroughputTrendResponse> {
-  const { data } = await apiClient.get<OpsThroughputTrendResponse>('/admin/ops/dashboard/throughput-trend', {
-    params,
-    signal: options.signal
-  })
-  return data
-}
 
-export async function getLatencyHistogram(
-  params: {
-  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
-  start_time?: string
-  end_time?: string
-  platform?: string
-  mode?: OpsQueryMode
-  },
-  options: OpsRequestOptions = {}
-): Promise<OpsLatencyHistogramResponse> {
-  const { data } = await apiClient.get<OpsLatencyHistogramResponse>('/admin/ops/dashboard/latency-histogram', {
-    params,
-    signal: options.signal
-  })
-  return data
-}
 
-export async function getErrorTrend(
-  params: {
-  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
-  start_time?: string
-  end_time?: string
-  platform?: string
-  mode?: OpsQueryMode
-  },
-  options: OpsRequestOptions = {}
-): Promise<OpsErrorTrendResponse> {
-  const { data } = await apiClient.get<OpsErrorTrendResponse>('/admin/ops/dashboard/error-trend', {
-    params,
-    signal: options.signal
-  })
-  return data
-}
 
-export async function getErrorDistribution(
-  params: {
-  time_range?: '5m' | '30m' | '1h' | '6h' | '24h'
-  start_time?: string
-  end_time?: string
-  platform?: string
-  mode?: OpsQueryMode
-  },
-  options: OpsRequestOptions = {}
-): Promise<OpsErrorDistributionResponse> {
-  const { data } = await apiClient.get<OpsErrorDistributionResponse>('/admin/ops/dashboard/error-distribution', {
-    params,
-    signal: options.signal
-  })
-  return data
-}
 
-export async function getOpenAITokenStats(
-  params: OpsOpenAITokenStatsParams,
-  options: OpsRequestOptions = {}
-): Promise<OpsOpenAITokenStatsResponse> {
-  const { data } = await apiClient.get<OpsOpenAITokenStatsResponse>('/admin/ops/dashboard/openai-token-stats', {
-    params,
-    signal: options.signal
-  })
-  return data
-}
 
 export type OpsErrorListView = 'errors' | 'excluded' | 'all'
 
@@ -1244,17 +860,8 @@ async function updateMetricThresholds(thresholds: OpsMetricThresholds): Promise<
 
 export const opsAPI = {
   getDashboardSnapshotV2,
-  getDashboardOverview,
-  getThroughputTrend,
-  getLatencyHistogram,
-  getErrorTrend,
-  getErrorDistribution,
-  getOpenAITokenStats,
   getConcurrencyStats,
-  getUserConcurrencyStats,
   getAccountAvailabilityStats,
-  getRealtimeTrafficSummary,
-  subscribeQPS,
 
   // Legacy unified endpoints
   listErrorLogs,

@@ -10,8 +10,7 @@ describe('admin platform filters', () => {
   it('uses the concrete platform catalog wherever concrete platforms are selected', () => {
     for (const path of [
       'src/components/admin/account/AccountTableFilters.vue',
-      'src/components/admin/ErrorPassthroughRulesModal.vue',
-      'src/views/admin/ops/components/OpsDashboardHeader.vue'
+      'src/components/admin/ErrorPassthroughRulesModal.vue'
     ]) {
       const source = readSource(path)
       expect(source).toContain("import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'")
