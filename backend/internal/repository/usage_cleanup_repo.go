@@ -12,6 +12,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbusagecleanuptask "github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -323,6 +324,18 @@ func (r *usageCleanupRepository) DeleteUsageLogsBatch(ctx context.Context, filte
 	return deleted, nil
 }
 
+func (r *usageCleanupRepository) CountUsageLogs(ctx context.Context, filters service.UsageCleanupFilters) (int64, error) {
+	if filters.StartTime.IsZero() || filters.EndTime.IsZero() {
+		return 0, fmt.Errorf("cleanup filters missing time range")
+	}
+	whereClause, args := buildUsageCleanupWhere(filters)
+	var count int64
+	if err := scanSingleRow(ctx, r.sql, "SELECT COUNT(*) FROM usage_logs WHERE "+whereClause, args, &count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB, whereClause string, args []any) (int64, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -373,57 +386,39 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 	return deleted, nil
 }
 
+// buildUsageCleanupWhere 清理条件 → WHERE：转成用量页的筛选，与列表共用 usageLogFilterConditions。
+// 模型按请求的模型匹配，与管理站用量页（handler 里 ModelFilterSource = requested）一致。
 func buildUsageCleanupWhere(filters service.UsageCleanupFilters) (string, []any) {
-	conditions := make([]string, 0, 8)
-	args := make([]any, 0, 8)
-	idx := 1
-	if !filters.StartTime.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", idx))
-		args = append(args, filters.StartTime)
-		idx++
-	}
-	if !filters.EndTime.IsZero() {
-		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", idx))
-		args = append(args, filters.EndTime)
-		idx++
+	logFilters := UsageLogFilters{
+		ModelFilterSource:     usagestats.ModelSourceRequested,
+		RequestType:           filters.RequestType,
+		Stream:                filters.Stream,
+		NativeCompactionV2:    filters.NativeCompactionV2,
+		BillingType:           filters.BillingType,
+		UpstreamModelMismatch: filters.UpstreamModelMismatch,
 	}
 	if filters.UserID != nil {
-		conditions = append(conditions, fmt.Sprintf("user_id = $%d", idx))
-		args = append(args, *filters.UserID)
-		idx++
+		logFilters.UserID = *filters.UserID
 	}
 	if filters.APIKeyID != nil {
-		conditions = append(conditions, fmt.Sprintf("api_key_id = $%d", idx))
-		args = append(args, *filters.APIKeyID)
-		idx++
+		logFilters.APIKeyID = *filters.APIKeyID
 	}
 	if filters.AccountID != nil {
-		conditions = append(conditions, fmt.Sprintf("account_id = $%d", idx))
-		args = append(args, *filters.AccountID)
-		idx++
+		logFilters.AccountID = *filters.AccountID
 	}
 	if filters.Model != nil {
-		model := strings.TrimSpace(*filters.Model)
-		if model != "" {
-			conditions = append(conditions, fmt.Sprintf("model = $%d", idx))
-			args = append(args, model)
-			idx++
-		}
+		logFilters.Model = *filters.Model
 	}
-	if filters.RequestType != nil {
-		condition, conditionArgs := buildRequestTypeFilterCondition(idx, *filters.RequestType)
-		conditions = append(conditions, condition)
-		args = append(args, conditionArgs...)
-		idx += len(conditionArgs)
-	} else if filters.Stream != nil {
-		conditions = append(conditions, fmt.Sprintf("stream = $%d", idx))
-		args = append(args, *filters.Stream)
-		idx++
+	if filters.BillingMode != nil {
+		logFilters.BillingMode = *filters.BillingMode
 	}
-	if filters.BillingType != nil {
-		conditions = append(conditions, fmt.Sprintf("billing_type = $%d", idx))
-		args = append(args, *filters.BillingType)
+	if !filters.StartTime.IsZero() {
+		logFilters.StartTime = &filters.StartTime
 	}
+	if !filters.EndTime.IsZero() {
+		logFilters.EndTime = &filters.EndTime
+	}
+	conditions, args := usageLogFilterConditions(logFilters)
 	return strings.Join(conditions, " AND "), args
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
@@ -420,7 +421,7 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatch(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("DELETE FROM usage_logs").
-		WithArgs(start, end, userID, "gpt-4", 2).
+		WithArgs(userID, " gpt-4 ", start, end, 2).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(start.Add(time.Hour)).AddRow(start.Add(2 * time.Hour)))
 	mock.ExpectCommit()
 
@@ -449,29 +450,59 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+// 清理与用量页列表同一套 WHERE：模型按请求的模型匹配、时间半开区间、页面上的每个筛选都带上（2026-10-04 D8）
 func TestBuildUsageCleanupWhere(t *testing.T) {
 	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 	userID := int64(1)
 	apiKeyID := int64(2)
 	accountID := int64(3)
-	model := " gpt-4 "
+	model := "gpt-4"
 	stream := true
+	compaction := true
 	billingType := int8(2)
+	billingMode := "video"
+	mismatch := true
 
 	where, args := buildUsageCleanupWhere(service.UsageCleanupFilters{
-		StartTime:   start,
-		EndTime:     end,
-		UserID:      &userID,
-		APIKeyID:    &apiKeyID,
-		AccountID:   &accountID,
-		Model:       &model,
-		Stream:      &stream,
-		BillingType: &billingType,
+		StartTime:             start,
+		EndTime:               end,
+		UserID:                &userID,
+		APIKeyID:              &apiKeyID,
+		AccountID:             &accountID,
+		Model:                 &model,
+		Stream:                &stream,
+		NativeCompactionV2:    &compaction,
+		BillingType:           &billingType,
+		BillingMode:           &billingMode,
+		UpstreamModelMismatch: &mismatch,
 	})
 
-	require.Equal(t, "created_at >= $1 AND created_at <= $2 AND user_id = $3 AND api_key_id = $4 AND account_id = $5 AND model = $6 AND stream = $7 AND billing_type = $8", where)
-	require.Equal(t, []any{start, end, userID, apiKeyID, accountID, "gpt-4", stream, billingType}, args)
+	require.Equal(t, "user_id = $1 AND api_key_id = $2 AND account_id = $3"+
+		" AND COALESCE(NULLIF(TRIM(requested_model), ''), model) = $4 AND stream = $5 AND native_compaction_v2 = $6"+
+		" AND billing_type = $7 AND billing_mode = $8 AND upstream_model_mismatch IS TRUE"+
+		" AND created_at >= $9 AND created_at < $10", where)
+	require.Equal(t, []any{userID, apiKeyID, accountID, "gpt-4", stream, compaction, int16(billingType), "video", start, end}, args)
+}
+
+// 同一组条件，清理与用量页列表（handler 里 ModelFilterSource = requested）拼出的 WHERE 逐字相同
+func TestBuildUsageCleanupWhereMatchesAdminUsageList(t *testing.T) {
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	userID := int64(7)
+	model := "claude-sonnet-4-6"
+	requestType := int16(service.RequestTypeStream)
+	billingMode := "token"
+
+	cleanupWhere, cleanupArgs := buildUsageCleanupWhere(service.UsageCleanupFilters{
+		StartTime: start, EndTime: end, UserID: &userID, Model: &model, RequestType: &requestType, BillingMode: &billingMode,
+	})
+	listConditions, listArgs := usageLogFilterConditions(UsageLogFilters{
+		UserID: userID, Model: model, ModelFilterSource: usagestats.ModelSourceRequested, RequestType: &requestType,
+		BillingMode: billingMode, StartTime: &start, EndTime: &end,
+	})
+	require.Equal(t, buildWhere(listConditions), "WHERE "+cleanupWhere)
+	require.Equal(t, listArgs, cleanupArgs)
 }
 
 func TestBuildUsageCleanupWhereRequestTypePriority(t *testing.T) {
@@ -487,8 +518,8 @@ func TestBuildUsageCleanupWhereRequestTypePriority(t *testing.T) {
 		Stream:      &stream,
 	})
 
-	require.Equal(t, "created_at >= $1 AND created_at <= $2 AND (request_type = $3 OR (request_type = 0 AND openai_ws_mode = TRUE))", where)
-	require.Equal(t, []any{start, end, requestType}, args)
+	require.Equal(t, "(request_type = $1 OR (request_type = 0 AND openai_ws_mode = TRUE)) AND created_at >= $2 AND created_at < $3", where)
+	require.Equal(t, []any{requestType, start, end}, args)
 }
 
 func TestBuildUsageCleanupWhereRequestTypeLegacyFallback(t *testing.T) {
@@ -502,8 +533,8 @@ func TestBuildUsageCleanupWhereRequestTypeLegacyFallback(t *testing.T) {
 		RequestType: &requestType,
 	})
 
-	require.Equal(t, "created_at >= $1 AND created_at <= $2 AND (request_type = $3 OR (request_type = 0 AND stream = TRUE AND openai_ws_mode = FALSE))", where)
-	require.Equal(t, []any{start, end, requestType}, args)
+	require.Equal(t, "(request_type = $1 OR (request_type = 0 AND stream = TRUE AND openai_ws_mode = FALSE)) AND created_at >= $2 AND created_at < $3", where)
+	require.Equal(t, []any{requestType, start, end}, args)
 }
 
 func TestBuildUsageCleanupWhereModelEmpty(t *testing.T) {
@@ -517,6 +548,27 @@ func TestBuildUsageCleanupWhereModelEmpty(t *testing.T) {
 		Model:     &model,
 	})
 
-	require.Equal(t, "created_at >= $1 AND created_at <= $2", where)
+	require.Equal(t, "created_at >= $1 AND created_at < $2", where)
 	require.Equal(t, []any{start, end}, args)
+}
+
+func TestUsageCleanupRepositoryCountUsageLogs(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageCleanupRepository{sql: db}
+
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	userID := int64(3)
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM usage_logs WHERE user_id = \$1 AND created_at >= \$2 AND created_at < \$3$`).
+		WithArgs(userID, start, end).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(17)))
+
+	count, err := repo.CountUsageLogs(context.Background(), service.UsageCleanupFilters{StartTime: start, EndTime: end, UserID: &userID})
+	require.NoError(t, err)
+	require.Equal(t, int64(17), count)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	_, err = repo.CountUsageLogs(context.Background(), service.UsageCleanupFilters{})
+	require.Error(t, err)
 }

@@ -2,7 +2,7 @@
   <div :class="flat ? 'py-4' : 'card p-6'">
     <!--
       第一行只露四个：用户、API 密钥、模型、渠道；其余（请求类型、计费…；错误页签是错误类型 / 分类 / 状态码）
-      收在「更多筛选」里，点开才出现，收起时按钮上写着其中生效了几个。清理弹窗要把删除范围全摆出来，不收。
+      收在「更多筛选」里，点开才出现，收起时按钮上写着其中生效了几个。
       右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7）。
       控件上方不写标签（A8，与用户站用量页一致）：标签文字进 title；没选时占位写「全部 xx」——值是 undefined 时
       下拉匹配不到 null 那一项，不给占位会显示「请选择」。
@@ -22,6 +22,7 @@
 
         <!-- 先选了用户时只列该用户的密钥 -->
         <EntityPicker
+          ref="apiKeyPickerRef"
           kind="apiKey"
           class="usage-filter-dropdown w-full sm:w-48"
           :title="t('usage.apiKeyFilter')"
@@ -37,6 +38,7 @@
 
         <!-- Channel Filter -->
         <EntityPicker
+          ref="channelPickerRef"
           kind="channel"
           class="usage-filter-dropdown w-full sm:w-48"
           :title="t('admin.usage.account')"
@@ -45,7 +47,6 @@
         />
 
         <button
-          v-if="mode !== 'cleanup'"
           type="button"
           class="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-13 transition-colors hover:bg-af-sunken hover:text-af-ink"
           :class="moreOpen || activeMoreCount > 0 ? 'text-af-ink' : 'text-af-ink-3'"
@@ -67,8 +68,8 @@
       </div>
     </div>
 
-    <!-- 更多筛选：点开才出现（清理弹窗一直摆着） -->
-    <div v-show="mode === 'cleanup' || moreOpen" class="mt-3 flex flex-wrap items-center gap-2" data-testid="usage-filter-more-row">
+    <!-- 更多筛选：点开才出现 -->
+    <div v-show="moreOpen" class="mt-3 flex flex-wrap items-center gap-2" data-testid="usage-filter-more-row">
       <!-- Request Type Filter (usage only) -->
       <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.type')">
         <Select v-model="filters.request_type" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
@@ -132,9 +133,8 @@ interface Props {
   /**
    * usage 模式:明细页签的全部条件
    * errors 模式:隐藏用量专属字段,显示错误类型 / 分类 / 状态码(错误页签用)
-   * cleanup 模式:只留清理接口认的条件(用户 / Key / 模型 / 渠道 / 请求类型 / 计费类型),弹窗里显示的就是要删的范围
    */
-  mode?: 'usage' | 'errors' | 'cleanup'
+  mode?: 'usage' | 'errors'
   /** 嵌入页面内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -154,6 +154,8 @@ const { t } = useI18n()
 const filters = toRef(props, 'modelValue')
 
 const userPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)
+const apiKeyPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)
+const channelPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)
 
 const modelOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allModels') },
@@ -227,7 +229,6 @@ const MORE_FILTER_KEYS: Record<'usage' | 'errors', string[]> = {
   errors: ['error_phase', 'error_category', 'status_code'],
 }
 const activeMoreCount = computed(() => {
-  if (props.mode === 'cleanup') return 0
   return MORE_FILTER_KEYS[props.mode].filter((key) => {
     const value = filters.value[key]
     return value !== null && value !== undefined && value !== ''
@@ -272,5 +273,34 @@ const setUserKeyword = (email: string) => userPickerRef.value?.setKeyword(email)
 
 const getUserSearchRevision = () => userPickerRef.value?.getRevision() ?? 0
 
-defineExpose({ getUserSearchRevision, setUserKeyword })
+interface UsageFilterCondition {
+  label: string
+  value: string
+}
+
+const optionLabel = (options: SelectOption[], value: unknown) =>
+  options.find((option) => option.value === value)?.label ?? String(value)
+
+/**
+ * 明细页签当前生效的条件（不含时间范围），按界面上的名字写：清理弹窗据此告诉管理员要删的是哪批（2026-10-04 D8）。
+ * 用户 / 密钥 / 渠道写选中项的名字，不写内部 id。
+ */
+const describeUsageConditions = (): UsageFilterCondition[] => {
+  const f = filters.value
+  const isSet = (value: unknown) => value !== null && value !== undefined && value !== ''
+  const conditions: UsageFilterCondition[] = []
+  const add = (label: string, value: string) => conditions.push({ label, value })
+  if (isSet(f.user_id)) add(t('admin.usage.userFilter'), userPickerRef.value?.getSelectedLabel() || '—')
+  if (isSet(f.api_key_id)) add(t('usage.apiKeyFilter'), apiKeyPickerRef.value?.getSelectedLabel() || '—')
+  if (isSet(f.model)) add(t('usage.model'), f.model)
+  if (isSet(f.account_id)) add(t('admin.usage.account'), channelPickerRef.value?.getSelectedLabel() || '—')
+  if (isSet(f.request_type)) add(t('usage.type'), optionLabel(requestTypeOptions.value, f.request_type))
+  if (isSet(f.native_compaction_v2)) add(t('usage.compactionFilter'), optionLabel(compactionOptions.value, f.native_compaction_v2))
+  if (isSet(f.billing_type)) add(t('admin.usage.billingType'), optionLabel(billingTypeOptions.value, f.billing_type))
+  if (isSet(f.billing_mode)) add(t('admin.usage.billingMode'), optionLabel(billingModeOptions.value, f.billing_mode))
+  if (isSet(f.upstream_model_mismatch)) add(t('admin.usage.upstreamModelAudit'), optionLabel(upstreamModelMismatchOptions.value, f.upstream_model_mismatch))
+  return conditions
+}
+
+defineExpose({ getUserSearchRevision, setUserKeyword, describeUsageConditions })
 </script>

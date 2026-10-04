@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -71,8 +72,17 @@ func describeUsageCleanupFilters(filters UsageCleanupFilters) string {
 	if filters.Stream != nil {
 		parts = append(parts, fmt.Sprintf("stream=%t", *filters.Stream))
 	}
+	if filters.NativeCompactionV2 != nil {
+		parts = append(parts, fmt.Sprintf("native_compaction_v2=%t", *filters.NativeCompactionV2))
+	}
 	if filters.BillingType != nil {
 		parts = append(parts, fmt.Sprintf("billing_type=%d", *filters.BillingType))
+	}
+	if filters.BillingMode != nil {
+		parts = append(parts, "billing_mode="+*filters.BillingMode)
+	}
+	if filters.UpstreamModelMismatch != nil {
+		parts = append(parts, fmt.Sprintf("upstream_model_mismatch=%t", *filters.UpstreamModelMismatch))
 	}
 	return strings.Join(parts, " ")
 }
@@ -149,6 +159,21 @@ func (s *UsageCleanupService) CreateTask(ctx context.Context, filters UsageClean
 	logger.LegacyPrintf("service.usage_cleanup", "[UsageCleanup] create_task persisted: task=%d operator=%d status=%s deleted_rows=%d %s", task.ID, createdBy, task.Status, task.DeletedRows, describeUsageCleanupFilters(filters))
 	go s.runOnce()
 	return task, nil
+}
+
+// CountMatching 数出按这组条件会删掉多少条：校验与 CreateTask 相同，确认弹窗先显示条数再让管理员删（2026-10-04 D8）。
+func (s *UsageCleanupService) CountMatching(ctx context.Context, filters UsageCleanupFilters) (int64, error) {
+	if s == nil || s.repo == nil {
+		return 0, fmt.Errorf("cleanup service not ready")
+	}
+	if s.cfg != nil && !s.cfg.UsageCleanup.Enabled {
+		return 0, infraerrors.New(http.StatusServiceUnavailable, "USAGE_CLEANUP_DISABLED", "usage cleanup is disabled")
+	}
+	sanitizeUsageCleanupFilters(&filters)
+	if err := s.validateFilters(filters); err != nil {
+		return 0, err
+	}
+	return s.repo.CountUsageLogs(ctx, filters)
 }
 
 func (s *UsageCleanupService) runOnce() {
@@ -287,16 +312,17 @@ func (s *UsageCleanupService) isTaskCanceled(ctx context.Context, taskID int64) 
 
 func (s *UsageCleanupService) validateFilters(filters UsageCleanupFilters) error {
 	if filters.StartTime.IsZero() || filters.EndTime.IsZero() {
-		return infraerrors.BadRequest("USAGE_CLEANUP_MISSING_RANGE", "start_date and end_date are required")
+		return infraerrors.BadRequest("USAGE_CLEANUP_MISSING_RANGE", "time range is required")
 	}
-	if filters.EndTime.Before(filters.StartTime) {
-		return infraerrors.BadRequest("USAGE_CLEANUP_INVALID_RANGE", "end_date must be after start_date")
+	if !filters.EndTime.After(filters.StartTime) {
+		return infraerrors.BadRequest("USAGE_CLEANUP_INVALID_RANGE", "end must be after start")
 	}
 	maxDays := s.maxRangeDays()
 	if maxDays > 0 {
 		delta := filters.EndTime.Sub(filters.StartTime)
 		if delta > time.Duration(maxDays)*24*time.Hour {
-			return infraerrors.BadRequest("USAGE_CLEANUP_RANGE_TOO_LARGE", fmt.Sprintf("date range exceeds %d days", maxDays))
+			return infraerrors.BadRequest("USAGE_CLEANUP_RANGE_TOO_LARGE", fmt.Sprintf("date range exceeds %d days", maxDays)).
+				WithMetadata(map[string]string{"max_days": strconv.Itoa(maxDays)})
 		}
 	}
 	return nil
@@ -377,6 +403,14 @@ func sanitizeUsageCleanupFilters(filters *UsageCleanupFilters) {
 	}
 	if filters.BillingType != nil && *filters.BillingType < 0 {
 		filters.BillingType = nil
+	}
+	if filters.BillingMode != nil {
+		mode := strings.TrimSpace(*filters.BillingMode)
+		if mode == "" {
+			filters.BillingMode = nil
+		} else {
+			filters.BillingMode = &mode
+		}
 	}
 }
 

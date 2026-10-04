@@ -79,6 +79,8 @@ const { t } = useI18n()
 
 const rootRef = ref<HTMLElement | null>(null)
 const keyword = ref('')
+/** 已选中项的名字：输入框里的字可能是还没选的搜索词，要显示「选了谁」看这个 */
+const selectedLabel = ref('')
 const results = ref<PickerOption[]>([])
 const open = ref(false)
 /** 当前关键字已经搜过一次（没结果时显示「没有匹配项」，而不是空框） */
@@ -156,6 +158,7 @@ const onFocus = () => {
 const select = (option: PickerOption) => {
   cancelPendingSearch()
   keyword.value = option.label
+  selectedLabel.value = option.label
   open.value = false
   emit('update:modelValue', option.id)
 }
@@ -163,6 +166,7 @@ const select = (option: PickerOption) => {
 const resetInput = () => {
   cancelPendingSearch()
   keyword.value = ''
+  selectedLabel.value = ''
   results.value = []
   searched.value = false
   open.value = false
@@ -207,6 +211,7 @@ onUnmounted(() => {
 const setKeyword = (label: string) => {
   cancelPendingSearch()
   keyword.value = label
+  selectedLabel.value = label
   results.value = []
   searched.value = false
   open.value = false
@@ -214,5 +219,7 @@ const setKeyword = (label: string) => {
 
 const getRevision = () => revision
 
-defineExpose({ setKeyword, getRevision })
+const getSelectedLabel = () => selectedLabel.value
+
+defineExpose({ setKeyword, getRevision, getSelectedLabel })
 </script>
