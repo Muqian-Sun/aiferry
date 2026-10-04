@@ -13,20 +13,26 @@
         </div>
       </div>
       <div><label class="input-label">{{ t('admin.users.notes') }}</label><textarea v-model="form.notes" rows="3" class="input"></textarea></div>
-      <div v-if="form.amount > 0" class="rounded-xl border border-af-hairline bg-af-sunken p-4"><div class="flex items-center justify-between text-sm"><span class="text-af-ink-2">{{ t('admin.users.newBalance') }}:</span><span class="font-bold text-af-ink">{{ formatMoneyExact(calculateNewBalance()) }}</span></div></div>
+      <div v-if="form.amount > 0" class="rounded-xl border border-af-hairline bg-af-sunken p-4">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-af-ink-2">{{ t('admin.users.newBalance') }}:</span>
+          <span v-if="exceedsBalance" class="font-medium text-af-danger" data-testid="balance-exceeds">{{ t('admin.users.insufficientBalance') }}</span>
+          <span v-else class="font-bold text-af-ink">{{ formatMoneyExact(calculateNewBalance()) }}</span>
+        </div>
+      </div>
     </form>
     <template #footer>
       <div class="flex w-full flex-wrap items-center justify-end gap-3">
         <FormError class="mr-auto min-w-0 flex-1" :message="error" />
         <button @click="$emit('close')" class="btn btn-secondary">{{ t('common.cancel') }}</button>
-        <button type="submit" form="balance-form" :disabled="submitting || !form.amount" class="btn" :class="operation === 'add' ? 'btn-primary' : 'btn-danger'">{{ submitting ? t('common.saving') : t('common.confirm') }}</button>
+        <button type="submit" form="balance-form" :disabled="submitting || !form.amount || exceedsBalance" class="btn" :class="operation === 'add' ? 'btn-primary' : 'btn-danger'">{{ submitting ? t('common.saving') : t('common.confirm') }}</button>
       </div>
     </template>
   </BaseDialog>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
@@ -44,6 +50,11 @@ const submitting = ref(false); const form = reactive({ amount: 0, notes: '' })
 // 报错显示在弹窗底部（原来只打到控制台）
 const error = ref('')
 watch(() => props.show, (v) => { if(v) { form.amount = 0; form.notes = ''; error.value = '' } })
+// 改了金额，上一次提交的报错就过时了（例如余额不足改回合法值后不该还挂着）
+watch(() => form.amount, () => { error.value = '' })
+
+// 扣减超过当前余额：预览处直接标出来、不让提交，不等点了确认才报
+const exceedsBalance = computed(() => props.operation === 'subtract' && !!props.user && form.amount > props.user.balance)
 
 // 填入全部余额
 const fillAllBalance = () => {
@@ -65,8 +76,7 @@ const handleBalanceSubmit = async () => {
     error.value = t('admin.users.amountRequired')
     return
   }
-  // 扣减余额时验证金额不超过实际余额
-  if (props.operation === 'subtract' && form.amount > props.user.balance) {
+  if (exceedsBalance.value) {
     error.value = t('admin.users.insufficientBalance')
     return
   }
