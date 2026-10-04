@@ -42,20 +42,7 @@
       <section data-testid="key-drawer-trend">
         <div class="mb-3 flex items-center justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('keys.detail.trendTitle') }}</h3>
-          <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('keys.detail.trendTitle')">
-            <button
-              v-for="option in metricOptions"
-              :key="option.key"
-              type="button"
-              role="tab"
-              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-              :class="metric === option.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-              :aria-selected="metric === option.key"
-              @click="metric = option.key"
-            >
-              {{ option.label }}
-            </button>
-          </div>
+          <SegmentedControl v-model="metric" :options="metricOptions" :label="t('keys.detail.trendTitle')" />
         </div>
         <StatusState
           v-if="trendError"
@@ -153,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usageAPI } from '@/api'

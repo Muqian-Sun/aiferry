@@ -7,7 +7,7 @@
   -->
   <AppLayout>
     <div v-if="loading" class="flex items-center justify-center py-12">
-      <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
+      <LoadingSpinner />
     </div>
 
     <!-- 加载失败：说清楚并给重试；保存按钮在失败时是禁用的，不说明会让人以为页面坏了 -->
@@ -88,6 +88,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 // 系统设置页（A6 拆小节）：状态与逻辑在 settings/useSettingsPage.ts，provide 给 settings/sections/*Section.vue；
 // 本页只剩二级导航、小节外壳（表单 + 保存栏）、离开提醒与弹窗。当前小节来自路由 /settings/:section。
 import { computed, onBeforeUnmount, onMounted, provide, reactive } from 'vue'

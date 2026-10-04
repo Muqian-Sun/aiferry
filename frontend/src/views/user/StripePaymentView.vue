@@ -3,7 +3,7 @@
   <component :is="isPopup ? 'div' : SiteShell" :class="isPopup ? 'min-h-screen bg-af-sunken px-4 py-8' : ''">
     <div class="mx-auto max-w-lg space-y-6" :class="isPopup ? 'rounded-lg border border-af-hairline bg-af-sheet p-6' : ''">
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-af-brand border-t-transparent"></div>
+        <LoadingSpinner />
       </div>
       <div v-else-if="initError" class="py-8 text-center">
         <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-af-danger-tint">
@@ -43,7 +43,7 @@
         <template v-else-if="redirecting">
           <div class="py-6">
             <div class="flex flex-col items-center space-y-4 py-4">
-              <div class="h-10 w-10 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"></div>
+              <LoadingSpinner />
               <p class="text-sm text-af-ink-3">{{ t('payment.qr.payInNewWindowHint') }}</p>
             </div>
           </div>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'

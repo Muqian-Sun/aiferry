@@ -2,6 +2,7 @@ export default {
   pricing: {
     description: '官方价与每个渠道的上游价。给模型加一个渠道，就是让这个渠道承接这个模型。',
     views: {
+      label: '查看方式',
       model: '按模型',
       channel: '按渠道'
     },

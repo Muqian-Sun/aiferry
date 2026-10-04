@@ -7,7 +7,7 @@
   <div>
     <div :class="['space-y-8', mode === 'recharge' || selectedPlan ? 'max-w-form' : '']">
       <div v-if="loading" class="flex items-center justify-center py-16" role="status" aria-busy="true">
-        <div class="h-6 w-6 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
+        <LoadingSpinner />
       </div>
 
       <!-- 支付中：充值与订阅共用 -->
@@ -220,6 +220,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'

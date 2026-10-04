@@ -71,7 +71,7 @@
         </form>
 
         <div v-if="loading" class="flex justify-center py-6">
-          <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
+          <LoadingSpinner />
         </div>
 
         <p v-else-if="credentials.length === 0 && enabled" class="text-13 text-af-ink-3">
@@ -175,6 +175,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'

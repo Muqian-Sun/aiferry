@@ -9,9 +9,17 @@
   <SiteShell>
     <template #actions>
       <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" :preset="datePreset" @change="onDateRangeChange" />
-      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="onRefresh">
-        <Icon name="refresh" size="sm" />
-        {{ t('common.refresh') }}
+      <!-- 与其它页面一样只放图标（悬停有提示），加载时转动 -->
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="loading"
+        :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
+        data-testid="usage-refresh"
+        @click="onRefresh"
+      >
+        <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>
       <PopoverMenu width-class="w-44">
         <template #trigger="{ open }">

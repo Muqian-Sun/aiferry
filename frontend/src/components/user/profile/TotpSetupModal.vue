@@ -18,7 +18,7 @@
         <div v-if="step === 0" class="space-y-6">
           <!-- Loading verification method -->
           <div v-if="methodLoading" class="flex items-center justify-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-af-brand"></div>
+            <LoadingSpinner />
           </div>
 
           <template v-else>
@@ -164,6 +164,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import CopyButton from '@/components/common/CopyButton.vue'
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'

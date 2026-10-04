@@ -11,8 +11,9 @@
       <button
         @click="loadApiKeys({ refreshAttention: true })"
         :disabled="loading"
-        class="btn btn-ghost btn-md"
+        class="btn btn-ghost btn-md px-2.5"
         :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
       >
         <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>

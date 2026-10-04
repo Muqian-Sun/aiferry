@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-af-sunken px-4 py-10">
     <div class="mx-auto max-w-2xl">
       <div v-if="isProcessing" class="rounded-lg border border-af-hairline bg-af-sheet p-6 text-center">
-        <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
+        <LoadingSpinner class="mx-auto" />
         <h1 class="mt-4 text-lg font-semibold text-af-ink">
           {{ t('auth.oauth.callbackTitle') }}
         </h1>
@@ -130,6 +130,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

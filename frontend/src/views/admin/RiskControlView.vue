@@ -1,9 +1,15 @@
 <template>
   <AppLayout>
     <template v-if="!loading" #header-actions>
-      <button type="button" class="btn btn-secondary btn-md" :disabled="statusLoading" @click="loadStatus(false)">
-        <Icon name="refresh" size="sm" :class="statusLoading ? 'animate-spin' : ''" />
-        {{ t('admin.riskControl.refreshStatus') }}
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="statusLoading"
+        :title="t('admin.riskControl.refreshStatus')"
+        :aria-label="t('admin.riskControl.refreshStatus')"
+        @click="loadStatus(false)"
+      >
+        <Icon name="refresh" size="md" :class="statusLoading ? 'animate-spin' : ''" />
       </button>
       <button type="button" class="btn btn-primary btn-md" @click="openSettings">
         <Icon name="cog" size="sm" />
@@ -13,7 +19,7 @@
 
     <div class="space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-16">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
+        <LoadingSpinner />
       </div>
 
       <template v-else>
@@ -1052,6 +1058,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'

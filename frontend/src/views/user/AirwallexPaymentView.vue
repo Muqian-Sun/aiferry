@@ -2,7 +2,7 @@
   <SiteShell>
     <div class="mx-auto max-w-lg space-y-6 py-8">
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-af-success border-t-transparent"></div>
+        <LoadingSpinner />
       </div>
 
       <div v-else-if="errorMessage" class="py-8 text-center">
@@ -16,7 +16,7 @@
 
       <div v-else class="py-6">
         <div class="flex flex-col items-center space-y-4 py-4">
-          <div class="h-10 w-10 animate-spin rounded-full border-4 border-af-success border-t-transparent"></div>
+          <LoadingSpinner />
           <p class="text-sm text-af-ink-3">{{ t('payment.qr.payInNewWindowHint') }}</p>
         </div>
       </div>
@@ -25,6 +25,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'

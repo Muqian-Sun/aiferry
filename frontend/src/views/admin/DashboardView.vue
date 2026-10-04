@@ -23,7 +23,7 @@
         data-testid="dashboard-refresh"
         @click="loadDashboardStats"
       >
-        <Icon name="refresh" size="md" />
+        <Icon name="refresh" size="md" :class="loading || chartsLoading ? 'animate-spin' : ''" />
       </button>
     </template>
 
@@ -43,13 +43,14 @@
             class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start"
             :data-testid="`dashboard-row-${row.key}`"
           >
-            <p class="w-16 shrink-0 pt-1 text-13 font-medium text-af-ink-3">{{ row.title }}</p>
+            <p class="w-16 shrink-0 text-13 font-medium text-af-ink-2">{{ row.title }}</p>
+            <!-- 标签在上、数字在下：与用量页、各列表页的数字带同一种排法（原来这里数字在上） -->
             <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-              <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
-                <dd class="truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</dd>
-                <dt class="mt-0.5 truncate text-xs text-af-ink-3" :title="cell.title">
-                  {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-3"> · {{ cell.hint }}</span>
+              <div v-for="cell in row.cells" :key="cell.key" class="flex min-w-0 flex-col">
+                <dt class="truncate text-13 text-af-ink-3" :title="cell.title">
+                  {{ cell.label }}<span v-if="cell.hint"> · {{ cell.hint }}</span>
                 </dt>
+                <dd class="mt-1 truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</dd>
               </div>
             </dl>
           </div>
@@ -79,20 +80,7 @@
 
       <SheetSection :title="t('admin.dashboard.usageTrend')" data-testid="dashboard-trend">
         <template #actions>
-          <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.dashboard.usageTrend')">
-            <button
-              v-for="tab in trendTabs"
-              :key="tab.key"
-              type="button"
-              role="tab"
-              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-              :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-              :aria-selected="trendMetric === tab.key"
-              @click="trendMetric = tab.key"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <SegmentedControl v-model="trendMetric" :options="trendTabs" :label="t('admin.dashboard.usageTrend')" />
         </template>
         <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
       </SheetSection>
@@ -117,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'

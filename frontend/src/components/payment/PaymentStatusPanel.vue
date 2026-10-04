@@ -70,10 +70,7 @@
       <template v-if="!deepLinkFallbackVisible">
         <div class="p-6">
           <div class="flex flex-col items-center space-y-4 py-4 text-center">
-            <div
-              v-if="deepLinkState === 'launching'"
-              class="h-10 w-10 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"
-            ></div>
+            <LoadingSpinner v-if="deepLinkState === 'launching'" />
             <div
               v-else
               class="flex h-12 w-12 items-center justify-center rounded-full bg-af-brand-tint"
@@ -197,7 +194,7 @@
     <template v-else>
       <div class="p-6">
         <div class="flex flex-col items-center space-y-4 py-4">
-          <div class="h-10 w-10 animate-spin rounded-full border-4 border-af-brand border-t-transparent"></div>
+          <LoadingSpinner />
           <p class="text-sm text-af-ink-3">{{ t('payment.qr.payInNewWindowHint') }}</p>
           <button v-if="payUrl" class="btn btn-secondary text-sm" @click="reopenPopup">
             {{ t('payment.qr.openPayWindow') }}
@@ -217,6 +214,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePaymentStore } from '@/stores/payment'

@@ -5,20 +5,13 @@
   -->
   <AppLayout>
     <template #header-actions>
-      <div class="inline-flex overflow-hidden rounded-lg border border-af-hairline-strong" role="tablist">
-        <button
-          v-for="option in viewOptions"
-          :key="option.value"
-          type="button"
-          role="tab"
-          :aria-selected="view === option.value"
-          :class="['px-3 py-1.5 text-13 transition-colors', view === option.value ? 'bg-af-ink text-af-sheet' : 'text-af-ink-2 hover:bg-af-sunken']"
-          :data-testid="`pricing-view-${option.value}`"
-          @click="requestView(option.value)"
-        >
-          {{ option.label }}
-        </button>
-      </div>
+      <SegmentedControl
+        :model-value="view"
+        :options="viewOptions"
+        :label="t('admin.pricing.views.label')"
+        test-id-prefix="pricing-view"
+        @update:model-value="requestView"
+      />
     </template>
 
     <div class="space-y-4">
@@ -108,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
@@ -210,8 +204,8 @@ const dirtyCount = computed(() => dirtyModelCount.value + dirtyChannelCount.valu
 // ---- 视图与筛选（?view=channel、?model=<模型 ID>、?channel=<渠道 ID> 可从别的页面直接跳过来）
 const view = ref<View>(route.query.view === 'channel' || route.query.channel ? 'channel' : 'model')
 const viewOptions = computed(() => [
-  { value: 'model' as View, label: t('admin.pricing.views.model') },
-  { value: 'channel' as View, label: t('admin.pricing.views.channel') }
+  { key: 'model' as View, label: t('admin.pricing.views.model') },
+  { key: 'channel' as View, label: t('admin.pricing.views.channel') }
 ])
 const search = ref(typeof route.query.model === 'string' ? route.query.model : '')
 const channelFilter = ref<number | null>(typeof route.query.channel === 'string' ? Number(route.query.channel) || null : null)

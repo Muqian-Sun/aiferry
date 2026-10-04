@@ -4,9 +4,7 @@
     <div class="custom-page-layout">
       <div class="relative min-h-0 flex-1 overflow-hidden">
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
-          <div
-            class="h-8 w-8 animate-spin rounded-full border-2 border-af-brand border-t-transparent"
-          ></div>
+          <LoadingSpinner />
         </div>
 
         <div
@@ -127,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useResizeObserver } from '@vueuse/core'

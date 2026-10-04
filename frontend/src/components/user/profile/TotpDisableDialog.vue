@@ -21,7 +21,7 @@
 
         <!-- Loading verification method -->
         <div v-if="methodLoading" class="flex items-center justify-center py-8">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-af-brand"></div>
+          <LoadingSpinner />
         </div>
 
         <form v-else @submit.prevent="handleDisable" class="space-y-4">
@@ -85,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { totpAPI } from '@/api'
