@@ -306,6 +306,7 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="errorMessage" />
         <button type="button" class="btn btn-secondary" @click="handleClose">
           {{ t('common.cancel') }}
         </button>
@@ -354,6 +355,8 @@ import type {
   AccountType
 } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -427,6 +430,7 @@ const enableRpmLimit = ref(false)
 
 // State - field values
 const submitting = ref(false)
+const errorMessage = ref('')
 const interceptWarmupRequests = ref(false)
 // 请求头覆写：覆写表里有条目就生效（渠道级开关已删）。开 = 用下方条目整表替换，关 = 清空所选渠道的覆写表
 const headerOverrideEnabled = ref(false)
@@ -505,8 +509,9 @@ const handleClose = () => {
 }
 
 const handleSubmit = async () => {
+  errorMessage.value = ''
   if (targetMode.value === 'selected' && props.accountIds.length === 0) {
-    console.error(t('admin.accounts.bulkEdit.noSelection'))
+    errorMessage.value = t('admin.accounts.bulkEdit.noSelection')
     return
   }
 
@@ -520,7 +525,7 @@ const handleSubmit = async () => {
     enableRpmLimit.value
 
   if (!hasAnyFieldEnabled) {
-    console.error(t('admin.accounts.bulkEdit.noFieldsSelected'))
+    errorMessage.value = t('admin.accounts.bulkEdit.noFieldsSelected')
     return
   }
 
@@ -528,19 +533,19 @@ const handleSubmit = async () => {
     // 批量保存对 header_overrides 是整键替换：开启但没有任何有效行会把所选账号的
     // 既有覆写配置静默清空，必须显式拦截（清空请走关闭开关的路径，有专门提示）
     if (!headerOverrideRows.value.some((row) => row.name.trim())) {
-      console.error(t('admin.accounts.headerOverride.bulkEmptyRows'))
+      errorMessage.value = t('admin.accounts.headerOverride.bulkEmptyRows')
       return
     }
     const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
     if (headerError) {
-      console.error(t(`admin.accounts.headerOverride.${headerError}`))
+      errorMessage.value = t(`admin.accounts.headerOverride.${headerError}`)
       return
     }
   }
 
   const built = buildUpdatePayload()
   if (!built) {
-    console.error(t('admin.accounts.bulkEdit.noFieldsSelected'))
+    errorMessage.value = t('admin.accounts.bulkEdit.noFieldsSelected')
     return
   }
 
@@ -560,18 +565,17 @@ const submitBulkUpdate = async (updates: Record<string, unknown>) => {
     const success = res.success || 0
     const failed = res.failed || 0
 
-    if (success > 0 && failed > 0) {
-      console.error(t('admin.accounts.bulkEdit.partialSuccess', { success, failed }))
-    } else if (success === 0) {
-      console.error(t('admin.accounts.bulkEdit.failed'))
-    }
-
-    if (success > 0) {
-      emit('updated')
+    if (success > 0) emit('updated')
+    if (success > 0 && failed === 0) {
       handleClose()
+    } else {
+      // 部分失败也留在弹窗里，让人看到哪部分没成（列表已经按成功的那部分刷新）
+      errorMessage.value = success > 0
+        ? t('admin.accounts.bulkEdit.partialSuccess', { success, failed })
+        : t('admin.accounts.bulkEdit.failed')
     }
   } catch (error: any) {
-    console.error('Error bulk updating accounts:', error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.accounts.bulkEdit.failed'))
   } finally {
     submitting.value = false
   }
@@ -582,6 +586,7 @@ watch(
   () => props.show,
   (newShow) => {
     if (!newShow) {
+      errorMessage.value = ''
       // Reset all enable flags
       enableInterceptWarmup.value = false
       enableHeaderOverride.value = false

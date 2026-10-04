@@ -8,6 +8,10 @@ import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsSystemLog, type OpsSystemLogQuery, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import FormSuccess from '@/components/common/FormSuccess.vue'
+import { useTransientMessage } from '@/composables/useTransientMessage'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
@@ -28,6 +32,8 @@ const props = withDefaults(defineProps<{
 })
 
 const loading = ref(false)
+const errorMessage = ref('')
+const cleanupDone = useTransientMessage(4000)
 const logs = ref<OpsSystemLog[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -164,6 +170,7 @@ const filterPayload = () => ({
 
 const fetchLogs = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const res = await opsAPI.listSystemLogs({
       page: page.value,
@@ -176,7 +183,7 @@ const fetchLogs = async () => {
     logs.value = res.items || []
     total.value = res.total || 0
   } catch (err: any) {
-    console.error('[OpsSystemLogTable] Failed to fetch logs', err)
+    errorMessage.value = extractApiErrorMessage(err, t('admin.ops.systemLogs.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -201,11 +208,12 @@ const cleanupCurrentFilter = async () => {
       end = now.toISOString()
       start = new Date(now.getTime() - parseTimeRangeMinutes(props.timeParams.time_range || '1h') * 60_000).toISOString()
     }
-    await opsAPI.cleanupSystemLogs({ ...filterPayload(), start_time: toRFC3339(start), end_time: toRFC3339(end) })
+    const { deleted } = await opsAPI.cleanupSystemLogs({ ...filterPayload(), start_time: toRFC3339(start), end_time: toRFC3339(end) })
     page.value = 1
     await Promise.all([fetchLogs(), fetchHealth()])
+    cleanupDone.show(t('admin.ops.systemLogs.cleanupSuccess', { count: deleted }))
   } catch (err: any) {
-    console.error('[OpsSystemLogTable] Failed to cleanup logs', err)
+    errorMessage.value = extractApiErrorMessage(err, t('admin.ops.systemLogs.cleanupFailed'))
   }
 }
 
@@ -328,6 +336,8 @@ const hasData = computed(() => logs.value.length > 0)
     </div>
 
     <div>
+      <FormError class="px-4 pt-3" :message="errorMessage" />
+      <FormSuccess class="px-4 pt-3" :message="cleanupDone.message.value" />
       <div v-if="loading" class="px-4 py-8 text-center text-sm text-af-ink-3">{{ t('common.loading') }}</div>
       <div v-else-if="!hasData" class="px-4 py-8 text-center text-sm text-af-ink-3">{{ t('admin.ops.systemLogs.empty') }}</div>
       <div v-else-if="!isDesktopViewport" class="divide-y divide-af-hairline">

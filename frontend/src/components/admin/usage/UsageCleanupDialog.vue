@@ -29,7 +29,7 @@
             </i18n-t>
           </span>
         </p>
-        <p v-if="submitError" class="text-sm text-af-danger">{{ submitError }}</p>
+        <FormError :message="submitError" />
         <p v-if="submitted" class="text-sm text-af-ink-2">{{ t('admin.usage.cleanup.submitted') }}</p>
       </section>
 
@@ -44,6 +44,7 @@
         </div>
 
         <div class="mt-3 space-y-2">
+          <FormError :message="tasksError" />
           <div v-if="tasksLoading" class="text-sm text-af-ink-3">
             {{ t('admin.usage.cleanup.loadingTasks') }}
           </div>
@@ -133,6 +134,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import { adminUsageAPI } from '@/api/admin/usage'
@@ -167,6 +169,8 @@ const previewError = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
 const submitError = ref('')
+// 任务列表加载 / 停止任务的失败显示在任务列表上方
+const tasksError = ref('')
 const cancelConfirmVisible = ref(false)
 const canceling = ref(false)
 const cancelTarget = ref<UsageCleanupTask | null>(null)
@@ -277,6 +281,7 @@ const formatRange = (task: UsageCleanupTask) => {
 const loadTasks = async () => {
   if (!props.show) return
   tasksLoading.value = true
+  tasksError.value = ''
   try {
     const res = await adminUsageAPI.listCleanupTasks({
       page: tasksPage.value,
@@ -291,7 +296,7 @@ const loadTasks = async () => {
       tasksPageSize.value = res.page_size
     }
   } catch (error) {
-    console.error('Failed to load cleanup tasks:', error)
+    tasksError.value = errorMessage(error, 'admin.usage.cleanup.loadFailed')
   } finally {
     tasksLoading.value = false
   }
@@ -343,11 +348,12 @@ const cancelTask = async () => {
   }
   canceling.value = true
   cancelConfirmVisible.value = false
+  tasksError.value = ''
   try {
     await adminUsageAPI.cancelCleanupTask(task.id)
     loadTasks()
   } catch (error) {
-    console.error('Failed to cancel cleanup task:', error)
+    tasksError.value = errorMessage(error, 'admin.usage.cleanup.cancelFailed')
   } finally {
     canceling.value = false
     cancelTarget.value = null

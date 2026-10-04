@@ -89,7 +89,8 @@
 
     <template #footer>
       <div class="flex flex-wrap items-center justify-end gap-3">
-        <p v-if="confirmDisabledReason" class="mr-auto text-xs text-af-ink-3" data-test="confirm-disabled-reason">
+        <FormError v-if="error" class="mr-auto" :message="error" />
+        <p v-else-if="confirmDisabledReason" class="mr-auto text-xs text-af-ink-3" data-test="confirm-disabled-reason">
           {{ t(confirmDisabledReason) }}
         </p>
         <button type="button" class="btn btn-secondary" @click="$emit('close')">{{ t('common.cancel') }}</button>
@@ -115,6 +116,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import { adminAPI } from '@/api/admin'
 import type { PromptDeletePreview, PromptEventFilters } from '../types'
@@ -133,6 +135,8 @@ const props = defineProps<{
   preview: PromptDeletePreview | null
   previewing: boolean
   deleting: boolean
+  /** 预览 / 删除失败的原因，显示在底栏左侧 */
+  error?: string
 }>()
 const emit = defineEmits<{
   (event: 'close'): void

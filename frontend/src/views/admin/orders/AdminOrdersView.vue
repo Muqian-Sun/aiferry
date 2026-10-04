@@ -51,6 +51,8 @@
             </button>
           </template>
         </ListToolbar>
+        <!-- 列表加载、取消 / 重试 / 查询退款失败的原因；原来只打控制台 -->
+        <FormError class="mt-2" :message="loadError || actionError" data-testid="orders-action-error" />
       </template>
 
       <template #table>
@@ -141,6 +143,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -192,8 +195,12 @@ function debounceLoadOrders() {
   debounceTimer = setTimeout(() => loadOrders(), 300)
 }
 
+const loadError = ref('')
+const actionError = ref('')
+
 async function loadOrders() {
   ordersLoading.value = true
+  loadError.value = ''
   try {
     const res = await adminPaymentAPI.getOrders({
       page: orderPagination.page, page_size: orderPagination.page_size,
@@ -203,7 +210,7 @@ async function loadOrders() {
     orders.value = res.data.items || []
     orderPagination.total = res.data.total || 0
   } catch (err: unknown) {
-    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
+    loadError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
   } finally { ordersLoading.value = false }
 }
 
@@ -279,13 +286,15 @@ async function showOrderDetail(order: PaymentOrder) {
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
+  actionError.value = ''
   try { await adminPaymentAPI.cancelOrder(order.id); loadOrders() }
-  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
+  catch (err: unknown) { actionError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')) }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {
+  actionError.value = ''
   try { await adminPaymentAPI.retryRecharge(order.id); loadOrders() }
-  catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
+  catch (err: unknown) { actionError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')) }
 }
 
 function openRefundDialog(order: PaymentOrder) {
@@ -328,21 +337,23 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
       refundWarning.value = res.data.warning || ''
       return
     }
-    console.error(res.data.warning || t('common.error'))
-  } catch (err: unknown) { console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err) }
+    // 退款没成功：原因写进退款弹窗的提示行，弹窗保持打开
+    refundWarning.value = res.data.warning || t('common.error')
+  } catch (err: unknown) { refundWarning.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')) }
   finally { refundSubmitting.value = false }
 }
 
 async function handleQueryRefund(order: PaymentOrder) {
   refundQueryingIds.value = new Set(refundQueryingIds.value).add(order.id)
+  actionError.value = ''
   try {
     const res = await adminPaymentAPI.queryRefund(order.id)
     if (!res.data.success && !isRefundPendingWarning(res.data.warning)) {
-      console.error(res.data.warning || t('common.error'))
+      actionError.value = res.data.warning || t('common.error')
     }
     loadOrders()
   } catch (err: unknown) {
-    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
+    actionError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
   } finally {
     const next = new Set(refundQueryingIds.value)
     next.delete(order.id)

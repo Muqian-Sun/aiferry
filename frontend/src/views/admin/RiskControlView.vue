@@ -18,6 +18,8 @@
     </template>
 
     <div class="space-y-6">
+      <!-- 页面加载、日志、解封失败的原因；设置弹窗里的失败在弹窗底栏 -->
+      <FormError :message="pageError" data-testid="risk-control-page-error" />
       <div v-if="loading" class="flex items-center justify-center py-16">
         <LoadingSpinner />
       </div>
@@ -977,6 +979,7 @@
 
         <template #footer>
           <div class="flex justify-end gap-2">
+            <FormError class="mr-auto self-center" :message="settingsError" data-testid="risk-control-settings-error" />
             <button type="button" class="btn btn-secondary" @click="settingsOpen = false">{{ t('common.cancel') }}</button>
             <button type="button" class="btn btn-primary inline-flex items-center gap-2" :disabled="saving" @click="saveConfig">
               <Icon v-if="saving" name="refresh" size="sm" class="animate-spin" />
@@ -1138,6 +1141,8 @@ const apiKeyTesting = ref(false)
 const hashActionLoading = ref(false)
 const unbanningUserID = ref<number | null>(null)
 const settingsOpen = ref(false)
+const pageError = ref('')
+const settingsError = ref('')
 /** cyber 会话自动屏蔽：存在全局设置里（cyber_session_block_*），打开设置时读取 */
 const sessionBlock = ref<{ enabled: boolean; ttl_seconds: number } | null>(null)
 const sessionBlockOriginal = ref('')
@@ -1633,6 +1638,7 @@ function applyConfig(config: ContentModerationConfig) {
 
 async function loadAll() {
   loading.value = true
+  pageError.value = ''
   try {
     const [config, runtimeStatus, proxyItems] = await Promise.all([
       adminAPI.riskControl.getConfig(),
@@ -1649,7 +1655,7 @@ async function loadAll() {
     }
     await loadLogs()
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')), err)
+    pageError.value = extractApiErrorMessage(err, t('admin.riskControl.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -1666,7 +1672,7 @@ async function loadStatus(silent = true) {
     }
   } catch (err: unknown) {
     if (!silent) {
-      console.error(extractApiErrorMessage(err, t('admin.riskControl.statusFailed')), err)
+      pageError.value = extractApiErrorMessage(err, t('admin.riskControl.statusFailed'))
     }
   } finally {
     statusLoading.value = false
@@ -1675,10 +1681,11 @@ async function loadStatus(silent = true) {
 
 async function saveConfig() {
   saving.value = true
+  settingsError.value = ''
   try {
     const modelFilterPayload = buildModelFilterPayload()
     if (modelFilterPayload.type !== 'all' && modelFilterPayload.models.length === 0) {
-      console.error(t('admin.riskControl.modelFilterModelsRequired'))
+      settingsError.value = t('admin.riskControl.modelFilterModelsRequired')
       return
     }
     const payload: UpdateContentModerationConfig = {
@@ -1712,7 +1719,7 @@ async function saveConfig() {
     }
     const keys = parseApiKeys(configForm.api_keys_text)
     if (!payload.clear_api_key && configForm.api_keys_mode === 'replace' && keys.length === 0) {
-      console.error(t('admin.riskControl.apiKeysReplaceNoInput'))
+      settingsError.value = t('admin.riskControl.apiKeysReplaceNoInput')
       return
     }
     if (keys.length > 0) {
@@ -1737,7 +1744,7 @@ async function saveConfig() {
     settingsOpen.value = false
     await Promise.all([loadStatus(true), loadLogs()])
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.saveFailed')), err)
+    settingsError.value = extractApiErrorMessage(err, t('admin.riskControl.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -1762,7 +1769,7 @@ async function loadLogs() {
     pagination.page_size = result.page_size
     pagination.pages = result.pages
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.logsFailed')), err)
+    pageError.value = extractApiErrorMessage(err, t('admin.riskControl.logsFailed'))
   } finally {
     logsLoading.value = false
   }
@@ -1787,6 +1794,7 @@ function closeInputDetail() {
 async function unbanUser(row: ContentModerationLog) {
   if (!row.user_id || unbanningUserID.value !== null) return
   unbanningUserID.value = row.user_id
+  pageError.value = ''
   try {
     const result = await adminAPI.riskControl.unbanUser(row.user_id)
     logs.value = logs.value.map((item) => {
@@ -1794,7 +1802,7 @@ async function unbanUser(row: ContentModerationLog) {
       return { ...item, user_status: result.status }
     })
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.unbanFailed')), err)
+    pageError.value = extractApiErrorMessage(err, t('admin.riskControl.unbanFailed'))
   } finally {
     unbanningUserID.value = null
   }
@@ -1803,12 +1811,13 @@ async function unbanUser(row: ContentModerationLog) {
 async function deleteFlaggedHash() {
   if (!isFlaggedHashInputValid.value || hashActionLoading.value) return
   hashActionLoading.value = true
+  settingsError.value = ''
   try {
     await adminAPI.riskControl.deleteFlaggedHash(flaggedHashInput.value)
     flaggedHashInput.value = ''
     await loadStatus(true)
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashDeleteFailed')), err)
+    settingsError.value = extractApiErrorMessage(err, t('admin.riskControl.flaggedHashDeleteFailed'))
   } finally {
     hashActionLoading.value = false
   }
@@ -1834,6 +1843,7 @@ async function clearFlaggedHashes() {
 
 function openSettings() {
   activeSettingsTab.value = 'basic'
+  settingsError.value = ''
   settingsOpen.value = true
   void loadSessionBlock()
 }
@@ -1849,7 +1859,7 @@ async function loadSessionBlock() {
     sessionBlockOriginal.value = JSON.stringify(value)
   } catch (err: unknown) {
     sessionBlock.value = null
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')), err)
+    settingsError.value = extractApiErrorMessage(err, t('admin.riskControl.loadFailed'))
   }
 }
 
@@ -1895,8 +1905,9 @@ function setModelFilterType(type: ContentModerationModelFilterType) {
 
 async function testApiKeys(useInputKeys: boolean) {
   const keys = useInputKeys ? parseApiKeys(configForm.api_keys_text) : []
+  settingsError.value = ''
   if (useInputKeys && keys.length === 0) {
-    console.error(t('admin.riskControl.apiKeyTestNoInput'))
+    settingsError.value = t('admin.riskControl.apiKeyTestNoInput')
     return
   }
   apiKeyTesting.value = true
@@ -1920,7 +1931,7 @@ async function testApiKeys(useInputKeys: boolean) {
       await loadStatus(true)
     }
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.apiKeyTestFailed')), err)
+    settingsError.value = extractApiErrorMessage(err, t('admin.riskControl.apiKeyTestFailed'))
   } finally {
     apiKeyTesting.value = false
   }
@@ -1984,19 +1995,20 @@ async function handleModerationImagePaste(event: ClipboardEvent) {
 async function addModerationTestFiles(files: FileList | File[] | null) {
   if (!files) return
   const items = Array.from(files).filter((file) => file.type.startsWith('image/'))
+  settingsError.value = ''
   for (const file of items) {
     if (moderationTestImages.value.length >= maxModerationTestImages) {
-      console.error(t('admin.riskControl.auditTestImageLimit', { count: maxModerationTestImages }))
+      settingsError.value = t('admin.riskControl.auditTestImageLimit', { count: maxModerationTestImages })
       return
     }
     if (file.size > maxModerationTestImageSize) {
-      console.error(t('admin.riskControl.auditTestImageTooLarge'))
+      settingsError.value = t('admin.riskControl.auditTestImageTooLarge')
       continue
     }
     try {
       moderationTestImages.value.push(await fileToDataURL(file))
     } catch (error) {
-      console.error(t('admin.riskControl.auditTestImageReadFailed'), error)
+      settingsError.value = t('admin.riskControl.auditTestImageReadFailed')
     }
   }
 }

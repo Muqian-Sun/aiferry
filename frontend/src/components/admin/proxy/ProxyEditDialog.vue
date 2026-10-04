@@ -99,6 +99,7 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="errorMessage" />
         <button @click="close" type="button" class="btn btn-secondary">
           {{ t('common.cancel') }}
         </button>
@@ -123,6 +124,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { Proxy, ProxyProtocol } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { EXPIRY_PRESETS, addDaysToBase, daysFromBase } from './proxyExpiryDays'
@@ -166,6 +169,7 @@ const backupProxyOptions = computed(() =>
 )
 
 const submitting = ref(false)
+const errorMessage = ref('')
 const editPasswordVisible = ref(false)
 const editPasswordDirty = ref(false)
 
@@ -222,21 +226,23 @@ const editExpiresDays = computed<number | null>({
 const close = () => {
   editPasswordVisible.value = false
   editPasswordDirty.value = false
+  errorMessage.value = ''
   emit('close')
 }
 
 const handleUpdateProxy = async () => {
   if (!props.proxy) return
+  errorMessage.value = ''
   if (!editForm.name.trim()) {
-    console.error(t('admin.proxies.nameRequired'))
+    errorMessage.value = t('admin.proxies.nameRequired')
     return
   }
   if (!editForm.host.trim()) {
-    console.error(t('admin.proxies.hostRequired'))
+    errorMessage.value = t('admin.proxies.hostRequired')
     return
   }
   if (editForm.port < 1 || editForm.port > 65535) {
-    console.error(t('admin.proxies.portInvalid'))
+    errorMessage.value = t('admin.proxies.portInvalid')
     return
   }
 
@@ -264,7 +270,7 @@ const handleUpdateProxy = async () => {
     close()
     emit('updated')
   } catch (error: any) {
-    console.error('Error updating proxy:', error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.proxies.failedToUpdate'))
   } finally {
     submitting.value = false
   }

@@ -4,6 +4,10 @@ import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import Select from '@/components/common/Select.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import FormSuccess from '@/components/common/FormSuccess.vue'
+import { useTransientMessage } from '@/composables/useTransientMessage'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Icon from '@/components/icons/Icon.vue'
 import { opsAPI, type AlertEventsQuery } from '@/api/admin/ops'
 import type { AlertEvent } from '../types'
@@ -23,6 +27,9 @@ const hasMore = ref(true)
 
 // Detail modal
 const showDetail = ref(false)
+const detailError = ref('')
+const listError = ref('')
+const detailNotice = useTransientMessage(4000)
 const selected = ref<AlertEvent | null>(null)
 const detailLoading = ref(false)
 const detailActionLoading = ref(false)
@@ -110,12 +117,13 @@ function buildQuery(overrides: Partial<AlertEventsQuery> = {}): AlertEventsQuery
 
 async function loadFirstPage() {
   loading.value = true
+  listError.value = ''
   try {
     const data = await opsAPI.listAlertEvents(buildQuery())
     events.value = data
     hasMore.value = data.length === PAGE_SIZE
   } catch (err: any) {
-    console.error('[OpsAlertEventsCard] Failed to load alert events', err)
+    listError.value = extractApiErrorMessage(err, t('admin.ops.alertEvents.loadFailed'))
     events.value = []
     hasMore.value = false
   } finally {
@@ -213,6 +221,8 @@ function closeDetail() {
 }
 
 async function openDetail(row: AlertEvent) {
+  detailError.value = ''
+  detailNotice.clear()
   showDetail.value = true
   selected.value = row
   detailLoading.value = true
@@ -222,7 +232,7 @@ async function openDetail(row: AlertEvent) {
     const detail = await opsAPI.getAlertEvent(row.id)
     selected.value = detail
   } catch (err: any) {
-    console.error('[OpsAlertEventsCard] Failed to load alert detail', err)
+    detailError.value = extractApiErrorMessage(err, t('admin.ops.alertEvents.detail.loadFailed'))
   } finally {
     detailLoading.value = false
   }
@@ -258,7 +268,7 @@ async function loadHistory() {
       return true
     })
   } catch (err: any) {
-    console.error('[OpsAlertEventsCard] Failed to load alert history', err)
+    detailError.value = extractApiErrorMessage(err, t('admin.ops.alertEvents.detail.historyLoadFailed'))
     history.value = []
   } finally {
     historyLoading.value = false
@@ -278,6 +288,7 @@ async function silenceAlert() {
   if (!ev) return
   if (detailActionLoading.value) return
   detailActionLoading.value = true
+  detailError.value = ''
   try {
     const platform = getDimensionString(ev, 'platform')
     const region = getDimensionString(ev, 'region') || null
@@ -289,8 +300,9 @@ async function silenceAlert() {
       until: durationToUntilRFC3339(silenceDuration.value),
       reason: `silence from UI (${silenceDuration.value})`
     })
+    detailNotice.show(t('admin.ops.alertEvents.detail.silenceSuccess'))
   } catch (err: any) {
-    console.error('[OpsAlertEventsCard] Failed to silence alert', err)
+    detailError.value = extractApiErrorMessage(err, t('admin.ops.alertEvents.detail.silenceFailed'))
   } finally {
     detailActionLoading.value = false
   }
@@ -300,6 +312,7 @@ async function manualResolve() {
   if (!selected.value) return
   if (detailActionLoading.value) return
   detailActionLoading.value = true
+  detailError.value = ''
   try {
     await opsAPI.updateAlertEventStatus(selected.value.id, 'manual_resolved')
 
@@ -308,8 +321,9 @@ async function manualResolve() {
     selected.value = detail
     await loadFirstPage()
     await loadHistory()
+    detailNotice.show(t('admin.ops.alertEvents.detail.manualResolvedSuccess'))
   } catch (err: any) {
-    console.error('[OpsAlertEventsCard] Failed to resolve alert', err)
+    detailError.value = extractApiErrorMessage(err, t('admin.ops.alertEvents.detail.manualResolvedFailed'))
   } finally {
     detailActionLoading.value = false
   }
@@ -392,6 +406,8 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
       </svg>
       {{ t('admin.ops.alertEvents.loading') }}
     </div>
+
+    <FormError v-else-if="listError" :message="listError" />
 
     <div v-else-if="empty" class="rounded-xl border border-dashed border-af-hairline p-8 text-center text-sm text-af-ink-3">
       {{ t('admin.ops.alertEvents.empty') }}
@@ -555,6 +571,9 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
       :close-on-click-outside="true"
       @close="closeDetail"
     >
+      <!-- 详情加载、静默、手动解决的结果；原来成功失败都没有任何提示 -->
+      <FormError class="mb-3" :message="detailError" />
+      <FormSuccess class="mb-3" :message="detailNotice.message.value" />
       <div v-if="detailLoading" class="flex items-center justify-center py-10 text-sm text-af-ink-3">
         {{ t('admin.ops.alertEvents.detail.loading') }}
       </div>

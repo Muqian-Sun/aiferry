@@ -114,6 +114,7 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="errorMessage" />
         <button type="button" class="btn btn-secondary" @click="handleClose">
           {{ t('common.close') }}
         </button>
@@ -156,6 +157,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { Account, TempUnschedulableStatus } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime } from '@/utils/format'
 
 const props = defineProps<{
@@ -172,6 +175,7 @@ const { t } = useI18n()
 
 const loading = ref(false)
 const resetting = ref(false)
+const errorMessage = ref('')
 const status = ref<TempUnschedulableStatus | null>(null)
 
 const state = computed(() => status.value?.state || null)
@@ -235,10 +239,11 @@ const remainingText = computed(() => {
 const loadStatus = async () => {
   if (!props.account) return
   loading.value = true
+  errorMessage.value = ''
   try {
     status.value = await adminAPI.accounts.getTempUnschedulableStatus(props.account.id)
   } catch (error: any) {
-    console.error(error?.message || t('admin.accounts.tempUnschedulable.failedToLoad'), error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.accounts.tempUnschedulable.failedToLoad'))
     status.value = null
   } finally {
     loading.value = false
@@ -246,18 +251,20 @@ const loadStatus = async () => {
 }
 
 const handleClose = () => {
+  errorMessage.value = ''
   emit('close')
 }
 
 const handleReset = async () => {
   if (!props.account) return
   resetting.value = true
+  errorMessage.value = ''
   try {
     const updated = await adminAPI.accounts.recoverState(props.account.id)
     emit('reset', updated)
     handleClose()
   } catch (error: any) {
-    console.error(error?.message || t('admin.accounts.recoverStateFailed'), error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.accounts.recoverStateFailed'))
   } finally {
     resetting.value = false
   }

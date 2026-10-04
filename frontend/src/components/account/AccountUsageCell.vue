@@ -49,6 +49,7 @@
             <Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" />
             {{ t('admin.accounts.usageWindow.activeQuery') }}
           </button>
+          <span v-if="activeQueryError" class="text-xs text-af-danger" :title="activeQueryError" role="alert">{{ t('admin.accounts.usageWindow.queryFailed') }}</span>
         </div>
       </div>
       <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.noData') }}</p>
@@ -86,6 +87,7 @@
               <Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" />
               {{ t('admin.accounts.usageWindow.activeQuery') }}
             </button>
+            <span v-if="activeQueryError" class="text-xs text-af-danger" :title="activeQueryError" role="alert">{{ t('admin.accounts.usageWindow.queryFailed') }}</span>
           </template>
         </OpenAIQuotaResetCell>
       </div>
@@ -277,6 +279,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
@@ -308,6 +311,7 @@ onBeforeUnmount(() => { unmounted.value = true })
 
 const loading = ref(false)
 const activeQueryLoading = ref(false)
+const activeQueryError = ref('')
 const error = ref<string | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
 
@@ -825,10 +829,11 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
 
 const loadActiveUsage = async () => {
   activeQueryLoading.value = true
+  activeQueryError.value = ''
   try {
     usageInfo.value = await adminAPI.accounts.getUsage(props.account.id, 'active', true)
   } catch (e: unknown) {
-    console.error('Failed to load active usage:', e)
+    activeQueryError.value = extractApiErrorMessage(e, t('admin.accounts.usageWindow.queryFailed'))
   } finally {
     activeQueryLoading.value = false
   }

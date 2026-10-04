@@ -203,6 +203,7 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="errorMessage" />
         <button @click="close" type="button" class="btn btn-secondary">
           {{ t('common.cancel') }}
         </button>
@@ -241,6 +242,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { Proxy, ProxyProtocol } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { EXPIRY_PRESETS, addDaysToBase, daysFromBase } from './proxyExpiryDays'
@@ -277,6 +280,8 @@ const backupProxyOptions = computed(() =>
 
 const submitting = ref(false)
 const createPasswordVisible = ref(false)
+
+const errorMessage = ref('')
 
 // Batch import state
 const createMode = ref<'standard' | 'batch'>('standard')
@@ -318,6 +323,7 @@ const createExpiresDays = computed<number | null>({
 
 const close = () => {
   emit('close')
+  errorMessage.value = ''
   createMode.value = 'standard'
   createForm.name = ''
   createForm.protocol = 'http'
@@ -413,28 +419,30 @@ const handleBatchCreate = async () => {
   if (batchParseResult.valid === 0) return
 
   submitting.value = true
+  errorMessage.value = ''
   try {
     await adminAPI.proxies.batchCreate(batchParseResult.proxies)
     close()
     emit('created')
   } catch (error: any) {
-    console.error('Error batch creating proxies:', error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.proxies.failedToCreate'))
   } finally {
     submitting.value = false
   }
 }
 
 const handleCreateProxy = async () => {
+  errorMessage.value = ''
   if (!createForm.name.trim()) {
-    console.error(t('admin.proxies.nameRequired'))
+    errorMessage.value = t('admin.proxies.nameRequired')
     return
   }
   if (!createForm.host.trim()) {
-    console.error(t('admin.proxies.hostRequired'))
+    errorMessage.value = t('admin.proxies.hostRequired')
     return
   }
   if (createForm.port < 1 || createForm.port > 65535) {
-    console.error(t('admin.proxies.portInvalid'))
+    errorMessage.value = t('admin.proxies.portInvalid')
     return
   }
   submitting.value = true
@@ -454,7 +462,7 @@ const handleCreateProxy = async () => {
     close()
     emit('created')
   } catch (error: any) {
-    console.error('Error creating proxy:', error)
+    errorMessage.value = extractApiErrorMessage(error, t('admin.proxies.failedToCreate'))
   } finally {
     submitting.value = false
   }

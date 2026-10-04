@@ -21,6 +21,7 @@
     <div v-if="loading" class="flex items-center justify-center py-12">
       <LoadingSpinner />
     </div>
+    <FormError v-else-if="loadError" :message="loadError" data-testid="payment-dashboard-error" />
     <div v-else-if="stats" class="space-y-8">
       <OrderStatsCards :stats="stats" />
       <DailyRevenueChart :data="stats.daily_series || []" :loading="loading" />
@@ -75,6 +76,7 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { CurrencyAmounts, DashboardStats, TopUserPaymentStats } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderStatsCards from '@/components/admin/payment/OrderStatsCards.vue'
 import DailyRevenueChart from '@/components/admin/payment/DailyRevenueChart.vue'
@@ -86,6 +88,7 @@ const DAYS_OPTIONS = [7, 30, 90] as const
 const dayOptions = computed(() => DAYS_OPTIONS.map((d) => ({ key: d, label: `${d}${t('payment.admin.daySuffix')}` })))
 const days = ref<number>(30)
 const loading = ref(false)
+const loadError = ref('')
 const stats = ref<DashboardStats | null>(null)
 
 /** 支付方式占比按笔数算（金额可能分属多个币种，没法直接相加） */
@@ -109,11 +112,12 @@ function formatMoney(currency: string, amount: number): string {
 
 async function loadDashboard() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await adminPaymentAPI.getDashboard(days.value)
     stats.value = res.data
   } catch (err: unknown) {
-    console.error(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')), err)
+    loadError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
   } finally {
     loading.value = false
   }

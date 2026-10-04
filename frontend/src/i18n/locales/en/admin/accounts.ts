@@ -528,6 +528,10 @@ export default {
       duplicateAccount: 'Duplicate Channel',
       duplicateSuccess: 'Channel duplicated as "{name}" and paused. Review its credentials before enabling it.',
       duplicateFailed: 'Failed to duplicate channel',
+      refreshCredentialsFailed: 'Failed to refresh credentials',
+      selectAllFailed: 'Failed to select all results',
+      resetQuotaFailed: 'Failed to reset quota',
+      revertFallbackFailed: 'Failed to switch back to the original proxy',
       resetStatus: 'Reset Status',
       statusReset: 'Account status reset successfully',
       failedToResetStatus: 'Failed to reset account status',
@@ -1329,6 +1333,7 @@ export default {
         grokLastHeadersSeen: 'Headers {time}',
         passiveSampled: 'Passive',
         activeQuery: 'Query',
+        queryFailed: 'Query failed',
         estimatedTotalCost: 'Est. cost when full {cost}',
         estimatedTotalCostTooltip: 'Projected cost at 100% utilization, based on the window\'s current cost and utilization'
       },

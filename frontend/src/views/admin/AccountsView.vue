@@ -96,6 +96,8 @@
             <ColumnSettingsMenu :settings="columnSettings" />
           </template>
         </ListToolbar>
+        <!-- 行内操作（复制、刷新凭据、恢复状态、重置额度…）的失败原因，原来只打控制台 -->
+        <FormError class="mt-2" :message="rowActionError" data-testid="accounts-action-error" />
         <p v-if="hasPendingListSync" class="mt-2 flex flex-wrap items-center gap-2 text-13 text-af-ink-3">
           <span>{{ t('admin.accounts.listPendingSyncHint') }}</span>
           <button type="button" class="font-medium text-af-brand hover:text-af-brand-hover" @click="syncPendingListChanges">
@@ -359,7 +361,9 @@
       @confirm="runBulkConfirm"
       @cancel="bulkConfirm = null"
     />
-    <ConfirmDialog :show="showCreateShadowDialog" :title="t('admin.accounts.createSparkShadow')" :message="t('admin.accounts.createSparkShadowConfirm', { name: creatingShadowAcc?.name })" :confirm-text="t('common.create')" @confirm="confirmCreateSparkShadow" @cancel="showCreateShadowDialog = false" />
+    <ConfirmDialog :show="showCreateShadowDialog" :title="t('admin.accounts.createSparkShadow')" :message="t('admin.accounts.createSparkShadowConfirm', { name: creatingShadowAcc?.name })" :confirm-text="t('common.create')" @confirm="confirmCreateSparkShadow" @cancel="showCreateShadowDialog = false">
+      <FormError :message="shadowError" />
+    </ConfirmDialog>
     <ConfirmDialog :show="showExportDataDialog" :title="t('admin.accounts.dataExport')" :message="t('admin.accounts.dataExportConfirmMessage')" :confirm-text="t('admin.accounts.dataExportConfirm')" :cancel-text="t('common.cancel')" @confirm="handleExportData" @cancel="showExportDataDialog = false">
       <label class="flex items-center gap-2 text-sm text-af-ink-2">
         <input type="checkbox" class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand" v-model="includeProxyOnExport" />
@@ -1160,6 +1164,10 @@ type BulkConfirmAction = 'delete' | 'resetStatus' | 'refreshToken'
 const bulkConfirm = ref<BulkConfirmAction | null>(null)
 const bulkBusy = ref(false)
 const bulkMessage = ref('')
+const rowActionError = ref('')
+const rowActionFailed = (error: unknown, fallbackKey: string) => {
+  rowActionError.value = extractApiErrorMessage(error, t(fallbackKey))
+}
 const bulkConfirmCopy = computed(() => {
   const count = selIds.value.length
   switch (bulkConfirm.value) {
@@ -1355,7 +1363,7 @@ const handleSelectAllResults = async () => {
     selectedAllResultIDs.value = new Set(ids)
   } catch (error) {
     if (requestVersion !== selectionRequestVersion.value) return
-    console.error('Failed to select all account results:', error)
+    bulkMessage.value = extractApiErrorMessage(error, t('admin.accounts.selectAllFailed'))
   } finally {
     if (requestVersion === selectionRequestVersion.value) {
       selectingAllResults.value = false
@@ -1502,6 +1510,7 @@ const openExportDataDialog = () => {
 const handleExportData = async () => {
   if (exportingData.value) return
   exportingData.value = true
+  rowActionError.value = ''
   try {
     const dataPayload = await accountExportStepUp.run(() => adminAPI.accounts.exportData(
       selIds.value.length > 0
@@ -1529,14 +1538,12 @@ const handleExportData = async () => {
     if (isStepUpCancelled(error)) {
       // 用户主动取消 step-up 验证，静默返回，不弹错误提示。
     } else if (isStepUpBlocked(error)) {
-      console.error(
+      rowActionError.value =
         stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
           ? t('stepUp.adminApiKeyForbidden')
-          : t('stepUp.notEnabled'),
-        error
-      )
+          : t('stepUp.notEnabled')
     } else {
-      console.error(error?.message || t('admin.accounts.dataExportFailed'), error)
+      rowActionFailed(error, 'admin.accounts.dataExportFailed')
     }
   } finally {
     exportingData.value = false
@@ -1564,41 +1571,45 @@ const duplicatingAccountIDs = new Set<number>()
 const handleDuplicateAccount = async (a: Account) => {
   if (duplicatingAccountIDs.has(a.id)) return
   duplicatingAccountIDs.add(a.id)
+  rowActionError.value = ''
   try {
     await adminAPI.accounts.duplicate(a.id)
     reload()
   } catch (error: any) {
-    console.error('Failed to duplicate account:', error)
+    rowActionFailed(error, 'admin.accounts.duplicateFailed')
   } finally {
     duplicatingAccountIDs.delete(a.id)
   }
 }
 const handleRefresh = async (a: Account) => {
+  rowActionError.value = ''
   try {
     const result = await adminAPI.accounts.refreshCredentials(a.id)
     patchAccountInList(result.account)
     enterAutoRefreshSilentWindow()
-    if (result.warning) console.warn(result.message)
+    if (result.warning) rowActionError.value = result.message
   } catch (error) {
-    console.error('Failed to refresh credentials:', error)
+    rowActionFailed(error, 'admin.accounts.refreshCredentialsFailed')
   }
 }
 const handleRecoverState = async (a: Account) => {
+  rowActionError.value = ''
   try {
     const updated = await adminAPI.accounts.recoverState(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
   } catch (error: any) {
-    console.error('Failed to recover account state:', error)
+    rowActionFailed(error, 'admin.accounts.recoverStateFailed')
   }
 }
 const handleResetQuota = async (a: Account) => {
+  rowActionError.value = ''
   try {
     const updated = await adminAPI.accounts.resetAccountQuota(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
   } catch (error) {
-    console.error('Failed to reset quota:', error)
+    rowActionFailed(error, 'admin.accounts.resetQuotaFailed')
   }
 }
 
@@ -1624,40 +1635,45 @@ const privacyResultMessageKey = (account: Account): { type: 'success' | 'error';
 }
 
 const handleSetPrivacy = async (a: Account) => {
+  rowActionError.value = ''
   try {
     const updated = await adminAPI.accounts.setPrivacy(a.id)
     patchAccountInList(updated)
     enterAutoRefreshSilentWindow()
     const result = privacyResultMessageKey(updated)
     if (result.type === 'error') {
-      console.error(t(result.key))
+      rowActionError.value = t(result.key)
     }
   } catch (error: any) {
-    console.error('Failed to set privacy:', error)
+    rowActionFailed(error, 'admin.accounts.privacyFailed')
   }
 }
 const onRevertFallback = async (a: Account) => {
+  rowActionError.value = ''
   try {
     await adminAPI.accounts.revertProxyFallback(a.id)
     reload()
   } catch (error: any) {
-    console.error('Failed to revert proxy fallback:', error)
+    rowActionFailed(error, 'admin.accounts.revertFallbackFailed')
   }
 }
+const shadowError = ref('')
 const handleCreateSparkShadow = (a: Account) => {
+  shadowError.value = ''
   creatingShadowAcc.value = a
   showCreateShadowDialog.value = true
 }
 const confirmCreateSparkShadow = async () => {
   const a = creatingShadowAcc.value
   if (!a) return
+  shadowError.value = ''
   try {
     await adminAPI.accounts.createSparkShadow(a.id, { name: `${a.name} (Spark)` })
     showCreateShadowDialog.value = false
     creatingShadowAcc.value = null
     reload()
   } catch (error: any) {
-    console.error('Failed to create spark shadow:', error)
+    shadowError.value = extractApiErrorMessage(error, t('admin.accounts.createSparkShadowFailed'))
   }
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; deleteError.value = ''; showDeleteDialog.value = true }

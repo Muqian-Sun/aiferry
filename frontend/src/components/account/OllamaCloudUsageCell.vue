@@ -42,6 +42,10 @@
         </svg>
         {{ t('admin.accounts.usageWindow.activeQuery') }}
       </button>
+      <!-- 单元格放不下整句原因：短标签 + 悬停看全文 -->
+      <span v-if="refreshError" class="ml-1 text-xs text-af-danger" :title="refreshError" role="alert">
+        {{ t('admin.accounts.usageWindow.queryFailed') }}
+      </span>
     </div>
   </div>
   <span v-else class="text-sm text-af-ink-3">-</span>
@@ -51,6 +55,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { Account, OllamaCloudUsageState } from '@/types'
 import UsageProgressBar from './UsageProgressBar.vue'
 
@@ -59,6 +64,7 @@ const emit = defineEmits<{ updated: [state: OllamaCloudUsageState] }>()
 const { t } = useI18n()
 const state = ref(props.account.ollama_cloud_usage)
 const refreshing = ref(false)
+const refreshError = ref('')
 const snapshot = computed(() => state.value?.snapshot)
 
 watch(() => props.account.ollama_cloud_usage, (next) => {
@@ -68,12 +74,13 @@ watch(() => props.account.ollama_cloud_usage, (next) => {
 const refreshUsage = async () => {
   if (refreshing.value) return
   refreshing.value = true
+  refreshError.value = ''
   try {
     const next = await adminAPI.accounts.refreshOllamaCloudUsage(props.account.id)
     state.value = next
     emit('updated', next)
   } catch (error) {
-    console.error('Failed to refresh Ollama Cloud usage:', error)
+    refreshError.value = extractI18nErrorMessage(error, t, 'admin.accounts.ollamaCloud.errors', t('admin.accounts.ollamaCloud.refreshFailed'))
   } finally {
     refreshing.value = false
   }

@@ -19,6 +19,8 @@
         <SectionTabs :model-value="activeTab" :tabs="pageTabs" :label="t('admin.promptAudit.title')" @update:model-value="onTabChange" />
 
         <main>
+          <!-- 探测、看详情、删除事件失败的原因；保存配置的失败在底部保存条 -->
+          <FormError class="mb-3" :message="actionError" data-test="prompt-audit-action-error" />
           <div v-show="activeTab === 'config'" data-test="tab-panel-config">
             <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" :endpoint-names="endpointNames" @refresh="loadRuntime" />
 
@@ -83,8 +85,8 @@
           <SaveToggle :label="t('admin.promptAudit.saveBar.storePass')" :model-value="draft.store_pass_events" data-test="store-pass-toggle" @update:model-value="replaceDraft({ ...draft!, store_pass_events: $event })" />
         </div>
         <div class="flex items-center gap-3">
-          <span class="text-sm" :class="dirty ? 'text-af-warning' : 'text-af-ink-3'">
-            {{ dirty ? t('admin.promptAudit.saveBar.dirty') : t('admin.promptAudit.saveBar.synced') }}
+          <span class="text-sm" :class="saveError ? 'text-af-danger' : dirty ? 'text-af-warning' : 'text-af-ink-3'" role="status">
+            {{ saveError || (dirty ? t('admin.promptAudit.saveBar.dirty') : t('admin.promptAudit.saveBar.synced')) }}
           </span>
           <button type="button" class="btn btn-secondary" :disabled="!dirty || loading.saving" @click="resetDraft">{{ t('common.reset') }}</button>
           <button type="button" class="btn btn-primary" :disabled="!dirty || loading.saving" data-test="save-config" @click="saveConfig">
@@ -118,6 +120,7 @@
       :preview="deletePreview"
       :previewing="loading.previewing"
       :deleting="loading.deleting"
+      :error="filterDeleteError"
       @close="closeFilterDelete"
       @preview="runFilterDeletePreview"
       @confirm="confirmFilterDelete"
@@ -134,6 +137,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorCode, extractApiErrorMessage } from '@/utils/apiError'
 import RuntimeOverview from './components/RuntimeOverview.vue'
@@ -183,6 +187,9 @@ const selectedEventIds = ref<number[]>([])
 const activeEvent = ref<PromptAuditEvent | null>(null)
 const showEventDetail = ref(false)
 const probeResults = reactive<Record<string, PromptProbeResult>>({})
+const actionError = ref('')
+const saveError = ref('')
+const filterDeleteError = ref('')
 const probingIds = ref<string[]>([])
 const showFilterDelete = ref(false)
 const deletePreview = ref<PromptDeletePreview | null>(null)
@@ -297,11 +304,13 @@ function confirmBlocking() {
   if (draft.value) replaceDraft({ ...draft.value, blocking_enabled: true })
 }
 function resetDraft() {
+  saveError.value = ''
   if (serverConfig.value) draft.value = cloneData(serverConfig.value)
 }
 async function saveConfig() {
   if (!draft.value || !dirty.value) return
   loading.saving = true
+  saveError.value = ''
   try {
     const saved = await promptAuditAPI.updateConfig(buildUpdateRequest(draft.value))
     serverConfig.value = configToDraft(saved)
@@ -309,7 +318,7 @@ async function saveConfig() {
     await loadRuntime()
   } catch (error) {
     const code = extractApiErrorCode(error)
-    console.error(errorMessage(error, code === 'prompt_audit_config_conflict' ? 'admin.promptAudit.errors.prompt_audit_config_conflict' : 'admin.promptAudit.errors.saveConfig'), error)
+    saveError.value = errorMessage(error, code === 'prompt_audit_config_conflict' ? 'admin.promptAudit.errors.prompt_audit_config_conflict' : 'admin.promptAudit.errors.saveConfig')
   } finally {
     loading.saving = false
   }
@@ -317,12 +326,12 @@ async function saveConfig() {
 async function runProbe(endpoint: PromptAuditEndpointDraft) {
   if (probingIds.value.includes(endpoint.id)) return
   probingIds.value = [...probingIds.value, endpoint.id]
+  actionError.value = ''
   try {
-    const result = await promptAuditAPI.probeEndpoint(endpoint)
-    probeResults[endpoint.id] = result
-    if (!result.ok) console.error(`${result.error_code || result.status}: ${result.message}`)
+    // 探测结果（含失败原因）写在节点行里
+    probeResults[endpoint.id] = await promptAuditAPI.probeEndpoint(endpoint)
   } catch (error) {
-    console.error(errorMessage(error, 'admin.promptAudit.errors.probe'), error)
+    actionError.value = errorMessage(error, 'admin.promptAudit.errors.probe')
   } finally {
     probingIds.value = probingIds.value.filter((id) => id !== endpoint.id)
   }
@@ -345,8 +354,9 @@ async function openEvent(id: number) {
   showEventDetail.value = true
   loading.detail = true
   activeEvent.value = null
+  actionError.value = ''
   try { activeEvent.value = await promptAuditAPI.getEvent(id) }
-  catch (error) { console.error(errorMessage(error, 'admin.promptAudit.errors.loadDetail'), error); showEventDetail.value = false }
+  catch (error) { actionError.value = errorMessage(error, 'admin.promptAudit.errors.loadDetail'); showEventDetail.value = false }
   finally { loading.detail = false }
 }
 function closeEventDetail() { showEventDetail.value = false; activeEvent.value = null }
@@ -359,11 +369,12 @@ async function confirmIDDelete() {
   clearDeleteRequest()
   if (!mode || ids.length === 0) return
   loading.deleting = true
+  actionError.value = ''
   try {
     if (mode === 'single') await promptAuditAPI.deleteEvent(ids[0])
     else await promptAuditAPI.batchDeleteEvents(ids)
     await Promise.allSettled([loadEvents(), loadRuntime()])
-  } catch (error) { console.error(errorMessage(error, 'admin.promptAudit.errors.delete'), error) }
+  } catch (error) { actionError.value = errorMessage(error, 'admin.promptAudit.errors.delete') }
   finally { loading.deleting = false }
 }
 function clearDeletePreview() {
@@ -376,21 +387,24 @@ function requestFilterDeletePreview() {
 }
 function closeFilterDelete() {
   showFilterDelete.value = false
+  filterDeleteError.value = ''
   clearDeletePreview()
 }
 async function runFilterDeletePreview(value: PromptEventFilters) {
   loading.previewing = true
+  filterDeleteError.value = ''
   try {
     deletePreview.value = await promptAuditAPI.previewDelete(value)
     deletePreviewFilters.value = cloneData(value)
   } catch (error) {
     clearDeletePreview()
-    console.error(errorMessage(error, 'admin.promptAudit.errors.previewDelete'), error)
+    filterDeleteError.value = errorMessage(error, 'admin.promptAudit.errors.previewDelete')
   } finally { loading.previewing = false }
 }
 async function confirmFilterDelete(filters?: PromptEventFilters) {
   if (loading.deleting) return
   loading.deleting = true
+  filterDeleteError.value = ''
   try {
     let preview = deletePreview.value
     let previewFilters = deletePreviewFilters.value ? cloneData(deletePreviewFilters.value) : null
@@ -407,7 +421,7 @@ async function confirmFilterDelete(filters?: PromptEventFilters) {
     await Promise.allSettled([loadEvents(), loadRuntime()])
   } catch (error) {
     clearDeletePreview()
-    console.error(errorMessage(error, 'admin.promptAudit.errors.deleteConfirmation'), error)
+    filterDeleteError.value = errorMessage(error, 'admin.promptAudit.errors.deleteConfirmation')
   } finally { loading.deleting = false }
 }
 function formatDate(value: string): string {

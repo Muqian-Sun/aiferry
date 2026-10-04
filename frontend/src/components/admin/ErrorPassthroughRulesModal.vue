@@ -201,7 +201,8 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end">
+      <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="listError" />
         <button @click="$emit('close')" class="btn btn-secondary">
           {{ t('common.close') }}
         </button>
@@ -404,6 +405,7 @@
 
       <template #footer>
         <div class="flex justify-end gap-3">
+          <FormError class="mr-auto self-center" :message="formError" />
           <button @click="closeFormModal" type="button" class="btn btn-secondary">
             {{ t('common.cancel') }}
           </button>
@@ -425,7 +427,9 @@
       :danger="true"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
   </BaseDialog>
 </template>
 
@@ -436,6 +440,8 @@ import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
 import { adminAPI } from '@/api/admin'
 import type { ErrorPassthroughRule } from '@/api/admin/errorPassthrough'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -455,6 +461,10 @@ const { t } = useI18n()
 const rules = ref<ErrorPassthroughRule[]>([])
 const loading = ref(false)
 const submitting = ref(false)
+// 列表（加载 / 开关）、表单（保存）、删除确认各自一条报错，就近显示
+const listError = ref('')
+const formError = ref('')
+const deleteError = ref('')
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
@@ -495,10 +505,11 @@ watch(() => props.show, (newVal) => {
 
 const loadRules = async () => {
   loading.value = true
+  listError.value = ''
   try {
     rules.value = await adminAPI.errorPassthrough.list()
   } catch (error) {
-    console.error('Error loading rules:', error)
+    listError.value = extractApiErrorMessage(error, t('admin.errorPassthrough.failedToLoad'))
   } finally {
     loading.value = false
   }
@@ -524,6 +535,7 @@ const closeFormModal = () => {
   showCreateModal.value = false
   showEditModal.value = false
   editingRule.value = null
+  formError.value = ''
   resetForm()
 }
 
@@ -547,6 +559,7 @@ const handleEdit = (rule: ErrorPassthroughRule) => {
 
 const handleDelete = (rule: ErrorPassthroughRule) => {
   deletingRule.value = rule
+  deleteError.value = ''
   showDeleteDialog.value = true
 }
 
@@ -567,8 +580,9 @@ const parseKeywords = (): string[] => {
 }
 
 const handleSubmit = async () => {
+  formError.value = ''
   if (!form.name.trim()) {
-    console.error(t('admin.errorPassthrough.nameRequired'))
+    formError.value = t('admin.errorPassthrough.nameRequired')
     return
   }
 
@@ -576,7 +590,7 @@ const handleSubmit = async () => {
   const keywords = parseKeywords()
 
   if (errorCodes.length === 0 && keywords.length === 0) {
-    console.error(t('admin.errorPassthrough.conditionsRequired'))
+    formError.value = t('admin.errorPassthrough.conditionsRequired')
     return
   }
 
@@ -607,18 +621,19 @@ const handleSubmit = async () => {
     closeFormModal()
     loadRules()
   } catch (error: any) {
-    console.error('Error saving rule:', error)
+    formError.value = extractApiErrorMessage(error, t('admin.errorPassthrough.failedToSave'))
   } finally {
     submitting.value = false
   }
 }
 
 const toggleEnabled = async (rule: ErrorPassthroughRule) => {
+  listError.value = ''
   try {
     await adminAPI.errorPassthrough.toggleEnabled(rule.id, !rule.enabled)
     rule.enabled = !rule.enabled
   } catch (error: any) {
-    console.error('Error toggling rule:', error)
+    listError.value = extractApiErrorMessage(error, t('admin.errorPassthrough.failedToToggle'))
   }
 }
 
@@ -631,7 +646,7 @@ const confirmDelete = async () => {
     deletingRule.value = null
     loadRules()
   } catch (error: any) {
-    console.error('Error deleting rule:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.errorPassthrough.failedToDelete'))
   }
 }
 </script>

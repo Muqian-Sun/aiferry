@@ -216,7 +216,7 @@ export default {
         runtimeConfigResetFailed: '重置日志配置失败',
         cleanupConfirm: '符合当前筛选条件的系统日志会被删除，无法恢复。',
         cleanupAction: '清理日志',
-        cleanupSuccess: '清理完成，已删除 {count} 条日志。',
+        cleanupSuccess: '已清理 {count} 条日志',
         cleanupFilterRequired: '清理需要至少一个筛选条件（起止时间或其他字段）',
         cleanupFailed: '清理系统日志失败'
       },
@@ -575,6 +575,7 @@ export default {
           loading: '加载详情中…',
           empty: '没有详情',
           loadFailed: '加载告警详情失败',
+          historyLoadFailed: '加载同类告警记录失败',
           manualResolve: '标记为已解决',
           manualResolvedSuccess: '已标记为手动解决',
           manualResolvedFailed: '标记为手动解决失败',

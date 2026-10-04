@@ -3,7 +3,8 @@
   <div>
     <div class="space-y-4">
       <!-- Add Plan Button -->
-      <div class="flex items-center justify-end">
+      <div class="flex items-center justify-end gap-3">
+        <FormError class="mr-auto" :message="actionError" />
         <button
           @click="showAddForm = !showAddForm"
           class="btn btn-primary flex items-center gap-1.5 text-sm"
@@ -461,6 +462,8 @@
 import { computed, onMounted, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
@@ -544,13 +547,17 @@ watch(
   }
 )
 
+// 加载 / 新建 / 修改 / 开关 / 删除 / 看结果共用一条报错，放在顶部按钮左边；下一次操作开始时清掉
+const actionError = ref('')
+
 const loadPlans = async () => {
   if (!props.accountId) return
   loading.value = true
+  actionError.value = ''
   try {
     plans.value = await adminAPI.scheduledTests.listByAccount(props.accountId)
   } catch (error: any) {
-    console.error(error?.message || 'Failed to load plans', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -559,6 +566,7 @@ const loadPlans = async () => {
 const handleCreate = async () => {
   if (!props.accountId || !newPlan.model_id || !newPlan.cron_expression) return
   creating.value = true
+  actionError.value = ''
   try {
     const maxResults = Number(newPlan.max_results) || 100
     await adminAPI.scheduledTests.create({
@@ -573,13 +581,14 @@ const handleCreate = async () => {
     resetNewPlan()
     await loadPlans()
   } catch (error: any) {
-    console.error(error?.message || 'Failed to create plan', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.createFailed'))
   } finally {
     creating.value = false
   }
 }
 
 const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) => {
+  actionError.value = ''
   try {
     const updated = await adminAPI.scheduledTests.update(plan.id, { enabled })
     const index = plans.value.findIndex((p) => p.id === plan.id)
@@ -587,7 +596,7 @@ const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) =>
       plans.value[index] = updated
     }
   } catch (error: any) {
-    console.error(error?.message || 'Failed to update plan', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.updateFailed'))
   }
 }
 
@@ -607,6 +616,7 @@ const cancelEdit = () => {
 const handleEdit = async () => {
   if (!editingPlanId.value || !editForm.model_id || !editForm.cron_expression) return
   updating.value = true
+  actionError.value = ''
   try {
     const updated = await adminAPI.scheduledTests.update(editingPlanId.value, {
       model_id: editForm.model_id,
@@ -621,7 +631,7 @@ const handleEdit = async () => {
     }
     editingPlanId.value = null
   } catch (error: any) {
-    console.error(error?.message || 'Failed to update plan', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.updateFailed'))
   } finally {
     updating.value = false
   }
@@ -634,6 +644,7 @@ const confirmDeletePlan = (plan: ScheduledTestPlan) => {
 
 const handleDelete = async () => {
   if (!deletingPlan.value) return
+  actionError.value = ''
   try {
     await adminAPI.scheduledTests.delete(deletingPlan.value.id)
     plans.value = plans.value.filter((p) => p.id !== deletingPlan.value!.id)
@@ -642,7 +653,7 @@ const handleDelete = async () => {
       results.value = []
     }
   } catch (error: any) {
-    console.error(error?.message || 'Failed to delete plan', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.deleteFailed'))
   } finally {
     showDeleteConfirm.value = false
     deletingPlan.value = null
@@ -660,10 +671,11 @@ const toggleExpand = async (planId: number) => {
   expandedPlanId.value = planId
   expandedResultIds.clear()
   loadingResults.value = true
+  actionError.value = ''
   try {
     results.value = await adminAPI.scheduledTests.listResults(planId, 20)
   } catch (error: any) {
-    console.error(error?.message || 'Failed to load results', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.scheduledTests.loadResultsFailed'))
     results.value = []
   } finally {
     loadingResults.value = false
