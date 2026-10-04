@@ -94,8 +94,9 @@ func (r *usageLogRepository) Delete(ctx context.Context, id int64) error {
 // UsageLogFilters represents filters for usage log queries
 type UsageLogFilters = usagestats.UsageLogFilters
 
-// ListWithFilters lists usage logs with optional filters (for admin)
-func (r *usageLogRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
+// usageLogFilterConditions 用量筛选 → WHERE 条件（时间半开区间 [start, end)）。
+// 管理站用量页的列表、区间统计、按页面条件清理都用它，三者删的 / 数的 / 列的是同一批记录（2026-10-04 D8）。
+func usageLogFilterConditions(filters UsageLogFilters) ([]string, []any) {
 	conditions := make([]string, 0, 9)
 	args := make([]any, 0, 9)
 
@@ -134,7 +135,12 @@ func (r *usageLogRepository) ListWithFilters(ctx context.Context, params paginat
 		conditions = append(conditions, fmt.Sprintf("created_at < $%d", len(args)+1))
 		args = append(args, *filters.EndTime)
 	}
+	return conditions, args
+}
 
+// ListWithFilters lists usage logs with optional filters (for admin)
+func (r *usageLogRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
+	conditions, args := usageLogFilterConditions(filters)
 	whereClause := buildWhere(conditions)
 	var (
 		logs []service.UsageLog

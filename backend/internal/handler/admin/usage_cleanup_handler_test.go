@@ -29,6 +29,8 @@ type cleanupRepoStub struct {
 	listResult *pagination.PaginationResult
 	listErr    error
 	statusByID map[int64]string
+	countValue int64
+	counted    []service.UsageCleanupFilters
 }
 
 func (s *cleanupRepoStub) CreateTask(ctx context.Context, task *service.UsageCleanupTask) error {
@@ -102,6 +104,13 @@ func (s *cleanupRepoStub) DeleteUsageLogsBatch(ctx context.Context, filters serv
 	return 0, nil
 }
 
+func (s *cleanupRepoStub) CountUsageLogs(ctx context.Context, filters service.UsageCleanupFilters) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.counted = append(s.counted, filters)
+	return s.countValue, nil
+}
+
 var _ service.UsageCleanupRepository = (*cleanupRepoStub)(nil)
 
 func setupCleanupRouter(cleanupService *service.UsageCleanupService, userID int64) *gin.Engine {
@@ -116,6 +125,7 @@ func setupCleanupRouter(cleanupService *service.UsageCleanupService, userID int6
 
 	handler := NewUsageHandler(nil, nil, nil, cleanupService)
 	router.POST("/api/v1/admin/usage/cleanup-tasks", handler.CreateCleanupTask)
+	router.POST("/api/v1/admin/usage/cleanup-tasks/preview", handler.PreviewCleanupTask)
 	router.GET("/api/v1/admin/usage/cleanup-tasks", handler.ListCleanupTasks)
 	router.POST("/api/v1/admin/usage/cleanup-tasks/:id/cancel", handler.CancelCleanupTask)
 	return router
@@ -345,10 +355,118 @@ func TestUsageHandlerCreateCleanupTaskSuccess(t *testing.T) {
 	require.NotNil(t, created.Filters.Model)
 	require.Equal(t, "gpt-4", *created.Filters.Model)
 
+	// 按天：与列表同一个解析，半开区间，结束日次日零点
 	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC).Add(24*time.Hour - time.Nanosecond)
+	end := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
 	require.True(t, created.Filters.StartTime.Equal(start))
 	require.True(t, created.Filters.EndTime.Equal(end))
+}
+
+func postCleanupJSON(t *testing.T, router *gin.Engine, path string, payload map[string]any) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	return recorder
+}
+
+// 用量页「近 24 小时」：按精确时刻删，不按自然日扩成两整天；页面上的每个筛选（含用户）都带上（2026-10-04 D8）
+func TestUsageHandlerCreateCleanupTaskExactWindowWithAllPageFilters(t *testing.T) {
+	repo := &cleanupRepoStub{}
+	cfg := &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: true, MaxRangeDays: 31}}
+	router := setupCleanupRouter(service.NewUsageCleanupService(repo, nil, nil, cfg), 99)
+
+	recorder := postCleanupJSON(t, router, "/api/v1/admin/usage/cleanup-tasks", map[string]any{
+		"start_time":              "2024-01-01T14:06:00Z",
+		"end_time":                "2024-01-02T14:06:00Z",
+		"user_id":                 7,
+		"api_key_id":              8,
+		"account_id":              9,
+		"model":                   "claude-sonnet-4-6",
+		"native_compaction_v2":    true,
+		"billing_type":            0,
+		"billing_mode":            "token",
+		"upstream_model_mismatch": false,
+	})
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	require.Len(t, repo.created, 1)
+	filters := repo.created[0].Filters
+	require.True(t, filters.StartTime.Equal(time.Date(2024, 1, 1, 14, 6, 0, 0, time.UTC)))
+	require.True(t, filters.EndTime.Equal(time.Date(2024, 1, 2, 14, 6, 0, 0, time.UTC)))
+	require.Equal(t, int64(7), *filters.UserID)
+	require.Equal(t, int64(8), *filters.APIKeyID)
+	require.Equal(t, int64(9), *filters.AccountID)
+	require.Equal(t, "claude-sonnet-4-6", *filters.Model)
+	require.True(t, *filters.NativeCompactionV2)
+	require.Equal(t, int8(0), *filters.BillingType)
+	require.Equal(t, "token", *filters.BillingMode)
+	require.False(t, *filters.UpstreamModelMismatch)
+}
+
+// 预览数的就是随后要删的：同一个请求体，预览带去数的条件与建任务存下的条件完全相同
+func TestUsageHandlerPreviewCleanupTaskCountsWhatCreateDeletes(t *testing.T) {
+	repo := &cleanupRepoStub{countValue: 128}
+	cfg := &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: true, MaxRangeDays: 31}}
+	router := setupCleanupRouter(service.NewUsageCleanupService(repo, nil, nil, cfg), 99)
+	payload := map[string]any{
+		"start_date":   "2024-01-01",
+		"end_date":     "2024-01-07",
+		"timezone":     "Asia/Shanghai",
+		"user_id":      7,
+		"model":        " gpt-5 ",
+		"request_type": "stream",
+		"stream":       true,
+		"billing_mode": "token",
+	}
+
+	recorder := postCleanupJSON(t, router, "/api/v1/admin/usage/cleanup-tasks/preview", payload)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Count int64 `json:"count"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, int64(128), resp.Data.Count)
+
+	recorder = postCleanupJSON(t, router, "/api/v1/admin/usage/cleanup-tasks", payload)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	require.Len(t, repo.counted, 1)
+	require.Len(t, repo.created, 1)
+	require.Equal(t, repo.counted[0], repo.created[0].Filters)
+	shanghai, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	require.True(t, repo.counted[0].StartTime.Equal(time.Date(2024, 1, 1, 0, 0, 0, 0, shanghai)))
+	require.True(t, repo.counted[0].EndTime.Equal(time.Date(2024, 1, 8, 0, 0, 0, 0, shanghai)))
+}
+
+func TestUsageHandlerPreviewCleanupTaskRejectsBadRange(t *testing.T) {
+	repo := &cleanupRepoStub{}
+	cfg := &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: true, MaxRangeDays: 31}}
+	router := setupCleanupRouter(service.NewUsageCleanupService(repo, nil, nil, cfg), 99)
+
+	for name, payload := range map[string]map[string]any{
+		"mixed forms": {"start_time": "2024-01-01T00:00:00Z", "start_date": "2024-01-01", "end_date": "2024-01-02"},
+		"open end":    {"start_time": "2024-01-01T00:00:00Z"},
+		"reversed":    {"start_time": "2024-01-02T00:00:00Z", "end_time": "2024-01-01T00:00:00Z"},
+		"too long":    {"start_date": "2024-01-01", "end_date": "2024-02-05", "timezone": "UTC"},
+	} {
+		recorder := postCleanupJSON(t, router, "/api/v1/admin/usage/cleanup-tasks/preview", payload)
+		require.Equal(t, http.StatusBadRequest, recorder.Code, name)
+	}
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	require.Empty(t, repo.counted)
 }
 
 func TestUsageHandlerListCleanupTasksUnavailable(t *testing.T) {

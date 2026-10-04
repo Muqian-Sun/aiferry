@@ -53,6 +53,8 @@ type cleanupRepoStub struct {
 	cancelErr     error
 	cancelResult  *bool
 	markFailedErr error
+	countResult   int64
+	countCalls    []UsageCleanupFilters
 }
 
 type dashboardRepoStub struct {
@@ -229,6 +231,63 @@ func (s *cleanupRepoStub) DeleteUsageLogsBatch(ctx context.Context, filters Usag
 	resp := s.deleteQueue[0]
 	s.deleteQueue = s.deleteQueue[1:]
 	return resp.deleted, resp.err
+}
+
+func (s *cleanupRepoStub) CountUsageLogs(ctx context.Context, filters UsageCleanupFilters) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.countCalls = append(s.countCalls, filters)
+	return s.countResult, nil
+}
+
+// 预览计数与建任务同一套清洗：带去 repo 数的条件，就是建任务时会存下、随后按它删的条件
+func TestUsageCleanupServiceCountMatchingSanitizesLikeCreateTask(t *testing.T) {
+	repo := &cleanupRepoStub{countResult: 42}
+	cfg := &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: true, MaxRangeDays: 31}}
+	svc := NewUsageCleanupService(repo, nil, nil, cfg)
+
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	userID := int64(-1)
+	model := "  gpt-4  "
+	billingMode := "  token "
+	blankMode := "   "
+	filters := UsageCleanupFilters{StartTime: start, EndTime: start.Add(24 * time.Hour), UserID: &userID, Model: &model, BillingMode: &billingMode}
+
+	count, err := svc.CountMatching(context.Background(), filters)
+	require.NoError(t, err)
+	require.Equal(t, int64(42), count)
+	require.Len(t, repo.countCalls, 1)
+	counted := repo.countCalls[0]
+	require.Nil(t, counted.UserID)
+	require.Equal(t, "gpt-4", *counted.Model)
+	require.Equal(t, "token", *counted.BillingMode)
+
+	task, err := svc.CreateTask(context.Background(), filters, 9)
+	require.NoError(t, err)
+	require.Equal(t, counted, task.Filters)
+
+	filters.BillingMode = &blankMode
+	_, err = svc.CountMatching(context.Background(), filters)
+	require.NoError(t, err)
+	require.Nil(t, repo.countCalls[1].BillingMode)
+}
+
+func TestUsageCleanupServiceCountMatchingRejectsLikeCreateTask(t *testing.T) {
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	repo := &cleanupRepoStub{}
+	svc := NewUsageCleanupService(repo, nil, nil, &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: true, MaxRangeDays: 31}})
+	_, err := svc.CountMatching(context.Background(), UsageCleanupFilters{StartTime: start, EndTime: start.Add(32 * 24 * time.Hour)})
+	require.Equal(t, "USAGE_CLEANUP_RANGE_TOO_LARGE", infraerrors.Reason(err))
+	require.Equal(t, map[string]string{"max_days": "31"}, infraerrors.FromError(err).Metadata)
+	_, err = svc.CountMatching(context.Background(), UsageCleanupFilters{StartTime: start, EndTime: start})
+	require.Equal(t, "USAGE_CLEANUP_INVALID_RANGE", infraerrors.Reason(err))
+	require.Empty(t, repo.countCalls)
+
+	disabled := NewUsageCleanupService(repo, nil, nil, &config.Config{UsageCleanup: config.UsageCleanupConfig{Enabled: false}})
+	_, err = disabled.CountMatching(context.Background(), UsageCleanupFilters{StartTime: start, EndTime: start.Add(time.Hour)})
+	require.Equal(t, "USAGE_CLEANUP_DISABLED", infraerrors.Reason(err))
+	require.Empty(t, repo.countCalls)
 }
 
 func TestUsageCleanupServiceCreateTaskSanitizeFilters(t *testing.T) {
@@ -852,20 +911,26 @@ func TestDescribeUsageCleanupFiltersAllFields(t *testing.T) {
 	accountID := int64(3)
 	model := " gpt-4 "
 	stream := true
+	compaction := true
 	billingType := int8(2)
+	billingMode := "image"
+	mismatch := false
 	filters := UsageCleanupFilters{
-		StartTime:   start,
-		EndTime:     end,
-		UserID:      &userID,
-		APIKeyID:    &apiKeyID,
-		AccountID:   &accountID,
-		Model:       &model,
-		Stream:      &stream,
-		BillingType: &billingType,
+		StartTime:             start,
+		EndTime:               end,
+		UserID:                &userID,
+		APIKeyID:              &apiKeyID,
+		AccountID:             &accountID,
+		Model:                 &model,
+		Stream:                &stream,
+		NativeCompactionV2:    &compaction,
+		BillingType:           &billingType,
+		BillingMode:           &billingMode,
+		UpstreamModelMismatch: &mismatch,
 	}
 
 	desc := describeUsageCleanupFilters(filters)
-	require.Equal(t, "start=2024-02-01T10:00:00Z end=2024-02-01T12:00:00Z user_id=1 api_key_id=2 account_id=3 model=gpt-4 stream=true billing_type=2", desc)
+	require.Equal(t, "start=2024-02-01T10:00:00Z end=2024-02-01T12:00:00Z user_id=1 api_key_id=2 account_id=3 model=gpt-4 stream=true native_compaction_v2=true billing_type=2 billing_mode=image upstream_model_mismatch=false", desc)
 }
 
 func TestUsageCleanupServiceIsTaskCanceledNotFound(t *testing.T) {

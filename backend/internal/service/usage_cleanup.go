@@ -15,26 +15,26 @@ const (
 	UsageCleanupStatusCanceled  = "canceled"
 )
 
-// UsageCleanupFilters 定义清理任务过滤条件
-// 时间范围为必填，其他字段可选
-// JSON 序列化用于存储任务参数
+// UsageCleanupFilters 定义清理任务过滤条件，JSON 序列化后存进任务。
 //
-// start_time/end_time 使用 RFC3339 时间格式
-// 以 UTC 或用户时区解析后的时间为准
-//
-// 说明：
-// - nil 表示未设置该过滤条件
-// - 过滤条件均为精确匹配
+// 与管理站用量页的筛选一一对应，删除时与列表走同一套 WHERE（repository.usageLogFilterConditions）：
+// 页面上列出哪些记录，清理就删哪些（2026-10-04 D8）。
+//   - 时间范围必填，半开区间 [start_time, end_time)，RFC3339
+//   - 模型按请求的模型匹配（与用量页一致）
+//   - nil 表示未设置该过滤条件
 type UsageCleanupFilters struct {
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	UserID      *int64    `json:"user_id,omitempty"`
-	APIKeyID    *int64    `json:"api_key_id,omitempty"`
-	AccountID   *int64    `json:"account_id,omitempty"`
-	Model       *string   `json:"model,omitempty"`
-	RequestType *int16    `json:"request_type,omitempty"`
-	Stream      *bool     `json:"stream,omitempty"`
-	BillingType *int8     `json:"billing_type,omitempty"`
+	StartTime             time.Time `json:"start_time"`
+	EndTime               time.Time `json:"end_time"`
+	UserID                *int64    `json:"user_id,omitempty"`
+	APIKeyID              *int64    `json:"api_key_id,omitempty"`
+	AccountID             *int64    `json:"account_id,omitempty"`
+	Model                 *string   `json:"model,omitempty"`
+	RequestType           *int16    `json:"request_type,omitempty"`
+	Stream                *bool     `json:"stream,omitempty"`
+	NativeCompactionV2    *bool     `json:"native_compaction_v2,omitempty"`
+	BillingType           *int8     `json:"billing_type,omitempty"`
+	BillingMode           *string   `json:"billing_mode,omitempty"`
+	UpstreamModelMismatch *bool     `json:"upstream_model_mismatch,omitempty"`
 }
 
 // UsageCleanupTask 表示使用记录清理任务
@@ -71,4 +71,6 @@ type UsageCleanupRepository interface {
 	MarkTaskSucceeded(ctx context.Context, taskID int64, deletedRows int64) error
 	MarkTaskFailed(ctx context.Context, taskID int64, deletedRows int64, errorMsg string) error
 	DeleteUsageLogsBatch(ctx context.Context, filters UsageCleanupFilters, limit int) (int64, error)
+	// CountUsageLogs 数出符合条件的记录条数（与 DeleteUsageLogsBatch 同一 WHERE），删除前给确认弹窗显示
+	CountUsageLogs(ctx context.Context, filters UsageCleanupFilters) (int64, error)
 }
