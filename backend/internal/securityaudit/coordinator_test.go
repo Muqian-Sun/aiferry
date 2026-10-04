@@ -174,3 +174,14 @@ func TestCoordinatorAsyncEnqueueFailuresNeverChangeResponseOrDownstreamDispatch(
 		require.Zero(t, prompt.evaluates.Load())
 	}
 }
+
+// 返回给 API 调用方的提示一律英文（模型 API 报错英文，2026-10-04 定）；原来是中文
+func TestPrioritizeClientMessagesAreEnglish(t *testing.T) {
+	for _, kind := range []DecisionKind{DecisionBlock, DecisionUnavailable, DecisionInvalid} {
+		decision := prioritize(nil, &PromptDecision{Kind: kind})
+		require.NotEmpty(t, decision.ClientMessage, kind)
+		for _, r := range decision.ClientMessage {
+			require.Less(t, r, rune(128), "client message must be ASCII English: %q", decision.ClientMessage)
+		}
+	}
+}

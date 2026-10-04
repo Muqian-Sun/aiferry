@@ -60,7 +60,9 @@ type Event struct {
 	ChunkTotal      int                `json:"chunk_total"`
 	LatencyMS       int                `json:"latency_ms"`
 	IssueSummaries  []IssueSummary     `json:"issue_summaries"`
-	CreatedAt       time.Time          `json:"created_at"`
+	// Blocked 这条请求当时是否真被拦下：同步阻止且结论为阻止。异步审计的事件结论也可能是「阻止」，但请求已经放行
+	Blocked   bool      `json:"blocked"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type JobRepository interface {

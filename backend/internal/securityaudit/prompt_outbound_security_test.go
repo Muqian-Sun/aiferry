@@ -38,7 +38,7 @@ func TestNormalizeBaseURLAllowsAdministratorConfiguredDestinations(t *testing.T)
 }
 
 func TestHTTPClientUsesDirectStandardDialer(t *testing.T) {
-	client, err := NewSecureHTTPClient(ActiveEndpoint{BaseURL: "https://guard.example.com", TimeoutMS: 1000})
+	client, err := NewSecureHTTPClient(ActiveEndpoint{BaseURL: "https://guard.example.com"})
 	require.NoError(t, err)
 	transport, ok := client.Transport.(*http.Transport)
 	require.True(t, ok)
@@ -61,7 +61,7 @@ func TestOpenAICompatibleScannerRequestContract(t *testing.T) {
 	}))
 	defer server.Close()
 	scanner := NewOpenAICompatibleScanner()
-	result, err := scanner.Scan(context.Background(), ActiveEndpoint{ID: "one", BaseURL: server.URL, Model: DefaultGuardModel, Token: "token", TimeoutMS: 1000}, "hello", AllScannerIDs)
+	result, err := scanner.Scan(context.Background(), ActiveEndpoint{ID: "one", BaseURL: server.URL, Model: DefaultGuardModel, Token: "token"}, "hello", AllScannerIDs)
 	require.NoError(t, err)
 	require.Equal(t, EventPass, result.Decision)
 }
@@ -73,14 +73,14 @@ func TestOpenAICompatibleScannerFollowsRedirectAndRejectsOversize(t *testing.T) 
 	defer target.Close()
 	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, http.StatusFound) }))
 	defer redirect.Close()
-	result, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "redirect", BaseURL: redirect.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+	result, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "redirect", BaseURL: redirect.URL, Model: DefaultGuardModel}, "hello", AllScannerIDs)
 	require.NoError(t, err)
 	require.Equal(t, EventPass, result.Decision)
 	oversize := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(strings.Repeat("x", int(maxGuardResponseBytes)+1)))
 	}))
 	defer oversize.Close()
-	_, err = NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "large", BaseURL: oversize.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+	_, err = NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "large", BaseURL: oversize.URL, Model: DefaultGuardModel}, "hello", AllScannerIDs)
 	require.Error(t, err)
 }
 
@@ -102,7 +102,7 @@ func TestOpenAICompatibleScannerClassifiesHTTPConnectionAndTimeoutFailures(t *te
 				w.WriteHeader(tt.status)
 			}))
 			defer server.Close()
-			_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "status", BaseURL: server.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+			_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "status", BaseURL: server.URL, Model: DefaultGuardModel}, "hello", AllScannerIDs)
 			var guardErr *GuardError
 			require.ErrorAs(t, err, &guardErr)
 			require.Equal(t, ErrorCodeUnavailable, guardErr.Code)
@@ -115,7 +115,7 @@ func TestOpenAICompatibleScannerClassifiesHTTPConnectionAndTimeoutFailures(t *te
 	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	closedURL := closed.URL
 	closed.Close()
-	_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "closed", BaseURL: closedURL, Model: DefaultGuardModel, TimeoutMS: 100}, "hello", AllScannerIDs)
+	_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "closed", BaseURL: closedURL, Model: DefaultGuardModel}, "hello", AllScannerIDs)
 	var connectionErr *GuardError
 	require.ErrorAs(t, err, &connectionErr)
 	require.True(t, connectionErr.Retryable)
@@ -125,7 +125,10 @@ func TestOpenAICompatibleScannerClassifiesHTTPConnectionAndTimeoutFailures(t *te
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer timeout.Close()
-	_, err = NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "timeout", BaseURL: timeout.URL, Model: DefaultGuardModel, TimeoutMS: 20}, "hello", AllScannerIDs)
+	// 节点超时写死 3 秒；这里用 20ms 期限的 context 触发同一个超时分支
+	timeoutCtx, cancelTimeout := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancelTimeout()
+	_, err = NewOpenAICompatibleScanner().Scan(timeoutCtx, ActiveEndpoint{ID: "timeout", BaseURL: timeout.URL, Model: DefaultGuardModel}, "hello", AllScannerIDs)
 	var timeoutErr *GuardError
 	require.ErrorAs(t, err, &timeoutErr)
 	require.True(t, timeoutErr.Retryable)
@@ -144,7 +147,7 @@ func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
 			chatCalls.Add(1)
 		}))
 		defer server.Close()
-		result := newProbeTestService().Probe(context.Background(), ProbeRequest{Endpoint: probeEndpoint(server.URL, "temporary-token")})
+		result := newProbeTestService(server.URL, "temporary-token").Probe(context.Background(), ProbeRequest{EndpointID: "guard-1"})
 		require.True(t, result.OK)
 		require.True(t, result.TokenApplied)
 		require.Equal(t, http.StatusOK, result.HTTPStatus)
@@ -162,7 +165,7 @@ func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
 			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"Safety: Safe\nCategories: None"}}]}`))
 		}))
 		defer server.Close()
-		result := newProbeTestService().Probe(context.Background(), ProbeRequest{Endpoint: probeEndpoint(server.URL, "temporary-token")})
+		result := newProbeTestService(server.URL, "temporary-token").Probe(context.Background(), ProbeRequest{EndpointID: "guard-1"})
 		require.True(t, result.OK)
 		require.Equal(t, int64(1), chatCalls.Load())
 	})
@@ -176,11 +179,23 @@ func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 		}))
 		defer server.Close()
-		result := newProbeTestService().Probe(context.Background(), ProbeRequest{Endpoint: probeEndpoint(server.URL, "temporary-token")})
+		result := newProbeTestService(server.URL, "temporary-token").Probe(context.Background(), ProbeRequest{EndpointID: "guard-1"})
 		require.False(t, result.OK)
 		require.Equal(t, ErrorCodeUnavailable, result.ErrorCode)
 		require.Equal(t, http.StatusUnauthorized, result.HTTPStatus)
 		require.False(t, result.Retryable)
+	})
+
+	t.Run("unknown endpoint id is rejected without calling anything", func(t *testing.T) {
+		var calls atomic.Int64
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }))
+		defer server.Close()
+		service := newProbeTestService(server.URL, "temporary-token")
+		result := service.Probe(context.Background(), ProbeRequest{EndpointID: "guard-9"})
+		require.False(t, result.OK)
+		require.Equal(t, "endpoint_not_found", result.ErrorCode)
+		require.Zero(t, calls.Load())
+		require.Empty(t, service.probeSnapshot())
 	})
 
 	t.Run("oversized models response is rejected without fallback", func(t *testing.T) {
@@ -192,45 +207,18 @@ func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
 			_, _ = w.Write([]byte(strings.Repeat("x", int(maxGuardResponseBytes)+1)))
 		}))
 		defer server.Close()
-		result := newProbeTestService().Probe(context.Background(), ProbeRequest{Endpoint: probeEndpoint(server.URL, "temporary-token")})
+		result := newProbeTestService(server.URL, "temporary-token").Probe(context.Background(), ProbeRequest{EndpointID: "guard-1"})
 		require.False(t, result.OK)
 		require.Equal(t, "response_too_large", result.ErrorCode)
 		require.Zero(t, chatCalls.Load())
 	})
 }
 
-func TestResolveProbeEndpointReusesTokenOnlyForMatchingBaseURL(t *testing.T) {
-	manager := &ConfigManager{}
-	manager.snapshot.Store(&activeConfigSnapshot{active: ActiveConfig{Endpoints: []ActiveEndpoint{{
-		ID: "guard-1", BaseURL: "https://guard.example.com", Token: "STORED_GUARD_TOKEN", TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
-	}}}})
-	service := &PromptService{config: manager}
-
-	matched, applied, err := service.resolveProbeEndpoint(UpdateEndpoint{
-		ID: "guard-1", BaseURL: "https://guard.example.com/v1", TimeoutMS: 1000, InputLimit: 1024,
-	})
-	require.NoError(t, err)
-	require.True(t, applied)
-	require.Equal(t, "STORED_GUARD_TOKEN", matched.Token)
-
-	mismatched, applied, err := service.resolveProbeEndpoint(UpdateEndpoint{
-		ID: "guard-1", BaseURL: "https://attacker.example.com", TimeoutMS: 1000, InputLimit: 1024,
-	})
-	require.NoError(t, err)
-	require.False(t, applied)
-	require.Empty(t, mismatched.Token)
-}
-
-func newProbeTestService() *PromptService {
+// newProbeTestService 部署配置里只有一个守卫节点（guard-1）的服务
+func newProbeTestService(baseURL, token string) *PromptService {
 	return &PromptService{
-		config: &ConfigManager{}, scanner: NewOpenAICompatibleScanner(), clock: realClock{},
+		config: &ConfigManager{endpoints: []ActiveEndpoint{{ID: "guard-1", Name: "Probe One", BaseURL: baseURL, Model: DefaultGuardModel, Token: token}}},
+		scanner: NewOpenAICompatibleScanner(), clock: realClock{},
 		probes: map[string]ProbeResult{},
-	}
-}
-
-func probeEndpoint(baseURL, token string) UpdateEndpoint {
-	return UpdateEndpoint{
-		ID: "probe-one", Name: "Probe One", Protocol: "openai_compatible", BaseURL: baseURL,
-		Model: DefaultGuardModel, Token: token, TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
 	}
 }

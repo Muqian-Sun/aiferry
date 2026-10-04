@@ -313,7 +313,9 @@ func eventColumns(alias string) string {
 		%[1]s.stage,%[1]s.decision,%[1]s.risk_level,%[1]s.action,%[1]s.categories,%[1]s.matched_scanners,
 		%[1]s.scanner_scores,%[1]s.scanner_evidence,%[1]s.scanner_backend,%[1]s.scanner_version,
 		%[1]s.guard_endpoint_id,%[1]s.policy_id,%[1]s.policy_version,%[1]s.config_version,
-		%[1]s.chunk_total,%[1]s.latency_ms,%[1]s.created_at`, alias)
+		%[1]s.chunk_total,%[1]s.latency_ms,
+		(%[1]s.action = 'Block' AND EXISTS (SELECT 1 FROM prompt_audit_jobs bj WHERE bj.id = %[1]s.job_id AND bj.execution_mode = 'blocking')),
+		%[1]s.created_at`, alias)
 }
 
 // eventDetailColumns adds the full prompt, which can be large, so it is only
@@ -333,7 +335,7 @@ func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
 		&event.Snapshot.PromptHash, &event.Snapshot.RedactedPreview, &event.Snapshot.Stage, &event.Decision,
 		&event.RiskLevel, &event.Action, &categories, &matched, &scores, &evidence, &event.ScannerBackend,
 		&event.ScannerVersion, &event.GuardEndpointID, &event.PolicyID, &event.PolicyVersion,
-		&event.ConfigVersion, &event.ChunkTotal, &event.LatencyMS, &event.CreatedAt}
+		&event.ConfigVersion, &event.ChunkTotal, &event.LatencyMS, &event.Blocked, &event.CreatedAt}
 	if len(withFullPrompt) > 0 && withFullPrompt[0] {
 		dest = append(dest, &event.Snapshot.FullPrompt)
 	}

@@ -121,6 +121,11 @@ services:
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
 
       # =======================================================================
+      # Prompt Audit guard endpoints (JSON array; see config.example.yaml)
+      # 提示词审计守卫节点，JSON 数组；不用提示词审计可留空
+      - PROMPT_AUDIT_GUARD_ENDPOINTS=${PROMPT_AUDIT_GUARD_ENDPOINTS:-}
+
+      # =======================================================================
       # Timezone Configuration
       # This affects ALL time operations in the application:
       # - Database timestamps

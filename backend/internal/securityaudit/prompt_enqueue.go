@@ -35,7 +35,7 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 		LogInfo(EventEnqueueSkipped, mergeLogFields(baseFields, map[string]any{"status": "skipped", "error_code": "group_out_of_scope"}))
 		return nil
 	}
-	if len(cfg.EnabledEndpoints()) == 0 {
+	if len(cfg.Endpoints) == 0 {
 		e.recordDropped()
 		LogWarn(EventEnqueueDropped, mergeLogFields(baseFields, map[string]any{"status": "dropped", "error_code": "no_enabled_endpoint"}))
 		return nil
@@ -50,7 +50,7 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 		LogWarn(EventEnqueueDropped, mergeLogFields(baseFields, map[string]any{"status": "dropped", "error_code": "snapshot_invalid"}))
 		return nil
 	}
-	job, err := e.repo.CreateStagingWithCapacity(ctx, snapshot.Redacted(), cfg.ConfigVersion, 3, cfg.QueueCapacity)
+	job, err := e.repo.CreateStagingWithCapacity(ctx, snapshot.Redacted(), cfg.ConfigVersion, 3, QueueCapacity)
 	if err != nil {
 		code := "database_unavailable"
 		if errors.Is(err, ErrQueueFull) {
@@ -60,7 +60,7 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 			code = "queue_admission_busy"
 		}
 		LogWarn(EventEnqueueDropped, mergeLogFields(baseFields, map[string]any{
-			"queue_capacity": cfg.QueueCapacity, "status": "dropped", "error_code": code,
+			"queue_capacity": QueueCapacity, "status": "dropped", "error_code": code,
 		}))
 		e.recordDropped()
 		return err
@@ -84,7 +84,7 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 	}
 	LogInfo(EventJobEnqueued, mergeLogFields(baseFields, map[string]any{
 		"job_id":         job.ID,
-		"queue_capacity": cfg.QueueCapacity, "status": "queued",
+		"queue_capacity": QueueCapacity, "status": "queued",
 	}))
 	if e.metrics != nil {
 		e.metrics.IncEnqueued()

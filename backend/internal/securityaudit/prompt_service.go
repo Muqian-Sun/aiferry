@@ -156,7 +156,7 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if cfg.EffectiveMode() != ModeBlocking {
 		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
 	}
-	snapshot, err := ExtractBlockingPromptSnapshot(req, cfg.BlockingLatestTurnOnly)
+	snapshot, err := ExtractBlockingPromptSnapshot(req, BlockingLatestTurnOnly)
 	if errors.Is(err, ErrNoPromptText) {
 		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
 	}
@@ -174,11 +174,11 @@ func (s *PromptService) SaveConfig(ctx context.Context, req UpdateConfigRequest,
 
 func (s *PromptService) Runtime(ctx context.Context) RuntimeSnapshot {
 	expected, activeVersion, loadedAt, loadError := s.config.RuntimeState()
-	cfg, hasConfig := s.config.Active()
+	_, hasConfig := s.config.Active()
 	mode := s.EffectiveMode()
 	workerTotal, queueCapacity := 0, 0
 	if hasConfig {
-		workerTotal, queueCapacity = cfg.WorkerCount, cfg.QueueCapacity
+		workerTotal, queueCapacity = WorkerCount, QueueCapacity
 	}
 	runtime := RuntimeSnapshot{
 		ProcessStatus: "disabled", EffectiveMode: mode, ExpectedConfigVersion: expected,
@@ -225,16 +225,25 @@ func (s *PromptService) Runtime(ctx context.Context) RuntimeSnapshot {
 	return runtime
 }
 
+// ProbeRequest 测一个部署配置里的守卫节点（按 ID；节点本身不在页面上配）
 type ProbeRequest struct {
-	Endpoint UpdateEndpoint `json:"endpoint"`
+	EndpointID string `json:"endpoint_id" binding:"required"`
 }
 
 func (s *PromptService) Probe(ctx context.Context, request ProbeRequest) ProbeResult {
 	started := s.clock.Now()
-	endpoint, tokenApplied, err := s.resolveProbeEndpoint(request.Endpoint)
-	if err != nil {
-		return s.finishProbe(request.Endpoint.ID, started, ProbeResult{Status: "failed", ErrorCode: "endpoint_invalid", Message: "审计节点配置无效"})
+	var endpoint ActiveEndpoint
+	found := false
+	for _, candidate := range s.config.GuardEndpoints() {
+		if candidate.ID == strings.TrimSpace(request.EndpointID) {
+			endpoint, found = candidate, true
+			break
+		}
 	}
+	if !found {
+		return ProbeResult{Status: "failed", ErrorCode: "endpoint_not_found", Message: "审计节点不存在", CheckedAt: s.clock.Now()}
+	}
+	tokenApplied := endpoint.Token != ""
 	LogInfo(EventProbeStarted, map[string]any{"guard_endpoint_id": endpoint.ID, "status": "started"})
 	client, err := NewSecureHTTPClient(endpoint)
 	if err != nil {
@@ -309,54 +318,6 @@ func modelsResponseReady(body []byte, model string) bool {
 		}
 	}
 	return false
-}
-
-func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoint, bool, error) {
-	baseURL, err := NormalizeBaseURL(input.BaseURL)
-	if err != nil {
-		return ActiveEndpoint{}, false, err
-	}
-	token := strings.TrimSpace(input.Token)
-	if token == "" {
-		if cfg, ok := s.config.Active(); ok {
-			for _, endpoint := range cfg.Endpoints {
-				if endpoint.ID != strings.TrimSpace(input.ID) {
-					continue
-				}
-				// Reuse a stored credential only when the probe targets the same
-				// normalized base URL. Otherwise an admin probe could exfiltrate
-				// the Guard token to an attacker-controlled HTTPS host.
-				if endpoint.BaseURL == baseURL {
-					token = endpoint.Token
-				}
-				break
-			}
-		}
-	}
-	model := strings.TrimSpace(input.Model)
-	if model == "" {
-		model = DefaultGuardModel
-	}
-	timeout := input.TimeoutMS
-	if timeout == 0 {
-		timeout = DefaultTimeoutMS
-	}
-	limit := input.InputLimit
-	if limit == 0 {
-		limit = DefaultInputLimit
-	}
-	storage := storageConfig{Enabled: false, Strategy: "priority", WorkerCount: DefaultWorkerCount, QueueCapacity: DefaultQueueCapacity, Scanners: append([]string(nil), AllScannerIDs...),
-		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
-	if storage.Endpoints[0].ID == "" {
-		storage.Endpoints[0].ID = "probe"
-	}
-	if storage.Endpoints[0].Name == "" {
-		storage.Endpoints[0].Name = "Probe"
-	}
-	if err := validateStorageConfig(storage); err != nil {
-		return ActiveEndpoint{}, false, err
-	}
-	return ActiveEndpoint{ID: storage.Endpoints[0].ID, Name: storage.Endpoints[0].Name, Protocol: "openai_compatible", BaseURL: baseURL, Model: model, Token: token, TimeoutMS: timeout, InputLimit: limit, Enabled: true}, token != "", nil
 }
 
 func (s *PromptService) finishProbe(id string, started time.Time, result ProbeResult) ProbeResult {

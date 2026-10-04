@@ -11,18 +11,19 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
+// 提示词审计的运行参数写死在代码里（2026-10-05，瘦身方案 B2）：页面只留开关、同步阻止和风险分类，
+// 守卫节点在部署配置里（prompt_audit.guard_endpoints / PROMPT_AUDIT_GUARD_ENDPOINTS）。
 const (
-	DefaultWorkerCount   = 4
-	MaxWorkerCount       = 32
-	DefaultQueueCapacity = 32768
-	MaxQueueCapacity     = 100000
-	DefaultTimeoutMS     = 3000
-	MinTimeoutMS         = 100
-	MaxTimeoutMS         = 30000
-	DefaultInputLimit    = 4000
-	MinInputLimit        = 128
-	MaxInputLimit        = 100000
-	DefaultPayloadTTL    = 30 * time.Minute
+	WorkerCount       = 4
+	QueueCapacity     = 32768
+	GuardTimeoutMS    = 3000
+	GuardInputLimit   = 4000
+	DefaultPayloadTTL = 30 * time.Minute
+	// BlockingLatestTurnOnly 同步阻止时只审最新输入和上一轮输出，不把整段历史每轮重审一遍
+	// （对话越长越慢；历史里有一句被判违规后每轮都会被拦）。2026-10-05 muqian 定写死开。
+	BlockingLatestTurnOnly = true
+	// StorePassEvents 判定为安全的请求不存事件，事件列表只留需要复核的
+	StorePassEvents = false
 )
 
 type SecretEncryptor interface {
@@ -47,138 +48,76 @@ type ConfigStore interface {
 	RuntimeState() (expected int64, active int64, loadedAt *time.Time, loadError string)
 	Encrypt(value string) (string, error)
 	Decrypt(value string) (string, error)
+	// GuardEndpoints 部署配置里的守卫节点（与审计开关无关，未启用时管理页也要能看到、能测）
+	GuardEndpoints() []ActiveEndpoint
 }
 
-type StorageEndpoint struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Protocol        string `json:"protocol"`
-	BaseURL         string `json:"base_url"`
-	Model           string `json:"model"`
-	TokenCiphertext string `json:"token_ciphertext,omitempty"`
-	TimeoutMS       int    `json:"timeout_ms"`
-	InputLimit      int    `json:"input_limit"`
-	Enabled         bool   `json:"enabled"`
-}
-
+// storageConfig 存在 prompt_audit_config 里、页面上能改的部分
 type storageConfig struct {
-	Enabled                bool              `json:"enabled"`
-	BlockingEnabled        bool              `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool              `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool              `json:"store_pass_events"`
-	Strategy               string            `json:"strategy"`
-	WorkerCount            int               `json:"worker_count"`
-	QueueCapacity          int               `json:"queue_capacity"`
-	Scanners               []string          `json:"scanners"`
-	Endpoints              []StorageEndpoint `json:"endpoints"`
-	ConfigVersion          int64             `json:"config_version"`
-	UpdatedAt              time.Time         `json:"updated_at"`
-	UpdatedBy              int64             `json:"updated_by"`
-	ChangeSummary          string            `json:"change_summary"`
+	Enabled         bool      `json:"enabled"`
+	BlockingEnabled bool      `json:"blocking_enabled"`
+	Scanners        []string  `json:"scanners"`
+	ConfigVersion   int64     `json:"config_version"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	UpdatedBy       int64     `json:"updated_by"`
+	ChangeSummary   string    `json:"change_summary"`
 }
 
+// ActiveEndpoint 一个守卫节点（OpenAI 兼容的 Qwen3Guard 服务），来自部署配置，按配置顺序优先、出错切下一个
 type ActiveEndpoint struct {
-	ID         string
-	Name       string
-	Protocol   string
-	BaseURL    string
-	Model      string
-	Token      string
-	TimeoutMS  int
-	InputLimit int
-	Enabled    bool
-	// TokenInvalid marks an endpoint whose persisted token ciphertext cannot be
-	// decrypted with the current encryption key (key changed or auto-generated
-	// on restart). The endpoint is kept visible for admins but excluded from
-	// runtime use until the token is re-entered or cleared (issue #4887).
-	TokenInvalid bool
+	ID      string
+	Name    string
+	BaseURL string
+	Model   string
+	Token   string
 }
 
 type ActiveConfig struct {
-	RiskControlEnabled     bool
-	Enabled                bool
-	BlockingEnabled        bool
-	BlockingLatestTurnOnly bool
-	StorePassEvents        bool
-	Strategy               string
-	WorkerCount            int
-	QueueCapacity          int
-	Scanners               []string
-	Endpoints              []ActiveEndpoint
-	ConfigVersion          int64
-	UpdatedAt              time.Time
-	UpdatedBy              int64
-	ChangeSummary          string
+	RiskControlEnabled bool
+	Enabled            bool
+	BlockingEnabled    bool
+	Scanners           []string
+	Endpoints          []ActiveEndpoint
+	ConfigVersion      int64
+	UpdatedAt          time.Time
+	UpdatedBy          int64
+	ChangeSummary      string
 }
 
+// PublicEndpoint 给管理页展示的守卫节点（只读；改节点要改部署配置），不含密钥
 type PublicEndpoint struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Protocol    string `json:"protocol"`
-	BaseURL     string `json:"base_url"`
-	Model       string `json:"model"`
-	TimeoutMS   int    `json:"timeout_ms"`
-	InputLimit  int    `json:"input_limit"`
-	Enabled     bool   `json:"enabled"`
-	HasToken    bool   `json:"has_token"`
-	TokenStatus string `json:"token_status"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	BaseURL  string `json:"base_url"`
+	Model    string `json:"model"`
+	HasToken bool   `json:"has_token"`
 }
 
 type PublicConfig struct {
-	Enabled                bool             `json:"enabled"`
-	BlockingEnabled        bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool             `json:"store_pass_events"`
-	EffectiveMode          Mode             `json:"effective_mode"`
-	Strategy               string           `json:"strategy"`
-	WorkerCount            int              `json:"worker_count"`
-	QueueCapacity          int              `json:"queue_capacity"`
-	Scanners               []string         `json:"scanners"`
-	Endpoints              []PublicEndpoint `json:"endpoints"`
-	ConfigVersion          int64            `json:"config_version"`
-	UpdatedAt              time.Time        `json:"updated_at"`
-	UpdatedBy              int64            `json:"updated_by"`
-	ChangeSummary          string           `json:"change_summary"`
-}
-
-type UpdateEndpoint struct {
-	ID         string `json:"id" binding:"required"`
-	Name       string `json:"name" binding:"required"`
-	Protocol   string `json:"protocol"`
-	BaseURL    string `json:"base_url" binding:"required"`
-	Model      string `json:"model"`
-	Token      string `json:"token,omitempty"`
-	ClearToken bool   `json:"clear_token"`
-	TimeoutMS  int    `json:"timeout_ms"`
-	InputLimit int    `json:"input_limit"`
-	Enabled    bool   `json:"enabled"`
+	Enabled         bool             `json:"enabled"`
+	BlockingEnabled bool             `json:"blocking_enabled"`
+	EffectiveMode   Mode             `json:"effective_mode"`
+	Scanners        []string         `json:"scanners"`
+	Endpoints       []PublicEndpoint `json:"endpoints"`
+	ConfigVersion   int64            `json:"config_version"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	UpdatedBy       int64            `json:"updated_by"`
+	ChangeSummary   string           `json:"change_summary"`
 }
 
 type UpdateConfigRequest struct {
-	ExpectedConfigVersion  int64            `json:"expected_config_version" binding:"required"`
-	Enabled                bool             `json:"enabled"`
-	BlockingEnabled        bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool             `json:"store_pass_events"`
-	Strategy               string           `json:"strategy"`
-	WorkerCount            int              `json:"worker_count"`
-	QueueCapacity          int              `json:"queue_capacity"`
-	Scanners               []string         `json:"scanners"`
-	Endpoints              []UpdateEndpoint `json:"endpoints"`
+	ExpectedConfigVersion int64    `json:"expected_config_version" binding:"required"`
+	Enabled               bool     `json:"enabled"`
+	BlockingEnabled       bool     `json:"blocking_enabled"`
+	Scanners              []string `json:"scanners"`
 }
 
 func DefaultStorageConfig() storageConfig {
 	return storageConfig{
-		Enabled:                false,
-		BlockingEnabled:        false,
-		BlockingLatestTurnOnly: false,
-		StorePassEvents:        false,
-		Strategy:               "priority",
-		WorkerCount:            DefaultWorkerCount,
-		QueueCapacity:          DefaultQueueCapacity,
-		Scanners:               append([]string(nil), AllScannerIDs...),
-		Endpoints:              []StorageEndpoint{},
-		ConfigVersion:          1,
+		Enabled:         false,
+		BlockingEnabled: false,
+		Scanners:        append([]string(nil), AllScannerIDs...),
+		ConfigVersion:   1,
 	}
 }
 
@@ -204,101 +143,23 @@ func normalizeStorageConfig(cfg *storageConfig) {
 	if cfg.ConfigVersion < 1 {
 		cfg.ConfigVersion = 1
 	}
-	if strings.TrimSpace(cfg.Strategy) == "" {
-		cfg.Strategy = "priority"
-	}
-	if cfg.WorkerCount == 0 {
-		cfg.WorkerCount = DefaultWorkerCount
-	}
-	if cfg.QueueCapacity == 0 {
-		cfg.QueueCapacity = DefaultQueueCapacity
-	}
 	if len(cfg.Scanners) == 0 {
 		cfg.Scanners = append([]string(nil), AllScannerIDs...)
 	}
 	cfg.Scanners = canonicalScannerIDs(cfg.Scanners)
-	// Preserve an invalid blocking-without-audit combination so validation can
-	// reject it instead of silently changing administrator intent.
-	for i := range cfg.Endpoints {
-		ep := &cfg.Endpoints[i]
-		ep.ID = strings.TrimSpace(ep.ID)
-		ep.Name = strings.TrimSpace(ep.Name)
-		ep.Protocol = strings.TrimSpace(ep.Protocol)
-		if ep.Protocol == "" {
-			ep.Protocol = "openai_compatible"
-		}
-		ep.BaseURL = strings.TrimSpace(ep.BaseURL)
-		ep.Model = strings.TrimSpace(ep.Model)
-		if ep.Model == "" {
-			ep.Model = DefaultGuardModel
-		}
-		if ep.TimeoutMS == 0 {
-			ep.TimeoutMS = DefaultTimeoutMS
-		}
-		if ep.InputLimit == 0 {
-			ep.InputLimit = DefaultInputLimit
-		}
-	}
 }
 
 func validateStorageConfig(cfg storageConfig) error {
 	if cfg.BlockingEnabled && !cfg.Enabled {
 		return infraerrors.BadRequest(ErrorCodeRequiresEnabled, "开启同步阻止前必须先启用提示词审计")
 	}
-	if cfg.Strategy != "priority" {
-		return infraerrors.BadRequest("prompt_audit_invalid_strategy", "提示词审计策略仅支持 priority")
-	}
-	if cfg.WorkerCount < 1 || cfg.WorkerCount > MaxWorkerCount {
-		return infraerrors.BadRequest("prompt_audit_invalid_worker_count", "Worker 数量超出允许范围")
-	}
-	if cfg.QueueCapacity < 1 || cfg.QueueCapacity > MaxQueueCapacity {
-		return infraerrors.BadRequest("prompt_audit_invalid_queue_capacity", "队列容量超出允许范围")
-	}
 	if len(cfg.Scanners) == 0 {
 		return infraerrors.BadRequest("prompt_audit_scanners_required", "至少需要启用一个风险分类")
-	}
-	seen := make(map[string]struct{}, len(cfg.Endpoints))
-	enabled := 0
-	for _, ep := range cfg.Endpoints {
-		if ep.ID == "" || ep.Name == "" {
-			return infraerrors.BadRequest("prompt_audit_invalid_endpoint", "审计节点 ID 和名称不能为空")
-		}
-		if _, ok := seen[ep.ID]; ok {
-			return infraerrors.BadRequest("prompt_audit_duplicate_endpoint", "审计节点 ID 不能重复")
-		}
-		seen[ep.ID] = struct{}{}
-		if ep.Protocol != "openai_compatible" {
-			return infraerrors.BadRequest("prompt_audit_invalid_endpoint_protocol", "审计节点仅支持 OpenAI 兼容协议")
-		}
-		if _, err := NormalizeBaseURL(ep.BaseURL); err != nil {
-			return err
-		}
-		if ep.TimeoutMS < MinTimeoutMS || ep.TimeoutMS > MaxTimeoutMS {
-			return infraerrors.BadRequest("prompt_audit_invalid_timeout", "审计节点超时超出允许范围")
-		}
-		if ep.InputLimit < MinInputLimit || ep.InputLimit > MaxInputLimit {
-			return infraerrors.BadRequest("prompt_audit_invalid_input_limit", "审计节点输入上限超出允许范围")
-		}
-		if ep.Enabled {
-			enabled++
-		}
-	}
-	if cfg.Enabled && enabled == 0 {
-		return infraerrors.BadRequest("prompt_audit_endpoint_required", "启用提示词审计前至少需要启用一个审计节点")
 	}
 	return nil
 }
 
-func validateUpdateConfigRequest(req UpdateConfigRequest) error {
-	if strings.TrimSpace(req.Strategy) != "priority" {
-		return infraerrors.BadRequest("prompt_audit_invalid_strategy", "提示词审计策略仅支持 priority")
-	}
-	if req.WorkerCount < 1 || req.WorkerCount > MaxWorkerCount {
-		return infraerrors.BadRequest("prompt_audit_invalid_worker_count", "Worker 数量超出允许范围")
-	}
-	if req.QueueCapacity < 1 || req.QueueCapacity > MaxQueueCapacity {
-		return infraerrors.BadRequest("prompt_audit_invalid_queue_capacity", "队列容量超出允许范围")
-	}
+func validateUpdateConfigRequest(req UpdateConfigRequest, endpointCount int) error {
 	if len(req.Scanners) == 0 {
 		return infraerrors.BadRequest("prompt_audit_scanners_required", "至少需要启用一个风险分类")
 	}
@@ -307,13 +168,8 @@ func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 			return infraerrors.BadRequest("prompt_audit_invalid_scanner", "提示词审计风险分类无效")
 		}
 	}
-	for _, endpoint := range req.Endpoints {
-		if endpoint.TimeoutMS < MinTimeoutMS || endpoint.TimeoutMS > MaxTimeoutMS {
-			return infraerrors.BadRequest("prompt_audit_invalid_timeout", "审计节点超时超出允许范围")
-		}
-		if endpoint.InputLimit < MinInputLimit || endpoint.InputLimit > MaxInputLimit {
-			return infraerrors.BadRequest("prompt_audit_invalid_input_limit", "审计节点输入上限超出允许范围")
-		}
+	if req.Enabled && endpointCount == 0 {
+		return infraerrors.BadRequest("prompt_audit_endpoint_required", "部署配置里还没有守卫节点，不能启用提示词审计")
 	}
 	return nil
 }
@@ -328,105 +184,36 @@ func (cfg ActiveConfig) EffectiveMode() Mode {
 	return ModeAsync
 }
 
-func (cfg ActiveConfig) EnabledEndpoints() []ActiveEndpoint {
-	result := make([]ActiveEndpoint, 0, len(cfg.Endpoints))
-	for _, ep := range cfg.Endpoints {
-		if ep.Enabled {
-			result = append(result, ep)
-		}
-	}
-	return result
-}
-
-// InvalidTokenEndpointIDs lists endpoints whose stored token could not be
-// decrypted with the current encryption key.
-func (cfg ActiveConfig) InvalidTokenEndpointIDs() []string {
-	ids := make([]string, 0)
-	for _, ep := range cfg.Endpoints {
-		if ep.TokenInvalid {
-			ids = append(ids, ep.ID)
-		}
-	}
-	return ids
-}
-
-func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenEndpointIDs []string) PublicConfig {
-	invalid := make(map[string]struct{}, len(invalidTokenEndpointIDs))
-	for _, id := range invalidTokenEndpointIDs {
-		invalid[id] = struct{}{}
-	}
-	scanners := append([]string{}, cfg.Scanners...)
-	endpoints := make([]PublicEndpoint, 0, len(cfg.Endpoints))
-	for _, ep := range cfg.Endpoints {
-		hasToken := strings.TrimSpace(ep.TokenCiphertext) != ""
-		status := "missing"
-		if hasToken {
-			status = "configured"
-			if _, ok := invalid[ep.ID]; ok {
-				status = "invalid"
-			}
-		}
-		endpoints = append(endpoints, PublicEndpoint{
-			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, BaseURL: ep.BaseURL,
-			Model: ep.Model, TimeoutMS: ep.TimeoutMS, InputLimit: ep.InputLimit,
-			Enabled: ep.Enabled, HasToken: hasToken, TokenStatus: status,
+func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, endpoints []ActiveEndpoint) PublicConfig {
+	public := make([]PublicEndpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		public = append(public, PublicEndpoint{
+			ID: ep.ID, Name: ep.Name, BaseURL: ep.BaseURL, Model: ep.Model, HasToken: ep.Token != "",
 		})
 	}
 	active := ActiveConfig{RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled}
 	return PublicConfig{
-		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly, StorePassEvents: cfg.StorePassEvents,
-		EffectiveMode: active.EffectiveMode(), Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
-		QueueCapacity: cfg.QueueCapacity, Scanners: scanners, Endpoints: endpoints, ConfigVersion: cfg.ConfigVersion,
+		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, EffectiveMode: active.EffectiveMode(),
+		Scanners: append([]string{}, cfg.Scanners...), Endpoints: public, ConfigVersion: cfg.ConfigVersion,
 		UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy, ChangeSummary: cfg.ChangeSummary,
 	}
 }
 
-func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor SecretEncryptor) (ActiveConfig, error) {
-	active := ActiveConfig{
+func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, endpoints []ActiveEndpoint) ActiveConfig {
+	return ActiveConfig{
 		RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled,
-		BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
-		StorePassEvents:        cfg.StorePassEvents, Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
-		QueueCapacity: cfg.QueueCapacity, Scanners: append([]string(nil), cfg.Scanners...), ConfigVersion: cfg.ConfigVersion,
+		Scanners: append([]string(nil), cfg.Scanners...), ConfigVersion: cfg.ConfigVersion,
 		UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy, ChangeSummary: cfg.ChangeSummary,
-		Endpoints: make([]ActiveEndpoint, 0, len(cfg.Endpoints)),
+		Endpoints: append([]ActiveEndpoint(nil), endpoints...),
 	}
-	for _, ep := range cfg.Endpoints {
-		token := ""
-		tokenInvalid := false
-		if ep.TokenCiphertext != "" {
-			if encryptor == nil {
-				return ActiveConfig{}, fmt.Errorf("prompt audit secret encryptor unavailable")
-			}
-			plain, err := encryptor.Decrypt(ep.TokenCiphertext)
-			if err != nil {
-				// An undecryptable token (encryption key changed or regenerated)
-				// must not take the whole config down: admins would otherwise be
-				// locked out of the real config version and unable to recover
-				// (issue #4887). Keep the ciphertext persisted, but exclude the
-				// endpoint from runtime use until the token is re-entered.
-				tokenInvalid = true
-			} else {
-				token = plain
-			}
-		}
-		active.Endpoints = append(active.Endpoints, ActiveEndpoint{
-			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, BaseURL: ep.BaseURL, Model: ep.Model,
-			Token: token, TimeoutMS: ep.TimeoutMS, InputLimit: ep.InputLimit,
-			Enabled: ep.Enabled && !tokenInvalid, TokenInvalid: tokenInvalid,
-		})
-	}
-	return active, nil
 }
 
 func changeSummary(cfg storageConfig) string {
 	summary := struct {
-		Enabled                bool `json:"enabled"`
-		BlockingEnabled        bool `json:"blocking_enabled"`
-		BlockingLatestTurnOnly bool `json:"blocking_latest_turn_only"`
-		StorePassEvents        bool `json:"store_pass_events"`
-		EndpointCount          int  `json:"endpoint_count"`
-		ScannerCount           int  `json:"scanner_count"`
-	}{cfg.Enabled, cfg.BlockingEnabled, cfg.BlockingLatestTurnOnly, cfg.StorePassEvents, len(cfg.Endpoints), len(cfg.Scanners)}
+		Enabled         bool `json:"enabled"`
+		BlockingEnabled bool `json:"blocking_enabled"`
+		ScannerCount    int  `json:"scanner_count"`
+	}{cfg.Enabled, cfg.BlockingEnabled, len(cfg.Scanners)}
 	raw, _ := json.Marshal(summary)
 	return string(raw)
 }

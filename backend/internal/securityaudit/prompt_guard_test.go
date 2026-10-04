@@ -54,15 +54,15 @@ func TestGuardEvaluatorOrderedFailoverAndInvalidTerminal(t *testing.T) {
 	evaluator := newGuardEvaluator(scanner, nil, metrics, 4, 2)
 	snapshot := PromptSnapshot{RequestID: "r", ScanText: "hello", PromptLength: 5}
 	decision, err := evaluator.Evaluate(context.Background(), guardConfig(
-		ActiveEndpoint{ID: "bad", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
-		ActiveEndpoint{ID: "good", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
+		ActiveEndpoint{ID: "bad"},
+		ActiveEndpoint{ID: "good"},
 	), snapshot)
 	require.NoError(t, err)
 	require.Equal(t, DecisionAllow, decision.Kind)
 	require.Equal(t, int64(1), metrics.Snapshot().Failovers)
 	_, err = evaluator.Evaluate(context.Background(), guardConfig(
-		ActiveEndpoint{ID: "invalid", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
-		ActiveEndpoint{ID: "good", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
+		ActiveEndpoint{ID: "invalid"},
+		ActiveEndpoint{ID: "good"},
 	), snapshot)
 	var guardErr *GuardError
 	require.ErrorAs(t, err, &guardErr)
@@ -79,7 +79,7 @@ func TestGuardEvaluatorGlobalBulkheadIsNonBlocking(t *testing.T) {
 	scanner := &scriptedScanner{block: release, entered: entered}
 	metrics := NewAtomicMetrics()
 	evaluator := newGuardEvaluator(scanner, nil, metrics, 1, 1)
-	cfg := guardConfig(ActiveEndpoint{ID: "good", Enabled: true, TimeoutMS: 2000, InputLimit: 100})
+	cfg := guardConfig(ActiveEndpoint{ID: "good"})
 	done := make(chan error, 1)
 	go func() {
 		_, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "one", PromptLength: 3})
@@ -109,7 +109,7 @@ func TestGuardEvaluatorPerNodeBulkheadIsNonBlocking(t *testing.T) {
 	scanner := &scriptedScanner{block: release, entered: entered}
 	metrics := NewAtomicMetrics()
 	evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 1)
-	cfg := guardConfig(ActiveEndpoint{ID: "same-node", Enabled: true, TimeoutMS: 2000, InputLimit: 100})
+	cfg := guardConfig(ActiveEndpoint{ID: "same-node"})
 	done := make(chan error, 1)
 	go func() {
 		_, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "one", PromptLength: 3})
@@ -140,7 +140,8 @@ func TestGuardEvaluatorLastChunkFailureNeverAllows(t *testing.T) {
 	})
 	metrics := NewAtomicMetrics()
 	evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 2)
-	_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 3}), PromptSnapshot{ScanText: "abcdef", PromptLength: 6})
+	twoChunks := strings.Repeat("a", GuardInputLimit*2)
+	_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one"}), PromptSnapshot{ScanText: twoChunks, PromptLength: len(twoChunks)})
 	require.Error(t, err)
 }
 
@@ -154,7 +155,7 @@ func TestGuardEvaluatorScansLatestUserPromptAsIndependentFirstChunk(t *testing.T
 	})
 	evaluator := newGuardEvaluator(scanner, nil, NewAtomicMetrics(), 2, 2)
 	_, err := evaluator.Evaluate(context.Background(), guardConfig(
-		ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 128},
+		ActiveEndpoint{ID: "one"},
 	), PromptSnapshot{ScanText: latest + promptAuditPrioritySeparator + history, PromptLength: len([]rune(latest + history))})
 	require.NoError(t, err)
 	require.Greater(t, len(seen), 1)
@@ -174,9 +175,10 @@ func TestGuardEvaluatorBlockStopsRemainingChunksButReportsPlannedTotal(t *testin
 	})
 	metrics := NewAtomicMetrics()
 	evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 2)
+	threeChunks := strings.Repeat("x", GuardInputLimit*3)
 	decision, err := evaluator.Evaluate(context.Background(), guardConfig(
-		ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 3},
-	), PromptSnapshot{ScanText: "abcdefghi", PromptLength: 9})
+		ActiveEndpoint{ID: "one"},
+	), PromptSnapshot{ScanText: threeChunks, PromptLength: len(threeChunks)})
 	require.NoError(t, err)
 	require.Equal(t, DecisionBlock, decision.Kind)
 	require.Equal(t, 1, calls)
@@ -190,14 +192,15 @@ func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T
 		evaluator := newGuardEvaluator(PromptScannerFunc(func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error) {
 			return &NormalizedResult{Decision: EventFlag, RiskLevel: RiskMedium, Action: ActionWarn, Safety: "Controversial", Categories: []string{"violent"}, MatchedScanners: []string{"violent"}, ScannerScores: map[string]float64{"violent": .5}, ScannerEvidence: map[string]string{"violent": "Violent"}}, nil
 		}), nil, metrics, 2, 2)
-		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "review", PromptLength: 6})
+		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one"}), PromptSnapshot{ScanText: "review", PromptLength: 6})
 		require.NoError(t, err)
 		require.Equal(t, DecisionFlag, decision.Kind)
 		require.True(t, decision.AllowNextStage)
 		require.Equal(t, int64(1), metrics.Snapshot().Flagged)
 	})
 
-	t.Run("all failovers share first endpoint deadline", func(t *testing.T) {
+	// 节点超时写死后所有节点共用一个 GuardTimeoutMS 预算；这里用 70ms 的上游期限，验证切到下一个节点时不会重新起算
+	t.Run("all failovers share one deadline", func(t *testing.T) {
 		calls := 0
 		scanner := PromptScannerFunc(func(ctx context.Context, endpoint ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
 			calls++
@@ -215,18 +218,17 @@ func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T
 		metrics := NewAtomicMetrics()
 		evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 2)
 		started := time.Now()
-		_, err := evaluator.Evaluate(context.Background(), guardConfig(
-			ActiveEndpoint{ID: "first", Enabled: true, TimeoutMS: 70, InputLimit: 100},
-			ActiveEndpoint{ID: "second", Enabled: true, TimeoutMS: 500, InputLimit: 100},
+		deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), 70*time.Millisecond)
+		defer cancelDeadline()
+		_, err := evaluator.Evaluate(deadlineCtx, guardConfig(
+			ActiveEndpoint{ID: "first"},
+			ActiveEndpoint{ID: "second"},
 		), PromptSnapshot{ScanText: "deadline", PromptLength: 8})
 		elapsed := time.Since(started)
 		require.Error(t, err)
 		require.Equal(t, 2, calls)
-		// The bound only has to prove the failover shared the first endpoint's
-		// 70ms deadline instead of taking the second endpoint's own 500ms one.
-		// An unshared deadline lands at ~535ms, so 350ms still fails loudly
-		// while leaving room for scheduler delay on a busy CI machine. A
-		// tighter bound made this test flaky, not stricter.
+		// The bound only has to prove the failover shared the 70ms deadline
+		// instead of starting a fresh GuardTimeoutMS budget for the second node.
 		require.Less(t, elapsed, 350*time.Millisecond)
 		require.GreaterOrEqual(t, elapsed, 50*time.Millisecond)
 		require.Equal(t, int64(1), metrics.Snapshot().Failovers)
@@ -240,7 +242,7 @@ func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T
 			<-ctx.Done()
 			return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true, Cause: ctx.Err()}
 		}), nil, NewAtomicMetrics(), 2, 2)
-		decision, err := evaluator.Evaluate(ctx, guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "cancel", PromptLength: 6})
+		decision, err := evaluator.Evaluate(ctx, guardConfig(ActiveEndpoint{ID: "one"}), PromptSnapshot{ScanText: "cancel", PromptLength: 6})
 		require.Error(t, err)
 		require.Nil(t, decision)
 	})
@@ -255,7 +257,7 @@ func TestGuardEvaluatorRecordsExistingResultOnceAndRecordFailureDoesNotChangeDec
 			scannerCalls++
 			return &NormalizedResult{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock, Safety: "Unsafe", Categories: []string{"pii"}, MatchedScanners: []string{"pii"}, ScannerScores: map[string]float64{"pii": 1}, ScannerEvidence: map[string]string{"pii": "PII"}}, nil
 		}), repo, metrics, 2, 2)
-		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "raw prompt", RedactedPreview: "raw***", PromptLength: 10})
+		decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one"}), PromptSnapshot{ScanText: "raw prompt", RedactedPreview: "raw***", PromptLength: 10})
 		require.NoError(t, err)
 		require.Equal(t, DecisionBlock, decision.Kind)
 		require.Equal(t, 1, scannerCalls)
@@ -284,7 +286,7 @@ func TestGuardEvaluatorNilResultAndScannerPanicBecomeStableFailures(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evaluator := newGuardEvaluator(tt.scan, nil, NewAtomicMetrics(), 2, 2)
-			_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "input", PromptLength: 5})
+			_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one"}), PromptSnapshot{ScanText: "input", PromptLength: 5})
 			var guardErr *GuardError
 			require.ErrorAs(t, err, &guardErr)
 			require.Equal(t, tt.code, guardErr.Code)

@@ -19,15 +19,15 @@ func promptGuardDecision(kind securityaudit.DecisionKind) *securityaudit.Decisio
 	case securityaudit.DecisionBlock:
 		decision.HTTPStatus = http.StatusForbidden
 		decision.ErrorCode = securityaudit.ErrorCodeBlocked
-		decision.ClientMessage = "提示词安全审计拒绝了该请求，请调整输入后重试"
+		decision.ClientMessage = "Request blocked by prompt audit. Please adjust your input and try again."
 	case securityaudit.DecisionInvalid:
 		decision.HTTPStatus = http.StatusServiceUnavailable
 		decision.ErrorCode = securityaudit.ErrorCodeInvalidResponse
-		decision.ClientMessage = "提示词安全审计暂时不可用，请稍后重试"
+		decision.ClientMessage = "Prompt audit is temporarily unavailable. Please try again later."
 	default:
 		decision.HTTPStatus = http.StatusServiceUnavailable
 		decision.ErrorCode = securityaudit.ErrorCodeUnavailable
-		decision.ClientMessage = "提示词安全审计暂时不可用，请稍后重试"
+		decision.ClientMessage = "Prompt audit is temporarily unavailable. Please try again later."
 	}
 	return decision
 }
@@ -88,7 +88,12 @@ func TestPromptGuardOpenAIAndClaudeErrorEnvelopesGolden(t *testing.T) {
 			require.Equal(t, decision.HTTPStatus, recorder.Code)
 			errorObject := requireObject(t, decodeErrorJSON(t, recorder)["error"])
 			require.Equal(t, decision.ErrorCode, errorObject["code"])
-			require.Equal(t, "api_error", errorObject["type"])
+			// 与 chat / messages 一致：拦截是 permission_error，审计不可用是 api_error
+			if kind == securityaudit.DecisionBlock {
+				require.Equal(t, "permission_error", errorObject["type"])
+			} else {
+				require.Equal(t, "api_error", errorObject["type"])
+			}
 		})
 
 		t.Run("claude_"+string(kind), func(t *testing.T) {

@@ -4,6 +4,7 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
@@ -104,6 +105,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	PromptAudit             PromptAuditConfig             `mapstructure:"prompt_audit"`
 }
 
 type LogConfig struct {
@@ -182,6 +184,20 @@ type IdempotencyConfig struct {
 	CleanupIntervalSeconds int `mapstructure:"cleanup_interval_seconds"`
 	// CleanupBatchSize 每次清理的最大记录数。
 	CleanupBatchSize int `mapstructure:"cleanup_batch_size"`
+}
+
+// PromptAuditConfig 提示词审计的部署配置。守卫节点是 OpenAI 兼容的 Qwen3Guard 服务，按顺序优先、出错切下一个；
+// 页面上只开关审计 / 同步阻止、选风险分类，节点不在页面上配（2026-10-05，瘦身方案 B2）。
+// 环境变量写 JSON 数组：PROMPT_AUDIT_GUARD_ENDPOINTS='[{"name":"主节点","base_url":"http://guard:8000","api_key":"…","model":"…"}]'
+type PromptAuditConfig struct {
+	GuardEndpoints []PromptAuditGuardEndpoint `mapstructure:"guard_endpoints"`
+}
+
+type PromptAuditGuardEndpoint struct {
+	Name    string `mapstructure:"name" json:"name"`
+	BaseURL string `mapstructure:"base_url" json:"base_url"`
+	APIKey  string `mapstructure:"api_key" json:"api_key"`
+	Model   string `mapstructure:"model" json:"model"`
 }
 
 type BatchImageConfig struct {
@@ -1798,6 +1814,14 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config error: %w", err)
 	}
+	// 结构化列表 AutomaticEnv 解不了，守卫节点的环境变量按 JSON 单独解析（同 SERVER_TRUSTED_PROXIES 的做法）
+	if raw, ok := os.LookupEnv("PROMPT_AUDIT_GUARD_ENDPOINTS"); ok && strings.TrimSpace(raw) != "" {
+		var guards []PromptAuditGuardEndpoint
+		if err := json.Unmarshal([]byte(raw), &guards); err != nil {
+			return nil, fmt.Errorf("PROMPT_AUDIT_GUARD_ENDPOINTS must be a JSON array: %w", err)
+		}
+		cfg.PromptAudit.GuardEndpoints = guards
+	}
 	if trustedProxiesEnvConfigured {
 		cfg.Server.TrustedProxies = normalizeStringSlice(strings.Split(trustedProxiesEnv, ","))
 	}
@@ -2531,6 +2555,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("security.proxy_probe.urls: %w", err)
 	}
 	c.Security.ProxyProbe.URLs = proxyProbeURLs
+	if err := validatePromptAuditGuardEndpoints(c.PromptAudit.GuardEndpoints); err != nil {
+		return err
+	}
 	if c.Server.AdminPort < 1 || c.Server.AdminPort > 65535 {
 		return fmt.Errorf("server.admin_port must be between 1 and 65535")
 	}
@@ -3615,4 +3642,18 @@ func warnIfInsecureURL(field, raw string) {
 	if strings.EqualFold(u.Scheme, "http") {
 		slog.Warn("url uses http scheme; use https in production to avoid token leakage", "field", field)
 	}
+}
+
+// validatePromptAuditGuardEndpoints 守卫节点地址必须是不带凭据 / 查询参数的 http(s) 地址（与 securityaudit.NormalizeBaseURL 同一套规则）
+func validatePromptAuditGuardEndpoints(guards []PromptAuditGuardEndpoint) error {
+	for i, guard := range guards {
+		parsed, err := url.Parse(strings.TrimSpace(guard.BaseURL))
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return fmt.Errorf("prompt_audit.guard_endpoints[%d].base_url must be an http(s) URL", i)
+		}
+		if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return fmt.Errorf("prompt_audit.guard_endpoints[%d].base_url must not contain credentials, query or fragment", i)
+		}
+	}
+	return nil
 }

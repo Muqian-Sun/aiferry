@@ -47,7 +47,7 @@ func TestPromptRuntimeAggregatesConfigWorkersQueueRedisEndpointsAndGuardMetrics(
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	config := &fakeConfigStore{active: true, cfg: ActiveConfig{
-		RiskControlEnabled: true, Enabled: true, WorkerCount: 3, QueueCapacity: 123,
+		RiskControlEnabled: true, Enabled: true,
 		ConfigVersion: 9,
 	}}
 	metrics := NewAtomicMetrics()
@@ -68,8 +68,8 @@ func TestPromptRuntimeAggregatesConfigWorkersQueueRedisEndpointsAndGuardMetrics(
 	require.Equal(t, ModeAsync, runtime.EffectiveMode)
 	require.Equal(t, int64(9), runtime.ExpectedConfigVersion)
 	require.Equal(t, int64(9), runtime.ActiveConfigVersion)
-	require.Equal(t, 3, runtime.WorkerTotal)
-	require.Equal(t, 123, runtime.QueueCapacity)
+	require.Equal(t, WorkerCount, runtime.WorkerTotal)
+	require.Equal(t, QueueCapacity, runtime.QueueCapacity)
 	require.Equal(t, "ok", runtime.DatabaseStatus)
 	require.Equal(t, "ok", runtime.RedisStatus)
 	require.Contains(t, runtime.Endpoints, "guard-1")

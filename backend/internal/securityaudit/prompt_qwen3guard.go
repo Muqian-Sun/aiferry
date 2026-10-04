@@ -257,7 +257,7 @@ func (s *OpenAICompatibleScanner) Scan(ctx context.Context, endpoint ActiveEndpo
 }
 
 func (s *OpenAICompatibleScanner) clientFor(endpoint ActiveEndpoint) (*http.Client, error) {
-	key := fmt.Sprintf("%s|%s|%d", endpoint.ID, endpoint.BaseURL, endpoint.TimeoutMS)
+	key := endpoint.ID + "|" + endpoint.BaseURL
 	if cached, ok := s.clients.Load(key); ok {
 		client, valid := cached.(*http.Client)
 		if !valid {
