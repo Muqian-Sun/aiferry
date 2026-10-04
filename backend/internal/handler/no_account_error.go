@@ -70,7 +70,7 @@ func classifySelectionFailureError(err error, fallback noAccountErrorClassificat
 	return noAccountErrorClassification{
 		Status:  http.StatusTooManyRequests,
 		ErrType: "rate_limit_error",
-		Message: "All available accounts are currently rate-limited. Please retry later.",
+		Message: "All upstreams for this model are rate-limited right now. Please retry later.",
 	}
 }
 
@@ -125,7 +125,7 @@ func classifyNoAccountError(
 		return noAccountErrorClassification{
 			Status:        http.StatusNotFound,
 			ErrType:       "model_not_found",
-			Message:       fmt.Sprintf("Model %q is not supported by any configured account", displayModel),
+			Message:       fmt.Sprintf("Model %q is not available on this site.", displayModel),
 			ModelNotFound: true,
 		}
 	}

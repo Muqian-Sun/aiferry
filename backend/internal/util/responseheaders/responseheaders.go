@@ -13,16 +13,17 @@ import (
 //   - transfer-encoding: 由 HTTP 库根据需要自动添加/移除
 //   - connection: 由 HTTP 库管理连接复用
 var defaultAllowed = map[string]struct{}{
-	"content-type":                   {},
-	"content-encoding":               {},
-	"content-language":               {},
-	"cache-control":                  {},
-	"etag":                           {},
-	"last-modified":                  {},
-	"expires":                        {},
-	"vary":                           {},
-	"date":                           {},
-	"x-request-id":                   {},
+	"content-type":     {},
+	"content-encoding": {},
+	"content-language": {},
+	"cache-control":    {},
+	"etag":             {},
+	"last-modified":    {},
+	"expires":          {},
+	"vary":             {},
+	"date":             {},
+	// x-request-id 不透传：响应头只留本站的请求 ID（RequestLogger 写的那个），上游的 ID 记在用量与运维日志里，
+	// 不回给客户端；原来两个同名头一起回，客户端拿上游那个对不上本站的记录（2026-10-04 D5）
 	"x-ratelimit-limit-requests":     {},
 	"x-ratelimit-limit-tokens":       {},
 	"x-ratelimit-remaining-requests": {},

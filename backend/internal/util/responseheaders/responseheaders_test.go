@@ -10,6 +10,7 @@ import (
 func TestFilterHeadersDisabledUsesDefaultAllowlist(t *testing.T) {
 	src := http.Header{}
 	src.Add("Content-Type", "application/json")
+	src.Add("Retry-After", "30")
 	src.Add("X-Request-Id", "req-123")
 	src.Add("X-Test", "ok")
 	src.Add("Connection", "keep-alive")
@@ -17,15 +18,20 @@ func TestFilterHeadersDisabledUsesDefaultAllowlist(t *testing.T) {
 
 	cfg := config.ResponseHeaderConfig{
 		Enabled:     false,
-		ForceRemove: []string{"x-request-id"},
+		ForceRemove: []string{"retry-after"},
 	}
 
 	filtered := FilterHeaders(src, CompileHeaderFilter(cfg))
 	if filtered.Get("Content-Type") != "application/json" {
 		t.Fatalf("expected Content-Type passthrough, got %q", filtered.Get("Content-Type"))
 	}
-	if filtered.Get("X-Request-Id") != "req-123" {
-		t.Fatalf("expected X-Request-Id allowed, got %q", filtered.Get("X-Request-Id"))
+	// 配置关着时 force_remove 不生效：默认白名单里的照样透传
+	if filtered.Get("Retry-After") != "30" {
+		t.Fatalf("expected Retry-After allowed, got %q", filtered.Get("Retry-After"))
+	}
+	// 上游的 X-Request-Id 不透传：响应头只留本站的请求 ID（2026-10-04 D5）
+	if filtered.Get("X-Request-Id") != "" {
+		t.Fatalf("expected upstream X-Request-Id dropped, got %q", filtered.Get("X-Request-Id"))
 	}
 	if filtered.Get("X-Test") != "" {
 		t.Fatalf("expected X-Test removed, got %q", filtered.Get("X-Test"))

@@ -802,7 +802,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	}
 	if selection == nil || selection.Account == nil {
 		markOpsRoutingCapacityLimited(c)
-		writeError(http.StatusServiceUnavailable, "api_error", "", "No available accounts")
+		writeError(http.StatusServiceUnavailable, "api_error", "", upstreamBusyMessage)
 		return nil, openAISlotAcquireFailed
 	}
 
@@ -832,7 +832,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	}
 	if selection.WaitPlan == nil {
 		markOpsRoutingCapacityLimited(c)
-		writeError(http.StatusServiceUnavailable, "api_error", "", "No available accounts")
+		writeError(http.StatusServiceUnavailable, "api_error", "", upstreamBusyMessage)
 		return nil, openAISlotAcquireFailed
 	}
 
@@ -1298,7 +1298,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			if lastFailoverErr != nil {
 				closeOpenAIWSFailoverExhausted(c, wsConn, lastFailoverErr)
 			} else {
-				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
+				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no upstream available, retry later")
 			}
 			return
 		}
@@ -1306,7 +1306,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			if lastFailoverErr != nil {
 				closeOpenAIWSFailoverExhausted(c, wsConn, lastFailoverErr)
 			} else {
-				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
+				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no upstream available, retry later")
 			}
 			return
 		}
@@ -1332,7 +1332,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				reqLog.Debug("openai.websocket_account_slot_profit_vetoed", zap.Int64("account_id", account.ID), zap.String("reason", reason))
 				if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
 					reqLog.Warn("openai.websocket_profit_veto_attempts_exhausted", zap.Int("profit_veto_count", profitVetoCount))
-					closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
+					closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no upstream available, retry later")
 					return
 				}
 				continue
@@ -1369,7 +1369,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				reqLog.Debug("openai.websocket_account_slot_profit_vetoed", zap.Int64("account_id", account.ID), zap.String("reason", reason))
 				if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
 					reqLog.Warn("openai.websocket_profit_veto_attempts_exhausted", zap.Int("profit_veto_count", profitVetoCount))
-					closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
+					closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no upstream available, retry later")
 					return
 				}
 				continue

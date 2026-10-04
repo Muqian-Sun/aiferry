@@ -345,7 +345,8 @@ func TestOpenAINativeFirstOutputTimeoutDisarmsAfterSemanticOutput(t *testing.T) 
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{
-		"X-Request-Id":                   []string{"request-winning"},
+		"X-Ratelimit-Reset-Requests":     []string{"request-winning"},
+		"X-Request-Id":                   []string{"upstream-request-id"},
 		"X-Ratelimit-Remaining-Requests": []string{"42"},
 	}, Body: pr}
 
@@ -356,8 +357,10 @@ func TestOpenAINativeFirstOutputTimeoutDisarmsAfterSemanticOutput(t *testing.T) 
 	require.NotNil(t, result.firstTokenMs)
 	require.Contains(t, rec.Body.String(), "response.output_text.delta")
 	require.Contains(t, rec.Body.String(), "response.completed")
-	require.Equal(t, "request-winning", rec.Result().Header.Get("X-Request-Id"))
+	require.Equal(t, "request-winning", rec.Result().Header.Get("X-Ratelimit-Reset-Requests"))
 	require.Equal(t, "42", rec.Result().Header.Get("X-Ratelimit-Remaining-Requests"))
+	// 上游的请求 ID 不回给客户端，响应头只留本站的（D5）
+	require.Empty(t, rec.Result().Header.Get("X-Request-Id"))
 }
 
 func TestOpenAINativeFirstOutputTimeoutWaitsForCompleteSemanticEvent(t *testing.T) {
@@ -402,7 +405,7 @@ func assertOpenAINativeLargeOpenEventTimesOutWithoutLeak(t *testing.T, line stri
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{
-		"X-Request-Id":                   []string{"request-partial"},
+		"X-Ratelimit-Reset-Requests":     []string{"request-partial"},
 		"X-Ratelimit-Remaining-Requests": []string{"1"},
 	}, Body: body}
 
@@ -442,7 +445,7 @@ func TestOpenAINativeFirstOutputEOFDispatchesTerminalEventWithoutBlankLine(t *te
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
-			"X-Request-Id":                   []string{"request-eof"},
+			"X-Ratelimit-Reset-Requests":     []string{"request-eof"},
 			"X-Ratelimit-Remaining-Requests": []string{"17"},
 		},
 		Body: io.NopCloser(strings.NewReader(payload)),
@@ -460,7 +463,7 @@ func TestOpenAINativeFirstOutputEOFDispatchesTerminalEventWithoutBlankLine(t *te
 	require.Contains(t, rec.Body.String(), `"id":"resp_eof"`)
 	require.True(t, strings.HasSuffix(rec.Body.String(), "\n"))
 	require.False(t, strings.HasSuffix(rec.Body.String(), "\n\n"), "EOF dispatch must not synthesize a blank line")
-	require.Equal(t, "request-eof", rec.Result().Header.Get("X-Request-Id"))
+	require.Equal(t, "request-eof", rec.Result().Header.Get("X-Ratelimit-Reset-Requests"))
 	require.Equal(t, "17", rec.Result().Header.Get("X-Ratelimit-Remaining-Requests"))
 }
 
@@ -481,7 +484,7 @@ func TestOpenAINativeFirstOutputStageOverflowFailsOverWithoutAttemptBytes(t *tes
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
-			"X-Request-Id":                   []string{"request-overflow"},
+			"X-Ratelimit-Reset-Requests":     []string{"request-overflow"},
 			"X-Ratelimit-Remaining-Requests": []string{"1"},
 		},
 		Body: io.NopCloser(strings.NewReader(body)),
@@ -513,7 +516,7 @@ func TestOpenAINativeFirstOutputScannerRejectsOversizedLineWithoutLeak(t *testin
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header: http.Header{
-			"X-Request-Id":                   []string{"request-too-large"},
+			"X-Ratelimit-Reset-Requests":     []string{"request-too-large"},
 			"X-Ratelimit-Remaining-Requests": []string{"1"},
 		},
 		Body: io.NopCloser(strings.NewReader(body)),
@@ -551,7 +554,7 @@ func TestOpenAINativeFirstOutputScannerAllowsLargeEventAfterSemanticBoundary(t *
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Header:     http.Header{"X-Request-Id": []string{"request-large-image"}},
+		Header:     http.Header{"X-Ratelimit-Reset-Requests": []string{"request-large-image"}},
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
 
@@ -566,7 +569,7 @@ func TestOpenAINativeFirstOutputScannerAllowsLargeEventAfterSemanticBoundary(t *
 	require.Contains(t, rec.Body.String(), `"delta":"ready"`)
 	require.Contains(t, rec.Body.String(), `"id":"resp_large_image"`)
 	require.Contains(t, rec.Body.String(), strings.Repeat("i", 1024))
-	require.Equal(t, "request-large-image", rec.Result().Header.Get("X-Request-Id"))
+	require.Equal(t, "request-large-image", rec.Result().Header.Get("X-Ratelimit-Reset-Requests"))
 }
 
 func TestOpenAINativeFirstOutputTimeoutDisabledKeepsPreamblePrivateAcrossKeepalive(t *testing.T) {
@@ -624,7 +627,7 @@ func TestOpenAINativeFirstOutputFailoverKeepsAttemptHeadersPrivateAfterKeepalive
 		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type":                   []string{"text/event-stream"},
-			"X-Request-Id":                   []string{"request-first"},
+			"X-Ratelimit-Reset-Requests":     []string{"request-first"},
 			"X-Ratelimit-Remaining-Requests": []string{"1"},
 		},
 		Body: trackedFirstBody,
@@ -640,7 +643,7 @@ func TestOpenAINativeFirstOutputFailoverKeepsAttemptHeadersPrivateAfterKeepalive
 		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type":                   []string{"text/event-stream"},
-			"X-Request-Id":                   []string{"request-second"},
+			"X-Ratelimit-Reset-Requests":     []string{"request-second"},
 			"X-Ratelimit-Remaining-Requests": []string{"99"},
 		},
 		Body: io.NopCloser(strings.NewReader(strings.Join([]string{

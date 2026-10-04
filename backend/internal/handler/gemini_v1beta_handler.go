@@ -313,7 +313,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				}
 				message := cls.Message
 				if !cls.ModelNotFound {
-					message = "No available Gemini accounts: " + err.Error()
+					message = noUpstreamMessage(modelName)
 				}
 				googleError(c, cls.Status, message)
 				return
@@ -357,7 +357,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if !selection.Acquired {
 			if selection.WaitPlan == nil {
 				markOpsRoutingCapacityLimited(c)
-				googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts")
+				googleError(c, http.StatusServiceUnavailable, upstreamBusyMessage)
 				return
 			}
 			accountWaitCounted := false

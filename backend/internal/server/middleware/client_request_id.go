@@ -36,7 +36,12 @@ func ClientRequestID() gin.HandlerFunc {
 			return
 		}
 
-		id := uuid.New().String()
+		// 客户端没带自己的 ID：沿用本次的 X-Request-ID（RequestLogger 先跑），不再另起一个 UUID。
+		// 用量记录的请求 ID 取它（client:<id>），用户在用量明细里看到的就和响应头 X-Request-ID 一致（2026-10-04 D5 / U15）
+		id, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
+		if id = strings.TrimSpace(id); id == "" {
+			id = uuid.New().String()
+		}
 		c.Header(clientRequestIDHeader, id)
 		ctx := context.WithValue(c.Request.Context(), ctxkey.ClientRequestID, id)
 		requestLogger := logger.FromContext(ctx).With(zap.String("client_request_id", strings.TrimSpace(id)))

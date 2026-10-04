@@ -277,7 +277,7 @@ func TestGeminiV1BetaModels_AnthropicVendorEntryIsSchedulingsCall(t *testing.T) 
 
 	require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
 	require.NotContains(t, rec.Body.String(), "platform is not gemini")
-	require.Contains(t, rec.Body.String(), "No available Gemini accounts")
+	require.Contains(t, rec.Body.String(), "No upstream is currently available for model")
 	require.Empty(t, hs.geminiUpstream.recorded())
 	require.Empty(t, hs.antigravityUpsteam.recorded())
 }
