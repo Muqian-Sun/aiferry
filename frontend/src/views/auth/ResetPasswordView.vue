@@ -119,6 +119,7 @@
               <Icon v-else name="eye" size="md" />
             </button>
           </div>
+          <FormError :message="errors.password" />
         </div>
 
         <!-- Confirm Password Input -->
@@ -150,7 +151,10 @@
               <Icon v-else name="eye" size="md" />
             </button>
           </div>
+          <FormError :message="errors.confirmPassword" />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -200,12 +204,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
 import { resetPassword } from '@/api/auth'
+import { extractApiErrorCode, extractI18nErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 
@@ -233,16 +239,6 @@ const formData = reactive({
 const errors = reactive({
   password: '',
   confirmPassword: ''
-})
-
-const validationMessage = computed(
-  () => errors.password || errors.confirmPassword || ''
-)
-
-watch(validationMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    console.error(value)
-  }
 })
 
 // Check if the reset link is valid (has email and token)
@@ -309,17 +305,11 @@ async function handleSubmit(): Promise<void> {
 
     isSuccess.value = true
   } catch (error: unknown) {
-    const err = error as { message?: string; response?: { data?: { detail?: string; code?: string } } }
-
-    // Check for invalid/expired token error
-    if (err.response?.data?.code === 'INVALID_RESET_TOKEN') {
+    // 重置链接失效 / 过期用页面自己的文案，其余按 auth.errors 映射
+    if (extractApiErrorCode(error) === 'INVALID_RESET_TOKEN') {
       errorMessage.value = t('auth.invalidOrExpiredToken')
-    } else if (err.response?.data?.detail) {
-      errorMessage.value = err.response.data.detail
-    } else if (err.message) {
-      errorMessage.value = err.message
     } else {
-      errorMessage.value = t('auth.resetPasswordFailed')
+      errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.resetPasswordFailed'))
     }
 
     console.error(errorMessage.value, error)

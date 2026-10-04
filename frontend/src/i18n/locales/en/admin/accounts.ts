@@ -211,6 +211,7 @@ export default {
       schedulableEnabled: 'Scheduling enabled',
       schedulableDisabled: 'Scheduling disabled',
       failedToToggleSchedulable: 'Failed to toggle scheduling status',
+      toggleSchedulableFailedFor: 'Failed to toggle scheduling for "{name}": {message}',
       platforms: {
         anthropic: 'Anthropic',
         claude: 'Claude',
@@ -520,6 +521,7 @@ export default {
       failedToLoad: 'Failed to load accounts',
       failedToRefresh: 'Failed to refresh token',
       failedToDelete: 'Failed to delete account',
+      deleteFailedWithReason: 'Failed to delete the channel: {message}',
       failedToClearRateLimit: 'Failed to clear rate limit',
       deleteConfirm: "Are you sure you want to delete '{name}'? This action cannot be undone.",
       // Create/Edit Account Modal

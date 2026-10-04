@@ -45,6 +45,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { GrokQuotaProbeResult } from '@/api/admin/grok'
 import type { Account } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const props = withDefaults(
   defineProps<{
@@ -63,21 +64,6 @@ const visible = computed(() => props.account.platform === 'grok' && props.accoun
 const loading = ref(false)
 const error = ref<string | null>(null)
 const data = ref<GrokQuotaProbeResult | null>(null)
-
-const extractErrorMessage = (e: unknown): string => {
-  const err = e as {
-    message?: string
-    reason?: string
-    response?: { data?: { message?: string; error?: string } }
-  }
-  return (
-    err?.message ||
-    err?.reason ||
-    err?.response?.data?.message ||
-    err?.response?.data?.error ||
-    t('common.error')
-  )
-}
 
 const summary = computed(() => {
   if (props.compact || !data.value) return ''
@@ -105,7 +91,7 @@ const handleProbe = async () => {
     error.value = data.value.probe_error || null
     emit('probed', data.value)
   } catch (e) {
-    error.value = extractErrorMessage(e)
+    error.value = extractApiErrorMessage(e, t('common.error'))
   } finally {
     loading.value = false
   }

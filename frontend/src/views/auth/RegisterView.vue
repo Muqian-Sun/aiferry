@@ -263,8 +263,7 @@ import {
   type OAuthLoginStart,
   validateInvitationCode
 } from '@/api/auth'
-import { buildAuthErrorMessage } from '@/utils/authError'
-import { extractApiErrorCode, extractI18nErrorMessage } from '@/utils/apiError'
+import { extractApiErrorCode, extractI18nErrorMessage, isRateLimitedError } from '@/utils/apiError'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -507,10 +506,11 @@ async function validateInvitationCodeDebounced(code: string): Promise<void> {
       invitationValidation.invalid = true
       invitationValidation.message = getInvitationErrorMessage(result.error_code)
     }
-  } catch {
+  } catch (error) {
     invitationValidation.valid = false
     invitationValidation.invalid = true
-    invitationValidation.message = t('auth.invitationCodeInvalid')
+    // 校验接口被限流（每分钟 10 次）时不能说成「邀请码无效」
+    invitationValidation.message = isRateLimitedError(error) ? t('errors.tooManyRequests') : t('auth.invitationCodeInvalid')
   } finally {
     invitationValidating.value = false
   }
@@ -791,7 +791,7 @@ function buildRegistrationErrorMessage(error: unknown, fallback: string): string
   if (extractApiErrorCode(error) === 'EMAIL_DOMAIN_REGISTRATION_LIMIT') {
     return t('auth.emailDomainRegistrationLimit')
   }
-  return buildAuthErrorMessage(error, { fallback })
+  return extractI18nErrorMessage(error, t, 'auth.errors', fallback)
 }
 </script>
 

@@ -97,6 +97,7 @@ import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import { formatCurrency, formatDateTime } from '@/utils/format'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -211,7 +212,7 @@ const handleRedeem = async () => {
     // Refresh history
     await fetchHistory()
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.detail || t('redeem.failedToRedeem')
+    errorMessage.value = extractApiErrorMessage(error, t('redeem.failedToRedeem'))
 
     console.error(t('redeem.redeemFailed'), error)
   } finally {

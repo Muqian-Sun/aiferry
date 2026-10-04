@@ -104,6 +104,7 @@ import FormError from '@/components/common/FormError.vue'
 import { useI18n } from 'vue-i18n'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 export type PendingOAuthCreateAccountPayload = {
   email: string
@@ -227,11 +228,6 @@ function startCountdown(seconds: number) {
   }, 1000)
 }
 
-function getRequestErrorMessage(error: unknown, fallback: string): string {
-  const err = error as { message?: string; response?: { data?: { detail?: string; message?: string } } }
-  return err.response?.data?.detail || err.response?.data?.message || err.message || fallback
-}
-
 function resetTurnstile() {
   turnstileToken.value = ''
   tencentCaptchaRandstr.value = ''
@@ -297,7 +293,7 @@ async function handleSendCode() {
     sendCodeSuccess.value = true
     startCountdown(response.countdown)
   } catch (error: unknown) {
-    sendCodeError.value = getRequestErrorMessage(error, t('auth.sendCodeFailed'))
+    sendCodeError.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.sendCodeFailed'))
   } finally {
     if (captchaEnabled.value) {
       resetTurnstile()

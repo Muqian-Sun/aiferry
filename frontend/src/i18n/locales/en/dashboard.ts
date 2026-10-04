@@ -108,6 +108,15 @@ export default {
     failedToSave: 'Failed to save API key',
     failedToDelete: 'Failed to delete API key',
     failedToUpdateStatus: 'Failed to update API key status',
+    // Failed action + reason (shown in the confirm dialog or under the filters)
+    failedWithReason: '{action}: {message}',
+    toggleStatusFailedFor: 'Failed to enable / disable "{name}": {message}',
+    // Backend reason → message (when saving a key)
+    errors: {
+      INVALID_IP_PATTERN: 'The IP whitelist or blacklist has an invalid entry: put one IP or CIDR range per line, e.g. 192.168.1.100 or 10.0.0.0/8',
+      API_KEY_EXISTS: 'This custom key is already taken, please choose another',
+      SUBSCRIPTION_KEY_PROTECTED: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group'
+    },
     subscriptionKey: 'Subscription · {plan}',
     subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group',
     usage: 'Usage',
@@ -768,7 +777,9 @@ export default {
     forbidden: 'Forbidden',
     serverError: 'Server error',
     timeout: 'Request timeout',
-    tryAgain: 'Please try again'
+    tryAgain: 'Please try again',
+    // Shown for a 429 that carries no mappable backend reason, see utils/apiError.ts
+    tooManyRequests: 'Too many attempts, please try again later'
   },
 
   // Dates

@@ -162,7 +162,8 @@
       </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
+        <div class="flex w-full flex-wrap items-center justify-end gap-3">
+          <FormError class="mr-auto min-w-0 flex-1" :message="saveError" />
           <button type="button" @click="closeEdit" class="btn btn-secondary">
             {{ t('common.cancel') }}
           </button>
@@ -215,6 +216,7 @@ import type { Announcement, AnnouncementTargeting } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { Column } from '@/components/common/types'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -226,6 +228,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FilterChip, ListToolbar, RowActions } from '@/components/admin/list'
 import type { RowAction } from '@/components/admin/list'
@@ -371,6 +374,8 @@ function handleSearch() {
 // ===== Create/Edit dialog =====
 const showEditDialog = ref(false)
 const saving = ref(false)
+// 保存失败（含后端校验，如开始时间晚于结束时间）显示在弹窗底部
+const saveError = ref('')
 const editingAnnouncement = ref<Announcement | null>(null)
 
 const isEditing = computed(() => !!editingAnnouncement.value)
@@ -420,12 +425,14 @@ function fillFormFromAnnouncement(a: Announcement) {
 function openCreateDialog() {
   editingAnnouncement.value = null
   resetForm()
+  saveError.value = ''
   showEditDialog.value = true
 }
 
 function openEditDialog(row: Announcement) {
   editingAnnouncement.value = row
   fillFormFromAnnouncement(row)
+  saveError.value = ''
   showEditDialog.value = true
 }
 
@@ -478,16 +485,18 @@ function buildUpdatePayload(original: Announcement) {
 }
 
 async function handleSave() {
+  saveError.value = ''
+  const failedKey = editingAnnouncement.value ? 'admin.announcements.failedToUpdate' : 'admin.announcements.failedToCreate'
   // Frontend validation for targeting (to avoid ANNOUNCEMENT_INVALID_TARGET)
   const anyOf = form.targeting?.any_of ?? []
   if (anyOf.length > 50) {
-    console.error(t('admin.announcements.failedToCreate'))
+    saveError.value = t(failedKey)
     return
   }
   for (const g of anyOf) {
     const allOf = g?.all_of ?? []
     if (allOf.length > 50) {
-      console.error(t('admin.announcements.failedToCreate'))
+      saveError.value = t(failedKey)
       return
     }
   }
@@ -508,7 +517,8 @@ async function handleSave() {
     showEditDialog.value = false
     editingAnnouncement.value = null
     await loadAnnouncements()
-  } catch (error: any) {
+  } catch (error: unknown) {
+    saveError.value = extractI18nErrorMessage(error, t, 'admin.announcements.errors', t(failedKey))
     console.error('Failed to save announcement:', error)
   } finally {
     saving.value = false

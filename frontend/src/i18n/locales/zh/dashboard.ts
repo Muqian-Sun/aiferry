@@ -108,6 +108,15 @@ export default {
     failedToSave: '保存 API 密钥失败',
     failedToDelete: '删除 API 密钥失败',
     failedToUpdateStatus: '更新 API 密钥状态失败',
+    // 操作失败 + 原因（确认弹窗里、筛选栏下方显示）
+    failedWithReason: '{action}：{message}',
+    toggleStatusFailedFor: '「{name}」启用 / 禁用失败：{message}',
+    // 后端 reason → 文案（保存密钥时）
+    errors: {
+      INVALID_IP_PATTERN: 'IP 白名单或黑名单里有填错的条目：每行只填一个 IP 或 CIDR 网段，如 192.168.1.100 或 10.0.0.0/8',
+      API_KEY_EXISTS: '这个自定义密钥已被占用，请换一个',
+      SUBSCRIPTION_KEY_PROTECTED: '订阅密钥随订阅生成，不能删除或更换分组'
+    },
     subscriptionKey: '订阅 · {plan}',
     subscriptionKeyProtected: '订阅密钥随订阅生成，不能删除或更换分组',
     usage: '用量',
@@ -769,7 +778,9 @@ export default {
     forbidden: '禁止访问',
     serverError: '服务器错误',
     timeout: '请求超时',
-    tryAgain: '请重试'
+    tryAgain: '请重试',
+    // 被限流（429）且后端没给可映射的 reason 时的统一提示，见 utils/apiError.ts
+    tooManyRequests: '操作太频繁，请稍后再试'
   },
 
   // Dates

@@ -64,6 +64,7 @@
               :placeholder="t('auth.emailPlaceholder')"
             />
           </div>
+          <FormError :message="errors.email" />
         </div>
 
         <!-- Turnstile Widget -->
@@ -83,7 +84,10 @@
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
           />
+          <FormError :message="errors.turnstile" />
         </div>
+
+        <FormError :message="errorMessage" />
 
         <!-- Submit Button -->
         <button
@@ -133,12 +137,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted, watch } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { getPublicSettings, forgotPassword } from '@/api/auth'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 
@@ -187,14 +193,6 @@ const formData = reactive({
 const errors = reactive({
   email: '',
   turnstile: ''
-})
-
-const validationMessage = computed(() => errors.email || errors.turnstile || '')
-
-watch(validationMessage, (value, previousValue) => {
-  if (value && value !== previousValue) {
-    console.error(value)
-  }
 })
 
 // ==================== Lifecycle ====================
@@ -306,16 +304,7 @@ async function handleSubmit(): Promise<void> {
 
     isSubmitted.value = true
   } catch (error: unknown) {
-    const err = error as { message?: string; response?: { data?: { detail?: string } } }
-
-    if (err.response?.data?.detail) {
-      errorMessage.value = err.response.data.detail
-    } else if (err.message) {
-      errorMessage.value = err.message
-    } else {
-      errorMessage.value = t('auth.sendResetLinkFailed')
-    }
-
+    errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.sendResetLinkFailed'))
     console.error(errorMessage.value, error)
   } finally {
     if (captchaEnabled.value) {

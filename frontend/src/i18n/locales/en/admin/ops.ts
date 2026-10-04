@@ -648,6 +648,8 @@ export default {
           metricRequired: 'Metric is required',
           operatorRequired: 'Operator is required',
           thresholdRequired: 'Threshold must be a number',
+          thresholdPercentRange: 'This metric is a percentage: the threshold must be between 0 and 100',
+          thresholdNonNegative: 'The threshold cannot be negative',
           windowRange: 'Window must be one of: 1, 5, 60 minutes',
           sustainedRange: 'Sustained must be between 1 and 1440 samples',
           cooldownRange: 'Cooldown must be between 0 and 1440 minutes'

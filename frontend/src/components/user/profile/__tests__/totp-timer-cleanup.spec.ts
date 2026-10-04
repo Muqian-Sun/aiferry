@@ -114,9 +114,7 @@ describe('TOTP 弹窗定时器清理', () => {
 
   it('TotpSetupModal 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
-    mocks.initiateSetup.mockRejectedValue({
-      response: { data: { message: 'setup failed' } }
-    })
+    mocks.initiateSetup.mockRejectedValue({ status: 400, code: 400, message: 'setup failed' })
 
     const wrapper = mount(TotpSetupModal)
     await flushPromises()
@@ -130,9 +128,7 @@ describe('TOTP 弹窗定时器清理', () => {
 
   it('TotpDisableDialog 失败时就近显示报错', async () => {
     mocks.getVerificationMethod.mockResolvedValue({ method: 'password' })
-    mocks.disable.mockRejectedValue({
-      response: { data: { message: 'disable failed' } }
-    })
+    mocks.disable.mockRejectedValue({ status: 400, code: 400, message: 'disable failed' })
 
     const wrapper = mount(TotpDisableDialog)
     await flushPromises()

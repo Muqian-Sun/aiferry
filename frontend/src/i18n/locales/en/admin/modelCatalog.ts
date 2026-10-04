@@ -41,7 +41,7 @@ export default {
       nothingToDo: 'The selected entries already have that status',
       listedDone: 'Listed {count} models',
       unlistedDone: 'Unlisted {count} models',
-      partial: '{done} succeeded, {failed} failed (failures stay selected): {errors}'
+      partial: '{done} succeeded, {failed} failed (failures stay selected):'
     },
     editor: {
       vendorHint: 'Use the lowercase vendor tag (anthropic / openai / gemini / xai…); the user site matches vendor tabs and icons on it.',
@@ -74,6 +74,8 @@ export default {
       },
       createFailed: 'Failed to create the model',
       exists: 'This model is already in the catalog: edit or list it from the list.',
+      // Editing renamed the identifier to one another entry already uses (backend 409 MODEL_CATALOG_ENTRY_EXISTS)
+      idTaken: 'Another catalog entry already uses this identifier: pick another one, or edit that entry from the list.',
       saveFailed: 'Failed to save the model',
       pricingHint: 'This is the model\'s block on the pricing page: edit the official price here; adding a channel makes it serve this model. Save the block when done.',
       pricingLoading: 'Loading prices…',

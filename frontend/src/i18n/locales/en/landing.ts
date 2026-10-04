@@ -187,6 +187,15 @@ export default {
     querySuccess: 'Query successful',
     queryFailed: 'Query failed',
     queryFailedRetry: 'Query failed, please try again later',
+    // Gateway auth failure code → message
+    errors: {
+      INVALID_API_KEY: 'The key is invalid or disabled',
+      API_KEY_DISABLED: 'The key is invalid or disabled',
+      USER_NOT_FOUND: 'The key is invalid or disabled',
+      USER_INACTIVE: 'The account that owns this key has been disabled',
+      ACCESS_DENIED: 'Your IP is not allowed to use this key',
+      INVALID_AUTH_RATE_LIMITED: 'Too many invalid queries, please try again later'
+    },
     noDailyUsage: 'No daily usage data',
   },
 

@@ -181,6 +181,13 @@
             {{ t('admin.modelCatalog.bulk.unlist') }}
           </button>
         </BulkBar>
+        <!-- 批量上下架部分失败：逐条列出模型与后端原因（上架必有价等校验在后端），失败的仍留在选中集里 -->
+        <div v-if="bulkFailures.length" role="alert" class="mt-2 space-y-1 text-sm text-af-danger" data-testid="model-catalog-bulk-failures">
+          <p>{{ t('admin.modelCatalog.bulk.partial', { done: bulkDone, failed: bulkFailures.length }) }}</p>
+          <ul class="max-h-40 space-y-0.5 overflow-y-auto">
+            <li v-for="failure in bulkFailures" :key="failure.id" class="break-words">{{ failure.model }}: {{ failure.message }}</li>
+          </ul>
+        </div>
       </template>
 
       <template #pagination>
@@ -275,6 +282,8 @@ const { t } = useI18n()
 const loading = ref(false)
 const seeding = ref(false)
 const bulkRunning = ref(false)
+const bulkDone = ref(0)
+const bulkFailures = ref<Array<{ id: number; model: string; message: string }>>([])
 const entries = ref<ModelCatalogEntry[]>([])
 const selectedIds = ref<number[]>([])
 
@@ -414,6 +423,10 @@ watch(filteredEntries, (list) => {
   const last = Math.max(1, Math.ceil(list.length / pageSize.value))
   if (page.value > last) page.value = last
 })
+// 选中集清空（手动取消或全部处理完）时，上一次批量的失败清单一起收起
+watch(() => selectedIds.value.length, (count) => {
+  if (count === 0) bulkFailures.value = []
+})
 
 function onPageSizeChange(size: number) {
   pageSize.value = size
@@ -511,22 +524,23 @@ async function bulkSetStatus(status: 'listed' | 'unlisted') {
     return
   }
   bulkRunning.value = true
-  const failures: string[] = []
+  bulkFailures.value = []
+  const failures: Array<{ id: number; model: string; message: string }> = []
   try {
     for (const entry of targets) {
       try {
         await adminAPI.modelCatalog.updateEntry(entry.id, { ...entryToRequest(entry), status })
       } catch (error) {
-        failures.push(`${entry.model_id}: ${extractApiErrorMessage(error, t('common.unknownError'))}`)
+        failures.push({ id: entry.id, model: entry.model_id, message: extractApiErrorMessage(error, t('common.unknownError')) })
       }
     }
-    const done = targets.length - failures.length
     if (failures.length === 0) {
       selectedIds.value = []
     } else {
-      console.error(t('admin.modelCatalog.bulk.partial', { done, failed: failures.length, errors: failures.join('；') }))
+      bulkDone.value = targets.length - failures.length
+      bulkFailures.value = failures
       // 失败的留在选中集里，方便修完价格 / 绑定再试
-      const failedIds = new Set(targets.filter((entry) => failures.some((line) => line.startsWith(`${entry.model_id}:`))).map((entry) => entry.id))
+      const failedIds = new Set(failures.map((failure) => failure.id))
       selectedIds.value = selectedIds.value.filter((id) => failedIds.has(id))
     }
     await loadEntries()

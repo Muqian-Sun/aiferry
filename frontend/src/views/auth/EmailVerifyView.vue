@@ -199,8 +199,7 @@ import {
   sendVerifyCode,
 } from '@/api/auth'
 import { apiClient } from '@/api/client'
-import { buildAuthErrorMessage } from '@/utils/authError'
-import { extractApiErrorCode } from '@/utils/apiError'
+import { extractApiErrorCode, extractI18nErrorMessage } from '@/utils/apiError'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -772,7 +771,7 @@ function buildRegistrationErrorMessage(error: unknown, fallback: string): string
   if (extractApiErrorCode(error) === 'EMAIL_DOMAIN_REGISTRATION_LIMIT') {
     return t('auth.emailDomainRegistrationLimit')
   }
-  return buildAuthErrorMessage(error, { fallback })
+  return extractI18nErrorMessage(error, t, 'auth.errors', fallback)
 }
 </script>
 

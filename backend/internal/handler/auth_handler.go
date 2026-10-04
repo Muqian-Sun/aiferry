@@ -542,7 +542,8 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	frontendBaseURL := strings.TrimSpace(h.settingSvc.GetFrontendURL(c.Request.Context()))
 	if frontendBaseURL == "" {
 		slog.Error("frontend_url not configured in settings or config; cannot build password reset link")
-		response.InternalError(c, "Password reset is not configured")
+		// 带上 reason，前端才能把这条配置缺失翻成中文告诉用户，而不是只显示英文原文
+		response.ErrorFrom(c, infraerrors.InternalServer("PASSWORD_RESET_NOT_CONFIGURED", "Password reset is not configured"))
 		return
 	}
 

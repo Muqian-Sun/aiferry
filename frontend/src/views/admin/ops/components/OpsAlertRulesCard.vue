@@ -4,11 +4,13 @@ import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import { opsAPI } from '@/api/admin/ops'
 import type { AlertRule, MetricType, Operator } from '../types'
 import type { OpsSeverity } from '@/api/admin/ops'
 import { formatDateTime } from '../utils/opsFormatters'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 
@@ -42,6 +44,10 @@ const showEditor = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const draft = ref<AlertRule | null>(null)
+// 校验结果在用户点过保存、或离开过名称输入框之后才显示：新建时名称默认为空，打开就标红是误报
+const showValidation = ref(false)
+// 前端校验没拦住、被后端拒绝保存时的原因，显示在弹窗底部
+const saveError = ref('')
 
 type MetricGroup = 'system' | 'account'
 
@@ -216,12 +222,16 @@ function newRuleDraft(): AlertRule {
 function openCreate() {
   editingId.value = null
   draft.value = newRuleDraft()
+  showValidation.value = false
+  saveError.value = ''
   showEditor.value = true
 }
 
 function openEdit(rule: AlertRule) {
   editingId.value = rule.id ?? null
   draft.value = JSON.parse(JSON.stringify(rule))
+  showValidation.value = false
+  saveError.value = ''
   showEditor.value = true
 }
 
@@ -232,8 +242,14 @@ const editorValidation = computed(() => {
   if (!r.name || !r.name.trim()) errors.push(t('admin.ops.alertRules.validation.nameRequired'))
   if (!r.metric_type) errors.push(t('admin.ops.alertRules.validation.metricRequired'))
   if (!r.operator) errors.push(t('admin.ops.alertRules.validation.operatorRequired'))
-  if (!(typeof r.threshold === 'number' && Number.isFinite(r.threshold)))
+  if (!(typeof r.threshold === 'number' && Number.isFinite(r.threshold))) {
     errors.push(t('admin.ops.alertRules.validation.thresholdRequired'))
+  } else if (metricDefinitions.value.find((m) => m.type === r.metric_type)?.unit === '%') {
+    // 与后端 ops_alerts_handler 的 isPercentOrRateMetric 同一组指标（带 % 单位的那 6 个）：阈值只能在 0–100
+    if (r.threshold < 0 || r.threshold > 100) errors.push(t('admin.ops.alertRules.validation.thresholdPercentRange'))
+  } else if (r.threshold < 0) {
+    errors.push(t('admin.ops.alertRules.validation.thresholdNonNegative'))
+  }
   if (!(typeof r.window_minutes === 'number' && Number.isFinite(r.window_minutes) && [1, 5, 60].includes(r.window_minutes))) {
     errors.push(t('admin.ops.alertRules.validation.windowRange'))
   }
@@ -248,10 +264,9 @@ const editorValidation = computed(() => {
 
 async function save() {
   if (!draft.value) return
-  if (!editorValidation.value.valid) {
-    console.error(editorValidation.value.errors[0] || t('admin.ops.alertRules.validation.invalid'))
-    return
-  }
+  saveError.value = ''
+  showValidation.value = true
+  if (!editorValidation.value.valid) return
   saving.value = true
   try {
     if (editingId.value) {
@@ -263,7 +278,8 @@ async function save() {
     draft.value = null
     editingId.value = null
     await load()
-  } catch (err: any) {
+  } catch (err: unknown) {
+    saveError.value = extractApiErrorMessage(err, t('admin.ops.alertRules.saveFailed'))
     console.error('[OpsAlertRulesCard] Failed to save rule', err)
   } finally {
     saving.value = false
@@ -272,20 +288,25 @@ async function save() {
 
 const showDeleteConfirm = ref(false)
 const pendingDelete = ref<AlertRule | null>(null)
+// 删除失败时确认弹窗不关，原因写在弹窗里
+const deleteError = ref('')
 
 function requestDelete(rule: AlertRule) {
   pendingDelete.value = rule
+  deleteError.value = ''
   showDeleteConfirm.value = true
 }
 
 async function confirmDelete() {
   if (!pendingDelete.value?.id) return
+  deleteError.value = ''
   try {
     await opsAPI.deleteAlertRule(pendingDelete.value.id)
     showDeleteConfirm.value = false
     pendingDelete.value = null
     await load()
-  } catch (err: any) {
+  } catch (err: unknown) {
+    deleteError.value = extractApiErrorMessage(err, t('admin.ops.alertRules.deleteFailed'))
     console.error('[OpsAlertRulesCard] Failed to delete rule', err)
   }
 }
@@ -420,7 +441,7 @@ function cancelDelete() {
       @close="showEditor = false"
     >
       <div class="space-y-4">
-        <div v-if="!editorValidation.valid" class="rounded-xl bg-af-danger-tint p-4 text-xs text-af-danger">
+        <div v-if="showValidation && !editorValidation.valid" class="rounded-xl bg-af-danger-tint p-4 text-xs text-af-danger">
           <div class="font-bold">{{ t('admin.ops.alertRules.validation.title') }}</div>
           <ul class="mt-1 list-disc pl-5">
             <li v-for="e in editorValidation.errors" :key="e">{{ e }}</li>
@@ -430,7 +451,7 @@ function cancelDelete() {
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="md:col-span-2">
             <label class="input-label">{{ t('admin.ops.alertRules.form.name') }}</label>
-            <input v-model="draft!.name" class="input" type="text" />
+            <input v-model="draft!.name" class="input" type="text" @blur="showValidation = true" />
           </div>
 
           <div class="md:col-span-2">
@@ -498,7 +519,8 @@ function cancelDelete() {
       </div>
 
       <template #footer>
-        <div class="flex items-center justify-end gap-2">
+        <div class="flex w-full flex-wrap items-center justify-end gap-2">
+          <FormError class="mr-auto min-w-0 flex-1" :message="saveError" />
           <button class="btn btn-secondary" :disabled="saving" @click="showEditor = false">
             {{ t('common.cancel') }}
           </button>
@@ -517,6 +539,8 @@ function cancelDelete() {
       :cancelText="t('common.cancel')"
       @confirm="confirmDelete"
       @cancel="cancelDelete"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
   </div>
 </template>

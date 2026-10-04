@@ -78,7 +78,8 @@
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="importError" />
         <button class="btn btn-secondary" type="button" :disabled="importing" @click="handleClose">
           {{ t('common.cancel') }}
         </button>
@@ -99,8 +100,10 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import { adminAPI } from '@/api/admin'
 import type { AdminDataImportResult, AdminDataPayload } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 interface Props {
   show: boolean
@@ -122,6 +125,8 @@ const dragDepth = ref(0)
 const dragActive = computed(() => dragDepth.value > 0)
 const hasCreatedData = ref(false)
 const result = ref<AdminDataImportResult | null>(null)
+// 没选文件、文件读不了 / 格式不对、请求失败：显示在弹窗底部，不只进控制台
+const importError = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFilesLabel = computed(() => {
@@ -141,6 +146,7 @@ watch(
       dragDepth.value = 0
       hasCreatedData.value = false
       result.value = null
+      importError.value = ''
       if (fileInput.value) {
         fileInput.value.value = ''
       }
@@ -177,11 +183,12 @@ const setSelectedFiles = (sourceFiles: FileList | File[] | null | undefined) => 
   const incoming = Array.from(sourceFiles || [])
   const picked = incoming.filter(isJsonFile)
   if (!picked.length) {
-    console.error(t('admin.accounts.dataImportSelectFile'))
+    importError.value = t('admin.accounts.dataImportSelectFile')
     return
   }
   files.value = picked
   result.value = null
+  importError.value = ''
 }
 
 const handleDragEnter = () => {
@@ -260,8 +267,9 @@ const mergeDataPayloads = (payloads: AdminDataPayload[]): AdminDataPayload => {
 }
 
 const handleImport = async () => {
+  importError.value = ''
   if (files.value.length === 0) {
-    console.error(t('admin.accounts.dataImportSelectFile'))
+    importError.value = t('admin.accounts.dataImportSelectFile')
     return
   }
 
@@ -273,14 +281,12 @@ const handleImport = async () => {
       try {
         parsed = JSON.parse(await readFileAsText(sourceFile))
       } catch (error) {
-        console.error(
-          t('admin.accounts.dataImportParseFailedFile', { name: sourceFile.name }),
-          error
-        )
+        importError.value = t('admin.accounts.dataImportParseFailedFile', { name: sourceFile.name })
+        console.error(importError.value, error)
         return
       }
       if (!isValidDataPayload(parsed)) {
-        console.error(t('admin.accounts.dataImportInvalidFile', { name: sourceFile.name }))
+        importError.value = t('admin.accounts.dataImportInvalidFile', { name: sourceFile.name })
         return
       }
       dataPayloads.push(parsed)
@@ -310,8 +316,9 @@ const handleImport = async () => {
     } else {
       emit('imported')
     }
-  } catch (error: any) {
-    console.error(error?.message || t('admin.accounts.dataImportFailed'), error)
+  } catch (error: unknown) {
+    importError.value = extractApiErrorMessage(error, t('admin.accounts.dataImportFailed'))
+    console.error(importError.value, error)
   } finally {
     importing.value = false
   }

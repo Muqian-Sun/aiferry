@@ -23,7 +23,7 @@ vi.mock('vue-i18n', () => ({
 describe('ProfileEditForm', () => {
   it.each([
     [{ status: 400, code: 'VALIDATION_ERROR', message: 'username is too long' }, 'username is too long'],
-    [{ response: { data: { detail: 'backend failure' } } }, 'backend failure'],
+    [{ status: 500, code: 500, message: 'backend failure' }, 'backend failure'],
     [{}, 'profile.updateFailed'],
   ])('shows API failure %j without changing the saved profile', async (error, _expectedMessage) => {
     updateProfileMock.mockRejectedValue(error)

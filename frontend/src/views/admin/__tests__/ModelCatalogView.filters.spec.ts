@@ -204,7 +204,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
 
   it('keeps the failed entries selected and reports each reason when a bulk update is partly rejected', async () => {
     updateEntry.mockImplementation(async (id: number, body: { model_id: string }) => {
-      if (id === 4) throw { response: { data: { message: 'listed model requires a price' } } }
+      if (id === 4) throw { status: 400, code: 400, message: 'listed model requires a price' }
       return entry({ model_id: body.model_id })
     })
     const wrapper = mountView()
@@ -215,6 +215,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('common.selectedItems:{"count":1}')
+    expect(wrapper.get('[data-testid="model-catalog-bulk-failures"]').text()).toContain('nameless: listed model requires a price')
   })
 
   it('does nothing but say so when every selected entry already has the target status', async () => {

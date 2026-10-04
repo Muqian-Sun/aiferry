@@ -435,6 +435,12 @@ export default {
       failedToCreate: 'Failed to create announcement',
       failedToUpdate: 'Failed to update announcement',
       failedToDelete: 'Failed to delete announcement',
+      // Backend reason → message (when saving an announcement)
+      errors: {
+        ANNOUNCEMENT_TIME_RANGE_INVALID: 'The start time must be earlier than the end time',
+        ANNOUNCEMENT_TITLE_INVALID: 'The title is required and cannot exceed 200 bytes',
+        ANNOUNCEMENT_CONTENT_REQUIRED: 'The content is required'
+      },
       failedToLoadReadStatus: 'Failed to load read status',
       deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
     },
