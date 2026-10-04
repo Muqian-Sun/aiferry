@@ -1,7 +1,4 @@
 import { ref } from 'vue'
-import { i18n } from '@/i18n'
-
-const { t } = i18n.global
 
 /**
  * 检测是否支持 Clipboard API（需要安全上下文：HTTPS/localhost）
@@ -55,7 +52,8 @@ export function useClipboard() {
         copied.value = false
       }, 2000)
     } else {
-      console.error(t('common.copyFailed'))
+      // 用户能看到的失败提示由调用方给（CopyButton 显示「复制失败」），这里只留排查用的日志
+      console.error('copy to clipboard failed')
     }
 
     return success

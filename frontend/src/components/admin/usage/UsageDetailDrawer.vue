@@ -96,16 +96,11 @@
           <DetailField v-for="id in idFields" :key="id.key" :label="id.label">
             <span v-if="id.value" class="inline-flex max-w-full items-center gap-1.5">
               <span class="break-all font-mono text-xs">{{ id.value }}</span>
-              <button
-                type="button"
+              <CopyButton
+                :text="id.value"
                 class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-                :title="t('keys.copyToClipboard')"
-                :aria-label="t('keys.copyToClipboard')"
-                :data-testid="`usage-detail-copy-${id.key}`"
-                @click="copyToClipboard(id.value)"
-              >
-                <Icon name="copy" size="sm" />
-              </button>
+                :test-id="`usage-detail-copy-${id.key}`"
+              />
             </span>
             <template v-else>—</template>
           </DetailField>
@@ -141,12 +136,11 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DetailDrawer, DetailField } from '@/components/admin/list'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
-import Icon from '@/components/icons/Icon.vue'
-import { useClipboard } from '@/composables/useClipboard'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { formatMoneyExact, profitOf, profitTextClass } from '@/utils/money'
@@ -168,7 +162,6 @@ const props = defineProps<{ log: AdminUsageLog | null }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 /** 请求 ID / 上游 ID：等宽全文 + 复制按钮。 */
 const idFields = computed(() => [

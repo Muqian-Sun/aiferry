@@ -19,16 +19,11 @@
           <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.errorDetail.requestId') }}</div>
           <div v-if="requestId" class="mt-1 flex items-start gap-1.5">
             <span class="min-w-0 break-all font-mono text-sm font-medium text-af-ink">{{ requestId }}</span>
-            <button
-              type="button"
+            <CopyButton
+              :text="requestId"
               class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
-              :title="t('common.copy')"
-              :aria-label="t('common.copy')"
-              data-testid="error-detail-copy-request-id"
-              @click="copyToClipboard(requestId)"
-            >
-              <Icon name="copy" size="sm" />
-            </button>
+              test-id="error-detail-copy-request-id"
+            />
           </div>
           <div v-else class="mt-1 text-sm font-medium text-af-ink">—</div>
         </div>
@@ -232,11 +227,11 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { useClipboard } from '@/composables/useClipboard'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
 import { resolveUpstreamPayload } from '../utils/errorDetailResponse'
@@ -257,7 +252,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
 const detail = ref<OpsErrorDetail | null>(null)

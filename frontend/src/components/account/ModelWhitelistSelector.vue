@@ -82,7 +82,7 @@
               :aria-label="`${t('common.copy')} ${model.value}`"
               @click="copyModelId(model.value)"
             >
-              <Icon name="copy" size="sm" />
+              <Icon :name="copiedModel === model.value ? 'check' : 'copy'" size="sm" :class="copiedModel === model.value ? 'text-af-success' : ''" />
             </button>
           </div>
           <div v-if="filteredModels.length === 0" class="px-3 py-4 text-center text-sm text-af-ink-3">
@@ -256,8 +256,14 @@ const toggleModel = (model: string) => {
   }
 }
 
+// 复制后这一项的图标变成对勾 1.5 秒（原来点了没有反馈）
+const copiedModel = ref<string | null>(null)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
 const copyModelId = async (model: string) => {
-  await copyToClipboard(model)
+  if (!(await copyToClipboard(model))) return
+  copiedModel.value = model
+  clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => (copiedModel.value = null), 1500)
 }
 
 const addCustom = () => {

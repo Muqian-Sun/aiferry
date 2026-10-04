@@ -214,14 +214,12 @@
         </div>
 
         <!-- Copy Button -->
-        <button
+        <CopyButton
           v-if="outputLines.length > 0"
-          @click="copyOutput"
+          :text="outputText"
+          :label="t('admin.accounts.copyOutput')"
           class="absolute right-2 top-2 rounded-lg bg-af-ink/80 p-1.5 text-af-ink-3 opacity-0 transition-all hover:bg-af-ink-2 hover:text-af-on-brand group-hover:opacity-100"
-          :title="t('admin.accounts.copyOutput')"
-        >
-          <Icon name="link" size="sm" :stroke-width="2" />
-        </button>
+        />
       </div>
 
       <div v-if="generatedImages.length > 0" class="space-y-2">
@@ -361,13 +359,13 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
-import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
 import { adminAPI } from '@/api/admin'
@@ -378,7 +376,6 @@ import TestModelsHint from './TestModelsHint.vue'
 import { accountAccessKey } from './accountAccess'
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 interface OutputLine {
   text: string
@@ -1056,10 +1053,7 @@ const handleEvent = (event: {
   }
 }
 
-const copyOutput = () => {
-  const text = outputLines.value.map((l) => l.text).join('\n')
-  copyToClipboard(text)
-}
+const outputText = computed(() => outputLines.value.map((l) => l.text).join('\n'))
 </script>
 
 <style>

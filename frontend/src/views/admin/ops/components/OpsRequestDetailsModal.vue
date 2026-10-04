@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, ref, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
-import { useClipboard } from '@/composables/useClipboard'
 import { opsAPI, type OpsRequestDetailsParams, type OpsRequestDetail } from '@/api/admin/ops'
 import { parseTimeRangeMinutes, formatDateTime } from '../utils/opsFormatters'
 
@@ -31,7 +31,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 // 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
 const isDesktopViewport = useMediaQuery('(min-width: 768px)')
@@ -137,11 +136,6 @@ function handlePageSizeChange(next: number) {
   fetchData()
 }
 
-async function handleCopyRequestId(requestId: string) {
-  const ok = await copyToClipboard(requestId)
-  if (ok) return
-}
-
 function openErrorDetail(errorId: number | null | undefined) {
   if (!errorId) return
   emit('openErrorDetail', errorId)
@@ -212,12 +206,12 @@ const kindBadgeClass = (kind: string) => {
                     <span class="min-w-0 flex-1 truncate font-mono text-xs text-af-ink-2" :title="row.request_id">
                       {{ row.request_id }}
                     </span>
-                    <button
+                    <CopyButton
+                      variant="text"
+                      :text="row.request_id"
+                      :label="t('admin.ops.requestDetails.copy')"
                       class="shrink-0 rounded-md bg-af-sunken px-2 py-1 text-xs font-bold text-af-ink-2 hover:bg-af-hairline"
-                      @click="handleCopyRequestId(row.request_id)"
-                    >
-                      {{ t('admin.ops.requestDetails.copy') }}
-                    </button>
+                    />
                   </div>
                   <button
                     v-if="row.kind === 'error' && row.error_id"
@@ -284,12 +278,12 @@ const kindBadgeClass = (kind: string) => {
                       <span class="max-w-[220px] truncate font-mono text-xs text-af-ink-2" :title="row.request_id">
                         {{ row.request_id }}
                       </span>
-                      <button
+                      <CopyButton
+                        variant="text"
+                        :text="row.request_id"
+                        :label="t('admin.ops.requestDetails.copy')"
                         class="rounded-md bg-af-sunken px-2 py-1 text-xs font-bold text-af-ink-2 hover:bg-af-hairline"
-                        @click="handleCopyRequestId(row.request_id)"
-                      >
-                        {{ t('admin.ops.requestDetails.copy') }}
-                      </button>
+                      />
                     </div>
                     <span v-else class="text-xs text-af-ink-3">-</span>
                   </td>

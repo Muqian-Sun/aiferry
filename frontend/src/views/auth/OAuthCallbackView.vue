@@ -104,9 +104,7 @@
             <label class="input-label">{{ t('auth.oauth.code') }}</label>
             <div class="flex gap-2">
               <input class="input flex-1 font-mono text-sm" :value="code" readonly />
-              <button class="btn btn-secondary" type="button" :disabled="!code" @click="copy(code)">
-                {{ t('common.copy') }}
-              </button>
+              <CopyButton variant="text" class="btn btn-secondary" :text="code" :disabled="!code" />
             </div>
           </div>
 
@@ -114,14 +112,7 @@
             <label class="input-label">{{ t('auth.oauth.state') }}</label>
             <div class="flex gap-2">
               <input class="input flex-1 font-mono text-sm" :value="state" readonly />
-              <button
-                class="btn btn-secondary"
-                type="button"
-                :disabled="!state"
-                @click="copy(state)"
-              >
-                {{ t('common.copy') }}
-              </button>
+              <CopyButton variant="text" class="btn btn-secondary" :text="state" :disabled="!state" />
             </div>
           </div>
 
@@ -129,14 +120,7 @@
             <label class="input-label">{{ t('auth.oauth.fullUrl') }}</label>
             <div class="flex gap-2">
               <input class="input flex-1 font-mono text-xs" :value="fullUrl" readonly />
-              <button
-                class="btn btn-secondary"
-                type="button"
-                :disabled="!fullUrl"
-                @click="copy(fullUrl)"
-              >
-                {{ t('common.copy') }}
-              </button>
+              <CopyButton variant="text" class="btn btn-secondary" :text="fullUrl" :disabled="!fullUrl" />
             </div>
           </div>
         </div>
@@ -146,10 +130,10 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useClipboard } from '@/composables/useClipboard'
 import { useAuthStore } from '@/stores'
 import { apiClient } from '@/api/client'
 import { buildApiUrl } from '@/api/url'
@@ -168,7 +152,6 @@ const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 const authStore = useAuthStore()
 const isProcessing = ref(false)
 const isSubmitting = ref(false)
@@ -412,8 +395,4 @@ watch(
   { immediate: true }
 )
 
-const copy = (value: string) => {
-  if (!value) return
-  copyToClipboard(value)
-}
 </script>

@@ -141,10 +141,10 @@
                       @click.stop="copyProxyUrl(row)"
                       @contextmenu.prevent="openCopyMenu(row.id)"
                     >
-                      <Icon name="copy" size="sm" />
+                      <Icon :name="copiedProxyId === row.id ? 'check' : 'copy'" size="sm" :class="copiedProxyId === row.id ? 'text-af-success' : ''" />
                     </button>
                   </template>
-                  <MenuItem v-for="fmt in getCopyFormats(row)" :key="fmt.label" @click="copyFormat(fmt.value)">
+                  <MenuItem v-for="fmt in getCopyFormats(row)" :key="fmt.label" @click="copyFormat(row.id, fmt.value)">
                     <span class="font-mono text-xs">{{ fmt.label }}</span>
                   </MenuItem>
                 </PopoverMenu>
@@ -1217,13 +1217,23 @@ function openCopyMenu(id: number) {
   if (menu) menu.open = true
 }
 
+// 复制后这一行的图标变成对勾 1.5 秒（原来点了没有任何反馈）
+const copiedProxyId = ref<number | null>(null)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
+async function markCopied(id: number, text: string) {
+  if (!(await copyToClipboard(text))) return
+  copiedProxyId.value = id
+  clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => (copiedProxyId.value = null), 1500)
+}
+
 function copyProxyUrl(row: any) {
-  copyToClipboard(buildProxyUrl(row))
+  void markCopied(row.id, buildProxyUrl(row))
   copyMenus.get(row.id)?.close()
 }
 
-function copyFormat(value: string) {
-  copyToClipboard(value)
+function copyFormat(id: number, value: string) {
+  void markCopied(id, value)
 }
 
 onMounted(() => {

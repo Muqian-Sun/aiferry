@@ -6,14 +6,13 @@
   >
     {{ t('admin.accounts.headerOverride.importJson') }}
   </button>
-  <button
-    type="button"
+  <CopyButton
+    variant="text"
+    :text="hasNamedRows ? serializeHeaderOverrideRows(props.rows) : ''"
+    :label="t('admin.accounts.headerOverride.copyJson')"
     class="rounded-lg bg-af-brand-tint px-3 py-1 text-xs text-af-brand transition-colors hover:bg-af-hairline disabled:cursor-not-allowed disabled:opacity-50"
     :disabled="!hasNamedRows"
-    @click="copyAsJson"
-  >
-    {{ t('admin.accounts.headerOverride.copyJson') }}
-  </button>
+  />
 
   <div v-if="showImportPanel" ref="importPanelRef" class="w-full space-y-2">
     <textarea
@@ -46,9 +45,9 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useClipboard } from '@/composables/useClipboard'
 import {
   parseHeaderOverridesJson,
   serializeHeaderOverrideRows,
@@ -64,7 +63,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 // JSON 示例语言中立，且花括号会被 vue-i18n 消息编译器当作插值占位符解析
 // 导致渲染时抛 SyntaxError，因此不走 i18n。
@@ -102,7 +100,4 @@ const applyImport = () => {
   closeImportPanel()
 }
 
-const copyAsJson = () => {
-  void copyToClipboard(serializeHeaderOverrideRows(props.rows))
-}
 </script>
