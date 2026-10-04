@@ -326,7 +326,9 @@ func (s *AnnouncementService) ListUserReadStatus(
 		return nil, nil, err
 	}
 
+	// 只列普通用户：管理员登不了用户站（CheckSiteRole），永远看不到公告，算进读者会把已读比例拉低
 	filters := UserListFilters{
+		Role:   RoleUser,
 		Search: strings.TrimSpace(search),
 	}
 

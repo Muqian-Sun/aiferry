@@ -371,7 +371,7 @@ export default {
     // Announcements
     announcements: {
       description: '创建公告并按条件投放',
-      createFirstAnnouncement: '还没有公告，创建您的第一条公告。',
+      createFirstAnnouncement: '还没有公告，创建第一条公告。',
       createAnnouncement: '创建公告',
       editAnnouncement: '编辑公告',
       deleteAnnouncement: '删除公告',
@@ -399,7 +399,7 @@ export default {
         startsAtHint: '留空表示立即生效',
         endsAtHint: '留空表示永久生效',
         targetingMode: '展示条件',
-        targetingAll: '所有用户',
+        targetingAll: '全部用户',
         targetingCustom: '按条件',
         addOrGroup: '添加 OR 条件组',
         addAndCondition: '添加 AND 条件',
@@ -439,7 +439,7 @@ export default {
         ANNOUNCEMENT_CONTENT_REQUIRED: '内容不能为空'
       },
       failedToLoadReadStatus: '加载已读情况失败',
-      deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
+      deleteConfirm: '确定要删除公告「{title}」吗？此操作无法撤销。'
     },
 
     // Usage Records

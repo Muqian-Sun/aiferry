@@ -35,7 +35,7 @@
         </template>
 
         <template #cell-balance="{ value }">
-          <span class="font-medium text-af-ink">${{ Number(value ?? 0).toFixed(2) }}</span>
+          <span class="font-medium" :class="balanceTextClass(value)">{{ formatBalance(value) }}</span>
         </template>
 
         <template #cell-eligible="{ value }">
@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { balanceTextClass, formatBalance } from '@/utils/money'
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'

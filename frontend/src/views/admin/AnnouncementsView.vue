@@ -179,7 +179,7 @@
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.announcements.deleteAnnouncement')"
-      :message="t('admin.announcements.deleteConfirm')"
+      :message="t('admin.announcements.deleteConfirm', { title: deletingAnnouncement?.title ?? '' })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       danger
