@@ -110,6 +110,11 @@ export default {
   setup: {
     title: 'AiFerry 安装向导',
     description: '配置 AiFerry 实例',
+    errors: {
+      database: '连不上数据库，请检查主机、端口、用户名、密码和数据库名称',
+      redis: '连不上 Redis，请检查主机、端口和密码',
+      install: '安装失败，请检查上面的配置后重试'
+    },
     database: {
       title: '数据库配置',
       description: '连接 PostgreSQL 数据库',

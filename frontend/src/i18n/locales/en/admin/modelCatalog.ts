@@ -38,7 +38,8 @@ export default {
       list: 'List',
       unlist: 'Unlist',
       selectEntry: 'Select {model}',
-      partial: '{done} succeeded, {failed} failed (failures stay selected):'
+      partial: '{done} succeeded, {failed} failed (failures stay selected):',
+      itemFailed: 'Save failed'
     },
     editor: {
       vendorHint: 'Use the lowercase vendor tag (anthropic / openai / gemini / xai…); the user site matches vendor tabs and icons on it.',

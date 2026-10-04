@@ -109,6 +109,11 @@ export default {
   setup: {
     title: 'AiFerry Setup',
     description: 'Configure your AiFerry instance',
+    errors: {
+      database: 'Cannot connect to the database. Check host, port, username, password and database name.',
+      redis: 'Cannot connect to Redis. Check host, port and password.',
+      install: 'Installation failed. Check the settings above and retry.'
+    },
     database: {
       title: 'Database Configuration',
       description: 'Connect to your PostgreSQL database',

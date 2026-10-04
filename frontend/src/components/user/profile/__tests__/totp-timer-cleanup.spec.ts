@@ -123,7 +123,7 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('button[type="button"].btn-primary').trigger('click')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('setup failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('profile.totp.setupFailed')
   })
 
   it('TotpDisableDialog 失败时就近显示报错', async () => {
@@ -137,6 +137,6 @@ describe('TOTP 弹窗定时器清理', () => {
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('disable failed')
+    expect(wrapper.get('[data-testid="form-error"]').text()).toContain('profile.totp.disableFailed')
   })
 })

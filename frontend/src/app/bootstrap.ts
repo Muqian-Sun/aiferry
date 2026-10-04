@@ -7,6 +7,7 @@ import { useAppStore } from '@/stores/app'
 import { initTheme } from '@/composables/useTheme'
 import { DEFAULT_SITE_NAME, DEFAULT_SITE_SUBTITLE, updateFavicon } from '@/utils/branding'
 import { isIOSDevice } from '@/utils/device'
+import { setApiErrorReasonTranslator } from '@/utils/apiError'
 import '@/style.css'
 
 function initIOSViewportZoomFix() {
@@ -48,6 +49,11 @@ export async function bootstrapApp(App: Component, router: Router): Promise<void
   updateFavicon(appStore.siteLogo)
 
   await initI18n()
+  // 接口错误按 reason 查全局文案 apiErrors.<REASON>；查不到返回 null，由调用处的兜底文案接手
+  setApiErrorReasonTranslator((reason, params) => {
+    const key = `apiErrors.${reason}`
+    return i18n.global.te(key) ? i18n.global.t(key, params) : null
+  })
 
   app.use(router)
   app.use(i18n)

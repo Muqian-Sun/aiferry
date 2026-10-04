@@ -449,6 +449,7 @@ export default {
       duplicateAccount: 'Duplicate Channel',
       duplicateFailed: 'Failed to duplicate channel',
       refreshCredentialsFailed: 'Failed to refresh credentials',
+      refreshMissingProjectId: 'Credentials refreshed, but project_id is not available yet; it will be retried automatically',
       selectAllFailed: 'Failed to select all results',
       resetQuotaFailed: 'Failed to reset quota',
       revertFallbackFailed: 'Failed to switch back to the original proxy',

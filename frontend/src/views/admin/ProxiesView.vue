@@ -207,16 +207,13 @@
                 <Icon name="refresh" size="xs" class="animate-spin" />
                 {{ t('admin.proxies.testing') }}
               </span>
-              <!-- 失败原因是后端原文（多为英文的网络报错），直接显示在「连接失败」下方，不藏在悬停提示里 -->
-              <template v-else-if="row.latency_status === 'failed'">
-                <span class="text-af-danger">{{ t('admin.proxies.latencyFailed') }}</span>
-                <span
-                  v-if="row.latency_message"
-                  class="line-clamp-2 max-w-[16rem] break-all text-xs text-af-ink-3"
-                  :title="row.latency_message"
-                  data-testid="proxy-latency-message"
-                >{{ row.latency_message }}</span>
-              </template>
+              <!-- 页面只显示「连接失败」；后端给的网络报错原文（多为英文）只作排查用，放在悬停提示里 -->
+              <span
+                v-else-if="row.latency_status === 'failed'"
+                class="text-af-danger"
+                :title="row.latency_message || undefined"
+                data-testid="proxy-latency-failed"
+              >{{ t('admin.proxies.latencyFailed') }}</span>
               <span
                 v-else-if="typeof row.latency_ms === 'number'"
                 :class="['tabular-nums', row.latency_ms < 200 ? 'text-af-ink-2' : 'text-af-warning']"

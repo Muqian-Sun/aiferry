@@ -5,6 +5,7 @@ import batchImage from './batchImage'
 import admin from './admin'
 import misc from './misc'
 import userUi from './userUi'
+import apiErrors from './apiErrors'
 
 export default {
   ...landing,
@@ -14,4 +15,5 @@ export default {
   admin,
   ...misc,
   ...userUi,
+  apiErrors,
 }

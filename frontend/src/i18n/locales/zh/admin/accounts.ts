@@ -559,6 +559,7 @@ export default {
       duplicateAccount: '复制渠道',
       duplicateFailed: '复制渠道失败',
       refreshCredentialsFailed: '刷新凭据失败',
+      refreshMissingProjectId: '凭据已刷新，但 project_id 暂时没取到，系统会自动重试',
       selectAllFailed: '选中全部结果失败',
       resetQuotaFailed: '重置额度失败',
       revertFallbackFailed: '切回原代理失败',

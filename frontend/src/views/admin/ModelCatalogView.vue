@@ -573,7 +573,7 @@ async function bulkSetStatus(status: 'listed' | 'unlisted', confirmed = false) {
       try {
         await adminAPI.modelCatalog.updateEntry(entry.id, { ...entryToRequest(entry), status })
       } catch (error) {
-        failures.push({ id: entry.id, model: entry.model_id, message: extractApiErrorMessage(error, t('common.unknownError')) })
+        failures.push({ id: entry.id, model: entry.model_id, message: extractApiErrorMessage(error, t('admin.modelCatalog.bulk.itemFailed')) })
       }
     }
     if (failures.length === 0) {

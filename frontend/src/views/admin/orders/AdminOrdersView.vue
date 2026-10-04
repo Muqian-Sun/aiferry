@@ -334,11 +334,11 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
       // balance after requesting the refund). Keep the dialog open and surface
       // the force checkbox instead of dropping the admin back to the list.
       refundRequireForce.value = true
-      refundWarning.value = res.data.warning || ''
+      refundWarning.value = t('payment.admin.refundRequireForce')
       return
     }
-    // 退款没成功：原因写进退款弹窗的提示行，弹窗保持打开
-    refundWarning.value = res.data.warning || t('common.error')
+    // 退款没成功：提示写进退款弹窗，弹窗保持打开（后端的 warning 是英文原因，不上屏）
+    refundWarning.value = t('payment.admin.refundGatewayFailed')
   } catch (err: unknown) { refundWarning.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')) }
   finally { refundSubmitting.value = false }
 }
@@ -349,7 +349,7 @@ async function handleQueryRefund(order: PaymentOrder) {
   try {
     const res = await adminPaymentAPI.queryRefund(order.id)
     if (!res.data.success && !isRefundPendingWarning(res.data.warning)) {
-      actionError.value = res.data.warning || t('common.error')
+      actionError.value = t('payment.admin.refundQueryFailed')
     }
     loadOrders()
   } catch (err: unknown) {

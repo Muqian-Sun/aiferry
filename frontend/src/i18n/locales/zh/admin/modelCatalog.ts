@@ -40,7 +40,8 @@ export default {
       list: '上架',
       unlist: '下架',
       selectEntry: '选择 {model}',
-      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：'
+      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：',
+      itemFailed: '保存失败'
     },
     editor: {
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
