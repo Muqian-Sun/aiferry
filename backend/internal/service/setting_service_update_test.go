@@ -165,7 +165,7 @@ func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 
 		err := svc.UpdateSettings(context.Background(), &SystemSettings{
 			AdminRechargeRebateEnabled: true,
-		})
+		}, []string{SettingKeyAffiliateAdminRechargeEnabled})
 		require.NoError(t, err)
 		require.Equal(t, "true", repo.updates[SettingKeyAffiliateAdminRechargeEnabled])
 	})
@@ -176,14 +176,14 @@ func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
 
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: 0.3})
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: 0.3}, []string{SettingKeyProfitMinMargin})
 	require.NoError(t, err)
 	require.Equal(t, "0.30000000", repo.updates[SettingKeyProfitMinMargin])
 
 	for _, margin := range []float64{-0.1, ProfitControlRatioMax + 0.001} {
 		repo = &settingUpdateRepoStub{}
 		svc = NewSettingService(repo, &config.Config{})
-		err = svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: margin})
+		err = svc.UpdateSettings(context.Background(), &SystemSettings{ProfitMinMargin: margin}, []string{SettingKeyProfitMinMargin})
 		require.Error(t, err, "margin=%v", margin)
 		require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
 		require.Nil(t, repo.updates)
