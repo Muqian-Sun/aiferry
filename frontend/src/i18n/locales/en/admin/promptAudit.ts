@@ -37,7 +37,7 @@ export default {
       description: 'Shows the configuration currently active on the server. Unsaved draft changes do not affect these values.',
       process: 'Process status', mode: 'Effective mode', version: 'Active / expected version', workers: 'Active / total workers',
       queue: 'Active jobs / capacity', dependencies: 'Dependencies', guardMetrics: 'Synchronous Guard metrics', latest: 'Latest processing and error',
-      queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}',
+      queueBreakdown: 'Queued {queued} · processing {processing} · retrying {retry} · done {done} · failed {failed}',
       deliveryTotals: 'Total enqueued {enqueued} · dropped {dropped} · processed {processed} · failed {failed}',
     },
     metrics: { total: 'Total', allowed: 'Allowed', flagged: 'Flagged', blocked: 'Blocked', unavailable: 'Unavailable', timeouts: 'Timeouts', failovers: 'Failovers' },
@@ -52,7 +52,7 @@ export default {
     },
     policy: {
       title: 'Audit policy', description: 'Configure the nine input-risk categories, workers, and queue bounds.',
-      scanners: 'Qwen3Guard input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.',
+      scanners: 'Qwen3Guard input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.', strategies: { priority: 'In order' },
     },
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {

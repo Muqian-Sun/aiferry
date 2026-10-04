@@ -211,7 +211,6 @@ export default {
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
-    riskControl: 'Risk Control',
   },
 
   // Auth

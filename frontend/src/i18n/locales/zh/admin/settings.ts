@@ -12,11 +12,11 @@ export default {
       description: '网关与功能开关的全局设置，每一节单独保存。',
       features: {
         riskControl: {
-          title: '风控中心',
-          description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',
-          configureLink: '前往 风控中心 配置内容审计',
-          enabled: '启用风控中心',
-          enabledHint: '关闭后管理员侧边栏入口隐藏，网关内容审计不会执行。',
+          title: '审查',
+          description: '启用内容审核与提示词审查，以及全端点请求审核入口。默认关闭。',
+          configureLink: '前往「审查」配置内容审核',
+          enabled: '启用审查',
+          enabledHint: '关闭后侧栏「审查」入口变灰，网关不做内容审核。',
         },
       },
       turnstile: {
