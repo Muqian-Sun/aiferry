@@ -67,7 +67,8 @@
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="importError" />
         <button class="btn btn-secondary" type="button" :disabled="importing" @click="handleClose">
           {{ t('common.cancel') }}
         </button>
@@ -88,8 +89,10 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import { adminAPI } from '@/api/admin'
 import type { AdminDataImportResult } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 interface Props {
   show: boolean
@@ -109,6 +112,8 @@ const importing = ref(false)
 const hasImportedData = ref(false)
 const file = ref<File | null>(null)
 const result = ref<AdminDataImportResult | null>(null)
+// 没选文件、JSON 解析失败、请求失败：显示在弹窗底部，不只进控制台（与渠道导入同一处理）
+const importError = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = computed(() => file.value?.name || '')
@@ -122,6 +127,7 @@ watch(
       file.value = null
       hasImportedData.value = false
       result.value = null
+      importError.value = ''
       if (fileInput.value) {
         fileInput.value.value = ''
       }
@@ -136,6 +142,7 @@ const openFilePicker = () => {
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
   file.value = target.files?.[0] || null
+  importError.value = ''
 }
 
 const handleClose = () => {
@@ -166,8 +173,9 @@ const readFileAsText = async (sourceFile: File): Promise<string> => {
 }
 
 const handleImport = async () => {
+  importError.value = ''
   if (!file.value) {
-    console.error(t('admin.proxies.dataImportSelectFile'))
+    importError.value = t('admin.proxies.dataImportSelectFile')
     return
   }
 
@@ -193,12 +201,11 @@ const handleImport = async () => {
       hasImportedData.value = false
       emit('imported')
     }
-  } catch (error: any) {
-    if (error instanceof SyntaxError) {
-      console.error(t('admin.proxies.dataImportParseFailed'), error)
-    } else {
-      console.error(error?.message || t('admin.proxies.dataImportFailed'), error)
-    }
+  } catch (error: unknown) {
+    importError.value = error instanceof SyntaxError
+      ? t('admin.proxies.dataImportParseFailed')
+      : extractApiErrorMessage(error, t('admin.proxies.dataImportFailed'))
+    console.error(importError.value, error)
   } finally {
     importing.value = false
   }
