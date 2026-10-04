@@ -300,7 +300,7 @@ export default {
       segmentNote: '分段计价的模型按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求都按那一段的价格计费。',
       copyId: '复制模型 ID',
       copied: '已复制',
-      empty: '暂无可用模型',
+      empty: '没有可用模型',
       noSearchResult: '没有匹配的模型',
       loadFailed: '模型目录没有加载出来'
     },

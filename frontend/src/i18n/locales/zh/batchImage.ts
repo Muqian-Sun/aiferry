@@ -59,7 +59,7 @@ export default {
       keyNotRecorded: '未记录',
       totalCount: '共 {n}',
       notDownloaded: '未下载',
-      empty: '暂无批量任务',
+      empty: '还没有批量任务',
       emptyHint: '点击右上角创建批量任务。',
     },
     pagination: {
@@ -84,7 +84,7 @@ export default {
       previewUnavailable: '不可预览',
       noImage: '无图片',
       loadingItems: '正在加载明细…',
-      noItems: '暂无明细',
+      noItems: '没有明细',
       noItemsHint: '排队或生成中的任务会先显示已提交的 prompt，结果整理完成后会更新图片状态。',
       mainTask: '主任务：{name}',
       childTask: '子任务：{name}',

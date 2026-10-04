@@ -18,11 +18,11 @@ export default {
     hour: '按小时',
     modelDistribution: '模型分布',
     platformBreakdown: '按平台拆分',
-    platformBreakdownEmpty: '暂无平台用量',
+    platformBreakdownEmpty: '这段时间没有平台用量',
     platformCount: '{count} 个平台',
     platformOther: '其他',
     tokenUsageTrend: 'Token 使用趋势',
-    noDataAvailable: '暂无数据',
+    noDataAvailable: '没有数据',
     model: '模型',
     requests: '请求',
     tokens: 'Token',
@@ -33,7 +33,7 @@ export default {
     cache: '缓存',
     recentUsage: '最近使用',
     last7Days: '近 7 天',
-    noUsageRecords: '暂无使用记录',
+    noUsageRecords: '这段时间没有使用记录',
     startUsingApi: '开始调用 API 后，用量会显示在这里',
     viewAllUsage: '查看全部',
     quickActions: '快捷操作',
@@ -429,7 +429,7 @@ export default {
       category: '分类', message: '错误信息',
       keyName: 'Key 名称', keyDeleted: '已删除', allKeys: '全部 Key',
       modelPlaceholder: '搜索模型', allCategories: '全部分类', allStatuses: '全部状态码',
-      empty: '暂无错误请求', failedToLoad: '加载错误请求失败',
+      empty: '这段时间没有错误请求', failedToLoad: '加载错误请求失败',
       categories: {
         auth: '认证失败', rate_limit: '限流', quota: '余额/订阅',
         invalid_request: '参数错误', service_unavailable: '服务暂时不可用',
@@ -647,7 +647,7 @@ export default {
       name: 'Passkey 名称',
       namePlaceholder: '例如：MacBook 触控 ID',
       passwordPlaceholder: '输入当前登录密码以确认',
-      empty: '尚未添加任何 Passkey。',
+      empty: '还没有添加 Passkey',
       synced: '已同步',
       createdAt: '创建于 {date}',
       lastUsed: '上次使用 {date}',
@@ -675,7 +675,7 @@ export default {
       extraEmails: '通知邮箱',
       extraEmailsHint: '余额不足时会发到账号邮箱；想让别的邮箱也收到，在这里添加并验证',
       primaryEmail: '主邮箱',
-      noExtraEmails: '暂无额外通知邮箱',
+      noExtraEmails: '还没有额外通知邮箱',
       enterEmail: '输入邮箱地址',
       addEmail: '添加邮箱',
       emailPlaceholder: '输入邮箱地址',
@@ -752,7 +752,7 @@ export default {
 
   // Empty States
   empty: {
-    noData: '暂无数据'
+    noData: '没有数据'
   },
 
   // Table

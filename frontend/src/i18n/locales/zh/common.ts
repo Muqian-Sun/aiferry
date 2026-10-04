@@ -48,7 +48,7 @@ export default {
     all: '全部',
     none: '无',
     selectAll: '全选',
-    noData: '暂无数据',
+    noData: '没有数据',
     // 列表带着搜索 / 筛选却没有结果（EmptyState 的 filtered）
     noMatch: '没有符合条件的结果',
     noMatchHint: '换个关键词，或清掉筛选条件再看。',
@@ -143,7 +143,7 @@ export default {
     notFound: '文档不存在',
     notFoundDescription: '当前条款文档不存在或已被管理员移除。',
     updatedAt: '更新日期：{date}',
-    empty: '暂无正文内容',
+    empty: '没有正文内容',
     loginAgreement: '登录条款',
     // 后端代码里固定的条款文档（id → 标题），见 utils/legalDocumentTitle.ts
     documents: {

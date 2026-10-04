@@ -2,7 +2,7 @@ export default {
 
   // Subscription Progress (Header component)
   subscriptionProgress: {
-    noSubscriptions: '暂无有效订阅',
+    noSubscriptions: '没有有效订阅',
   },
 
 
@@ -43,8 +43,8 @@ export default {
     unread: '未读',
     startsAt: '开始时间',
     endsAt: '结束时间',
-    empty: '暂无公告',
-    emptyUnread: '暂无未读公告',
+    empty: '还没有公告',
+    emptyUnread: '没有未读公告',
     total: '条公告',
     emptyDescription: '暂时没有任何系统公告',
     readStatus: '你已阅读此公告',
@@ -58,7 +58,7 @@ export default {
     title: '我的订阅',
     description: '查看你的订阅计划和用量',
     unnamedPlan: '订阅套餐',
-    noActiveSubscriptions: '暂无有效订阅',
+    noActiveSubscriptions: '没有有效订阅',
     noActiveSubscriptionsDesc: '你没有任何有效订阅。请联系管理员获取订阅。',
     failedToLoad: '加载订阅失败',
     status: {
@@ -205,7 +205,7 @@ export default {
     },
     orders: {
       title: '我的订单',
-      empty: '暂无订单',
+      empty: '还没有订单',
       orderId: '订单 ID',
       orderNo: '订单编号',
       amount: '金额',
@@ -231,10 +231,10 @@ export default {
     currentBalance: '当前余额',
     rechargeAccount: '充值账户',
     activeSubscription: '当前订阅',
-    noActiveSubscription: '暂无有效订阅',
+    noActiveSubscription: '没有有效订阅',
     tabTopUp: '充值',
     tabSubscribe: '订阅',
-    noPlans: '暂无可用订阅套餐',
+    noPlans: '没有可购买的订阅套餐',
     notAvailable: '充值功能暂未开放',
     billingUnavailable: '充值与订阅均暂未开放，请联系管理员。',
     confirmSubscription: '确认订阅',
@@ -282,7 +282,7 @@ export default {
       TOO_MANY_PENDING: '待支付订单过多（最多 {max} 个），请先完成或取消现有订单',
       DAILY_LIMIT_EXCEEDED: '今日充值已达上限，剩余额度 {remaining}',
       PAYMENT_GATEWAY_ERROR: '支付方式不可用',
-      NO_AVAILABLE_INSTANCE: '暂无可用的支付通道',
+      NO_AVAILABLE_INSTANCE: '现在没有可用的支付通道',
       PAYMENT_PROVIDER_MISCONFIGURED: '支付通道配置错误，请联系管理员',
       WXPAY_CONFIG_MISSING_KEY: '微信支付配置缺少必填项：{key}',
       WXPAY_CONFIG_INVALID_KEY_LENGTH: '微信支付 {key} 长度错误，应为 {expected} 字节（实际 {actual}）',
@@ -348,7 +348,7 @@ export default {
       paymentDistribution: '支付方式分布',
       colUser: '用户',
       topUsers: '消费排行',
-      noData: '暂无数据',
+      noData: '没有数据',
       days: '天',
       weeks: '周',
       months: '月',
@@ -445,7 +445,7 @@ export default {
       providerKey: '服务商标识',
       selectProviderKey: '选择服务商标识',
       providerConfig: '服务商配置',
-      noProviders: '暂无服务商',
+      noProviders: '还没有服务商',
       noProvidersHint: '创建一个服务商实例以开始接受支付',
       supportedTypes: '支持的支付方式',
       supportedTypesHint: '选择此服务商支持的支付方式',

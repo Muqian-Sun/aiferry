@@ -179,7 +179,7 @@ export default {
         wxpayGuideH5Open: '需开通 H5 支付。',
         wxpayGuideH5Call: '移动端非微信浏览器且有客户端 IP 时调用 H5 支付，跳转微信收银台。',
         wxpayGuideH5Fallback: '未开通 H5 或下单失败时，自动改走扫码支付。',
-        noProviders: '暂无服务商实例',
+        noProviders: '还没有服务商实例',
         supportedTypes: '支持的支付方式',
         supportedTypesHint: '逗号分隔，如 alipay,wxpay',
         refundEnabled: '允许退款',
@@ -235,7 +235,7 @@ export default {
       createRule: '创建规则',
       editRule: '编辑规则',
       deleteRule: '删除规则',
-      noRules: '暂无规则',
+      noRules: '还没有规则',
       createFirstRule: '创建第一条错误透传规则',
       allPlatforms: '所有平台',
       passthrough: '透传',
@@ -312,7 +312,7 @@ export default {
       createProfile: '创建模板',
       editProfile: '编辑模板',
       deleteProfile: '删除模板',
-      noProfiles: '暂无模板',
+      noProfiles: '还没有模板',
       createFirstProfile: '创建你的第一个 TLS 指纹模板',
 
       columns: {

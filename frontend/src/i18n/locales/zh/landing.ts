@@ -211,7 +211,7 @@ export default {
       ACCESS_DENIED: '当前 IP 不在这把密钥允许的范围内',
       INVALID_AUTH_RATE_LIMITED: '无效查询太多，请稍后再试'
     },
-    noDailyUsage: '暂无按日用量数据',
+    noDailyUsage: '这段时间没有用量',
   },
 
   // Setup Wizard

@@ -345,7 +345,7 @@ export default {
       testConnection: '测试连接',
       reAuthorize: '重新授权',
       refreshToken: '刷新令牌',
-      noAccountsYet: '暂无渠道',
+      noAccountsYet: '还没有渠道',
       createFirstAccount: '添加 AI 平台渠道以开始使用 API 网关。',
       tokenRefreshed: 'Token 刷新成功',
       accountDeleted: '渠道删除成功',
@@ -403,7 +403,7 @@ export default {
         probeTooltip: '请求供应商额度端点，查询 5 小时 / 每周滚动窗口用量',
         balanceProbeTooltip: '请求供应商余额端点，查询上游余额',
         balanceLow: '余额不足',
-        noBalanceEndpoint: '该平台暂无余额查询接口',
+        noBalanceEndpoint: '该平台不提供余额查询接口',
       },
       opencodeGo: {
         accountMode: {
@@ -1368,7 +1368,7 @@ export default {
         avgResponseTime: '平均响应',
         daysActive: '活跃天数',
         usageTrend: '30 天趋势',
-        noData: '该渠道暂无使用数据'
+        noData: '这个渠道还没有使用数据'
       }
     },
 
