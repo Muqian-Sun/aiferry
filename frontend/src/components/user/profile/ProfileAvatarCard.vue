@@ -54,6 +54,8 @@
             {{ t('common.delete') }}
           </button>
         </div>
+        <FormError :message="avatarError" />
+        <FormSuccess :message="avatarSaved.message.value" />
       </div>
     </div>
   </div>
@@ -66,6 +68,9 @@ import { userAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
+import FormSuccess from '@/components/common/FormSuccess.vue'
+import { useTransientMessage } from '@/composables/useTransientMessage'
 
 const props = defineProps<{
   user: User | null
@@ -78,6 +83,8 @@ const targetAvatarUploadBytes = 20 * 1024
 const avatarScaleSteps = [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarQualitySteps = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarDraft = ref('')
+const avatarError = ref('')
+const avatarSaved = useTransientMessage()
 const avatarSaving = ref(false)
 
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
@@ -98,7 +105,7 @@ function normalizeUploadedAvatar(value: string): string | null {
   }
 
   if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(normalized)) {
-    console.error(t('profile.avatar.uploadRequired'))
+    avatarError.value = t('profile.avatar.uploadRequired')
     return null
   }
 
@@ -109,7 +116,7 @@ function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(reader.error ?? new Error('avatar_read_failed'))
+    reader.onerror = () => reject(new Error(t('profile.avatar.readFailed')))
     reader.readAsDataURL(file)
   })
 }
@@ -190,6 +197,8 @@ async function handleAvatarFileChange(event: Event) {
     return
   }
 
+  avatarError.value = ''
+  avatarSaved.clear()
   try {
     const preparedFile = await prepareAvatarUpload(file)
     const dataURL = await readFileAsDataURL(preparedFile)
@@ -199,7 +208,8 @@ async function handleAvatarFileChange(event: Event) {
     }
     avatarDraft.value = normalized
   } catch (error: unknown) {
-    console.error(extractApiErrorMessage(error, t('common.error')), error)
+    // 这里的错误都是上面本地化过的（类型不对 / GIF 太大 / 压不到 20KB / 读不出来）
+    avatarError.value = extractApiErrorMessage(error, t('profile.avatar.readFailed'))
   }
 }
 
@@ -210,12 +220,14 @@ async function handleAvatarSave() {
   }
 
   avatarSaving.value = true
+  avatarError.value = ''
   try {
     const updated = await userAPI.updateProfile({ avatar_url: normalized })
     authStore.user = updated
     avatarDraft.value = updated.avatar_url?.trim() || ''
+    avatarSaved.show(t('profile.avatar.saveSuccess'))
   } catch (error: unknown) {
-    console.error(extractApiErrorMessage(error, t('common.error')), error)
+    avatarError.value = extractApiErrorMessage(error, t('profile.avatar.saveFailed'))
   } finally {
     avatarSaving.value = false
   }
@@ -225,8 +237,10 @@ async function handleAvatarDelete() {
   if (avatarSaving.value) {
     return
   }
+  avatarError.value = ''
+  avatarSaved.clear()
   if (!avatarDraft.value.trim() && !props.user?.avatar_url?.trim()) {
-    console.error(t('profile.avatar.emptyDeleteHint'))
+    avatarError.value = t('profile.avatar.emptyDeleteHint')
     return
   }
 
@@ -235,8 +249,9 @@ async function handleAvatarDelete() {
     const updated = await userAPI.updateProfile({ avatar_url: '' })
     authStore.user = updated
     avatarDraft.value = ''
+    avatarSaved.show(t('profile.avatar.deleteSuccess'))
   } catch (error: unknown) {
-    console.error(extractApiErrorMessage(error, t('common.error')), error)
+    avatarError.value = extractApiErrorMessage(error, t('profile.avatar.deleteFailed'))
   } finally {
     avatarSaving.value = false
   }

@@ -42,6 +42,7 @@
 
     <StatusState v-if="!firstLoadDone" kind="loading" :title="t('userUi.status.loading')" data-testid="usage-first-load" />
     <div v-else class="space-y-8">
+      <FormError :message="exportError" data-testid="usage-export-error" />
       <!-- 区间数字摘要：跟随时间范围与筛选；统计接口失败就不出现，不显示零 -->
       <StatRow v-if="rangeItems" :items="rangeItems" data-testid="usage-range-summary" />
 
@@ -150,6 +151,14 @@
           </template>
         </template>
 
+        <StatusState
+          v-else-if="errorViewEnabled && errorsLoadFailed"
+          kind="error"
+          :title="t('userUi.usage.loadFailed')"
+          :description="t('userUi.usage.loadFailedHint')"
+          :action-label="t('userUi.usage.retry')"
+          @action="loadErrors"
+        />
         <UserErrorRequestsTable
           v-else-if="errorViewEnabled"
           :rows="errorRows"
@@ -239,6 +248,8 @@
 
 <script setup lang="ts">
 import CopyButton from '@/components/common/CopyButton.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -319,6 +330,7 @@ const exporting = ref(false)
 const statsError = ref(false)
 const modelStatsError = ref(false)
 const logsError = ref(false)
+const exportError = ref('')
 
 // ---------- 地址栏参数（解析与请求参数和进入页面前的预加载共用，见 ./usageQuery.ts） ----------
 const routeState = readUsageRoute(route?.query ?? {})
@@ -409,6 +421,7 @@ const recordTabs = computed<SectionTab[]>(() => [
 ])
 const errorRows = ref<UserErrorRequest[]>([])
 const errorLoading = ref(false)
+const errorsLoadFailed = ref(false)
 const errorPage = ref(1)
 const errorPageSize = ref(ERROR_PAGE_SIZE)
 const errorSortBy = ref(USAGE_DEFAULT_SORT.sort_by)
@@ -751,6 +764,7 @@ const exportToCSV = async () => {
     return
   }
   exporting.value = true
+  exportError.value = ''
   try {
     const allLogs: UsageLog[] = []
     const pageSize = 100
@@ -811,7 +825,7 @@ const exportToCSV = async () => {
     link.click()
     window.URL.revokeObjectURL(url)
   } catch (error) {
-    console.error('CSV Export failed:', error)
+    exportError.value = extractApiErrorMessage(error, t('usage.exportFailed'))
   } finally {
     exporting.value = false
   }
@@ -896,6 +910,7 @@ const resetErrorRows = () => {
 
 const loadErrors = async () => {
   errorLoading.value = true
+  errorsLoadFailed.value = false
   try {
     const params = usageErrorListParams({
       page: errorPage.value,
@@ -907,8 +922,8 @@ const loadErrors = async () => {
     const resp = await adoptPreloaded(usageRequestKey.errors(params), () => usageAPI.listMyErrorRequests(params))
     errorRows.value = resp.items
     errorTotal.value = resp.total
-  } catch (error) {
-    console.error('[UsageView] loadErrors failed:', error)
+  } catch {
+    errorsLoadFailed.value = true
   } finally {
     errorLoading.value = false
   }

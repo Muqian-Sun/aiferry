@@ -17,7 +17,7 @@ export default {
     justNow: 'just now',
     peakRateImageNote: '; image tokens billed as tokens are also affected, per-image billing is unaffected',
     save: 'Save',
-    saved: 'Saved successfully',
+    saved: 'Saved',
     deleted: 'Deleted successfully',
     cancel: 'Cancel',
     delete: 'Delete',

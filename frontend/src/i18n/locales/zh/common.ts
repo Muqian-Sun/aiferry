@@ -17,7 +17,7 @@ export default {
     justNow: '刚刚',
     peakRateImageNote: '；token 计费的图片 token 同样适用，图片按次计费不受高峰影响',
     save: '保存',
-    saved: '保存成功',
+    saved: '已保存',
     deleted: '删除成功',
     cancel: '取消',
     delete: '删除',

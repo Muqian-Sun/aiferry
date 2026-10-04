@@ -6,10 +6,11 @@
       <div class="flex items-center justify-between">
         <label class="input-label mb-0">{{ t('profile.balanceNotify.enabled') }}</label>
         <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" v-model="notifyEnabled" @change="handleToggle" class="sr-only peer" />
+          <input type="checkbox" v-model="notifyEnabled" :disabled="togglingEnabled" @change="handleToggle" class="sr-only peer" />
           <div class="w-11 h-6 bg-af-hairline peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-af-brand/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-af-sheet after:border-af-hairline-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-af-brand"></div>
         </label>
       </div>
+      <FormError :message="toggleError" />
 
       <template v-if="notifyEnabled">
         <!-- Custom threshold with save button -->
@@ -36,6 +37,8 @@
               {{ savingThreshold ? t('common.saving') : t('common.save') }}
             </button>
           </div>
+          <FormError class="mt-2" :message="thresholdError" />
+          <FormSuccess class="mt-2" :message="thresholdSaved.message.value" />
         </div>
 
         <!-- Email list with toggles -->
@@ -49,7 +52,7 @@
               class="flex items-center justify-between px-3 py-2 bg-af-sunken rounded-lg">
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input type="checkbox" :checked="!entry.disabled" @change="handleEmailToggle(entry)" class="sr-only peer" />
+                  <input type="checkbox" :checked="!entry.disabled" @change="handleEmailToggle(entry, $event)" class="sr-only peer" />
                   <div class="w-9 h-5 bg-af-hairline peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-af-sheet after:border-af-hairline-strong after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-af-brand"></div>
                 </label>
                 <span class="text-sm text-af-ink-2 truncate">{{ entry.email }}</span>
@@ -144,6 +147,7 @@
           <p v-else class="text-xs text-af-ink-3">
             {{ t('profile.balanceNotify.maxEmailsReached') }}
           </p>
+          <FormError class="mt-2" :message="emailError" />
         </div>
       </template>
     </div>
@@ -155,7 +159,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { userAPI } from '@/api'
-import { extractApiErrorMessage } from '@/utils/apiError'
+import { extractI18nErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
+import FormSuccess from '@/components/common/FormSuccess.vue'
+import { useTransientMessage } from '@/composables/useTransientMessage'
 import type { NotifyEmailEntry } from '@/types'
 
 const maxTotalEmails = 3
@@ -187,6 +194,17 @@ const emailEntries = ref<NotifyEmailEntry[]>([...props.extraEmails])
 const pendingEmails = ref<PendingEmail[]>([])
 const newEmail = ref('')
 const savingThreshold = ref(false)
+const togglingEnabled = ref(false)
+const toggleError = ref('')
+const thresholdError = ref('')
+const thresholdSaved = useTransientMessage()
+// 邮箱区（加 / 发码 / 验证 / 开关 / 移除）共用一条报错，放在邮箱区末尾
+const emailError = ref('')
+
+// 验证码类错误（INVALID_VERIFY_CODE 等）的中文在 auth.errors；其余用调用处给的兜底
+function failure(err: unknown, fallback: string): string {
+  return extractI18nErrorMessage(err, t, 'auth.errors', fallback)
+}
 
 // State for verifying saved unverified emails
 const verifyingEmail = ref('')
@@ -219,36 +237,46 @@ onUnmounted(() => {
 })
 
 const handleToggle = async () => {
+  toggleError.value = ''
+  togglingEnabled.value = true
   try {
     const updated = await userAPI.updateProfile({ balance_notify_enabled: notifyEnabled.value })
     authStore.user = updated
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    toggleError.value = failure(err, t('profile.balanceNotify.saveFailed'))
     notifyEnabled.value = !notifyEnabled.value
+  } finally {
+    togglingEnabled.value = false
   }
 }
 
 const handleThresholdUpdate = async () => {
   savingThreshold.value = true
+  thresholdError.value = ''
+  thresholdSaved.clear()
   try {
     const threshold = customThreshold.value && customThreshold.value > 0 ? customThreshold.value : 0
     const updated = await userAPI.updateProfile({ balance_notify_threshold: threshold })
     authStore.user = updated
+    thresholdSaved.show(t('common.saved'))
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    thresholdError.value = failure(err, t('profile.balanceNotify.saveFailed'))
   } finally {
     savingThreshold.value = false
   }
 }
 
-async function handleEmailToggle(entry: NotifyEmailEntry) {
+async function handleEmailToggle(entry: NotifyEmailEntry, event: Event) {
   const newDisabled = !entry.disabled
+  emailError.value = ''
   try {
     const updated = await userAPI.toggleNotifyEmail(entry.email, newDisabled)
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.saveFailed'))
+    // 开关只单向绑定 :checked，数据没变 Vue 不会重画：失败时手动拨回原状态
+    ;(event.target as HTMLInputElement).checked = !entry.disabled
   }
 }
 
@@ -258,8 +286,9 @@ function addPendingEmail() {
   // Check duplicates
   const isDuplicate = emailEntries.value.some(e => e.email.toLowerCase() === email.toLowerCase())
     || pendingEmails.value.some(p => p.email.toLowerCase() === email.toLowerCase())
+  emailError.value = ''
   if (isDuplicate) {
-    console.error(t('profile.balanceNotify.emailDuplicate'))
+    emailError.value = t('profile.balanceNotify.emailDuplicate')
     return
   }
   pendingEmails.value.push({ email, codeSent: false, code: '', sending: false, verifying: false, countdown: 0, timer: null })
@@ -270,6 +299,7 @@ async function sendCodeFor(idx: number) {
   const pe = pendingEmails.value[idx]
   if (!pe) return
   pe.sending = true
+  emailError.value = ''
   try {
     await userAPI.sendNotifyEmailCode(pe.email)
     pe.codeSent = true
@@ -282,7 +312,7 @@ async function sendCodeFor(idx: number) {
       }
     }, 1000)
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.sendCodeFailed'))
   } finally {
     pe.sending = false
   }
@@ -292,6 +322,7 @@ async function verifyPending(idx: number) {
   const pe = pendingEmails.value[idx]
   if (!pe || !pe.code || pe.code.length !== 6) return
   pe.verifying = true
+  emailError.value = ''
   try {
     await userAPI.verifyNotifyEmail(pe.email, pe.code)
     if (pe.timer) clearInterval(pe.timer)
@@ -300,26 +331,28 @@ async function verifyPending(idx: number) {
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.verifyFailed'))
   } finally {
     pe.verifying = false
   }
 }
 
 const handleRemoveEmail = async (email: string) => {
+  emailError.value = ''
   try {
     await userAPI.removeNotifyEmail(email)
     const updated = await userAPI.getProfile()
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.removeFailed'))
   }
 }
 
 // Verify saved unverified emails
 async function sendCodeForSaved(email: string) {
   sendingSavedCode.value = true
+  emailError.value = ''
   try {
     await userAPI.sendNotifyEmailCode(email)
     verifyingEmail.value = email
@@ -334,7 +367,7 @@ async function sendCodeForSaved(email: string) {
       }
     }, 1000)
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.sendCodeFailed'))
   } finally {
     sendingSavedCode.value = false
   }
@@ -343,6 +376,7 @@ async function sendCodeForSaved(email: string) {
 async function verifySavedEmail(email: string) {
   if (!verifyCode.value || verifyCode.value.length !== 6) return
   verifyingSaved.value = true
+  emailError.value = ''
   try {
     await userAPI.verifyNotifyEmail(email, verifyCode.value)
     verifyingEmail.value = ''
@@ -352,7 +386,7 @@ async function verifySavedEmail(email: string) {
     authStore.user = updated
     emailEntries.value = [...updated.balance_notify_extra_emails]
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('common.error')), err)
+    emailError.value = failure(err, t('profile.balanceNotify.verifyFailed'))
   } finally {
     verifyingSaved.value = false
   }
