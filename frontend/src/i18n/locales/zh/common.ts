@@ -125,9 +125,9 @@ export default {
     time: {
       never: '从未',
       justNow: '刚刚',
-      minutesAgo: '{n}分钟前',
-      hoursAgo: '{n}小时前',
-      daysAgo: '{n}天前',
+      minutesAgo: '{n} 分钟前',
+      hoursAgo: '{n} 小时前',
+      daysAgo: '{n} 天前',
       countdown: {
         daysHours: '{d}d {h}h',
         hoursMinutes: '{h}h {m}m',
@@ -292,7 +292,7 @@ export default {
     sessionExpired: '会话已过期',
     sessionExpiredDesc: '请返回注册页面重新开始。',
     verificationCode: '验证码',
-    verificationCodeHint: '请输入发送到你邮箱的6位验证码',
+    verificationCodeHint: '请输入发送到你邮箱的 6 位验证码',
     sendingCode: '发送中…',
     sendCode: '发送验证码',
     clickToResend: '点击重新发送验证码',
@@ -301,12 +301,12 @@ export default {
     codeSentSuccess: '验证码已发送，请查收邮箱',
     verifying: '验证中…',
     verifyAndCreate: '验证并创建账户',
-    resendCountdown: '{countdown}秒后可重新发送',
+    resendCountdown: '{countdown} 秒后可重新发送',
     backToRegistration: '返回注册',
     sendCodeFailed: '发送验证码失败，请重试。',
     verifyFailed: '验证失败，请重试。',
     codeRequired: '请输入验证码',
-    invalidCode: '请输入有效的6位验证码',
+    invalidCode: '请输入有效的 6 位验证码',
     invitationCodeLabel: '邀请码',
     invitationCodePlaceholder: '请输入邀请码',
     invitationCodeRequired: '请输入邀请码',
@@ -371,7 +371,7 @@ export default {
       invalidCallbackHint: '当前页面缺少有效的授权结果，请返回登录页重新发起快捷登录。',
       code: '授权码',
       state: '状态',
-      fullUrl: '完整URL'
+      fullUrl: '完整 URL'
     },
     // 忘记密码
     forgotPassword: '忘记密码？',

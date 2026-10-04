@@ -267,7 +267,7 @@ export default {
         concurrencyLabel: '并发数',
         statusLabel: '状态',
         selectStatus: '选择状态',
-        rpmLimit: '每分钟请求数 (RPM)',
+        rpmLimit: '每分钟请求数（RPM）',
         concurrencyPlaceholder: '0 表示不限制',
         concurrencyHint: '该用户的最大并发请求数，0 = 不限制',
         rpmLimitPlaceholder: '0 表示不限制',

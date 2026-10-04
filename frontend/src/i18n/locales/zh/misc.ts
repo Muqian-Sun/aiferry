@@ -244,7 +244,7 @@ export default {
     usdRateNote: '按 1 USD = {rate} CNY 换算',
     usdRateMissing: '暂时无法用人民币支付：管理员尚未配置美元汇率',
     stripeLoadFailed: '支付组件加载失败，请刷新页面重试',
-    stripeMissingParams: '缺少订单ID或支付密钥',
+    stripeMissingParams: '缺少订单 ID 或支付密钥',
     stripeNotConfigured: 'Stripe 未配置',
     airwallexLoadFailed: 'Airwallex 支付组件加载失败，请刷新页面重试',
     airwallexMissingParams: '缺少 Airwallex 支付参数',

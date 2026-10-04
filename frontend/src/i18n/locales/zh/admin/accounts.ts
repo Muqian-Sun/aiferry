@@ -28,8 +28,8 @@ export default {
         diagnose: '诊断',
         goToPricing: '去价格页改承接与上游价',
         bannerError: '异常：{reason}',
-        bannerRateLimited: '限流中，{time}后自动恢复',
-        bannerOverloaded: '上游过载，{time}后恢复',
+        bannerRateLimited: '限流中，{time} 后自动恢复',
+        bannerOverloaded: '上游过载，{time} 后恢复',
         bannerTempUnsched: '临时停止调度，{time} 恢复。原因：{reason}',
         usageWindows: '上游用量窗口',
         usageWindowsHint: '上游（如 ChatGPT、Claude 订阅）自己设的滚动用量限制，到期自动重置，本站解除不了，也与你映射的模型无关。',
@@ -214,7 +214,7 @@ export default {
       allStatus: '全部状态',
       // Schedulable toggle
       schedulable: '参与调度',
-      schedulableHint: '开启后渠道参与API请求调度',
+      schedulableHint: '开启后渠道参与 API 请求调度',
       schedulableEnabled: '调度已开启',
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
@@ -292,7 +292,7 @@ export default {
           OLLAMA_CLOUD_USAGE_REFRESH_RATE_LIMITED: '刷新过于频繁，请在 {retry_after_seconds} 秒后重试。'
         }
       },
-      allPrivacyModes: '全部Privacy状态',
+      allPrivacyModes: '全部 Privacy 状态',
       privacyFilter: '隐私',
       privacyUnset: '未设置',
       privacyOptions: {
@@ -313,8 +313,8 @@ export default {
         concurrency: '并发',
         sessions: {
           label: '活跃会话',
-          full: '活跃会话已满，新会话需等待（空闲超时：{idle}分钟）',
-          normal: '活跃会话正常（空闲超时：{idle}分钟）'
+          full: '活跃会话已满，新会话需等待（空闲超时：{idle} 分钟）',
+          normal: '活跃会话正常（空闲超时：{idle} 分钟）'
         },
         rpm: {
           label: '每分钟请求（RPM）',
@@ -433,7 +433,7 @@ export default {
         quotaExceeded: '配额超限',
         unschedulable: '暂停调度',
         rateLimitedUntil: '限流中，当前不参与调度，预计 {time} 自动恢复',
-        recoverIn: '{time}后恢复',
+        recoverIn: '{time} 后恢复',
         modelsLimited: '{count} 个模型限流中',
         modelRateLimitedUntil: '限流至 {time}',
         modelCreditOveragesUntil: '正在使用 AI Credits，至 {time}',
@@ -467,7 +467,7 @@ export default {
         remainingHoursMinutes: '约 {hours} 小时 {minutes} 分钟',
       },
       usageWindow: {
-        statsTitle: '5小时窗口用量统计',
+        statsTitle: '5 小时窗口用量统计',
         statsTitleDaily: '每日用量统计',
         // 窗口名一律写全（方案 2026-09-25：5h / 7d → 5 小时 / 7 天，模型缩写 → 完整名）
         fiveHour: '5 小时',
@@ -488,7 +488,7 @@ export default {
         quotaTotal: '总额度',
         quotaUsedOfLimit: '已用 {used} / 限额 {limit}（按成本）',
         requests: '{count} 次请求',
-        resetsIn: '{time}后重置',
+        resetsIn: '{time} 后重置',
         resetNow: '现在可用',
         resetPending: '待刷新',
         noData: '还没有用量数据',
@@ -543,7 +543,7 @@ export default {
         resetTooltipNoCredits: '没有可用的重置次数',
         resetTooltipShadow: 'Spark 影子渠道不能重置次数，请在母渠道上重置',
         expiresAt: '到期 {time}',
-        expiresAtFull: '重置次数到期时间: {time}',
+        expiresAtFull: '重置次数到期时间：{time}',
         expandExpirations: '展开其余 {count} 张重置次数到期时间',
         collapseExpirations: '收起重置次数到期时间',
         expirationDetails: '重置次数到期明细',
@@ -904,7 +904,7 @@ export default {
       mixedSchedulingTooltip:
         '注意：Antigravity Claude 和 Anthropic Claude 无法在同个上下文中使用，如果你同时有 Anthropic 账号和 Antigravity 账号，开启此选项会导致经常 400 报错。开启后，请用分组功能做好 Antigravity 账号和 Anthropic 账号的隔离。一定要弄明白再开启！！',
       aiCreditsBalance: 'AI Credits',
-      allowOverages: '允许超量请求 (AI Credits)',
+      allowOverages: '允许超量请求（AI Credits）',
       allowOveragesTooltip:
         '仅在免费配额被明确判定为耗尽后才会使用 AI Credits。普通并发 429 限流不会切换到超量请求。',
       creating: '创建中…',
@@ -1117,7 +1117,7 @@ export default {
           authCodeDesc:
             '授权完成后，复制浏览器跳转后的回调链接（推荐）或仅复制 code，粘贴到下方即可。',
           authCode: '回调链接或 Code',
-          authCodePlaceholder: '方式1（推荐）：粘贴回调链接\n方式2：仅粘贴 code 参数的值',
+          authCodePlaceholder: '方式 1（推荐）：粘贴回调链接\n方式 2：仅粘贴 code 参数的值',
           authCodeHint: '系统会自动从链接中解析 code/state。',
           redirectUri: 'Redirect URI',
           redirectUriHint: '需要在 Google OAuth Client 中配置，且必须与此处完全一致。',

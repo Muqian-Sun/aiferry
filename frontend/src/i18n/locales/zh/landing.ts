@@ -123,7 +123,7 @@ export default {
     querying: '查询中…',
     // 查询要把密钥发到本站服务器（GET /v1/usage 带 Authorization），只是页面不保存它
     privacyNote: '密钥只用来向本站服务器查询用量，页面不会保存它',
-    dateRange: '统计范围:',
+    dateRange: '统计范围：',
     dateRangeToday: '今日',
     dateRange7d: '7 天',
     dateRange30d: '30 天',
