@@ -1333,6 +1333,7 @@ export default {
         grokLastHeadersSeen: 'Headers {time}',
         passiveSampled: 'Passive',
         activeQuery: 'Query',
+        queryFailed: 'Query failed',
         estimatedTotalCost: 'Est. cost when full {cost}',
         estimatedTotalCostTooltip: 'Projected cost at 100% utilization, based on the window\'s current cost and utilization'
       },

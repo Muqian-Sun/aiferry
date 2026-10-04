@@ -530,6 +530,7 @@ export default {
         grokLastHeadersSeen: '响应头 {time}',
         passiveSampled: '被动采样',
         activeQuery: '查询',
+        queryFailed: '查询失败',
         estimatedTotalCost: '用满预计成本 {cost}',
         estimatedTotalCostTooltip: '按这个窗口当前的成本和用量推算，用到 100% 时的成本'
       },
