@@ -49,6 +49,9 @@ export default {
     none: '无',
     selectAll: '全选',
     noData: '暂无数据',
+    // 列表带着搜索 / 筛选却没有结果（EmptyState 的 filtered）
+    noMatch: '没有符合条件的结果',
+    noMatchHint: '换个关键词，或清掉筛选条件再看。',
     expand: '展开',
     collapse: '收起',
     success: '成功',

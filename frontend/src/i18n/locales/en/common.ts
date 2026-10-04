@@ -49,6 +49,8 @@ export default {
     none: 'None',
     selectAll: 'Select all',
     noData: 'No data',
+    noMatch: 'No matching results',
+    noMatchHint: 'Try another keyword or clear the filters.',
     expand: 'Expand',
     collapse: 'Collapse',
     success: 'Success',
