@@ -325,6 +325,7 @@
 
           <template #empty>
             <EmptyState
+              :filtered="hasActiveFilters"
               :title="t('admin.users.noUsersYet')"
               :description="t('admin.users.createFirstUser')"
               :action-text="t('admin.users.createUser')"
@@ -563,6 +564,10 @@ const filters = reactive({
   status: ''
 })
 const activeAttributeFilters = reactive<Record<number, string>>({})
+// 有搜索或筛选时，空列表说「没有符合条件的结果」，不给「创建第一个用户」的引导
+const hasActiveFilters = computed(
+  () => !!searchQuery.value.trim() || !!filters.role || !!filters.status || Object.values(activeAttributeFilters).some((value) => !!value)
+)
 
 // Visible filters tracking (which filters are shown in the UI)
 // Keys: 'role', 'status', 'attr_${id}'
