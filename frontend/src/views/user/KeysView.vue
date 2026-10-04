@@ -497,7 +497,8 @@
         </template>
       </form>
       <template #footer>
-        <div class="flex justify-end gap-3">
+        <div class="flex w-full flex-wrap items-center justify-end gap-3">
+          <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
           <button @click="closeModals" type="button" class="btn btn-secondary">
             {{ t('common.cancel') }}
           </button>
@@ -648,6 +649,7 @@ import Select from '@/components/common/Select.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import type { Column, FilterOption } from '@/components/common/types'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import KeyDetailDrawer, { type KeyDrawerTab } from '@/components/user/keys/KeyDetailDrawer.vue'
 import KeyLimitInline from '@/components/user/keys/KeyLimitInline.vue'
@@ -663,6 +665,7 @@ import type { BatchApiKeyUsageStats } from '@/api/usage'
 import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -724,6 +727,8 @@ const handleBulkUpdated = (succeededIds: number[]) => {
 
 const loading = ref(false)
 const submitting = ref(false)
+// 新建 / 编辑弹窗的报错：校验不过或保存失败都显示在弹窗底部，不再只进控制台
+const submitError = ref('')
 const now = ref(new Date())
 let nowTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
@@ -1064,21 +1069,20 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
+  submitError.value = ''
   // Validate custom key if enabled
   if (!showEditModal.value && formData.value.use_custom_key) {
     if (!formData.value.custom_key) {
-      console.error(t('keys.customKeyRequired'))
+      submitError.value = t('keys.customKeyRequired')
       return
     }
-    if (customKeyError.value) {
-      console.error(customKeyError.value)
-      return
-    }
+    // 格式问题已经显示在自定义密钥输入框下方，这里不再重复
+    if (customKeyError.value) return
   }
 
   // 打开了有效期却没有日期（比如手动清空了），不能悄悄建成永久有效
   if (formData.value.enable_expiration && !formData.value.expiration_date) {
-    console.error(t('keys.expirationDateRequired'))
+    submitError.value = t('keys.expirationDateRequired')
     return
   }
 
@@ -1153,8 +1157,8 @@ const handleSubmit = async () => {
     closeModals()
     loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
-    const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
-    console.error(errorMsg, error)
+    submitError.value = extractI18nErrorMessage(error, t, 'keys.errors', t('keys.failedToSave'))
+    console.error(submitError.value, error)
     // Don't advance tour on error
   } finally {
     submitting.value = false
@@ -1182,6 +1186,7 @@ const handleDelete = async () => {
 }
 
 const closeModals = () => {
+  submitError.value = ''
   showCreateModal.value = false
   showEditModal.value = false
   showMoreSettings.value = false
@@ -1238,7 +1243,7 @@ const resetQuotaUsed = async () => {
     const updatedKey = await keysAPI.update(key.id, { reset_quota: true })
     applyKeyUpdate({ ...key, quota_used: updatedKey.quota_used, status: updatedKey.status })
   } catch (error: any) {
-    const errorMsg = error.response?.data?.detail || t('keys.failedToResetQuota')
+    const errorMsg = extractApiErrorMessage(error, t('keys.failedToResetQuota'))
     console.error(errorMsg, error)
   } finally {
     resetTarget.value = null
@@ -1253,7 +1258,7 @@ const resetRateLimitUsage = async () => {
     await keysAPI.update(key.id, { reset_rate_limit_usage: true })
     await loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
-    const errorMsg = error.response?.data?.detail || t('keys.failedToResetRateLimit')
+    const errorMsg = extractApiErrorMessage(error, t('keys.failedToResetRateLimit'))
     console.error(errorMsg, error)
   } finally {
     resetTarget.value = null

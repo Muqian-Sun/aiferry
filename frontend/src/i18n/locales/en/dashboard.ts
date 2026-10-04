@@ -108,6 +108,11 @@ export default {
     failedToSave: 'Failed to save API key',
     failedToDelete: 'Failed to delete API key',
     failedToUpdateStatus: 'Failed to update API key status',
+    // Backend reason → message (when saving a key)
+    errors: {
+      INVALID_IP_PATTERN: 'The IP whitelist or blacklist has an invalid entry: put one IP or CIDR range per line, e.g. 192.168.1.100 or 10.0.0.0/8',
+      API_KEY_EXISTS: 'This custom key is already taken, please choose another'
+    },
     subscriptionKey: 'Subscription · {plan}',
     subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group',
     usage: 'Usage',

@@ -56,6 +56,7 @@
             {{ isQuerying ? t('keyUsage.querying') : t('keyUsage.query') }}
           </button>
         </div>
+        <FormError class="mt-3 justify-center" :message="queryError" data-testid="key-usage-error" />
         <p class="text-xs text-af-ink-4 mt-3 text-center">
           {{ t('keyUsage.privacyNote') }}
         </p>
@@ -356,10 +357,12 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
+import FormError from '@/components/common/FormError.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { buildGatewayUrl } from '@/api/client'
 import { formatDateLocalInput } from '@/utils/format'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
@@ -379,6 +382,8 @@ const showLoading = ref(false)
 const showDatePicker = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resultData = ref<any>(null)
+// 查询失败（密钥无效、已停用、IP 不允许等）的原因，显示在输入框下方
+const queryError = ref('')
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
 
@@ -784,9 +789,13 @@ async function fetchUsage(key: string) {
     headers: { 'Authorization': 'Bearer ' + key },
   })
   if (!res.ok) {
+    // 网关鉴权失败的响应是 { code: 'INVALID_API_KEY', message }；抛出与 api/client 拦截器同形的对象，好按 code 映射文案
     const body = await res.json().catch(() => null)
-    const msg = body?.error?.message || body?.message || `${t('keyUsage.queryFailed')} (${res.status})`
-    throw new Error(msg)
+    throw {
+      status: res.status,
+      code: body?.code,
+      message: body?.error?.message || body?.message || `${t('keyUsage.queryFailed')} (${res.status})`
+    }
   }
   return await res.json()
 }
@@ -794,7 +803,9 @@ async function fetchUsage(key: string) {
 async function queryKey() {
   if (isQuerying.value) return
   const key = apiKey.value.trim()
+  queryError.value = ''
   if (!key) {
+    queryError.value = t('keyUsage.enterApiKey')
     return
   }
 
@@ -816,7 +827,8 @@ async function queryKey() {
   } catch (err) {
     showResults.value = false
     showLoading.value = false
-    console.error((err as Error).message || t('keyUsage.queryFailedRetry'), err)
+    queryError.value = extractI18nErrorMessage(err, t, 'keyUsage.errors', t('keyUsage.queryFailedRetry'))
+    console.error(queryError.value, err)
   } finally {
     isQuerying.value = false
   }

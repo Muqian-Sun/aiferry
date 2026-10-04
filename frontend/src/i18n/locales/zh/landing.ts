@@ -187,6 +187,15 @@ export default {
     querySuccess: '查询成功',
     queryFailed: '查询失败',
     queryFailedRetry: '查询失败，请稍后重试',
+    // 网关鉴权失败的 code → 文案
+    errors: {
+      INVALID_API_KEY: '密钥无效或已停用',
+      API_KEY_DISABLED: '密钥无效或已停用',
+      USER_NOT_FOUND: '密钥无效或已停用',
+      USER_INACTIVE: '密钥所属的账号已被停用',
+      ACCESS_DENIED: '当前 IP 不在这把密钥允许的范围内',
+      INVALID_AUTH_RATE_LIMITED: '无效查询太多，请稍后再试'
+    },
     noDailyUsage: '暂无按日用量数据',
   },
 
