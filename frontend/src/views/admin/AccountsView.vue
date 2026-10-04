@@ -393,7 +393,7 @@ import { fetchAllAccountIds } from '@/utils/accountSelection'
 import { buildGrokUsageRefreshKey, buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
-import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats } from '@/types'
+import type { Account, AccountListItem, AccountPlatform, AccountType, Proxy as AccountProxy, WindowStats } from '@/types'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import { ColumnSettingsMenu, ListToolbar, MenuItem, MiniSwitch, PopoverMenu } from '@/components/admin/list'
@@ -1001,13 +1001,23 @@ watch(
   }
 )
 
-// 数字摘要：全站渠道计数（仪表盘统计接口）；异常 / 限流有数时可一键筛选
-const dashboardStats = ref<DashboardStats | null>(null)
+// 数字摘要：按列表接口自己的筛选口径计数，点「筛选」后列出来的条数与摘要一致。
+// 不用仪表盘统计接口：那份有 15–30 秒缓存（删渠道 / 切调度后数字不变），口径也不同（「正常」含限流中的渠道）。
+interface AccountSummaryCounts {
+  total: number
+  normal: number
+  error: number
+  rateLimited: number
+}
+const summaryCounts = ref<AccountSummaryCounts | null>(null)
 const loadSummary = async () => {
+  const count = async (status?: string) => (await adminAPI.accounts.list(1, 1, { status, lite: '1' })).total
   try {
-    dashboardStats.value = await adminAPI.dashboard.getStats()
-  } catch {
-    dashboardStats.value = null
+    const [total, normal, error, rateLimited] = await Promise.all([count(), count('active'), count('error'), count('rate_limited')])
+    summaryCounts.value = { total, normal, error, rateLimited }
+  } catch (err) {
+    console.error('Failed to load account summary:', err)
+    summaryCounts.value = null
   }
 }
 const applyStatusFilter = (status: string) => {
@@ -1015,7 +1025,7 @@ const applyStatusFilter = (status: string) => {
   debouncedReload()
 }
 const summaryItems = computed<StatItem[] | null>(() => {
-  const stats = dashboardStats.value
+  const stats = summaryCounts.value
   if (!stats) return null
   const fmt = (n: number) => n.toLocaleString()
   const filterAction = (status: string, count: number) =>
@@ -1023,19 +1033,19 @@ const summaryItems = computed<StatItem[] | null>(() => {
       ? { label: t('admin.accounts.summary.filter'), onClick: () => applyStatusFilter(status) }
       : undefined
   return [
-    { key: 'total', label: t('admin.accounts.summary.total'), value: fmt(stats.total_accounts) },
-    { key: 'normal', label: t('admin.accounts.summary.normal'), value: fmt(stats.normal_accounts) },
+    { key: 'total', label: t('admin.accounts.summary.total'), value: fmt(stats.total) },
+    { key: 'normal', label: t('admin.accounts.summary.normal'), value: fmt(stats.normal) },
     {
       key: 'error',
       label: t('admin.accounts.summary.error'),
-      value: fmt(stats.error_accounts),
-      action: filterAction('error', stats.error_accounts)
+      value: fmt(stats.error),
+      action: filterAction('error', stats.error)
     },
     {
       key: 'rate_limited',
       label: t('admin.accounts.summary.rateLimited'),
-      value: fmt(stats.ratelimit_accounts),
-      action: filterAction('rate_limited', stats.ratelimit_accounts)
+      value: fmt(stats.rateLimited),
+      action: filterAction('rate_limited', stats.rateLimited)
     }
   ]
 })
@@ -1178,6 +1188,7 @@ const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => 
   if (accountIds.length === 0) return
   const idSet = new Set(accountIds)
   accounts.value = accounts.value.map((account) => (idSet.has(account.id) ? { ...account, schedulable } : account))
+  void loadSummary()
 }
 const normalizeBulkSchedulableResult = (
   result: {
@@ -1411,6 +1422,8 @@ const syncPaginationAfterLocalRemoval = () => {
 }
 
 const patchAccountInList = (updatedAccount: Account) => {
+  // 单个渠道改了状态，顶部计数跟着重数（切调度走 updateSchedulableInList，那里也重数）
+  void loadSummary()
   const index = accounts.value.findIndex(account => account.id === updatedAccount.id)
   if (index === -1) return
   const mergedAccount = mergeRuntimeFields(accounts.value[index], updatedAccount)

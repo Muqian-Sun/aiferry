@@ -171,7 +171,8 @@ describe('admin AccountsView select all filtered results', () => {
     await flushPromises()
 
     expect(batchRefresh).toHaveBeenCalledWith([1, 2, 3])
-    expect(listAccounts).toHaveBeenCalledTimes(2)
+    // 只数表格的加载：顶部计数也走列表接口（每次 page_size = 1）
+    expect(listAccounts.mock.calls.filter(([, pageSize]) => pageSize !== 1)).toHaveLength(2)
     expect(wrapper.getComponent(AccountBulkActionsBarStub).props('selectedIds')).toEqual(expectedIds)
     expect(wrapper.findAll<HTMLInputElement>('[data-test="data-table"] input').map(input => input.element.checked))
       .toEqual([1, 2, 3].map(id => expectedIds.includes(id)))
