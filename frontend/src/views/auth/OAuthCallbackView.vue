@@ -161,6 +161,7 @@ import {
 import { APP_SITE } from '@/app/site'
 import FormError from '@/components/common/FormError.vue'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 // 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
 const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
@@ -313,8 +314,7 @@ async function resumePendingEmailOAuth() {
     callbackError.value = completion.error || t('auth.loginFailed')
     console.error(callbackError.value)
   } catch (e: unknown) {
-    const err = e as { message?: string; response?: { data?: { message?: string } } }
-    const message = err.response?.data?.message || err.message || t('auth.loginFailed')
+    const message = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
     callbackError.value = message
     console.error(message, e)
     invalidCallback.value = true
@@ -356,9 +356,12 @@ async function handleSubmitRegistration() {
     )
     await finalizeTokenResponse(data, redirectTo.value)
   } catch (e: unknown) {
-    const err = e as { message?: string; response?: { data?: { message?: string } } }
-    registrationError.value =
-      err.response?.data?.message || err.message || t('auth.oauthFlow.completeRegistrationFailed')
+    registrationError.value = extractI18nErrorMessage(
+      e,
+      t,
+      'auth.errors',
+      t('auth.oauthFlow.completeRegistrationFailed')
+    )
   } finally {
     isSubmitting.value = false
   }

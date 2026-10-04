@@ -184,6 +184,7 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import type { Account } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OAuthAuthorizationFlow from '@/components/account/OAuthAuthorizationFlow.vue'
@@ -404,7 +405,7 @@ const handleExchangeCode = async () => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      oauthClient.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+      oauthClient.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(oauthClient.error.value, error)
     }
   } else if (isGemini.value) {
@@ -436,7 +437,7 @@ const handleExchangeCode = async () => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      geminiOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+      geminiOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(geminiOAuth.error.value, error)
     }
   } else if (isAntigravity.value) {
@@ -467,7 +468,7 @@ const handleExchangeCode = async () => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      antigravityOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+      antigravityOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(antigravityOAuth.error.value, error)
     }
   } else if (isGrok.value) {
@@ -499,7 +500,7 @@ const handleExchangeCode = async () => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      grokOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+      grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(grokOAuth.error.value, error)
     }
   } else {
@@ -534,7 +535,7 @@ const handleExchangeCode = async () => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      claudeOAuth.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
+      claudeOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(claudeOAuth.error.value, error)
     } finally {
       claudeOAuth.loading.value = false
@@ -572,8 +573,7 @@ const handleCookieAuth = async (sessionKey: string) => {
     emit('reauthorized', updatedAccount)
     handleClose()
   } catch (error: any) {
-    claudeOAuth.error.value =
-      error.response?.data?.detail || t('admin.accounts.oauth.cookieAuthFailed')
+    claudeOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.cookieAuthFailed'))
   } finally {
     claudeOAuth.loading.value = false
   }
@@ -627,11 +627,7 @@ const handleValidateRefreshToken = async (refreshTokenInput: string) => {
       emit('reauthorized', updatedAccount)
       handleClose()
     } catch (error: any) {
-      openaiOAuth.error.value =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message ||
-        t('admin.accounts.oauth.authFailed')
+      openaiOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
       console.error(openaiOAuth.error.value, error)
     } finally {
       openaiOAuth.loading.value = false
@@ -653,11 +649,7 @@ const handleValidateRefreshToken = async (refreshTokenInput: string) => {
     emit('reauthorized', updatedAccount)
     handleClose()
   } catch (error: any) {
-    antigravityOAuth.error.value =
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      t('admin.accounts.oauth.authFailed')
+    antigravityOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.authFailed'))
     console.error(antigravityOAuth.error.value, error)
   } finally {
     antigravityOAuth.loading.value = false
@@ -680,10 +672,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     if (!tokenInfo) return
     await applyGrokReauthTokenInfo(tokenInfo)
   } catch (error: any) {
-    grokOAuth.error.value =
-      error.response?.data?.detail ||
-      error.message ||
-      t('admin.accounts.oauth.grok.failedToValidateSSO', 'Failed to validate Grok SSO')
+    grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.grok.failedToValidateSSO', 'Failed to validate Grok SSO'))
     console.error(grokOAuth.error.value, error)
   } finally {
     grokOAuth.loading.value = false
@@ -709,10 +698,7 @@ const handleGrokValidateRefreshToken = async (refreshTokenInput: string) => {
     if (!tokenInfo) return
     await applyGrokReauthTokenInfo(tokenInfo)
   } catch (error: any) {
-    grokOAuth.error.value =
-      error.response?.data?.detail ||
-      error.message ||
-      t('admin.accounts.oauth.grok.failedToValidateRT')
+    grokOAuth.error.value = extractApiErrorMessage(error, t('admin.accounts.oauth.grok.failedToValidateRT'))
     console.error(grokOAuth.error.value, error)
   } finally {
     grokOAuth.loading.value = false

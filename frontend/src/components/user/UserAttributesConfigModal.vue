@@ -246,6 +246,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Select from '@/components/common/Select.vue'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 
@@ -287,7 +288,7 @@ const loadAttributes = async () => {
   try {
     attributes.value = await adminAPI.userAttributes.listDefinitions()
   } catch (error: any) {
-    console.error(error.response?.data?.detail || t('admin.users.attributes.failedToLoad'), error)
+    console.error(extractApiErrorMessage(error, t('admin.users.attributes.failedToLoad')), error)
   } finally {
     loading.value = false
   }
@@ -370,7 +371,7 @@ const handleSave = async () => {
     const msg = editingAttribute.value
       ? t('admin.users.attributes.failedToUpdate')
       : t('admin.users.attributes.failedToCreate')
-    console.error(error.response?.data?.detail || msg, error)
+    console.error(extractApiErrorMessage(error, msg), error)
   } finally {
     saving.value = false
   }
@@ -390,7 +391,7 @@ const handleDelete = async () => {
     deletingAttribute.value = null
     loadAttributes()
   } catch (error: any) {
-    console.error(error.response?.data?.detail || t('admin.users.attributes.failedToDelete'), error)
+    console.error(extractApiErrorMessage(error, t('admin.users.attributes.failedToDelete')), error)
   }
 }
 

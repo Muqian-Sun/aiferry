@@ -62,6 +62,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { CNProviderBalanceEntry, CNProviderBalanceResult } from '@/api/admin/cnProviders'
 import type { Account } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { cnBalanceCellVisible } from './credentialsBuilder'
 
 const props = defineProps<{
@@ -133,21 +134,6 @@ const balanceLabel = computed(() => {
   return currentEntries.value.map(formatEntry).join(' · ')
 })
 
-const extractErrorMessage = (e: unknown): string => {
-  const err = e as {
-    message?: string
-    reason?: string
-    response?: { data?: { message?: string; error?: string } }
-  }
-  return (
-    err?.message ||
-    err?.reason ||
-    err?.response?.data?.message ||
-    err?.response?.data?.error ||
-    t('common.error')
-  )
-}
-
 const truncatedError = computed(() => {
   if (!error.value) return ''
   return error.value.length > 80 ? `${error.value.slice(0, 80)}...` : error.value
@@ -166,7 +152,7 @@ const handleProbe = async () => {
       error.value = result.error || t('common.error')
     }
   } catch (e) {
-    error.value = extractErrorMessage(e)
+    error.value = extractApiErrorMessage(e, t('common.error'))
   } finally {
     loading.value = false
   }

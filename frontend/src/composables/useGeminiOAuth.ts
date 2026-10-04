@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { GeminiOAuthCapabilities } from '@/api/admin/gemini'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 export interface GeminiTokenInfo {
   access_token?: string
@@ -60,7 +61,7 @@ export function useGeminiOAuth() {
       state.value = response.state
       return true
     } catch (err: any) {
-      error.value = err.response?.data?.detail || t('admin.accounts.oauth.gemini.failedToGenerateUrl')
+      error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.gemini.failedToGenerateUrl'))
       console.error(error.value, err)
       return false
     } finally {
@@ -100,7 +101,7 @@ export function useGeminiOAuth() {
       return tokenInfo as GeminiTokenInfo
     } catch (err: any) {
       // Check for specific missing project_id error
-      const errorMessage = err.message || err.response?.data?.message || ''
+      const errorMessage = extractApiErrorMessage(err, '')
       if (errorMessage.includes('missing project_id')) {
         error.value = t('admin.accounts.oauth.gemini.missingProjectId')
       } else {

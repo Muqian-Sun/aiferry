@@ -99,7 +99,7 @@ describe('RedeemView refresh after redemption', () => {
   })
 
   it('keeps the code and reports failure when the redemption request itself fails', async () => {
-    redeem.mockRejectedValue({ response: { data: { detail: 'Invalid code' } } })
+    redeem.mockRejectedValue({ status: 400, code: 400, message: 'Invalid code' })
     const wrapper = await submitCode()
 
     expect(wrapper.text()).toContain('Invalid code')

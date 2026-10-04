@@ -89,6 +89,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { totpAPI } from '@/api'
 import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 
 const emit = defineEmits<{
   close: []
@@ -127,7 +128,7 @@ const loadVerificationMethod = async () => {
     const method = await totpAPI.getVerificationMethod()
     verificationMethod.value = method.method
   } catch (err: any) {
-    console.error(err.response?.data?.message || t('common.error'), err)
+    console.error(extractApiErrorMessage(err, t('common.error')), err)
     emit('close')
   } finally {
     methodLoading.value = false
@@ -155,7 +156,7 @@ const handleSendCode = async () => {
       }
     }, 1000)
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || t('profile.totp.sendCodeFailed')
+    errorMessage.value = extractI18nErrorMessage(err, t, 'auth.errors', t('profile.totp.sendCodeFailed'))
     console.error(errorMessage.value, err)
   } finally {
     sendingCode.value = false
@@ -176,7 +177,7 @@ const handleDisable = async () => {
     await totpAPI.disable(request)
     emit('success')
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || t('profile.totp.disableFailed')
+    errorMessage.value = extractI18nErrorMessage(err, t, 'auth.errors', t('profile.totp.disableFailed'))
     console.error(errorMessage.value, err)
   } finally {
     loading.value = false

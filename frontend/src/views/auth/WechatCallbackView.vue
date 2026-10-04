@@ -348,6 +348,7 @@ import {
 
 import { APP_SITE } from '@/app/site'
 import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 // 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
 const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
@@ -637,7 +638,7 @@ async function handleBindCurrentAccount() {
     await prepareOAuthBindAccessTokenCookie()
     window.location.href = startURL
   } catch (e: unknown) {
-    errorMessage.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    errorMessage.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
   }
 }
 
@@ -789,26 +790,13 @@ function switchToCreateAccountMode() {
   accountActionError.value = ''
 }
 
-function getRequestErrorMessage(error: unknown, fallback: string): string {
-  const err = error as { message?: string; response?: { data?: { detail?: string; message?: string } } }
-  return err.response?.data?.detail || err.response?.data?.message || err.message || fallback
-}
-
 function isCreateAccountRecoveryError(error: unknown): boolean {
-  const data = (error as {
-    response?: {
-      data?: {
-        reason?: string
-        error?: string
-        code?: string
-        step?: string
-        intent?: string
-      }
-    }
-  }).response?.data
-  const states = [data?.reason, data?.error, data?.code, data?.step, data?.intent]
-    .map(value => value?.trim().toLowerCase())
-    .filter((value): value is string => Boolean(value))
+  // api/client.ts 的拦截器把后端错误摊平成 { status, code, reason, error, message }，
+  // 字段在顶层；code 可能是 HTTP 状态码数字，只认字符串。
+  const err = (error ?? {}) as { reason?: unknown; error?: unknown; code?: unknown }
+  const states = [err.reason, err.error, err.code]
+    .map(value => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+    .filter(Boolean)
 
   return states.includes('email_exists') ||
     states.includes('bind_login_required') ||
@@ -891,9 +879,7 @@ async function handleSubmitInvitation() {
       : await completeWeChatOAuthRegistration(invitationCode.value.trim(), decision)
     await finalizePendingAccountResponse(completion)
   } catch (e: unknown) {
-    const err = e as { message?: string; response?: { data?: { message?: string } } }
-    invitationError.value =
-      err.response?.data?.message || err.message || t('auth.oauthFlow.completeRegistrationFailed')
+    invitationError.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.oauthFlow.completeRegistrationFailed'))
   } finally {
     isSubmitting.value = false
   }
@@ -905,7 +891,7 @@ async function handleContinueLogin() {
     const completion = await exchangePendingOAuthCompletion(currentAdoptionDecision()) as PendingWeChatCompletion
     await finalizePendingAccountResponse(completion)
   } catch (e: unknown) {
-    errorMessage.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    errorMessage.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
     needsAdoptionConfirmation.value = false
   } finally {
     isSubmitting.value = false
@@ -938,7 +924,7 @@ async function handleCreateAccount(payload: PendingOAuthCreateAccountPayload) {
       switchToBindLoginMode(payload.email.trim())
       return
     }
-    accountActionError.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    accountActionError.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
   } finally {
     isSubmitting.value = false
   }
@@ -959,7 +945,7 @@ async function handleBindLogin() {
     })
     await finalizePendingAccountResponse(data)
   } catch (e: unknown) {
-    accountActionError.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    accountActionError.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
   } finally {
     isSubmitting.value = false
   }
@@ -980,7 +966,7 @@ async function handleSubmitTotpChallenge() {
     await authStore.setToken(completion.access_token)
     await router.replace(redirectTo.value)
   } catch (e: unknown) {
-    totpError.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    totpError.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
   } finally {
     isSubmitting.value = false
   }
@@ -1091,7 +1077,7 @@ onMounted(async () => {
     await finalizeCompletion(completion, completionRedirect)
   } catch (e: unknown) {
     clearPendingAuthSession()
-    errorMessage.value = getRequestErrorMessage(e, t('auth.loginFailed'))
+    errorMessage.value = extractI18nErrorMessage(e, t, 'auth.errors', t('auth.loginFailed'))
     isProcessing.value = false
   }
 })

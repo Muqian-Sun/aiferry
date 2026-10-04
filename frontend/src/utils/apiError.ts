@@ -1,8 +1,10 @@
 /**
  * Centralized API error message extraction
  *
- * The API client interceptor rejects with a plain object: { status, code, message, error }
- * This utility extracts the user-facing message from any error shape.
+ * The API client interceptor (api/client.ts) rejects with a plain object:
+ * { status, code, message, reason?, error?, metadata? } — 字段都在顶层，没有 axios 的 response.data。
+ * 曾有调用方读 error.response.data.detail，永远是 undefined，报错就静默丢了；这里不再兼容那种形状，
+ * 单测也要按真实形状造错误，免得 spec 绿而线上取不到。
  */
 
 interface ApiErrorLike {
@@ -12,13 +14,6 @@ interface ApiErrorLike {
   error?: string
   reason?: string
   metadata?: Record<string, unknown>
-  response?: {
-    data?: {
-      detail?: string
-      message?: string
-      code?: number | string
-    }
-  }
 }
 
 /**
@@ -31,7 +26,7 @@ interface ApiErrorLike {
 export function extractApiErrorCode(err: unknown): string | undefined {
   if (!err || typeof err !== 'object') return undefined
   const e = err as ApiErrorLike
-  const code = e.reason ?? e.code ?? e.response?.data?.code
+  const code = e.reason ?? e.code
   return code != null ? String(code) : undefined
 }
 
@@ -139,9 +134,6 @@ export function extractApiErrorMessage(
     // Interceptor shape: { message, error }
     if (e.message) return e.message
     if (e.error) return e.error
-    // Legacy axios shape: { response.data.detail }
-    if (e.response?.data?.detail) return e.response.data.detail
-    if (e.response?.data?.message) return e.response.data.message
   }
 
   // Standard Error

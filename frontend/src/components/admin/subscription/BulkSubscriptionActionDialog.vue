@@ -116,6 +116,7 @@ import { adminAPI } from '@/api/admin'
 import type { SubscriptionBulkAction, SubscriptionBulkActionRequest, SubscriptionBulkActionResult } from '@/api/admin/subscriptions'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { UserSubscription } from '@/types'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { completeBulkSubscriptionOperation, prepareBulkSubscriptionOperation, type BulkSubscriptionOperation } from './bulkSubscriptionOperation'
 
 const props = defineProps<{
@@ -201,9 +202,8 @@ async function submit() {
     pendingOperation.value = null
     emit('completed', result.value)
   } catch (error: unknown) {
-    const failure = error as { status?: number; message?: string; response?: { status?: number; data?: { message?: string } } }
-    requestError.value = failure?.message || failure?.response?.data?.message || t('admin.subscriptions.bulk.requestFailed')
-    const status = failure?.status ?? failure?.response?.status
+    requestError.value = extractApiErrorMessage(error, t('admin.subscriptions.bulk.requestFailed'))
+    const status = (error as { status?: number } | null)?.status
     // A timeout, server error or in-progress conflict may arrive after writes.
     // Retry the frozen payload and key until a definitive result is available.
     if (!operation.outcomeUncertain && status && status >= 400 && status < 500 && status !== 408 && status !== 409) {

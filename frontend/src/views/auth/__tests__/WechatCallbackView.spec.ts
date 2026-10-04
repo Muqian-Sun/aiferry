@@ -731,12 +731,10 @@ describe('WechatCallbackView', () => {
       redirect: '/welcome',
     })
     apiClientPostMock.mockRejectedValue({
-      response: {
-        data: {
-          reason: 'EMAIL_EXISTS',
-          message: 'email already exists',
-        },
-      },
+      status: 409,
+      code: 409,
+      reason: 'EMAIL_EXISTS',
+      message: 'email already exists',
     })
 
     const wrapper = mount(WechatCallbackView, {

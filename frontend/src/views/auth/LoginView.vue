@@ -629,8 +629,7 @@ async function handle2FAVerify(code: string): Promise<void> {
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
   } catch (error: unknown) {
-    const err = error as { message?: string; response?: { data?: { message?: string } } }
-    const message = err.response?.data?.message || err.message || t('profile.totp.loginFailed')
+    const message = extractI18nErrorMessage(error, t, 'auth.errors', t('profile.totp.loginFailed'))
 
     if (totpModalRef.value) {
       totpModalRef.value.setError(message)

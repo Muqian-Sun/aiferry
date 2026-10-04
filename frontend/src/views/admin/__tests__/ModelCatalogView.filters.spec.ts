@@ -204,7 +204,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
 
   it('keeps the failed entries selected and reports each reason when a bulk update is partly rejected', async () => {
     updateEntry.mockImplementation(async (id: number, body: { model_id: string }) => {
-      if (id === 4) throw { response: { data: { message: 'listed model requires a price' } } }
+      if (id === 4) throw { status: 400, code: 400, message: 'listed model requires a price' }
       return entry({ model_id: body.model_id })
     })
     const wrapper = mountView()

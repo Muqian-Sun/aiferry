@@ -56,7 +56,7 @@ describe('ProfilePasswordForm', () => {
 
   it.each([
     [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'current password is incorrect'],
-    [{ response: { data: { detail: 'backend failure' } } }, 'backend failure'],
+    [{ status: 500, code: 500, message: 'backend failure' }, 'backend failure'],
     [{}, 'Failed to change password'],
   ])('shows API failure %j inline', async (error, expectedMessage) => {
     changePasswordMock.mockRejectedValue(error)

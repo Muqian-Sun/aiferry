@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { AntigravityTokenInfo } from '@/api/admin/antigravity'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 export function useAntigravityOAuth() {
   const { t } = useI18n()
@@ -37,8 +38,7 @@ export function useAntigravityOAuth() {
       state.value = response.state
       return true
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || t('admin.accounts.oauth.antigravity.failedToGenerateUrl')
+      error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.antigravity.failedToGenerateUrl'))
       console.error(error.value, err)
       return false
     } finally {
@@ -72,8 +72,7 @@ export function useAntigravityOAuth() {
       const tokenInfo = await adminAPI.antigravity.exchangeCode(payload as any)
       return tokenInfo as AntigravityTokenInfo
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || t('admin.accounts.oauth.antigravity.failedToExchangeCode')
+      error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.antigravity.failedToExchangeCode'))
       console.error(error.value, err)
       return null
     } finally {
@@ -100,8 +99,7 @@ export function useAntigravityOAuth() {
       )
       return tokenInfo as AntigravityTokenInfo
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || t('admin.accounts.oauth.antigravity.failedToValidateRT')
+      error.value = extractApiErrorMessage(err, t('admin.accounts.oauth.antigravity.failedToValidateRT'))
       return null
     } finally {
       loading.value = false
