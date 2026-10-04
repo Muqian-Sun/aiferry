@@ -42,7 +42,7 @@ export default {
     cost: '费用',
     // Status
     quotaMode: '密钥限额模式',
-    walletBalance: '钱包余额',
+    walletBalance: '余额',
     keyStatus: {
       active: '可用',
       disabled: '已停用',
@@ -99,7 +99,7 @@ export default {
       INVALID_API_KEY: '密钥无效或已停用',
       API_KEY_DISABLED: '密钥无效或已停用',
       USER_NOT_FOUND: '密钥无效或已停用',
-      USER_INACTIVE: '密钥所属的账号已被停用',
+      USER_INACTIVE: '密钥所属的账户已被停用',
       ACCESS_DENIED: '当前 IP 不在这把密钥允许的范围内',
       INVALID_AUTH_RATE_LIMITED: '无效查询太多，请稍后再试'
     },

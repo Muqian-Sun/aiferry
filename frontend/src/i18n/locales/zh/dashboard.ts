@@ -153,7 +153,7 @@ export default {
     ipBlacklist: 'IP 黑名单',
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: '每行一个 IP 或 CIDR，这些 IP 将被禁止使用此密钥',
-    ipRestrictionEnabled: '已配置 IP 限制',
+    ipRestrictionEnabled: '已设置 IP 限制',
     ccSwitchNotInstalled:
       'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
     ccsClientSelect: {
@@ -397,7 +397,7 @@ export default {
 
   // Profile
   profile: {
-    accountBalance: '账户余额',
+    accountBalance: '余额',
     concurrencyLimit: '并发限制',
     memberSince: '注册时间',
     administrator: '管理员',
@@ -477,14 +477,14 @@ export default {
     },
     balanceNotify: {
       title: '余额不足提醒',
-      description: '当账户余额低于阈值时发送邮件提醒',
+      description: '余额低于阈值时发邮件提醒',
       enabled: '启用余额不足提醒',
       threshold: '自定义提醒阈值',
       thresholdHint: '留空使用系统默认值',
       thresholdPlaceholder: '输入金额',
       systemDefault: '系统默认值',
       extraEmails: '通知邮箱',
-      extraEmailsHint: '余额不足时会发到账号邮箱；想让别的邮箱也收到，在这里添加并验证',
+      extraEmailsHint: '余额不足时会发到账户邮箱；想让别的邮箱也收到，在这里添加并验证',
       emailPlaceholder: '输入邮箱地址',
       sendCode: '发送验证码',
       resend: '重发',
@@ -518,7 +518,7 @@ export default {
     },
     authBindings: {
       title: '登录方式绑定',
-      description: '查看当前绑定状态，并将更多第三方登录方式关联到这个账号。',
+      description: '查看当前绑定状态，并将更多第三方登录方式关联到这个账户。',
       bindAction: '绑定 {providerName}',
       emailPlaceholder: '输入邮箱地址',
       codePlaceholder: '输入验证码',

@@ -60,9 +60,9 @@ export default {
       manageUsers: '管理用户',
       viewUserAccounts: '查看和管理用户账户',
       manageAccounts: '管理渠道',
-      configureAiAccounts: '配置 AI 平台渠道',
+      configureAiAccounts: '设置 AI 渠道',
       systemSettings: '系统设置',
-      configureSystem: '配置系统设置',
+      configureSystem: '前往系统设置',
       share: '占比',
       realtime: '当前 {rpm} RPM · {tpm} TPM',
       rowToday: '今日',
@@ -88,7 +88,7 @@ export default {
       createUser: '创建用户',
       bulkDelete: {
         title: '删除已选用户',
-        confirm: '确定删除已选的 {count} 个用户吗？此操作无法撤销。管理员账号无法删除。',
+        confirm: '确定删除已选的 {count} 个用户吗？此操作无法撤销。管理员账户无法删除。',
         failed: '{count} 个用户删除失败，已保留选中，可重试。'
       },
       summary: {
@@ -264,9 +264,9 @@ export default {
       totalRecharged: '总充值',
       // User Attributes
       attributes: {
-        title: '用户属性配置',
-        description: '配置用户的自定义属性字段',
-        configButton: '属性配置',
+        title: '用户属性设置',
+        description: '设置用户的自定义属性字段',
+        configButton: '属性设置',
         filterButton: '属性',
         addAttribute: '添加属性',
         editAttribute: '编辑属性',
@@ -285,7 +285,7 @@ export default {
         placeholderHint: '输入框的提示文字',
         required: '必填',
         enabled: '启用',
-        options: '选项配置',
+        options: '选项设置',
         addOption: '添加选项',
         optionValue: '选项值',
         optionLabel: '显示文本',

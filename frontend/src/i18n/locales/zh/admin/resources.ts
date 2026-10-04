@@ -43,7 +43,7 @@ export default {
 
     // Proxies Management
     proxies: {
-      description: '管理代理服务器配置',
+      description: '管理代理服务器',
       createProxy: '添加代理',
       editProxy: '编辑代理',
       deleteProxy: '删除代理',
@@ -387,7 +387,7 @@ export default {
       cacheReadTokens: '缓存读取 Token',
       billingType: '计费类型',
       allBillingTypes: '全部计费类型',
-      billingTypeBalance: '钱包余额',
+      billingTypeBalance: '余额',
       billingTypeSubscription: '订阅套餐',
       billingMode: '计费模式',
       billingModeToken: '按量',

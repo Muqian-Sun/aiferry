@@ -301,17 +301,17 @@ export default {
           tieredBlocked: '分层限流：超出缓冲 {buffer}，暂停调度'
         },
       },
-      resetQuota: '重置配额',
+      resetQuota: '重置额度',
       quotaLimitPlaceholder: '0 表示不限制',
-      quotaLimitHint: '设置日/周/总使用额度（美元），任一维度达到限额后渠道暂停调度。修改限额不会重置已用额度。',
-      quotaLimitToggle: '启用配额限制',
-      quotaLimitToggleHint: '开启后，当渠道用量达到设定额度时自动暂停调度',
+      quotaLimitHint: '设置日 / 周限额和总额度（美元），任一项用满后渠道暂停调度。修改不会清零已用金额。',
+      quotaLimitToggle: '启用额度限制',
+      quotaLimitToggleHint: '开启后，当渠道用量达到设定的限额或额度时自动暂停调度',
       quotaDailyLimit: '日限额',
       quotaDailyLimitHint: '从首次使用起每 24 小时自动重置。',
       quotaWeeklyLimit: '周限额',
       quotaWeeklyLimitHint: '从首次使用起每 7 天自动重置。',
-      quotaTotalLimit: '总限额',
-      quotaTotalLimitHint: '累计消费上限，不会自动重置 — 使用「重置配额」手动清零。',
+      quotaTotalLimit: '总额度',
+      quotaTotalLimitHint: '累计用量上限，不会自动清零——用「重置额度」手动清零。',
       testConnection: '测试连接',
       reAuthorize: '重新授权',
       refreshToken: '刷新令牌',
@@ -321,7 +321,7 @@ export default {
         accountMode: {
           title: '计费方式',
           payg: '按量付费',
-          paygDesc: '消耗账户余额，按 Token 计费。余额不足自动冷却，充值后恢复。',
+          paygDesc: '消耗上游账号余额，按 Token 计费。余额不足自动冷却，充值后恢复。',
           coding: 'Coding Plan',
           codingDesc: '订阅制编程套餐，按 5 小时 / 每周滚动用量窗口限流。',
         },
@@ -374,7 +374,7 @@ export default {
         rateLimited: '限流中',
         overloaded: '过载中',
         tempUnschedulable: '临时不可调度',
-        quotaExceeded: '配额超限',
+        quotaExceeded: '额度超限',
         unschedulable: '暂停调度',
         rateLimitedUntil: '限流中，当前不参与调度，预计 {time} 自动恢复',
         recoverIn: '{time} 后恢复',
@@ -421,8 +421,8 @@ export default {
         gemini3Flash: 'Gemini 3 Flash',
         geminiImage: 'Gemini 图片',
         claude: 'Claude',
-        quotaDaily: '每日额度',
-        quotaWeekly: '每周额度',
+        quotaDaily: '日限额',
+        quotaWeekly: '周限额',
         quotaTotal: '总额度',
         quotaUsedOfLimit: '已用 {used} / 限额 {limit}（按成本）',
         requests: '{count} 次请求',
@@ -725,7 +725,7 @@ export default {
 	  },
       // Quota control (Anthropic OAuth/SetupToken only)
       quotaControl: {
-        title: '配额控制',
+        title: '额度控制',
         sessionLimit: {
           label: '会话数量控制',
           hint: '限制同时活跃的会话数量',
@@ -735,7 +735,7 @@ export default {
         },
         rpmLimit: {
           label: 'RPM 限制',
-          hint: '限制每分钟请求数量，保护上游账号',
+          hint: '限制每分钟请求数量，保护上游',
           baseRpm: '基础 RPM',
           baseRpmPlaceholder: '15',
           baseRpmHint: '每分钟最大请求数，0 或留空表示不限制',
@@ -829,8 +829,8 @@ export default {
         batchFailed: '批量创建失败',
         // OpenAI specific
         openai: {
-          title: 'OpenAI 账户授权',
-          followSteps: '请按照以下步骤完成 OpenAI 账户的授权：',
+          title: 'OpenAI 账号授权',
+          followSteps: '请按照以下步骤完成 OpenAI 账号的授权：',
           step1GenerateUrl: '点击下方按钮生成授权链接',
           generateAuthUrl: '生成授权链接',
           step2OpenUrl: '在浏览器中打开链接并完成授权',
@@ -941,8 +941,8 @@ export default {
         },
         // Gemini specific
         gemini: {
-          title: 'Gemini 账户授权',
-          followSteps: '请按照以下步骤完成 Gemini 账户的授权：',
+          title: 'Gemini 账号授权',
+          followSteps: '请按照以下步骤完成 Gemini 账号的授权：',
           step1GenerateUrl: '生成授权链接',
           generateAuthUrl: '生成授权链接',
           projectIdLabel: 'Project ID（可选）',
@@ -986,8 +986,8 @@ export default {
         },
         // Antigravity specific
         antigravity: {
-          title: 'Antigravity 账户授权',
-          followSteps: '请按照以下步骤完成 Antigravity 账户的授权：',
+          title: 'Antigravity 账号授权',
+          followSteps: '请按照以下步骤完成 Antigravity 账号的授权：',
           step1GenerateUrl: '生成授权链接',
           generateAuthUrl: '生成授权链接',
           step2OpenUrl: '在浏览器中打开链接并完成授权',

@@ -14,7 +14,7 @@ export default {
         riskControl: {
           title: '审查',
           description: '启用内容审核与提示词审查，以及全端点请求审核入口。默认关闭。',
-          configureLink: '前往「审查」配置内容审核',
+          configureLink: '前往「审查」设置内容审核',
           enabled: '启用审查',
           enabledHint: '关闭后侧栏「审查」入口变灰，网关不做内容审核。',
         },

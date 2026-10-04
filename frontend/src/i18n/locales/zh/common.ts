@@ -169,7 +169,7 @@ export default {
     },
     announcements: '公告',
     usage: '用量',
-    accountSecurity: '账号安全',
+    accountSecurity: '账户安全',
     users: '用户',
     channels: '渠道',
     channelStatus: '渠道状态',
@@ -219,8 +219,8 @@ export default {
     passwordMinLength: '密码至少需要 6 个字符',
     loginFailed: '登录失败，请检查你的凭据后重试。',
     errors: {
-      SITE_ROLE_FORBIDDEN: '该账号不能在此站点登录：管理员请前往管理后台，普通用户请前往用户站',
-      USER_NOT_ACTIVE: '账号已被禁用',
+      SITE_ROLE_FORBIDDEN: '该账户不能在此站点登录：管理员请前往管理后台，普通用户请前往用户站',
+      USER_NOT_ACTIVE: '账户已被停用',
       // 登录 / 注册 / 找回密码 / 两步验证接口的后端 reason → 文案；没列到的回落到各页的通用失败文案或后端原文
       INVALID_CREDENTIALS: '邮箱或密码不正确',
       BACKEND_MODE_ADMIN_ONLY: '站点当前只允许管理员登录',
