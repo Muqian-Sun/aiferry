@@ -179,8 +179,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
 				message := cls.Message
-				if !cls.ModelNotFound {
-					message = "No available accounts: " + err.Error()
+				// 选不到上游：说「这个模型现在没有上游可用」；限流（429）与模型不存在（404）用分类给的说法（D5）
+				if !cls.ModelNotFound && cls.Status != http.StatusTooManyRequests {
+					message = noUpstreamMessage(reqModel)
 				}
 				h.chatCompletionsErrorResponse(c, cls.Status, cls.ErrType, message)
 				return
@@ -204,7 +205,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if !selection.Acquired {
 			if selection.WaitPlan == nil {
 				markOpsRoutingCapacityLimited(c)
-				h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
+				h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "api_error", upstreamBusyMessage)
 				return
 			}
 			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(

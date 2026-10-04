@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -47,9 +49,23 @@ const (
 	maxProfitVetoAttempts = 10
 )
 
-// profitVetoExhaustedMessage 是利润否决次数耗尽时返回给客户端的文案。
-// 语义上等同于「无可用账号」：候选账号都不满足分组的利润约束。
-const profitVetoExhaustedMessage = "No available accounts: all candidates rejected by group profit control"
+// 没有可用上游时给客户端的说法（2026-10-04 D5）：不露内部概念（账号 / 渠道 / 分组 / 利润门），英文、说人话。
+const (
+	// profitVetoExhaustedMessage 利润否决次数耗尽：对客户端就是「这个模型现在没有上游可用」
+	profitVetoExhaustedMessage = "No upstream is currently available for this model. Please try again later."
+	// upstreamBusyMessage 选到了渠道但没抢到并发槽、也不排队
+	upstreamBusyMessage = "All upstreams for this model are busy right now. Please retry shortly."
+	// compactUnsupportedMessage 没有支持 /responses/compact 的上游
+	compactUnsupportedMessage = "No upstream currently supports /responses/compact for this model."
+)
+
+// noUpstreamMessage 选不到上游时的说法，带上客户端请求的模型名
+func noUpstreamMessage(model string) string {
+	if model = strings.TrimSpace(model); model != "" {
+		return fmt.Sprintf("No upstream is currently available for model %s. Please try again later.", model)
+	}
+	return profitVetoExhaustedMessage
+}
 
 func sameAccountRetryDelayFor(failoverErr *service.UpstreamFailoverError, retryCount int) time.Duration {
 	if failoverErr == nil {

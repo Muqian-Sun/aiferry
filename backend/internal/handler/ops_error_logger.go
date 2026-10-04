@@ -2354,7 +2354,12 @@ func hasOpsAccountAuthFailure(c *gin.Context) bool {
 
 func isOpsNoAvailableAccountMessage(message string) bool {
 	msg := strings.ToLower(message)
-	return strings.Contains(msg, opsErrNoAvailableAccounts) ||
+	// 本站给客户端的说法（failover_loop.go 的 noUpstreamMessage 等，2026-10-04 D5 改的）；旧说法留着：
+	// 上游若也是同类网关，它回的还是「No available accounts」
+	return strings.Contains(msg, "no upstream is currently available") ||
+		strings.Contains(msg, "upstreams for this model are busy") ||
+		strings.Contains(msg, "no upstream currently supports") ||
+		strings.Contains(msg, opsErrNoAvailableAccounts) ||
 		strings.Contains(msg, "no available account") ||
 		strings.Contains(msg, "no available gemini accounts") ||
 		strings.Contains(msg, "no available openai accounts") ||

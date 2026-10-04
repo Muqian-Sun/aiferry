@@ -453,7 +453,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ID:                    l.ID,
 		UserID:                l.UserID,
 		APIKeyID:              l.APIKeyID,
-		RequestID:             l.RequestID,
+		RequestID:             userFacingRequestID(l.RequestID),
 		Model:                 requestedModel,
 		ServiceTier:           l.ServiceTier,
 		ReasoningEffort:       userFacingReasoningEffort(l),
@@ -536,8 +536,11 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	if l == nil {
 		return nil
 	}
+	base := usageLogFromServiceUser(l)
+	// 管理站看库里原值（带 local: / client: 前缀），按请求 ID 搜用量要精确匹配
+	base.RequestID = l.RequestID
 	return &AdminUsageLog{
-		UsageLog:                usageLogFromServiceUser(l),
+		UsageLog:                base,
 		InputCost:               l.InputCost,
 		OutputCost:              l.OutputCost,
 		CacheCreationCost:       l.CacheCreationCost,
@@ -558,6 +561,17 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		IPAddress:               l.IPAddress,
 		Account:                 AccountSummaryFromService(l.Account),
 	}
+}
+
+// userFacingRequestID 用户看到的请求 ID 去掉计费去重键的内部前缀（2026-10-04 D5 / U15）：
+// local:<id> 的 id 就是响应头 X-Request-ID；client:<id> 是用户自己带的 X-Client-Request-ID。库里存的值不变。
+func userFacingRequestID(requestID string) string {
+	for _, prefix := range []string{"local:", "client:"} {
+		if rest, ok := strings.CutPrefix(requestID, prefix); ok {
+			return rest
+		}
+	}
+	return requestID
 }
 
 func userFacingReasoningEffort(l *service.UsageLog) *string {
