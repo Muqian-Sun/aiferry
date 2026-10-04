@@ -60,15 +60,19 @@
   </Teleport>
 </template>
 
+<script lang="ts">
+// 模块级计数：写在 <script setup> 里每个实例都从 0 开始，ID 会重复
+let counter = 0
+</script>
+
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab } from '@/components/user/shell/types'
-
-let counter = 0
+import { useModalLayer } from '@/composables/useModalLayer'
 
 const props = withDefaults(
   defineProps<{
@@ -93,8 +97,6 @@ const titleId = `detail-drawer-title-${++counter}`
 const panelEl = ref<HTMLElement | null>(null)
 const widthClass = computed(() => (props.width === 'lg' ? 'sm:max-w-[720px]' : 'sm:max-w-[560px]'))
 
-let previousFocus: HTMLElement | null = null
-
 const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'])
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -103,36 +105,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.isContentEditable
 }
 
-function onKey(event: KeyboardEvent) {
-  if (event.key !== 'Escape' || !props.closeOnEscape) return
-  // 抽屉上面开着对话框（BaseDialog 给 body 加 modal-open）或弹出菜单时，Esc 归它们。
-  // 监听挂在捕获阶段：对话框的 Esc 处理在冒泡阶段，它一关，Vue 在两个监听之间就把 modal-open 摘掉了。
-  if (document.body.classList.contains('modal-open')) return
-  // 下拉选择（Select 的列表 Teleport 到 body）开着时 Esc 只收起下拉
-  if (document.querySelector('body > [role="menu"], body > [role="listbox"]')) return
-  // 正在输入框里打字时 Esc 不关抽屉：抽屉里的表单（如定时测试）一按就整个关掉，填了的内容静默丢失
-  if (isEditableTarget(event.target)) return
-  emit('close')
-}
-
-watch(
-  () => props.show,
-  async (open) => {
-    if (open) {
-      previousFocus = document.activeElement as HTMLElement | null
-      document.addEventListener('keydown', onKey, true)
-      await nextTick()
-      panelEl.value?.focus()
-    } else {
-      document.removeEventListener('keydown', onKey, true)
-      previousFocus?.focus?.()
-      previousFocus = null
-    }
-  },
-  { immediate: true }
-)
-
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
+// 叠层、Esc、滚动锁、焦点陷阱与归还交给弹层栈：抽屉上再开的对话框在栈顶，Esc 先关它
+useModalLayer({
+  open: () => props.show,
+  panel: () => panelEl.value,
+  onEscape: (event) => {
+    if (!props.closeOnEscape) return
+    // 正在输入框里打字时 Esc 不关抽屉：抽屉里的表单（如定时测试）一按就整个关掉，填了的内容静默丢失
+    if (isEditableTarget(event.target)) return
+    emit('close')
+  }
+})
 </script>
 
 <style scoped>

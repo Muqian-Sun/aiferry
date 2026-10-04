@@ -570,6 +570,8 @@
 
   .modal-leave-active {
     transition: opacity 200ms ease-in;
+    /* 正在关闭的弹窗不再接收点击：防止双击时第二下落在退场中的确认按钮上 */
+    pointer-events: none;
   }
 
   .modal-enter-from,
