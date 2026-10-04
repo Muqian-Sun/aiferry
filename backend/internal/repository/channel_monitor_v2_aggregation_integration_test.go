@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -146,7 +147,7 @@ func TestChannelMonitorV2RecomputeRangeUpsertsMatchRebuiltPrimaryKeys(t *testing
 	require.Equal(t, int64(2), row.Metrics.RequestCount)
 	require.Equal(t, int64(2), row.Metrics.TTFT.SampleCount)
 	require.NotNil(t, row.Metrics.TTFT.P50Ms)
-	require.Equal(t, int64(100), *row.Metrics.TTFT.P50Ms, "首字 100 / 200 落 100、250 两档，P50 取 100 档")
+	require.Equal(t, int64(100), *row.Metrics.TTFT.P50Ms, "首字 100 / 200：P50 是第 1 个样本，在 (50, 100] 档、下沿收紧到最小值 100")
 	require.Len(t, row.Buckets, 1)
 
 	snapshot, err := repo.GetSnapshot(ctx, filter, cfg)
@@ -255,5 +256,48 @@ func TestChannelMonitorV2TrailingRefreshKeepsCoarseBucketsCurrent(t *testing.T) 
 		require.NoError(t, err)
 		require.Equalf(t, int64(2), snapshot.Metrics.RequestCount, "段长 %s 的窗口要含到最近一轮", bucket)
 		require.Equalf(t, int64(2), snapshot.Metrics.TTFT.SampleCount, "段长 %s 的首字延迟样本", bucket)
+	}
+}
+
+// 首字延迟的实测最小 / 最大值要从分钟事实一路带进各档汇总，读数才能把分位数收紧到实测范围里
+// （2026-10-04 走查：只有一个 146 秒的请求，页面显示所在档的上沿「300 s」）。
+func TestChannelMonitorV2TTFTPercentilesStayWithinObservedRange(t *testing.T) {
+	ctx := context.Background()
+	repo := NewChannelMonitorV2Repository(integrationDB)
+	const single, several = "cmv2-ttft-single", "cmv2-ttft-several"
+	insert := newChannelMonitorV2UsageFixture(t, ctx, "cmv2-ttft", single, several)
+	day := time.Now().UTC().Truncate(24 * time.Hour).Add(-24 * time.Hour)
+	at := day.Add(7*time.Hour + 3*time.Minute)
+	insert("cmv2-ttft-1", single, at, 146278)
+	for i, ms := range []int{1200, 2500, 2600, 24685} {
+		insert(fmt.Sprintf("cmv2-ttft-%d", i+2), several, at, ms)
+	}
+	// 从当天零点算起：读数的覆盖起点不晚于 12 小时 / 1 天两档的段起点
+	require.NoError(t, repo.RecomputeRange(ctx, day, at.Add(7*time.Minute)))
+
+	ms := func(v *int64, msg string) int64 {
+		require.NotNil(t, v, msg)
+		return *v
+	}
+	cfg := channelMonitorV2TestRoster(single, several)
+	for _, bucket := range []time.Duration{time.Minute, time.Hour, 12 * time.Hour, 24 * time.Hour} {
+		matrix, err := repo.GetMatrix(ctx, service.ChannelMonitorV2Filter{Start: day, End: day.Add(24 * time.Hour), Bucket: bucket}, cfg)
+		require.NoError(t, err)
+		rows := map[string]service.ChannelMonitorV2MatrixRow{}
+		for _, row := range matrix.Items {
+			rows[row.Model] = row
+		}
+		label := "段长 " + bucket.String()
+		// 只有一个 146278 毫秒的样本：分位数就是它本身，总量与它所在那一段都是
+		one := rows[single]
+		require.Equal(t, int64(146278), ms(one.Metrics.TTFT.P50Ms, label), label)
+		require.Equal(t, int64(146278), ms(one.Metrics.TTFT.P90Ms, label), label)
+		require.Len(t, one.Buckets, 1, label)
+		require.Equal(t, int64(146278), ms(one.Buckets[0].Metrics.TTFT.P50Ms, label), label)
+		// 1200 / 2500 / 2600 / 24685：P50 在 (2000, 3000] 档内插值；P90 落在 (15000, 30000] 档，上沿收紧到最大值
+		// 24685 → 15000 + 9685 × 0.6（原来分别显示 3000 与 30000）
+		many := rows[several]
+		require.Equal(t, int64(2500), ms(many.Metrics.TTFT.P50Ms, label), label)
+		require.Equal(t, int64(20811), ms(many.Metrics.TTFT.P90Ms, label), label)
 	}
 }

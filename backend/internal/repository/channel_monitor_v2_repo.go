@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,6 +29,8 @@ type channelMonitorV2Fact struct {
 	Success, Errors                                int64
 	Input, Output, CacheCreation, CacheRead        int64
 	TTFTSum, TTFTCount, DurationSum, DurationCount int64
+	// TTFTMin / TTFTMax 实测最小 / 最大首字延迟；没有首字延迟样本时为空
+	TTFTMin, TTFTMax sql.NullInt64
 }
 
 type channelMonitorV2Histogram struct {
@@ -292,7 +296,7 @@ func channelMonitorV2BucketQuery(filter service.ChannelMonitorV2Filter, alias st
 
 func (r *channelMonitorV2Repository) loadFacts(ctx context.Context, filter service.ChannelMonitorV2Filter) ([]channelMonitorV2Fact, error) {
 	bucketExpr, where, args := channelMonitorV2BucketQuery(filter, "m")
-	query := `SELECT ` + bucketExpr + `,m.model,m.account_id,SUM(m.success_requests),SUM(m.error_requests),SUM(m.input_tokens),SUM(m.output_tokens),SUM(m.cache_creation_tokens),SUM(m.cache_read_tokens),SUM(m.ttft_sum_ms),SUM(m.ttft_count),SUM(m.duration_sum_ms),SUM(m.duration_count) FROM ` + channelMonitorV2MetricsTable(filter) + ` m ` + where + ` GROUP BY 1,2,3`
+	query := `SELECT ` + bucketExpr + `,m.model,m.account_id,SUM(m.success_requests),SUM(m.error_requests),SUM(m.input_tokens),SUM(m.output_tokens),SUM(m.cache_creation_tokens),SUM(m.cache_read_tokens),SUM(m.ttft_sum_ms),SUM(m.ttft_count),SUM(m.duration_sum_ms),SUM(m.duration_count),MIN(m.ttft_min_ms),MAX(m.ttft_max_ms) FROM ` + channelMonitorV2MetricsTable(filter) + ` m ` + where + ` GROUP BY 1,2,3`
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -302,7 +306,7 @@ func (r *channelMonitorV2Repository) loadFacts(ctx context.Context, filter servi
 	for rows.Next() {
 		var bucket time.Time
 		var f channelMonitorV2Fact
-		if err := rows.Scan(&bucket, &f.Model, &f.AccountID, &f.Success, &f.Errors, &f.Input, &f.Output, &f.CacheCreation, &f.CacheRead, &f.TTFTSum, &f.TTFTCount, &f.DurationSum, &f.DurationCount); err != nil {
+		if err := rows.Scan(&bucket, &f.Model, &f.AccountID, &f.Success, &f.Errors, &f.Input, &f.Output, &f.CacheCreation, &f.CacheRead, &f.TTFTSum, &f.TTFTCount, &f.DurationSum, &f.DurationCount, &f.TTFTMin, &f.TTFTMax); err != nil {
 			return nil, err
 		}
 		f.BucketStart = bucket.UTC().Format(time.RFC3339Nano)
@@ -479,6 +483,26 @@ func shiftSQLPlaceholders(query string, offset int) string {
 type metricAccumulator struct {
 	success, errors, input, output, cacheCreation, cacheRead, ttftSum, ttftCount, durationSum, durationCount int64
 	hist                                                                                                     map[string]map[int64]int64
+	ttftRange                                                                                                latencyRange
+}
+
+// latencyRange 一组样本实测的最小、最大延迟；ok 为 false = 不知道（没有样本）。
+type latencyRange struct {
+	min, max int64
+	ok       bool
+}
+
+func (r *latencyRange) merge(lo, hi sql.NullInt64) {
+	if !lo.Valid || !hi.Valid {
+		return
+	}
+	if !r.ok || lo.Int64 < r.min {
+		r.min = lo.Int64
+	}
+	if !r.ok || hi.Int64 > r.max {
+		r.max = hi.Int64
+	}
+	r.ok = true
 }
 
 func newMetricAccumulator() *metricAccumulator {
@@ -495,6 +519,7 @@ func (a *metricAccumulator) addFact(f channelMonitorV2Fact) {
 	a.ttftCount += f.TTFTCount
 	a.durationSum += f.DurationSum
 	a.durationCount += f.DurationCount
+	a.ttftRange.merge(f.TTFTMin, f.TTFTMax)
 }
 func (a *metricAccumulator) addHistogram(h channelMonitorV2Histogram) {
 	if a.hist[h.Metric] == nil {
@@ -509,7 +534,7 @@ func (a *metricAccumulator) metric(minutes float64) service.ChannelMonitorV2Metr
 	if minutes <= 0 {
 		minutes = 1
 	}
-	m := service.ChannelMonitorV2Metric{SuccessRequests: a.success, ErrorRequests: a.errors, RequestCount: requests, InputTokens: a.input, OutputTokens: a.output, CacheCreationTokens: a.cacheCreation, CacheReadTokens: a.cacheRead, TokenCount: tokens, RPM: float64(requests) / minutes, TPM: float64(tokens) / minutes, CacheRateNumerator: a.cacheRead, CacheRateDenominator: denom, TTFT: latencyMetric(a.ttftSum, a.ttftCount, a.hist["ttft"]), Duration: latencyMetric(a.durationSum, a.durationCount, a.hist["duration"])}
+	m := service.ChannelMonitorV2Metric{SuccessRequests: a.success, ErrorRequests: a.errors, RequestCount: requests, InputTokens: a.input, OutputTokens: a.output, CacheCreationTokens: a.cacheCreation, CacheReadTokens: a.cacheRead, TokenCount: tokens, RPM: float64(requests) / minutes, TPM: float64(tokens) / minutes, CacheRateNumerator: a.cacheRead, CacheRateDenominator: denom, TTFT: latencyMetric(a.ttftSum, a.ttftCount, a.hist["ttft"], a.ttftRange), Duration: latencyMetric(a.durationSum, a.durationCount, a.hist["duration"], latencyRange{})}
 	if requests > 0 {
 		m.ErrorRate = float64(a.errors) / float64(requests)
 		m.SuccessRate = float64(a.success) / float64(requests)
@@ -519,38 +544,50 @@ func (a *metricAccumulator) metric(minutes float64) service.ChannelMonitorV2Metr
 	}
 	return m
 }
-func latencyMetric(sum, count int64, hist map[int64]int64) service.ChannelMonitorV2Latency {
+
+// latencyMetric observed 是这组样本实测的最小 / 最大值（耗时没有记，页面也不显示耗时分位数，只插值）。
+func latencyMetric(sum, count int64, hist map[int64]int64, observed latencyRange) service.ChannelMonitorV2Latency {
 	result := service.ChannelMonitorV2Latency{SampleCount: count}
 	if count > 0 {
 		avg := float64(sum) / float64(count)
 		result.AvgMs = &avg
 	}
-	result.P50Ms = histPercentile(hist, 0.50)
-	result.P90Ms = histPercentile(hist, 0.90)
-	result.P95Ms = histPercentile(hist, 0.95)
+	result.P50Ms = histPercentile(hist, 0.50, observed)
+	result.P90Ms = histPercentile(hist, 0.90, observed)
+	result.P95Ms = histPercentile(hist, 0.95, observed)
 	return result
 }
-func histPercentile(hist map[int64]int64, p float64) *int64 {
+
+// histPercentile 由延迟分布估第 p 分位，算法同 Prometheus histogram_quantile：找到第 p×总数 个样本落在哪一档，
+// 按档内均匀分布线性插值。原来直接取档位上沿，146 秒显示成「300 s」（2026-10-04 走查）。
+// 档的范围先用实测最小 / 最大值收紧：样本都在 [最小, 最大] 里，只有一个样本时结果就是它本身；
+// 超出最后一档又不知道最大值时取最后一档的上沿。
+func histPercentile(hist map[int64]int64, p float64, observed latencyRange) *int64 {
 	var total int64
-	keys := make([]int64, 0, len(hist))
-	for bound, count := range hist {
-		keys = append(keys, bound)
+	uppers := make([]int64, 0, len(hist))
+	for upper, count := range hist {
+		uppers = append(uppers, upper)
 		total += count
 	}
 	if total == 0 {
 		return nil
 	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	target := int64(float64(total)*p + 0.999999)
-	var cumulative int64
-	for _, bound := range keys {
-		cumulative += hist[bound]
-		if cumulative >= target {
-			v := bound
-			return &v
-		}
+	slices.Sort(uppers)
+	rank := p * float64(total)
+	var before int64
+	i := 0
+	for ; i < len(uppers)-1 && float64(before+hist[uppers[i]]) < rank; i++ {
+		before += hist[uppers[i]]
 	}
-	v := keys[len(keys)-1]
+	upper, count := uppers[i], hist[uppers[i]]
+	lo, hi := float64(channelMonitorV2LatencyLowerBound(upper)), float64(upper)
+	if observed.ok {
+		lo = math.Max(lo, float64(observed.min))
+		hi = math.Min(hi, float64(observed.max))
+	} else if upper == channelMonitorV2LatencyOverflowMs {
+		hi = lo
+	}
+	v := int64(math.Round(lo + (hi-lo)*(rank-float64(before))/float64(count)))
 	return &v
 }
 

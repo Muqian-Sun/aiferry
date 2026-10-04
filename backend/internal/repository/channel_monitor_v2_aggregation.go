@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 )
 
@@ -152,11 +154,12 @@ func (r *channelMonitorV2Repository) RecomputeRange(ctx context.Context, start, 
 	return nil
 }
 
+// ttft_min_ms / ttft_max_ms 与首字延迟分布同一口径（成功请求、非负值），读数用它们收紧分布的首末两档。
 const channelMonitorV2UsageMetricsSQL = `
 INSERT INTO channel_monitor_v2_metrics_1m (
   bucket_start, platform, model, account_id, success_requests,
   input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-  ttft_sum_ms, ttft_count, duration_sum_ms, duration_count, computed_at
+  ttft_sum_ms, ttft_count, ttft_min_ms, ttft_max_ms, duration_sum_ms, duration_count, computed_at
 )
 SELECT date_trunc('minute', ul.created_at), %s, %s, COALESCE(ul.account_id, 0),
        COUNT(DISTINCT COALESCE(NULLIF(ul.request_id, ''), 'usage:' || ul.id::text))
@@ -167,6 +170,8 @@ SELECT date_trunc('minute', ul.created_at), %s, %s, COALESCE(ul.account_id, 0),
        COALESCE(SUM(ul.cache_read_tokens) FILTER (WHERE ` + usageLogSuccessFilterUL + `), 0),
        COALESCE(SUM(ul.first_token_ms) FILTER (WHERE ul.first_token_ms IS NOT NULL AND ` + usageLogSuccessFilterUL + `), 0),
        COUNT(ul.first_token_ms) FILTER (WHERE ` + usageLogSuccessFilterUL + `),
+       MIN(ul.first_token_ms) FILTER (WHERE ul.first_token_ms >= 0 AND ` + usageLogSuccessFilterUL + `),
+       MAX(ul.first_token_ms) FILTER (WHERE ul.first_token_ms >= 0 AND ` + usageLogSuccessFilterUL + `),
        COALESCE(SUM(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL AND ` + usageLogSuccessFilterUL + `), 0),
        COUNT(ul.duration_ms) FILTER (WHERE ` + usageLogSuccessFilterUL + `), NOW()
 FROM usage_logs ul
@@ -188,17 +193,33 @@ WHERE ul.created_at >= $1 AND ul.created_at < $2
   AND ` + usageLogSuccessFilterUL + `
 GROUP BY 1, 2, 3, 4, 5, 6`
 
+// channelMonitorV2LatencyBoundsMs 延迟分布各档的上沿（毫秒）：一档覆盖（上一档上沿, 本档上沿]，第一档从 0 起；
+// 超过最后一档的样本记在 channelMonitorV2LatencyOverflowMs。汇总 SQL 分档与读数插值共用这一份。
+var channelMonitorV2LatencyBoundsMs = []int64{50, 100, 250, 500, 1000, 2000, 3000, 5000, 8000, 10000, 15000, 30000, 60000, 120000, 300000, 600000}
+
+// channelMonitorV2LatencyOverflowMs 超出最后一档的样本的档位值（upper_bound_ms 是 integer 列，取它的上限）。
+const channelMonitorV2LatencyOverflowMs int64 = math.MaxInt32
+
 func channelMonitorV2HistogramBoundSQL(column string) string {
-	return `CASE
-WHEN ` + column + ` <= 50 THEN 50 WHEN ` + column + ` <= 100 THEN 100
-WHEN ` + column + ` <= 250 THEN 250 WHEN ` + column + ` <= 500 THEN 500
-WHEN ` + column + ` <= 1000 THEN 1000 WHEN ` + column + ` <= 2000 THEN 2000
-WHEN ` + column + ` <= 3000 THEN 3000 WHEN ` + column + ` <= 5000 THEN 5000
-WHEN ` + column + ` <= 8000 THEN 8000 WHEN ` + column + ` <= 10000 THEN 10000
-WHEN ` + column + ` <= 15000 THEN 15000 WHEN ` + column + ` <= 30000 THEN 30000
-WHEN ` + column + ` <= 60000 THEN 60000 WHEN ` + column + ` <= 120000 THEN 120000
-WHEN ` + column + ` <= 300000 THEN 300000 WHEN ` + column + ` <= 600000 THEN 600000
-ELSE 2147483647 END`
+	var b strings.Builder
+	b.WriteString("CASE")
+	for _, bound := range channelMonitorV2LatencyBoundsMs {
+		fmt.Fprintf(&b, " WHEN %s <= %d THEN %d", column, bound, bound)
+	}
+	fmt.Fprintf(&b, " ELSE %d END", channelMonitorV2LatencyOverflowMs)
+	return b.String()
+}
+
+// channelMonitorV2LatencyLowerBound 一档的下沿 = 档位表里上一档的上沿；第一档从 0 起。
+func channelMonitorV2LatencyLowerBound(upper int64) int64 {
+	var lower int64
+	for _, bound := range channelMonitorV2LatencyBoundsMs {
+		if bound >= upper {
+			break
+		}
+		lower = bound
+	}
+	return lower
 }
 
 // Error dedup lookback: request_id branch is bounded by chunk start minus 90
@@ -379,15 +400,16 @@ func channelMonitorV2MetricsRollupSQL(sourceSeconds int) string {
 INSERT INTO channel_monitor_v2_metrics_rollup (
   bucket_start, bucket_seconds, platform, model, account_id, success_requests, error_requests,
   upstream_affected_requests, upstream_attempt_count, input_tokens, output_tokens,
-  cache_creation_tokens, cache_read_tokens, ttft_sum_ms, ttft_count, duration_sum_ms,
-  duration_count, computed_at
+  cache_creation_tokens, cache_read_tokens, ttft_sum_ms, ttft_count, ttft_min_ms, ttft_max_ms,
+  duration_sum_ms, duration_count, computed_at
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, m.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
        platform, model, account_id, SUM(success_requests), SUM(error_requests),
        SUM(upstream_affected_requests), SUM(upstream_attempt_count), SUM(input_tokens),
        SUM(output_tokens), SUM(cache_creation_tokens), SUM(cache_read_tokens),
-       SUM(ttft_sum_ms), SUM(ttft_count), SUM(duration_sum_ms), SUM(duration_count), NOW()
+       SUM(ttft_sum_ms), SUM(ttft_count), MIN(ttft_min_ms), MAX(ttft_max_ms),
+       SUM(duration_sum_ms), SUM(duration_count), NOW()
 FROM ` + channelMonitorV2RollupFrom("channel_monitor_v2_metrics_1m", "channel_monitor_v2_metrics_rollup", "m", sourceSeconds) + `m.bucket_start >= bounds.start_at AND m.bucket_start < bounds.end_at
 GROUP BY 1, 2, 3, 4, 5`
 }
