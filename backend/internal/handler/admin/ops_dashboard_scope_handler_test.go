@@ -75,3 +75,32 @@ func TestOpsDashboardSnapshotV2_ModelAndAccountScope(t *testing.T) {
 	bad := get("&account_id=abc")
 	require.Equal(t, http.StatusBadRequest, bad.Code)
 }
+
+type opsErrorListCaptureRepo struct {
+	service.OpsRepository
+	filter *service.OpsErrorLogFilter
+}
+
+func (r *opsErrorListCaptureRepo) ListErrorLogs(_ context.Context, filter *service.OpsErrorLogFilter) (*service.OpsErrorLogList, error) {
+	r.filter = filter
+	return &service.OpsErrorLogList{Errors: []*service.OpsErrorLog{}, Page: 1, PageSize: 20}, nil
+}
+
+// 运维页按模型筛选时，换渠道恢复的列表（上游错误列表）也要按模型筛。
+func TestOpsListUpstreamErrors_PassesModelFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &opsErrorListCaptureRepo{}
+	h := NewOpsHandler(service.NewOpsService(repo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil))
+	r := gin.New()
+	r.GET("/upstream-errors", h.ListUpstreamErrors)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/upstream-errors?model=gpt-5.5&account_id=7", nil))
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.NotNil(t, repo.filter)
+	require.Equal(t, "gpt-5.5", repo.filter.Model)
+	require.NotNil(t, repo.filter.AccountID)
+	require.Equal(t, int64(7), *repo.filter.AccountID)
+	require.True(t, repo.filter.IncludeRecoveredUpstream, "上游错误列表含换渠道恢复的行")
+}
