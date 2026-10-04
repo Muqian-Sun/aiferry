@@ -150,22 +150,40 @@ type ModelCatalogEntryView struct {
 	VendorPlatform string `json:"vendor_platform"`
 	// ExtensionEndpoints 经扩展端点（生图 / 视频 / 向量）承接：渠道表单的默认勾选不含这类模型。
 	ExtensionEndpoints bool `json:"extension_endpoints"`
+	// SchedulableChannels 能派到请求的承接渠道数（按新用户默认倍率过利润门）；为 0 时 UnschedulableReason 给原因：
+	// no_bindings / channels_disabled / profit_gate。列表标「没有能调度的渠道」、上架前提示用（D6）。
+	SchedulableChannels int    `json:"schedulable_channels"`
+	UnschedulableReason string `json:"unschedulable_reason,omitempty"`
 }
 
 // ListEntries 返回全部目录条目（含别名、分档、分时）。
 // GET /api/v1/admin/model-catalog/entries
 func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
-	entries, err := h.service.ListEntries(c.Request.Context())
+	ctx := c.Request.Context()
+	entries, err := h.service.ListEntries(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
+	accounts, err := h.listAllAccounts(ctx)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	byID := make(map[int64]*service.Account, len(accounts))
+	for i := range accounts {
+		byID[accounts[i].ID] = &accounts[i]
+	}
+	profit := h.settings.GetProfitControlSettings(ctx)
 	views := make([]ModelCatalogEntryView, len(entries))
 	for i := range entries {
+		schedulable, reason := service.SchedulableBindings(&entries[i], byID, profit)
 		views[i] = ModelCatalogEntryView{
-			ModelCatalogEntry:  entries[i],
-			VendorPlatform:     service.CatalogVendorPlatform(&entries[i]),
-			ExtensionEndpoints: h.service.EntryServedByExtensionEndpoints(&entries[i]),
+			ModelCatalogEntry:   entries[i],
+			VendorPlatform:      service.CatalogVendorPlatform(&entries[i]),
+			ExtensionEndpoints:  h.service.EntryServedByExtensionEndpoints(&entries[i]),
+			SchedulableChannels: schedulable,
+			UnschedulableReason: reason,
 		}
 	}
 	response.Success(c, views)

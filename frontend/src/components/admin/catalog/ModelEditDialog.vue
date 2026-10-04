@@ -5,7 +5,7 @@
     官方价、分段、联网搜索价、承接渠道都在价格页改；计费方式、按次 / 图片 / 视频价不在表单里，保存时按条目原值整条写回。
   -->
   <BaseDialog :show="show" :title="t('admin.modelCatalog.edit')" width="normal" @close="handleClose">
-    <form v-if="entry" id="model-edit-form" class="space-y-4" @submit.prevent="save">
+    <form v-if="entry" id="model-edit-form" class="space-y-4" @submit.prevent="save()">
       <ModelBasicsFields
         ref="basicsRef"
         v-model:model-id="form.model_id"
@@ -111,6 +111,17 @@
       </div>
     </template>
   </BaseDialog>
+
+  <!-- 有承接但没有能调度的渠道：不拦上架，先确认（D6）；没有承接的照旧拦在上面 -->
+  <ConfirmDialog
+    :show="confirmListing"
+    :title="t('admin.modelCatalog.unschedulable.confirmTitle')"
+    :message="t('admin.modelCatalog.unschedulable.confirmMessage', { models: entry ? unschedulableListText([entry], t) : '' })"
+    :confirm-text="t('admin.modelCatalog.unschedulable.confirm')"
+    :cancel-text="t('common.cancel')"
+    @confirm="onConfirmListing"
+    @cancel="confirmListing = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -119,12 +130,14 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { ModelCatalogAlias, ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import ModelBasicsFields from './ModelBasicsFields.vue'
 import { entryToRequest } from './entryRequest'
 import type { CatalogVendorChoice } from './vendorLabel'
+import { hasNoSchedulableChannel, unschedulableListText } from './schedulable'
 
 const props = defineProps<{
   show: boolean
@@ -145,6 +158,7 @@ const { t } = useI18n()
 const basicsRef = ref<InstanceType<typeof ModelBasicsFields> | null>(null)
 const saving = ref(false)
 const submitError = ref('')
+const confirmListing = ref(false)
 
 const form = reactive({
   model_id: '',
@@ -215,13 +229,18 @@ async function removeAlias(alias: ModelCatalogAlias) {
   }
 }
 
-async function save() {
+async function save(confirmed = false) {
   const entry = props.entry
   if (!entry) return
   submitError.value = ''
+  const listing = form.status === 'listed' && entry.status !== 'listed'
   // 上架要有渠道承接（muqian 2026-10-03）：只拦「这次从未上架改成上架」，已上架的条目改别的字段照常保存
-  if (form.status === 'listed' && entry.status !== 'listed' && (entry.bindings?.length ?? 0) === 0) {
+  if (listing && (entry.bindings?.length ?? 0) === 0) {
     submitError.value = t('admin.modelCatalog.dialog.listingBlocked.channel')
+    return
+  }
+  if (listing && !confirmed && hasNoSchedulableChannel(entry)) {
+    confirmListing.value = true
     return
   }
   saving.value = true
@@ -244,6 +263,11 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+function onConfirmListing() {
+  confirmListing.value = false
+  void save(true)
 }
 
 function handleClose() {

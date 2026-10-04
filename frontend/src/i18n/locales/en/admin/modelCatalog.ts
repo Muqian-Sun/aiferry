@@ -9,15 +9,15 @@ export default {
     summaryStats: {
       total: 'Models',
       listed: 'Listed',
-      listedWithoutResources: 'Listed without channels',
+      listedWithoutResources: 'Listed without a schedulable channel',
       showThem: 'Filter'
     },
     filtered: '{count} after filters',
     aliasCount: '{count} aliases',
     filters: {
       noVendor: '(no vendor)',
-      withResources: 'With channels',
-      withoutResources: 'Without channels'
+      withResources: 'With a schedulable channel',
+      withoutResources: 'Without a schedulable channel'
     },
     columns: {
       model: 'Model',
@@ -194,7 +194,21 @@ export default {
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Deleting {model} also deletes its aliases, {intervals}, and time pricing. Continue?',
     deleteIntervals: { segments: 'token segments', tiers: 'tiers' },
-    noResources: 'No channels',
+    // No channel can serve the model (D6): flagged in the list, confirmed before listing (not blocked)
+    unschedulable: {
+      label: 'No schedulable channel',
+      reasons: {
+        no_bindings: 'No channel serves it',
+        channels_disabled: 'Every serving channel is disabled or not schedulable',
+        profit_gate: 'Every serving channel is below the minimum margin and skipped by the profit gate',
+        unknown: 'No channel can serve requests'
+      },
+      confirmTitle: 'These models have no schedulable channel',
+      confirmMessage: '{models}. Requests to them will fail once listed. List them anyway?',
+      confirm: 'List anyway',
+      item: '{model} ({reason})',
+      separator: '; '
+    },
     fields: {
       modelId: 'Model id',
       displayName: 'Display name',

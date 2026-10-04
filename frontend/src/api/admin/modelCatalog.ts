@@ -54,6 +54,10 @@ export interface ModelCatalogEntry {
   vendor_platform?: string
   /** 经扩展端点（生图 / 视频 / 向量）承接：只有列表接口带。 */
   extension_endpoints?: boolean
+  /** 能派到请求的承接渠道数（按新用户默认倍率过利润门）：只有列表接口带（2026-10-04 D6） */
+  schedulable_channels?: number
+  /** schedulable_channels 为 0 时的原因：no_bindings / channels_disabled / profit_gate */
+  unschedulable_reason?: string
   created_at: string
   updated_at: string
 }
