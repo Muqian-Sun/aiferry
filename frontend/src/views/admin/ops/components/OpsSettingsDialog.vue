@@ -3,6 +3,8 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { opsAPI } from '@/api/admin/ops'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import type { OpsAlertRuntimeSettings, EmailNotificationConfig, AlertSeverity, OpsAdvancedSettings, OpsMetricThresholds } from '../types'
@@ -20,6 +22,9 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const saving = ref(false)
+const errorMessage = ref('')
+// 收件人输入框下的格式报错，按 alert / report 分开
+const recipientError = ref<{ target: 'alert' | 'report'; message: string } | null>(null)
 
 // 运行时设置
 const runtimeSettings = ref<OpsAlertRuntimeSettings | null>(null)
@@ -39,6 +44,7 @@ const metricThresholds = ref<OpsMetricThresholds>({
 // 加载所有配置
 async function loadAllSettings() {
   loading.value = true
+  errorMessage.value = ''
   try {
     const [runtime, email, advanced, thresholds] = await Promise.all([
       opsAPI.getAlertRuntimeSettings(),
@@ -63,7 +69,7 @@ async function loadAllSettings() {
         }
     }
   } catch (err: any) {
-    console.error('[OpsSettingsDialog] Failed to load settings', err)
+    errorMessage.value = extractApiErrorMessage(err, t('admin.ops.settings.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -97,10 +103,11 @@ function isValidEmailAddress(email: string): boolean {
 function addRecipient(target: 'alert' | 'report') {
   if (!emailConfig.value) return
   const raw = (target === 'alert' ? alertRecipientInput.value : reportRecipientInput.value).trim()
+  recipientError.value = null
   if (!raw) return
 
   if (!isValidEmailAddress(raw)) {
-    console.error(t('common.invalidEmail'))
+    recipientError.value = { target, message: t('common.invalidEmail') }
     return
   }
 
@@ -195,8 +202,9 @@ const validation = computed(() => {
 
 // 保存所有配置
 async function saveAllSettings() {
+  errorMessage.value = ''
   if (!validation.value.valid) {
-    console.error(validation.value.errors[0])
+    errorMessage.value = validation.value.errors[0]
     return
   }
 
@@ -220,7 +228,7 @@ async function saveAllSettings() {
     emit('saved')
     emit('close')
   } catch (err: any) {
-    console.error('[OpsSettingsDialog] Failed to save settings', err)
+    errorMessage.value = extractApiErrorMessage(err, t('admin.ops.settings.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -284,6 +292,7 @@ async function saveAllSettings() {
                 {{ t('common.add') }}
               </button>
             </div>
+            <FormError v-if="recipientError?.target === 'alert'" class="mt-1" :message="recipientError.message" />
             <div class="mt-2 flex flex-wrap gap-2">
               <span
                 v-for="email in emailConfig.alert.recipients"
@@ -332,6 +341,7 @@ async function saveAllSettings() {
                 {{ t('common.add') }}
               </button>
             </div>
+            <FormError v-if="recipientError?.target === 'report'" class="mt-1" :message="recipientError.message" />
             <div class="mt-2 flex flex-wrap gap-2">
               <span
                 v-for="email in emailConfig.report.recipients"
@@ -611,6 +621,7 @@ async function saveAllSettings() {
 
     <template #footer>
       <div class="flex justify-end gap-2">
+        <FormError class="mr-auto self-center" :message="errorMessage" />
         <button class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
         <button class="btn btn-primary" :disabled="saving || !validation.valid" @click="saveAllSettings">
           {{ saving ? t('common.saving') : t('common.save') }}

@@ -113,7 +113,8 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end">
+      <div class="flex justify-end gap-3">
+        <FormError class="mr-auto self-center" :message="listError" />
         <button @click="$emit('close')" class="btn btn-secondary">
           {{ t('common.close') }}
         </button>
@@ -300,6 +301,7 @@
 
       <template #footer>
         <div class="flex justify-end gap-3">
+          <FormError class="mr-auto self-center" :message="formError" />
           <button @click="closeFormModal" type="button" class="btn btn-secondary">
             {{ t('common.cancel') }}
           </button>
@@ -321,7 +323,9 @@
       :danger="true"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
   </BaseDialog>
 </template>
 
@@ -331,6 +335,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { TLSFingerprintProfile } from '@/api/admin/tlsFingerprintProfile'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -350,6 +356,10 @@ const { t } = useI18n()
 const profiles = ref<TLSFingerprintProfile[]>([])
 const loading = ref(false)
 const submitting = ref(false)
+// 列表（加载 / 开关）、表单（保存）、删除确认各自一条报错，就近显示
+const listError = ref('')
+const formError = ref('')
+const deleteError = ref('')
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
@@ -385,10 +395,11 @@ watch(() => props.show, (newVal) => {
 
 const loadProfiles = async () => {
   loading.value = true
+  listError.value = ''
   try {
     profiles.value = await adminAPI.tlsFingerprintProfiles.list()
   } catch (error) {
-    console.error('Error loading TLS fingerprint profiles:', error)
+    listError.value = extractApiErrorMessage(error, t('admin.tlsFingerprintProfiles.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -493,7 +504,7 @@ const parseYamlInput = () => {
   }
 
   if (!foundName) {
-    console.error(t('admin.tlsFingerprintProfiles.form.yamlParseFailed'))
+    formError.value = t('admin.tlsFingerprintProfiles.form.yamlParseFailed')
   }
 }
 
@@ -507,6 +518,7 @@ const closeFormModal = () => {
   showCreateModal.value = false
   showEditModal.value = false
   editingProfile.value = null
+  formError.value = ''
   resetForm()
 }
 
@@ -558,12 +570,14 @@ const handleEdit = (profile: TLSFingerprintProfile) => {
 
 const handleDelete = (profile: TLSFingerprintProfile) => {
   deletingProfile.value = profile
+  deleteError.value = ''
   showDeleteDialog.value = true
 }
 
 const handleSubmit = async () => {
+  formError.value = ''
   if (!form.name.trim()) {
-    console.error(t('admin.tlsFingerprintProfiles.form.name') + ' ' + t('common.required'))
+    formError.value = t('admin.tlsFingerprintProfiles.form.name') + ' ' + t('common.required')
     return
   }
 
@@ -593,7 +607,7 @@ const handleSubmit = async () => {
     closeFormModal()
     loadProfiles()
   } catch (error: any) {
-    console.error('Error saving TLS fingerprint profile:', error)
+    formError.value = extractApiErrorMessage(error, t('admin.tlsFingerprintProfiles.saveFailed'))
   } finally {
     submitting.value = false
   }
@@ -608,7 +622,7 @@ const confirmDelete = async () => {
     deletingProfile.value = null
     loadProfiles()
   } catch (error: any) {
-    console.error('Error deleting TLS fingerprint profile:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.tlsFingerprintProfiles.deleteFailed'))
   }
 }
 </script>
