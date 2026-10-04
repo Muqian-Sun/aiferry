@@ -97,10 +97,10 @@
   <UsageExportProgress :show="exportProgress.show" :progress="exportProgress.progress" :current="exportProgress.current" :total="exportProgress.total" :estimated-time="exportProgress.estimatedTime" @cancel="cancelExport" />
   <UsageCleanupDialog
     :show="cleanupDialogVisible"
-    :filters="filters"
-    :start-date="startDate"
-    :end-date="endDate"
-    @close="cleanupDialogVisible = false"
+    :request="cleanupRequest"
+    :conditions="cleanupConditions"
+    @close="closeCleanupDialog"
+    @submitted="cleanupSubmitted = true"
   />
   <!-- Balance history modal triggered from usage table user click -->
   <UserBalanceHistoryModal
@@ -119,7 +119,7 @@ import { useRoute } from 'vue-router'
 import { adminAPI } from '@/api/admin'; import { adminUsageAPI } from '@/api/admin/usage'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useColumnSettings } from '@/composables/useColumnSettings'
-import { formatReasoningEffort } from '@/utils/format'
+import { formatReasoningEffort, getBrowserTimeZone } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { formatMoneyExact, profitOf } from '@/utils/money'
 import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
@@ -141,7 +141,7 @@ import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import type { Column } from '@/components/common/types'
 import { ColumnSettingsMenu, MenuItem, PopoverMenu } from '@/components/admin/list'
-import type { AdminUsageLog, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
+import type { AdminUsageLog, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams, UsageCleanupRequest } from '@/api/admin/usage'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -287,20 +287,25 @@ const onDateRangeChange = (range: { startDate: string; endDate: string; preset: 
 // 总数一律要精确值（exact_total）：不要时后端只回「本页之前的条数 + 本页条数 + 1」表示还有下一页，
 // 第 1 页显示「共 21 条」、翻到第 2 页变成「共 27 条」（2026-10-04 走查）。精确计数是同一 WHERE 的 COUNT(*)，
 // 同一页的区间统计接口本来就在同一 WHERE 上做 COUNT / SUM / AVG，列表再数一次不改变量级。
-const buildUsageListParams = (page: number, pageSize: number): AdminUsageQueryParams => {
+/** 列表、区间统计、清理共用的查询条件：页面上的筛选 + 时间范围（铺在后面，盖掉 filters 里按天的 start_date / end_date） */
+const currentUsageQuery = (): AdminUsageQueryParams => {
   const requestType = filters.value.request_type
   const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
   return {
-    page,
-    page_size: pageSize,
-    exact_total: true,
     ...filters.value,
     ...rangeQuery.value,
-    stream: legacyStream === null ? undefined : legacyStream,
-    sort_by: sortState.sort_by,
-    sort_order: sortState.sort_order
+    stream: legacyStream === null ? undefined : legacyStream
   }
 }
+
+const buildUsageListParams = (page: number, pageSize: number): AdminUsageQueryParams => ({
+  page,
+  page_size: pageSize,
+  exact_total: true,
+  ...currentUsageQuery(),
+  sort_by: sortState.sort_by,
+  sort_order: sortState.sort_order
+})
 
 const loadLogs = async () => {
   abortController?.abort(); const c = new AbortController(); abortController = c; loading.value = true
@@ -315,12 +320,8 @@ const loadLogs = async () => {
 const loadStats = async (force = false) => {
   const seq = ++statsReqSeq
   try {
-    const requestType = filters.value.request_type
-    const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
     const s = await adminAPI.usage.getStats({
-      ...filters.value,
-      ...rangeQuery.value,
-      stream: legacyStream === null ? undefined : legacyStream,
+      ...currentUsageQuery(),
       ...(force ? { nocache: 1 } : {}),
     })
     if (seq !== statsReqSeq) return
@@ -372,7 +373,38 @@ const handleIpGeoBatchFailed = () => {
   console.error(t('usage.ipGeo.batchFailed'))
 }
 const cancelExport = () => exportAbortController?.abort()
-const openCleanupDialog = () => { cleanupDialogVisible.value = true }
+// 清理删的就是页面上列着的这批：与列表同一份时间范围和筛选（2026-10-04 D8）。打开时定格，弹窗显示的、预览数的、最后删的是同一份
+const cleanupRequest = ref<UsageCleanupRequest | null>(null)
+const cleanupConditions = ref<Array<{ label: string; value: string }>>([])
+const cleanupSubmitted = ref(false)
+const openCleanupDialog = () => {
+  const q = currentUsageQuery()
+  cleanupRequest.value = {
+    start_time: q.start_time,
+    end_time: q.end_time,
+    start_date: q.start_date,
+    end_date: q.end_date,
+    timezone: getBrowserTimeZone(),
+    user_id: q.user_id,
+    api_key_id: q.api_key_id,
+    account_id: q.account_id,
+    model: q.model,
+    request_type: q.request_type,
+    stream: q.stream,
+    native_compaction_v2: q.native_compaction_v2,
+    billing_type: q.billing_type,
+    billing_mode: q.billing_mode,
+    upstream_model_mismatch: q.upstream_model_mismatch
+  }
+  cleanupConditions.value = usageFiltersRef.value?.describeUsageConditions() ?? []
+  cleanupSubmitted.value = false
+  cleanupDialogVisible.value = true
+}
+// 提交过清理就刷新一遍，列表里不再留着已删的记录
+const closeCleanupDialog = () => {
+  cleanupDialogVisible.value = false
+  if (cleanupSubmitted.value) refreshData()
+}
 
 // 导出：金额只导收入 / 成本 / 利润三个数（单笔精确金额），不再导标准价与它的分项。
 // 请求 ID、上游请求 ID 两列保留（对账、给上游提工单用）；名字查不到的写「已删除…」，不导内部 id

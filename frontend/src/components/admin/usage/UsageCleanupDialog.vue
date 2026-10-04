@@ -1,18 +1,37 @@
 <template>
+  <!--
+    清理删的就是用量页当前列出的这批：同样的时间范围（近 24 小时按精确时刻）、同样的筛选（含用户）。
+    弹窗不再自带一套筛选，只把范围原样写出来、先数出条数，管理员看清「哪段时间、谁的、多少条」再删（2026-10-04 D8）。
+  -->
   <BaseDialog :show="show" :title="t('admin.usage.cleanup.title')" width="wide" @close="handleClose">
-    <div class="space-y-4">
-      <UsageFilters
-        v-model="localFilters"
-        v-model:startDate="localStartDate"
-        v-model:endDate="localEndDate"
-        mode="cleanup"
-        :show-actions="false"
-        @change="noop"
-      />
+    <div class="space-y-6">
+      <section class="space-y-3" data-testid="usage-cleanup-scope">
+        <p class="text-sm text-af-ink-2">{{ t('admin.usage.cleanup.scopeIntro') }}</p>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+          <dt class="text-af-ink-3">{{ t('admin.usage.cleanup.range') }}</dt>
+          <dd class="tabular-nums text-af-ink">{{ rangeText }}</dd>
+          <template v-for="condition in conditions" :key="condition.label">
+            <dt class="text-af-ink-3">{{ condition.label }}</dt>
+            <dd class="break-all text-af-ink">{{ condition.value }}</dd>
+          </template>
+        </dl>
+        <p v-if="conditions.length === 0" class="text-13 text-af-ink-3">{{ t('admin.usage.cleanup.noOtherConditions') }}</p>
 
-      <div class="rounded-xl border border-af-warning/30 bg-af-warning-tint px-4 py-3 text-sm text-af-warning">
-        {{ t('admin.usage.cleanup.warning') }}
-      </div>
+        <p class="text-sm" aria-live="polite" data-testid="usage-cleanup-count">
+          <span v-if="previewLoading" class="text-af-ink-3">{{ t('admin.usage.cleanup.counting') }}</span>
+          <span v-else-if="previewError" class="text-af-danger">{{ previewError }}</span>
+          <span v-else-if="previewCount === 0" class="text-af-ink-2">{{ t('admin.usage.cleanup.nothingToDelete') }}</span>
+          <span v-else-if="previewCount !== null" class="text-af-ink-2">
+            <i18n-t keypath="admin.usage.cleanup.willDelete" tag="span">
+              <template #count>
+                <span class="font-semibold tabular-nums text-af-ink">{{ previewCount.toLocaleString() }}</span>
+              </template>
+            </i18n-t>
+          </span>
+        </p>
+        <p v-if="submitError" class="text-sm text-af-danger">{{ submitError }}</p>
+        <p v-if="submitted" class="text-sm text-af-ink-2">{{ t('admin.usage.cleanup.submitted') }}</p>
+      </section>
 
       <div class="rounded-xl border border-af-hairline p-4">
         <div class="flex items-center justify-between">
@@ -84,24 +103,20 @@
     <template #footer>
       <div class="flex justify-end gap-3">
         <button type="button" class="btn btn-secondary" @click="handleClose">
-          {{ t('common.cancel') }}
+          {{ submitted ? t('common.close') : t('common.cancel') }}
         </button>
-        <button type="button" class="btn btn-danger" :disabled="submitting" @click="openConfirm">
-          {{ submitting ? t('admin.usage.cleanup.submitting') : t('admin.usage.cleanup.submit') }}
+        <button
+          type="button"
+          class="btn btn-danger"
+          :disabled="!canSubmit"
+          data-testid="usage-cleanup-submit"
+          @click="submitCleanup"
+        >
+          {{ submitLabel }}
         </button>
       </div>
     </template>
   </BaseDialog>
-
-  <ConfirmDialog
-    :show="confirmVisible"
-    :title="t('admin.usage.cleanup.confirmTitle')"
-    :message="t('admin.usage.cleanup.confirmMessage')"
-    :confirm-text="t('admin.usage.cleanup.confirmSubmit')"
-    danger
-    @confirm="submitCleanup"
-    @cancel="confirmVisible = false"
-  />
 
   <ConfirmDialog
     :show="cancelConfirmVisible"
@@ -115,57 +130,92 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
-import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import { adminUsageAPI } from '@/api/admin/usage'
-import type { AdminUsageQueryParams, UsageCleanupTask, CreateUsageCleanupTaskRequest } from '@/api/admin/usage'
-import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
+import type { UsageCleanupRequest, UsageCleanupTask } from '@/api/admin/usage'
+import { extractI18nErrorMessage } from '@/utils/apiError'
+import { formatDateTimeToMinute } from '@/utils/format'
 
 interface Props {
   show: boolean
-  filters: AdminUsageQueryParams
-  startDate: string
-  endDate: string
+  /** 用量页当前的时间范围与筛选（打开弹窗时定格）：显示、预览计数、最后删除都用这一份 */
+  request: UsageCleanupRequest | null
+  /** 时间范围以外的生效条件，按界面上的名字写（UsageFilters.describeUsageConditions） */
+  conditions: Array<{ label: string; value: string }>
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits(['close'])
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'submitted'): void
+}>()
 
 const { t } = useI18n()
-
-const localFilters = ref<AdminUsageQueryParams>({})
-const localStartDate = ref('')
-const localEndDate = ref('')
 
 const tasks = ref<UsageCleanupTask[]>([])
 const tasksLoading = ref(false)
 const tasksPage = ref(1)
 const tasksPageSize = ref(5)
 const tasksTotal = ref(0)
+const previewCount = ref<number | null>(null)
+const previewLoading = ref(false)
+const previewError = ref('')
 const submitting = ref(false)
-const confirmVisible = ref(false)
+const submitted = ref(false)
+const submitError = ref('')
 const cancelConfirmVisible = ref(false)
 const canceling = ref(false)
 const cancelTarget = ref<UsageCleanupTask | null>(null)
 let pollTimer: number | null = null
+let previewSeq = 0
 
-const noop = () => {}
+/** 近 24 小时写到分钟；按天的范围写日期（含首尾两天） */
+const rangeText = computed(() => {
+  const request = props.request
+  if (!request) return ''
+  if (request.start_time && request.end_time) {
+    return t('admin.usage.cleanup.timeRange', {
+      start: formatDateTimeToMinute(request.start_time),
+      end: formatDateTimeToMinute(request.end_time)
+    })
+  }
+  return t('admin.usage.cleanup.dayRange', { start: request.start_date, end: request.end_date })
+})
 
-// 只带入清理接口认、且弹窗里能原样显示的条件。用户 / Key / 渠道在页面上是按名字选的，
-// 弹窗拿到的只有 id、显示不出名字，所以不带入，要删某个用户的记录在弹窗里重新选。
-const resetFilters = () => {
-  const { model, request_type, stream, billing_type } = props.filters
-  localFilters.value = { model, request_type, stream, billing_type }
-  localStartDate.value = props.startDate
-  localEndDate.value = props.endDate
-  localFilters.value.start_date = localStartDate.value
-  localFilters.value.end_date = localEndDate.value
-  tasksPage.value = 1
-  tasksTotal.value = 0
+const submitLabel = computed(() => {
+  if (submitting.value) return t('admin.usage.cleanup.submitting')
+  const count = previewCount.value ?? 0
+  return count > 0 ? t('admin.usage.cleanup.deleteCount', { count: count.toLocaleString() }) : t('admin.usage.cleanup.delete')
+})
+
+const canSubmit = computed(() =>
+  !previewLoading.value && !previewError.value && (previewCount.value ?? 0) > 0 && !submitting.value && !submitted.value
+)
+
+const errorMessage = (error: unknown, fallbackKey: string) =>
+  extractI18nErrorMessage(error, t, 'admin.usage.cleanup.errors', t(fallbackKey))
+
+const loadPreview = async () => {
+  const request = props.request
+  if (!request) return
+  const seq = ++previewSeq
+  previewLoading.value = true
+  previewError.value = ''
+  previewCount.value = null
+  try {
+    const res = await adminUsageAPI.previewCleanupTask(request)
+    if (seq !== previewSeq) return
+    previewCount.value = res.count
+  } catch (error) {
+    if (seq !== previewSeq) return
+    previewError.value = errorMessage(error, 'admin.usage.cleanup.countFailed')
+  } finally {
+    if (seq === previewSeq) previewLoading.value = false
+  }
 }
 
 const startPolling = () => {
@@ -184,14 +234,11 @@ const stopPolling = () => {
 
 const handleClose = () => {
   stopPolling()
-  confirmVisible.value = false
   cancelConfirmVisible.value = false
   canceling.value = false
   cancelTarget.value = null
-  submitting.value = false
   emit('close')
 }
-
 const statusLabel = (status: string) => {
   const map: Record<string, string> = {
     pending: t('admin.usage.cleanup.status.pending'),
@@ -225,14 +272,6 @@ const formatRange = (task: UsageCleanupTask) => {
   const start = formatDateTime(task.filters.start_time)
   const end = formatDateTime(task.filters.end_time)
   return `${start} ~ ${end}`
-}
-
-const getUserTimezone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone
-  } catch {
-    return 'UTC'
-  }
 }
 
 const loadTasks = async () => {
@@ -270,10 +309,6 @@ const handleTaskPageSizeChange = (size: number) => {
   loadTasks()
 }
 
-const openConfirm = () => {
-  confirmVisible.value = true
-}
-
 const canCancel = (task: UsageCleanupTask) => {
   return task.status === 'pending' || task.status === 'running'
 }
@@ -283,59 +318,18 @@ const openCancelConfirm = (task: UsageCleanupTask) => {
   cancelConfirmVisible.value = true
 }
 
-const buildPayload = (): CreateUsageCleanupTaskRequest | null => {
-  if (!localStartDate.value || !localEndDate.value) {
-    console.error(t('admin.usage.cleanup.missingRange'))
-    return null
-  }
-
-  const payload: CreateUsageCleanupTaskRequest = {
-    start_date: localStartDate.value,
-    end_date: localEndDate.value,
-    timezone: getUserTimezone()
-  }
-
-  if (localFilters.value.user_id && localFilters.value.user_id > 0) {
-    payload.user_id = localFilters.value.user_id
-  }
-  if (localFilters.value.api_key_id && localFilters.value.api_key_id > 0) {
-    payload.api_key_id = localFilters.value.api_key_id
-  }
-  if (localFilters.value.account_id && localFilters.value.account_id > 0) {
-    payload.account_id = localFilters.value.account_id
-  }
-  if (localFilters.value.model) {
-    payload.model = localFilters.value.model
-  }
-  if (localFilters.value.request_type) {
-    payload.request_type = localFilters.value.request_type
-    const legacyStream = requestTypeToLegacyStream(localFilters.value.request_type)
-    if (legacyStream !== null && legacyStream !== undefined) {
-      payload.stream = legacyStream
-    }
-  } else if (localFilters.value.stream !== null && localFilters.value.stream !== undefined) {
-    payload.stream = localFilters.value.stream
-  }
-  if (localFilters.value.billing_type !== null && localFilters.value.billing_type !== undefined) {
-    payload.billing_type = localFilters.value.billing_type
-  }
-
-  return payload
-}
-
 const submitCleanup = async () => {
-  const payload = buildPayload()
-  if (!payload) {
-    confirmVisible.value = false
-    return
-  }
+  const request = props.request
+  if (!request || !canSubmit.value) return
   submitting.value = true
-  confirmVisible.value = false
+  submitError.value = ''
   try {
-    await adminUsageAPI.createCleanupTask(payload)
+    await adminUsageAPI.createCleanupTask(request)
+    submitted.value = true
+    emit('submitted')
     loadTasks()
   } catch (error) {
-    console.error('Failed to create cleanup task:', error)
+    submitError.value = errorMessage(error, 'admin.usage.cleanup.submitFailed')
   } finally {
     submitting.value = false
   }
@@ -364,7 +358,11 @@ watch(
   () => props.show,
   (show) => {
     if (show) {
-      resetFilters()
+      tasksPage.value = 1
+      tasksTotal.value = 0
+      submitted.value = false
+      submitError.value = ''
+      loadPreview()
       loadTasks()
       startPolling()
     } else {

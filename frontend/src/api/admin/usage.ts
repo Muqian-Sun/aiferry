@@ -49,7 +49,10 @@ export interface UsageCleanupFilters {
   model?: string | null
   request_type?: UsageRequestType | null
   stream?: boolean | null
+  native_compaction_v2?: boolean | null
   billing_type?: number | null
+  billing_mode?: string | null
+  upstream_model_mismatch?: boolean | null
 }
 
 export interface UsageCleanupTask {
@@ -67,17 +70,26 @@ export interface UsageCleanupTask {
   updated_at: string
 }
 
-export interface CreateUsageCleanupTaskRequest {
-  start_date: string
-  end_date: string
-  user_id?: number
-  api_key_id?: number
-  account_id?: number
+/**
+ * 清理（及删除前的预览计数）的条件：与用量列表的查询参数同名同义，用量页把当前筛选原样带过来。
+ * 时间范围二选一：start_time / end_time 精确时刻（近 24 小时），或 start_date / end_date + timezone 按天；都是半开区间。
+ */
+export interface UsageCleanupRequest {
+  start_time?: string
+  end_time?: string
+  start_date?: string
+  end_date?: string
+  timezone?: string
+  user_id?: number | null
+  api_key_id?: number | null
+  account_id?: number | null
   model?: string | null
   request_type?: UsageRequestType | null
   stream?: boolean | null
+  native_compaction_v2?: boolean | null
   billing_type?: number | null
-  timezone?: string
+  billing_mode?: string | null
+  upstream_model_mismatch?: boolean | null
 }
 
 export interface AdminUsageQueryParams extends UsageQueryParams {
@@ -192,8 +204,14 @@ export async function listCleanupTasks(
  * @param payload - Cleanup task parameters
  * @returns Created cleanup task
  */
-export async function createCleanupTask(payload: CreateUsageCleanupTaskRequest): Promise<UsageCleanupTask> {
+export async function createCleanupTask(payload: UsageCleanupRequest): Promise<UsageCleanupTask> {
   const { data } = await apiClient.post<UsageCleanupTask>('/admin/usage/cleanup-tasks', payload)
+  return data
+}
+
+/** 按这组条件会删掉多少条（与建任务同一请求体、同一校验），确认前先给管理员看 */
+export async function previewCleanupTask(payload: UsageCleanupRequest): Promise<{ count: number }> {
+  const { data } = await apiClient.post<{ count: number }>('/admin/usage/cleanup-tasks/preview', payload)
   return data
 }
 
@@ -215,6 +233,7 @@ export const adminUsageAPI = {
   searchApiKeys,
   listCleanupTasks,
   createCleanupTask,
+  previewCleanupTask,
   cancelCleanupTask
 }
 
