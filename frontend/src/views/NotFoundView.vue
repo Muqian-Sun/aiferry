@@ -2,7 +2,7 @@
   <!-- 404：公开壳 + 一段文字与两个动作，不做插画。管理站也会渲染这一页（公开壳在管理站只留品牌与工具） -->
   <SiteShell variant="public">
     <div class="mx-auto max-w-md py-24">
-      <p class="font-mono text-13 text-af-ink-4">404</p>
+      <p class="font-mono text-13 text-af-ink-3">404</p>
       <h1 class="mt-2 text-xl font-semibold text-af-ink">{{ t('userUi.notFound.title') }}</h1>
       <p class="mt-2 text-sm text-af-ink-3">{{ t('userUi.notFound.description') }}</p>
       <div class="mt-6 flex flex-wrap gap-3">

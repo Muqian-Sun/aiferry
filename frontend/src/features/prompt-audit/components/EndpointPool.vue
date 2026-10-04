@@ -14,7 +14,7 @@
       {{ t('admin.promptAudit.pool.empty') }}
     </div>
     <div v-else class="mt-5 overflow-hidden rounded-xl border border-af-hairline bg-af-sheet">
-      <div class="hidden grid-cols-[minmax(260px,1.45fr)_minmax(210px,1fr)_minmax(190px,.8fr)_minmax(230px,1.15fr)_auto] gap-5 border-b border-l-[3px] border-b-af-hairline border-l-transparent bg-af-sunken/80 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-af-ink-3 xl:grid">
+      <div class="hidden grid-cols-[minmax(260px,1.45fr)_minmax(210px,1fr)_minmax(190px,.8fr)_minmax(230px,1.15fr)_auto] gap-5 border-b border-l-[3px] border-b-af-hairline border-l-transparent bg-af-sunken/80 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-af-ink-3 xl:grid">
         <span>{{ t('admin.promptAudit.pool.node') }}</span>
         <span>{{ t('admin.promptAudit.pool.model') }}</span>
         <span>{{ t('admin.promptAudit.pool.limits') }}</span>
@@ -49,17 +49,17 @@
                 <p class="truncate font-semibold text-af-ink">{{ endpoint.name }}</p>
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="endpoint.enabled ? 'bg-af-success' : 'bg-af-ink-4'" aria-hidden="true" />
               </div>
-              <p class="mt-0.5 truncate font-mono text-[11px] text-af-ink-3" :title="endpoint.base_url">{{ endpoint.base_url }}</p>
+              <p class="mt-0.5 truncate font-mono text-xs text-af-ink-3" :title="endpoint.base_url">{{ endpoint.base_url }}</p>
             </div>
           </div>
 
           <div class="min-w-0 xl:block">
-            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.model') }}</p>
+            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.model') }}</p>
             <p class="truncate text-sm font-medium text-af-ink-2" :title="endpoint.model">{{ endpoint.model }}</p>
           </div>
 
           <div>
-            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.limits') }}</p>
+            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.limits') }}</p>
             <div class="flex flex-wrap gap-1.5 text-xs text-af-ink-2">
               <span class="rounded-md bg-af-sunken px-2 py-1 tabular-nums">{{ endpoint.timeout_ms }} ms</span>
               <span class="rounded-md bg-af-sunken px-2 py-1 tabular-nums">{{ endpoint.input_limit }} chars</span>
@@ -67,7 +67,7 @@
           </div>
 
           <div class="min-w-0">
-            <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.credential') }}</p>
+            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-af-ink-3 xl:hidden">{{ t('admin.promptAudit.pool.credential') }}</p>
             <div class="flex items-center gap-1.5 text-xs font-medium" :class="credentialInvalid(endpoint) ? 'text-af-danger' : hasCredential(endpoint) ? 'text-af-success' : 'text-af-ink-3'">
               <span class="h-1.5 w-1.5 rounded-full" :class="credentialInvalid(endpoint) ? 'bg-af-danger' : hasCredential(endpoint) ? 'bg-af-success' : 'bg-af-ink-4'" aria-hidden="true" />
               {{ credentialInvalid(endpoint) ? t('admin.promptAudit.pool.invalid') : hasCredential(endpoint) ? t('admin.promptAudit.pool.configured') : t('admin.promptAudit.pool.missing') }}
@@ -180,8 +180,8 @@ function saveEditor() {
 function toggleEndpoint(id: string) {
   emit('update:endpoints', props.endpoints.map((item) => item.id === id ? { ...item, enabled: !item.enabled } : cloneData(item)))
 }
+// 只是从草稿里去掉，保存前点「重置」就能撤回，所以不弹确认（原来是浏览器原生 confirm）
 function removeEndpoint(endpoint: PromptAuditEndpointDraft) {
-  if (!window.confirm(t('admin.promptAudit.pool.deleteConfirm', { name: endpoint.name }))) return
   emit('update:endpoints', props.endpoints.filter((item) => item.id !== endpoint.id).map((item) => cloneData(item)))
 }
 function hasCredential(endpoint: PromptAuditEndpointDraft): boolean {

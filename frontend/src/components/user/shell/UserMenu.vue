@@ -13,7 +13,7 @@
         <img v-if="avatarUrl" :src="avatarUrl" :alt="displayName" class="h-full w-full object-cover" />
         <span v-else>{{ initials }}</span>
       </span>
-      <Icon name="chevronDown" size="xs" class="hidden text-af-ink-4 md:block" />
+      <Icon name="chevronDown" size="xs" class="hidden text-af-ink-3 md:block" />
     </button>
 
     <transition name="user-menu">
@@ -26,7 +26,7 @@
         <div class="border-b border-af-hairline px-4 py-3">
           <div class="truncate text-sm font-medium text-af-ink">{{ displayName }}</div>
           <div class="truncate text-xs text-af-ink-3">{{ user?.email }}</div>
-          <div class="mt-0.5 text-xs text-af-ink-4">{{ roleLabel }}</div>
+          <div class="mt-0.5 text-xs text-af-ink-3">{{ roleLabel }}</div>
         </div>
 
         <div class="py-1">

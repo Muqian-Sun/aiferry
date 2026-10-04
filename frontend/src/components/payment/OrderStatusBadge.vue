@@ -21,7 +21,7 @@ type Tone = 'normal' | 'muted' | 'failed'
 
 const TONES: Record<Tone, { dot: string; text: string }> = {
   normal: { dot: 'bg-af-ink', text: 'text-af-ink-2' },
-  muted: { dot: 'bg-af-ink-4', text: 'text-af-ink-4' },
+  muted: { dot: 'bg-af-ink-4', text: 'text-af-ink-3' },
   failed: { dot: 'bg-af-danger', text: 'text-af-danger' }
 }
 

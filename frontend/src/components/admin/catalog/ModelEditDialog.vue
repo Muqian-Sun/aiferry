@@ -24,7 +24,7 @@
             :title="alias.notes || undefined"
           >
             {{ alias.alias }}
-            <span v-if="alias.source === 'seed'" class="pr-1 font-sans text-af-ink-4" :title="t('admin.modelCatalog.dialog.aliases.seedTitle')">
+            <span v-if="alias.source === 'seed'" class="pr-1 font-sans text-af-ink-3" :title="t('admin.modelCatalog.dialog.aliases.seedTitle')">
               {{ t('admin.modelCatalog.dialog.aliases.seed') }}
             </span>
             <button

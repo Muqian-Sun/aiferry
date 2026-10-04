@@ -118,12 +118,12 @@
                 </span>
                 <div class="mt-2 flex flex-wrap gap-1">
                   <span
-                    class="rounded bg-af-sunken px-2 py-0.5 text-[10px] font-semibold text-af-ink-2"
+                    class="rounded bg-af-sunken px-2 py-0.5 text-xs font-semibold text-af-ink-2"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.individuals') }}
                   </span>
                   <span
-                    class="rounded bg-af-sunken px-2 py-0.5 text-[10px] font-semibold text-af-ink-2"
+                    class="rounded bg-af-sunken px-2 py-0.5 text-xs font-semibold text-af-ink-2"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.noGcp') }}
                   </span>
@@ -172,12 +172,12 @@
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
                   <span
-                    class="rounded bg-af-sunken px-2 py-0.5 text-[10px] font-semibold text-af-ink-2"
+                    class="rounded bg-af-sunken px-2 py-0.5 text-xs font-semibold text-af-ink-2"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.enterprise') }}
                   </span>
                   <span
-                    class="rounded bg-af-sunken px-2 py-0.5 text-[10px] font-semibold text-af-ink-2"
+                    class="rounded bg-af-sunken px-2 py-0.5 text-xs font-semibold text-af-ink-2"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.highConcurrency') }}
                   </span>
@@ -260,12 +260,12 @@
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
                   <span
-                    class="rounded bg-af-warning-tint px-2 py-0.5 text-[10px] font-semibold text-af-warning"
+                    class="rounded bg-af-warning-tint px-2 py-0.5 text-xs font-semibold text-af-warning"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.orgManaged') }}
                   </span>
                   <span
-                    class="rounded bg-af-warning-tint px-2 py-0.5 text-[10px] font-semibold text-af-warning"
+                    class="rounded bg-af-warning-tint px-2 py-0.5 text-xs font-semibold text-af-warning"
                   >
                     {{ t('admin.accounts.gemini.oauthType.badges.adminRequired') }}
                   </span>

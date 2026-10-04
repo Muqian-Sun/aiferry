@@ -16,7 +16,7 @@
       {{ t('admin.accounts.catalogUnlistedCount', { count: unlistedCount }) }}
     </span>
   </button>
-  <span v-else class="text-sm text-af-ink-4" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
+  <span v-else class="text-sm text-af-ink-3" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
 </template>
 
 <script setup lang="ts">

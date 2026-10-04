@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
         <span class="truncate">{{ item.name }}</span>
         <span
           v-if="item.isDefault && allEndpoints.length > 1"
-          class="rounded bg-af-sunken px-1 py-px text-[10px] font-medium leading-tight text-af-ink-3"
+          class="rounded bg-af-sunken px-1 py-px text-xs font-medium leading-tight text-af-ink-3"
         >{{ t('keys.endpoints.default') }}</span>
       </dt>
 
@@ -85,7 +85,7 @@ onBeforeUnmount(() => {
             {{ item.description }}
           </p>
           <p
-            class="flex items-center gap-1.5 text-[11px] leading-4 text-af-ink-3"
+            class="flex items-center gap-1.5 text-xs leading-4 text-af-ink-3"
             :class="item.description ? 'mt-1.5' : ''"
           >
             <span class="h-1.5 w-1.5 rounded-full bg-af-ink-4"></span>
@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           class="rounded p-0.5 transition-colors"
           :class="copiedEndpoint === item.endpoint
             ? 'text-af-ink'
-            : 'text-af-ink-4 hover:text-af-ink'"
+            : 'text-af-ink-3 hover:text-af-ink'"
           :aria-label="tooltipHint(item.endpoint)"
           @click="copy(item.endpoint)"
         >

@@ -36,7 +36,7 @@
           <h3 class="text-sm font-medium text-af-ink">{{ t('admin.promptAudit.runtime.guardMetrics') }}</h3>
           <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div v-for="metric in guardMetricItems" :key="metric.label" class="rounded-lg bg-af-sunken px-2.5 py-2">
-              <p class="text-[11px] text-af-ink-3">{{ metric.label }}</p>
+              <p class="text-xs text-af-ink-3">{{ metric.label }}</p>
               <p class="mt-0.5 text-sm font-semibold tabular-nums text-af-ink">{{ metric.value }}</p>
             </div>
           </div>
@@ -48,7 +48,7 @@
               done: runtime.queue.done,
               failed: runtime.queue.failed,
             }) }}
-            <span class="mx-1.5 text-af-ink-4">·</span>
+            <span class="mx-1.5 text-af-ink-3">·</span>
             {{ t('admin.promptAudit.runtime.deliveryTotals', { enqueued: runtime.enqueued_total, dropped: runtime.dropped_total, processed: runtime.processed_total, failed: runtime.failed_total }) }}
           </p>
         </div>

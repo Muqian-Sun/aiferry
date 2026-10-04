@@ -11,7 +11,7 @@
           <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
           <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
         </ol>
-        <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
+        <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-xs leading-relaxed">
           {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
         </p>
       </HelpTooltip>

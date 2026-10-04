@@ -168,7 +168,7 @@
           </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-af-ink-2">{{ value }}</span>
-            <span v-else class="text-sm text-af-ink-4">-</span>
+            <span v-else class="text-sm text-af-ink-3">-</span>
           </template>
           <template #cell-status="{ row }">
             <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
@@ -197,7 +197,7 @@
               <span v-if="row.proxy" class="text-sm text-af-ink-2">
                 {{ row.proxy.name }}<span v-if="row.proxy.country_code" class="text-xs text-af-ink-3"> ({{ row.proxy.country_code }})</span>
               </span>
-              <span v-else class="text-sm text-af-ink-4">-</span>
+              <span v-else class="text-sm text-af-ink-3">-</span>
               <span v-if="row.proxy && row.proxy.expires_at" :class="['text-xs', proxyExpiryBadge(row.proxy)]" :title="formatDateTime(row.proxy.expires_at)">
                 {{ proxyExpiryText(row.proxy) }}
               </span>
@@ -255,6 +255,8 @@
       </template>
 
       <template #bulk>
+        <!-- 批量操作的结果（部分失败 / 出错）就地写在批量条上方，原来只打控制台 -->
+        <FormError class="mb-2" :message="bulkMessage" data-testid="accounts-bulk-message" />
         <AccountBulkActionsBar
           :selected-ids="selIds"
           :total-results="pagination.total"
@@ -346,6 +348,17 @@
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
       <FormError :message="deleteError" />
     </ConfirmDialog>
+    <!-- 批量删除 / 重置状态 / 刷新令牌：站内确认框写明对象与数量（原来是浏览器原生 confirm，后两个只写「确认」） -->
+    <ConfirmDialog
+      :show="bulkConfirm !== null"
+      :title="bulkConfirmCopy.title"
+      :message="bulkConfirmCopy.message"
+      :confirm-text="bulkConfirmCopy.confirm"
+      :danger="bulkConfirm === 'delete'"
+      :loading="bulkBusy"
+      @confirm="runBulkConfirm"
+      @cancel="bulkConfirm = null"
+    />
     <ConfirmDialog :show="showCreateShadowDialog" :title="t('admin.accounts.createSparkShadow')" :message="t('admin.accounts.createSparkShadowConfirm', { name: creatingShadowAcc?.name })" @confirm="confirmCreateSparkShadow" @cancel="showCreateShadowDialog = false" />
     <ConfirmDialog :show="showExportDataDialog" :title="t('admin.accounts.dataExport')" :message="t('admin.accounts.dataExportConfirmMessage')" :confirm-text="t('admin.accounts.dataExportConfirm')" :cancel-text="t('common.cancel')" @confirm="handleExportData" @cancel="showExportDataDialog = false">
       <label class="flex items-center gap-2 text-sm text-af-ink-2">
@@ -1142,54 +1155,77 @@ const toggleSelectAllVisible = (event: Event) => {
   const target = event.target as HTMLInputElement
   toggleVisible(target.checked)
 }
-const handleBulkDelete = async () => {
+// ---------- 批量删除 / 重置状态 / 刷新令牌：先在站内确认框里写明「对谁、几个、什么后果」，结果就地写出来 ----------
+type BulkConfirmAction = 'delete' | 'resetStatus' | 'refreshToken'
+const bulkConfirm = ref<BulkConfirmAction | null>(null)
+const bulkBusy = ref(false)
+const bulkMessage = ref('')
+const bulkConfirmCopy = computed(() => {
+  const count = selIds.value.length
+  switch (bulkConfirm.value) {
+    case 'delete':
+      return {
+        title: t('admin.accounts.bulkActions.confirmDeleteTitle', { count }),
+        message: t('admin.accounts.bulkActions.confirmDelete', { count }),
+        confirm: t('admin.accounts.bulkActions.delete')
+      }
+    case 'resetStatus':
+      return {
+        title: t('admin.accounts.bulkActions.confirmResetTitle', { count }),
+        message: t('admin.accounts.bulkActions.confirmResetMessage'),
+        confirm: t('admin.accounts.bulkActions.resetStatus')
+      }
+    case 'refreshToken':
+      return {
+        title: t('admin.accounts.bulkActions.confirmRefreshTitle', { count }),
+        message: t('admin.accounts.bulkActions.confirmRefreshMessage'),
+        confirm: t('admin.accounts.bulkActions.refreshToken')
+      }
+    default:
+      return { title: '', message: '', confirm: '' }
+  }
+})
+const handleBulkDelete = () => { bulkMessage.value = ''; bulkConfirm.value = 'delete' }
+const handleBulkResetStatus = () => { bulkMessage.value = ''; bulkConfirm.value = 'resetStatus' }
+const handleBulkRefreshToken = () => { bulkMessage.value = ''; bulkConfirm.value = 'refreshToken' }
+const partialMessage = (result: { success: number; failed: number }) =>
+  t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed })
+
+const runBulkConfirm = async () => {
+  const action = bulkConfirm.value
+  if (!action || bulkBusy.value) return
   const accountIds = [...selIds.value]
-  if (!confirm(t('admin.accounts.bulkActions.confirmDelete', { count: accountIds.length }))) return
+  bulkBusy.value = true
   try {
-    const result = await adminAPI.accounts.batchDelete(accountIds)
-    if (result.failed > 0) {
-      console.error(t('admin.accounts.bulkActions.partialSuccess', {
-        success: result.success,
-        failed: result.failed
-      }))
-      setSelectedIds(result.failed_ids?.length ? result.failed_ids : accountIds)
+    if (action === 'delete') {
+      const result = await adminAPI.accounts.batchDelete(accountIds)
+      if (result.failed > 0) {
+        bulkMessage.value = partialMessage(result)
+        setSelectedIds(result.failed_ids?.length ? result.failed_ids : accountIds)
+      } else {
+        clearSelection()
+      }
+    } else if (action === 'resetStatus') {
+      const result = await adminAPI.accounts.batchClearError(accountIds)
+      if (result.failed > 0) bulkMessage.value = partialMessage(result)
+      else clearSelection()
     } else {
-      clearSelection()
+      const result = await adminAPI.accounts.batchRefresh(accountIds)
+      if (result.failed > 0) {
+        bulkMessage.value = partialMessage(result)
+        const failedIds = result.errors?.map(error => error.account_id) ?? []
+        setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
+      } else {
+        clearSelection()
+      }
     }
+    bulkConfirm.value = null
     await reload()
   } catch (error) {
-    console.error('Failed to bulk delete accounts:', error)
-  }
-}
-const handleBulkResetStatus = async () => {
-  if (!confirm(t('common.confirm'))) return
-  try {
-    const result = await adminAPI.accounts.batchClearError(selIds.value)
-    if (result.failed > 0) {
-      console.error(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
-    } else {
-      clearSelection()
-    }
-    reload()
-  } catch (error) {
-    console.error('Failed to bulk reset status:', error)
-  }
-}
-const handleBulkRefreshToken = async () => {
-  if (!confirm(t('common.confirm'))) return
-  const accountIds = [...selIds.value]
-  try {
-    const result = await adminAPI.accounts.batchRefresh(accountIds)
-    if (result.failed > 0) {
-      console.error(t('admin.accounts.bulkActions.partialSuccess', { success: result.success, failed: result.failed }))
-      const failedIds = result.errors?.map(error => error.account_id) ?? []
-      setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
-    } else {
-      clearSelection()
-    }
-    reload()
-  } catch (error) {
-    console.error('Failed to bulk refresh token:', error)
+    bulkConfirm.value = null
+    bulkMessage.value = extractApiErrorMessage(error, t('admin.accounts.bulkActions.failed'))
+  } finally {
+    bulkBusy.value = false
   }
 }
 const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => {
@@ -1264,7 +1300,7 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, { schedulable })
     const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
     if (!hasIds && !hasCounts) {
-      console.error(t('admin.accounts.bulkSchedulableResultUnknown'))
+      bulkMessage.value = t('admin.accounts.bulkSchedulableResultUnknown')
       setSelectedIds(accountIds)
       load().catch((error) => {
         console.error('Failed to refresh accounts:', error)
@@ -1278,14 +1314,14 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
       const message = hasCounts || hasIds
         ? t('admin.accounts.bulkSchedulablePartial', { success: successCount, failed: failedCount })
         : t('admin.accounts.bulkSchedulableResultUnknown')
-      console.error(message)
+      bulkMessage.value = message
       setSelectedIds(failedIds.length > 0 ? failedIds : accountIds)
     } else {
       if (hasIds) clearSelection()
       else setSelectedIds(accountIds)
     }
   } catch (error) {
-    console.error('Failed to bulk toggle schedulable:', error)
+    bulkMessage.value = extractApiErrorMessage(error, t('admin.accounts.bulkActions.failed'))
   }
 }
 const buildBulkEditFilterSnapshot = () => {

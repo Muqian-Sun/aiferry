@@ -134,6 +134,15 @@ const mountView = () => mount(AccountsView, {
   }
 })
 
+// 批量操作改为站内确认框（原来是 window.confirm）：在打开的那个确认框上点确认
+const confirmBulk = async (wrapper: ReturnType<typeof mountView>) => {
+  await flushPromises()
+  const dialog = wrapper.findAllComponents({ name: 'ConfirmDialog' }).find((item) => item.props('show'))
+  expect(dialog).toBeTruthy()
+  dialog!.vm.$emit('confirm')
+  await flushPromises()
+}
+
 describe('admin AccountsView select all filtered results', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -163,12 +172,11 @@ describe('admin AccountsView select all filtered results', () => {
   ])('$name after a batch token refresh and table reload', async ({ result, expectedIds }) => {
     listAccounts.mockResolvedValue({ items: makeAccounts(3), total: 3, page: 1, page_size: 20, pages: 1 })
     batchRefresh.mockResolvedValue(result)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountView()
     await flushPromises()
     await wrapper.get('[data-test="header-select"] input').setValue(true)
     await wrapper.get('[data-test="refresh-token"]').trigger('click')
-    await flushPromises()
+    await confirmBulk(wrapper)
 
     expect(batchRefresh).toHaveBeenCalledWith([1, 2, 3])
     // 只数表格的加载：顶部计数也走列表接口（每次 page_size = 1）
@@ -178,7 +186,7 @@ describe('admin AccountsView select all filtered results', () => {
       .toEqual([1, 2, 3].map(id => expectedIds.includes(id)))
     if (result.failed > 0) {
       await wrapper.get('[data-test="refresh-token"]').trigger('click')
-      await flushPromises()
+      await confirmBulk(wrapper)
       expect(batchRefresh).toHaveBeenLastCalledWith(expectedIds)
     }
     wrapper.unmount()

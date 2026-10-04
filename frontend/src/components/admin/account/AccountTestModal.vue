@@ -20,7 +20,7 @@
           <div>
             <div class="font-semibold text-af-ink">{{ account.name }}</div>
             <div class="flex items-center gap-1.5 text-xs text-af-ink-3">
-              <span class="rounded bg-af-hairline px-1.5 py-0.5 text-[10px] font-medium">
+              <span class="rounded bg-af-hairline px-1.5 py-0.5 text-xs font-medium">
                 {{ t(accountAccessKey(account)) }}
               </span>
               <span>{{ t('admin.accounts.account') }}</span>
@@ -214,14 +214,12 @@
         </div>
 
         <!-- Copy Button -->
-        <button
+        <CopyButton
           v-if="outputLines.length > 0"
-          @click="copyOutput"
+          :text="outputText"
+          :label="t('admin.accounts.copyOutput')"
           class="absolute right-2 top-2 rounded-lg bg-af-ink/80 p-1.5 text-af-ink-3 opacity-0 transition-all hover:bg-af-ink-2 hover:text-af-on-brand group-hover:opacity-100"
-          :title="t('admin.accounts.copyOutput')"
-        >
-          <Icon name="link" size="sm" :stroke-width="2" />
-        </button>
+        />
       </div>
 
       <div v-if="generatedImages.length > 0" class="space-y-2">
@@ -332,7 +330,7 @@
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
             !canStartTest
-              ? 'cursor-not-allowed bg-af-hairline text-af-ink-4'
+              ? 'cursor-not-allowed bg-af-hairline text-af-ink-3'
               : 'bg-af-brand text-af-on-brand hover:bg-af-brand-hover'
           ]"
         >
@@ -361,13 +359,13 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
-import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
 import { adminAPI } from '@/api/admin'
@@ -378,7 +376,6 @@ import TestModelsHint from './TestModelsHint.vue'
 import { accountAccessKey } from './accountAccess'
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 interface OutputLine {
   text: string
@@ -822,7 +819,7 @@ const abortStream = () => {
   }
 }
 
-const addLine = (text: string, className: string = 'text-af-ink-4') => {
+const addLine = (text: string, className: string = 'text-af-ink-3') => {
   outputLines.value.push({ text, class: className })
   scrollToBottom()
 }
@@ -846,7 +843,7 @@ const startTest = async () => {
       grokTestModeOptions.value.find((o) => o.value === grokTestMode.value)?.label || grokTestMode.value
     addLine(t('admin.accounts.grok.selectedTestMode', { mode: modeLabel }), 'text-af-ink-3')
   }
-  addLine('', 'text-af-ink-4')
+  addLine('', 'text-af-ink-3')
 
   abortStream()
 
@@ -984,7 +981,7 @@ const handleEvent = (event: {
             : t('admin.accounts.sendingTestMessage'),
         'text-af-ink-3'
       )
-      addLine('', 'text-af-ink-4')
+      addLine('', 'text-af-ink-3')
       addLine(t('admin.accounts.response'), 'text-af-warning')
       break
 
@@ -1056,10 +1053,7 @@ const handleEvent = (event: {
   }
 }
 
-const copyOutput = () => {
-  const text = outputLines.value.map((l) => l.text).join('\n')
-  copyToClipboard(text)
-}
+const outputText = computed(() => outputLines.value.map((l) => l.text).join('\n'))
 </script>
 
 <style>

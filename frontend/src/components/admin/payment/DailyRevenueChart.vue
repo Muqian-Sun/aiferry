@@ -5,21 +5,7 @@
   -->
   <SheetSection :title="t('payment.admin.dailyRevenue')" data-testid="daily-revenue">
     <template v-if="metricTabs.length > 1" #actions>
-      <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('payment.admin.dailyRevenue')">
-        <button
-          v-for="tab in metricTabs"
-          :key="tab.key"
-          type="button"
-          role="tab"
-          class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-          :class="activeMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-          :aria-selected="activeMetric === tab.key"
-          :data-testid="`daily-revenue-metric-${tab.key}`"
-          @click="selectedMetric = tab.key"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
+      <SegmentedControl :model-value="activeMetric" @update:model-value="selectedMetric = $event" :options="metricTabs" :label="t('payment.admin.dailyRevenue')" test-id-prefix="daily-revenue-metric" />
     </template>
     <div class="h-64">
       <div v-if="loading" class="flex h-full items-center justify-center">
@@ -34,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
@@ -98,7 +85,9 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        pointRadius: 0,
+        // 点不多时（≤ 31 天）标出每天的观测点，曲线之间的部分不是数据
+        pointRadius: props.data.length <= 31 ? 2.5 : 0,
+        pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,

@@ -3,7 +3,7 @@
   <BaseDialog :show="show" :title="t('admin.ops.errorDetail.title')" width="full" :close-on-click-outside="true" @close="close">
     <div v-if="loading" class="flex items-center justify-center py-16">
       <div class="flex flex-col items-center gap-3">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
+        <LoadingSpinner />
         <div class="text-sm font-medium text-af-ink-3">{{ t('admin.ops.errorDetail.loading') }}</div>
       </div>
     </div>
@@ -19,16 +19,11 @@
           <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.errorDetail.requestId') }}</div>
           <div v-if="requestId" class="mt-1 flex items-start gap-1.5">
             <span class="min-w-0 break-all font-mono text-sm font-medium text-af-ink">{{ requestId }}</span>
-            <button
-              type="button"
-              class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
-              :title="t('common.copy')"
-              :aria-label="t('common.copy')"
-              data-testid="error-detail-copy-request-id"
-              @click="copyToClipboard(requestId)"
-            >
-              <Icon name="copy" size="sm" />
-            </button>
+            <CopyButton
+              :text="requestId"
+              class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
+              test-id="error-detail-copy-request-id"
+            />
           </div>
           <div v-else class="mt-1 text-sm font-medium text-af-ink">—</div>
         </div>
@@ -168,7 +163,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="text-xs font-black text-af-ink">
                 #{{ idx + 1 }}
-                <span v-if="ev.type" class="ml-2 rounded-md bg-af-sunken px-2 py-0.5 font-mono text-[10px] font-bold text-af-ink-2">{{ ev.type }}</span>
+                <span v-if="ev.type" class="ml-2 rounded-md bg-af-sunken px-2 py-0.5 font-mono text-xs font-bold text-af-ink-2">{{ ev.type }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="font-mono text-xs text-af-ink-3">
@@ -176,7 +171,7 @@
                 </div>
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-bold text-af-brand hover:bg-af-brand-tint disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-bold text-af-brand hover:bg-af-brand-tint disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="!getUpstreamResponsePreview(ev)"
                   :title="getUpstreamResponsePreview(ev) ? '' : t('common.noData')"
                   @click="toggleUpstreamDetail(ev.id)"
@@ -232,11 +227,12 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { useClipboard } from '@/composables/useClipboard'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
 import { resolveUpstreamPayload } from '../utils/errorDetailResponse'
@@ -257,7 +253,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
 const detail = ref<OpsErrorDetail | null>(null)

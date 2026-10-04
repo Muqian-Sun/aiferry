@@ -43,7 +43,7 @@
         <span class="w-12 flex-shrink-0" :class="STATUS_CLASS[result.status]">{{ t(`admin.accounts.protocolProbe.status.${result.status}`) }}</span>
         <span class="min-w-0 flex-1 text-af-ink-3">{{ describe(result) }}</span>
       </label>
-      <p v-if="protocols.some((r) => r.model)" class="pt-1 text-xs text-af-ink-4">{{ t('admin.accounts.protocolProbe.costNote') }}</p>
+      <p v-if="protocols.some((r) => r.model)" class="pt-1 text-xs text-af-ink-3">{{ t('admin.accounts.protocolProbe.costNote') }}</p>
     </div>
 
     <div v-if="modelsState !== 'idle'" class="mt-2 space-y-1 border-t border-af-hairline pt-2 text-xs" data-testid="upstream-detect-models">
@@ -54,7 +54,7 @@
         <p v-if="classified.listed.length > 0" class="break-words font-mono text-af-ink-3">
           {{ classified.listed.map((match) => match.entry.model_id).join(', ') }}
         </p>
-        <p class="text-af-ink-4">{{ t('admin.accounts.upstreamDetect.referenceOnly') }}</p>
+        <p class="text-af-ink-3">{{ t('admin.accounts.upstreamDetect.referenceOnly') }}</p>
         <slot name="models" :classified="classified" />
       </template>
     </div>
@@ -92,7 +92,7 @@ const { t } = useI18n()
 
 const STATUS_CLASS: Record<ProtocolProbeStatus, string> = {
   supported: 'text-af-success',
-  unsupported: 'text-af-ink-4',
+  unsupported: 'text-af-ink-3',
   unknown: 'text-af-warning'
 }
 

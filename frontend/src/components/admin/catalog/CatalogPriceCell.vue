@@ -8,23 +8,23 @@
   <div class="text-right tabular-nums" data-testid="model-catalog-price">
     <div
       v-if="!priced"
-      :class="entry.status === 'listed' ? 'text-af-danger' : 'text-af-ink-4'"
+      :class="entry.status === 'listed' ? 'text-af-danger' : 'text-af-ink-3'"
       data-testid="model-catalog-price-missing"
     >
       {{ t('admin.modelCatalog.columns.unpriced') }}
     </div>
     <template v-else-if="isToken">
       <div class="text-af-ink">
-        {{ formatListPrice(prices[0], decimals) }} <span class="text-af-ink-4">/</span> {{ formatListPrice(prices[1], decimals) }}
+        {{ formatListPrice(prices[0], decimals) }} <span class="text-af-ink-3">/</span> {{ formatListPrice(prices[1], decimals) }}
       </div>
-      <div class="text-xs text-af-ink-4">
+      <div class="text-xs text-af-ink-3">
         {{ t('admin.modelCatalog.columns.perMillion') }}
         <template v-if="segmentCount"> · {{ t('admin.modelCatalog.columns.segments', { count: segmentCount }) }}</template>
       </div>
     </template>
     <template v-else>
       <div class="text-af-ink">{{ formatListPrice(prices[0], decimals) }}</div>
-      <div class="text-xs text-af-ink-4">
+      <div class="text-xs text-af-ink-3">
         {{ t(`admin.modelCatalog.columns.perUnit.${entry.billing_mode}`) }}
         <template v-if="tierCount"> · {{ t('admin.modelCatalog.columns.tiers', { count: tierCount }) }}</template>
       </div>

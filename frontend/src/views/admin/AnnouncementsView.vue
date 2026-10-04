@@ -81,7 +81,7 @@
           <template #cell-timeRange="{ row }">
             <span class="tabular-nums text-af-ink-2">
               {{ row.starts_at ? formatDateTimeToMinute(row.starts_at) : t('admin.announcements.timeImmediate') }}
-              <span class="mx-1 text-af-ink-4">→</span>
+              <span class="mx-1 text-af-ink-3">→</span>
               {{ row.ends_at ? formatDateTimeToMinute(row.ends_at) : t('admin.announcements.timeNever') }}
             </span>
           </template>

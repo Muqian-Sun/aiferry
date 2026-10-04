@@ -357,7 +357,7 @@ function cancelDelete() {
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
                 <div class="text-xs font-bold text-af-ink">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-af-ink-3">
+                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-xs text-af-ink-3">
                   {{ row.description }}
                 </div>
               </div>
@@ -377,7 +377,7 @@ function cancelDelete() {
                 <button class="btn btn-sm btn-danger" @click="requestDelete(row)">{{ t('common.delete') }}</button>
               </div>
             </div>
-            <div v-if="row.updated_at" class="text-[10px] text-af-ink-3">
+            <div v-if="row.updated_at" class="text-xs text-af-ink-3">
               {{ formatDateTime(row.updated_at) }}
             </div>
           </div>
@@ -385,19 +385,19 @@ function cancelDelete() {
         <table v-else class="min-w-full divide-y divide-af-hairline">
           <thead class="sticky top-0 z-10 bg-af-sunken">
             <tr>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.name') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.metric') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.severity') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.enabled') }}
               </th>
-              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.actions') }}
               </th>
             </tr>
@@ -406,10 +406,10 @@ function cancelDelete() {
             <tr v-for="row in sortedRules" :key="row.id" class="hover:bg-af-sunken">
               <td class="px-4 py-3">
                 <div class="text-xs font-bold text-af-ink">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-af-ink-3">
+                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-xs text-af-ink-3">
                   {{ row.description }}
                 </div>
-                <div v-if="row.updated_at" class="mt-1 text-[10px] text-af-ink-3">
+                <div v-if="row.updated_at" class="mt-1 text-xs text-af-ink-3">
                   {{ formatDateTime(row.updated_at) }}
                 </div>
               </td>

@@ -10,7 +10,7 @@
         :data-testid="`section-tab-${tab.key}`"
       >
         {{ tab.label }}
-        <span v-if="tab.count !== undefined" class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
+        <span v-if="tab.count !== undefined" class="tabular-nums text-af-ink-3">{{ tab.count }}</span>
       </RouterLink>
       <button
         v-else
@@ -22,7 +22,7 @@
         @click="emit('update:modelValue', tab.key)"
       >
         {{ tab.label }}
-        <span v-if="tab.count !== undefined" class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
+        <span v-if="tab.count !== undefined" class="tabular-nums text-af-ink-3">{{ tab.count }}</span>
       </button>
     </template>
   </div>

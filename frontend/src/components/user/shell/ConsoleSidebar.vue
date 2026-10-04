@@ -19,7 +19,7 @@
       <nav class="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden pb-4 pt-5 scrollbar-hide" :class="collapsed ? '' : 'pr-6'" :aria-label="t('userUi.nav.primaryNav')">
         <div v-for="section in sections" :key="section.key" :data-testid="`sidebar-section-${section.key}`">
           <template v-if="section.label">
-            <p v-if="!collapsed" class="mb-1.5 pl-5 text-xs text-af-ink-4">{{ section.label }}</p>
+            <p v-if="!collapsed" class="mb-1.5 pl-5 text-xs text-af-ink-3">{{ section.label }}</p>
             <div v-else class="mb-3 ml-5 h-px w-4 bg-af-hairline-strong" aria-hidden="true" />
           </template>
           <ul class="space-y-0.5">

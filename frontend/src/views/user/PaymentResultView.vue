@@ -4,7 +4,7 @@
     <div class="w-full max-w-md space-y-6 rounded-lg border border-af-hairline bg-af-sheet p-6">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-af-brand border-t-transparent"></div>
+        <LoadingSpinner />
       </div>
       <template v-else>
         <!-- Status Icon -->
@@ -18,7 +18,7 @@
           </div>
           <div v-else-if="isPending"
             class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-af-warning-tint">
-            <div class="h-10 w-10 animate-spin rounded-full border-4 border-af-warning border-t-transparent"></div>
+            <LoadingSpinner />
           </div>
           <div v-else
             class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-af-danger-tint">
@@ -94,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'

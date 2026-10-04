@@ -16,7 +16,7 @@
 
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="loading || resetting"
         :title="countButtonTitle"
         @click="handleQuery()"
@@ -40,7 +40,7 @@
 
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-warning transition-colors hover:bg-af-warning-tint disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-af-warning transition-colors hover:bg-af-warning-tint disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="resetting || loading || !canReset"
         :title="resetButtonTitle"
         @click="openResetConfirm"
@@ -65,7 +65,7 @@
 
     <div
       v-if="autoResetState"
-      class="flex flex-wrap items-center gap-1 text-[10px]"
+      class="flex flex-wrap items-center gap-1 text-xs"
       data-testid="auto-reset-credit-state"
     >
       <span
@@ -92,7 +92,7 @@
     <div v-if="primaryResetCreditExpiry" class="space-y-1">
       <div class="flex flex-wrap items-center gap-1">
         <span
-          class="inline-flex max-w-full items-center rounded bg-af-sunken px-1.5 py-0.5 text-[10px] leading-4 text-af-ink-2 tabular-nums"
+          class="inline-flex max-w-full items-center rounded bg-af-sunken px-1.5 py-0.5 text-xs leading-4 text-af-ink-2 tabular-nums"
           :title="t('admin.accounts.openaiQuotaReset.expiresAtFull', { time: formatResetCreditExpiry(primaryResetCreditExpiry, 'full') })"
         >
           {{ t('admin.accounts.openaiQuotaReset.expiresAt', { time: formatResetCreditExpiry(primaryResetCreditExpiry, 'short') }) }}
@@ -101,7 +101,7 @@
           v-if="hiddenResetCreditCount > 0"
           type="button"
           data-testid="reset-credit-expiry-toggle"
-          class="inline-flex items-center rounded-full bg-af-sunken px-1.5 py-0.5 text-[10px] font-medium leading-4 text-af-ink-2 transition-colors hover:bg-af-hairline"
+          class="inline-flex items-center rounded-full bg-af-sunken px-1.5 py-0.5 text-xs font-medium leading-4 text-af-ink-2 transition-colors hover:bg-af-hairline"
           :aria-expanded="showResetCreditDetails"
           :aria-label="resetCreditDetailsToggleLabel"
           :title="resetCreditDetailsTitle"
@@ -114,7 +114,7 @@
       <div
         v-if="showResetCreditDetails && resetCreditExpirations.length > 1"
         data-testid="reset-credit-expiry-details"
-        class="inline-grid max-w-full gap-0.5 rounded border border-af-hairline bg-af-sheet px-1.5 py-1 text-[10px] leading-4 text-af-ink-2"
+        class="inline-grid max-w-full gap-0.5 rounded border border-af-hairline bg-af-sheet px-1.5 py-1 text-xs leading-4 text-af-ink-2"
       >
         <span class="sr-only">{{ t('admin.accounts.openaiQuotaReset.expirationDetails') }}</span>
         <span
@@ -132,20 +132,20 @@
     <!-- Error / success feedback -->
     <div
       v-if="error"
-      class="text-[10px] text-af-danger"
+      class="text-xs text-af-danger"
       :title="error"
     >
       {{ truncatedError }}
     </div>
     <div
       v-else-if="resetWarning"
-      class="text-[10px] text-af-warning"
+      class="text-xs text-af-warning"
     >
       {{ resetWarning }}
     </div>
     <div
       v-else-if="resetMessage"
-      class="text-[10px] text-af-success"
+      class="text-xs text-af-success"
     >
       {{ resetMessage }}
     </div>

@@ -5,20 +5,7 @@
   -->
   <AppLayout>
     <template #header-actions>
-      <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('payment.admin.dailyRevenue')">
-        <button
-          v-for="d in DAYS_OPTIONS"
-          :key="d"
-          type="button"
-          role="tab"
-          class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-          :class="days === d ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-          :aria-selected="days === d"
-          @click="days = d"
-        >
-          {{ d }}{{ t('payment.admin.daySuffix') }}
-        </button>
-      </div>
+      <SegmentedControl v-model="days" :options="dayOptions" :label="t('payment.admin.dailyRevenue')" />
       <button
         type="button"
         class="btn btn-ghost btn-md px-2.5"
@@ -80,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -95,6 +83,7 @@ import ShareBar from '@/components/charts/ShareBar.vue'
 const { t } = useI18n()
 
 const DAYS_OPTIONS = [7, 30, 90] as const
+const dayOptions = computed(() => DAYS_OPTIONS.map((d) => ({ key: d, label: `${d}${t('payment.admin.daySuffix')}` })))
 const days = ref<number>(30)
 const loading = ref(false)
 const stats = ref<DashboardStats | null>(null)

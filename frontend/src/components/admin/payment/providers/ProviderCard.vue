@@ -19,13 +19,13 @@
           <Icon
             name="server"
             size="sm"
-            :class="provider.enabled && enabled ? 'text-af-success' : 'text-af-ink-4'"
+            :class="provider.enabled && enabled ? 'text-af-success' : 'text-af-ink-3'"
           />
         </div>
         <span class="text-sm font-medium text-af-ink">{{ provider.name }}</span>
-        <span class="text-xs text-af-ink-4">{{ keyLabel }}</span>
-        <span v-if="provider.payment_mode" class="text-xs text-af-ink-4">· {{ modeLabel }}</span>
-        <span v-if="enabled && availableTypes.length" class="text-xs text-af-ink-4">|</span>
+        <span class="text-xs text-af-ink-3">{{ keyLabel }}</span>
+        <span v-if="provider.payment_mode" class="text-xs text-af-ink-3">· {{ modeLabel }}</span>
+        <span v-if="enabled && availableTypes.length" class="text-xs text-af-ink-3">|</span>
         <div v-if="enabled" class="flex items-center gap-1">
           <button
             v-for="pt in availableTypes"
@@ -36,7 +36,7 @@
               'rounded px-2 py-0.5 text-xs font-medium transition-all',
               isSelected(pt.value)
                 ? 'bg-af-brand text-af-on-brand'
-                : 'bg-af-sunken text-af-ink-4',
+                : 'bg-af-sunken text-af-ink-3',
             ]"
           >{{ pt.label }}</button>
         </div>

@@ -31,7 +31,8 @@
       {{ displayDescription }}
     </p>
 
-    <!-- Action：有筛选时没结果，不给「创建第一个」这类引导 -->
+    <!-- Action：有筛选时没结果，不给「创建第一个」这类引导。
+         用次按钮：列表页的页头已经有实心的「新建」，一屏只留一个主按钮（2026-10-04 体验诊断 M5） -->
     <div v-if="!filtered && (actionText || $slots.action)" class="mt-6">
       <slot name="action">
         <component
@@ -39,9 +40,9 @@
           v-if="actionText"
           :to="actionTo"
           @click="!actionTo && $emit('action')"
-          class="btn btn-primary"
+          class="btn btn-secondary"
         >
-          <Icon v-if="actionIcon" name="plus" size="md" class="mr-2" />
+          <Icon v-if="actionIcon" name="plus" size="sm" />
           {{ actionText }}
         </component>
       </slot>

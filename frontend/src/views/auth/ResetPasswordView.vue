@@ -77,7 +77,7 @@
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-af-ink-4" />
+              <Icon name="mail" size="md" class="text-af-ink-3" />
             </div>
             <input
               id="email"
@@ -97,7 +97,7 @@
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-af-ink-4" />
+              <Icon name="lock" size="md" class="text-af-ink-3" />
             </div>
             <input
               id="password"
@@ -113,7 +113,7 @@
             <button
               type="button"
               @click="showPassword = !showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-4 transition-colors hover:text-af-ink"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-3 transition-colors hover:text-af-ink"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
@@ -129,7 +129,7 @@
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-af-ink-4" />
+              <Icon name="lock" size="md" class="text-af-ink-3" />
             </div>
             <input
               id="confirmPassword"
@@ -145,7 +145,7 @@
             <button
               type="button"
               @click="showConfirmPassword = !showConfirmPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-4 transition-colors hover:text-af-ink"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-3 transition-colors hover:text-af-ink"
             >
               <Icon v-if="showConfirmPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />

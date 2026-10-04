@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full">
     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center" :class="compact ? 'pl-2.5' : 'pl-3'">
-      <Icon name="search" :size="compact ? 'sm' : 'md'" class="text-af-ink-4" />
+      <Icon name="search" :size="compact ? 'sm' : 'md'" class="text-af-ink-3" />
     </div>
     <input
       :value="modelValue"

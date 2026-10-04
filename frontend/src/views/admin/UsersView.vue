@@ -248,7 +248,7 @@
               <span class="inline-flex h-5 w-4 flex-col items-center justify-center" aria-hidden="true">
                 <svg
                   class="h-2.5 w-2.5"
-                  :class="usageSort === 'asc' ? 'text-af-brand' : 'text-af-ink-4'"
+                  :class="usageSort === 'asc' ? 'text-af-brand' : 'text-af-ink-3'"
                   fill="currentColor"
                   viewBox="0 0 10 10"
                 >
@@ -256,7 +256,7 @@
                 </svg>
                 <svg
                   class="-mt-0.5 h-2.5 w-2.5"
-                  :class="usageSort === 'desc' ? 'text-af-brand' : 'text-af-ink-4'"
+                  :class="usageSort === 'desc' ? 'text-af-brand' : 'text-af-ink-3'"
                   fill="currentColor"
                   viewBox="0 0 10 10"
                 >
@@ -311,12 +311,12 @@
 
           <template #cell-last_used_at="{ value }">
             <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <template #cell-last_active_at="{ value }">
             <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <template #cell-actions="{ row }">
@@ -884,7 +884,7 @@ const subscriptionDaysLabel = (days: number): string =>
 
 // 剩余 ≤3 天红、≤7 天橙
 const subscriptionDaysClass = (days: number): string => {
-  const base = 'rounded px-1 py-0.5 text-[10px] font-semibold'
+  const base = 'rounded px-1 py-0.5 text-xs font-semibold'
   if (days <= 3) return `${base} bg-af-danger-tint/80 text-af-danger`
   if (days <= 7) return `${base} bg-af-warning-tint/80 text-af-warning`
   return `${base} bg-af-hairline`

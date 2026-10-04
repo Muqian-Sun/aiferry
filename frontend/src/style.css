@@ -140,7 +140,7 @@
     @apply w-full rounded-md px-4 py-2.5 text-sm;
     @apply bg-af-sheet text-af-ink;
     @apply border border-af-hairline-strong;
-    @apply placeholder:text-af-ink-4;
+    @apply placeholder:text-af-ink-3;
     @apply transition-colors duration-150;
     @apply focus:border-af-brand focus:outline-none focus:ring-2 focus:ring-af-brand/30;
     @apply disabled:cursor-not-allowed disabled:bg-af-sunken disabled:text-af-ink-3;
@@ -683,7 +683,7 @@
   }
 
   .sidebar-link-disabled {
-    @apply text-af-ink-4 hover:text-af-ink-3;
+    @apply text-af-ink-3 hover:text-af-ink-2;
   }
 
   .sidebar-link-active::before {
@@ -697,7 +697,7 @@
 
   .sidebar-section-title {
     @apply mb-1 px-3;
-    @apply text-xs font-medium text-af-ink-4;
+    @apply text-xs font-medium text-af-ink-3;
   }
 
   /* ============ 页面头部 ============ */

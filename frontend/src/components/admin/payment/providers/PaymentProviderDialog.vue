@@ -124,7 +124,7 @@
             <template #trigger>
               <button
                 type="button"
-                class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-af-hairline-strong text-[11px] font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover"
+                class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-af-hairline-strong text-xs font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover"
                 :aria-label="t('admin.settings.payment.paymentGuideTrigger')"
                 :title="t('admin.settings.payment.paymentGuideTrigger')"
               >
@@ -139,11 +139,11 @@
                 class="space-y-1.5 border-t border-af-sheet/10 pt-2 first:border-t-0 first:pt-0"
               >
                 <p class="font-medium text-af-on-brand">{{ item.title }}</p>
-                <p><span class="text-af-ink-4">{{ t('admin.settings.payment.guideOpenLabel') }}</span>{{ item.open }}</p>
-                <p><span class="text-af-ink-4">{{ t('admin.settings.payment.guideCallLabel') }}</span>{{ item.call }}</p>
-                <p><span class="text-af-ink-4">{{ t('admin.settings.payment.guideFallbackLabel') }}</span>{{ item.fallback }}</p>
+                <p><span class="text-af-ink-3">{{ t('admin.settings.payment.guideOpenLabel') }}</span>{{ item.open }}</p>
+                <p><span class="text-af-ink-3">{{ t('admin.settings.payment.guideCallLabel') }}</span>{{ item.call }}</p>
+                <p><span class="text-af-ink-3">{{ t('admin.settings.payment.guideFallbackLabel') }}</span>{{ item.fallback }}</p>
               </div>
-              <p v-if="paymentGuide.note" class="border-t border-af-sheet/10 pt-2 text-[11px] text-af-ink-4">
+              <p v-if="paymentGuide.note" class="border-t border-af-sheet/10 pt-2 text-xs text-af-ink-3">
                 {{ paymentGuide.note }}
               </p>
             </div>

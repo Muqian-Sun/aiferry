@@ -74,9 +74,9 @@
             <template #lead>
               <div class="flex items-center gap-1.5">
                 <span class="font-mono text-af-ink">{{ entriesById.get(row.id)?.model_id ?? `#${row.id}` }}</span>
-                <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-[11px] text-af-warning">{{ t('admin.pricing.newRow') }}</span>
+                <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-xs text-af-warning">{{ t('admin.pricing.newRow') }}</span>
               </div>
-              <div v-if="entriesById.get(row.id)?.status === 'unlisted'" class="text-xs text-af-ink-4">{{ t('admin.pricing.status.unlisted') }}</div>
+              <div v-if="entriesById.get(row.id)?.status === 'unlisted'" class="text-xs text-af-ink-3">{{ t('admin.pricing.status.unlisted') }}</div>
             </template>
             <template #upstream>
               <input

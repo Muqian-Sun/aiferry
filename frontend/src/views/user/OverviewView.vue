@@ -13,7 +13,7 @@
   -->
   <SiteShell :title="greeting">
     <template v-if="!isNewUser" #actions>
-      <SectionTabs v-model="rangeKey" :tabs="rangeTabs" :label="t('userUi.overview.range.label')" />
+      <SegmentedControl v-model="rangeKey" :options="rangeTabs" :label="t('userUi.overview.range.label')" />
     </template>
     <div class="space-y-10">
       <!-- 新用户：开始使用 -->
@@ -54,7 +54,7 @@
             <dt class="w-24 shrink-0 pt-2.5 text-13 text-af-ink-3">{{ t('userUi.overview.gettingStarted.example') }}</dt>
             <dd class="min-w-0 flex-1">
               <pre class="overflow-x-auto rounded-md bg-af-sunken px-4 py-3 font-mono text-13 leading-6 text-af-ink-2"><code>{{ example }}</code></pre>
-              <p class="mt-2 text-xs text-af-ink-4">{{ t('userUi.overview.gettingStarted.exampleHint') }}</p>
+              <p class="mt-2 text-xs text-af-ink-3">{{ t('userUi.overview.gettingStarted.exampleHint') }}</p>
             </dd>
             <button type="button" :class="[COPY_BUTTON, 'pt-2.5']" @click="copy('example', example)">
               <Icon :name="copied === 'example' ? 'check' : 'copy'" size="sm" />
@@ -145,20 +145,7 @@
         <!-- ④ 用量趋势 -->
         <SheetSection :title="t('userUi.overview.trend.title')" data-testid="overview-trend">
           <template #actions>
-            <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('userUi.overview.trend.title')">
-              <button
-                v-for="option in trendMetricOptions"
-                :key="option.key"
-                type="button"
-                role="tab"
-                class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-                :class="trendMetric === option.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-                :aria-selected="trendMetric === option.key"
-                @click="trendMetric = option.key"
-              >
-                {{ option.label }}
-              </button>
-            </div>
+            <SegmentedControl v-model="trendMetric" :options="trendMetricOptions" :label="t('userUi.overview.trend.title')" />
           </template>
           <StatusState
             v-if="snapshotError"
@@ -175,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -205,7 +193,6 @@ import { buildCatalog, vendorLabel, type CatalogModel } from '@/components/model
 import { newestFirst } from '@/components/keys/keyCatalog'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
-import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'

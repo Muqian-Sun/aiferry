@@ -78,16 +78,11 @@
             <p class="text-xs text-af-ink-3">{{ t('payment.orders.orderNo') }}</p>
             <p class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-af-ink">
               <span class="break-all font-mono" data-testid="order-detail-out-trade-no">{{ selectedOrder.out_trade_no }}</span>
-              <button
-                type="button"
-                class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-                :title="t('keys.copyToClipboard')"
-                :aria-label="t('keys.copyToClipboard')"
-                data-testid="order-detail-copy-out-trade-no"
-                @click="copyToClipboard(selectedOrder.out_trade_no)"
-              >
-                <Icon name="copy" size="sm" />
-              </button>
+              <CopyButton
+                :text="selectedOrder.out_trade_no"
+                class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
+                test-id="order-detail-copy-out-trade-no"
+              />
             </p>
           </div>
           <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.status') }}</p><OrderStatusBadge :status="selectedOrder.status" /></div>
@@ -141,9 +136,9 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useClipboard } from '@/composables/useClipboard'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
@@ -171,7 +166,6 @@ interface AuditLog {
 }
 
 const { t, te } = useI18n()
-const { copyToClipboard } = useClipboard()
 
 const ordersLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])

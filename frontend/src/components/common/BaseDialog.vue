@@ -20,7 +20,7 @@
             <button
               v-if="showCloseButton"
               @click="emit('close')"
-              class="-mr-2 rounded-md p-2 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-af-sheet"
+              class="-mr-2 rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-af-sheet"
               :aria-label="t('common.close')"
             >
               <Icon name="x" size="md" />

@@ -9,9 +9,17 @@
   <SiteShell>
     <template #actions>
       <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" :preset="datePreset" @change="onDateRangeChange" />
-      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="onRefresh">
-        <Icon name="refresh" size="sm" />
-        {{ t('common.refresh') }}
+      <!-- 与其它页面一样只放图标（悬停有提示），加载时转动 -->
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="loading"
+        :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
+        data-testid="usage-refresh"
+        @click="onRefresh"
+      >
+        <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>
       <PopoverMenu width-class="w-44">
         <template #trigger="{ open }">
@@ -202,14 +210,13 @@
             <DetailField :label="t('userUi.usage.detail.requestId')">
               <span v-if="detailLog.request_id" class="flex items-center gap-2">
                 <code class="min-w-0 truncate font-mono text-xs text-af-ink-2" :title="detailLog.request_id">{{ detailLog.request_id }}</code>
-                <button
-                  type="button"
+                <CopyButton
+                  variant="text"
+                  :text="detailLog.request_id"
+                  :label="t('userUi.usage.detail.copy')"
                   class="shrink-0 text-13 text-af-ink-3 hover:text-af-ink"
-                  data-testid="usage-detail-copy-request-id"
-                  @click="copyToClipboard(detailLog.request_id)"
-                >
-                  {{ t('userUi.usage.detail.copy') }}
-                </button>
+                  test-id="usage-detail-copy-request-id"
+                />
               </span>
               <template v-else>—</template>
             </DetailField>
@@ -231,6 +238,7 @@
 </template>
 
 <script setup lang="ts">
+import CopyButton from '@/components/common/CopyButton.vue'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -259,7 +267,6 @@ import UsageCostBreakdown from '@/components/usage/UsageCostBreakdown.vue'
 import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
 import Icon from '@/components/icons/Icon.vue'
 import UserErrorRequestsTable from '@/components/user/UserErrorRequestsTable.vue'
-import { useClipboard } from '@/composables/useClipboard'
 import { useColumnSettings } from '@/composables/useColumnSettings'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCurrency, formatDateTime, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
@@ -299,7 +306,6 @@ const appStore = useAppStore()
 // 单测里不装路由：拿不到就当没有地址栏参数、也不回写
 const route = useRoute() as ReturnType<typeof useRoute> | undefined
 const router = useRouter() as ReturnType<typeof useRouter> | undefined
-const { copyToClipboard } = useClipboard()
 
 const usageStats = ref<UsageStatsResponse | null>(null)
 const usageLogs = ref<UsageLog[]>([])

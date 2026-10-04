@@ -77,7 +77,7 @@
         >
           <div class="flex items-center justify-between font-mono text-[11px]">
             <span class="text-af-ink-3">{{ t('userUi.home.features.figure.cache.request') }} {{ index + 1 }}</span>
-            <span :class="row.hit ? 'text-af-brand' : 'text-af-ink-4'">{{ t('userUi.home.features.figure.cache.hit') }} {{ row.hit }}%</span>
+            <span :class="row.hit ? 'text-af-brand' : 'text-af-ink-3'">{{ t('userUi.home.features.figure.cache.hit') }} {{ row.hit }}%</span>
           </div>
           <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-af-sunken">
             <div class="fig-cache-bar h-full rounded-full bg-af-brand" />

@@ -48,7 +48,7 @@ export default {
       probeProgress: '配置校验 ✓ · 请求已发送 · 等待服务响应…', probeResult: '配置校验 ✓ · 请求 ✓ · HTTP {http} · {status} · {latency} ms',
       name: '节点名称', baseUrl: 'Base URL', apiKey: 'API 密钥', keepSecret: '留空以保留已保存的 API 密钥', reenterSecret: '已保存的 API 密钥无法解密（加密密钥已变更），请重新输入',
       secretHint: '明文只在本次编辑内存中存在；保存成功后会立即清除。', clearSecret: '显式清除已保存的 API 密钥', timeout: '总超时（毫秒）', inputLimit: '单片 Unicode 字符上限',
-      toggleNode: '切换节点 {name}', deleteConfirm: '从草稿中删除节点“{name}”？保存配置后生效。',
+      toggleNode: '切换节点 {name}',
     },
     policy: {
       title: '审计策略', description: '配置九类输入风险、工作线程数与队列上限。',

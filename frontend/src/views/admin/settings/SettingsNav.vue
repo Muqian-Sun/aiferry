@@ -41,7 +41,7 @@ const { t } = useI18n()
 }
 
 .settings-nav-title {
-  @apply hidden text-xs text-af-ink-4 lg:mb-1 lg:block;
+  @apply hidden text-xs text-af-ink-3 lg:mb-1 lg:block;
 }
 
 .settings-nav-link {

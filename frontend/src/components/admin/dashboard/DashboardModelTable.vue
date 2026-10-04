@@ -24,14 +24,14 @@
           <tr class="cursor-pointer border-t border-af-hairline transition-colors hover:bg-af-sunken" @click="toggle(model.model)">
             <td class="max-w-[260px] py-2 pr-3">
               <span class="flex min-w-0 items-center gap-2 font-medium text-af-ink" :title="model.model">
-                <Icon :name="expanded === model.model ? 'chevronDown' : 'chevronRight'" size="xs" class="shrink-0 text-af-ink-4" />
+                <Icon :name="expanded === model.model ? 'chevronDown' : 'chevronRight'" size="xs" class="shrink-0 text-af-ink-3" />
                 <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ background: modelSwatchColor(series, model.model) }" aria-hidden="true" />
                 <span class="truncate">{{ model.model }}</span>
               </span>
             </td>
             <td class="py-2 text-right tabular-nums text-af-ink-2">{{ formatCount(model.requests) }}</td>
             <td class="py-2 text-right tabular-nums text-af-ink">
-              {{ formatTokens(model.total_tokens) }} <span class="text-af-ink-4">{{ formatShare(model.total_tokens) }}</span>
+              {{ formatTokens(model.total_tokens) }} <span class="text-af-ink-3">{{ formatShare(model.total_tokens) }}</span>
             </td>
             <td class="py-2 text-right tabular-nums text-af-ink">{{ formatMoney(model.actual_cost) }}</td>
             <td class="py-2 text-right tabular-nums text-af-ink-3">{{ formatMoney(model.account_cost) }}</td>

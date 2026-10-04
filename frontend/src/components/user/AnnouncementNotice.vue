@@ -33,7 +33,7 @@
                   aria-hidden="true"
                 />
                 <h3 class="min-w-0 flex-1 text-base font-semibold text-af-ink">{{ item.title }}</h3>
-                <time class="shrink-0 text-xs tabular-nums text-af-ink-4" :datetime="item.created_at">{{ formatDateOnly(item.created_at) }}</time>
+                <time class="shrink-0 text-xs tabular-nums text-af-ink-3" :datetime="item.created_at">{{ formatDateOnly(item.created_at) }}</time>
               </div>
               <div class="markdown-body mt-3 pl-[18px]" v-html="render(item.content)"></div>
             </article>

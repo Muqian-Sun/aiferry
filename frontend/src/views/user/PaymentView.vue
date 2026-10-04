@@ -7,7 +7,7 @@
   <div>
     <div :class="['space-y-8', mode === 'recharge' || selectedPlan ? 'max-w-form' : '']">
       <div v-if="loading" class="flex items-center justify-center py-16" role="status" aria-busy="true">
-        <div class="h-6 w-6 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
+        <LoadingSpinner />
       </div>
 
       <!-- 支付中：充值与订阅共用 -->
@@ -110,7 +110,7 @@
               </div>
               <div class="mt-2 flex items-baseline gap-2">
                 <span class="text-2xl font-semibold tabular-nums text-af-ink">{{ formatUsd(selectedPlan.price) }}</span>
-                <span v-if="selectedPlan.original_price" class="text-sm tabular-nums text-af-ink-4 line-through">
+                <span v-if="selectedPlan.original_price" class="text-sm tabular-nums text-af-ink-3 line-through">
                   {{ formatUsd(selectedPlan.original_price) }}
                 </span>
                 <span class="text-13 text-af-ink-3">/ {{ planValiditySuffix }}</span>
@@ -119,23 +119,23 @@
               <!-- 续费时套餐的模型与额度已在上方订阅面板里，这里不重复 -->
               <dl v-if="renewPlanId == null" class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-13 sm:grid-cols-3">
                 <div class="col-span-2 sm:col-span-3" data-testid="checkout-plan-models">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
+                  <dt class="text-af-ink-3">{{ t('payment.planCard.models') }}</dt>
                   <dd class="font-medium text-af-ink-2">{{ (selectedPlan.models || []).map(m => m.display_name || m.model_id).join(' / ') || '-' }}</dd>
                 </div>
                 <div v-if="selectedPlan.daily_limit_usd != null">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.dailyLimit') }}</dt>
+                  <dt class="text-af-ink-3">{{ t('payment.planCard.dailyLimit') }}</dt>
                   <dd class="font-medium tabular-nums text-af-ink-2">${{ selectedPlan.daily_limit_usd }}</dd>
                 </div>
                 <div v-if="selectedPlan.weekly_limit_usd != null">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.weeklyLimit') }}</dt>
+                  <dt class="text-af-ink-3">{{ t('payment.planCard.weeklyLimit') }}</dt>
                   <dd class="font-medium tabular-nums text-af-ink-2">${{ selectedPlan.weekly_limit_usd }}</dd>
                 </div>
                 <div v-if="selectedPlan.monthly_limit_usd != null">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.monthlyLimit') }}</dt>
+                  <dt class="text-af-ink-3">{{ t('payment.planCard.monthlyLimit') }}</dt>
                   <dd class="font-medium tabular-nums text-af-ink-2">${{ selectedPlan.monthly_limit_usd }}</dd>
                 </div>
                 <div v-if="selectedPlan.daily_limit_usd == null && selectedPlan.weekly_limit_usd == null && selectedPlan.monthly_limit_usd == null">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.quota') }}</dt>
+                  <dt class="text-af-ink-3">{{ t('payment.planCard.quota') }}</dt>
                   <dd class="font-medium text-af-ink-2">{{ t('payment.planCard.unlimited') }}</dd>
                 </div>
               </dl>
@@ -220,6 +220,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'

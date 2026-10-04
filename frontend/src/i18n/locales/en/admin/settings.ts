@@ -219,9 +219,13 @@ export default {
       leaveTitle: 'You have unsaved changes',
       leaveMessage: 'Leaving now discards the changes you have not saved.',
       stay: 'Stay here',
-      settingsSaved: 'Settings saved successfully',
+      settingsSaved: 'Saved',
       failedToLoad: 'Failed to load settings',
       failedToSave: 'Failed to save settings',
+      retry: 'Retry',
+      errors: {
+        INVALID_PROFIT_CONTROL: 'Minimum margin must be between 0 and 0.99 (0.30 = 30%)'
+      },
     },
 
     // Error Passthrough Rules

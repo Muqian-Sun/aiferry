@@ -5,7 +5,7 @@
   -->
   <div class="group/usage relative inline-flex items-center gap-1.5 text-sm">
     <span class="font-medium tabular-nums text-af-ink">{{ formatMoney(total) }}</span>
-    <Icon v-if="showBreakdown" name="infoCircle" size="xs" class="text-af-ink-4" />
+    <Icon v-if="showBreakdown" name="infoCircle" size="xs" class="text-af-ink-3" />
 
     <!-- 平时 display:none 而不是透明：透明的浮层照样占位，手机宽会把整页撑出横向滚动。
          手机宽（列表是卡片、数字靠右）浮层出在下方、右对齐；md 起（表格）出在右侧 -->
@@ -13,7 +13,7 @@
       v-if="showBreakdown"
       class="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden min-w-[180px] whitespace-nowrap rounded-md bg-af-ink px-3 py-2 text-xs text-af-on-brand shadow-xl group-hover/usage:block md:left-full md:right-auto md:top-0 md:ml-2 md:mt-0"
     >
-      <div class="mb-1.5 border-b border-af-sheet/10 pb-1 text-[11px] opacity-80">
+      <div class="mb-1.5 border-b border-af-sheet/10 pb-1 text-xs opacity-80">
         {{ t('admin.users.platformBreakdown') }}
       </div>
       <div

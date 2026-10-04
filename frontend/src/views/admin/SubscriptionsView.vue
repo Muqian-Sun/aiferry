@@ -20,7 +20,7 @@
             <Icon
               name="search"
               size="sm"
-              class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-af-ink-4"
+              class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-af-ink-3"
             />
             <input
               v-model="filterUserKeyword"
@@ -163,7 +163,7 @@
               <div class="truncate font-medium text-af-ink">{{ row.plan.name }}</div>
               <div class="whitespace-nowrap text-xs text-af-ink-3">{{ formatPlanLimits(row.plan) }}</div>
             </div>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <template #cell-api_key="{ row }">
@@ -171,7 +171,7 @@
               <div class="truncate text-af-ink-2">{{ row.api_key.name }}</div>
               <code class="font-mono text-xs text-af-ink-3">{{ row.api_key.key_masked }}</code>
             </div>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <!-- 用量：日 / 周 / 月三条细进度条，常态墨色，≥70% 橙、≥90% 红 -->
@@ -189,7 +189,7 @@
                   </div>
                   <span class="usage-amount">
                     ${{ row.daily_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-4">/ ${{ row.plan?.daily_limit_usd?.toFixed(2) }}</span>
+                    <span class="text-af-ink-3">/ ${{ row.plan?.daily_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.daily_window_start">{{ formatDailyUsageWindow(row) }}</div>
@@ -207,7 +207,7 @@
                   </div>
                   <span class="usage-amount">
                     ${{ row.weekly_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-4">/ ${{ row.plan?.weekly_limit_usd?.toFixed(2) }}</span>
+                    <span class="text-af-ink-3">/ ${{ row.plan?.weekly_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.weekly_window_start">{{ formatResetTime(row.weekly_window_start, 'weekly') }}</div>
@@ -225,7 +225,7 @@
                   </div>
                   <span class="usage-amount">
                     ${{ row.monthly_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-4">/ ${{ row.plan?.monthly_limit_usd?.toFixed(2) }}</span>
+                    <span class="text-af-ink-3">/ ${{ row.plan?.monthly_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.monthly_window_start">{{ formatResetTime(row.monthly_window_start, 'monthly') }}</div>
@@ -1389,6 +1389,6 @@ onUnmounted(() => {
 
 /* 重置倒计时：跟在进度条下面、与条左端对齐 */
 .reset-info {
-  @apply pl-10 text-[11px] text-af-ink-4;
+  @apply pl-10 text-xs text-af-ink-3;
 }
 </style>

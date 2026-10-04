@@ -42,7 +42,7 @@ const colorClass = computed(() => {
     primary: 'text-af-brand',
     secondary: 'text-af-ink-3',
     white: 'text-af-on-brand',
-    gray: 'text-af-ink-4'
+    gray: 'text-af-ink-3'
   }
   return colors[props.color]
 })

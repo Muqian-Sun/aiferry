@@ -26,7 +26,7 @@
           <span class="text-3xl font-semibold tabular-nums tracking-[-0.02em] text-af-ink">{{ plan.price }}</span>
           <span class="ml-1.5 text-13 text-af-ink-3">/ {{ validitySuffix }}</span>
         </div>
-        <p v-if="plan.original_price" class="mt-1 text-xs text-af-ink-4">
+        <p v-if="plan.original_price" class="mt-1 text-xs text-af-ink-3">
           <span class="line-through">{{ planCurrencySymbol }}{{ plan.original_price }}</span>
           <span v-if="discountText" class="ml-1.5 font-medium text-af-ink-2">{{ discountText }}</span>
         </p>
@@ -61,7 +61,7 @@
 
       <ul v-if="plan.features.length > 0" class="mt-4 space-y-1.5">
         <li v-for="feature in plan.features" :key="feature" class="flex items-start gap-2 text-13 text-af-ink-2">
-          <Icon name="check" size="xs" class="mt-1 shrink-0 text-af-ink-4" />
+          <Icon name="check" size="xs" class="mt-1 shrink-0 text-af-ink-3" />
           <span>{{ feature }}</span>
         </li>
       </ul>
@@ -76,7 +76,7 @@
     >
       {{ isRenewal ? t('payment.renewNow') : t('payment.subscribeNow') }}
     </button>
-    <p v-if="blocked" class="mt-2 text-center text-xs text-af-ink-4" data-testid="plan-blocked">{{ t('payment.planCard.blockedByActive') }}</p>
+    <p v-if="blocked" class="mt-2 text-center text-xs text-af-ink-3" data-testid="plan-blocked">{{ t('payment.planCard.blockedByActive') }}</p>
   </div>
 </template>
 

@@ -1,9 +1,15 @@
 <template>
   <AppLayout>
     <template v-if="!loading" #header-actions>
-      <button type="button" class="btn btn-secondary btn-md" :disabled="statusLoading" @click="loadStatus(false)">
-        <Icon name="refresh" size="sm" :class="statusLoading ? 'animate-spin' : ''" />
-        {{ t('admin.riskControl.refreshStatus') }}
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="statusLoading"
+        :title="t('admin.riskControl.refreshStatus')"
+        :aria-label="t('admin.riskControl.refreshStatus')"
+        @click="loadStatus(false)"
+      >
+        <Icon name="refresh" size="md" :class="statusLoading ? 'animate-spin' : ''" />
       </button>
       <button type="button" class="btn btn-primary btn-md" @click="openSettings">
         <Icon name="cog" size="sm" />
@@ -13,7 +19,7 @@
 
     <div class="space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-16">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
+        <LoadingSpinner />
       </div>
 
       <template v-else>
@@ -315,7 +321,7 @@
                         @click="openInputDetail(row)"
                       >
                         <span class="min-w-0 flex-1 truncate">{{ inputSummaryText(row) }}</span>
-                        <Icon name="eye" size="xs" class="flex-shrink-0 text-af-ink-4 transition-colors group-hover:text-af-brand-hover" />
+                        <Icon name="eye" size="xs" class="flex-shrink-0 text-af-ink-3 transition-colors group-hover:text-af-brand-hover" />
                       </button>
                     </td>
                   </tr>
@@ -557,13 +563,13 @@
                       <p class="text-sm font-semibold text-af-ink">{{ t('admin.riskControl.apiKeyHealth') }}</p>
                       <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.riskControl.apiKeyFreezeRule') }}</p>
                     </div>
-                    <span class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-af-sheet px-2 py-0.5 text-[11px] font-medium leading-5 text-af-ink-2">
+                    <span class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-af-sheet px-2 py-0.5 text-xs font-medium leading-5 text-af-ink-2">
                       {{ t('admin.riskControl.apiKeyRows', { count: apiKeyRows.length }) }}
                     </span>
                   </div>
 
                   <div v-if="apiKeyRows.length === 0" class="flex min-h-32 flex-col items-center justify-center rounded-lg border border-dashed border-af-hairline bg-af-sheet px-4 py-6 text-center">
-                    <Icon name="infoCircle" size="lg" class="text-af-ink-4" />
+                    <Icon name="infoCircle" size="lg" class="text-af-ink-3" />
                     <p class="mt-2 text-sm font-medium text-af-ink-2">{{ t('admin.riskControl.apiKeyHealthEmpty') }}</p>
                     <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.riskControl.apiKeyHealthEmptyHint') }}</p>
                   </div>
@@ -580,7 +586,7 @@
                             <div class="flex min-w-0 flex-wrap items-center gap-2">
                               <span class="truncate font-mono text-sm font-semibold text-af-ink">{{ row.masked || '-' }}</span>
                               <span
-                                class="inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+                                class="inline-flex rounded-md px-1.5 py-0.5 text-xs font-medium"
                                 :class="row.configured ? 'bg-af-brand-tint text-af-brand' : 'bg-af-sunken text-af-ink-2'"
                               >
                                 {{ isStoredApiKeyPendingDelete(row) ? t('admin.riskControl.apiKeyPendingDelete') : row.configured ? t('admin.riskControl.apiKeyConfigured') : t('admin.riskControl.apiKeyTemporary') }}
@@ -747,7 +753,7 @@
                     type="button"
                     class="btn btn-secondary inline-flex items-center justify-center gap-2 text-af-danger hover:text-af-danger"
                     :disabled="hashActionLoading || (status?.flagged_hash_count ?? 0) === 0"
-                    @click="clearFlaggedHashes"
+                    @click="clearHashesConfirm = true"
                   >
                     <Icon name="trash" size="sm" :class="hashActionLoading ? 'animate-pulse' : ''" />
                     {{ t('admin.riskControl.clearFlaggedHashes') }}
@@ -1035,14 +1041,30 @@
         </template>
       </BaseDialog>
     </div>
+    <!-- 清空风险哈希：站内确认框（原来是浏览器原生 confirm），失败就地写出来 -->
+    <ConfirmDialog
+      :show="clearHashesConfirm"
+      :title="t('admin.riskControl.clearFlaggedHashesTitle')"
+      :message="t('admin.riskControl.clearFlaggedHashesConfirm')"
+      :confirm-text="t('admin.riskControl.clearFlaggedHashes')"
+      danger
+      :loading="hashActionLoading"
+      @confirm="clearFlaggedHashes"
+      @cancel="clearHashesConfirm = false"
+    >
+      <FormError :message="clearHashesError" />
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
@@ -1792,16 +1814,19 @@ async function deleteFlaggedHash() {
   }
 }
 
+const clearHashesConfirm = ref(false)
+const clearHashesError = ref('')
+watch(clearHashesConfirm, (open) => { if (open) clearHashesError.value = '' })
+
 async function clearFlaggedHashes() {
   if (hashActionLoading.value) return
-  const confirmed = window.confirm(t('admin.riskControl.clearFlaggedHashesConfirm'))
-  if (!confirmed) return
   hashActionLoading.value = true
   try {
     await adminAPI.riskControl.clearFlaggedHashes()
+    clearHashesConfirm.value = false
     await loadStatus(true)
   } catch (err: unknown) {
-    console.error(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')), err)
+    clearHashesError.value = extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed'))
   } finally {
     hashActionLoading.value = false
   }

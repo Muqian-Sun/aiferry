@@ -4,9 +4,7 @@
     <div class="custom-page-layout">
       <div class="relative min-h-0 flex-1 overflow-hidden">
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
-          <div
-            class="h-8 w-8 animate-spin rounded-full border-2 border-af-brand border-t-transparent"
-          ></div>
+          <LoadingSpinner />
         </div>
 
         <div
@@ -17,7 +15,7 @@
             <div
               class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-af-ink-4" />
+              <Icon name="link" size="lg" class="text-af-ink-3" />
             </div>
             <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notFoundTitle') }}
@@ -83,7 +81,7 @@
             <div
               class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-af-ink-4" />
+              <Icon name="link" size="lg" class="text-af-ink-3" />
             </div>
             <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notConfiguredTitle') }}
@@ -127,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useResizeObserver } from '@vueuse/core'
@@ -457,7 +456,7 @@ onMounted(async () => {
 }
 
 .toc-close-btn {
-  @apply rounded p-1 text-af-ink-4 transition-colors hover:bg-af-hairline hover:text-af-ink-2;
+  @apply rounded p-1 text-af-ink-3 transition-colors hover:bg-af-hairline hover:text-af-ink-2;
 }
 
 .toc-nav {

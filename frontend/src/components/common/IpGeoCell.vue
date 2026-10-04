@@ -11,7 +11,7 @@
 
   <div
     v-else-if="entry.status === 'loading'"
-    class="mt-0.5 flex items-center gap-1 text-xs text-af-ink-4"
+    class="mt-0.5 flex items-center gap-1 text-xs text-af-ink-3"
   >
     <svg class="h-3 w-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -35,7 +35,7 @@
     </button>
     <button
       type="button"
-      class="text-af-ink-4 transition-colors hover:text-af-ink"
+      class="text-af-ink-3 transition-colors hover:text-af-ink"
       :title="t('usage.ipGeo.refreshTitle')"
       @click.stop="handleRefresh"
     >
@@ -53,7 +53,7 @@
     </button>
   </div>
 
-  <div v-else class="mt-0.5 text-xs text-af-ink-4">
+  <div v-else class="mt-0.5 text-xs text-af-ink-3">
     {{ t('usage.ipGeo.private') }}
   </div>
 </template>

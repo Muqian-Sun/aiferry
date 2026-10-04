@@ -2,6 +2,7 @@ export default {
   pricing: {
     description: 'Official prices and each channel’s upstream price. Adding a channel to a model makes that channel serve the model.',
     views: {
+      label: 'View',
       model: 'By model',
       channel: 'By channel'
     },

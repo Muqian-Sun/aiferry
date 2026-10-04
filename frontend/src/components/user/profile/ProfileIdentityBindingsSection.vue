@@ -10,7 +10,7 @@
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex min-w-0 flex-1 items-start gap-4">
             <!-- 登录方式标识：真品牌标（有的话）或线性图标，不再是灰底字母方块 -->
-            <div class="flex h-9 w-6 shrink-0 items-center justify-center" :class="item.bound ? 'text-af-ink' : 'text-af-ink-4'">
+            <div class="flex h-9 w-6 shrink-0 items-center justify-center" :class="item.bound ? 'text-af-ink' : 'text-af-ink-3'">
               <ProviderMark :provider="item.provider" />
             </div>
 

@@ -39,7 +39,7 @@
     <div class="p-4">
       <!-- Loading -->
       <div v-if="loading && !providers.length" class="flex items-center justify-center py-6">
-        <div class="h-5 w-5 animate-spin rounded-full border-2 border-af-brand border-t-transparent" />
+        <LoadingSpinner size="sm" />
       </div>
 
       <!-- Provider cards (draggable) -->
@@ -52,7 +52,7 @@
         @end="onDragEnd"
       >
         <div v-for="p in localProviders" :key="p.id" class="flex items-start gap-2">
-          <div class="drag-handle mt-3 flex cursor-grab items-center text-af-ink-4 hover:text-af-ink-3 active:cursor-grabbing">
+          <div class="drag-handle mt-3 flex cursor-grab items-center text-af-ink-3 hover:text-af-ink-2 active:cursor-grabbing">
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
             </svg>
@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'

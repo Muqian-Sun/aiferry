@@ -55,13 +55,13 @@
                         <span v-if="!item.read_at" class="badge badge-primary">{{ t('announcements.unread') }}</span>
                       </span>
                     </span>
-                    <Icon name="chevronRight" size="sm" class="shrink-0 text-af-ink-4" />
+                    <Icon name="chevronRight" size="sm" class="shrink-0 text-af-ink-3" />
                   </button>
                 </li>
               </ul>
 
               <div v-else class="flex flex-col items-center justify-center py-16 text-center">
-                <Icon name="inbox" size="lg" class="text-af-ink-4" />
+                <Icon name="inbox" size="lg" class="text-af-ink-3" />
                 <p class="mt-3 text-sm font-medium text-af-ink">{{ t('announcements.empty') }}</p>
                 <p class="mt-1 text-xs text-af-ink-3">{{ t('announcements.emptyDescription') }}</p>
               </div>

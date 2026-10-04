@@ -7,7 +7,7 @@
     </span>
     <span class="w-9 shrink-0 text-right tabular-nums" :class="LEVEL_TEXT[level]">{{ Math.round(meter.ratio * 100) }}%</span>
   </div>
-  <div v-else class="text-xs text-af-ink-4">{{ t('keys.noLimit') }}</div>
+  <div v-else class="text-xs text-af-ink-3">{{ t('keys.noLimit') }}</div>
 </template>
 
 <script setup lang="ts">

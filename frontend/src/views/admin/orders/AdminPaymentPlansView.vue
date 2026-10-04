@@ -48,7 +48,7 @@
           <template #cell-price="{ value, row }">
             <div class="whitespace-nowrap tabular-nums">
               <span class="font-medium text-af-ink">${{ (value ?? 0).toFixed(2) }}</span>
-              <span v-if="row.original_price" class="ml-1 text-xs text-af-ink-4 line-through">${{ row.original_price.toFixed(2) }}</span>
+              <span v-if="row.original_price" class="ml-1 text-xs text-af-ink-3 line-through">${{ row.original_price.toFixed(2) }}</span>
             </div>
           </template>
           <template #cell-validity_days="{ value, row }">

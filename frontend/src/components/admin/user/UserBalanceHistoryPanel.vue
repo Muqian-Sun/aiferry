@@ -50,7 +50,7 @@
             {{ formatValue(item) }}
           </p>
           <p v-if="isAdminType(item.type)" class="text-xs text-af-ink-3">{{ t('redeem.adminAdjustment') }}</p>
-          <p v-else-if="item.code" class="font-mono text-xs text-af-ink-4" :title="item.code">{{ item.code.slice(0, 8) }}…</p>
+          <p v-else-if="item.code" class="font-mono text-xs text-af-ink-3" :title="item.code">{{ item.code.slice(0, 8) }}…</p>
         </div>
       </li>
     </ul>

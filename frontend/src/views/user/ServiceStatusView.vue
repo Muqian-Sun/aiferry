@@ -130,7 +130,7 @@
         </template>
       </SheetSection>
 
-      <p class="text-xs text-af-ink-4">{{ t('userUi.serviceStatus.footnote') }}</p>
+      <p class="text-xs text-af-ink-3">{{ t('userUi.serviceStatus.footnote') }}</p>
     </div>
   </SiteShell>
 </template>
@@ -151,7 +151,7 @@ import StatRow from '@/components/user/shell/StatRow.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab, StatItem } from '@/components/user/shell/types'
 import SearchInput from '@/components/common/SearchInput.vue'
-import SegmentedControl from '@/components/user/status/SegmentedControl.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import ServiceStatusStrip from '@/components/user/status/ServiceStatusStrip.vue'
 import ServiceStatusTrend, { type ServiceTrendMetric } from '@/components/user/status/ServiceStatusTrend.vue'
 import {

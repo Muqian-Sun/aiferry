@@ -16,7 +16,7 @@
         <div>
           <label class="input-label">
             {{ t('profile.balanceNotify.threshold') }}
-            <span class="text-xs text-af-ink-4 ml-2">{{ t('profile.balanceNotify.thresholdHint') }}</span>
+            <span class="text-xs text-af-ink-3 ml-2">{{ t('profile.balanceNotify.thresholdHint') }}</span>
           </label>
           <div class="flex items-center gap-2">
             <span class="text-af-ink-3">$</span>
@@ -68,11 +68,11 @@
                     <button @click="verifySavedEmail(entry.email)" :disabled="!verifyCode || verifyCode.length !== 6 || verifyingSaved" class="text-xs text-af-brand hover:text-af-brand">
                       {{ t('profile.balanceNotify.verify') }}
                     </button>
-                    <span v-if="verifyCountdown > 0" class="text-xs text-af-ink-4">{{ verifyCountdown }}s</span>
+                    <span v-if="verifyCountdown > 0" class="text-xs text-af-ink-3">{{ verifyCountdown }}s</span>
                     <button v-else @click="sendCodeForSaved(entry.email)" :disabled="sendingSavedCode" class="text-xs text-af-ink-3 hover:text-af-ink-2">
                       {{ t('profile.balanceNotify.resend') }}
                     </button>
-                    <button @click="verifyingEmail = ''" class="text-xs text-af-ink-4 hover:text-af-ink-2">
+                    <button @click="verifyingEmail = ''" class="text-xs text-af-ink-3 hover:text-af-ink-2">
                       {{ t('common.cancel') }}
                     </button>
                   </template>
@@ -116,7 +116,7 @@
                 <button @click="verifyPending(idx)" :disabled="!pe.code || pe.code.length !== 6 || pe.verifying" class="text-xs text-af-brand hover:text-af-brand">
                   {{ t('profile.balanceNotify.verify') }}
                 </button>
-                <span v-if="pe.countdown > 0" class="text-xs text-af-ink-4">{{ pe.countdown }}s</span>
+                <span v-if="pe.countdown > 0" class="text-xs text-af-ink-3">{{ pe.countdown }}s</span>
                 <button v-else @click="sendCodeFor(idx)" :disabled="pe.sending" class="text-xs text-af-ink-3 hover:text-af-ink-2">
                   {{ t('profile.balanceNotify.resend') }}
                 </button>
@@ -141,7 +141,7 @@
               {{ t('common.add') }}
             </button>
           </div>
-          <p v-else class="text-xs text-af-ink-4">
+          <p v-else class="text-xs text-af-ink-3">
             {{ t('profile.balanceNotify.maxEmailsReached') }}
           </p>
         </div>

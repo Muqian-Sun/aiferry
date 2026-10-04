@@ -111,6 +111,7 @@
 import { computed, defineComponent, h, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
+import CopyButton from '@/components/common/CopyButton.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import type { PromptAuditEvent, PromptEventFilters } from '../types'
 import { cloneData, emptyEventFilters, SCANNER_CATALOG } from '../viewModel'
@@ -172,10 +173,10 @@ const CopyLine = defineComponent({
     return () => h('div', { class: 'flex max-w-56 items-center gap-1 text-xs' }, [
       h('span', { class: 'w-16 flex-none text-af-ink-3' }, componentProps.label),
       h('span', { class: 'min-w-0 flex-1 truncate text-af-ink' }, componentProps.value || '—'),
-      componentProps.value ? h('button', {
-        type: 'button', class: 'text-af-brand hover:underline', 'aria-label': `${t('common.copy')} ${componentProps.label}`,
-        onClick: () => navigator.clipboard?.writeText(componentProps.value),
-      }, t('common.copy')) : null,
+      // 复制后文字换成「已复制」（原来点了没有反馈）
+      componentProps.value ? h(CopyButton, {
+        variant: 'text', class: 'text-af-brand hover:underline', text: componentProps.value,
+      }) : null,
     ])
   },
 })

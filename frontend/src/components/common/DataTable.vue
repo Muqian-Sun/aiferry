@@ -21,7 +21,7 @@
             <Icon
               name="inbox"
               size="xl"
-              class="mb-4 h-12 w-12 text-af-ink-4"
+              class="mb-4 h-12 w-12 text-af-ink-3"
             />
             <p class="text-lg font-medium text-af-ink">
               {{ t('empty.noData') }}
@@ -194,7 +194,7 @@
                 <Icon
                   name="inbox"
                   size="xl"
-                  class="mb-4 h-12 w-12 text-af-ink-4"
+                  class="mb-4 h-12 w-12 text-af-ink-3"
                 />
                 <p class="text-lg font-medium text-af-ink">
                   {{ t('empty.noData') }}
@@ -571,7 +571,7 @@ const applySortState = (state: PersistedSortState | null) => {
 const getSortIndicatorClass = (key: string, order: 'asc' | 'desc') => {
   return sortKey.value === key && sortOrder.value === order
     ? 'text-af-brand'
-    : 'text-af-ink-4 transition-colors'
+    : 'text-af-ink-3 transition-colors'
 }
 
 const getColumnAriaSort = (key: string) => {

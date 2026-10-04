@@ -20,7 +20,7 @@
           :placeholder="issues.missing.includes(key) ? t('admin.pricing.required') : ''"
           :test-id="testId ? `${testId}-${key}` : undefined"
         />
-        <span v-if="refs" class="mt-0.5 text-[11px] tabular-nums text-af-ink-4">
+        <span v-if="refs" class="mt-0.5 text-xs tabular-nums text-af-ink-3">
           {{ refs[key] == null ? t('admin.pricing.officialUnset') : t('admin.pricing.officialRef', { price: formatPerMillion(refs[key]) }) }}
         </span>
       </div>
@@ -73,7 +73,7 @@
             :placeholder="issues.missing.includes(key) ? t('admin.pricing.required') : (searchPlaceholders?.[key] ?? '')"
             :test-id="testId ? `${testId}-${key}` : undefined"
           />
-          <p v-if="searchHints?.[key]" class="mt-0.5 text-[11px] tabular-nums text-af-ink-4">{{ searchHints[key] }}</p>
+          <p v-if="searchHints?.[key]" class="mt-0.5 text-xs tabular-nums text-af-ink-3">{{ searchHints[key] }}</p>
         </div>
       </div>
     </td>

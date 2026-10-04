@@ -39,7 +39,7 @@
               {{ t('admin.scheduledTests.cronExpression') }}
               <HelpTooltip>
                 <template #trigger>
-                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-[10px] font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
+                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-xs font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
                     ?
                   </span>
                 </template>
@@ -65,7 +65,7 @@
               {{ t('admin.scheduledTests.maxResults') }}
               <HelpTooltip>
                 <template #trigger>
-                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-[10px] font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
+                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-xs font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
                     ?
                   </span>
                 </template>
@@ -250,7 +250,7 @@
                   {{ t('admin.scheduledTests.cronExpression') }}
                   <HelpTooltip>
                     <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-[10px] font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
+                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-xs font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
                         ?
                       </span>
                     </template>
@@ -276,7 +276,7 @@
                   {{ t('admin.scheduledTests.maxResults') }}
                   <HelpTooltip>
                     <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-[10px] font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
+                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-af-hairline-strong/70 text-xs font-semibold text-af-ink-3 transition-colors hover:border-af-brand hover:text-af-brand-hover">
                         ?
                       </span>
                     </template>

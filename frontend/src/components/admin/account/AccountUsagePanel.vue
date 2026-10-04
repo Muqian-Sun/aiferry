@@ -15,20 +15,7 @@
       <section data-testid="account-usage-trend">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h3 class="text-sm font-semibold text-af-ink">{{ t('admin.accounts.stats.usageTrend') }}</h3>
-          <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.accounts.stats.usageTrend')">
-            <button
-              v-for="tab in trendTabs"
-              :key="tab.key"
-              type="button"
-              role="tab"
-              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-              :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-              :aria-selected="trendMetric === tab.key"
-              @click="trendMetric = tab.key"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <SegmentedControl v-model="trendMetric" :options="trendTabs" :label="t('admin.accounts.stats.usageTrend')" />
         </div>
         <UsageMetricTrend :trend-data="trendPoints" :metric="trendMetric" />
       </section>
@@ -54,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'

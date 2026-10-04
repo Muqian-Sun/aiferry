@@ -47,7 +47,7 @@
               <span class="block text-sm font-medium leading-tight text-af-ink">{{ displayName }}</span>
               <span class="block text-xs leading-tight text-af-ink-3">{{ t('admin.users.roles.' + user.role) }}</span>
             </span>
-            <Icon name="chevronDown" size="sm" class="hidden text-af-ink-4 md:block" />
+            <Icon name="chevronDown" size="sm" class="hidden text-af-ink-3 md:block" />
           </button>
 
           <transition name="dropdown">
