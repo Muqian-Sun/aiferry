@@ -68,13 +68,20 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
     }
   }
 
-  async function saveSettings(): Promise<boolean> {
+  // 每一节在总表单里管的字段：保存某一节只发这一节的字段，后端也只写请求里带的键（2026-10-04 D7）。
+  // 原来整份提交，两个管理员同时改不同的节时后保存的会把先保存的改回去。
+  const SECTION_FIELDS: Record<SettingsSectionKey, Array<keyof UpdateSettingsRequest & keyof SettingsForm>> = {
+    other: ["profit_min_margin"],
+    features: ["risk_control_enabled"],
+  };
+
+  async function saveSettings(section: SettingsSectionKey): Promise<boolean> {
     saving.value = true;
     try {
-      const payload: UpdateSettingsRequest = {
-        risk_control_enabled: form.risk_control_enabled,
-        profit_min_margin: form.profit_min_margin,
-      };
+      const payload: UpdateSettingsRequest = {};
+      for (const field of SECTION_FIELDS[section]) {
+        (payload as Record<string, unknown>)[field] = form[field];
+      }
 
       const updated = await adminAPI.settings.updateSettings(payload);
       for (const [key, value] of Object.entries(updated)) {
@@ -107,8 +114,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   // A6-2 每节保存
   // =========================
   // 同一时间只有当前小节可能有改动：切走时有改动会先问「放弃 / 留下」，放弃就恢复成已保存的值。
-  // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）。
-  // （后端本身支持只发部分字段：没发送的字段沿用库里的旧值，见 setting_handler_update.go。）
+  // 保存某一节只发这一节的字段（SECTION_FIELDS），后端只写请求里带的键（setting_handler_update.go）。
   // 改动判断：总表单状态与「上次加载 / 保存后的基线」比较。
 
   /** 总表单保存时会读到的全部状态 */
@@ -142,13 +148,12 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   }
 
   const sectionSaving = ref(false);
-  /** 保存当前小节：所有可改的项都在总表单里，整份提交（其它节等于已保存值） */
+  /** 保存当前小节：只发这一节的字段 */
   async function saveSection(): Promise<void> {
     if (sectionSaving.value) return;
     sectionSaving.value = true;
     try {
-      // 本节什么都没改时（输入框里回车）照旧整份提交，和拆页前一致
-      if (await saveSettings()) {
+      if (await saveSettings(currentSection.value)) {
         await nextTick();
         markClean();
       }

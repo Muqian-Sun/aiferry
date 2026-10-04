@@ -81,3 +81,23 @@ func doUpdateSettings(t *testing.T, h *SettingHandler, body map[string]any, prep
 	h.UpdateSettings(c)
 	return rec
 }
+
+// 设置页每一节单独保存，只写这一节带的键：原来一次保存把 16 个键全写一遍（没带的写回保存前读到的值），
+// 两个管理员同时改不同的节，后保存的会把先保存的改回去（2026-10-04 D7）。
+func TestUpdateSettingsWritesOnlySentKeys(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyProfitMinMargin:     "0.30000000",
+		service.SettingKeyRiskControlEnabled:  "false",
+		service.SettingKeyOpsQueryModeDefault: "raw",
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"profit_min_margin": 0.2}, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, map[string]string{service.SettingKeyProfitMinMargin: "0.20000000"}, repo.lastUpdates)
+
+	// 另一节（开关）只写自己的键，不碰刚才那一节
+	rec = doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, map[string]string{service.SettingKeyRiskControlEnabled: "true"}, repo.lastUpdates)
+	require.Equal(t, "0.20000000", repo.values[service.SettingKeyProfitMinMargin])
+}

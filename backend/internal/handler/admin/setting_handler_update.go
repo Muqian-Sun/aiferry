@@ -50,6 +50,33 @@ type UpdateSettingsRequest struct {
 	ProfitMinMargin *float64 `json:"profit_min_margin"`
 }
 
+// settingKeys 请求里带了的字段对应的设置键：只写这些，没带的键保持库里的值（D7）。
+func (r UpdateSettingsRequest) settingKeys() []string {
+	var keys []string
+	add := func(sent bool, key string) {
+		if sent {
+			keys = append(keys, key)
+		}
+	}
+	add(r.AffiliateRebateRate != nil, service.SettingKeyAffiliateRebateRate)
+	add(r.AffiliateRebateFreezeHours != nil, service.SettingKeyAffiliateRebateFreezeHours)
+	add(r.AffiliateRebateDurationDays != nil, service.SettingKeyAffiliateRebateDurationDays)
+	add(r.AffiliateRebatePerInviteeCap != nil, service.SettingKeyAffiliateRebatePerInviteeCap)
+	add(r.AdminRechargeRebateEnabled != nil, service.SettingKeyAffiliateAdminRechargeEnabled)
+	add(r.OpsRealtimeMonitoringEnabled != nil, service.SettingKeyOpsRealtimeMonitoringEnabled)
+	add(r.OpsQueryModeDefault != nil, service.SettingKeyOpsQueryModeDefault)
+	add(r.OpsMetricsIntervalSeconds != nil, service.SettingKeyOpsMetricsIntervalSeconds)
+	add(r.ChannelMonitorMode != nil, service.SettingKeyChannelMonitorMode)
+	add(r.ChannelMonitorDefaultIntervalSeconds != nil, service.SettingKeyChannelMonitorDefaultIntervalSeconds)
+	add(r.ChannelMonitorShowQuota != nil, service.SettingKeyChannelMonitorShowQuota)
+	add(r.AffiliateEnabled != nil, service.SettingKeyAffiliateEnabled)
+	add(r.RiskControlEnabled != nil, service.SettingKeyRiskControlEnabled)
+	add(r.CyberSessionBlockEnabled != nil, service.SettingKeyCyberSessionBlockEnabled)
+	add(r.CyberSessionBlockTTLSeconds != nil, service.SettingKeyCyberSessionBlockTTLSeconds)
+	add(r.ProfitMinMargin != nil, service.SettingKeyProfitMinMargin)
+	return keys
+}
+
 func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	var req UpdateSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -198,7 +225,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}(),
 	}
 
-	if err := h.settingService.UpdateSettings(c.Request.Context(), settings); err != nil {
+	if err := h.settingService.UpdateSettings(c.Request.Context(), settings, req.settingKeys()); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}

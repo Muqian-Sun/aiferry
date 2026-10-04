@@ -212,8 +212,8 @@ describe("admin SettingsView", () => {
     await flushPromises();
 
     expect(updateSettings).toHaveBeenCalledTimes(1);
+    // 保存「利润门」这一节只发这一节的字段（D7）
     expect(updateSettings).toHaveBeenCalledWith({
-      risk_control_enabled: false,
       profit_min_margin: 0.25,
     });
   });

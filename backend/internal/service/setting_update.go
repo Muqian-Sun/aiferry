@@ -9,13 +9,23 @@ import (
 )
 
 // UpdateSettings 更新系统设置（整份写入；管理端对没发送的字段回填库里的旧值）
-func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSettings) error {
-	updates, err := s.buildSystemSettingsUpdates(ctx, settings)
+// UpdateSettings 校验 settings，只写 keys 列出的设置键（请求里带了的字段）。
+// 设置页每一节单独保存：没带的键不写回，两个管理员同时改不同的节不会互相改回去（2026-10-04 D7）。
+func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSettings, keys []string) error {
+	all, err := s.buildSystemSettingsUpdates(ctx, settings)
 	if err != nil {
 		return err
 	}
-	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
-		return err
+	updates := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := all[key]; ok {
+			updates[key] = value
+		}
+	}
+	if len(updates) > 0 {
+		if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
+			return err
+		}
 	}
 	s.refreshCachedSettings(settings)
 	return nil
