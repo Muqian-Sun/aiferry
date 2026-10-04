@@ -117,8 +117,8 @@ const lineData = computed(() => {
   return {
     labels: labels.value,
     datasets: [
-      { label: 'P50', data: props.throughput.map((p) => seconds(p.ttft_p50_ms)), borderColor: palette.ink, backgroundColor: palette.ink, pointRadius: 0, spanGaps: false, tension: 0.2 },
-      { label: 'P99', data: props.throughput.map((p) => seconds(p.ttft_p99_ms)), borderColor: palette.text, backgroundColor: palette.text, borderDash: [4, 4], pointRadius: 0, spanGaps: false, tension: 0.2 }
+      { label: 'P50', data: props.throughput.map((p) => seconds(p.ttft_p50_ms)), borderColor: palette.ink, backgroundColor: palette.ink, pointRadius: 2, spanGaps: false, tension: 0.2 },
+      { label: 'P99', data: props.throughput.map((p) => seconds(p.ttft_p99_ms)), borderColor: palette.text, backgroundColor: palette.text, borderDash: [4, 4], pointRadius: 2, spanGaps: false, tension: 0.2 }
     ]
   }
 })

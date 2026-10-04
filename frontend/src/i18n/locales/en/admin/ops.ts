@@ -685,7 +685,7 @@ export default {
         slaMinPercent: 'SLA Minimum Percentage',
         slaMinPercentHint: 'SLA below this value will be displayed in red (default: 99.5%)',
         ttftP99MaxMs: 'TTFT P99 Maximum (ms)',
-        ttftP99MaxMsHint: 'TTFT P99 above this value will be displayed in red (default: 500ms)',
+        ttftP99MaxMsHint: 'TTFT P99 above this value will be displayed in red (default: 20000ms, same as the service status critical line)',
         requestErrorRateMaxPercent: 'Request Error Rate Maximum (%)',
         requestErrorRateMaxPercentHint: 'Request error rate above this value will be displayed in red (default: 5%)',
         upstreamErrorRateMaxPercent: 'Upstream Error Rate Maximum (%)',

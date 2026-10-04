@@ -685,7 +685,7 @@ export default {
         slaMinPercent: 'SLA最低百分比',
         slaMinPercentHint: 'SLA低于此值时显示为红色（默认：99.5%）',
         ttftP99MaxMs: 'TTFT P99最大值（毫秒）',
-        ttftP99MaxMsHint: 'TTFT P99高于此值时显示为红色（默认：500ms）',
+        ttftP99MaxMsHint: 'TTFT P99高于此值时显示为红色（默认：20000ms，与服务状态的「异常」线一致）',
         requestErrorRateMaxPercent: '请求错误率最大值（%）',
         requestErrorRateMaxPercentHint: '请求错误率高于此值时显示为红色（默认：5%）',
         upstreamErrorRateMaxPercent: '上游错误率最大值（%）',

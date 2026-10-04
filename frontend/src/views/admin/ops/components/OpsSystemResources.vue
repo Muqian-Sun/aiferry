@@ -142,7 +142,7 @@ function formatTime(value?: string | null): string {
       <div
         v-for="stat in stats"
         :key="stat.key"
-        class="min-w-0 border-r border-af-hairline pr-5 mr-5 last:mr-0 last:border-r-0 last:pr-0"
+        class="mr-6 min-w-0 last:mr-0 sm:mr-5 sm:border-r sm:border-af-hairline sm:pr-5 sm:last:border-r-0 sm:last:pr-0"
       >
         <dt class="text-xs text-af-ink-3">{{ stat.label }}</dt>
         <dd class="m-0">
