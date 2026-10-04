@@ -48,7 +48,7 @@
               <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
                 <dd class="truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</dd>
                 <dt class="mt-0.5 truncate text-xs text-af-ink-3" :title="cell.title">
-                  {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-4"> · {{ cell.hint }}</span>
+                  {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-3"> · {{ cell.hint }}</span>
                 </dt>
               </div>
             </dl>

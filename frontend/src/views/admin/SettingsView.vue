@@ -10,7 +10,13 @@
       <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
     </div>
 
-    <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
+    <!-- 加载失败：说清楚并给重试；保存按钮在失败时是禁用的，不说明会让人以为页面坏了 -->
+    <div v-if="!loading && loadFailed" class="mb-6 flex flex-wrap items-center gap-3" data-testid="settings-load-error">
+      <FormError :message="loadError" class="!mt-0" />
+      <button type="button" class="btn btn-secondary btn-sm" @click="reload">{{ t('admin.settings.retry') }}</button>
+    </div>
+
+    <div v-if="!loading" class="flex flex-col gap-8 lg:flex-row lg:items-start">
       <SettingsNav :current="currentSection" @select="goSection" />
 
       <div class="min-w-0 flex-1">
@@ -32,8 +38,18 @@
           </div>
 
           <div class="settings-save-bar">
-            <span v-if="isSectionDirty(section.key)" class="mr-auto text-13 text-af-ink-3">
-              {{ t('admin.settings.unsavedHint') }}
+            <!-- 保存栏左侧：失败原因 > 未保存 > 刚保存成功（2.5 秒后收起） -->
+            <span class="mr-auto inline-flex items-center gap-1.5 text-13" role="status" :data-testid="`settings-status-${section.key}`">
+              <template v-if="section.key === currentSection && saveError">
+                <span class="text-af-danger">{{ saveError }}</span>
+              </template>
+              <template v-else-if="isSectionDirty(section.key)">
+                <span class="text-af-ink-3">{{ t('admin.settings.unsavedHint') }}</span>
+              </template>
+              <template v-else-if="section.key === currentSection && justSaved">
+                <Icon name="check" size="sm" class="text-af-success" />
+                <span class="text-af-success">{{ t('admin.settings.settingsSaved') }}</span>
+              </template>
             </span>
             <button
               type="button"
@@ -78,6 +94,8 @@ import { computed, onBeforeUnmount, onMounted, provide, reactive } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
+import Icon from '@/components/icons/Icon.vue'
 import SettingsNav from './settings/SettingsNav.vue'
 import { SETTINGS_SECTIONS, SECTION_COMPONENTS, resolveSettingsSection, type SettingsSectionKey } from './settings/sections'
 import { SETTINGS_PAGE_KEY, useSettingsPage } from './settings/useSettingsPage'
@@ -91,8 +109,12 @@ provide(SETTINGS_PAGE_KEY, page)
 const {
   discardSection,
   isSectionDirty,
+  justSaved,
+  loadError,
   loadFailed,
   loading,
+  reload,
+  saveError,
   saveSection,
   sectionSaving,
   t

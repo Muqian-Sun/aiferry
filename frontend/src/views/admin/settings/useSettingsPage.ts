@@ -17,7 +17,7 @@ import type { SettingsSectionKey } from "./sections";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
 import type { SystemSettings, UpdateSettingsRequest } from "@/api/admin/settings";
-import { extractApiErrorMessage } from "@/utils/apiError";
+import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
 
 export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
@@ -27,6 +27,11 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   const loading = ref(true);
   const loadFailed = ref(false);
   const saving = ref(false);
+  // 加载 / 保存的结果要在页面上看得见（2026-10-04 体验诊断 H4：原来失败只打控制台，「有未保存的修改」一直挂着像没反应）
+  const loadError = ref("");
+  const saveError = ref("");
+  const justSaved = ref(false);
+  let justSavedTimer: ReturnType<typeof setTimeout> | undefined;
 
   type SettingsForm = Omit<
     SystemSettings,
@@ -50,6 +55,7 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   async function loadSettings() {
     loading.value = true;
     loadFailed.value = false;
+    loadError.value = "";
     try {
       const settings = await adminAPI.settings.getSettings();
       // Only assign non-null values from backend (null means unconfigured, keep defaults)
@@ -60,9 +66,8 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       }
     } catch (error: unknown) {
       loadFailed.value = true;
-      console.error(
-        extractApiErrorMessage(error, t("admin.settings.failedToLoad")), error,
-      );
+      loadError.value = extractApiErrorMessage(error, t("admin.settings.failedToLoad"));
+      console.error(loadError.value, error);
     } finally {
       loading.value = false;
     }
@@ -93,9 +98,9 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
       await appStore.fetchPublicSettings(true);
       return true;
     } catch (error: unknown) {
-      console.error(
-        extractApiErrorMessage(error, t("admin.settings.failedToSave")), error,
-      );
+      // 后端带错误码的按码翻成中文（如最低毛利率越界），没有码的用后端原话
+      saveError.value = extractI18nErrorMessage(error, t, "admin.settings.errors", t("admin.settings.failedToSave"));
+      console.error(saveError.value, error);
       return false;
     } finally {
       saving.value = false;
@@ -152,10 +157,16 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   async function saveSection(): Promise<void> {
     if (sectionSaving.value) return;
     sectionSaving.value = true;
+    saveError.value = "";
+    justSaved.value = false;
+    clearTimeout(justSavedTimer);
     try {
       if (await saveSettings(currentSection.value)) {
         await nextTick();
         markClean();
+        // 保存成功在保存栏里写「已保存」，2.5 秒后收起
+        justSaved.value = true;
+        justSavedTimer = setTimeout(() => (justSaved.value = false), 2500);
       }
     } finally {
       sectionSaving.value = false;
@@ -165,14 +176,27 @@ export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   /** 放弃这一节的改动：恢复成上次加载 / 保存后的值（不重新请求） */
   function discardSection(key: SettingsSectionKey) {
     if (isSectionDirty(key) && restorePoint) restoreMain(restorePoint);
+    saveError.value = "";
+  }
+
+  /** 加载失败后重试：成功后重新取基线 */
+  async function reload() {
+    await loadSettings();
+    await nextTick();
+    await nextTick();
+    markClean();
   }
 
 return {
     discardSection,
     form,
     isSectionDirty,
+    justSaved,
+    loadError,
     loadFailed,
     loading,
+    reload,
+    saveError,
     saveSection,
     sectionSaving,
     t,

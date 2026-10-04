@@ -219,9 +219,13 @@ export default {
       leaveTitle: '还有未保存的修改',
       leaveMessage: '现在离开会丢掉还没保存的改动。',
       stay: '留在这里',
-      settingsSaved: '设置保存成功',
+      settingsSaved: '已保存',
       failedToLoad: '加载设置失败',
       failedToSave: '保存设置失败',
+      retry: '重试',
+      errors: {
+        INVALID_PROFIT_CONTROL: '最低毛利率要在 0 到 0.99 之间（0.30 = 30%）'
+      },
     },
 
     // Error Passthrough Rules
