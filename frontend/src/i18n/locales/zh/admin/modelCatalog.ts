@@ -43,7 +43,7 @@ export default {
       nothingToDo: '选中的条目已经是目标状态',
       listedDone: '已上架 {count} 个模型',
       unlistedDone: '已下架 {count} 个模型',
-      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：{errors}'
+      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：'
     },
     editor: {
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',

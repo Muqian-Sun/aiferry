@@ -215,6 +215,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('common.selectedItems:{"count":1}')
+    expect(wrapper.get('[data-testid="model-catalog-bulk-failures"]').text()).toContain('nameless: listed model requires a price')
   })
 
   it('does nothing but say so when every selected entry already has the target status', async () => {

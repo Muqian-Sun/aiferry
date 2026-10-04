@@ -41,7 +41,7 @@ export default {
       nothingToDo: 'The selected entries already have that status',
       listedDone: 'Listed {count} models',
       unlistedDone: 'Unlisted {count} models',
-      partial: '{done} succeeded, {failed} failed (failures stay selected): {errors}'
+      partial: '{done} succeeded, {failed} failed (failures stay selected):'
     },
     editor: {
       vendorHint: 'Use the lowercase vendor tag (anthropic / openai / gemini / xai…); the user site matches vendor tabs and icons on it.',
