@@ -4,7 +4,7 @@
     <div class="max-w-xl" data-testid="feature-off">
       <p class="text-base text-af-ink">{{ t('admin.featureOff.message', { name }) }}</p>
       <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.featureOff.hint') }}</p>
-      <RouterLink to="/settings/features" class="btn btn-primary mt-5 inline-flex">{{ t('admin.featureOff.goSettings') }}</RouterLink>
+      <RouterLink to="/settings" class="btn btn-primary mt-5 inline-flex">{{ t('admin.featureOff.goSettings') }}</RouterLink>
     </div>
   </AppLayout>
 </template>

@@ -1,29 +1,16 @@
 export default {
     settings: {
-      navLabel: 'Settings sections',
-      sectionGroups: {
-        gateway: 'Gateway',
-        features: 'Features',
-      },
-      sections: {
-        other: { title: 'Profit gate', description: 'Skip a channel for a request when its margin falls below the minimum.' },
-        features: { title: 'Switches', description: 'Master switches for each feature.' },
-      },
-      description: 'Site-wide settings for the gateway and feature switches. Each section saves on its own.',
       features: {
         riskControl: {
           title: 'Review',
-          description: 'Enable content moderation, prompt review and the gateway audit entry point. Disabled by default.',
-          configureLink: 'Configure content moderation in Review',
-          enabled: 'Enable Review',
-          enabledHint: 'When off, the Review entry in the sidebar is grayed out and gateway moderation is skipped.',
+          description: 'When off, the gateway skips content moderation.',
+          configureLink: 'Content moderation settings',
         },
       },
       profitControl: {
         title: 'Minimum margin',
-        description: 'Channels that cannot reach the margin are not scheduled: upstream cost ratio = this channel\'s upstream price for the model ÷ the official price (highest across price items and segments); for a given request, a channel whose ratio exceeds user multiplier × (1 − minimum margin) is skipped. One site-wide setting, applies to every resource.',
-        minMargin: 'Minimum margin (fraction, 0.30 = 30%)',
-        hint: '0 turns it off; at most 0.99.'
+        description: 'A channel whose margin falls below this is skipped for the request.',
+        hint: '0.30 = 30%; 0 turns it off'
       },
       payment: {
         providerEasypay: 'EasyPay',
@@ -134,7 +121,6 @@ export default {
         allowUserRefund: 'Allow User Refund',
       },
       saving: 'Saving...',
-      saveSection: 'Save section',
       discard: 'Discard changes',
       unsavedHint: 'Unsaved changes',
       leaveTitle: 'You have unsaved changes',

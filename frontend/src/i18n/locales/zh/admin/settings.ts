@@ -1,29 +1,16 @@
 export default {
     settings: {
-      navLabel: '设置小节',
-      sectionGroups: {
-        gateway: '网关',
-        features: '功能',
-      },
-      sections: {
-        other: { title: '利润门', description: '渠道的毛利达不到最低毛利率时，这次请求不派给它。' },
-        features: { title: '开关', description: '各功能的总开关。' },
-      },
-      description: '网关与功能开关的全局设置，每一节单独保存。',
       features: {
         riskControl: {
           title: '审查',
-          description: '启用内容审核与提示词审查，以及全端点请求审核入口。默认关闭。',
-          configureLink: '前往「审查」设置内容审核',
-          enabled: '启用审查',
-          enabledHint: '关闭后侧栏「审查」入口变灰，网关不做内容审核。',
+          description: '关闭后网关不做内容审核。',
+          configureLink: '内容审核设置',
         },
       },
       profitControl: {
         title: '最低毛利率',
-        description: '毛利达不到的渠道不派：上游成本比 = 这个渠道给这个模型的上游价 ÷ 官方价（逐项、逐段取最高）；某次请求里上游成本比高于「用户倍率 × (1 − 最低毛利率)」的渠道，这次不派。全站一档，对全部资源生效。',
-        minMargin: '最低毛利率（小数，0.30 = 30%）',
-        hint: '填 0 关闭；上限 0.99。'
+        description: '渠道毛利低于它时，这次请求不派给这个渠道。',
+        hint: '0.30 = 30%，填 0 关闭'
       },
       payment: {
         providerEasypay: '易支付',
@@ -134,7 +121,6 @@ export default {
         allowUserRefund: '允许用户退款',
       },
       saving: '保存中…',
-      saveSection: '保存本节',
       discard: '放弃修改',
       unsavedHint: '有未保存的修改',
       leaveTitle: '还有未保存的修改',
