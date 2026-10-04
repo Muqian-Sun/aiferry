@@ -162,11 +162,6 @@ export default {
       moderation: '内容审核',
       prompts: '提示词'
     },
-    groupDescriptions: {
-      subscriptions: '用户持有的订阅与可售的套餐',
-      orders: '充值与订阅订单、收款概况',
-      review: '审核请求内容，命中风险规则时拦截并记录'
-    },
     announcements: '公告',
     usage: '用量',
     accountSecurity: '账户安全',

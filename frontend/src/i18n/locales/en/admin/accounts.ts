@@ -1,6 +1,5 @@
 export default {
     accounts: {
-      description: 'Create and manage upstream resources (subscriptions, third-party keys); bind them to listed models in the model catalog',
       // List summary strip (A5)
       summary: {
         total: 'Channels',

@@ -3,7 +3,6 @@ export default {
 
   // Recharge / Subscription Page
   purchase: {
-    rechargeDescription: 'Top up your balance; usage is charged from it per request',
     subscriptionDescription: 'Buy a subscription plan and use it within its limits'
   },
 
@@ -40,7 +39,6 @@ export default {
   // User Subscriptions Page
   userSubscriptions: {
     title: 'My Subscriptions',
-    description: 'View your subscription plans and usage',
     unnamedPlan: 'Subscription plan',
     noActiveSubscriptions: 'No Active Subscriptions',
     noActiveSubscriptionsDesc:

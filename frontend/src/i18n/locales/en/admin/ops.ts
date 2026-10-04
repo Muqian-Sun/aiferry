@@ -140,7 +140,6 @@ export default {
           moreFilters: 'More filters'
         }
       },
-      description: 'Operational monitoring and troubleshooting',
       jobs: 'Jobs',
       lastSuccess: 'last_success:',
       lastError: 'last_error:',

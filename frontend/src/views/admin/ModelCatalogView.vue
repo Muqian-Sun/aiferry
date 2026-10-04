@@ -70,9 +70,6 @@
             :options="resourceOptions"
             test-id="model-catalog-filter-resources"
           />
-          <span v-if="isFiltered" class="px-1 text-13 tabular-nums text-af-ink-3" data-testid="model-catalog-filtered">
-            {{ t('admin.modelCatalog.filtered', { count: filteredEntries.length }) }}
-          </span>
 
           <template #end>
             <button
@@ -404,8 +401,6 @@ const filteredEntries = computed(() => {
     )
   })
 })
-
-const isFiltered = computed(() => filteredEntries.value.length !== entries.value.length)
 
 /** 只有默认的「已上架」筛选在生效（空态据此给「看全部」） */
 const onlyDefaultFilter = computed(

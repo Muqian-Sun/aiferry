@@ -160,7 +160,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
 
     await pickFilter(wrapper, 'model-catalog-filter-resources', 'bound')
     expect(rowIds(wrapper)).toEqual(['claude-opus-4-6'])
-    expect(wrapper.text()).toContain('admin.modelCatalog.filtered:{"count":1}')
   })
 
   it('searches aliases too', async () => {

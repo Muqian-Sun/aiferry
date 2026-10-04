@@ -140,7 +140,6 @@ export default {
           moreFilters: '更多筛选'
         }
       },
-      description: '运维监控与排障',
       jobs: '后台任务',
       lastSuccess: '最近成功',
       lastError: '最近错误',

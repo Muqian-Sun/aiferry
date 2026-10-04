@@ -10,7 +10,6 @@ export default {
   // API Keys
   keys: {
     title: 'API 密钥',
-    description: '管理调用 API 用的密钥',
     searchPlaceholder: '搜索名称或密钥…',
     moreActions: '更多操作',
     endpoints: {
@@ -423,7 +422,6 @@ export default {
       enabled: '已开启',
       enabledAt: '开启时间',
       notEnabled: '未开启',
-      notEnabledHint: '开启双因素认证可以增强账户安全性',
       enable: '开启',
       disable: '关闭',
       featureDisabled: '功能未开放',

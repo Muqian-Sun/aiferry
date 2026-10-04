@@ -1,6 +1,5 @@
 export default {
     accounts: {
-      description: '创建与管理成品号、第三方 key 等上游资源；上架模型在模型目录里绑定',
       // 列表页数字摘要（A5）
       summary: {
         total: '渠道',

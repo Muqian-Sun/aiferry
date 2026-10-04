@@ -9,7 +9,6 @@ export default {
     },
     // Dashboard
     dashboard: {
-      description: 'System overview and real-time statistics',
       totalApiKeys: 'Total API Keys',
       activeApiKeys: 'Active Keys',
       totalAccounts: 'Total Accounts',
@@ -35,9 +34,7 @@ export default {
       hour: 'Hour',
       modelDistribution: 'Model Distribution',
       modelSection: 'Usage by model',
-      modelSectionHint: 'Bar height is total tokens per period, colored by model. Hover to see each model; the first line is the most used.',
       userSection: 'Usage by user',
-      userSectionHint: 'Sorted by tokens. Each cell is the user\'s usage in that period; darker means more.',
       otherModels: '{count} other models',
       bucketTotal: 'Total {value}',
       showAll: 'Show all {count}',
@@ -84,7 +81,6 @@ export default {
 
     // Users
     users: {
-      description: 'Manage users and their permissions',
       createUser: 'Create User',
       bulkDelete: {
         title: 'Delete selected users',
@@ -97,7 +93,7 @@ export default {
         todayActive: 'Active today',
         todayActiveHint: 'made API calls',
         apiKeys: 'API keys',
-        apiKeysActive: '{count} enabled'
+        apiKeysInactive: '{count} disabled'
       },
       // User detail drawer (A5)
       detail: {
@@ -157,7 +153,7 @@ export default {
       },
       editUser: 'Edit User',
       deleteUser: 'Delete User',
-      searchUsers: 'Search by email, username, notes, or API key',
+      searchUsers: 'Email, username, notes or key',
       admin: 'Admin',
       user: 'User',
       disabled: 'Disabled',

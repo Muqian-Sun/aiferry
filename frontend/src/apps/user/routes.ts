@@ -130,7 +130,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAuth: false,
       title: 'Models',
       titleKey: 'userUi.models.title',
-      descriptionKey: 'userUi.models.description',
       preload: (_to, prefetch) => import('@/views/modelPlazaQuery').then((m) => m.preloadModelPlaza(prefetch))
     }
   },
@@ -165,7 +164,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'API Keys',
       titleKey: 'keys.title',
-      descriptionKey: 'keys.description',
       preload: (to, prefetch) => import('@/views/user/keysQuery').then((m) => m.preloadKeys(to, prefetch))
     }
   },
@@ -179,7 +177,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Batch Image Guide',
       titleKey: 'batchImageGuide.title',
-      descriptionKey: 'batchImageGuide.description',
       siteFeature: 'batchImage'
     }
   },
@@ -192,7 +189,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Usage',
       titleKey: 'userUi.usage.title',
-      descriptionKey: 'userUi.usage.description',
       // 数据到了再换页：首屏几个请求在进入前发完（muqian 2026-09-27）
       preload: (to, prefetch) => import('@/views/user/usageQuery').then((m) => m.preloadUsage(to, prefetch))
     }
@@ -207,7 +203,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Billing',
       titleKey: 'userUi.billing.title',
-      descriptionKey: 'userUi.billing.description'
     },
     children: [
       // 索引落到第一个可见页签（不会被 requiresPayment / siteFeature 守卫弹走）
@@ -223,7 +218,6 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAdmin: false,
           title: 'Top up',
           titleKey: 'nav.recharge',
-          descriptionKey: 'purchase.rechargeDescription',
           requiresPayment: true,
           preload: (_to, prefetch) => import('@/views/user/billing/checkoutPreload').then((m) => m.preloadCheckoutInfo(prefetch))
         }
@@ -237,7 +231,6 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAdmin: false,
           title: 'My Subscriptions',
           titleKey: 'userSubscriptions.title',
-          descriptionKey: 'userSubscriptions.description',
           siteFeature: 'subscription'
         }
       }
@@ -266,7 +259,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Profile',
       titleKey: 'userUi.account.sections.profile',
-      descriptionKey: 'userUi.account.descriptions.profile'
     }
   },
   {
@@ -279,7 +271,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Security',
       titleKey: 'userUi.account.sections.security',
-      descriptionKey: 'userUi.account.descriptions.security',
       siteFeature: 'accountSecurity'
     }
   },
@@ -293,7 +284,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Notifications',
       titleKey: 'userUi.account.sections.notifications',
-      descriptionKey: 'userUi.account.descriptions.notifications'
     }
   },
   {
@@ -377,7 +367,6 @@ export const userRoutes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'Service Status',
       titleKey: 'userUi.serviceStatus.title',
-      descriptionKey: 'userUi.serviceStatus.description',
       preload: (_to, prefetch) => import('@/views/user/serviceStatusQuery').then((m) => m.preloadServiceStatus(prefetch))
     }
   },

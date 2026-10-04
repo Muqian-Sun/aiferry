@@ -10,7 +10,6 @@ export default {
   // API Keys
   keys: {
     title: 'API Keys',
-    description: 'Manage your API keys and access tokens',
     searchPlaceholder: 'Search name or key...',
     moreActions: 'More actions',
     endpoints: {
@@ -421,7 +420,6 @@ export default {
       enabled: 'Enabled',
       enabledAt: 'Enabled at',
       notEnabled: 'Not Enabled',
-      notEnabledHint: 'Enable two-factor authentication to enhance account security',
       enable: 'Enable',
       disable: 'Disable',
       featureDisabled: 'Feature Unavailable',

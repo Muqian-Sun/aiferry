@@ -1,7 +1,6 @@
 export default {
   promptAudit: {
     title: '提示词审计',
-    description: '通过部署配置里的 Qwen3Guard 守卫节点异步复核或同步阻止用户输入；事件的完整提示词会入库保存，仅供管理员复核。',
     configVersion: '配置版本 v{version}',
     tabs: { config: '设置', events: '事件' },
     actions: { refresh: '刷新运行态', retry: '重试', Allow: '建议放行', Warn: '建议警告', Block: '建议阻止' },

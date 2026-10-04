@@ -821,7 +821,10 @@ const summaryItems = computed<StatItem[] | null>(() => {
       key: 'keys',
       label: t('admin.users.summary.apiKeys'),
       value: fmt(stats.total_api_keys),
-      hint: t('admin.users.summary.apiKeysActive', { count: fmt(stats.active_api_keys) })
+      // 全部启用时不附注（同一个数不出现两次）；有停用的才写停用几个
+      hint: stats.total_api_keys > stats.active_api_keys
+        ? t('admin.users.summary.apiKeysInactive', { count: fmt(stats.total_api_keys - stats.active_api_keys) })
+        : undefined
     }
   ]
 })

@@ -48,7 +48,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Admin Dashboard',
       titleKey: 'nav.overview',
-      descriptionKey: 'admin.dashboard.description'
     }
   },
   {
@@ -60,7 +59,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Ops Monitoring',
       titleKey: 'nav.ops',
-      descriptionKey: 'admin.ops.description',
       hidePageHeader: true
     }
   },
@@ -73,7 +71,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'User Management',
       titleKey: 'nav.users',
-      descriptionKey: 'admin.users.description'
     }
   },
   {
@@ -89,7 +86,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Model Catalog',
       titleKey: 'nav.models',
-      descriptionKey: 'admin.modelCatalog.description'
     }
   },
   {
@@ -101,7 +97,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
-      descriptionKey: 'admin.subscriptions.description',
       pageGroup: 'subscriptions',
       siteFeature: 'subscription'
     }
@@ -115,7 +110,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Account Management',
       titleKey: 'nav.channels',
-      descriptionKey: 'admin.accounts.description'
     }
   },
   // 渠道状态（muqian 2026-09-30）：按渠道看可用率 / 首字延迟 / 缓存命中率，数据与用户站服务状态同源
@@ -128,7 +122,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Channel Status',
       titleKey: 'nav.channelStatus',
-      descriptionKey: 'admin.channelStatus.description'
     }
   },
   {
@@ -140,7 +133,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Announcements',
       titleKey: 'nav.announcements',
-      descriptionKey: 'admin.announcements.description'
     }
   },
   {
@@ -152,7 +144,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Pricing',
       titleKey: 'nav.pricing',
-      descriptionKey: 'admin.pricing.description'
     }
   },
   {
@@ -164,11 +155,10 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Proxy Management',
       titleKey: 'nav.proxies',
-      descriptionKey: 'admin.proxies.description'
     }
   },
   {
-    // A6：每个小节一个地址，缺省落到第一节（settings/sections.ts）
+    // 设置只剩一页（2026-10-05 去掉小节）；旧的 /settings/<小节> 地址仍落到这一页
     path: '/settings/:section?',
     name: 'AdminSettings',
     component: () => import('@/views/admin/SettingsView.vue'),
@@ -177,7 +167,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'System Settings',
       titleKey: 'nav.settings',
-      descriptionKey: 'admin.settings.description'
     }
   },
   {
@@ -189,7 +178,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Review',
       titleKey: 'nav.review',
-      descriptionKey: 'admin.riskControl.description',
       requiresRiskControl: true,
       pageGroup: 'review'
     }
@@ -203,7 +191,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Review',
       titleKey: 'nav.review',
-      descriptionKey: 'admin.promptAudit.description',
       requiresRiskControl: true,
       pageGroup: 'review',
       siteFeature: 'promptAudit'
@@ -218,7 +205,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Usage Records',
       titleKey: 'nav.usage',
-      descriptionKey: 'admin.usage.description'
     }
   },
 

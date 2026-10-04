@@ -1,7 +1,6 @@
 export default {
   modelCatalog: {
-    description: '平台模型的官方价与别名。',
-    search: '搜索模型标识、展示名、厂商或别名',
+    search: '搜索模型、厂商或别名',
     create: '新建模型',
     edit: '编辑模型',
     empty: '目录还是空的，先从价格文件导入或手动新建。',
@@ -14,7 +13,6 @@ export default {
       listedWithoutResources: '上架但没有能调度的渠道',
       showThem: '筛选'
     },
-    filtered: '筛选后 {count} 个',
     aliasCount: '{count} 个别名',
     filters: {
       noVendor: '（无厂商）',

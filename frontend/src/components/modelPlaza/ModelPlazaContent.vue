@@ -149,10 +149,6 @@
           </p>
         </li>
       </ul>
-
-      <p class="max-w-3xl text-xs leading-5 text-af-ink-3">
-        {{ t('userUi.models.priceNote') }}
-      </p>
     </div>
 
     <ModelPricingDrawer

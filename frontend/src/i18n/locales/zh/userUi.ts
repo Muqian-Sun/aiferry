@@ -136,7 +136,7 @@ export default {
       },
       gettingStarted: {
         title: '开始使用',
-        description: '把接口地址和密钥填进 SDK 或客户端，就能直接调用。发出第一次请求后，这里会换成用量概览。',
+        description: '把接口地址和密钥填进 SDK 或客户端，就能直接调用。',
         baseUrl: '接口地址',
         key: '我的密钥',
         noKey: '还没有可用的密钥',
@@ -151,7 +151,6 @@ export default {
     },
     billing: {
       title: '账务',
-      description: '充值、订阅与兑换码',
       tabs: {
         recharge: '充值',
         subscriptions: '订阅'
@@ -159,7 +158,6 @@ export default {
     },
     usage: {
       title: '用量明细',
-      description: '钱花在哪了、某一次请求怎么了',
       moreActions: '更多操作',
       moreFilters: '更多筛选',
       clearFilters: '清除筛选',
@@ -201,11 +199,6 @@ export default {
         security: '安全',
         notifications: '通知'
       },
-      descriptions: {
-        profile: '头像、用户名与账户信息',
-        security: '第三方登录绑定、密码、双因素认证与通行密钥',
-        notifications: '余额不足时发邮件提醒'
-      },
       notificationsOff: '管理员没有开启余额提醒',
       rows: {
         overview: '账户概况',
@@ -219,11 +212,10 @@ export default {
     },
     models: {
       title: '模型',
-      description: '已上架的模型与标价，按 Token 或按次计费',
       hero: {
         title: '全部模型，',
         titleAccent: '明码标价',
-        description: '上架的每个模型与标价都列在这里。搜索或按厂商筛选，复制模型 ID 就能直接调用。'
+        description: '复制模型 ID 即可直接调用。'
       },
       allVendors: '全部',
       allBilling: '全部计费',
@@ -286,7 +278,6 @@ export default {
         unitPerSecond: '美元 / 秒',
         noPricing: '目录里还没有这个模型的价格。'
       },
-      priceNote: '每次请求的实际扣费逐条记录在用量页。',
       segmentRange: '输入 Token',
       segmentNote: '分段计价的模型按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求都按那一段的价格计费。',
       copyId: '复制模型 ID',
@@ -306,12 +297,11 @@ export default {
     },
     serviceStatus: {
       title: '服务状态',
-      description: '各模型最近的可用率、首字延迟和缓存命中率，按本站的真实请求统计',
+      description: '按本站的真实请求统计',
       range: { label: '时间范围', '90m': '90 分钟', '24h': '24 小时', '7d': '7 天', '30d': '30 天' },
       stats: { availability: '可用率', ttft: '首字延迟（中位数）', ttftP90: '九成请求在 {value} 内', cache: '缓存命中率' },
       models: {
         title: '各模型',
-        description: '有问题的排在前面；色条从左到右是时间，一格是一段，悬停看那一段的数字',
         search: '搜索模型',
         filter: { label: '按状态筛选', all: '全部', issues: '有问题 {count}', healthy: '正常 {count}' },
         empty: '这段时间还没有模型的数据',
@@ -326,7 +316,6 @@ export default {
       slot: { detail: '{time}　可用率 {availability} · 首字延迟 {ttft} · 缓存命中率 {cache}', fewRequests: '（请求较少，不评状态）', noRequests: '{time}　没有请求' },
       trend: { title: '整体趋势', empty: '这段时间还没有数据' },
       loadFailed: '服务状态没有加载出来',
-      footnote: '数据来自本站的真实请求。首字延迟是从发出请求到收到第一段输出的时间；缓存命中率是输入里命中缓存的 token 占比。'
     }
   }
 }
