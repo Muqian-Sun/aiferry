@@ -22,7 +22,7 @@ async function load() {
   }
 }
 
-watch(() => props.refreshToken, load, { immediate: true })
+watch(() => props.refreshToken, load)
 
 function formatTime(value: string): string {
   const d = new Date(value)

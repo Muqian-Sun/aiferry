@@ -290,6 +290,8 @@ export interface AccountAvailability {
   overload_remaining_sec?: number
   has_error: boolean
   error_message?: string
+  /** 临时停调（出错后按规则暂停调度）到这个时间 */
+  temp_unschedulable_until?: string | null
 }
 
 export interface OpsAccountAvailabilityStatsResponse {

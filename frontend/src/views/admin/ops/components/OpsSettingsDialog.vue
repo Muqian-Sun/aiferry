@@ -605,31 +605,6 @@ async function saveAllSettings() {
               />
             </div>
           </div>
-
-          <!-- Dashboard Cards -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-af-ink-2">{{ t('admin.ops.settings.dashboardCards') }}</h5>
-
-            <div class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-medium text-af-ink-2">{{ t('admin.ops.settings.displayAlertEvents') }}</label>
-                <p class="mt-1 text-xs text-af-ink-3">
-                  {{ t('admin.ops.settings.displayAlertEventsHint') }}
-                </p>
-              </div>
-              <Toggle v-model="advancedSettings.display_alert_events" />
-            </div>
-
-            <div class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-medium text-af-ink-2">{{ t('admin.ops.settings.displayOpenAITokenStats') }}</label>
-                <p class="mt-1 text-xs text-af-ink-3">
-                  {{ t('admin.ops.settings.displayOpenAITokenStatsHint') }}
-                </p>
-              </div>
-              <Toggle v-model="advancedSettings.display_openai_token_stats" />
-            </div>
-          </div>
         </div>
       </details>
     </div>

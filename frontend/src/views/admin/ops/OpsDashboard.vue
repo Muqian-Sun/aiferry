@@ -156,6 +156,9 @@ const channelOptions = ref<OpsChannelOption[]>([])
 
 const QUERY_KEYS = {
   timeRange: 'tr',
+  // 自定义时间段的起止（RFC3339）：刷新 / 分享链接后还是同一段时间（2026-10-04 UI E2E：原来只有 tr=custom）
+  customStart: 'start',
+  customEnd: 'end',
   model: 'model',
   accountId: 'account_id',
   queryMode: 'mode',
@@ -229,7 +232,18 @@ const readQueryNumber = (key: string): number | null => {
 
 const applyRouteQueryToState = () => {
   const nextTimeRange = readQueryString(QUERY_KEYS.timeRange)
-  if (nextTimeRange && allowedTimeRanges.has(nextTimeRange as TimeRange)) {
+  const nextStart = readQueryString(QUERY_KEYS.customStart)
+  const nextEnd = readQueryString(QUERY_KEYS.customEnd)
+  if (nextTimeRange === 'custom') {
+    // 自定义却没有合法的起止：退回默认的近 1 小时，不假装是自定义
+    if (nextStart && nextEnd && !Number.isNaN(Date.parse(nextStart)) && !Number.isNaN(Date.parse(nextEnd))) {
+      customStartTime.value = nextStart
+      customEndTime.value = nextEnd
+      timeRange.value = 'custom'
+    } else {
+      timeRange.value = '1h'
+    }
+  } else if (nextTimeRange && allowedTimeRanges.has(nextTimeRange as TimeRange)) {
     timeRange.value = nextTimeRange as TimeRange
   }
 
@@ -272,6 +286,10 @@ const buildQueryFromState = () => {
   })
 
   if (timeRange.value !== '1h') next[QUERY_KEYS.timeRange] = timeRange.value
+  if (timeRange.value === 'custom' && customStartTime.value && customEndTime.value) {
+    next[QUERY_KEYS.customStart] = customStartTime.value
+    next[QUERY_KEYS.customEnd] = customEndTime.value
+  }
   if (model.value) next[QUERY_KEYS.model] = model.value
   if (accountId.value) next[QUERY_KEYS.accountId] = String(accountId.value)
   if (queryMode.value !== 'auto') next[QUERY_KEYS.queryMode] = queryMode.value
@@ -477,19 +495,29 @@ async function refreshCoreSnapshotWithCancel(fetchSeq: number, signal: AbortSign
   errorTrend.value = data.error_trend
 }
 
-// 模型下拉：近 7 天有流量的模型（与用量页同一来源）
+// 模型下拉：上架目录的模型 ∪ 近 7 天有用量的模型。只看用量会漏掉只失败、没有成功用量的模型，
+// 而排查的恰恰是这类模型；只看目录又会漏掉已下架但还在报错的模型。
 async function loadModelOptions() {
   const end = new Date()
   const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000)
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  try {
-    const res = await adminAPI.dashboard.getModelStats({ start_date: ymd(start), end_date: ymd(end), model_source: 'requested' })
-    const names = new Set((res.models || []).map((m) => m.model).filter(Boolean))
-    if (model.value) names.add(model.value)
-    modelOptions.value = [...names].sort()
-  } catch (err) {
-    console.error('[OpsDashboard] failed to load model options', err)
+  const [catalog, stats] = await Promise.allSettled([
+    adminAPI.modelCatalog.listEntries(),
+    adminAPI.dashboard.getModelStats({ start_date: ymd(start), end_date: ymd(end), model_source: 'requested' })
+  ])
+  const names = new Set<string>()
+  if (catalog.status === 'fulfilled') {
+    for (const entry of catalog.value) if (entry.status === 'listed' && entry.model_id) names.add(entry.model_id)
+  } else {
+    console.error('[OpsDashboard] failed to load catalog models', catalog.reason)
   }
+  if (stats.status === 'fulfilled') {
+    for (const m of stats.value.models || []) if (m.model) names.add(m.model)
+  } else {
+    console.error('[OpsDashboard] failed to load model stats', stats.reason)
+  }
+  if (model.value) names.add(model.value)
+  modelOptions.value = [...names].sort()
 }
 
 function isOpsDisabledError(err: unknown): boolean {
@@ -512,14 +540,14 @@ async function fetchData() {
 
   loading.value = true
   errorMessage.value = ''
+  // 各分区只在这个令牌变化时加载（挂载时不自己加载）：和快照并行取，每次刷新每个接口只请求一次
+  // （2026-10-04 UI E2E：原来挂载时加载一次、第一次取完快照又加载一次，7 个接口各请求两次）。
+  dashboardRefreshToken.value += 1
   try {
     await refreshCoreSnapshotWithCancel(fetchSeq, dashboardFetchController.signal)
     if (fetchSeq !== dashboardFetchSeq) return
 
     lastUpdated.value = new Date()
-
-    // Trigger child component refreshes using the same cadence as the header.
-    dashboardRefreshToken.value += 1
 
     // Reset auto refresh countdown after successful fetch
     if (autoRefreshEnabled.value) {
@@ -555,6 +583,8 @@ watch(
     if (isSyncingRouteQuery.value) return
 
     const prevTimeRange = timeRange.value
+    const prevStart = customStartTime.value
+    const prevEnd = customEndTime.value
     const prevModel = model.value
     const prevAccount = accountId.value
 
@@ -563,7 +593,11 @@ watch(
     isApplyingRouteQuery.value = false
 
     const changed =
-      prevTimeRange !== timeRange.value || prevModel !== model.value || prevAccount !== accountId.value
+      prevTimeRange !== timeRange.value ||
+      prevStart !== customStartTime.value ||
+      prevEnd !== customEndTime.value ||
+      prevModel !== model.value ||
+      prevAccount !== accountId.value
     if (changed) {
       if (opsEnabled.value) {
         fetchData()
