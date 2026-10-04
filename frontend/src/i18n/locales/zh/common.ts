@@ -84,6 +84,7 @@ export default {
     invalidEmail: '请输入有效的邮箱地址',
     optional: '可选',
     selectOption: '请选择',
+    pagination: '分页',
     searchPlaceholder: '搜索...',
     noOptionsFound: '无匹配选项',
     unknownError: '发生未知错误',

@@ -9,6 +9,8 @@ import NavigationProgress from '../../common/NavigationProgress.vue'
 // Mock useNavigationLoadingState
 const mockIsLoading = ref(false)
 
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+
 vi.mock('@/composables/useNavigationLoading', () => ({
   useNavigationLoadingState: () => ({
     isLoading: mockIsLoading
@@ -46,7 +48,8 @@ describe('NavigationProgress', () => {
 
     const progressBar = wrapper.find('.navigation-progress')
     expect(progressBar.attributes('role')).toBe('progressbar')
-    expect(progressBar.attributes('aria-label')).toBe('Loading')
+    // 标签走 i18n，测试环境不编译文案，取到的是 key
+    expect(progressBar.attributes('aria-label')).toBe('common.loading')
     expect(progressBar.attributes('aria-valuemin')).toBe('0')
     expect(progressBar.attributes('aria-valuemax')).toBe('100')
   })

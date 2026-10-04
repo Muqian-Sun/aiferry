@@ -83,6 +83,7 @@ export default {
     invalidEmail: 'Please enter a valid email address',
     optional: 'optional',
     selectOption: 'Select an option',
+    pagination: 'Pagination',
     searchPlaceholder: 'Search...',
     noOptionsFound: 'No options found',
     unknownError: 'Unknown error occurred',

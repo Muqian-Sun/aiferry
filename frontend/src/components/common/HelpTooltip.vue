@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(defineProps<{
   content?: string
@@ -10,6 +11,7 @@ const props = withDefaults(defineProps<{
   widthClass: 'w-64',
 })
 
+const { t } = useI18n()
 const show = ref(false)
 const triggerRef = useTemplateRef<HTMLElement>('trigger')
 const tooltipRef = useTemplateRef<HTMLElement>('tooltip')
@@ -144,7 +146,7 @@ onBeforeUnmount(() => {
           v-if="props.trigger === 'click'"
           type="button"
           class="absolute right-1.5 top-1.5 rounded p-1 text-af-ink-4 transition-colors hover:bg-af-sheet/10 hover:text-af-on-brand"
-          aria-label="Close"
+          :aria-label="t('common.close')"
           @click.stop="closeTooltip"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

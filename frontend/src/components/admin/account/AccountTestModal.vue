@@ -20,10 +20,8 @@
           <div>
             <div class="font-semibold text-af-ink">{{ account.name }}</div>
             <div class="flex items-center gap-1.5 text-xs text-af-ink-3">
-              <span
-                class="rounded bg-af-hairline px-1.5 py-0.5 text-[10px] font-medium uppercase"
-              >
-                {{ account.type }}
+              <span class="rounded bg-af-hairline px-1.5 py-0.5 text-[10px] font-medium">
+                {{ t(accountAccessKey(account)) }}
               </span>
               <span>{{ t('admin.accounts.account') }}</span>
             </div>
@@ -37,7 +35,7 @@
               : 'bg-af-sunken text-af-ink-2'
           ]"
         >
-          {{ account.status }}
+          {{ t(`admin.accounts.status.${account.status}`) }}
         </span>
       </div>
 
@@ -372,6 +370,7 @@ import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
 import { adminAPI } from '@/api/admin'
 import type { Account, ClaudeModel } from '@/types'
+import { accountAccessKey } from './accountAccess'
 
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
@@ -827,7 +826,7 @@ const startTest = async () => {
   resetState()
   status.value = 'connecting'
   addLine(t('admin.accounts.startingTestForAccount', { name: props.account.name }), 'text-af-ink-2')
-  addLine(t('admin.accounts.testAccountTypeLabel', { type: props.account.type }), 'text-af-ink-3')
+  addLine(t('admin.accounts.testAccountTypeLabel', { type: t(accountAccessKey(props.account)) }), 'text-af-ink-3')
   if (isGrokAccount.value) {
     const modeLabel =
       grokTestModeOptions.value.find((o) => o.value === grokTestMode.value)?.label || grokTestMode.value
@@ -947,7 +946,7 @@ const handleEvent = (event: {
 }) => {
   switch (event.type) {
     case 'test_start':
-      addLine(t('admin.accounts.connectedToApi'), 'text-af-success')
+      // test_start 只表示后端开始发测试请求，还没连上上游；成败看后面的 test_complete / error，这里不说「已连接」
       if (event.model) {
         addLine(t('admin.accounts.usingModel', { model: event.model }), 'text-af-ink-2')
       }
