@@ -18,7 +18,7 @@
 
       <div class="ml-auto flex shrink-0 items-center gap-1">
         <template v-if="variant === 'console'">
-          <BalanceLink v-if="user && !isSimpleMode" class="hidden sm:block" />
+          <BalanceLink v-if="user && !isSimpleMode" />
           <AnnouncementBell v-if="user" />
           <div class="hidden lg:block"><LocaleSwitcher /></div>
           <button
