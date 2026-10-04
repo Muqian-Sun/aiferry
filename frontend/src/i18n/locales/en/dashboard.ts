@@ -777,7 +777,9 @@ export default {
     forbidden: 'Forbidden',
     serverError: 'Server error',
     timeout: 'Request timeout',
-    tryAgain: 'Please try again'
+    tryAgain: 'Please try again',
+    // Shown for a 429 that carries no mappable backend reason, see utils/apiError.ts
+    tooManyRequests: 'Too many attempts, please try again later'
   },
 
   // Dates

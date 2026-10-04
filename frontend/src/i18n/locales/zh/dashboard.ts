@@ -778,7 +778,9 @@ export default {
     forbidden: '禁止访问',
     serverError: '服务器错误',
     timeout: '请求超时',
-    tryAgain: '请重试'
+    tryAgain: '请重试',
+    // 被限流（429）且后端没给可映射的 reason 时的统一提示，见 utils/apiError.ts
+    tooManyRequests: '操作太频繁，请稍后再试'
   },
 
   // Dates

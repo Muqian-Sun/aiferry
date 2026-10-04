@@ -74,6 +74,13 @@ function localizeMetadata(metadata: Record<string, unknown>, t: TranslateFn): Re
   return out
 }
 
+const RATE_LIMITED_MESSAGE_KEY = 'errors.tooManyRequests'
+
+/** 请求被限流（HTTP 429）。拦截器把状态码放在顶层 status 上。 */
+export function isRateLimitedError(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as ApiErrorLike).status === 429
+}
+
 /**
  * Extract a localized error message from an API error by looking up
  * `<namespace>.<REASON>` in i18n and substituting metadata as placeholders.
@@ -104,6 +111,12 @@ export function extractI18nErrorMessage(
     // If the framework exposes `te`, use it to double-check.
     const te = (t as TranslateWithExistsFn).te
     if (te && te(key)) return translated
+  }
+  // 限流中间件的 429 不带 reason，只有英文的 { error, message }：按状态码兜底成统一的中文提示。
+  // 带 reason 且本命名空间有映射的 429（如 VERIFY_CODE_TOO_FREQUENT）上面已经返回了。
+  if (isRateLimitedError(err)) {
+    const translated = t(RATE_LIMITED_MESSAGE_KEY)
+    if (translated !== RATE_LIMITED_MESSAGE_KEY) return translated
   }
   return extractApiErrorMessage(err, fallback)
 }
