@@ -484,8 +484,15 @@ type UsageLog struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	User         *User             `json:"user,omitempty"`
-	APIKey       *APIKey           `json:"api_key,omitempty"`
+	APIKey       *UsageAPIKeyRef   `json:"api_key,omitempty"`
 	Subscription *UserSubscription `json:"subscription,omitempty"`
+}
+
+// UsageAPIKeyRef 用量行里的密钥只给名字（2026-10-04 UI E2E：原来嵌整个密钥对象，明文 key、IP 名单、额度
+// 随每一行用量发到前端，用量页与导出只用名字）。
+type UsageAPIKeyRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // AdminUsageLog 是管理员接口使用的 usage log DTO（包含管理员字段）。

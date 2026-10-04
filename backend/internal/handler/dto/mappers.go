@@ -498,13 +498,20 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		BillingMode:           l.BillingMode,
 		CreatedAt:             l.CreatedAt,
 		User:                  UserFromServiceShallow(l.User),
-		APIKey:                APIKeyFromService(l.APIKey),
+		APIKey:                usageAPIKeyRefFromService(l.APIKey),
 		Subscription:          UserSubscriptionFromService(l.Subscription),
 	}
 }
 
 // UsageLogFromService converts a service UsageLog to DTO for regular users.
 // It excludes admin-only account/upstream internals while keeping user billing and request metadata.
+func usageAPIKeyRefFromService(k *service.APIKey) *UsageAPIKeyRef {
+	if k == nil {
+		return nil
+	}
+	return &UsageAPIKeyRef{ID: k.ID, Name: k.Name}
+}
+
 func UsageLogFromService(l *service.UsageLog) *UsageLog {
 	if l == nil {
 		return nil

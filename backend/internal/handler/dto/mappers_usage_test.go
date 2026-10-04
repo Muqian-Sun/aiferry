@@ -356,3 +356,26 @@ func TestUsageLogFromService_UserJSONOmitsChannelSessionAndUpstreamEndpoint(t *t
 	require.Equal(t, sessionID, adminFields["session_id"])
 	require.Equal(t, upstreamEndpoint, adminFields["upstream_endpoint"])
 }
+
+// 用量行里的密钥只给 id 和名字（2026-10-04 UI E2E：原来嵌整个密钥对象，明文 key、IP 名单、额度随每行发出去）；
+// 用户接口和管理接口都一样。
+func TestUsageLogFromService_APIKeyCarriesOnlyIDAndName(t *testing.T) {
+	t.Parallel()
+
+	log := &service.UsageLog{
+		RequestID: "req_key",
+		Model:     "gpt-5.5",
+		APIKey: &service.APIKey{
+			ID: 7, Name: "e2e-key", Key: "sk-secret-plaintext",
+			IPWhitelist: []string{"10.0.0.1"}, Quota: 5,
+		},
+	}
+
+	for name, v := range map[string]any{"user": UsageLogFromService(log), "admin": UsageLogFromServiceAdmin(log)} {
+		raw, err := json.Marshal(v)
+		require.NoError(t, err, name)
+		require.Contains(t, string(raw), `"api_key":{"id":7,"name":"e2e-key"}`, name)
+		require.NotContains(t, string(raw), "sk-secret-plaintext", name)
+		require.NotContains(t, string(raw), "10.0.0.1", name)
+	}
+}

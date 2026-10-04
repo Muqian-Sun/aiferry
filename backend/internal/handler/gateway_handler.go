@@ -1058,7 +1058,8 @@ func (h *GatewayHandler) Usage(c *gin.Context) {
 	var modelStats any
 	if h.usageService != nil {
 		if stats, err := h.usageService.GetAPIKeyModelStats(ctx, apiKey.ID, startTime, endTime); err == nil && len(stats) > 0 {
-			modelStats = stats
+			// 用户站结构：去掉渠道成本（account_cost 只给管理站，2026-10-04 UI E2E 发现这里原样带了出去）
+			modelStats = userModelStatsFromUsageStats(stats)
 		}
 	}
 
