@@ -288,20 +288,25 @@ async function save() {
 
 const showDeleteConfirm = ref(false)
 const pendingDelete = ref<AlertRule | null>(null)
+// 删除失败时确认弹窗不关，原因写在弹窗里
+const deleteError = ref('')
 
 function requestDelete(rule: AlertRule) {
   pendingDelete.value = rule
+  deleteError.value = ''
   showDeleteConfirm.value = true
 }
 
 async function confirmDelete() {
   if (!pendingDelete.value?.id) return
+  deleteError.value = ''
   try {
     await opsAPI.deleteAlertRule(pendingDelete.value.id)
     showDeleteConfirm.value = false
     pendingDelete.value = null
     await load()
-  } catch (err: any) {
+  } catch (err: unknown) {
+    deleteError.value = extractApiErrorMessage(err, t('admin.ops.alertRules.deleteFailed'))
     console.error('[OpsAlertRulesCard] Failed to delete rule', err)
   }
 }
@@ -534,6 +539,8 @@ function cancelDelete() {
       :cancelText="t('common.cancel')"
       @confirm="confirmDelete"
       @cancel="cancelDelete"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
   </div>
 </template>
