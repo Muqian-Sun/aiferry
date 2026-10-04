@@ -13,12 +13,15 @@ func TestChannelMonitorV2DateBinOriginIsUTC(t *testing.T) {
 	require.Equal(t, "TIMESTAMPTZ '1970-01-01 00:00:00+00'", channelMonitorV2DateBinOrigin)
 	require.Equal(t, "date_bin($1::interval,m.bucket_start,TIMESTAMPTZ '1970-01-01 00:00:00+00')", channelMonitorV2DateBinExpr("m.bucket_start"))
 
-	for _, query := range []string{
-		channelMonitorV2FixedRollupBoundsSQL,
-		channelMonitorV2MetricsRollupSQL,
-		channelMonitorV2HistogramRollupSQL,
-		channelMonitorV2ErrorRollupSQL,
-	} {
+	queries := []string{channelMonitorV2FixedRollupBoundsSQL}
+	for _, tier := range channelMonitorV2RollupTiers {
+		queries = append(queries,
+			channelMonitorV2MetricsRollupSQL(tier.sourceSeconds),
+			channelMonitorV2HistogramRollupSQL(tier.sourceSeconds),
+			channelMonitorV2ErrorRollupSQL(tier.sourceSeconds),
+		)
+	}
+	for _, query := range queries {
 		require.Contains(t, query, channelMonitorV2DateBinOrigin)
 		require.NotContains(t, query, "TIMESTAMPTZ '1970-01-01'")
 	}
@@ -166,13 +169,6 @@ func TestChannelMonitorV2TierRetentionPolicy(t *testing.T) {
 	now := time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
 	require.Equal(t, now.Add(-7*24*time.Hour), channelMonitorV2RetentionCutoff(now, channelMonitorV2RetentionMetrics1m))
 	require.Equal(t, now.Add(-90*24*time.Hour), channelMonitorV2RetentionCutoff(now, channelMonitorV2MaxRetention()))
-}
-
-func TestSameFixedRollupBucket(t *testing.T) {
-	start := time.Date(2026, 8, 7, 10, 0, 0, 0, time.UTC)
-	require.True(t, sameFixedRollupBucket(start, start.Add(10*time.Minute), 86400))
-	require.False(t, sameFixedRollupBucket(start, start.Add(15*time.Hour), 43200))
-	require.False(t, sameFixedRollupBucket(start, start.Add(24*time.Hour), 86400))
 }
 
 // Needles present in service.ClassifyChannelMonitorV2Error must appear in the

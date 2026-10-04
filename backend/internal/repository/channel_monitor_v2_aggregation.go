@@ -301,46 +301,53 @@ ON CONFLICT (id) DO UPDATE SET
   backfill_cursor = LEAST(COALESCE(channel_monitor_v2_watermarks.backfill_cursor, EXCLUDED.backfill_cursor), EXCLUDED.backfill_cursor),
   updated_at = NOW()`
 
-var channelMonitorV2FixedRollupSeconds = []int{300, 3600, 43200, 86400}
+// channelMonitorV2RollupTier 一档固定粒度汇总：段长与来源（sourceSeconds 为 0 = 1m 事实表，否则 = 同表里更细的一档）。
+type channelMonitorV2RollupTier struct{ seconds, sourceSeconds int }
+
+// channelMonitorV2RollupTiers 各档按顺序在同一个事务里重算，来源档必须排在前面。
+//
+// 每次重算都要重建窗口碰到的各档段，包括还没走完的当前段：7 天 / 30 天读的就是 12 小时 / 1 天这两档，
+// 原来只在窗口跨过档边界时才重建，这两个窗口就一直停在上一个 UTC 整 12 小时 / 整天（2026-10-04 走查：
+// 24 小时有 3 个请求、7 天只有 2 个）。12 小时、1 天改从 1 小时档合并：当前这一天每轮只合并几十行，
+// 不用每分钟把一整天的分钟行重扫一遍；1 小时档保留 30 天，覆盖得到任何会被重建的段。
+var channelMonitorV2RollupTiers = []channelMonitorV2RollupTier{
+	{seconds: 300},
+	{seconds: 3600},
+	{seconds: 43200, sourceSeconds: 3600},
+	{seconds: 86400, sourceSeconds: 3600},
+}
 
 func (r *channelMonitorV2Repository) recomputeFixedRollups(ctx context.Context, tx *sql.Tx, start, end time.Time) error {
-	for _, seconds := range channelMonitorV2FixedRollupSeconds {
-		// Coarse buckets are immutable between boundaries during the normal
-		// trailing refresh. Historical backfills and boundary-crossing windows
-		// still rebuild them; this avoids repeatedly regrouping the full current
-		// day table every few minutes.
-		if seconds >= 43200 && sameFixedRollupBucket(start, end, seconds) {
-			continue
-		}
-		interval := fmt.Sprintf("%d seconds", seconds)
+	for _, tier := range channelMonitorV2RollupTiers {
+		interval := fmt.Sprintf("%d seconds", tier.seconds)
 		for _, table := range []string{
 			"channel_monitor_v2_latency_histograms_rollup",
 			"channel_monitor_v2_error_metrics_rollup",
 			"channel_monitor_v2_metrics_rollup",
 		} {
-			if _, err := tx.ExecContext(ctx, fmt.Sprintf(channelMonitorV2FixedRollupDeleteSQL, table), interval, seconds, start, end); err != nil {
+			if _, err := tx.ExecContext(ctx, fmt.Sprintf(channelMonitorV2FixedRollupDeleteSQL, table), interval, tier.seconds, start, end); err != nil {
 				return err
 			}
 		}
-		if _, err := tx.ExecContext(ctx, channelMonitorV2MetricsRollupSQL, interval, seconds, start, end); err != nil {
-			return fmt.Errorf("roll up channel monitor v2 metrics %ds: %w", seconds, err)
-		}
-		if _, err := tx.ExecContext(ctx, channelMonitorV2HistogramRollupSQL, interval, seconds, start, end); err != nil {
-			return fmt.Errorf("roll up channel monitor v2 histograms %ds: %w", seconds, err)
-		}
-		if _, err := tx.ExecContext(ctx, channelMonitorV2ErrorRollupSQL, interval, seconds, start, end); err != nil {
-			return fmt.Errorf("roll up channel monitor v2 errors %ds: %w", seconds, err)
+		for _, step := range []struct{ name, query string }{
+			{"metrics", channelMonitorV2MetricsRollupSQL(tier.sourceSeconds)},
+			{"histograms", channelMonitorV2HistogramRollupSQL(tier.sourceSeconds)},
+			{"errors", channelMonitorV2ErrorRollupSQL(tier.sourceSeconds)},
+		} {
+			if _, err := tx.ExecContext(ctx, step.query, interval, tier.seconds, start, end); err != nil {
+				return fmt.Errorf("roll up channel monitor v2 %s %ds: %w", step.name, tier.seconds, err)
+			}
 		}
 	}
 	return nil
 }
 
-func sameFixedRollupBucket(start, end time.Time, seconds int) bool {
-	if !end.After(start) {
-		return true
+// channelMonitorV2RollupFrom 一档汇总的 FROM … WHERE 前缀：1m 事实表，或同一张 rollup 表里 sourceSeconds 那一档。
+func channelMonitorV2RollupFrom(factTable, rollupTable, alias string, sourceSeconds int) string {
+	if sourceSeconds == 0 {
+		return factTable + " " + alias + ", bounds WHERE "
 	}
-	interval := time.Duration(seconds) * time.Second
-	return start.Truncate(interval).Equal(end.Add(-time.Nanosecond).Truncate(interval))
+	return fmt.Sprintf("%s %s, bounds WHERE %s.bucket_seconds = %d AND ", rollupTable, alias, alias, sourceSeconds)
 }
 
 // PostgreSQL interprets a TIMESTAMPTZ literal without an explicit offset in
@@ -367,7 +374,8 @@ WHERE bucket_seconds = $2::integer
   AND bucket_start >= bounds.start_at
   AND bucket_start < bounds.end_at`
 
-const channelMonitorV2MetricsRollupSQL = `
+func channelMonitorV2MetricsRollupSQL(sourceSeconds int) string {
+	return `
 INSERT INTO channel_monitor_v2_metrics_rollup (
   bucket_start, bucket_seconds, platform, model, account_id, success_requests, error_requests,
   upstream_affected_requests, upstream_attempt_count, input_tokens, output_tokens,
@@ -380,28 +388,30 @@ SELECT date_bin($1::interval, m.bucket_start, ` + channelMonitorV2DateBinOrigin 
        SUM(upstream_affected_requests), SUM(upstream_attempt_count), SUM(input_tokens),
        SUM(output_tokens), SUM(cache_creation_tokens), SUM(cache_read_tokens),
        SUM(ttft_sum_ms), SUM(ttft_count), SUM(duration_sum_ms), SUM(duration_count), NOW()
-FROM channel_monitor_v2_metrics_1m m, bounds
-WHERE m.bucket_start >= bounds.start_at AND m.bucket_start < bounds.end_at
+FROM ` + channelMonitorV2RollupFrom("channel_monitor_v2_metrics_1m", "channel_monitor_v2_metrics_rollup", "m", sourceSeconds) + `m.bucket_start >= bounds.start_at AND m.bucket_start < bounds.end_at
 GROUP BY 1, 2, 3, 4, 5`
+}
 
-const channelMonitorV2HistogramRollupSQL = `
+func channelMonitorV2HistogramRollupSQL(sourceSeconds int) string {
+	return `
 INSERT INTO channel_monitor_v2_latency_histograms_rollup (
   bucket_start, bucket_seconds, platform, model, account_id, metric, upper_bound_ms, sample_count
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, h.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
        platform, model, account_id, metric, upper_bound_ms, SUM(sample_count)
-FROM channel_monitor_v2_latency_histograms_1m h, bounds
-WHERE h.bucket_start >= bounds.start_at AND h.bucket_start < bounds.end_at
+FROM ` + channelMonitorV2RollupFrom("channel_monitor_v2_latency_histograms_1m", "channel_monitor_v2_latency_histograms_rollup", "h", sourceSeconds) + `h.bucket_start >= bounds.start_at AND h.bucket_start < bounds.end_at
 GROUP BY 1, 2, 3, 4, 5, 6, 7`
+}
 
-const channelMonitorV2ErrorRollupSQL = `
+func channelMonitorV2ErrorRollupSQL(sourceSeconds int) string {
+	return `
 INSERT INTO channel_monitor_v2_error_metrics_rollup (
   bucket_start, bucket_seconds, platform, model, account_id, error_category, taxonomy_version, error_requests
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, e.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
        platform, model, account_id, error_category, taxonomy_version, SUM(error_requests)
-FROM channel_monitor_v2_error_metrics_1m e, bounds
-WHERE e.bucket_start >= bounds.start_at AND e.bucket_start < bounds.end_at
+FROM ` + channelMonitorV2RollupFrom("channel_monitor_v2_error_metrics_1m", "channel_monitor_v2_error_metrics_rollup", "e", sourceSeconds) + `e.bucket_start >= bounds.start_at AND e.bucket_start < bounds.end_at
 GROUP BY 1, 2, 3, 4, 5, 6, 7`
+}
