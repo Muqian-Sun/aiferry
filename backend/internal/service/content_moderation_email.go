@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func buildContentModerationViolationEmailBody(siteName string, log *ContentModerationLog, cfg *ContentModerationConfig) string {
+func buildContentModerationViolationEmailBody(siteName string, log *ContentModerationLog) string {
 	if log == nil {
 		return ""
 	}
@@ -15,10 +15,7 @@ func buildContentModerationViolationEmailBody(siteName string, log *ContentModer
 	if userName == "" && log.UserID != nil {
 		userName = fmt.Sprintf("UID %d", *log.UserID)
 	}
-	threshold := cfg.BanThreshold
-	if threshold <= 0 {
-		threshold = defaultContentModerationBanThreshold
-	}
+	threshold := contentModerationBanThreshold
 	statusBlock := ""
 	if log.AutoBanned {
 		statusBlock = `<div style="margin-top:24px;padding:18px 20px;border-radius:10px;background:#ff3b30;color:#fff;font-size:18px;font-weight:700;text-align:center;line-height:1.6;">账户当前处于封禁状态，所有 API 请求将被拒绝</div>`
@@ -58,7 +55,7 @@ func buildContentModerationViolationEmailBody(siteName string, log *ContentModer
 	)
 }
 
-func buildContentModerationAccountDisabledEmailBody(siteName string, log *ContentModerationLog, cfg *ContentModerationConfig) string {
+func buildContentModerationAccountDisabledEmailBody(siteName string, log *ContentModerationLog) string {
 	if log == nil {
 		return ""
 	}
@@ -66,10 +63,7 @@ func buildContentModerationAccountDisabledEmailBody(siteName string, log *Conten
 	if userName == "" && log.UserID != nil {
 		userName = fmt.Sprintf("UID %d", *log.UserID)
 	}
-	threshold := cfg.BanThreshold
-	if threshold <= 0 {
-		threshold = defaultContentModerationBanThreshold
-	}
+	threshold := contentModerationBanThreshold
 	return fmt.Sprintf(`<!doctype html>
 <html>
 <body style="margin:0;padding:0;background:#f5f6fb;color:#222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">

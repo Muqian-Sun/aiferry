@@ -1035,7 +1035,7 @@ func (r *contentModerationHandlerTestRepo) ListLogs(ctx context.Context, filter 
 	return nil, nil, nil
 }
 
-func (r *contentModerationHandlerTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time, excludeCyberPolicy bool) (int, error) {
+func (r *contentModerationHandlerTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	return 0, nil
 }
 
@@ -1050,20 +1050,12 @@ func (r *contentModerationHandlerTestRepo) UpdateLogEmailSent(ctx context.Contex
 func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	moderationServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/moderations", r.URL.Path)
-		_, _ = w.Write([]byte(`{"results":[{"category_scores":{"sexual":0.9}}]}`))
-	}))
-	defer moderationServer.Close()
-
+	// 用关键词命中触发前置拦截（不调审核接口，审核接口地址写死在 service 里）
 	cfg := &service.ContentModerationConfig{
-		Enabled:      true,
-		Mode:         service.ContentModerationModePreBlock,
-		BaseURL:      moderationServer.URL,
-		Model:        "omni-moderation-latest",
-		APIKeys:      []string{"sk-test"},
-		SampleRate:   100,
-		BlockMessage: "内容审计测试阻断",
+		Enabled:         true,
+		Mode:            service.ContentModerationModePreBlock,
+		APIKeys:         []string{"sk-test"},
+		BlockedKeywords: []string{"bad prompt"},
 	}
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -1129,12 +1121,12 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 	cancelRead()
 	if readErr == nil {
 		require.Contains(t, string(payload), "content_policy_violation")
-		require.Contains(t, string(payload), "内容审计测试阻断")
+		require.Contains(t, string(payload), "Content audit matched a risk rule")
 	} else {
 		var closeErr coderws.CloseError
 		require.ErrorAs(t, readErr, &closeErr)
 		require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
-		require.Contains(t, closeErr.Reason, "内容审计测试阻断")
+		require.Contains(t, closeErr.Reason, "Content audit matched a risk rule")
 	}
 	var logs []service.ContentModerationLog
 	require.Eventually(t, func() bool {
@@ -1142,7 +1134,7 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		return len(logs) == 1
 	}, time.Second, 10*time.Millisecond)
 	require.True(t, logs[0].Flagged)
-	require.Equal(t, service.ContentModerationActionBlock, logs[0].Action)
+	require.Equal(t, service.ContentModerationActionKeywordBlock, logs[0].Action)
 	require.Equal(t, "bad prompt", logs[0].InputExcerpt)
 }
 
