@@ -575,6 +575,7 @@ export default {
           loading: 'Loading detail...',
           empty: 'No detail',
           loadFailed: 'Failed to load alert detail',
+          historyLoadFailed: 'Failed to load related alerts',
           manualResolve: 'Mark as Resolved',
           manualResolvedSuccess: 'Marked as manually resolved',
           manualResolvedFailed: 'Failed to mark as manually resolved',

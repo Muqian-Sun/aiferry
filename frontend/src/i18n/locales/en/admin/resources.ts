@@ -130,6 +130,7 @@ export default {
       batchDeleteDone: 'Deleted {deleted} proxies, skipped {skipped}',
       batchDeleteSkipped: 'Skipped {skipped} proxies',
       batchDeleteFailed: 'Batch delete failed',
+      accountsLoadFailed: 'Failed to load channels using this proxy',
       deleteBlockedInUse: 'This proxy is in use and cannot be deleted',
       accountsTitle: 'Accounts using this IP',
       accountsEmpty: 'No accounts are using this proxy',
@@ -516,6 +517,8 @@ export default {
       ipAddress: 'IP',
       clickToViewBalance: 'Click to view balance history',
       failedToLoadUser: 'Failed to load user info',
+      failedToLoadLogs: 'Failed to load usage records',
+      failedToLoadErrors: 'Failed to load error requests',
       userDeletedBadge: 'Deleted',
       cleanup: {
         button: 'Cleanup',

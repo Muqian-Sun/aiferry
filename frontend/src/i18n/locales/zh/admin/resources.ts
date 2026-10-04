@@ -147,6 +147,7 @@ export default {
       batchDeleteDone: '已删除 {deleted} 个代理，跳过 {skipped} 个',
       batchDeleteSkipped: '已跳过 {skipped} 个代理',
       batchDeleteFailed: '批量删除失败',
+      accountsLoadFailed: '加载使用该代理的渠道失败',
       deleteBlockedInUse: '该代理已有渠道使用，无法删除',
       accountsTitle: '使用该 IP 的渠道',
       accountsEmpty: '没有渠道使用这个代理',
@@ -513,6 +514,8 @@ export default {
       ipAddress: 'IP',
       clickToViewBalance: '点击查看充值记录',
       failedToLoadUser: '加载用户信息失败',
+      failedToLoadLogs: '加载使用记录失败',
+      failedToLoadErrors: '加载错误请求失败',
       userDeletedBadge: '已删除',
       cleanup: {
         button: '清理',

@@ -58,6 +58,8 @@
             <ColumnSettingsMenu :settings="activeTab === 'errors' ? errorColumnSettings : usageColumnSettings" />
           </template>
         </UsageFilters>
+        <!-- 明细 / 错误列表加载失败、导出失败的原因；原来只打控制台，列表空着像是没数据 -->
+        <FormError class="mb-3" :message="loadError || actionError" data-testid="usage-page-error" />
 
         <div v-show="activeTab === 'usage'" class="border-t border-af-hairline">
           <UsageTable
@@ -137,6 +139,8 @@ import OpsErrorDetailModal from '@/views/admin/ops/components/OpsErrorDetailModa
 import { listErrorLogs } from '@/api/admin/ops'
 import type { OpsErrorLog } from '@/api/admin/ops'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import type { Column } from '@/components/common/types'
@@ -177,13 +181,18 @@ const loadModelOptions = async () => {
   }
 }
 
+// 列表加载失败下次加载开始就清；导出 / 查用户失败留到下一次操作
+const loadError = ref('')
+const actionError = ref('')
+
 const handleUserClick = async (userId: number) => {
+  actionError.value = ''
   try {
     const user = await adminAPI.users.getById(userId, true)
     balanceHistoryUser.value = user
     showBalanceHistoryModal.value = true
   } catch (error) {
-    console.error(t('admin.usage.failedToLoadUser'), error)
+    actionError.value = extractApiErrorMessage(error, t('admin.usage.failedToLoadUser'))
   }
 }
 
@@ -309,13 +318,14 @@ const buildUsageListParams = (page: number, pageSize: number): AdminUsageQueryPa
 
 const loadLogs = async () => {
   abortController?.abort(); const c = new AbortController(); abortController = c; loading.value = true
+  loadError.value = ''
   try {
     const res = await adminAPI.usage.list(
       buildUsageListParams(pagination.page, pagination.page_size),
       { signal: c.signal }
     )
     if(!c.signal.aborted) { usageLogs.value = res.items; pagination.total = res.total }
-  } catch (error: any) { if(error?.name !== 'AbortError') console.error('Failed to load usage logs:', error) } finally { if(abortController === c) loading.value = false }
+  } catch (error: any) { if(error?.name !== 'AbortError') loadError.value = extractApiErrorMessage(error, t('admin.usage.failedToLoadLogs')) } finally { if(abortController === c) loading.value = false }
 }
 const loadStats = async (force = false) => {
   const seq = ++statsReqSeq
@@ -409,7 +419,7 @@ const closeCleanupDialog = () => {
 // 导出：金额只导收入 / 成本 / 利润三个数（单笔精确金额），不再导标准价与它的分项。
 // 请求 ID、上游请求 ID 两列保留（对账、给上游提工单用）；名字查不到的写「已删除…」，不导内部 id
 const exportToExcel = async () => {
-  if (exporting.value) return; exporting.value = true; exportProgress.show = true
+  if (exporting.value) return; exporting.value = true; exportProgress.show = true; actionError.value = ''
   const c = new AbortController(); exportAbortController = c
   // 文件名按开始导出时的范围取：导出过程中改了范围也不影响这一份
   const fileName = `usage_${startDate.value}_to_${endDate.value}.xlsx`
@@ -464,7 +474,7 @@ const exportToExcel = async () => {
       XLSX.utils.book_append_sheet(wb, ws, 'Usage')
       saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName)
     }
-  } catch (error) { console.error('Failed to export:', error); }
+  } catch (error: any) { if (error?.name !== 'AbortError') actionError.value = extractApiErrorMessage(error, t('usage.exportFailed')) }
   finally { if(exportAbortController === c) { exportAbortController = null; exporting.value = false; exportProgress.show = false } }
 }
 
@@ -550,6 +560,7 @@ const toRFC3339 = (d: string | undefined, endOfDay = false): string | undefined 
 
 const loadAdminErrors = async () => {
   errLoading.value = true
+  loadError.value = ''
   try {
     const resp = await listErrorLogs({
       page: errPage.value,
@@ -571,7 +582,7 @@ const loadAdminErrors = async () => {
     errRows.value = resp.items
     errTotal.value = resp.total
   } catch (error) {
-    console.error('Failed to load admin errors:', error)
+    loadError.value = extractApiErrorMessage(error, t('admin.usage.failedToLoadErrors'))
   } finally {
     errLoading.value = false
   }

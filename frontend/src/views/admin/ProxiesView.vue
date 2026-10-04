@@ -87,6 +87,8 @@
             </button>
           </template>
         </ListToolbar>
+        <!-- 列表加载、检测、导出、删除被拦等失败原因；原来只打控制台 -->
+        <FormError class="mt-2" :message="loadError || actionError" data-testid="proxies-action-error" />
       </template>
 
       <template #table>
@@ -333,7 +335,9 @@
       :danger="true"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
 
     <!-- Batch Delete Confirmation Dialog -->
     <ConfirmDialog
@@ -345,7 +349,9 @@
       :danger="true"
       @confirm="confirmBatchDelete"
       @cancel="showBatchDeleteDialog = false"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
     <ConfirmDialog
       :show="showExportDataDialog"
       :title="t('admin.proxies.dataExport')"
@@ -445,11 +451,12 @@
       width="normal"
       @close="closeAccountsModal"
     >
+      <FormError :message="accountsError" />
       <div v-if="accountsLoading" class="flex items-center justify-center py-8 text-sm text-af-ink-3">
         <Icon name="refresh" size="md" class="mr-2 animate-spin" />
         {{ t('common.loading') }}
       </div>
-      <div v-else-if="proxyAccounts.length === 0" class="py-6 text-center text-sm text-af-ink-3">
+      <div v-else-if="proxyAccounts.length === 0 && !accountsError" class="py-6 text-center text-sm text-af-ink-3">
         {{ t('admin.proxies.accountsEmpty') }}
       </div>
       <div v-else class="max-h-80 overflow-auto">
@@ -512,6 +519,7 @@ import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatDateOnly, formatDateTime } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
 import { EXPIRY_DANGER_DAYS, EXPIRY_WARN_DAYS, daysUntil, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 
 const { t } = useI18n()
@@ -549,6 +557,11 @@ const statusLabel = (status: string) =>
 const proxies = ref<Proxy[]>([])
 const visiblePasswordIds = reactive(new Set<number>())
 const loading = ref(false)
+// 列表加载失败单独记，下次加载开始就清；其余操作的失败留到下一次操作
+const loadError = ref('')
+const actionError = ref('')
+const deleteError = ref('')
+const accountsError = ref('')
 const searchQuery = ref('')
 const filters = reactive({
   protocol: '',
@@ -646,6 +659,7 @@ const loadProxies = async () => {
   const currentAbortController = new AbortController()
   abortController = currentAbortController
   loading.value = true
+  loadError.value = ''
   try {
     const response = await adminAPI.proxies.list(
       pagination.page,
@@ -663,7 +677,7 @@ const loadProxies = async () => {
     if (isAbortError(error)) {
       return
     }
-    console.error('Error loading proxies:', error)
+    loadError.value = extractApiErrorMessage(error, t('admin.proxies.failedToLoad'))
   } finally {
     if (abortController === currentAbortController) {
       loading.value = false
@@ -842,6 +856,7 @@ const handleTestConnection = async (proxy: Proxy) => {
 
 const handleQualityCheck = async (proxy: Proxy) => {
   startQualityCheckingProxy(proxy.id)
+  actionError.value = ''
   try {
     const result = await adminAPI.proxies.checkProxyQuality(proxy.id)
     qualityReportProxy.value = proxy
@@ -861,7 +876,7 @@ const handleQualityCheck = async (proxy: Proxy) => {
     }
     applyQualityResult(proxy.id, result)
   } catch (error: any) {
-    console.error('Error checking proxy quality:', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.proxies.qualityCheckFailed'))
   } finally {
     stopQualityCheckingProxy(proxy.id)
   }
@@ -896,7 +911,7 @@ const runBatchProxyQualityChecks = async (ids: number[]) => {
         }
         applyQualityResult(current, result)
       } catch (error) {
-        console.error(t('admin.proxies.qualityCheckFailed'), error)
+        actionError.value = extractApiErrorMessage(error, t('admin.proxies.qualityCheckFailed'))
       } finally {
         stopQualityCheckingProxy(current)
       }
@@ -1038,6 +1053,7 @@ const handleBatchTest = async (scope: BatchScope) => {
   if (batchTesting.value) return
 
   batchTesting.value = true
+  actionError.value = ''
   try {
     const ids = await resolveBatchIds(scope)
 
@@ -1048,7 +1064,7 @@ const handleBatchTest = async (scope: BatchScope) => {
     await runBatchProxyTests(ids)
     loadProxies()
   } catch (error: any) {
-    console.error('Error batch testing proxies:', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.proxies.batchTestFailed'))
   } finally {
     batchTesting.value = false
   }
@@ -1058,6 +1074,7 @@ const handleBatchQualityCheck = async (scope: BatchScope) => {
   if (batchQualityChecking.value) return
 
   batchQualityChecking.value = true
+  actionError.value = ''
   try {
     const ids = await resolveBatchIds(scope)
 
@@ -1068,7 +1085,7 @@ const handleBatchQualityCheck = async (scope: BatchScope) => {
     await runBatchProxyQualityChecks(ids)
     loadProxies()
   } catch (error: any) {
-    console.error('Error batch checking quality:', error)
+    actionError.value = extractApiErrorMessage(error, t('admin.proxies.qualityCheckFailed'))
   } finally {
     batchQualityChecking.value = false
   }
@@ -1083,6 +1100,7 @@ const formatExportTimestamp = () => {
 const handleExportData = async () => {
   if (exportingData.value) return
   exportingData.value = true
+  actionError.value = ''
   try {
     const dataPayload = await adminAPI.proxies.exportData(
       selectedCount.value > 0
@@ -1101,7 +1119,7 @@ const handleExportData = async () => {
     link.click()
     URL.revokeObjectURL(url)
   } catch (error: any) {
-    console.error(error?.message || t('admin.proxies.dataExportFailed'), error)
+    actionError.value = extractApiErrorMessage(error, t('admin.proxies.dataExportFailed'))
   } finally {
     exportingData.value = false
     showExportDataDialog.value = false
@@ -1110,9 +1128,11 @@ const handleExportData = async () => {
 
 const handleDelete = (proxy: Proxy) => {
   if ((proxy.account_count || 0) > 0) {
-    console.error(t('admin.proxies.deleteBlockedInUse'))
+    actionError.value = t('admin.proxies.deleteBlockedInUse')
     return
   }
+  actionError.value = ''
+  deleteError.value = ''
   deletingProxy.value = proxy
   showDeleteDialog.value = true
 }
@@ -1127,6 +1147,7 @@ const openBatchDelete = () => {
 const confirmDelete = async () => {
   if (!deletingProxy.value) return
 
+  deleteError.value = ''
   try {
     await adminAPI.proxies.delete(deletingProxy.value.id)
     showDeleteDialog.value = false
@@ -1134,7 +1155,7 @@ const confirmDelete = async () => {
     deletingProxy.value = null
     loadProxies()
   } catch (error: any) {
-    console.error('Error deleting proxy:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.proxies.failedToDelete'))
   }
 }
 
@@ -1145,13 +1166,14 @@ const confirmBatchDelete = async () => {
     return
   }
 
+  deleteError.value = ''
   try {
     await adminAPI.proxies.batchDelete(ids)
     clearSelectedProxies()
     showBatchDeleteDialog.value = false
     loadProxies()
   } catch (error: any) {
-    console.error('Error batch deleting proxies:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.proxies.batchDeleteFailed'))
   }
 }
 
@@ -1160,11 +1182,12 @@ const openAccountsModal = async (proxy: Proxy) => {
   proxyAccounts.value = []
   accountsLoading.value = true
   showAccountsModal.value = true
+  accountsError.value = ''
 
   try {
     proxyAccounts.value = await adminAPI.proxies.getProxyAccounts(proxy.id)
   } catch (error: any) {
-    console.error('Error loading proxy accounts:', error)
+    accountsError.value = extractApiErrorMessage(error, t('admin.proxies.accountsLoadFailed'))
   } finally {
     accountsLoading.value = false
   }

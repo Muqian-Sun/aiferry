@@ -126,6 +126,8 @@
             <ColumnSettingsMenu :settings="columnSettings" />
           </template>
         </ListToolbar>
+        <!-- 批量删除部分失败的结果，原来只打控制台 -->
+        <FormError class="mt-2" :message="bulkDeleteError" data-testid="users-bulk-delete-error" />
       </template>
 
       <!-- Users Table -->
@@ -365,7 +367,9 @@
       </template>
     </TablePageLayout>
 
-    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :confirm-text="t('common.delete')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :confirm-text="t('common.delete')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
     <ConfirmDialog
       :show="bulkDeleteIds.length > 0"
       :title="t('admin.users.bulkDelete.title')"
@@ -1090,11 +1094,13 @@ const handleBalanceUpdated = (updated: AdminUser) => {
 
 const handleDelete = (user: AdminUser) => {
   deletingUser.value = user
+  deleteError.value = ''
   showDeleteDialog.value = true
 }
 
 const confirmDelete = async () => {
   if (!deletingUser.value) return
+  deleteError.value = ''
   try {
     await adminAPI.users.delete(deletingUser.value.id)
     if (drawerUserId.value === deletingUser.value.id) drawerOpen.value = false
@@ -1102,21 +1108,24 @@ const confirmDelete = async () => {
     deletingUser.value = null
     loadUsers()
   } catch (error: any) {
-    console.error('Error deleting user:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.users.failedToDelete'))
   }
 }
 
+const deleteError = ref('')
+const bulkDeleteError = ref('')
 const confirmBulkDelete = async () => {
   const ids = bulkDeleteIds.value
   bulkDeleteIds.value = []
   bulkDeleting.value = true
+  bulkDeleteError.value = ''
   const deletedIds: number[] = []
   for (const id of ids) {
     try {
       await adminAPI.users.delete(id)
       deletedIds.push(id)
-    } catch (error) {
-      console.error('Error deleting user:', error)
+    } catch {
+      // 失败的留在选中里，循环结束后统一报数
     }
   }
   removeSelectedIds(deletedIds)
@@ -1124,7 +1133,7 @@ const confirmBulkDelete = async () => {
     pagination.page = 1
   }
   const failed = ids.length - deletedIds.length
-  if (failed > 0) console.error(t('admin.users.bulkDelete.failed', { count: failed }))
+  if (failed > 0) bulkDeleteError.value = t('admin.users.bulkDelete.failed', { count: failed })
   await loadUsers()
   bulkDeleting.value = false
 }

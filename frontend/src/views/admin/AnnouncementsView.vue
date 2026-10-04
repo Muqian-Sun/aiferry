@@ -185,7 +185,9 @@
       danger
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
-    />
+    >
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
 
     <!-- Read Status Dialog -->
     <AnnouncementReadStatusDialog
@@ -230,6 +232,7 @@ import Select from '@/components/common/Select.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
 import FormError from '@/components/common/FormError.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import Icon from '@/components/icons/Icon.vue'
 import { FilterChip, ListToolbar, RowActions } from '@/components/admin/list'
 import type { RowAction } from '@/components/admin/list'
@@ -532,7 +535,9 @@ async function handleSave() {
 const showDeleteDialog = ref(false)
 const deletingAnnouncement = ref<Announcement | null>(null)
 
+const deleteError = ref('')
 function handleDelete(row: Announcement) {
+  deleteError.value = ''
   deletingAnnouncement.value = row
   showDeleteDialog.value = true
 }
@@ -540,13 +545,14 @@ function handleDelete(row: Announcement) {
 async function confirmDelete() {
   if (!deletingAnnouncement.value) return
 
+  deleteError.value = ''
   try {
     await adminAPI.announcements.delete(deletingAnnouncement.value.id)
     showDeleteDialog.value = false
     deletingAnnouncement.value = null
     await loadAnnouncements()
   } catch (error: any) {
-    console.error('Failed to delete announcement:', error)
+    deleteError.value = extractApiErrorMessage(error, t('admin.announcements.failedToDelete'))
   }
 }
 
