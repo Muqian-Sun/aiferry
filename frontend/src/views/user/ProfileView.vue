@@ -8,6 +8,10 @@
     <div data-testid="profile-shell" class="-mt-8">
       <template v-if="section === 'profile'">
         <ProfileInfoCard :user="user" />
+        <!-- 改密码放在基本信息里：「安全」子页不开放（siteFeatures.accountSecurity），用户总要有地方改（2026-10-04 D2） -->
+        <SettingsRow class="border-t border-af-hairline" :title="t('profile.changePassword')" :description="t('userUi.account.rows.passwordDesc')">
+          <ProfilePasswordForm headless />
+        </SettingsRow>
         <p v-if="contactInfo" class="border-t border-af-hairline py-6 text-13 text-af-ink-3">
           {{ t('common.contactSupport') }}:
           <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
@@ -25,9 +29,6 @@
               compact
             />
           </div>
-        </SettingsRow>
-        <SettingsRow :title="t('profile.changePassword')" :description="t('userUi.account.rows.passwordDesc')">
-          <ProfilePasswordForm headless />
         </SettingsRow>
         <SettingsRow :title="t('profile.totp.title')" :description="t('profile.totp.description')">
           <ProfileTotpCard headless />

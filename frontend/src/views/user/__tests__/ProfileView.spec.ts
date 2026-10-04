@@ -91,16 +91,17 @@ describe('ProfileView', () => {
     await flushPromises()
     expect(profile.findAll('.stat-card')).toHaveLength(0)
     expect(profile.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
-    expect(profile.get('[data-testid="profile-shell"]').html()).not.toContain('profile-password-form')
+    // 改密码在基本信息里（「安全」子页不开放，2026-10-04 D2）
+    expect(profile.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
 
     const security = mountSection('security')
     await flushPromises()
     const shell = security.get('[data-testid="profile-shell"]').html()
-    expect(shell).toContain('profile-password-form')
+    expect(shell).not.toContain('profile-password-form')
     expect(shell).toContain('profile-totp-card')
     expect(shell).toContain('profile-passkey-card')
     expect(shell).not.toContain('profile-info-card')
-    // 登录方式绑定属于「安全」子页，与密码 / 双因素 / Passkey 同列
+    // 登录方式绑定属于「安全」子页，与双因素 / Passkey 同列
     expect(security.get('[data-testid="profile-auth-bindings-panel"]').html()).toContain('profile-identity-bindings')
   })
 })

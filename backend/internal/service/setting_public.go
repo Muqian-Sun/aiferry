@@ -109,9 +109,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	googleEnabled := emailOAuthEnabled(s.effectiveEmailOAuthConfig("google"))
 	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilities()
 
-	// 邮箱验证、忘记密码都跟着 SMTP 走（能发信才开）
+	// 邮箱验证跟着 SMTP 走（能发信才开）；找回密码还要配了站点访问地址（IsPasswordResetEnabled）
 	emailVerifyEnabled := s.smtpConfigured()
-	passwordResetEnabled := emailVerifyEnabled
+	passwordResetEnabled := s.IsPasswordResetEnabled(ctx)
 	loginAgreementDocuments := LoginAgreementDocuments()
 	captcha := s.CaptchaProviderConfig()
 

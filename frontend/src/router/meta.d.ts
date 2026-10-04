@@ -53,6 +53,11 @@ declare module 'vue-router' {
     requiresPayment?: boolean
 
     /**
+     * 找回 / 重置密码页：公开设置里 password_reset_enabled 为 false 时拦回登录页
+     */
+    requiresPasswordReset?: boolean
+
+    /**
      * 是否要求风控中心功能开关已启用
      * @default false
      */
