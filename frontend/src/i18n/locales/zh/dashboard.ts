@@ -285,7 +285,6 @@ export default {
     sync: '同步',
     nativeCompactionV2: '压缩',
     compactionFilter: '请求类别',
-    allCompactionTypes: '全部请求',
     compactionOnly: '只看压缩请求',
     cyber: '安全策略',
     live: 'Live',
@@ -345,7 +344,7 @@ export default {
     errors: {
       time: '时间', model: '模型', endpoint: '端点', status: '状态码',
       category: '分类', message: '错误信息',
-      keyName: 'Key 名称', keyDeleted: '已删除', allCategories: '全部分类', allStatuses: '全部状态码',
+      keyName: 'Key 名称', keyDeleted: '已删除',
       empty: '这段时间没有错误请求',
       categories: {
         auth: '认证失败', rate_limit: '限流', quota: '余额/订阅',
@@ -400,7 +399,6 @@ export default {
     accountBalance: '余额',
     concurrencyLimit: '并发限制',
     memberSince: '注册时间',
-    administrator: '管理员',
     user: '用户',
     username: '用户名',
     enterUsername: '输入用户名',
@@ -503,7 +501,7 @@ export default {
     avatar: {
       title: '资料头像',
       uploadAction: '上传图片',
-      uploadHint: '上传图片时会自动压缩静态图片到 20KB 以内，GIF 需自行控制在 20KB 以内',
+      uploadHint: '图片会自动压缩到 20KB 以内；GIF 不压缩，需小于 20KB',
       uploadRequired: '请先上传头像图片',
       saveSuccess: '头像已更新',
       deleteSuccess: '头像已删除',
@@ -512,7 +510,6 @@ export default {
       compressTooLarge: '无法将图片压缩到 20KB 以内，请换一张更小的图片',
       compressFailed: '压缩所选图片失败',
       readFailed: '读取所选图片失败',
-      emptyDeleteHint: '当前没有可删除的头像',
       saveFailed: '头像保存失败',
       deleteFailed: '头像删除失败',
     },
@@ -558,14 +555,13 @@ export default {
 
   // Pagination
   pagination: {
-    showing: '显示',
-    to: '至',
-    of: '共',
-    results: '条结果',
+    totalOnly: '共 {total} 条',
+    range: '第 {from}–{to} 条，共 {total} 条',
     pageOf: '第 {page} / {total} 页',
     previous: '上一页',
     next: '下一页',
     perPage: '每页',
+    perPageCount: '每页 {size} 条',
     goToPage: '跳转到第 {page} 页',
     jumpTo: '跳转页',
     jumpPlaceholder: '页码',

@@ -98,8 +98,7 @@
     ref="tableWrapperRef"
     class="table-wrapper"
     :class="{
-      'actions-expanded': actionsExpanded,
-      'table-head-plain': plainHeader
+      'actions-expanded': actionsExpanded
     }"
   >
     <table class="w-full min-w-max divide-y divide-af-hairline">
@@ -126,7 +125,7 @@
             scope="col"
             :aria-sort="column.sortable ? getColumnAriaSort(column.key) : undefined"
             :class="[
-              'sticky-header-cell py-3 text-left text-xs font-medium text-af-ink-3',
+              'sticky-header-cell whitespace-nowrap py-3 text-left text-xs font-medium text-af-ink-3',
               getAdaptivePaddingClass(),
               { 'cursor-pointer hover:bg-af-hairline/60': column.sortable },
               getStickyColumnClass(column, index),
@@ -274,12 +273,9 @@ import { useVirtualizer, observeElementRect as observeElementRectDefault } from 
 import { useI18n } from 'vue-i18n'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
-import { IS_ADMIN_SITE } from '@/app/site'
 
 const { t } = useI18n()
 
-/** 用户站表头与页面同色（见样式区 --table-head-bg） */
-const plainHeader = !IS_ADMIN_SITE
 
 const desktopViewportQuery = '(min-width: 768px)'
 const isDesktopViewport = ref(
@@ -957,14 +953,10 @@ defineExpose({
 }
 
 /*
- * 表头底色：管理端铺浅灰；用户站与页面同色（控制台单色为主，muqian 2026-09-23），只靠表头下的 hairline 分隔。
+ * 表头底色与页面同色，只靠表头下的 hairline 分隔（用户站 2026-09-23；管理站 2026-10-05 也去掉浅灰底，不做成卡片样）。
  * 表头单元格吸顶时必须有不透明底色，所以走同一个变量，不能直接去掉背景。
  */
 .table-wrapper {
-  --table-head-bg: var(--af-sunken);
-}
-
-.table-wrapper.table-head-plain {
   --table-head-bg: var(--af-sheet);
 }
 
@@ -1058,50 +1050,34 @@ tbody tr:hover .sticky-col {
   scrollbar-width: auto !important; /* 阻止 Chrome 121 退化到原生 Mac 闪隐滚动条 */
 }
 
-/* 2. 重写 Webkit 滚动层，全部加上 !important 强制覆盖透明悬停陷阱 */
+/* 2. 细、浅、常驻的横向滚动条（2026-10-05：原来 12px 深灰条太重）。仍然常驻，免得表格看不出能横滑 */
 .table-wrapper::-webkit-scrollbar {
-  height: 12px !important;
-  width: 12px !important;
+  height: 8px !important;
+  width: 8px !important;
   display: block !important;
   background-color: transparent !important;
 }
 
 .table-wrapper::-webkit-scrollbar-track {
-  background-color: rgba(0, 0, 0, 0.03) !important;
-  border-radius: 6px !important;
-  margin: 0 4px !important;
-}
-.dark .table-wrapper::-webkit-scrollbar-track {
-  background-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: transparent !important;
 }
 
-/* 常驻、不透明的滑块，无视鼠标是否 hover 都在那！ */
 .table-wrapper::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.75) !important; 
-  border-radius: 6px !important;
+  background-color: rgb(var(--af-hairline-strong)) !important;
+  border-radius: 9999px !important;
   border: 2px solid transparent !important;
   background-clip: padding-box !important;
   -webkit-appearance: none !important;
 }
 .table-wrapper::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(75, 85, 99, 0.9) !important;
-}
-
-.dark .table-wrapper::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.75) !important;
-}
-.dark .table-wrapper::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(209, 213, 219, 0.9) !important;
+  background-color: rgb(var(--af-ink-4)) !important;
 }
 
 /* 3. 仅给真正的 Firefox 留的后路 */
 @supports (-moz-appearance:none) {
   .table-wrapper {
     scrollbar-width: thin !important;
-    scrollbar-color: rgba(156, 163, 175, 0.5) rgba(0, 0, 0, 0.03) !important;
-  }
-  .dark .table-wrapper {
-    scrollbar-color: rgba(75, 85, 99, 0.5) rgba(255, 255, 255, 0.05) !important;
+    scrollbar-color: rgb(var(--af-hairline-strong)) transparent !important;
   }
 }
 </style>

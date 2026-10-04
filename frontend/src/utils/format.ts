@@ -344,18 +344,31 @@ export function formatNumberLocaleString(num: number): string {
 }
 
 /**
- * 格式化 token 数量（>=1M 显示为 M，>=1K 显示为 K，保留 1 位小数）
+ * 格式化 token 数量（>=1M 显示为 M，>=1K 显示为 K，最多 1 位小数）
  * @param tokens token 数量
  * @returns 格式化后的字符串，如 "950", "1.2K", "3.5M"
  */
 export function formatTokensK(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`
-  return tokens.toString()
+  return formatCompactNumber(tokens, { allowBillions: false })
+}
+
+/** 保留 1 位小数，去掉无意义的 .0（200.0K → 200K）；舍入后到 1000 就进一档（999,999 → 1M，不写 1000.0K） */
+function compactUnit(num: number, units: Array<[number, string]>): string | null {
+  for (let i = 0; i < units.length; i++) {
+    const [size, suffix] = units[i]
+    if (Math.abs(num) < size) continue
+    const scaled = Number((num / size).toFixed(1))
+    if (Math.abs(scaled) >= 1000 && i > 0) {
+      const [bigger, biggerSuffix] = units[i - 1]
+      return `${Number((num / bigger).toFixed(1))}${biggerSuffix}`
+    }
+    return `${scaled}${suffix}`
+  }
+  return null
 }
 
 /**
- * 格式化大数字（K/M/B，保留 1 位小数）
+ * 格式化大数字（K/M/B，最多 1 位小数）
  * @param num 数字
  * @param options allowBillions=false 时最高只显示到 M
  */
@@ -365,13 +378,11 @@ export function formatCompactNumber(
 ): string {
   if (num === null || num === undefined) return '0'
 
-  const abs = Math.abs(num)
   const allowBillions = options?.allowBillions !== false
-
-  if (allowBillions && abs >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`
-  if (abs >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `${(num / 1_000).toFixed(1)}K`
-  return num.toString()
+  const units: Array<[number, string]> = allowBillions
+    ? [[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']]
+    : [[1_000_000, 'M'], [1_000, 'K']]
+  return compactUnit(num, units) ?? num.toString()
 }
 
 /**
@@ -436,4 +447,12 @@ export function formatRelativeWithDateTime(date: string | Date | null | undefine
   }
 
   return `${relativeTime} · ${dateTime}`
+}
+
+/** 占比（0–100）：≥10% 取整，更小的保留一位并去掉 .0（2.0% → 2%）；有量但不到 0.1% 写 <0.1%，不写 0.0% */
+export function formatSharePercent(pct: number): string {
+  if (!(pct > 0)) return '0%'
+  if (pct < 0.1) return '<0.1%'
+  if (pct >= 10) return `${Math.round(pct)}%`
+  return `${Number(pct.toFixed(1))}%`
 }

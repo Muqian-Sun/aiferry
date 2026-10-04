@@ -27,272 +27,194 @@
       <template v-else>
         <StatRow :items="overviewItems" data-testid="risk-overview" />
 
-        <div
-          v-if="showPreBlockRuntimeCard"
-          data-test="pre-block-runtime-cards"
-          class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]"
-        >
-          <div data-test="pre-block-sync-card" class="card">
-            <div class="flex flex-col gap-4 border-b border-af-hairline px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-af-ink">{{ t('admin.riskControl.preBlockSyncStatus') }}</h2>
-                <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.riskControl.preBlockSyncHint') }}</p>
-              </div>
-              <span class="inline-flex w-fit items-center rounded-full bg-af-sunken px-2.5 py-1 text-xs font-medium text-af-ink-2">
-                {{ modeLabel(status?.mode ?? configForm.mode) }}
-              </span>
-            </div>
+        <!--
+          运行时状态与审核记录（2026-10-05 走查）：原来是卡片套卡片 + 彩色瓷砖，改成与其它页一样的分区（标题 + hairline），
+          数字用数字行（黑色）；红绿黄只留在结果徽标与状态点上。
+        -->
+        <div v-if="showPreBlockRuntimeCard" data-test="pre-block-runtime-cards" class="space-y-8 border-t border-af-hairline pt-6">
+          <SheetSection data-test="pre-block-sync-card" :title="t('admin.riskControl.preBlockSyncStatus')" :description="t('admin.riskControl.preBlockSyncHint')">
+            <StatRow :items="preBlockMetricItems" data-test="pre-block-metric-grid" />
+          </SheetSection>
 
-            <div class="p-6">
-              <div data-test="pre-block-metric-grid" class="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <div
-                  v-for="item in preBlockMetricItems"
-                  :key="item.key"
-                  class="rounded-lg p-4"
-                  :class="item.class"
-                >
-                  <p class="text-xs text-af-ink-3">{{ item.label }}</p>
-                  <p class="mt-2 truncate text-2xl font-semibold leading-8" :class="item.valueClass">{{ item.value }}</p>
-                  <p v-if="item.meta" class="mt-1 truncate text-xs text-af-ink-3">{{ item.meta }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div data-test="pre-block-api-key-load-card" class="card">
-            <div class="flex flex-col gap-4 border-b border-af-hairline px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-af-ink">{{ t('admin.riskControl.preBlockAPIKeyLoad') }}</h2>
-                <p class="mt-1 text-sm text-af-ink-3">
-                  {{ t('admin.riskControl.preBlockAPIKeyLoadHint') }}
-                </p>
-              </div>
-              <span class="inline-flex w-fit items-center rounded-full bg-af-sunken px-2.5 py-1 text-xs font-medium text-af-ink-2">
-                {{ preBlockAPIKeyLoadSummaryText }}
-              </span>
-            </div>
-
-            <div class="p-6">
-              <div
-                v-if="preBlockAPIKeyLoads.length > 0"
-                data-test="pre-block-api-key-load-list"
-                class="max-h-[280px] space-y-3 overflow-y-auto pr-1"
-              >
-                <div
-                  v-for="item in preBlockAPIKeyLoads"
-                  :key="item.key_hash || item.index"
-                  class="rounded-lg bg-af-sunken p-3"
-                >
-                  <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="min-w-0">
-                      <div class="flex min-w-0 items-center gap-2">
-                        <span class="font-mono text-sm font-semibold text-af-ink">#{{ item.index + 1 }}</span>
-                        <span class="truncate font-mono text-sm text-af-ink-2">{{ item.masked || '-' }}</span>
-                        <span class="h-2 w-2 flex-shrink-0 rounded-full" :class="apiKeyStatusDotClass(item.status)"></span>
-                      </div>
-                      <p class="mt-1 text-xs text-af-ink-3">
-                        {{ t('admin.riskControl.preBlockAPIKeyTotals', { total: formatNumber(item.total), success: formatNumber(item.success), errors: formatNumber(item.errors) }) }}
-                      </p>
+          <SheetSection data-test="pre-block-api-key-load-card" :title="t('admin.riskControl.preBlockAPIKeyLoad')" :description="t('admin.riskControl.preBlockAPIKeyLoadHint')">
+            <template #actions>
+              <span class="text-13 tabular-nums text-af-ink-3">{{ preBlockAPIKeyLoadSummaryText }}</span>
+            </template>
+            <ul
+              v-if="preBlockAPIKeyLoads.length > 0"
+              data-test="pre-block-api-key-load-list"
+              class="max-h-[280px] divide-y divide-af-hairline overflow-y-auto border-y border-af-hairline"
+            >
+              <li v-for="item in preBlockAPIKeyLoads" :key="item.key_hash || item.index" class="py-3">
+                <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="min-w-0">
+                    <div class="flex min-w-0 items-center gap-2">
+                      <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="apiKeyStatusDotClass(item.status)"></span>
+                      <span class="font-mono text-sm font-medium text-af-ink">#{{ item.index + 1 }}</span>
+                      <span class="truncate font-mono text-sm text-af-ink-2">{{ item.masked || '-' }}</span>
                     </div>
-                    <div class="grid grid-cols-4 gap-2 text-right text-xs text-af-ink-3 sm:min-w-[280px]">
-                      <div>
-                        <p>{{ t('admin.riskControl.preBlockKeyActiveShort') }}</p>
-                        <p class="mt-1 text-sm font-semibold text-af-ink-2">{{ formatNumber(item.active) }}</p>
-                      </div>
-                      <div>
-                        <p>{{ t('admin.riskControl.preBlockKeyTotalShort') }}</p>
-                        <p class="mt-1 text-sm font-semibold text-af-ink">{{ formatNumber(item.total) }}</p>
-                      </div>
-                      <div>
-                        <p>{{ t('admin.riskControl.preBlockKeyAvgShort') }}</p>
-                        <p class="mt-1 text-sm font-semibold text-af-ink">{{ formatNumber(item.avg_latency_ms) }} ms</p>
-                      </div>
-                      <div>
-                        <p>{{ t('admin.riskControl.preBlockKeyLastShort') }}</p>
-                        <p class="mt-1 text-sm font-semibold text-af-ink">{{ formatNumber(item.last_latency_ms) }} ms</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-af-sheet">
-                    <div class="h-full rounded-full bg-af-ink" :style="{ width: preBlockAPIKeyLoadWidth(item.total) }"></div>
-                  </div>
-                </div>
-              </div>
-              <p v-else class="rounded-lg bg-af-sunken p-4 text-sm text-af-ink-3">
-                {{ t('admin.riskControl.preBlockAPIKeyLoadEmpty') }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="showWorkerRuntimeCard" class="card">
-          <div class="flex flex-col gap-4 border-b border-af-hairline px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-af-ink">{{ t('admin.riskControl.workerStatus') }}</h2>
-              <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.riskControl.workerStatusHint') }}</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2 text-sm text-af-ink-3">
-              <span>{{ t('admin.riskControl.autoRefresh') }}</span>
-              <span v-if="status?.last_cleanup_at">
-                {{ t('admin.riskControl.lastCleanup', { time: formatDateTime(status.last_cleanup_at) }) }}
-              </span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,360px)_1fr]">
-            <div class="space-y-4">
-              <div class="rounded-lg border border-af-hairline p-4">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <p class="text-sm font-medium text-af-ink">{{ t('admin.riskControl.queueUsage') }}</p>
                     <p class="mt-1 text-xs text-af-ink-3">
-                      {{ formatNumber(status?.queue_length ?? 0) }} / {{ formatNumber(status?.queue_size ?? configForm.queue_size) }}
+                      {{ t('admin.riskControl.preBlockAPIKeyTotals', { total: formatNumber(item.total), success: formatNumber(item.success), errors: formatNumber(item.errors) }) }}
                     </p>
                   </div>
-                  <span class="text-sm font-semibold text-af-ink">{{ queueUsagePercent }}</span>
+                  <dl class="grid grid-cols-4 gap-4 text-right text-xs text-af-ink-3 sm:min-w-[280px]">
+                    <div>
+                      <dt>{{ t('admin.riskControl.preBlockKeyActiveShort') }}</dt>
+                      <dd class="mt-1 text-sm font-medium tabular-nums text-af-ink">{{ formatNumber(item.active) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('admin.riskControl.preBlockKeyTotalShort') }}</dt>
+                      <dd class="mt-1 text-sm font-medium tabular-nums text-af-ink">{{ formatNumber(item.total) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('admin.riskControl.preBlockKeyAvgShort') }}</dt>
+                      <dd class="mt-1 text-sm font-medium tabular-nums text-af-ink">{{ formatNumber(item.avg_latency_ms) }} ms</dd>
+                    </div>
+                    <div>
+                      <dt>{{ t('admin.riskControl.preBlockKeyLastShort') }}</dt>
+                      <dd class="mt-1 text-sm font-medium tabular-nums text-af-ink">{{ formatNumber(item.last_latency_ms) }} ms</dd>
+                    </div>
+                  </dl>
                 </div>
-                <div class="mt-4 h-2 overflow-hidden rounded-full bg-af-sunken">
-                  <div class="h-full rounded-full bg-af-brand transition-all duration-300" :style="queueUsageStyle"></div>
+                <!-- 这把密钥的调用量占最多那把的比例 -->
+                <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-af-sunken">
+                  <div class="h-full rounded-full bg-af-ink" :style="{ width: preBlockAPIKeyLoadWidth(item.total) }"></div>
                 </div>
-              </div>
+              </li>
+            </ul>
+            <p v-else class="text-13 text-af-ink-3">
+              {{ t('admin.riskControl.preBlockAPIKeyLoadEmpty') }}
+            </p>
+          </SheetSection>
+        </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-lg bg-af-sunken p-4">
-                  <p class="text-xs text-af-ink-3">{{ t('admin.riskControl.activeWorkers') }}</p>
-                  <p class="mt-2 text-2xl font-semibold text-af-ink">{{ status?.active_workers ?? 0 }}</p>
-                </div>
-                <div class="rounded-lg bg-af-success-tint p-4">
-                  <p class="text-xs text-af-ink-3">{{ t('admin.riskControl.idleWorkers') }}</p>
-                  <p class="mt-2 text-2xl font-semibold text-af-success">{{ status?.idle_workers ?? configForm.worker_count }}</p>
-                </div>
-                <div class="rounded-lg bg-af-sunken p-4">
-                  <p class="text-xs text-af-ink-3">{{ t('admin.riskControl.processed') }}</p>
-                  <p class="mt-2 text-2xl font-semibold text-af-ink">{{ formatNumber(status?.processed ?? 0) }}</p>
-                </div>
-                <div class="rounded-lg bg-af-sunken p-4">
-                  <p class="text-xs text-af-ink-3">{{ t('admin.riskControl.droppedErrors') }}</p>
-                  <p class="mt-2 text-2xl font-semibold text-af-ink">{{ formatNumber((status?.dropped ?? 0) + (status?.errors ?? 0)) }}</p>
-                </div>
+        <SheetSection v-if="showWorkerRuntimeCard" :title="t('admin.riskControl.workerStatus')" :description="t('admin.riskControl.workerStatusHint')">
+          <template #actions>
+            <span class="text-13 text-af-ink-3">
+              {{ t('admin.riskControl.autoRefresh') }}
+              <template v-if="status?.last_cleanup_at"> · {{ t('admin.riskControl.lastCleanup', { time: formatDateTime(status.last_cleanup_at) }) }}</template>
+            </span>
+          </template>
+
+          <div class="space-y-6">
+            <StatRow :items="workerMetricItems" />
+
+            <!-- 队列用量：一根细计量条 -->
+            <div>
+              <div class="flex items-baseline justify-between gap-3 text-13">
+                <span class="text-af-ink-3">{{ t('admin.riskControl.queueUsage') }}</span>
+                <span class="tabular-nums text-af-ink">
+                  {{ formatNumber(status?.queue_length ?? 0) }} / {{ formatNumber(status?.queue_size ?? configForm.queue_size) }}
+                  <span class="ml-1 text-af-ink-3">{{ queueUsagePercent }}</span>
+                </span>
+              </div>
+              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-af-sunken">
+                <div class="h-full rounded-full bg-af-ink transition-all duration-300" :style="queueUsageStyle"></div>
               </div>
             </div>
 
             <div>
-              <div class="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium text-af-ink">{{ t('admin.riskControl.workerPool') }}</p>
-                  <p class="mt-1 text-xs text-af-ink-3">
-                    {{ t('admin.riskControl.workerPoolMeta', { active: status?.active_workers ?? 0, idle: status?.idle_workers ?? configForm.worker_count, total: status?.worker_count ?? configForm.worker_count }) }}
-                  </p>
-                </div>
-                <span class="inline-flex items-center rounded-full bg-af-sunken px-2.5 py-1 text-xs font-medium text-af-ink-2">
-                  {{ modeLabel(status?.mode ?? configForm.mode) }}
+              <div class="mb-2 flex items-baseline justify-between gap-3 text-13">
+                <span class="text-af-ink-3">{{ t('admin.riskControl.workerPool') }}</span>
+                <span class="tabular-nums text-af-ink-3">
+                  {{ t('admin.riskControl.workerPoolMeta', { active: status?.active_workers ?? 0, idle: status?.idle_workers ?? configForm.worker_count, total: status?.worker_count ?? configForm.worker_count }) }}
                 </span>
               </div>
               <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
                 <div
                   v-for="worker in workerSlots"
                   :key="worker.id"
-                  class="flex h-12 items-center justify-between rounded-lg border px-3 transition-colors"
+                  class="flex h-10 items-center justify-between rounded-md border px-3 transition-colors"
                   :class="workerSlotClass(worker.state)"
                   :title="worker.label"
                 >
-                  <span class="text-sm font-semibold">#{{ worker.id }}</span>
-                  <span class="h-2.5 w-2.5 rounded-full" :class="workerDotClass(worker.state)"></span>
+                  <span class="text-sm font-medium tabular-nums">#{{ worker.id }}</span>
+                  <span class="h-2 w-2 rounded-full" :class="workerDotClass(worker.state)"></span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </SheetSection>
 
-        <div class="card">
-          <div class="flex flex-col gap-4 border-b border-af-hairline px-6 py-4">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 class="text-lg font-semibold text-af-ink">{{ t('admin.riskControl.records') }}</h2>
-                <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.riskControl.recordsHint') }}</p>
-              </div>
-              <button type="button" class="btn btn-secondary inline-flex items-center gap-2" :disabled="logsLoading" @click="loadLogs">
-                <Icon name="refresh" size="sm" :class="logsLoading ? 'animate-spin' : ''" />
-                {{ t('admin.riskControl.refresh') }}
-              </button>
-            </div>
+        <SheetSection :title="t('admin.riskControl.records')" :description="t('admin.riskControl.recordsHint')">
+          <template #actions>
+            <button
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="logsLoading"
+              :title="t('admin.riskControl.refresh')"
+              :aria-label="t('admin.riskControl.refresh')"
+              @click="loadLogs"
+            >
+              <Icon name="refresh" size="md" :class="logsLoading ? 'animate-spin' : ''" />
+            </button>
+          </template>
 
-            <div class="flex flex-col gap-2 rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-center gap-2 text-sm text-af-ink-2">
-                <Icon name="filter" size="sm" class="flex-shrink-0 text-af-ink-3" />
-                <span class="font-medium">{{ t('admin.riskControl.modelFilter') }}</span>
-                <span class="truncate text-af-ink-3">{{ modelFilterSummary }}</span>
-              </div>
-              <div v-if="modelFilterPreviewModels.length > 0" class="flex flex-wrap gap-1.5">
-                <span
-                  v-for="model in modelFilterPreviewModels"
-                  :key="model"
-                  class="inline-flex max-w-[180px] items-center truncate rounded-md bg-af-sheet px-2 py-1 font-mono text-xs text-af-ink-2"
-                >
-                  {{ model }}
-                </span>
-                <span v-if="hiddenModelFilterModelCount > 0" class="inline-flex rounded-md bg-af-sheet px-2 py-1 text-xs text-af-ink-3">
-                  +{{ hiddenModelFilterModelCount }}
-                </span>
-              </div>
-            </div>
+          <!-- 一行小控件（与其它列表页同高 32px）；时间仍是起止两个时刻，留空 = 不限 -->
+          <ListToolbar class="mb-4">
+            <SearchInput
+              v-model="filters.search"
+              compact
+              class="w-full sm:w-56"
+              :placeholder="t('admin.riskControl.filters.search')"
+              @search="reloadLogsFromFirstPage"
+            />
+            <FilterChip v-model="filters.result" :label="t('admin.riskControl.table.result')" :options="resultOptions" test-id="risk-filter-result" @change="reloadLogsFromFirstPage" />
+            <FilterChip v-model="filters.endpoint" :label="t('admin.riskControl.table.endpoint')" :options="endpointOptions" test-id="risk-filter-endpoint" @change="reloadLogsFromFirstPage" />
+            <span class="inline-flex items-center gap-1.5 text-13 text-af-ink-3">
+              <input v-model="filters.from" type="datetime-local" class="input h-8 w-auto py-0 text-13" :title="t('admin.riskControl.filters.from')" :aria-label="t('admin.riskControl.filters.from')" @change="reloadLogsFromFirstPage" />
+              <span aria-hidden="true">–</span>
+              <input v-model="filters.to" type="datetime-local" class="input h-8 w-auto py-0 text-13" :title="t('admin.riskControl.filters.to')" :aria-label="t('admin.riskControl.filters.to')" @change="reloadLogsFromFirstPage" />
+            </span>
+          </ListToolbar>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <Select v-model="filters.result" :options="resultOptions" @change="reloadLogsFromFirstPage" />
-              <Select v-model="filters.endpoint" :options="endpointOptions" @change="reloadLogsFromFirstPage" />
-              <input v-model.trim="filters.search" type="search" class="input" :placeholder="t('admin.riskControl.filters.search')" @keyup.enter="reloadLogsFromFirstPage" />
-              <input v-model="filters.from" type="datetime-local" class="input" :title="t('admin.riskControl.filters.from')" @change="reloadLogsFromFirstPage" />
-              <input v-model="filters.to" type="datetime-local" class="input" :title="t('admin.riskControl.filters.to')" @change="reloadLogsFromFirstPage" />
-            </div>
-          </div>
-
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto border-t border-af-hairline">
             <table class="min-w-full divide-y divide-af-hairline">
-              <thead class="bg-af-sunken">
+              <thead>
                 <tr>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.time') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.user') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.apiKey') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.endpoint') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.result') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.highest') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.actionMeta') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.latency') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-af-ink-3">{{ t('admin.riskControl.table.input') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.time') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.user') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.apiKey') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.endpoint') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.result') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.highest') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.actionMeta') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.latency') }}</th>
+                  <th class="whitespace-nowrap px-3 py-3 text-left text-xs font-medium text-af-ink-3">{{ t('admin.riskControl.table.input') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-af-hairline bg-af-sheet">
                 <tr v-if="logsLoading">
-                  <td colspan="10" class="px-5 py-12 text-center text-sm text-af-ink-3">{{ t('common.loading') }}</td>
+                  <td colspan="10" class="px-3 py-12 text-center text-sm text-af-ink-3">{{ t('common.loading') }}</td>
                 </tr>
                 <tr v-else-if="logs.length === 0">
-                  <td colspan="10" class="px-5 py-12 text-center text-sm text-af-ink-3">{{ t('admin.riskControl.emptyLogs') }}</td>
+                  <td colspan="10" class="px-3 py-12 text-center text-sm text-af-ink-3">{{ t('admin.riskControl.emptyLogs') }}</td>
                 </tr>
                 <template v-else>
                   <tr v-for="row in logs" :key="row.id" class="hover:bg-af-sunken">
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">{{ formatDateTime(row.created_at) }}</td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">{{ formatDateTime(row.created_at) }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">
                       <!-- 不露内部 id：有 id 却没名字就是已删除，没有 id 写 - -->
                       <div>{{ row.user_email || (row.user_id ? t('common.deletedUser') : '-') }}</div>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">{{ row.api_key_name || (row.api_key_id ? t('common.deletedKey') : '-') }}</td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">{{ row.api_key_name || (row.api_key_id ? t('common.deletedKey') : '-') }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">
                       <div>{{ row.endpoint || '-' }}</div>
                       <div class="text-xs text-af-ink-3">{{ row.provider || '-' }} / {{ row.model || '-' }}</div>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4">
+                    <td class="whitespace-nowrap px-3 py-4">
                       <span class="inline-flex rounded-md px-2 py-1 text-xs font-medium" :class="resultBadgeClass(row)">
                         {{ resultLabel(row) }}
                       </span>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">
                       <div>{{ row.highest_category || '-' }}</div>
                       <div class="text-xs text-af-ink-3">{{ percent(row.highest_score) }}</div>
                       <div v-if="row.matched_keyword" class="mt-0.5 text-xs font-medium text-af-danger" :title="t('admin.riskControl.matchedKeyword') + ': ' + row.matched_keyword">
                         {{ t('admin.riskControl.matchedKeyword') }}: {{ row.matched_keyword }}
                       </div>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">
                       <div>{{ violationCountText(row) }}</div>
                       <div class="text-xs text-af-ink-3">
                         {{ row.email_sent ? t('admin.riskControl.emailSent') : t('admin.riskControl.emailNotSent') }}
@@ -309,13 +231,13 @@
                         {{ unbanningUserID === row.user_id ? t('common.processing') : t('admin.riskControl.unbanUser') }}
                       </button>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-af-ink-2">
                       <div>{{ latencyText(row.upstream_latency_ms) }}</div>
                       <div v-if="row.queue_delay_ms !== null && row.queue_delay_ms !== undefined" class="text-xs text-af-ink-3">
                         {{ t('admin.riskControl.queueDelay', { ms: row.queue_delay_ms }) }}
                       </div>
                     </td>
-                    <td class="w-[320px] max-w-sm px-5 py-4 text-sm text-af-ink-2">
+                    <td class="w-[320px] max-w-sm px-3 py-4 text-sm text-af-ink-2">
                       <button
                         type="button"
                         class="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-af-sunken"
@@ -340,7 +262,7 @@
             @update:page="onPageChange"
             @update:pageSize="onPageSizeChange"
           />
-        </div>
+        </SheetSection>
       </template>
 
       <BaseDialog :show="settingsOpen" :title="t('admin.riskControl.settingsTitle')" width="extra-wide" @close="settingsOpen = false">
@@ -1070,6 +992,11 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
+import { ListToolbar } from '@/components/admin/list'
+import type { FilterOption } from '@/components/common/types'
 import type { StatItem } from '@/components/user/shell/types'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
@@ -1319,16 +1246,14 @@ const keywordNotice = computed<KeywordNoticeView>(() => {
   }
 })
 
-const resultOptions = computed<SelectOption[]>(() => [
-  { value: '', label: t('admin.riskControl.result.all') },
+const resultOptions = computed<FilterOption[]>(() => [
   { value: 'hit', label: t('admin.riskControl.result.hit') },
   { value: 'blocked', label: t('admin.riskControl.result.blocked') },
   { value: 'pass', label: t('admin.riskControl.result.pass') },
   { value: 'error', label: t('admin.riskControl.result.error') },
 ])
 
-const endpointOptions = computed<SelectOption[]>(() => [
-  { value: '', label: t('admin.riskControl.filters.allEndpoints') },
+const endpointOptions = computed<FilterOption[]>(() => [
   { value: '/v1/messages', label: '/v1/messages' },
   { value: '/v1/responses', label: '/v1/responses' },
   { value: '/v1/chat/completions', label: '/v1/chat/completions' },
@@ -1349,9 +1274,7 @@ const modelFilterSummary = computed(() => {
   return t('admin.riskControl.modelFilterAllSummary')
 })
 
-const modelFilterPreviewModels = computed(() => configForm.model_filter_models.slice(0, 6))
 
-const hiddenModelFilterModelCount = computed(() => Math.max(0, configForm.model_filter_models.length - modelFilterPreviewModels.value.length))
 
 const inputApiKeyCount = computed(() => parseApiKeys(configForm.api_keys_text).length)
 
@@ -1506,55 +1429,21 @@ const showPreBlockRuntimeCard = computed(() => runtimeMode.value === 'pre_block'
 
 const showWorkerRuntimeCard = computed(() => runtimeMode.value === 'observe')
 
-const preBlockMetricItems = computed(() => [
-  {
-    key: 'active',
-    label: t('admin.riskControl.preBlockActive'),
-    value: formatNumber(status.value?.pre_block_active ?? 0),
-    meta: t('admin.riskControl.preBlockActiveHint'),
-    class: 'bg-af-sunken',
-    valueClass: 'text-af-ink-2',
-  },
-  {
-    key: 'checked',
-    label: t('admin.riskControl.preBlockChecked'),
-    value: formatNumber(status.value?.pre_block_checked ?? 0),
-    meta: t('admin.riskControl.preBlockCheckedHint'),
-    class: 'bg-af-sunken',
-    valueClass: 'text-af-ink',
-  },
-  {
-    key: 'allowed',
-    label: t('admin.riskControl.preBlockAllowed'),
-    value: formatNumber(status.value?.pre_block_allowed ?? 0),
-    meta: t('admin.riskControl.preBlockAllowedHint'),
-    class: 'bg-af-success-tint',
-    valueClass: 'text-af-success',
-  },
-  {
-    key: 'blocked',
-    label: t('admin.riskControl.preBlockBlocked'),
-    value: formatNumber(status.value?.pre_block_blocked ?? 0),
-    meta: t('admin.riskControl.preBlockBlockedHint'),
-    class: 'bg-af-danger-tint',
-    valueClass: 'text-af-danger',
-  },
-  {
-    key: 'errors',
-    label: t('admin.riskControl.preBlockErrors'),
-    value: formatNumber(status.value?.pre_block_errors ?? 0),
-    meta: t('admin.riskControl.preBlockErrorsHint'),
-    class: 'bg-af-warning-tint',
-    valueClass: 'text-af-warning',
-  },
-  {
-    key: 'latency',
-    label: t('admin.riskControl.preBlockAvgLatency'),
-    value: `${formatNumber(status.value?.pre_block_avg_latency_ms ?? 0)} ms`,
-    meta: t('admin.riskControl.preBlockAvgLatencyHint'),
-    class: 'bg-af-sunken',
-    valueClass: 'text-af-ink-2',
-  },
+// 数字一律黑色：拦截 / 异常是计数，不是状态，不上红黄底；六个数一行放不下附注，只留标签（2026-10-05）
+const preBlockMetricItems = computed<StatItem[]>(() => [
+  { key: 'active', label: t('admin.riskControl.preBlockActive'), value: formatNumber(status.value?.pre_block_active ?? 0) },
+  { key: 'checked', label: t('admin.riskControl.preBlockChecked'), value: formatNumber(status.value?.pre_block_checked ?? 0) },
+  { key: 'allowed', label: t('admin.riskControl.preBlockAllowed'), value: formatNumber(status.value?.pre_block_allowed ?? 0) },
+  { key: 'blocked', label: t('admin.riskControl.preBlockBlocked'), value: formatNumber(status.value?.pre_block_blocked ?? 0) },
+  { key: 'errors', label: t('admin.riskControl.preBlockErrors'), value: formatNumber(status.value?.pre_block_errors ?? 0) },
+  { key: 'latency', label: t('admin.riskControl.preBlockAvgLatency'), value: `${formatNumber(status.value?.pre_block_avg_latency_ms ?? 0)} ms` },
+])
+
+const workerMetricItems = computed<StatItem[]>(() => [
+  { key: 'active-workers', label: t('admin.riskControl.activeWorkers'), value: String(status.value?.active_workers ?? 0) },
+  { key: 'idle-workers', label: t('admin.riskControl.idleWorkers'), value: String(status.value?.idle_workers ?? configForm.worker_count) },
+  { key: 'processed', label: t('admin.riskControl.processed'), value: formatNumber(status.value?.processed ?? 0) },
+  { key: 'dropped-errors', label: t('admin.riskControl.droppedErrors'), value: formatNumber((status.value?.dropped ?? 0) + (status.value?.errors ?? 0)) },
 ])
 
 const preBlockAPIKeyLoads = computed<ContentModerationAPIKeyLoad[]>(() => (
@@ -2053,14 +1942,11 @@ function resultBadgeClass(row: ContentModerationLog): string {
   return 'bg-af-success-tint text-af-success'
 }
 
+/** 格子只分忙 / 闲两种底色；空闲是常态，不上绿底，绿色只留在状态点上 */
 function workerSlotClass(state: WorkerSlotState): string {
-  if (state === 'active') {
-    return 'border-af-hairline bg-af-sunken text-af-ink-2'
-  }
-  if (state === 'idle') {
-    return 'border-af-success/30 bg-af-success-tint text-af-success'
-  }
-  return 'border-af-hairline bg-af-sheet text-af-ink-3'
+  if (state === 'active') return 'border-af-hairline-strong bg-af-sunken text-af-ink'
+  if (state === 'idle') return 'border-af-hairline text-af-ink-2'
+  return 'border-af-hairline text-af-ink-3'
 }
 
 function workerDotClass(state: WorkerSlotState): string {

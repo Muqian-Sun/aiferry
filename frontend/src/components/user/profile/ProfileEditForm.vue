@@ -17,7 +17,8 @@
           />
         </div>
 
-        <button type="submit" :disabled="loading" class="btn btn-primary btn-md shrink-0">
+        <!-- 改了才出现「保存」：一页静止时只留一个实心按钮（修改密码） -->
+        <button v-if="dirty || loading" type="submit" :disabled="loading" class="btn btn-primary btn-md shrink-0">
           {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
         </button>
       </form>
@@ -28,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { userAPI } from '@/api'
@@ -52,6 +53,7 @@ const saved = useTransientMessage()
 watch(() => props.initialUsername, (val) => {
   username.value = val
 })
+const dirty = computed(() => username.value.trim() !== props.initialUsername.trim())
 
 const handleUpdateProfile = async () => {
   errorMessage.value = ''

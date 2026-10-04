@@ -1,4 +1,9 @@
 <template>
+  <!--
+    审计事件（2026-10-05 走查）：原来十个带标签的大框平铺成一张表单 + 红色实心「按筛选删除」压在最上面；
+    改成与其它列表页同一套——一行 32px 小控件（选了就生效，文字框回车 / 失焦生效），低频的入口 / 请求 ID / Hash 收在「更多筛选」后面；
+    删除是次按钮，「删除选中项」有选中才出现；表格不套圆角卡片、表头不上灰底。
+  -->
   <section aria-labelledby="prompt-events-title" class="py-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -6,65 +11,56 @@
         <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.promptAudit.events.description') }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn btn-secondary btn-sm" :disabled="selectedIds.length === 0" @click="$emit('batch-delete')">
+        <button v-if="selectedIds.length > 0" type="button" class="btn btn-secondary btn-sm text-af-danger" @click="$emit('batch-delete')">
           {{ t('admin.promptAudit.events.deleteSelected', { count: selectedIds.length }) }}
         </button>
-        <button type="button" class="btn btn-danger btn-sm" data-test="filter-delete" @click="$emit('preview-delete')">
+        <button type="button" class="btn btn-secondary btn-sm" data-test="filter-delete" @click="$emit('preview-delete')">
           {{ t('admin.promptAudit.events.deleteByFilter') }}
         </button>
       </div>
     </div>
 
-    <form class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5" @submit.prevent="applyFilters">
-      <label class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.decision') }}</span>
-        <select v-model="localFilters.decision" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.decision')" @change="filtersChanged">
-          <option value="">{{ t('common.all') }}</option>
-          <option value="pass">{{ t('admin.promptAudit.decisions.pass') }}</option>
-          <option value="flag">{{ t('admin.promptAudit.decisions.flag') }}</option>
-          <option value="critical">{{ t('admin.promptAudit.decisions.critical') }}</option>
-        </select>
-      </label>
-      <label class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.risk') }}</span>
-        <select v-model="localFilters.risk_level" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.risk')" @change="filtersChanged">
-          <option value="">{{ t('common.all') }}</option>
-          <option value="low">{{ t('admin.promptAudit.riskLevels.low') }}</option>
-          <option value="medium">{{ t('admin.promptAudit.riskLevels.medium') }}</option>
-          <option value="high">{{ t('admin.promptAudit.riskLevels.high') }}</option>
-          <option value="critical">{{ t('admin.promptAudit.riskLevels.critical') }}</option>
-        </select>
-      </label>
-      <FilterInput v-model="localFilters.endpoint" :label="t('admin.promptAudit.events.endpoint')" @change="filtersChanged" />
+    <ListToolbar class="mt-5">
+      <SearchInput
+        :model-value="localFilters.keyword"
+        compact
+        class="w-full sm:w-52"
+        :placeholder="t('admin.promptAudit.events.keyword')"
+        @update:model-value="localFilters.keyword = $event"
+        @search="applyFilters"
+      />
+      <FilterChip v-model="localFilters.decision" :label="t('admin.promptAudit.events.decision')" :options="decisionOptions" test-id="prompt-filter-decision" @change="applyFilters" />
+      <FilterChip v-model="localFilters.risk_level" :label="t('admin.promptAudit.events.risk')" :options="riskOptions" test-id="prompt-filter-risk" @change="applyFilters" />
       <!-- 用户 / 密钥按名字选（与用量页筛选同一个选择器），不让人手填内部 id；先选了用户时密钥只列该用户的 -->
-      <div class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.filterUser') }}</span>
-        <EntityPicker kind="user" class="mt-1" :model-value="idFilterValue(localFilters.user_id)" @update:model-value="setUserFilter" />
-      </div>
-      <div class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.filterApiKey') }}</span>
-        <EntityPicker kind="apiKey" class="mt-1" :user-id="idFilterValue(localFilters.user_id)" :model-value="idFilterValue(localFilters.api_key_id)" @update:model-value="setApiKeyFilter" />
-      </div>
-      <FilterInput v-model="localFilters.request_id" :label="t('admin.promptAudit.events.requestId')" @change="filtersChanged" />
-      <FilterInput v-model="localFilters.prompt_hash" :label="t('admin.promptAudit.events.promptHash')" @change="filtersChanged" />
-      <FilterInput v-model="localFilters.keyword" :label="t('admin.promptAudit.events.keyword')" @change="filtersChanged" />
-      <label class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.startAt') }}</span>
-        <input v-model="localFilters.start_at" type="datetime-local" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.startAt')" @change="filtersChanged" />
-      </label>
-      <label class="text-xs text-af-ink-2">
-        <span>{{ t('admin.promptAudit.events.endAt') }}</span>
-        <input v-model="localFilters.end_at" type="datetime-local" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.endAt')" @change="filtersChanged" />
-      </label>
-      <div class="flex items-end gap-2 sm:col-span-2">
-        <button type="submit" class="btn btn-primary btn-sm">{{ t('common.search') }}</button>
-        <button type="button" class="btn btn-ghost btn-sm" @click="resetFilters">{{ t('common.reset') }}</button>
-      </div>
-    </form>
-    <div v-if="error" role="alert" class="mt-4 rounded-lg bg-af-danger-tint px-4 py-3 text-sm text-af-danger">{{ error }}</div>
-    <div class="mt-5 overflow-x-auto rounded-xl border border-af-hairline">
+      <EntityPicker kind="user" compact class="w-full sm:w-44" :title="t('admin.promptAudit.events.filterUser')" :model-value="idFilterValue(localFilters.user_id)" @update:model-value="setUserFilter" />
+      <EntityPicker kind="apiKey" compact class="w-full sm:w-44" :title="t('admin.promptAudit.events.filterApiKey')" :user-id="idFilterValue(localFilters.user_id)" :model-value="idFilterValue(localFilters.api_key_id)" @update:model-value="setApiKeyFilter" />
+      <span class="inline-flex items-center gap-1.5 text-13 text-af-ink-3">
+        <input v-model="localFilters.start_at" type="datetime-local" class="input h-8 w-auto py-0 text-13" :title="t('admin.promptAudit.events.startAt')" :aria-label="t('admin.promptAudit.events.startAt')" @change="applyFilters" />
+        <span aria-hidden="true">–</span>
+        <input v-model="localFilters.end_at" type="datetime-local" class="input h-8 w-auto py-0 text-13" :title="t('admin.promptAudit.events.endAt')" :aria-label="t('admin.promptAudit.events.endAt')" @change="applyFilters" />
+      </span>
+      <template v-if="showMore">
+        <input v-model.trim="localFilters.endpoint" type="text" class="input h-8 w-full py-0 text-13 sm:w-44" :placeholder="t('admin.promptAudit.events.endpoint')" :aria-label="t('admin.promptAudit.events.endpoint')" @change="applyFilters" />
+        <input v-model.trim="localFilters.request_id" type="text" class="input h-8 w-full py-0 text-13 sm:w-44" :placeholder="t('admin.promptAudit.events.requestId')" :aria-label="t('admin.promptAudit.events.requestId')" @change="applyFilters" />
+        <input v-model.trim="localFilters.prompt_hash" type="text" class="input h-8 w-full py-0 font-mono text-13 sm:w-56" :placeholder="t('admin.promptAudit.events.promptHash')" :aria-label="t('admin.promptAudit.events.promptHash')" @change="applyFilters" />
+      </template>
+      <button
+        v-else
+        type="button"
+        class="inline-flex h-8 items-center gap-1 rounded-full px-2 text-13 text-af-ink-3 transition-colors hover:text-af-ink"
+        @click="moreOpen = true"
+      >
+        <Icon name="plus" size="xs" :stroke-width="2" />
+        {{ t('admin.usage.moreFilters') }}
+      </button>
+      <button v-if="anyActive" type="button" class="px-2 text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="resetFilters">
+        {{ t('admin.usage.clearFilters') }}
+      </button>
+    </ListToolbar>
+    <FormError class="mt-4" :message="error" />
+    <div class="mt-4 overflow-x-auto border-t border-af-hairline">
       <table class="min-w-[1120px] w-full text-left text-sm">
-        <thead class="bg-af-sunken text-xs uppercase tracking-wide text-af-ink-3">
+        <thead class="text-xs text-af-ink-3">
           <tr>
             <th class="w-10 px-3 py-3"><input type="checkbox" :checked="allSelected" :aria-label="t('admin.promptAudit.events.selectAll')" @change="toggleAll" /></th>
             <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.time') }}</th>
@@ -108,11 +104,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, reactive, watch } from 'vue'
+import { computed, defineComponent, h, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
 import CopyButton from '@/components/common/CopyButton.vue'
 import EntityPicker from '@/components/admin/form/EntityPicker.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
+import FormError from '@/components/common/FormError.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { ListToolbar } from '@/components/admin/list'
+import type { FilterOption } from '@/components/common/types'
 import type { PromptAuditEvent, PromptEventFilters } from '../types'
 import { cloneData, emptyEventFilters, SCANNER_CATALOG } from '../viewModel'
 
@@ -145,27 +147,20 @@ function setUserFilter(userId: number | undefined) {
   localFilters.user_id = userId ? String(userId) : ''
   // 换了用户，原来选的密钥不一定属于新用户
   localFilters.api_key_id = ''
-  filtersChanged()
+  applyFilters()
 }
 function setApiKeyFilter(apiKeyId: number | undefined) {
   localFilters.api_key_id = apiKeyId ? String(apiKeyId) : ''
-  filtersChanged()
+  applyFilters()
 }
 
-const FilterInput = defineComponent({
-  props: { modelValue: { type: String, required: true }, label: { type: String, required: true }, type: { type: String, default: 'text' } },
-  emits: ['update:modelValue', 'change'],
-  setup(componentProps, { emit: componentEmit }) {
-    return () => h('label', { class: 'text-xs text-af-ink-2' }, [
-      h('span', componentProps.label),
-      h('input', {
-        value: componentProps.modelValue, type: componentProps.type, class: 'input mt-1 w-full', 'aria-label': componentProps.label,
-        onInput: (event: Event) => componentEmit('update:modelValue', (event.target as HTMLInputElement).value),
-        onChange: () => componentEmit('change'),
-      }),
-    ])
-  },
-})
+const decisionOptions = computed<FilterOption[]>(() => ['pass', 'flag', 'critical'].map((value) => ({ value, label: t(`admin.promptAudit.decisions.${value}`) })))
+const riskOptions = computed<FilterOption[]>(() => ['low', 'medium', 'high', 'critical'].map((value) => ({ value, label: t(`admin.promptAudit.riskLevels.${value}`) })))
+
+// 「更多筛选」：入口 / 请求 ID / Prompt Hash；里面有值时一直展开
+const moreOpen = ref(false)
+const showMore = computed(() => moreOpen.value || Boolean(localFilters.endpoint || localFilters.request_id || localFilters.prompt_hash))
+const anyActive = computed(() => (Object.keys(localFilters) as Array<keyof PromptEventFilters>).some((key) => Boolean(localFilters[key])))
 
 const CopyLine = defineComponent({
   props: { label: { type: String, required: true }, value: { type: String, default: '' } },
@@ -181,9 +176,6 @@ const CopyLine = defineComponent({
   },
 })
 
-function filtersChanged() {
-  emit('filters-change', cloneData(localFilters))
-}
 function applyFilters() {
   const value = cloneData(localFilters)
   emit('filters-change', value)

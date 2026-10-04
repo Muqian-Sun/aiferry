@@ -23,10 +23,9 @@ export default {
     },
     columns: {
       model: '模型',
-      price: '标价',
+      price: '标价（输入 / 输出 · 每百万 Token）',
       channels: '承接渠道数',
       status: '状态',
-      perMillion: '输入 / 输出 · 每百万 Token',
       perUnit: {
         per_request: '每次',
         image: '每张',

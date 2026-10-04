@@ -160,8 +160,6 @@
             <EmptyState
               :title="t('admin.redeem.noCodes')"
               :description="t('admin.redeem.noCodesDescription')"
-              :action-text="t('admin.redeem.generateCodes')"
-              @action="showGenerateDialog = true"
             />
           </template>
         </DataTable>

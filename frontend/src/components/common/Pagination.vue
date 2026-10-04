@@ -26,29 +26,33 @@
     <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
       <!-- Desktop pagination info -->
       <div class="flex items-center space-x-4">
-        <p class="text-sm text-af-ink-2">
-          {{ t('pagination.showing') }}
-          <span class="font-medium">{{ fromItem }}</span>
-          {{ t('pagination.to') }}
-          <span class="font-medium">{{ toItem }}</span>
-          {{ t('pagination.of') }}
-          <span class="font-medium">{{ total }}</span>
-          {{ t('pagination.results') }}
+        <!-- 只有一页时只写总数；多页写「第 1–20 条，共 N 条」 -->
+        <p class="text-sm tabular-nums text-af-ink-3">
+          {{ totalPages <= 1 ? t('pagination.totalOnly', { total }) : t('pagination.range', { from: fromItem, to: toItem, total }) }}
         </p>
 
-        <!-- Page size selector -->
-        <div v-if="showPageSizeSelector" class="flex items-center space-x-2">
-          <span class="text-sm text-af-ink-2"
-            >{{ t('pagination.perPage') }}:</span
+        <!-- 每页条数：小号文字按钮 + 菜单，不放大框下拉（2026-10-05 走查） -->
+        <PopoverMenu v-if="showPageSizeSelector" align="start" width-class="w-32">
+          <template #trigger="{ open }">
+            <button
+              type="button"
+              class="inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm tabular-nums text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+              :class="open ? 'bg-af-sunken text-af-ink' : ''"
+              data-testid="pagination-page-size"
+            >
+              {{ t('pagination.perPageCount', { size: pageSize }) }}
+              <Icon name="chevronDown" size="xs" />
+            </button>
+          </template>
+          <MenuItem
+            v-for="option in pageSizeSelectOptions"
+            :key="option.value"
+            :checked="option.value === pageSize"
+            @click="handlePageSizeChange(option.value)"
           >
-          <div class="page-size-select w-20">
-            <Select
-              :model-value="pageSize"
-              :options="pageSizeSelectOptions"
-              @update:model-value="handlePageSizeChange"
-            />
-          </div>
-        </div>
+            {{ t('pagination.perPageCount', { size: option.value }) }}
+          </MenuItem>
+        </PopoverMenu>
 
         <div v-if="showJump" class="flex items-center space-x-2">
           <span class="text-sm text-af-ink-2">{{ t('pagination.jumpTo') }}</span>
@@ -68,7 +72,9 @@
       </div>
 
       <!-- Desktop pagination buttons -->
+      <!-- 只有一页时不画「‹ 1 ›」 -->
       <nav
+        v-if="totalPages > 1"
         class="inline-flex items-center gap-0.5"
         :aria-label="t('common.pagination')"
       >
@@ -121,7 +127,8 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import Select from './Select.vue'
+import PopoverMenu from './PopoverMenu.vue'
+import MenuItem from './MenuItem.vue'
 import { getConfiguredTablePageSizeOptions, normalizeTablePageSize } from '@/utils/tablePreferences'
 import { setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
@@ -246,9 +253,3 @@ const submitJump = () => {
   goToPage(nextPage)
 }
 </script>
-
-<style scoped>
-.page-size-select :deep(.select-trigger) {
-  @apply px-3 py-1.5 text-sm;
-}
-</style>

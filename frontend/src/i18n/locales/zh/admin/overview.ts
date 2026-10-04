@@ -157,7 +157,7 @@ export default {
       },
       editUser: '编辑用户',
       deleteUser: '删除用户',
-      searchUsers: '邮箱/用户名/备注/API Key 模糊搜索',
+      searchUsers: '搜索邮箱、用户名、备注或 API 密钥',
       admin: '管理员',
       user: '用户',
       disabled: '禁用',

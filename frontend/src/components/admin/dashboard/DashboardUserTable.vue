@@ -39,7 +39,7 @@
                 v-for="(cell, i) in row.cells"
                 :key="i"
                 class="h-3.5 min-w-0 flex-1 rounded-sm"
-                :class="cell > 0 ? 'bg-af-ink' : 'ring-1 ring-inset ring-af-hairline'"
+                :class="cell > 0 ? 'bg-af-ink' : 'bg-af-hairline/70'"
                 :style="cell > 0 ? { opacity: cell } : undefined"
                 :title="`${days[i]} · ${formatTokens(row.buckets[i])}`"
               />
@@ -78,6 +78,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
+import { formatSharePercent } from '@/utils/format'
 import type { UserUsageTrendPoint } from '@/types'
 
 const props = withDefaults(defineProps<{
@@ -144,8 +145,8 @@ const rows = computed<UserRow[]>(() => {
   const list = [...byUser.values()].sort((a, b) => b.tokens - a.tokens || a.userId - b.userId)
   for (const row of list) {
     const peak = Math.max(0, ...row.buckets)
-    // 开方拉开小值，最淡也留 0.12，免得和「没用」的空格分不清
-    row.cells = row.buckets.map((v) => (v > 0 && peak > 0 ? Math.max(0.12, Math.sqrt(v / peak)) : 0))
+    // 开方拉开小值，最淡也留 0.22：空格是浅灰实心块，太淡会和「没用」分不清
+    row.cells = row.buckets.map((v) => (v > 0 && peak > 0 ? Math.max(0.22, Math.sqrt(v / peak)) : 0))
   }
   return list
 })
@@ -159,8 +160,7 @@ const lastLabel = computed(() => (props.days.length ? shortLabel(props.days[prop
 
 const formatShare = (tokens: number): string => {
   if (props.totalTokens <= 0) return ''
-  const pct = (tokens / props.totalTokens) * 100
-  return pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`
+  return formatSharePercent((tokens / props.totalTokens) * 100)
 }
 const formatTokens = (value: number): string => {
   const v = num(value)

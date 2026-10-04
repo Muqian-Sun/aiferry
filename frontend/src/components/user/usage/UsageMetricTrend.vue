@@ -107,6 +107,7 @@ const chartData = computed(() => {
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
         fill: 'origin',
+        clip: false as const,
         // 单调插值：普通 tension 在很多 0 的稀疏数据两侧会冲到 0 以下
         cubicInterpolationMode: 'monotone' as const
       }
@@ -117,6 +118,7 @@ const chartData = computed(() => {
 const lineOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  layout: { padding: { top: 6 } },
   // 刻度数字的格式与汇总金额（formatMoney）一致按 en-US，不随浏览器语言变成「US$」
   locale: 'en-US',
   interaction: { mode: 'index' as const, intersect: false },
@@ -131,8 +133,8 @@ const lineOptions = computed(() => ({
   },
   scales: {
     x: {
-      // 单个点时类目轴两侧留半格，点落在正中而不是贴着左边
-      offset: singlePoint.value,
+      // 首尾的点不贴坐标轴、不压在纵轴刻度上：类目轴两端各留半格（2026-10-05 走查：渠道状态 100% 的点被刻度挡住）
+      offset: true,
       grid: { display: false },
       ticks: { color: theme.value.text, maxTicksLimit: 12, font: { size: 10 } }
     },

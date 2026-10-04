@@ -254,8 +254,6 @@
               :filtered="hasActiveFilters"
               :title="t('admin.proxies.noProxiesYet')"
               :description="t('admin.proxies.createFirstProxy')"
-              :action-text="t('admin.proxies.createProxy')"
-              @action="showCreateModal = true"
             />
           </template>
         </DataTable>

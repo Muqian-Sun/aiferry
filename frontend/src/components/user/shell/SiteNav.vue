@@ -2,10 +2,10 @@
   <!--
     唯一的顶栏：公开站与控制台是同一组页签（产品 / 模型与价格 / 服务状态 / 文档），控制台自己的导航在左侧栏（ConsoleSidebar）。
     模型与服务状态的入口只在这里（muqian 2026-09-30），侧栏不重复；控制台里点它们留在控制台（页签带 CONSOLE_SHELL_STATE）。
-    56px、粘性；底色半透明 + 背景模糊，滚动时内容从下面透过来。控制台不限宽，宽屏时 logo 离左缘 20px，与侧栏图标左缘对齐。
+    56px、粘性、实色底（2026-10-05：半透明 + 模糊会把下面的图表、色条糊成灰斑，改实色，与管理站顶栏一致）。控制台不限宽，宽屏时 logo 离左缘 20px，与侧栏图标左缘对齐。
     <lg 时第二行横向滚动：公开站放页签，控制台放侧栏的全部条目（窄屏没有侧栏）；语言 / 主题收进头像菜单。
   -->
-  <header class="sticky top-0 z-30 border-b border-af-hairline/70 bg-af-sheet/80 backdrop-blur-md">
+  <header class="sticky top-0 z-30 border-b border-af-hairline bg-af-sheet">
     <div class="mx-auto flex h-topbar items-center gap-8 px-6" :class="variant === 'console' ? 'w-full lg:pl-5' : 'max-w-site'">
       <RouterLink :to="brandPath" class="flex shrink-0 items-center gap-2.5" data-testid="site-brand">
         <BrandLogo :src="customLogo" :alt="siteName" class="h-7 w-7 text-af-ink" />

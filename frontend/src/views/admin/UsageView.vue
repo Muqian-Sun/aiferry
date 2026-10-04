@@ -361,14 +361,10 @@ const refreshData = () => {
   loadModelOptions()
   if (activeTab.value === 'errors') loadAdminErrors()
 }
+// 「清除筛选」只清条件；时间范围在页头，单独改
 const resetFilters = () => {
-  const range = getLast24HoursRangeDates()
-  startDate.value = range.start
-  endDate.value = range.end
-  datePreset.value = LAST_24_HOURS_PRESET
   filters.value = { start_date: startDate.value, end_date: endDate.value, request_type: undefined, native_compaction_v2: null, billing_type: null, billing_mode: undefined }
   applyFilters()
-  loadModelOptions()
 }
 const handlePageChange = (p: number) => { pagination.page = p; loadLogs() }
 const handlePageSizeChange = (s: number) => { pagination.page_size = s; pagination.page = 1; loadLogs() }

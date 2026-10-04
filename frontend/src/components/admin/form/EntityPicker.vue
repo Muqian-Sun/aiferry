@@ -8,7 +8,8 @@
     <input
       v-model="keyword"
       type="text"
-      class="input pr-8"
+      class="input"
+      :class="compact ? 'h-8 py-0 pl-3 pr-7 text-13' : 'pr-8'"
       autocomplete="off"
       :placeholder="placeholderText"
       :aria-label="placeholderText"
@@ -65,6 +66,8 @@ const props = withDefaults(defineProps<{
   /** 只对密钥：限定在这个用户名下（先选了用户时），此时下拉不再重复写用户邮箱 */
   userId?: number | null
   placeholder?: string
+  /** 列表工具行用的 32px 高紧凑版，和筛选标签同高 */
+  compact?: boolean
 }>(), {
   modelValue: undefined,
   userId: undefined,

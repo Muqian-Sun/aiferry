@@ -330,8 +330,6 @@
               :filtered="hasActiveFilters"
               :title="t('admin.users.noUsersYet')"
               :description="t('admin.users.createFirstUser')"
-              :action-text="t('admin.users.createUser')"
-              @action="showCreateModal = true"
             />
           </template>
         </DataTable>

@@ -33,11 +33,12 @@
       />
       <!-- 筛选与批量操作 -->
       <div class="flex flex-col gap-3">
-        <div class="keys-filters flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <SearchInput
             v-model="filterSearch"
+            compact
             :placeholder="t('keys.searchPlaceholder')"
-            class="w-full sm:w-64"
+            class="w-full sm:w-56"
             @search="onFilterChange"
           />
           <FilterChip
@@ -1392,11 +1393,3 @@ onUnmounted(() => {
   if (nowTimer) clearInterval(nowTimer)
 })
 </script>
-
-<style scoped>
-/* 筛选行：通用搜索框 / 下拉是 42px，这一页压到 34px、13px 字 */
-.keys-filters :deep(.input),
-.keys-filters :deep(.select-trigger) {
-  @apply py-1.5 text-13;
-}
-</style>

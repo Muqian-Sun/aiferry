@@ -1,7 +1,7 @@
 <template>
   <div class="empty-state">
-    <!-- Icon -->
-    <div class="mb-5 flex h-20 w-20 items-center justify-center rounded-lg bg-af-sunken">
+    <!-- 图标直接放，不装进灰底方块（2026-10-05 走查） -->
+    <div class="mb-3 flex items-center justify-center">
       <slot name="icon">
         <component v-if="icon" :is="icon" class="empty-state-icon h-10 w-10" aria-hidden="true" />
         <svg
@@ -79,7 +79,8 @@ const props = withDefaults(defineProps<Props>(), {
   filtered: false
 })
 
-const displayTitle = computed(() => (props.filtered ? t('common.noMatch') : props.title || t('common.noData')))
+// message 是只写一句话的用法（表格里的「还没有记录」）：当标题用，原来被忽略、显示成笼统的「没有数据」
+const displayTitle = computed(() => (props.filtered ? t('common.noMatch') : props.title || props.message || t('common.noData')))
 const displayDescription = computed(() => (props.filtered ? t('common.noMatchHint') : props.description))
 
 defineEmits(['action'])

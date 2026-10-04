@@ -37,6 +37,7 @@ describe('Prompt Audit integration surface', () => {
     expect(endpoint).toContain('aria-label')
     expect(events).toContain('aria-label')
     expect(events).toContain('overflow-x-auto')
-    expect(events).toContain('sm:grid-cols-2')
+    // 筛选是一行可折行的小控件：窄屏占满一行、sm 起定宽
+    expect(events).toContain('w-full sm:w-')
   })
 })

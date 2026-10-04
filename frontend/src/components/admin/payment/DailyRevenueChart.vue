@@ -92,6 +92,7 @@ const chartData = computed(() => {
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
         fill: 'origin',
+        clip: false as const,
         // 单调插值：普通 tension 在很多 0 的稀疏数据两侧会冲到 0 以下
         cubicInterpolationMode: 'monotone' as const
       }
@@ -102,6 +103,7 @@ const chartData = computed(() => {
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  layout: { padding: { top: 6 } },
   interaction: { mode: 'index' as const, intersect: false },
   plugins: {
     legend: { display: false },
@@ -114,6 +116,8 @@ const chartOptions = computed(() => ({
   },
   scales: {
     x: {
+      // 首尾的点不贴坐标轴、不压在纵轴刻度上：类目轴两端各留半格（2026-10-05 走查：渠道状态 100% 的点被刻度挡住）
+      offset: true,
       grid: { display: false },
       ticks: { color: theme.value.text, maxTicksLimit: 12, font: { size: 10 } }
     },

@@ -1,10 +1,7 @@
 export default {
     channelStatus: {
       description: 'Recent availability, time to first token, cache hit rate and requests per channel — the same statistics as the public service status',
-      allModels: 'All models',
-      allPlatforms: 'All platforms',
-      modelFilter: 'Filter by model',
-      platformFilter: 'Filter by platform',
+      filters: { model: 'Model', platform: 'Platform' },
       loadFailed: 'Could not load channel status',
       stats: { requests: 'Requests' },
       channels: {
@@ -177,17 +174,11 @@ export default {
       preBlockSyncStatus: 'Pre-Block Sync Status',
       preBlockSyncHint: 'Live counters for the synchronous moderation path, excluding async record tasks.',
       preBlockActive: 'Sync Processing',
-      preBlockActiveHint: 'Currently checking',
       preBlockChecked: 'Checked',
-      preBlockCheckedHint: 'Entered pre-block path',
       preBlockAllowed: 'Allowed',
-      preBlockAllowedHint: 'No block triggered',
       preBlockBlocked: 'Blocked',
-      preBlockBlockedHint: 'Rejected after hit',
       preBlockErrors: 'Audit Errors',
-      preBlockErrorsHint: 'Failed or no usable key',
       preBlockAvgLatency: 'Avg Latency',
-      preBlockAvgLatencyHint: 'Synchronous path average',
       preBlockAPIKeyLoad: 'Audit Key Load',
       preBlockAPIKeyLoadHint: 'Synchronous pre-block checks round-robin usable audit keys directly.',
       preBlockAPIKeyLoadSummary: 'Sync active {active} / usable keys {available}, {total} total, worker: {workerActive} / {workerTotal}',
@@ -255,7 +246,6 @@ export default {
         search: 'Search user/key/summary',
         from: 'From',
         to: 'To',
-        allEndpoints: 'All Endpoints',
       },
       table: {
         time: 'Time',
@@ -269,7 +259,6 @@ export default {
         input: 'Input Summary',
       },
       result: {
-        all: 'All Results',
         hit: 'Hit',
         blocked: 'Blocked',
         pass: 'Pass',

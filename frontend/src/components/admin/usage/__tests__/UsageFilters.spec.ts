@@ -259,16 +259,16 @@ describe('UsageFilters — model options come from prop (no dup request)', () =>
 
     expect(mockGetModelStats).not.toHaveBeenCalled()
 
-    const opts = (wrapper.vm as any).modelOptions as Array<{ value: string | null; label: string }>
-    expect(opts.map((o) => o.value)).toEqual([null, 'claude-3', 'gpt-4o'])
+    const opts = (wrapper.vm as any).modelOptions as Array<{ value: string; label: string }>
+    expect(opts.map((o) => o.value)).toEqual(['claude-3', 'gpt-4o'])
   })
 })
 
 describe('UsageFilters — native compaction filter', () => {
-  it('offers only All/Compaction and emits the independent boolean filter', async () => {
-    const SelectStub = {
-      name: 'Select',
-      props: ['modelValue', 'options'],
+  it('offers only Compaction and writes the independent boolean filter', async () => {
+    const ChipStub = {
+      name: 'FilterChip',
+      props: ['modelValue', 'options', 'label', 'testId'],
       emits: ['update:modelValue', 'change'],
       template: '<div />',
     }
@@ -282,23 +282,16 @@ describe('UsageFilters — native compaction filter', () => {
         showActions: false,
         modelOptions: [],
       },
-      global: { stubs: { Select: SelectStub, Teleport: true } },
+      global: { stubs: { FilterChip: ChipStub, Teleport: true } },
     })
 
-    const compactionSelect = wrapper.findAllComponents(SelectStub).find((select: any) =>
-      (select.props('options') as Array<{ value: unknown }>).some((option) => option.value === true)
-    )
-    expect(compactionSelect).toBeDefined()
-    expect(compactionSelect!.props('options')).toEqual([
-      { value: null, label: 'All Requests' },
-      { value: true, label: 'Compaction Only' },
-    ])
-    expect(compactionSelect!.props('options')).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ value: false })])
-    )
+    await wrapper.get('[data-testid="usage-filter-more"]').trigger('click')
+    const compactionChip = wrapper.findAllComponents(ChipStub).find((chip: any) => chip.props('testId') === 'admin-usage-filter-compaction')
+    expect(compactionChip).toBeDefined()
+    expect(compactionChip!.props('options')).toEqual([{ value: 'only', label: 'Compaction Only' }])
 
-    compactionSelect!.vm.$emit('update:modelValue', true)
-    compactionSelect!.vm.$emit('change')
+    compactionChip!.vm.$emit('update:modelValue', 'only')
+    compactionChip!.vm.$emit('change')
     await wrapper.vm.$nextTick()
 
     expect(filters.native_compaction_v2).toBe(true)

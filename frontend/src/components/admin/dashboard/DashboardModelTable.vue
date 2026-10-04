@@ -66,6 +66,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from '@/components/charts/UserBreakdownSubTable.vue'
 import type { UserBreakdownLoader } from '@/components/charts/userBreakdown'
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
+import { formatSharePercent } from '@/utils/format'
 import type { ModelStat, UserBreakdownItem } from '@/types'
 import type { RangeParams } from '@/utils/dateRange'
 import { modelSwatchColor, modelsByTokens, type ModelSeries } from './modelSeries'
@@ -114,8 +115,7 @@ async function toggle(model: string) {
 
 const formatShare = (tokens: number): string => {
   if (tokenTotal.value <= 0) return '0%'
-  const pct = ((Number(tokens) || 0) / tokenTotal.value) * 100
-  return pct >= 10 || pct === 0 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`
+  return formatSharePercent(((Number(tokens) || 0) / tokenTotal.value) * 100)
 }
 const formatCount = (value: number): string => (Number(value) || 0).toLocaleString()
 const formatTokens = (value: number): string => {

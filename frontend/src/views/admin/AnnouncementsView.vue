@@ -97,10 +97,8 @@
           <template #empty>
             <EmptyState
               :filtered="hasActiveFilters"
-              :title="t('empty.noData')"
-              :description="t('admin.announcements.createFirstAnnouncement')"
-              :action-text="t('admin.announcements.createAnnouncement')"
-              @action="openCreateDialog"
+              :title="t('admin.announcements.noAnnouncementsYet')"
+              :description="t('admin.announcements.emptyHint')"
             />
           </template>
         </DataTable>

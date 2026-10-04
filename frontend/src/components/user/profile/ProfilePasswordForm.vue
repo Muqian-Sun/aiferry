@@ -34,7 +34,8 @@
             autocomplete="new-password"
             class="input"
           />
-          <p class="input-hint">
+          <!-- 用户站设置行的说明里已写「至少 6 个字符」，不再重复 -->
+          <p v-if="!headless" class="input-hint">
             {{ t('profile.passwordHint') }}
           </p>
         </div>
@@ -56,7 +57,7 @@
         <FormError :message="errorMessage" />
 
         <div class="flex justify-end pt-2">
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-sm">
+          <button type="submit" :disabled="loading" class="btn btn-primary btn-md">
             {{ loading ? t('profile.changingPassword') : t('profile.changePasswordButton') }}
           </button>
         </div>

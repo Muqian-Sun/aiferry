@@ -21,10 +21,9 @@ export default {
     },
     columns: {
       model: 'Model',
-      price: 'List price',
+      price: 'List price (input / output per 1M tokens)',
       channels: 'Serving channels',
       status: 'Status',
-      perMillion: 'input / output · per 1M tokens',
       perUnit: {
         per_request: 'per request',
         image: 'per image',
