@@ -14,6 +14,14 @@
         {{ platformDescription }}
       </p>
 
+      <!-- 配置模板的模型来自上架目录（D4）：目录还没到 / 取失败 / 没有对话模型时说清楚 -->
+      <p v-if="catalogState === 'loading'" class="text-sm text-af-ink-3" data-testid="use-key-catalog-loading">{{ t('common.loading') }}</p>
+      <p v-else-if="catalogState === 'error'" class="text-sm text-af-danger" data-testid="use-key-catalog-error">
+        {{ t('keys.useKeyModal.catalog.loadFailed') }}
+        <button type="button" class="ml-2 underline" @click="loadCatalog">{{ t('keys.useKeyModal.catalog.retry') }}</button>
+      </p>
+      <p v-else-if="!clientTabs.length" class="text-sm text-af-ink-3" data-testid="use-key-catalog-empty">{{ t('keys.useKeyModal.catalog.empty') }}</p>
+
       <!-- Client Tabs -->
       <div v-if="clientTabs.length" class="overflow-x-auto border-b border-af-hairline">
         <nav class="-mb-px flex min-w-max gap-4 sm:gap-6" aria-label="Client">
@@ -279,6 +287,8 @@ import {
 } from '@/utils/codexCatalogConfig'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { USE_KEY_CLIENTS } from '@/components/user/clients'
+import { getModelPlaza } from '@/api/modelPlaza'
+import { clientHasModels, groupChatModels, newestMediaModel, type ClientVendor, type KeyCatalogModel, type VendorModels } from './keyCatalog'
 
 interface Props {
   show: boolean
@@ -322,7 +332,45 @@ const modelsApiSnippet = computed(() => {
   return `curl ${root}/v1/models \\\n  -H "Authorization: Bearer ${props.apiKey}"`
 })
 const activeTab = ref<string>('unix')
-const activeClientTab = ref<string>('claude')
+const activeClientTab = ref<string>('')
+
+// 上架目录里的对话模型（按厂商分组，新的在前）：页签与模板里的模型都从这里来（D4）
+type CatalogState = 'loading' | 'ready' | 'error'
+const catalogState = ref<CatalogState>('loading')
+const vendorModels = ref<VendorModels>({ anthropic: [], openai: [], google: [], xai: [] })
+// Grok CLI 的生图 / 视频：目录里有 xAI 的生图 / 视频模型才开
+const xaiMedia = ref<{ image: string; video: string }>({ image: '', video: '' })
+let catalogRequestID = 0
+
+async function loadCatalog() {
+  const requestID = ++catalogRequestID
+  catalogState.value = 'loading'
+  try {
+    const plaza = await getModelPlaza()
+    if (requestID !== catalogRequestID) return
+    vendorModels.value = groupChatModels(plaza.models ?? [])
+    xaiMedia.value = {
+      image: newestMediaModel(plaza.models ?? [], 'xai', 'image'),
+      video: newestMediaModel(plaza.models ?? [], 'xai', 'video')
+    }
+    catalogState.value = 'ready'
+    if (!clientTabs.value.some((tab) => tab.id === activeClientTab.value)) {
+      activeClientTab.value = clientTabs.value[0]?.id ?? ''
+    }
+  } catch (error) {
+    if (requestID !== catalogRequestID) return
+    console.error('Failed to load model catalog for key config templates:', error)
+    catalogState.value = 'error'
+  }
+}
+
+function modelsOf(vendor: ClientVendor): KeyCatalogModel[] {
+  return vendorModels.value[vendor]
+}
+/** 这一家的默认模型：新的那个（目录里没有时为空串，页签本来就不出现） */
+function defaultModelOf(vendor: ClientVendor): string {
+  return vendorModels.value[vendor][0]?.id ?? ''
+}
 type CodexAuthMode = 'legacy' | 'api-key'
 const codexAuthMode = ref<CodexAuthMode>('legacy')
 type CodexModelManifestState = 'idle' | 'loading' | 'ready' | 'error'
@@ -349,13 +397,15 @@ const codexManifestContext = computed(() => {
 
 watch(() => props.show, (show) => {
   if (show) {
-    activeClientTab.value = 'claude'
+    // 目录到了再落到第一个有模型的页签（loadCatalog）
+    activeClientTab.value = ''
     activeTab.value = 'unix'
     codexAuthMode.value = 'legacy'
+    void loadCatalog()
   } else {
     resetCodexModelManifest()
   }
-})
+}, { immediate: true })
 
 watch(codexManifestContext, (context, previousContext) => {
   if (context !== previousContext) {
@@ -431,14 +481,17 @@ const SparkleIcon = {
   }
 }
 
-// 客户端标签页固定（清单与首页共用 USE_KEY_CLIENTS）：没有分组就没有「分组平台」，任何 key 都能走四种入站协议。
+// 客户端标签页（清单与首页共用 USE_KEY_CLIENTS）：目录里有这个客户端对应厂商的模型才出现（D4）
 const clientTabs = computed((): TabConfig[] =>
-  USE_KEY_CLIENTS.map((client) => ({
-    id: client.id,
-    label: t(client.labelKey),
-    icon: client.id === 'gemini' ? SparkleIcon : TerminalIcon
-  }))
+  catalogState.value !== 'ready'
+    ? []
+    : USE_KEY_CLIENTS.filter((client) => clientHasModels(client.id, vendorModels.value)).map((client) => ({
+        id: client.id,
+        label: t(client.labelKey),
+        icon: client.id === 'gemini' ? SparkleIcon : TerminalIcon
+      }))
 )
+const hasActiveClient = computed(() => clientTabs.value.some((tab) => tab.id === activeClientTab.value))
 
 // Shell tabs (3 types for environment variable based configs)
 const shellTabs: TabConfig[] = [
@@ -453,7 +506,7 @@ const openaiTabs: TabConfig[] = [
   { id: 'windows', label: 'Windows', icon: WindowsIcon }
 ]
 
-const showShellTabs = computed(() => activeClientTab.value !== 'opencode')
+const showShellTabs = computed(() => hasActiveClient.value && activeClientTab.value !== 'opencode')
 
 const showCodexAuthMode = computed(() =>
   activeClientTab.value === 'codex' || activeClientTab.value === 'codex-ws'
@@ -595,15 +648,20 @@ const currentFiles = computed((): FileConfig[] => {
     return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
   })()
 
+  if (!hasActiveClient.value) return []
   switch (activeClientTab.value) {
-    case 'opencode':
-      // 一个 key 四种协议都能走：一份 opencode.json 带四个 provider
-      return [
-        generateOpenCodeConfig('anthropic', apiBase, apiKey, 'opencode.json (Claude)'),
-        generateOpenCodeConfig('openai', apiBase, apiKey, 'opencode.json (OpenAI)'),
-        generateOpenCodeConfig('gemini', geminiBase, apiKey, 'opencode.json (Gemini)'),
-        generateOpenCodeConfig('grok', apiBase, apiKey, 'opencode.json (Grok)')
+    case 'opencode': {
+      // 一个 key 四种协议都能走：每家一个 provider，目录里没有这家模型的不出
+      const providers: Array<[string, ClientVendor, string, string]> = [
+        ['anthropic', 'anthropic', apiBase, 'opencode.json (Claude)'],
+        ['openai', 'openai', apiBase, 'opencode.json (OpenAI)'],
+        ['gemini', 'google', geminiBase, 'opencode.json (Gemini)'],
+        ['grok', 'xai', apiBase, 'opencode.json (Grok)']
       ]
+      return providers
+        .filter(([, vendor]) => modelsOf(vendor).length > 0)
+        .map(([platform, vendor, base, label]) => generateOpenCodeConfig(platform, base, apiKey, modelsOf(vendor), label))
+    }
     case 'codex':
       return generateOpenAIFiles(baseUrl, apiKey)
     case 'codex-ws':
@@ -669,7 +727,7 @@ $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
 }
 
 function generateGeminiCliContent(baseUrl: string, apiKey: string): FileConfig {
-  const model = 'gemini-2.0-flash'
+  const model = defaultModelOf('google')
   const modelComment = t('keys.useKeyModal.gemini.modelComment')
   let path: string
   let content: string
@@ -717,7 +775,7 @@ function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
-  const model = selectCodexCatalogModel('gpt-5.5')
+  const model = selectCodexCatalogModel(defaultModelOf('openai'))
   const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content
@@ -809,17 +867,30 @@ $env:XAI_API_KEY="${apiKey}"`
 export XAI_API_KEY="${apiKey}"`
   }
 
-  // Shape follows Grok Build user guide (~/.grok/docs + custom-models) and production-ready Sub2API setups.
-  // Text models only (Responses). Image/video: Imagine model IDs on media endpoints / feature overrides.
+  // Shape follows Grok Build user guide (~/.grok/docs + custom-models).
+  // 文本模型走 Responses；模型清单 = 上架目录里的 xAI 对话模型（新的在前，第一个是默认，D4）。
   // Credential order: api_key field → env_key → signed-in session → XAI_API_KEY global fallback.
   const modelsListUrl = `${baseUrl.replace(/\/+$/, '')}/models`
-  const configContent = `# Grok Build CLI → ${siteName.value} Grok group (API key auth).
+  const defaultModel = defaultModelOf('xai')
+  const modelSections = modelsOf('xai')
+    .map(
+      (model) => `[model."${model.id}"]
+model = "${model.id}"
+name = "${model.name}"
+env_key = "XAI_API_KEY"                     # or: api_key = "<your key>"  (not recommended)
+api_backend = "responses"                   # chat_completions | responses | messages
+supports_backend_search = true`
+    )
+    .join('\n\n')
+  const media = xaiMedia.value
+  const imageLines = media.image ? `image_gen = true\nimage_gen_model_override = "${media.image}"` : 'image_gen = false'
+  const videoLine = media.video ? 'video_gen = true' : 'video_gen = false'
+  const configContent = `# Grok Build CLI → ${siteName.value} (API key auth).
 # Docs: ~/.grok/docs/user-guide/05-configuration.md + 11-custom-models.md
 # Verify after save: grok inspect
 #
-# IMPORTANT: api_backend must be "responses" for the ${siteName.value} Grok group (POST /v1/responses).
+# IMPORTANT: api_backend must be "responses" (POST /v1/responses).
 # If omitted, Grok Build defaults to chat_completions (/v1/chat/completions).
-# Keep api_backend = "responses" on every model entry.
 #
 # Prefer env_key over hardcoding api_key (never commit secrets).
 # Also export GROK_MODELS_BASE_URL + XAI_API_KEY in the shell block above.
@@ -832,88 +903,24 @@ models_list_url = "${modelsListUrl}"        # optional override (env: GROK_MODEL
 xai_api_base_url = "${baseUrl}"             # public xAI API base override for gateway routing
 cli_chat_proxy_base_url = "${baseUrl}"      # CLI chat-proxy base (env: GROK_CLI_CHAT_PROXY_BASE_URL)
 
-# Prefer API key when using a custom gateway (matches ${siteName.value}).
-# Requires XAI_API_KEY env or per-model env_key / api_key.
 [auth]
 preferred_method = "api_key"
 
-[model."grok-4.5"]
-model = "grok-4.5"                          # id sent to the API
-name = "Grok 4.5"                           # shown in /model picker
-description = "Grok 4.5 via ${siteName.value} (Responses)"
-# base_url inherits from [endpoints].models_base_url; override only if needed:
-# base_url = "${baseUrl}"
-env_key = "XAI_API_KEY"                     # or: api_key = "${apiKey}"  (not recommended)
-api_backend = "responses"                   # chat_completions | responses | messages
-context_window = 500000                     # drives auto-compaction timing
-# Optional sampling (global defaults can live under [models] instead):
-# temperature = 0.7
-# top_p = 0.95
-# max_completion_tokens = 8192
-# Server-side (backend) web_search tools — only if your gateway exposes them:
-supports_backend_search = true
-
-[model."grok-build-0.1"]
-model = "grok-build-0.1"
-name = "Grok Build"
-description = "Coding / agent sessions (xAI recommends grok-build* for coding)"
-env_key = "XAI_API_KEY"
-api_backend = "responses"
-context_window = 256000
-supports_backend_search = true
-
-# Text multi-agent / client web_search sub-agent (NOT Imagine image/video).
-[model."grok-4.20-multi-agent-0309"]
-model = "grok-4.20-multi-agent-0309"
-name = "Grok 4.20 Multi Agent (text / web_search)"
-description = "Text multi-agent; use for web_search sub-agent, not image/video"
-env_key = "XAI_API_KEY"
-api_backend = "responses"
-context_window = 1000000
-supports_backend_search = true
-
-[model."grok-4.3"]
-model = "grok-4.3"
-name = "Grok 4.3"
-env_key = "XAI_API_KEY"
-api_backend = "responses"
-context_window = 1000000
-supports_backend_search = true
-
-# Optional short alias for /model grok:
-# [model."grok"]
-# model = "grok-4.5"
-# name = "Grok"
-# env_key = "XAI_API_KEY"
-# api_backend = "responses"
-# context_window = 1000000
-# supports_backend_search = true
+# xAI models listed on ${siteName.value}, newest first
+${modelSections}
 
 [models]
-# xAI recommends grok-build* for coding/agent sessions; use grok-4.5 for general chat.
-default = "grok-4.5"
-web_search = "grok-4.5"                     # client-side web_search tool model (must exist as [model.*])
-image_description = "grok-4.5"              # vision/describe-image helper model
-# Optional environment-wide sampling defaults (per-model values win):
-# temperature = 0.7
-# top_p = 0.95
-# max_completion_tokens = 8192
-# max_retries = 8
+default = "${defaultModel}"
+web_search = "${defaultModel}"              # client-side web_search tool model (must exist as [model.*])
+image_description = "${defaultModel}"       # vision/describe-image helper model
 
 [session]
 auto_compact_threshold_percent = 80         # auto-compact at this % of context_window (default 85)
 
-# Imagine tools: model IDs go to the ${siteName.value} media endpoints (not the text [model.*] catalog).
-# Enable only if the Grok group allows image/video generation.
+# Image / video generation: on only when ${siteName.value} lists an xAI image / video model
 [features]
-image_gen = true
-video_gen = true
-image_gen_model_override = "grok-imagine-image-quality"   # or grok-imagine-image
-image_edit_model_override = "grok-imagine-edit"
-# Optional feature flags (defaults shown in docs):
-# telemetry = false
-# remote_fetch = true                         # set false for air-gapped / pure-gateway catalogs
-# lsp_tools = false`
+${imageLines}
+${videoLine}`
 
   return [
     { path: envPath, content: envContent },
@@ -928,7 +935,7 @@ image_edit_model_override = "grok-imagine-edit"
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
-  const model = selectCodexCatalogModel('gpt-5.5')
+  const model = selectCodexCatalogModel(defaultModelOf('openai'))
   const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content with WebSocket v2
@@ -954,7 +961,11 @@ goals = true`
   return buildOpenAICodexFileConfigs(configDir, configContent, apiKey)
 }
 
-function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: string, pathLabel?: string): FileConfig {
+function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: string, models: KeyCatalogModel[], pathLabel?: string): FileConfig {
+  // 模型清单就是上架目录里这家的对话模型（D4，原来写死了一串目录里没有的）；OpenAI 走 Responses 不存会话
+  const modelEntries = Object.fromEntries(
+    models.map((model) => [model.id, platform === 'openai' ? { name: model.name, options: { store: false } } : { name: model.name }])
+  )
   const provider: Record<string, any> = {
     [platform]: {
       options: {
@@ -963,339 +974,17 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
       }
     }
   }
-  const openaiModels = {
-    'gpt-6': {
-      name: 'GPT-6 (Astra)',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-6-astra': {
-      name: 'GPT-6 Astra',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-5.2': {
-      name: 'GPT-5.2',
-      limit: {
-        context: 400000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {}
-      }
-    },
-    'gpt-5.6': {
-      name: 'GPT-5.6 (Sol)',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-5.6-sol': {
-      name: 'GPT-5.6 Sol',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-5.6-terra': {
-      name: 'GPT-5.6 Terra',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-5.6-luna': {
-      name: 'GPT-5.6 Luna',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {},
-        max: {}
-      }
-    },
-    'gpt-5.5': {
-      name: 'GPT-5.5',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {}
-      }
-    },
-    'gpt-5.4': {
-      name: 'GPT-5.4',
-      limit: {
-        context: 1050000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {}
-      }
-    },
-    'gpt-5.4-mini': {
-      name: 'GPT-5.4 Mini',
-      limit: {
-        context: 400000,
-        output: 128000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {}
-      }
-    },
-    'gpt-5.3-codex-spark': {
-      name: 'GPT-5.3 Codex Spark',
-      limit: {
-        context: 128000,
-        output: 32000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {},
-        xhigh: {}
-      }
-    },
-    'codex-mini-latest': {
-      name: 'Codex Mini',
-      limit: {
-        context: 200000,
-        output: 100000
-      },
-      options: {
-        store: false
-      },
-      variants: {
-        low: {},
-        medium: {},
-        high: {}
-      }
-    }
-  }
-  const geminiModels = {
-    'gemini-2.0-flash': {
-      name: 'Gemini 2.0 Flash',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      }
-    },
-    'gemini-2.5-flash': {
-      name: 'Gemini 2.5 Flash',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      }
-    },
-    'gemini-2.5-pro': {
-      name: 'Gemini 2.5 Pro',
-      limit: {
-        context: 2097152,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      },
-      options: {
-        thinking: {
-          budgetTokens: 24576,
-          type: 'enabled'
-        }
-      }
-    },
-    'gemini-3.5-flash': {
-      name: 'Gemini 3.5 Flash',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      }
-    },
-    'gemini-3-flash-preview': {
-      name: 'Gemini 3 Flash Preview',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      }
-    },
-    'gemini-3-pro-preview': {
-      name: 'Gemini 3 Pro Preview',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      },
-      options: {
-        thinking: {
-          budgetTokens: 24576,
-          type: 'enabled'
-        }
-      }
-    },
-    'gemini-3.1-pro-preview': {
-      name: 'Gemini 3.1 Pro Preview',
-      limit: {
-        context: 1048576,
-        output: 65536
-      },
-      modalities: {
-        input: ['text', 'image', 'pdf'],
-        output: ['text']
-      },
-      options: {
-        thinking: {
-          budgetTokens: 24576,
-          type: 'enabled'
-        }
-      }
-    }
-  }
-
-  const grokModels = {
-    'grok-4.5': {
-      name: 'Grok 4.5',
-      limit: { context: 500000, output: 64000 }
-    },
-    'grok-build-0.1': {
-      name: 'Grok Build 0.1',
-      limit: { context: 256000, output: 64000 }
-    },
-    'grok-4.20-multi-agent-0309': {
-      name: 'Grok 4.20 Multi Agent (text / web_search)',
-      limit: { context: 1000000, output: 64000 }
-    },
-    'grok-4.3': {
-      name: 'Grok 4.3',
-      limit: { context: 1000000, output: 64000 }
-    },
-    'grok-composer-2.5-fast': {
-      name: 'Grok Composer 2.5 Fast',
-      limit: { context: 500000, output: 64000 }
-    }
-  }
 
   if (platform === 'gemini') {
     provider[platform].npm = '@ai-sdk/google'
-    provider[platform].models = geminiModels
   } else if (platform === 'anthropic') {
     provider[platform].npm = '@ai-sdk/anthropic'
-  } else if (platform === 'openai') {
-    provider[platform].models = openaiModels
   } else if (platform === 'grok') {
-    // Custom provider pointing at Sub2API OpenAI-compatible Responses/Chat endpoints.
+    // 自定义 provider，走站点的 OpenAI 兼容接口
     provider[platform].npm = '@ai-sdk/openai-compatible'
     provider[platform].name = `Grok via ${siteName.value}`
-    provider[platform].models = grokModels
   }
+  provider[platform].models = modelEntries
 
   const agent =
     platform === 'openai'

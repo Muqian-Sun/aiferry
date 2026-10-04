@@ -118,6 +118,12 @@ export default {
     lastUsedIP: 'Last Used IP',
     useKey: 'Use Key',
     useKeyModal: {
+      // Config templates use the listed catalog (D4)
+      catalog: {
+        loadFailed: 'The model catalog did not load, so config templates cannot be generated right now.',
+        empty: 'No chat models are listed on this site yet.',
+        retry: 'Retry'
+      },
       modelsApi: {
         title: 'List available models',
         hint: 'Use this key to list the models you can call. Returns the OpenAI format by default; send an anthropic-version header for the Anthropic format; Gemini clients use /v1beta/models.'
@@ -150,18 +156,18 @@ export default {
       },
       gemini: {
         description: 'Add the following environment variables to your terminal profile or run directly in terminal to configure Gemini CLI access.',
-        modelComment: 'If you have Gemini 3 access, you can use: gemini-3-pro-preview',
+        modelComment: 'Any other Gemini model listed on this site works too',
         note: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
       },
       grok: {
         description:
-          'Configure Grok CLI, Claude Code, Codex, or OpenCode to send requests through your Grok group. Text models use Responses; image/video use Imagine model IDs on media endpoints.',
+          'Configure Grok CLI to send requests through this site. Text models use Responses; image / video generation is on only when this site lists an xAI image / video model.',
         configTomlHint:
           'Official path: ~/.grok/config.toml (or $GROK_HOME). Fill [endpoints] (models_base_url / models_list_url / xai_api_base_url / cli_chat_proxy_base_url), [auth] preferred_method=api_key, [models], [session], and [features] image/video overrides. Prefer env_key over api_key; every text model needs api_backend=responses. Back up before merge, then run grok inspect.',
         note:
-          'Export GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml (endpoints/auth/models/session/features) as ~/.grok/config.toml, run grok inspect, then /model grok-4.5 (or grok-build-0.1 for coding).',
+          'Export GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml (endpoints/auth/models/session/features) as ~/.grok/config.toml, run grok inspect, then pick a model with /model (config.toml lists the xAI models on this site).',
         noteWindows:
-          'Set GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml as %USERPROFILE%\\.grok\\config.toml, run grok inspect, then /model grok-4.5 (or grok-build-0.1 for coding).',
+          'Set GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml as %USERPROFILE%\\.grok\\config.toml, run grok inspect, then pick a model with /model (config.toml lists the xAI models on this site).',
       },
       codexModelCatalog: {
         title: 'Codex model catalog',

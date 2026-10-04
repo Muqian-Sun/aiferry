@@ -23,6 +23,21 @@ vi.mock('file-saver', () => ({
   saveAs: saveAsMock
 }))
 
+// 配置模板的模型来自上架目录（D4）：四家各给几条对话模型，外加 xAI 一条生图模型
+vi.mock('@/api/modelPlaza', () => ({
+  getModelPlaza: vi.fn().mockResolvedValue({
+    description: '',
+    models: [
+      { model_id: 'claude-opus-4-6', display_name: 'Opus 4.6', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
+      { model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', pricing: null, aliases: [] },
+      { model_id: 'gpt-5.4', display_name: 'GPT-5.4', vendor: 'openai', billing_mode: 'token', pricing: null, aliases: [] },
+      { model_id: 'gemini-3.1-pro-preview', display_name: 'Gemini 3.1 Pro', vendor: 'gemini', billing_mode: 'token', pricing: null, aliases: [] },
+      { model_id: 'grok-4.5', display_name: 'Grok 4.5', vendor: 'xai', billing_mode: 'token', pricing: null, aliases: [] },
+      { model_id: 'grok-imagine-image', display_name: 'Grok Imagine', vendor: 'xai', billing_mode: 'image', pricing: null, aliases: [] }
+    ]
+  })
+}))
+
 import UseKeyModal from '../UseKeyModal.vue'
 
 function readBlobAsText(blob: Blob): Promise<string> {
@@ -52,6 +67,8 @@ function mountModal(apiKey: string, show = true) {
 }
 
 async function clickClientTab(wrapper: ReturnType<typeof mountModal>, tabKey: string) {
+  // 页签等目录到了才出现（D4）
+  await flushPromises()
   const tab = wrapper.findAll('button').find((button) =>
     button.text().includes(`keys.useKeyModal.cliTabs.${tabKey}`)
   )
@@ -71,14 +88,16 @@ describe('UseKeyModal', () => {
   })
 
   // 裸 <template> 在浏览器里是不渲染子节点的原生元素，jsdom 却能查到它的子节点——用例直接盯它不存在。
-  it('renders the body without an inert template element', () => {
+  it('renders the body without an inert template element', async () => {
     const wrapper = mountModal('sk-anthropic-test')
+    await flushPromises()
     expect(wrapper.find('template').exists()).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text().includes('keys.useKeyModal.cliTabs.codexCli'))).toBe(true)
   })
 
   it('omits the attribution override from every standard Claude Code setup form', async () => {
     const wrapper = mountModal('sk-anthropic-test')
+    await flushPromises()
 
     for (const [shell, trafficSetting] of [
       ['macOS / Linux', 'export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1'],
@@ -112,10 +131,9 @@ describe('UseKeyModal', () => {
     const allCode = codeBlocks(wrapper).join('\n')
     expect(allCode).toContain('GROK_MODELS_BASE_URL')
     expect(allCode).toContain('XAI_API_KEY')
+    // 模型清单来自上架目录（D4）：桩目录里 xAI 只有 grok-4.5 一条对话模型
     expect(allCode).toContain('[model."grok-4.5"]')
-    expect(allCode).toContain('[model."grok-build-0.1"]')
-    expect(allCode).toContain('[model."grok-4.20-multi-agent-0309"]')
-    expect(allCode).toContain('[model."grok-4.3"]')
+    expect(allCode).not.toContain('[model."grok-build-0.1"]')
     expect(allCode).toContain('default = "grok-4.5"')
     expect(allCode).toContain('models_base_url = "https://example.com/v1"')
     expect(allCode).toContain('models_list_url = "https://example.com/v1/models"')
@@ -124,23 +142,20 @@ describe('UseKeyModal', () => {
     expect(allCode).toContain('preferred_method = "api_key"')
     expect(allCode).toContain('image_description = "grok-4.5"')
     expect(allCode).toContain('auto_compact_threshold_percent = 80')
+    // 生图跟着目录里的 xAI 生图模型开，没有视频模型就不开
     expect(allCode).toContain('image_gen = true')
-    expect(allCode).toContain('video_gen = true')
-    expect(allCode).toContain('image_gen_model_override = "grok-imagine-image-quality"')
-    expect(allCode).toContain('image_edit_model_override = "grok-imagine-edit"')
+    expect(allCode).toContain('image_gen_model_override = "grok-imagine-image"')
+    expect(allCode).toContain('video_gen = false')
+    expect(allCode).not.toContain('grok-imagine-edit')
+    expect(allCode).not.toContain('Grok group')
     expect(allCode).toContain('env_key = "XAI_API_KEY"')
-    expect(allCode).toContain('Keep api_backend = "responses" on every model entry.')
-    expect(allCode).toContain('grok-imagine-image')
-    expect(allCode).toContain('grok-imagine-edit')
-    expect(allCode).toMatch(/\[model\."grok-4\.5"\][\s\S]*?context_window = 500000/)
-    expect(allCode).toMatch(/\[model\."grok-build-0\.1"\][\s\S]*?context_window = 256000/)
     // Prefer env_key; hardcode api_key only as commented alternative
     expect(allCode).not.toMatch(/^api_key = "sk-grok-test"$/m)
 
     const modelBlocks = allCode
       .split(/(?=^\[model\.)/m)
       .filter((block) => block.startsWith('[model."'))
-    expect(modelBlocks.length).toBeGreaterThanOrEqual(4)
+    expect(modelBlocks.length).toBe(1)
     for (const block of modelBlocks) {
       if (block.includes('# [model.')) continue
       expect(block).toContain('api_backend = "responses"')
@@ -166,12 +181,7 @@ describe('UseKeyModal', () => {
       baseURL: 'https://example.com/v1',
       apiKey: 'sk-grok-test'
     })
-    expect(parsed.provider.grok.models['grok-4.5']).toBeDefined()
-    expect(parsed.provider.grok.models['grok-4.5'].limit.context).toBe(500000)
-    expect(parsed.provider.grok.models['grok-build-0.1']).toBeDefined()
-    expect(parsed.provider.grok.models['grok-4.20-multi-agent-0309']).toBeDefined()
-    expect(parsed.provider.grok.models['grok-composer-2.5-fast']).toBeDefined()
-    expect(parsed.provider.grok.models['gpt-5.6']).toBeUndefined()
+    expect(parsed.provider.grok.models).toEqual({ 'grok-4.5': { name: 'Grok 4.5' } })
   })
 
   it('keeps legacy OpenAI Codex config as the default', async () => {
@@ -293,7 +303,7 @@ describe('UseKeyModal', () => {
     await wrapper.get('[data-testid="codex-auth-mode-api-key"]').trigger('click')
     await wrapper.setProps({ show: false })
     await wrapper.setProps({ show: true })
-    await nextTick()
+    await flushPromises()
 
     // 重开回到 Claude Code 标签页
     expect(wrapper.find('[data-testid="codex-auth-mode-legacy"]').exists()).toBe(false)
@@ -305,42 +315,16 @@ describe('UseKeyModal', () => {
     expect(codeBlocks(wrapper).join('\n')).not.toContain('x-openai-actor-authorization')
   })
 
-  it('renders GPT-5.4 mini entry in OpenCode config', async () => {
+  // OpenCode 的 OpenAI 模型就是上架目录里的（D4），新的在前，Responses 不存会话
+  it('renders the listed OpenAI models in OpenCode config', async () => {
     const wrapper = mountModal('sk-test')
     await clickClientTab(wrapper, 'opencode')
 
     const openaiConfig = codeBlocks(wrapper).find((content) => content.includes('"openai": {'))
     expect(openaiConfig).toBeDefined()
-    expect(openaiConfig).toContain('"name": "GPT-5.4 Mini"')
-    expect(openaiConfig).not.toContain('"name": "GPT-5.4 Nano"')
-  })
-
-  it('renders GPT-5.6 and GPT-6 Astra capabilities in OpenCode config', async () => {
-    const wrapper = mountModal('sk-test')
-    await clickClientTab(wrapper, 'opencode')
-
-    const openaiConfig = codeBlocks(wrapper).find((content) => content.includes('"openai": {'))
-    expect(openaiConfig).toBeDefined()
-    const parsed = JSON.parse(openaiConfig!)
-    const models = parsed.provider.openai.models
-    for (const model of ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
-      expect(models[model]).toBeDefined()
-      expect(models[model].variants).toHaveProperty('max')
-      expect(models[model].variants).toHaveProperty('xhigh')
-    }
-    expect(models['gpt-5.6'].name).toBe('GPT-5.6 (Sol)')
-    expect(models['gpt-6']).toEqual({
-      name: 'GPT-6 (Astra)',
-      limit: { context: 1050000, output: 128000 },
-      options: { store: false },
-      variants: { low: {}, medium: {}, high: {}, xhigh: {}, max: {} }
-    })
-    expect(models['gpt-6-astra']).toEqual({
-      name: 'GPT-6 Astra',
-      limit: { context: 1050000, output: 128000 },
-      options: { store: false },
-      variants: { low: {}, medium: {}, high: {}, xhigh: {}, max: {} }
-    })
+    const models = JSON.parse(openaiConfig!).provider.openai.models
+    expect(Object.keys(models)).toEqual(['gpt-5.5', 'gpt-5.4'])
+    expect(models['gpt-5.5']).toEqual({ name: 'GPT-5.5', options: { store: false } })
   })
 
   // Scenario: any key can fetch the catalog-driven Codex manifest and reference it from config.toml.

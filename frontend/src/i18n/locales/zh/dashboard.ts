@@ -118,6 +118,12 @@ export default {
     lastUsedIP: '最近使用 IP',
     useKey: '使用密钥',
     useKeyModal: {
+      // 配置模板的模型来自上架目录（D4）
+      catalog: {
+        loadFailed: '模型目录没有加载出来，配置模板暂时生成不了。',
+        empty: '本站还没有上架可用的对话模型。',
+        retry: '重试'
+      },
       modelsApi: {
         title: '查询可用模型',
         hint: '用这把密钥查询能调用的模型：默认返回 OpenAI 格式；请求带 anthropic-version 头返回 Anthropic 格式；Gemini 客户端用 /v1beta/models。'
@@ -150,19 +156,19 @@ export default {
       },
       gemini: {
         description:
-          '将以下环境变量添加到您的终端配置文件或直接在终端中运行，以配置 Gemini CLI 访问。',
-        modelComment: '如果你有 Gemini 3 权限可以填：gemini-3-pro-preview',
+          '把下面的环境变量加进你的终端配置文件，或直接在终端里运行，配置 Gemini CLI。',
+        modelComment: '换成本站上架的其它 Gemini 模型也可以',
         note: '这些环境变量将在当前终端会话中生效。如需永久配置，请将其添加到 ~/.bashrc、~/.zshrc 或相应的配置文件中。'
       },
       grok: {
         description:
-          '配置 Grok CLI、Claude Code、Codex 或 OpenCode，让请求通过当前 Grok 分组发送。文本模型走 Responses；图片/视频使用 Imagine 模型 ID 与媒体端点。',
+          '配置 Grok CLI，让请求通过本站发送。文本模型走 Responses；本站上架了 xAI 的生图 / 视频模型时才打开生图 / 视频。',
         configTomlHint:
           '官方路径：~/.grok/config.toml（或 $GROK_HOME）。请填写 [endpoints]（models_base_url / models_list_url / xai_api_base_url / cli_chat_proxy_base_url）、[auth] preferred_method=api_key、[models]、[session]、[features] 图片/视频覆盖。优先 env_key，勿硬编码 api_key；文本模型必须 api_backend=responses。合并前备份，保存后运行 grok inspect。',
         note:
-          '导出 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml（endpoints/auth/models/session/features）保存为 ~/.grok/config.toml，运行 grok inspect，再用 /model 选择 grok-4.5（编程场景可用 grok-build-0.1）。',
+          '导出 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml（endpoints/auth/models/session/features）保存为 ~/.grok/config.toml，运行 grok inspect，再用 /model 选择模型（config.toml 里列的就是本站上架的 xAI 模型）。',
         noteWindows:
-          '设置 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml 保存为 %USERPROFILE%\\.grok\\config.toml，运行 grok inspect，再用 /model 选择 grok-4.5（编程场景可用 grok-build-0.1）。',
+          '设置 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml 保存为 %USERPROFILE%\\.grok\\config.toml，运行 grok inspect，再用 /model 选择模型（config.toml 里列的就是本站上架的 xAI 模型）。',
       },
       codexModelCatalog: {
         title: 'Codex 模型目录',
