@@ -270,7 +270,7 @@ export default {
         defaultTier: 'Other tiers',
         tools: 'Tools',
         search: 'Web search',
-        searchOfficialPrice: 'Charged at the official price, not multiplied by your rate',
+        searchOfficialPrice: 'Billed per search call',
         xPosts: 'X search · posts',
         xUsers: 'X search · profiles',
         perThousandCalls: '{price} / 1K calls',

@@ -189,7 +189,8 @@ func TestGetMyAPIKeyDailyUsageAggregatesByDayForOwnedKey(t *testing.T) {
 		CacheReadTokens:  6,
 		CacheWriteTokens: 4,
 		TotalTokens:      40,
-		Cost:             0.5,
 		ActualCost:       0.4,
 	}, got.Data.Items[0])
+	// 用户站只给实付：按官方价算的标准计费不出接口（2026-10-04 D1）
+	require.NotContains(t, rec.Body.String(), `"cost":`)
 }

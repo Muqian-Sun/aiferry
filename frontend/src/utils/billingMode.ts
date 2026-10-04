@@ -16,7 +16,7 @@ export function getBillingModeLabel(mode: string | null | undefined, t: (key: st
 interface ImageBillingRow {
   image_count: number
   billing_mode?: string | null
-  total_cost: number
+  actual_cost: number
 }
 
 export function isImageUsage(row: Pick<ImageBillingRow, 'image_count' | 'billing_mode'> | null | undefined): boolean {
@@ -34,9 +34,10 @@ export function getDisplayBillingMode(row: Pick<ImageBillingRow, 'billing_mode' 
   return row?.billing_mode
 }
 
-export function imageUnitPrice(row: Pick<ImageBillingRow, 'image_count' | 'total_cost'> | null): number {
+/** 每张图的实付单价（实付 ÷ 张数）：用户站的费用明细用，不涉及官方价 */
+export function imageUnitPrice(row: Pick<ImageBillingRow, 'image_count' | 'actual_cost'> | null): number {
   if (!row || row.image_count <= 0) return 0
-  const total = row.total_cost ?? 0
+  const total = row.actual_cost ?? 0
   const price = total / row.image_count
   return Number.isFinite(price) ? price : 0
 }

@@ -31,11 +31,11 @@ type userModelStat struct {
 	CacheCreationTokens int64   `json:"cache_creation_tokens"`
 	CacheReadTokens     int64   `json:"cache_read_tokens"`
 	TotalTokens         int64   `json:"total_tokens"`
-	Cost                float64 `json:"cost"`
 	ActualCost          float64 `json:"actual_cost"`
 }
 
-// userTrendPoint 是用户站趋势点：和 usagestats.TrendDataPoint 相比去掉了渠道成本（account_cost 只给管理站）。
+// userTrendPoint 是用户站趋势点：和 usagestats.TrendDataPoint 相比去掉了渠道成本（account_cost 只给管理站）
+// 与按官方价算的标价 cost（用户站只给实付，2026-10-04 D1）。
 type userTrendPoint struct {
 	Date                string  `json:"date"`
 	Requests            int64   `json:"requests"`
@@ -44,8 +44,130 @@ type userTrendPoint struct {
 	CacheCreationTokens int64   `json:"cache_creation_tokens"`
 	CacheReadTokens     int64   `json:"cache_read_tokens"`
 	TotalTokens         int64   `json:"total_tokens"`
-	Cost                float64 `json:"cost"`
 	ActualCost          float64 `json:"actual_cost"`
+}
+
+// userUsageStats 是用户站用量汇总：只给实付；标准计费（按官方价）、渠道成本、上游端点只给管理站。
+type userUsageStats struct {
+	TotalRequests            int64              `json:"total_requests"`
+	TotalInputTokens         int64              `json:"total_input_tokens"`
+	TotalOutputTokens        int64              `json:"total_output_tokens"`
+	TotalCacheTokens         int64              `json:"total_cache_tokens"`
+	TotalCacheCreationTokens int64              `json:"total_cache_creation_tokens"`
+	TotalCacheReadTokens     int64              `json:"total_cache_read_tokens"`
+	TotalTokens              int64              `json:"total_tokens"`
+	TotalActualCost          float64            `json:"total_actual_cost"`
+	AverageDurationMs        float64            `json:"average_duration_ms"`
+	Endpoints                []userEndpointStat `json:"endpoints,omitempty"`
+}
+
+// userEndpointStat 用户站按入站端点的拆分：usagestats.EndpointStat 带标价与渠道成本，这里只留请求数、Token 与实付。
+type userEndpointStat struct {
+	Endpoint    string  `json:"endpoint"`
+	Requests    int64   `json:"requests"`
+	TotalTokens int64   `json:"total_tokens"`
+	ActualCost  float64 `json:"actual_cost"`
+}
+
+// userDashboardStats 是用户站概览数字：去掉今日 / 累计的标准计费（按官方价），只给实付。
+type userDashboardStats struct {
+	TotalAPIKeys             int64                               `json:"total_api_keys"`
+	ActiveAPIKeys            int64                               `json:"active_api_keys"`
+	TotalRequests            int64                               `json:"total_requests"`
+	TotalInputTokens         int64                               `json:"total_input_tokens"`
+	TotalOutputTokens        int64                               `json:"total_output_tokens"`
+	TotalCacheCreationTokens int64                               `json:"total_cache_creation_tokens"`
+	TotalCacheReadTokens     int64                               `json:"total_cache_read_tokens"`
+	TotalTokens              int64                               `json:"total_tokens"`
+	TotalActualCost          float64                             `json:"total_actual_cost"`
+	TodayRequests            int64                               `json:"today_requests"`
+	TodayInputTokens         int64                               `json:"today_input_tokens"`
+	TodayOutputTokens        int64                               `json:"today_output_tokens"`
+	TodayCacheCreationTokens int64                               `json:"today_cache_creation_tokens"`
+	TodayCacheReadTokens     int64                               `json:"today_cache_read_tokens"`
+	TodayTokens              int64                               `json:"today_tokens"`
+	TodayActualCost          float64                             `json:"today_actual_cost"`
+	AverageDurationMs        float64                             `json:"average_duration_ms"`
+	Rpm                      int64                               `json:"rpm"`
+	Tpm                      int64                               `json:"tpm"`
+	ByPlatform               []usagestats.PlatformDashboardStats `json:"by_platform,omitempty"`
+}
+
+// userAPIKeyDailyUsagePoint 是用户站某个 key 一天的用量：去掉标准计费，只给实付。
+type userAPIKeyDailyUsagePoint struct {
+	Date             string  `json:"date"`
+	Requests         int64   `json:"requests"`
+	InputTokens      int64   `json:"input_tokens"`
+	OutputTokens     int64   `json:"output_tokens"`
+	CacheReadTokens  int64   `json:"cache_read_tokens"`
+	CacheWriteTokens int64   `json:"cache_write_tokens"`
+	TotalTokens      int64   `json:"total_tokens"`
+	ActualCost       float64 `json:"actual_cost"`
+}
+
+func userUsageStatsFrom(stats *usagestats.UsageStats) userUsageStats {
+	out := userUsageStats{
+		TotalRequests:            stats.TotalRequests,
+		TotalInputTokens:         stats.TotalInputTokens,
+		TotalOutputTokens:        stats.TotalOutputTokens,
+		TotalCacheTokens:         stats.TotalCacheTokens,
+		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
+		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
+		TotalTokens:              stats.TotalTokens,
+		TotalActualCost:          stats.TotalActualCost,
+		AverageDurationMs:        stats.AverageDurationMs,
+	}
+	for _, ep := range stats.Endpoints {
+		out.Endpoints = append(out.Endpoints, userEndpointStat{
+			Endpoint:    ep.Endpoint,
+			Requests:    ep.Requests,
+			TotalTokens: ep.TotalTokens,
+			ActualCost:  ep.ActualCost,
+		})
+	}
+	return out
+}
+
+func userDashboardStatsFrom(stats *usagestats.UserDashboardStats) userDashboardStats {
+	return userDashboardStats{
+		TotalAPIKeys:             stats.TotalAPIKeys,
+		ActiveAPIKeys:            stats.ActiveAPIKeys,
+		TotalRequests:            stats.TotalRequests,
+		TotalInputTokens:         stats.TotalInputTokens,
+		TotalOutputTokens:        stats.TotalOutputTokens,
+		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
+		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
+		TotalTokens:              stats.TotalTokens,
+		TotalActualCost:          stats.TotalActualCost,
+		TodayRequests:            stats.TodayRequests,
+		TodayInputTokens:         stats.TodayInputTokens,
+		TodayOutputTokens:        stats.TodayOutputTokens,
+		TodayCacheCreationTokens: stats.TodayCacheCreationTokens,
+		TodayCacheReadTokens:     stats.TodayCacheReadTokens,
+		TodayTokens:              stats.TodayTokens,
+		TodayActualCost:          stats.TodayActualCost,
+		AverageDurationMs:        stats.AverageDurationMs,
+		Rpm:                      stats.Rpm,
+		Tpm:                      stats.Tpm,
+		ByPlatform:               stats.ByPlatform,
+	}
+}
+
+func userAPIKeyDailyUsageFrom(points []usagestats.APIKeyDailyUsagePoint) []userAPIKeyDailyUsagePoint {
+	out := make([]userAPIKeyDailyUsagePoint, 0, len(points))
+	for _, p := range points {
+		out = append(out, userAPIKeyDailyUsagePoint{
+			Date:             p.Date,
+			Requests:         p.Requests,
+			InputTokens:      p.InputTokens,
+			OutputTokens:     p.OutputTokens,
+			CacheReadTokens:  p.CacheReadTokens,
+			CacheWriteTokens: p.CacheWriteTokens,
+			TotalTokens:      p.TotalTokens,
+			ActualCost:       p.ActualCost,
+		})
+	}
+	return out
 }
 
 // UsageHandler handles usage-related requests
@@ -409,11 +531,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	stats.TotalAccountCost = nil
-	stats.UpstreamEndpoints = nil
-	stats.EndpointPaths = nil
-
-	response.Success(c, stats)
+	response.Success(c, userUsageStatsFrom(stats))
 }
 
 const (
@@ -454,7 +572,7 @@ func (h *UsageHandler) DashboardStats(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, stats)
+	response.Success(c, userDashboardStatsFrom(stats))
 }
 
 // DashboardTrend handles getting user usage trend data
@@ -577,7 +695,6 @@ func userTrendFromUsageStats(trend []usagestats.TrendDataPoint) []userTrendPoint
 			CacheCreationTokens: point.CacheCreationTokens,
 			CacheReadTokens:     point.CacheReadTokens,
 			TotalTokens:         point.TotalTokens,
-			Cost:                point.Cost,
 			ActualCost:          point.ActualCost,
 		})
 	}
@@ -595,7 +712,6 @@ func userModelStatsFromUsageStats(stats []usagestats.ModelStat) []userModelStat 
 			CacheCreationTokens: stat.CacheCreationTokens,
 			CacheReadTokens:     stat.CacheReadTokens,
 			TotalTokens:         stat.TotalTokens,
-			Cost:                stat.Cost,
 			ActualCost:          stat.ActualCost,
 		})
 	}
@@ -711,7 +827,7 @@ func (h *UsageHandler) GetMyAPIKeyDailyUsage(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"items":      items,
+		"items":      userAPIKeyDailyUsageFrom(items),
 		"days":       days,
 		"start_date": startTime.Format("2006-01-02"),
 		"end_date":   endTime.AddDate(0, 0, -1).Format("2006-01-02"),

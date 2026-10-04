@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PlazaModel } from '@/api/modelPlaza'
 import {
-  applyMultiplier,
   buildCatalog,
   catalogBillingModes,
   catalogVendors,
@@ -92,13 +91,7 @@ describe('filterCatalog / catalogVendors', () => {
   })
 })
 
-describe('applyMultiplier / formatTimePricing', () => {
-  it('scales every present price by the account multiplier and keeps missing ones null', () => {
-    const price = { input: 10, output: 30, cacheWrite: 12.5, cacheWrite1h: null, cacheRead: null, imageInput: null, imageOutput: null, imageCacheRead: null, audioInput: null, audioOutput: null }
-    expect(applyMultiplier(price, 2)).toEqual({ input: 20, output: 60, cacheWrite: 25, cacheWrite1h: null, cacheRead: null, imageInput: null, imageOutput: null, imageCacheRead: null, audioInput: null, audioOutput: null })
-    expect(applyMultiplier(null, 2)).toBeNull()
-  })
-
+describe('formatTimePricing', () => {
   it('spells out periods, timezone and the weekdays-only scope', () => {
     expect(
       formatTimePricing({ timezone: 'Asia/Shanghai', weekdays_only: true, periods: [{ start_time: '09:00', end_time: '18:00', multiplier: 1.5 }] }, 'weekdays')

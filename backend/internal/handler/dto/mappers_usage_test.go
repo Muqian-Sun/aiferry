@@ -181,14 +181,9 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 		AccountCost:       0.05,
 	}
 
+	// 用户只看到实付；按官方价的分项费用、标准计费与倍率只在管理站（2026-10-04 D1，另见 user_mapper_rate_test.go）
 	userDTO := UsageLogFromService(log)
-	require.Equal(t, 0.01, userDTO.InputCost)
-	require.Equal(t, 0.02, userDTO.OutputCost)
-	require.Equal(t, 0.03, userDTO.CacheCreationCost)
-	require.Equal(t, 0.04, userDTO.CacheReadCost)
-	require.Equal(t, 0.10, userDTO.TotalCost)
 	require.Equal(t, 0.08, userDTO.ActualCost)
-	require.Equal(t, 0.8, userDTO.RateMultiplier)
 	require.NotNil(t, userDTO.IPAddress)
 	require.Equal(t, ipAddress, *userDTO.IPAddress)
 

@@ -157,7 +157,6 @@
 
     <ModelPricingDrawer
       :entry="detailEntry"
-      :scale="priceScale"
       :claude-code-web-search="response?.claude_code_web_search ?? null"
       @close="detailId = null"
     />
@@ -179,12 +178,10 @@ import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import { vReveal } from '@/directives/reveal'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
-import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
 import ModelPricingDrawer from './ModelPricingDrawer.vue'
 import {
-  applyMultiplier,
   buildCatalog,
   catalogBillingModes,
   catalogVendors,
@@ -206,7 +203,6 @@ const props = defineProps<{
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 const { copyToClipboard } = useClipboard()
 
 const searchQuery = ref('')
@@ -276,20 +272,11 @@ watch(billingModeOptions, (options) => {
   if (!options.some((option) => option.value === selectedBillingMode.value)) selectedBillingMode.value = 'all'
 })
 
-// 展示价 = 官方价 × 倍率：登录按账户（生效）倍率，未登录按接口给的全站默认倍率。
-// 倍率与官方价只用来算，不在页面上给用户看（muqian 2026-09-30）
-const isAuthenticated = computed(() => authStore.isAuthenticated)
-const defaultMultiplier = computed(() => Number(props.response?.default_rate_multiplier ?? 1))
-const priceScale = computed(() =>
-  isAuthenticated.value ? Number(authStore.user?.rate_multiplier ?? defaultMultiplier.value) : defaultMultiplier.value
-)
-
 /**
  * 格子里的基础计费项：token 模式固定列输入 / 输出 / 缓存写 / 缓存读（分段模型列第一段，没定价的显示破折号）；
- * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。价格已乘访问者倍率。
+ * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。价格是接口给的访问者售价。
  */
 function cellItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
-  const scale = priceScale.value
   if (entry.billingMode !== 'token') {
     const label =
       entry.billingMode === 'image'
@@ -297,9 +284,9 @@ function cellItems(entry: CatalogModel): Array<{ key: string; label: string; val
         : entry.billingMode === 'video'
           ? t('userUi.models.prices.perSecond')
           : t('userUi.models.prices.perRequest')
-    return [{ key: 'unit', label, value: entry.unitPrice == null ? null : entry.unitPrice * scale }]
+    return [{ key: 'unit', label, value: entry.unitPrice }]
   }
-  const price = applyMultiplier(entry.price, scale)
+  const price = entry.price
   return (['input', 'output', 'cacheWrite', 'cacheRead'] as const).map((key) => ({
     key,
     label: t(`userUi.models.prices.${key}`),

@@ -260,7 +260,6 @@ async function loadTrend() {
       cache_creation_tokens: item.cache_write_tokens,
       cache_read_tokens: item.cache_read_tokens,
       total_tokens: item.total_tokens,
-      cost: item.cost,
       actual_cost: item.actual_cost
     }))
     trend.value = fillTrendBuckets(points, trendBucketKeys(formatLocalDate(start), formatLocalDate(end), 'day'))

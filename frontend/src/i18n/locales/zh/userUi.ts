@@ -270,7 +270,7 @@ export default {
         defaultTier: '其他档位',
         tools: '工具',
         search: '联网搜索',
-        searchOfficialPrice: '按官方原价收，不乘账户倍率',
+        searchOfficialPrice: '每次搜索按次计费',
         xPosts: 'X 搜索 · 帖子',
         xUsers: 'X 搜索 · 主页',
         perThousandCalls: '{price} / 千次',
