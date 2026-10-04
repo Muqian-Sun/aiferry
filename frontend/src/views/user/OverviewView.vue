@@ -201,7 +201,8 @@ import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import { fillTrendBuckets, formatLocalDate, trendBucketKeys } from '@/utils/trendBuckets'
 import { vReveal } from '@/directives/reveal'
-import { buildCatalog, type CatalogModel } from '@/components/modelPlaza/catalog'
+import { buildCatalog, vendorLabel, type CatalogModel } from '@/components/modelPlaza/catalog'
+import { newestFirst } from '@/components/keys/keyCatalog'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
@@ -549,15 +550,16 @@ const firstKey = computed<ApiKey | null>(() => {
 const copied = ref<'url' | 'key' | 'example' | null>(null)
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
-// 调用示例的模型：目录里真有的（优先 OpenAI 厂商，Chat Completions 最通用）；拿不到目录就不出示例
+// 调用示例的模型：目录里真有的对话模型（优先 OpenAI 厂商，Chat Completions 最通用；同一家里取新的，
+// 原来按字母取第一个，示例写成了 codex-auto-review）；拿不到目录就不出示例
 const exampleModel = ref<CatalogModel | null>(null)
 let exampleRequested = false
 async function loadExampleModel() {
   if (exampleRequested) return
   exampleRequested = true
   try {
-    const catalog = buildCatalog((await loadModelPlaza()).models ?? [])
-    exampleModel.value = catalog.find((m) => m.vendor === 'openai') ?? catalog[0] ?? null
+    const chat = buildCatalog((await loadModelPlaza()).models ?? []).filter((m) => m.billingMode === 'token')
+    exampleModel.value = newestFirst(chat.filter((m) => vendorLabel(m.vendor) === 'OpenAI'))[0] ?? newestFirst(chat)[0] ?? null
   } catch (error) {
     console.error('Failed to load model catalog:', error)
     exampleModel.value = null
