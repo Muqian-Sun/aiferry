@@ -1206,7 +1206,8 @@ export interface UsageLog {
   created_at: string
 
   user?: User
-  api_key?: ApiKey
+  /** 用量行里的密钥只给 id 和名字（不带明文 key、IP 名单、额度） */
+  api_key?: { id: number; name: string }
   subscription?: UserSubscription
 }
 
