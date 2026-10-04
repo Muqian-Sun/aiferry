@@ -17,7 +17,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Ticks } from 'chart.js'
+import type { Scale, Tick } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { formatNumber, formatTokensK } from '@/utils/format'
@@ -68,10 +69,24 @@ function valueOf(point: TrendDataPoint): number {
   }
 }
 
+const isMoneyMetric = computed(() => props.metric !== 'tokens' && props.metric !== 'requests')
+
 function formatValue(value: number): string {
   if (props.metric === 'tokens') return formatTokensK(value)
   return props.metric === 'requests' ? formatNumber(value) : formatMoney(value)
 }
+
+/**
+ * 金额纵轴刻度：小数位跟着刻度间隔走（间隔 0.002 就写到 3 位），用 Chart.js 自带的数值刻度格式化 + 美元格式（ticks.format）。
+ * 不能用汇总金额的 formatMoney：小额区间里每个刻度都是同一个 `<$0.01`，轴上看不出大小（2026-10-04 走查：利润轴全是 `<$0.0`）。
+ */
+function moneyTick(this: Scale, value: string | number, index: number, ticks: Tick[]): string {
+  const v = Number(value)
+  return v === 0 ? '$0' : Ticks.formatters.numeric.call(this, v, index, ticks)
+}
+
+/** 只有一个时间桶（如「今天」按天）时折线画不出线，要把这一个点画出来 */
+const singlePoint = computed(() => props.trendData?.length === 1)
 
 const chartData = computed(() => {
   if (!props.trendData?.length) return null
@@ -84,7 +99,8 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        pointRadius: 0,
+        pointRadius: singlePoint.value ? 4 : 0,
+        pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
@@ -99,6 +115,8 @@ const chartData = computed(() => {
 const lineOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  // 刻度数字的格式与汇总金额（formatMoney）一致按 en-US，不随浏览器语言变成「US$」
+  locale: 'en-US',
   interaction: { mode: 'index' as const, intersect: false },
   plugins: {
     legend: { display: false },
@@ -111,6 +129,8 @@ const lineOptions = computed(() => ({
   },
   scales: {
     x: {
+      // 单个点时类目轴两侧留半格，点落在正中而不是贴着左边
+      offset: singlePoint.value,
       grid: { display: false },
       ticks: { color: theme.value.text, maxTicksLimit: 12, font: { size: 10 } }
     },
@@ -121,7 +141,9 @@ const lineOptions = computed(() => ({
         color: theme.value.text,
         font: { size: 10 },
         maxTicksLimit: 6,
-        callback: (value: string | number) => formatValue(Number(value))
+        ...(isMoneyMetric.value
+          ? { format: { style: 'currency', currency: 'USD' }, callback: moneyTick }
+          : { callback: (value: string | number) => formatValue(Number(value)) })
       }
     }
   }
