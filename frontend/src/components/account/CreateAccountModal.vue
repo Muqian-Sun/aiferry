@@ -779,6 +779,17 @@
     </template>
   </BaseDialog>
 
+  <ConfirmDialog
+    :show="showDiscardConfirm"
+    :title="t('admin.accounts.dialog.discard.title')"
+    :message="t('admin.accounts.dialog.discard.message')"
+    :confirm-text="t('admin.accounts.dialog.discard.confirm')"
+    :cancel-text="t('admin.accounts.dialog.discard.keepEditing')"
+    danger
+    @confirm="confirmDiscard"
+    @cancel="showDiscardConfirm = false"
+  />
+
   <!-- 承接模型那一步里「目录里没有」的模型：叠一层新建模型弹窗，预填标识 -->
   <ModelCreateDialog
     :show="creatingModelId !== ''"
@@ -1009,6 +1020,7 @@ import type {
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import FormError from '@/components/common/FormError.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -1669,12 +1681,39 @@ const resetForm = () => {
   oauthFlowRef.value?.reset()
 }
 
+// 第 1 / 2 步填过东西（改过的名称、备注、Key、地址、各平台凭据）：关之前确认，误点取消 / Esc 不再静默丢掉
+const showDiscardConfirm = ref(false)
+const hasUnsavedInput = () => {
+  const typed = [
+    form.notes,
+    apiKeyValue.value,
+    keyAddressDraft.value,
+    zhipuOrganization.value,
+    zhipuProject.value,
+    antigravityProjectId.value,
+    bedrockAccessKeyId.value,
+    bedrockSecretAccessKey.value,
+    bedrockApiKeyValue.value,
+    vertexServiceAccountJson.value
+  ]
+  const renamed = form.name.trim() !== '' && form.name !== nameSuggestion
+  return renamed || hasKeyAddress.value || typed.some((value) => (value ?? '').trim() !== '')
+}
+
 // 承接那一块改了没保存时不关（右上角关闭也一样）：先保存或点那一块的「撤销」
 const handleClose = () => {
   if (step.value === 3 && channelState.value && channelDraftChanges(channelState.value) > 0) {
     submitError.value = t('admin.accounts.dialog.bind.unsaved')
     return
   }
+  if (step.value < 3 && hasUnsavedInput()) {
+    showDiscardConfirm.value = true
+    return
+  }
+  emit('close')
+}
+const confirmDiscard = () => {
+  showDiscardConfirm.value = false
   emit('close')
 }
 

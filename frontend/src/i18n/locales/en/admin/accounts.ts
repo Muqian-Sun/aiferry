@@ -118,6 +118,13 @@ export default {
           upstream: 'Connect upstream',
           bind: 'Serve models'
         },
+        // Create, steps 1 / 2: closing after something was filled in
+        discard: {
+          title: 'Discard what you entered?',
+          message: 'This channel has not been created yet. Closing now discards the name, key, address and anything else you filled in.',
+          confirm: 'Discard and close',
+          keepEditing: 'Keep editing'
+        },
         // Create, step 3 "Serve models": this channel's block on the pricing page
         bind: {
           hint: 'This is the channel\'s block on the pricing page: detected models that are listed in the catalog are already added. Fill in upstream prices (a discount can fill them at once) and save the block. You can also click Done and add them on the pricing page later.',
