@@ -100,6 +100,7 @@ export default {
     channelState: {
       ok: 'Schedulable',
       paused: 'Not schedulable now',
+      error: 'Error',
       disabled: 'Disabled',
       missing: 'Channel missing'
     },

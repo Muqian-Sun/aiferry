@@ -20,11 +20,13 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
-const state = computed<'missing' | 'disabled' | 'paused' | 'ok'>(() => {
+// 与渠道页同一套叫法：出错（status=error）叫「异常」，手动停用才叫「已停用」
+const state = computed<'missing' | 'error' | 'disabled' | 'paused' | 'ok'>(() => {
   if (!props.account) return 'missing'
+  if (props.account.status === 'error') return 'error'
   if (props.account.status !== 'active') return 'disabled'
   return props.account.schedulable ? 'ok' : 'paused'
 })
 const stateText = computed(() => t(`admin.pricing.channelState.${state.value}`))
-const stateClass = computed(() => ({ ok: 'text-af-ink-2', paused: 'text-af-warning', disabled: 'text-af-ink-4', missing: 'text-af-ink-4' })[state.value])
+const stateClass = computed(() => ({ ok: 'text-af-ink-2', paused: 'text-af-warning', error: 'text-af-danger', disabled: 'text-af-ink-4', missing: 'text-af-ink-4' })[state.value])
 </script>
