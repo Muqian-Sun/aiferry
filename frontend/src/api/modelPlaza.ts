@@ -1,7 +1,7 @@
 /**
  * Model Plaza API（公开端点，对所有人开放，没有开关）。
- * 平铺的上架模型目录：每个条目带目录官方价（USD / token）、计费模式、分时倍率与别名。
- * 展示价 = 官方价 × 用户倍率（`User.rate_multiplier`）；未登录按 `default_rate_multiplier`（新用户默认倍率，官方价的 1/15）。
+ * 平铺的上架模型目录：每个条目带访问者的售价（USD / token，后端按登录用户的倍率算好，未登录按新用户价）、
+ * 计费模式、分时倍率与别名。官方价与倍率不出接口（2026-10-04 D1）。
  */
 
 import { apiClient } from './client'
@@ -86,10 +86,8 @@ export interface PlazaModel {
 export interface ModelPlazaResponse {
   /** 管理员配置的全局价格说明（Markdown）。 */
   description: string
-  /** 新用户默认倍率（相对官方价，= 1/15）：未登录时展示价 = 官方价 × 它。 */
-  default_rate_multiplier: number
   models: PlazaModel[]
-  /** 用 Claude Code 配非 Anthropic 模型时，那次搜索请求的计费项（官方价：token × 账户倍率，每次搜索按原价）；没有时省略 */
+  /** 用 Claude Code 配非 Anthropic 模型时，那次搜索请求的计费项（token 是售价，每次搜索按原价）；没有时省略 */
   claude_code_web_search?: PlazaWebSearchBilling
 }
 

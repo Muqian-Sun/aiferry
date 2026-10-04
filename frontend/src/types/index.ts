@@ -87,8 +87,6 @@ export interface User {
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
-  rate_multiplier: number // 生效的计费倍率（相对官方价）：用户价 = 官方价 × 它；0 = 免费
-  custom_rate_multiplier?: number | null // 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）
   status: 'active' | 'disabled' // Account status
   balance_notify_enabled: boolean
   balance_notify_threshold: number | null
@@ -103,6 +101,9 @@ export interface User {
 export interface AdminUser extends User {
   // 管理员备注（普通用户接口不返回）
   notes: string
+  // 倍率只给管理站：用户站接口只给售价与实付（2026-10-04 D1）
+  rate_multiplier: number // 生效的计费倍率（相对官方价）：用户价 = 官方价 × 它；0 = 免费
+  custom_rate_multiplier?: number | null // 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）
   last_used_at?: string | null
   // 管理侧权限开关，普通用户接口不返回。
   // 当前并发数（仅管理员列表接口返回）
@@ -1160,15 +1161,14 @@ export interface UsageLog {
   cache_creation_5m_tokens: number
   cache_creation_1h_tokens: number
 
+  // 分项费用：用户站接口给的是实付口径（加上联网搜索费就是实付），管理端接口给的是官方价口径（AdminUsageLog 同名覆盖）
   input_cost: number
   output_cost: number
   cache_creation_cost: number
   cache_read_cost: number
-  total_cost: number
-  actual_cost: number
-  rate_multiplier: number
+  actual_cost: number // 实付；标准计费与倍率只在 AdminUsageLog（2026-10-04 D1）
   billing_type: number
-  // 联网搜索：次数与搜索费（官方原价、不乘用户倍率，已含在 total_cost / actual_cost 里）
+  // 联网搜索：次数与搜索费（按原价收、不乘用户倍率，已含在 actual_cost 里）
   web_search_count: number
   web_search_cost: number
   /** Claude Code 配第三方模型时那次单独的搜索请求（由代执行模型去搜，Token 按「联网搜索」计费项计） */
@@ -1217,6 +1217,10 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  // 标准计费（按目录官方价、未乘用户倍率）与用户倍率：只有管理端接口返回；管理端的分项费用也是官方价口径。
+  // 与其余管理端字段一样可选：用量表等组件两站共用 AdminUsageLog 类型
+  total_cost?: number
+  rate_multiplier?: number
   upstream_model?: string | null
   upstream_reasoning_effort?: string | null
   upstream_response_model?: string | null
@@ -1369,7 +1373,7 @@ export interface UsageStatsResponse {
   total_cache_read_tokens: number
   total_cache_creation_tokens: number
   total_tokens: number
-  total_cost: number // 标准计费
+  total_cost?: number // 标准计费（按官方价）；只有管理端接口返回
   total_actual_cost: number // 实际扣除
   average_duration_ms: number
   models?: Record<string, number>
@@ -1388,7 +1392,8 @@ export interface TrendDataPoint {
   cache_creation_tokens: number
   cache_read_tokens: number
   total_tokens: number
-  cost: number // 标价（未乘任何倍率）
+  /** 标价（按官方价、未乘任何倍率）；只有管理端趋势接口返回，用户站接口不带 */
+  cost?: number
   actual_cost: number // 收入
   /** 成本（付给渠道：用量 × 渠道给该模型的上游价）；只有管理端趋势接口返回，用户站接口不带 */
   account_cost?: number

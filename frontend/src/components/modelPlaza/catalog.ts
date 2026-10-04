@@ -1,12 +1,12 @@
 /**
  * 模型页的展示契约：每个上架的目录条目一格，点格子看全部计费项。
  *
- * 标价来自 /model-plaza 每个条目的 pricing（目录售价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
+ * 标价来自 /model-plaza 每个条目的 pricing（访问者的售价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
  * - token：各项都是 USD / token，这里换算成 USD / 百万 token；按 Token 分段的（pricing.intervals 非空）每段一行（utils/tokenSegments），
  *   另有图片与音频单价、联网搜索按次价、最高推理档倍率；
  * - per_request / image / video：收 per_request_price 一个单价（单位分别是 次 / 张 / 秒），带 tier_label 的区间是按档位的单价；
  *   token 价不参与计费、不展示。
- * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
+ * 价格是接口给的访问者售价（后端已按登录用户的倍率算好，2026-10-04 D1），这里只换算单位。
  */
 import type { PlazaModel, PlazaTimePricing, UserSupportedModelPricing } from '@/api/modelPlaza'
 import { tokenSegments, type TokenSegment, type TokenSegmentPrices } from '@/utils/tokenSegments'
@@ -55,7 +55,7 @@ export interface CatalogModel {
    * 非 token 模式或文本 Token 价全缺时为空。多于一行即「按 Token 分段」。
    */
   rows: TokenSegment[]
-  /** 联网搜索（官方原价，不乘倍率），USD / 千次；没有官方搜索工具的模型为 null */
+  /** 联网搜索按次价，USD / 千次；没有官方搜索工具的模型为 null */
   searchPerThousand: number | null
   /** xAI X 搜索按取回条目收：USD / 千条帖子、USD / 千个主页；非 xAI 模型为 null */
   xPostPerThousand: number | null
@@ -122,15 +122,9 @@ function mapPrices(prices: TokenSegmentPrices, fn: (key: TokenRowKey, value: num
   return out
 }
 
-/** 分段单价整体乘一个系数（换算单位或乘账户倍率）；缺项保持 null */
+/** 分段单价整体乘一个系数（换算单位）；缺项保持 null */
 export function scalePrices(prices: TokenSegmentPrices, factor: number): TokenSegmentPrices {
   return mapPrices(prices, (_key, value) => value * factor)
-}
-
-/** 各行整体乘账户倍率（倍率 = 1 原样返回） */
-export function scaleRows(rows: TokenSegment[], factor: number): TokenSegment[] {
-  if (factor === 1) return rows
-  return rows.map((row) => ({ ...row, prices: scalePrices(row.prices, factor) }))
 }
 
 function catalogModel(model: PlazaModel): CatalogModel {
@@ -188,14 +182,6 @@ export function countByVendor(entries: CatalogModel[]): Map<string, number> {
 /** 目录里出现过的计费模式，按名排序 */
 export function catalogBillingModes(entries: CatalogModel[]): string[] {
   return [...new Set(entries.map((entry) => entry.billingMode))].sort()
-}
-
-/** 用户价 = 标价 × 账户倍率；标价缺项的位置保持 null */
-export function applyMultiplier(price: CatalogPrice | null, multiplier: number): CatalogPrice | null {
-  if (!price) return null
-  return Object.fromEntries(
-    Object.entries(price).map(([key, value]) => [key, value == null ? null : value * multiplier])
-  ) as unknown as CatalogPrice
 }
 
 /** 分时倍率的一行说明：09:00–18:00 ×1.5 · 12:00–14:00 ×0.8（时区，仅工作日） */

@@ -108,15 +108,6 @@ describe('ModelPlazaContent', () => {
     expect(cells[0].text()).toContain('claude-opus-5')
   })
 
-  it('shows prices at the account multiplier when signed in', () => {
-    authState.isAuthenticated = true
-    authState.user = { rate_multiplier: 2 }
-    const wrapper = mountContent()
-    const gpt = wrapper.findAll('[data-testid="catalog-cell"]')[1]
-    expect(gpt.get('[data-testid="price-input"]').text()).toBe('$20.00')
-    expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
-  })
-
   it('hints time-priced models in the cell footer (the periods are in the drawer)', () => {
     const wrapper = mountContent()
     const extras = wrapper.findAll('[data-testid="price-extras"]').filter((el) => el.text().includes('userUi.models.tags.timePricing'))

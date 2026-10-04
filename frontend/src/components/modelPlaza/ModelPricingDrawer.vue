@@ -3,7 +3,7 @@
     模型计费详情（muqian 2026-09-30 方案 A）：网格格子只放摘要，点格子在这里按块列全部计费项。
     token 模式：标准价（分段 × 项的表）→ 图片与音频 → 工具 → 其他（最高推理档 / 分时 / 别名）；
     按次 / 图片 / 视频模式：单价（有档位列档位表）→ 工具 → 其他。
-    只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；价格 = 官方价 × 访问者倍率（scale）。
+    只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；价格是接口给的访问者售价（后端已按倍率算好）。
   -->
   <DetailDrawer
     :show="entry !== null"
@@ -105,7 +105,7 @@
         </dl>
       </section>
 
-      <!-- 联网搜索按官方原价收，不乘账户倍率（方案第三版）；非 Anthropic 模型另列 Claude Code 联网搜索的计费项 -->
+      <!-- 联网搜索按次收费；非 Anthropic 模型另列 Claude Code 联网搜索的计费项 -->
       <section v-if="searchPerThousand != null || claudeCodeSearch" class="py-6 first:pt-0" data-testid="pricing-block-tools">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.tools') }}</h3>
@@ -178,9 +178,7 @@ import { getBillingModeLabel } from '@/utils/billingMode'
 import { formatSegmentRange, type TokenSegment } from '@/utils/tokenSegments'
 import type { PlazaWebSearchBilling } from '@/api/modelPlaza'
 import {
-  applyMultiplier,
   formatCatalogPrice as formatPrice,
-  scaleRows,
   TOKEN_ROW_KEYS,
   vendorLabel,
   type CatalogModel,
@@ -191,9 +189,7 @@ import {
 const props = withDefaults(
   defineProps<{
     entry: CatalogModel | null
-    /** 价格乘的系数：接口给的是官方价，展示价 = 官方价 × 访问者倍率（登录用账户倍率，未登录用全站默认 1/15） */
-    scale: number
-    /** 用 Claude Code 配非 Anthropic 模型时那次搜索请求的计费项（官方价）；没有时为 null */
+    /** 用 Claude Code 配非 Anthropic 模型时那次搜索请求的计费项（token 是售价，每次搜索按原价）；没有时为 null */
     claudeCodeWebSearch?: PlazaWebSearchBilling | null
   }>(),
   { claudeCodeWebSearch: null }
@@ -232,11 +228,11 @@ const tableMinWidth = computed(() => `${(segmented.value ? 5.5 : 0) + columns.va
 const tokenBlocks = computed<Array<{ key: 'standard'; title: string; hint: string; rows: TokenSegment[] }>>(() => {
   const entry = props.entry
   if (!entry || entry.rows.length === 0) return []
-  return [{ key: 'standard', title: t('userUi.models.detail.standard'), hint: '', rows: scaleRows(entry.rows, props.scale) }]
+  return [{ key: 'standard', title: t('userUi.models.detail.standard'), hint: '', rows: entry.rows }]
 })
 
 const mediaItems = computed(() => {
-  const price = applyMultiplier(props.entry?.price ?? null, props.scale)
+  const price = props.entry?.price ?? null
   if (!price) return []
   const items = [
     { key: 'imageInput', label: t('userUi.models.prices.imageInput'), value: price.imageInput },
@@ -253,7 +249,6 @@ const unitBlock = computed<{ label: string; unit: string; price: number | null; 
   const entry = props.entry
   if (!entry || entry.billingMode === 'token') return null
   if (entry.unitPrice == null && entry.tiers.length === 0) return null
-  const scale = (value: number | null) => (value == null ? null : value * props.scale)
   const [label, unit] =
     entry.billingMode === 'image'
       ? [t('userUi.models.prices.perImage'), t('userUi.models.detail.unitPerImage')]
@@ -263,20 +258,20 @@ const unitBlock = computed<{ label: string; unit: string; price: number | null; 
   return {
     label,
     unit,
-    price: scale(entry.unitPrice),
-    tiers: entry.tiers.map((tier) => ({ label: tier.label, price: scale(tier.price) }))
+    price: entry.unitPrice,
+    tiers: entry.tiers
   }
 })
 
-/** 搜索费按官方原价收，不乘账户倍率 */
+/** 联网搜索按次收费 */
 const searchPerThousand = computed(() => props.entry?.searchPerThousand ?? null)
 
-/** Claude Code 联网搜索（只给非 Anthropic 模型）：token 价 × 访问者倍率、按每百万 Token；每次搜索按原价、按每千次 */
+/** Claude Code 联网搜索（只给非 Anthropic 模型）：token 价按每百万 Token；每次搜索按每千次 */
 const claudeCodeSearch = computed(() => {
   const billing = props.claudeCodeWebSearch
   const entry = props.entry
   if (!billing || !entry || entry.vendor === 'anthropic' || entry.vendor === 'bedrock') return null
-  const perMillion = (value: number | null) => (value == null ? null : value * 1_000_000 * props.scale)
+  const perMillion = (value: number | null) => (value == null ? null : value * 1_000_000)
   return { input: perMillion(billing.input_price), output: perMillion(billing.output_price), perThousand: billing.search_price_per_call * 1000 }
 })
 
