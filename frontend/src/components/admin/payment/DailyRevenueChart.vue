@@ -85,7 +85,9 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        pointRadius: 0,
+        // 点不多时（≤ 31 天）标出每天的观测点，曲线之间的部分不是数据
+        pointRadius: props.data.length <= 31 ? 2.5 : 0,
+        pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,

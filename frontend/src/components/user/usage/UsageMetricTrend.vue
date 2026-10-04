@@ -87,6 +87,8 @@ function moneyTick(this: Scale, value: string | number, index: number, ticks: Ti
 
 /** 只有一个时间桶（如「今天」按天）时折线画不出线，要把这一个点画出来 */
 const singlePoint = computed(() => props.trendData?.length === 1)
+/** 点不多时（≤ 31，按天的一个月以内）把每个观测点标出来，免得平滑曲线让人以为两天之间也有数据 */
+const pointRadius = computed(() => (singlePoint.value ? 4 : (props.trendData?.length ?? 0) <= 31 ? 2.5 : 0))
 
 const chartData = computed(() => {
   if (!props.trendData?.length) return null
@@ -99,7 +101,7 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        pointRadius: singlePoint.value ? 4 : 0,
+        pointRadius: pointRadius.value,
         pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
