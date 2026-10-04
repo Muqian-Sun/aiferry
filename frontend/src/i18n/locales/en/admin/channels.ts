@@ -300,7 +300,7 @@ export default {
     subscriptions: {
       batchAssign: {
         enable: 'Assign to multiple users',
-        hint: 'Search and add up to 100 users to assign the same group and validity period.',
+        hint: 'Search and add up to 100 users to assign the same plan and validity period.',
         selected: '{count} users added',
         removeUser: 'Remove {email}',
         result: 'Assignment complete: {success} succeeded, {failed} failed',

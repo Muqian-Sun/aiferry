@@ -60,6 +60,7 @@
               />
             </div>
           </div>
+          <FormError :message="addError" />
           <div class="flex justify-end gap-2">
             <button type="button" class="btn btn-secondary btn-sm" :disabled="busy" @click="cancelAdd">
               {{ t('common.cancel') }}
@@ -74,6 +75,8 @@
           <LoadingSpinner />
         </div>
 
+        <FormError v-else-if="loadError" :message="loadError" />
+
         <p v-else-if="credentials.length === 0 && enabled" class="text-13 text-af-ink-3">
           {{ t('profile.passkey.empty') }}
         </p>
@@ -84,8 +87,27 @@
             :key="credential.id"
             class="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
           >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
+            <div class="min-w-0 flex-1">
+              <form
+                v-if="renamingId === credential.id"
+                class="flex items-center gap-2"
+                @submit.prevent="saveRename(credential)"
+              >
+                <input
+                  v-model="renameDraft"
+                  class="input min-w-0 flex-1"
+                  maxlength="100"
+                  :aria-label="t('profile.passkey.name')"
+                  autofocus
+                />
+                <button type="submit" class="btn btn-primary btn-sm" :disabled="busy || !renameDraft.trim()">
+                  {{ busy ? t('common.saving') : t('common.save') }}
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" :disabled="busy" @click="cancelRename">
+                  {{ t('common.cancel') }}
+                </button>
+              </form>
+              <div v-else class="flex items-center gap-2">
                 <Icon name="key" size="md" class="shrink-0 text-af-brand" />
                 <p class="truncate font-medium text-af-ink">
                   {{ credential.name }}
@@ -97,6 +119,7 @@
                   {{ t('profile.passkey.synced') }}
                 </span>
               </div>
+              <FormError v-if="renamingId === credential.id" class="mt-1" :message="renameError" />
               <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('profile.passkey.createdAt', { date: formatDate(credential.created_at) }) }}
                 <template v-if="credential.last_used_at">
@@ -104,12 +127,12 @@
                 </template>
               </p>
             </div>
-            <div class="flex shrink-0 gap-2">
+            <div v-if="renamingId !== credential.id" class="flex shrink-0 gap-2">
               <button
                 type="button"
                 class="btn btn-secondary btn-sm"
                 :disabled="busy"
-                @click="renamePasskey(credential)"
+                @click="startRename(credential)"
               >
                 {{ t('common.edit') }}
               </button>
@@ -128,58 +151,57 @@
     </div>
 
     <!-- 删除确认：吊销凭据需验证当前密码，防止被窃会话静默移除 Passkey -->
-    <div v-if="deleteTarget" class="fixed inset-0 z-50 overflow-y-auto">
-      <div class="flex min-h-full items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/50 transition-opacity" @click="closeDeleteDialog"></div>
-        <div
-          class="relative w-full max-w-md transform rounded-md bg-af-sheet p-6 shadow-xl transition-all"
-        >
-          <h3 class="text-lg font-semibold text-af-ink">
-            {{ t('profile.passkey.deleteTitle') }}
-          </h3>
-          <p class="mt-2 text-sm text-af-ink-3">
-            {{ t('profile.passkey.deleteConfirm', { name: deleteTarget.name }) }}
-          </p>
-          <form class="mt-4 space-y-4" @submit.prevent="confirmDelete">
-            <div>
-              <label for="passkey-delete-password" class="input-label">{{
-                t('profile.currentPassword')
-              }}</label>
-              <input
-                id="passkey-delete-password"
-                v-model="deletePassword"
-                type="password"
-                autocomplete="current-password"
-                class="input"
-                :placeholder="t('profile.passkey.passwordPlaceholder')"
-                autofocus
-              />
-            </div>
-            <div class="flex justify-end gap-3">
-              <button type="button" class="btn btn-secondary" :disabled="busy" @click="closeDeleteDialog">
-                {{ t('common.cancel') }}
-              </button>
-              <button
-                type="submit"
-                class="btn btn-danger"
-                :disabled="busy || deletePassword.length === 0"
-              >
-                {{ busy ? t('common.processing') : t('common.delete') }}
-              </button>
-            </div>
-          </form>
+    <BaseDialog
+      :show="deleteTarget !== null"
+      :title="t('profile.passkey.deleteTitle')"
+      width="narrow"
+      :close-on-escape="!busy"
+      @close="closeDeleteDialog"
+    >
+      <form id="passkey-delete-form" class="space-y-4" @submit.prevent="confirmDelete">
+        <p class="text-sm text-af-ink-2">
+          {{ t('profile.passkey.deleteConfirm', { name: deleteTarget?.name ?? '' }) }}
+        </p>
+        <div>
+          <label for="passkey-delete-password" class="input-label">{{ t('profile.currentPassword') }}</label>
+          <input
+            id="passkey-delete-password"
+            v-model="deletePassword"
+            type="password"
+            autocomplete="current-password"
+            class="input"
+            :placeholder="t('profile.passkey.passwordPlaceholder')"
+            autofocus
+          />
         </div>
-      </div>
-    </div>
+        <FormError :message="deleteError" />
+      </form>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" :disabled="busy" @click="closeDeleteDialog">
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="submit"
+          form="passkey-delete-form"
+          class="btn btn-danger"
+          :disabled="busy || deletePassword.length === 0"
+        >
+          {{ busy ? t('common.deleting') : t('common.delete') }}
+        </button>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 const props = defineProps<{ enabled: boolean; headless?: boolean }>()
 
@@ -193,12 +215,17 @@ const newPassword = ref('')
 const deleteTarget = ref<PasskeyCredentialSummary | null>(null)
 const deletePassword = ref('')
 const credentials = ref<PasskeyCredentialSummary[]>([])
+const loadError = ref('')
+const addError = ref('')
+const deleteError = ref('')
+const renamingId = ref<number | null>(null)
+const renameDraft = ref('')
+const renameError = ref('')
 
-// apiClient 拦截器把错误规范化为 { code, reason, message }；
-// 透出后端消息（如密码错误），否则回退到通用文案。
-function extractErrorMessage(error: unknown, fallback: string): string {
-  const message = (error as { message?: string }).message
-  return typeof message === 'string' && message.length > 0 ? message : fallback
+// 密码错误等后端原因按 auth.errors 翻译；浏览器 / 设备侧的失败（DOMException，消息是浏览器的英文）用兜底文案
+function failureMessage(error: unknown, fallback: string): string {
+  if (error instanceof DOMException) return fallback
+  return extractI18nErrorMessage(error, t, 'auth.errors', fallback)
 }
 
 async function loadCredentials(): Promise<void> {
@@ -207,6 +234,7 @@ async function loadCredentials(): Promise<void> {
     return
   }
   loading.value = true
+  loadError.value = ''
   try {
     credentials.value = await passkeyAPI.list()
   } catch (error) {
@@ -214,7 +242,7 @@ async function loadCredentials(): Promise<void> {
     // 设置变更竞态下后端仍可能返回 PASSKEY_DISABLED，静默处理
     const reason = (error as { reason?: string }).reason
     if (reason !== 'PASSKEY_DISABLED') {
-      console.error(t('profile.passkey.loadFailed'), error)
+      loadError.value = failureMessage(error, t('profile.passkey.loadFailed'))
     }
   } finally {
     loading.value = false
@@ -224,13 +252,15 @@ async function loadCredentials(): Promise<void> {
 async function addPasskey(): Promise<void> {
   if (newPassword.value.length === 0) return
   busy.value = true
+  addError.value = ''
   try {
     await passkeyAPI.register(newName.value.trim(), newPassword.value)
     cancelAdd()
     await loadCredentials()
   } catch (error) {
+    // 用户在系统弹窗里点了取消：不算失败
     if (!(error instanceof DOMException && error.name === 'NotAllowedError')) {
-      console.error(extractErrorMessage(error, t('profile.passkey.addFailed')), error)
+      addError.value = failureMessage(error, t('profile.passkey.addFailed'))
     }
   } finally {
     busy.value = false
@@ -241,17 +271,35 @@ function cancelAdd(): void {
   showAddForm.value = false
   newName.value = ''
   newPassword.value = ''
+  addError.value = ''
 }
 
-async function renamePasskey(credential: PasskeyCredentialSummary): Promise<void> {
-  const name = window.prompt(t('profile.passkey.renamePrompt'), credential.name)?.trim()
-  if (!name || name === credential.name) return
+function startRename(credential: PasskeyCredentialSummary): void {
+  renamingId.value = credential.id
+  renameDraft.value = credential.name
+  renameError.value = ''
+}
+
+function cancelRename(): void {
+  renamingId.value = null
+  renameError.value = ''
+}
+
+async function saveRename(credential: PasskeyCredentialSummary): Promise<void> {
+  const name = renameDraft.value.trim()
+  if (!name) return
+  if (name === credential.name) {
+    cancelRename()
+    return
+  }
   busy.value = true
+  renameError.value = ''
   try {
     await passkeyAPI.rename(credential.id, name)
     credential.name = name
+    cancelRename()
   } catch (error) {
-    console.error(t('profile.passkey.renameFailed'), error)
+    renameError.value = failureMessage(error, t('profile.passkey.renameFailed'))
   } finally {
     busy.value = false
   }
@@ -260,24 +308,29 @@ async function renamePasskey(credential: PasskeyCredentialSummary): Promise<void
 function deletePasskey(credential: PasskeyCredentialSummary): void {
   deleteTarget.value = credential
   deletePassword.value = ''
+  deleteError.value = ''
 }
 
 function closeDeleteDialog(): void {
+  if (busy.value) return
   deleteTarget.value = null
   deletePassword.value = ''
+  deleteError.value = ''
 }
 
 async function confirmDelete(): Promise<void> {
   const credential = deleteTarget.value
   if (!credential || deletePassword.value.length === 0) return
   busy.value = true
+  deleteError.value = ''
   try {
     await passkeyAPI.remove(credential.id, deletePassword.value)
     credentials.value = credentials.value.filter((item) => item.id !== credential.id)
+    busy.value = false
     closeDeleteDialog()
   } catch (error) {
     // 密码错误等失败保持对话框打开，允许重试
-    console.error(extractErrorMessage(error, t('profile.passkey.deleteFailed')), error)
+    deleteError.value = failureMessage(error, t('profile.passkey.deleteFailed'))
   } finally {
     busy.value = false
   }

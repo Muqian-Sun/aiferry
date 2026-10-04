@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { i18n } from '@/i18n'
 import type { ActionCaptchaRequestProof, AuthResponse } from '@/types'
 
 export interface PasskeyCredentialSummary {
@@ -18,7 +19,7 @@ interface CeremonyOptionsResponse {
 
 function requirePasskeySupport(): void {
   if (!window.PublicKeyCredential || !navigator.credentials) {
-    throw new Error('Passkeys are not supported by this browser')
+    throw new Error(i18n.global.t('profile.passkey.unsupported'))
   }
 }
 
@@ -113,7 +114,7 @@ async function login(proof?: ActionCaptchaRequestProof): Promise<AuthResponse> {
     publicKey: requestOptionsFromJSON(begin.options.publicKey)
   })
   if (!(credential instanceof PublicKeyCredential)) {
-    throw new Error('Passkey sign-in was cancelled')
+    throw new DOMException('Passkey sign-in was cancelled', 'NotAllowedError')
   }
   const { data } = await apiClient.post<AuthResponse>('/auth/passkey/login/finish', {
     session_token: begin.session_token,
@@ -132,7 +133,7 @@ async function register(name: string, password: string): Promise<PasskeyCredenti
     publicKey: creationOptionsFromJSON(begin.options.publicKey)
   })
   if (!(credential instanceof PublicKeyCredential)) {
-    throw new Error('Passkey creation was cancelled')
+    throw new DOMException('Passkey creation was cancelled', 'NotAllowedError')
   }
   const { data } = await apiClient.post<PasskeyCredentialSummary>(
     '/user/passkeys/register/finish',

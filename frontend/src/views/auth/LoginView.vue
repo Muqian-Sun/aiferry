@@ -558,10 +558,12 @@ async function handlePasskeyLogin(): Promise<void> {
     const redirectTo = (router.currentRoute.value.query.redirect as string) || DEFAULT_AUTHED_PATH
     await router.push(redirectTo)
   } catch (error: unknown) {
-    const fallback = error instanceof DOMException && error.name === 'NotAllowedError'
-      ? t('auth.passkeyCancelled')
-      : t('auth.passkeyFailed')
-    errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', fallback)
+    // 浏览器侧失败（DOMException）的消息是英文：取消给「已取消」，其余给通用失败
+    if (error instanceof DOMException) {
+      errorMessage.value = error.name === 'NotAllowedError' ? t('auth.passkeyCancelled') : t('auth.passkeyFailed')
+    } else {
+      errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.passkeyFailed'))
+    }
     console.error(errorMessage.value, error)
   } finally {
     if (actionCaptchaEnabled.value) {

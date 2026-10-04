@@ -55,7 +55,7 @@ export default {
         urlPlaceholder: 'https://example.com/purchase',
         urlHint: '必须是完整的 http(s) 链接',
         iframeWarning:
-          '⚠️ iframe 提示：部分网站会通过 X-Frame-Options 或 CSP（frame-ancestors）禁止被 iframe 嵌入，出现空白时可引导用户使用”新窗口打开”。',
+          'iframe 提示：部分网站会通过 X-Frame-Options 或 CSP（frame-ancestors）禁止被 iframe 嵌入，出现空白时可引导用户使用”新窗口打开”。',
         integrationDoc: '支付集成文档',
         integrationDocHint: '包含接口说明、幂等语义及示例代码'
       },
@@ -203,7 +203,7 @@ export default {
       },
       adminApiKey: {
         configured: '管理员 API Key 已启用',
-        deleting: '删除中...',
+        deleting: '删除中…',
       },
       paymentVisibleMethods: {
         methodLabel: '{title} 可见方式',
@@ -212,7 +212,7 @@ export default {
         sourceHint: '启用后必须明确选择一个来源；未配置状态不会对外展示该支付方式。',
         sourceRequiredError: '{title} 已启用，请先选择支付来源。'
       },
-      saving: '保存中...',
+      saving: '保存中…',
       saveSection: '保存本节',
       discard: '放弃修改',
       unsavedHint: '有未保存的修改',
@@ -270,7 +270,7 @@ export default {
         priority: '优先级',
         priorityHint: '数值越小优先级越高，优先匹配',
         description: '规则描述',
-        descriptionPlaceholder: '描述此规则的用途...',
+        descriptionPlaceholder: '描述此规则的用途…',
         matchConditions: '匹配条件',
         errorCodes: '错误码',
         errorCodesPlaceholder: '422, 400, 429',
@@ -286,7 +286,7 @@ export default {
         responseCode: '自定义状态码',
         passthroughBody: '透传上游错误信息',
         customMessage: '自定义错误信息',
-        customMessagePlaceholder: '返回给客户端的错误信息...',
+        customMessagePlaceholder: '返回给客户端的错误信息…',
         skipMonitoring: '跳过运维监控记录',
         skipMonitoringHint: '开启后，匹配此规则的错误不会被记录到运维监控中',
         enabled: '启用此规则'
@@ -325,7 +325,7 @@ export default {
 
       form: {
         pasteYaml: '粘贴 YAML 配置',
-        pasteYamlPlaceholder: '将 TLS 指纹采集器复制的 YAML 粘贴到这里...',
+        pasteYamlPlaceholder: '将 TLS 指纹采集器复制的 YAML 粘贴到这里…',
         pasteYamlHint: '粘贴从 TLS 指纹采集器复制的 YAML 配置，自动填充所有字段。',
         parseYaml: '解析 YAML',
         yamlParsed: 'YAML 解析成功，字段已自动填充',

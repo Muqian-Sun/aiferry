@@ -167,6 +167,14 @@ export default {
     todayExpires: '(expires today)',
     daysLeft: '({days} days)',
     usedQuota: 'Used Quota',
+    usedQuotaIn: 'Used ({window})',
+    windows: {
+      fiveHours: '5 hours',
+      day: 'daily',
+      sevenDays: '7 days',
+      week: 'weekly',
+      month: 'monthly'
+    },
     resetNow: 'Resetting soon',
     subscriptionType: 'Subscription Type',
     billingType: 'Billing Type',

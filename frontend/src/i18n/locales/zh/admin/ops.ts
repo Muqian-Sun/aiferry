@@ -162,7 +162,7 @@ export default {
       lastError: '最近错误',
       result: '结果',
       noData: '暂无数据',
-      loadingText: '加载中...',
+      loadingText: '加载中…',
       ready: '就绪',
       autoRefreshRemaining: '剩余 {seconds}s',
       systemLogs: {
@@ -211,10 +211,11 @@ export default {
         loadFailed: '加载系统日志失败',
         runtimeConfigActive: '运行时日志配置已生效',
         runtimeConfigSaveFailed: '保存日志配置失败',
-        resetRuntimeConfigConfirm: '确定要重置为启动配置（env/yaml）并立即应用吗？',
+        resetRuntimeConfigConfirm: '恢复为启动时的配置（环境变量 / yaml），并立即生效。',
         runtimeConfigReset: '已重置为启动日志配置',
         runtimeConfigResetFailed: '重置日志配置失败',
-        cleanupConfirm: '确定要清理匹配当前筛选条件的系统日志吗？此操作不可撤销。',
+        cleanupConfirm: '符合当前筛选条件的系统日志会被删除，无法恢复。',
+        cleanupAction: '清理日志',
         cleanupSuccess: '清理完成，已删除 {count} 条日志。',
         cleanupFilterRequired: '清理需要至少一个筛选条件（起止时间或其他字段）',
         cleanupFailed: '清理系统日志失败'
@@ -522,10 +523,10 @@ export default {
         compareA: '对比 A',
         compareB: '对比 B',
         suggestion: '处理建议',
-        suggestUpstream: '⚠️ 上游服务不稳定，建议：检查上游账号状态 / 考虑切换渠道',
-        suggestRequest: '⚠️ 客户端请求错误，建议：联系客户修正请求参数 / 手动标记已解决',
-        suggestAuth: '⚠️ 认证失败，建议：检查 API Key 是否有效 / 联系客户更新凭证',
-        suggestPlatform: '🚨 平台错误，建议立即排查修复',
+        suggestUpstream: '上游服务不稳定，建议：检查上游账号状态 / 考虑切换渠道',
+        suggestRequest: '客户端请求错误，建议：联系用户修正请求参数 / 手动标记已解决',
+        suggestAuth: '认证失败，建议：检查密钥是否有效 / 联系用户更新凭证',
+        suggestPlatform: '平台错误，建议立即排查修复',
         suggestGeneric: '查看详情了解更多信息',
         apiKeyPrefix: 'Key 前缀',
         keyDeletedBadge: 'Key 已删除'
@@ -561,7 +562,7 @@ export default {
       alertEvents: {
         title: '告警事件',
         description: '最近的告警触发/恢复记录（仅邮件通知）',
-        loading: '加载中...',
+        loading: '加载中…',
         empty: '暂无告警事件',
         loadFailed: '加载告警事件失败',
         status: {
@@ -571,7 +572,7 @@ export default {
         },
         detail: {
           title: '告警详情',
-          loading: '加载详情中...',
+          loading: '加载详情中…',
           empty: '暂无详情',
           loadFailed: '加载告警详情失败',
           manualResolve: '标记为已解决',
@@ -588,7 +589,7 @@ export default {
           dimensions: '维度信息',
           historyTitle: '历史记录',
           historyHint: '同一规则 + 相同维度的最近事件',
-          historyLoading: '加载历史中...',
+          historyLoading: '加载历史中…',
           historyEmpty: '暂无历史记录'
         },
         table: {
@@ -609,7 +610,7 @@ export default {
       alertRules: {
         title: '告警规则',
         description: '创建与管理系统阈值告警（仅邮件通知）',
-        loading: '加载中...',
+        loading: '加载中…',
         empty: '暂无告警规则',
         loadFailed: '加载告警规则失败',
         saveSuccess: '警报规则保存成功',
@@ -619,8 +620,8 @@ export default {
         create: '新建规则',
         createTitle: '新建告警规则',
         editTitle: '编辑告警规则',
-        deleteConfirmTitle: '确认删除该规则？',
-        deleteConfirmMessage: '将删除该规则及其关联的告警事件，是否继续？',
+        deleteConfirmTitle: '删除告警规则「{name}」？',
+        deleteConfirmMessage: '之后不再按这条规则告警，已经产生的告警记录会保留。',
         manage: '告警规则',
         metricGroups: {
           system: '系统指标',

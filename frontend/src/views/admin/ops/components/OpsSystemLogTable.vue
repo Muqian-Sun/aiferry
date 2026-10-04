@@ -388,6 +388,7 @@ const hasData = computed(() => logs.value.length > 0)
       :show="confirmCleanup"
       :title="t('admin.ops.systemLogs.cleanCurrentFilters')"
       :message="t('admin.ops.systemLogs.cleanupConfirm')"
+      :confirm-text="t('admin.ops.systemLogs.cleanupAction')"
       danger
       @confirm="cleanupCurrentFilter"
       @cancel="confirmCleanup = false"

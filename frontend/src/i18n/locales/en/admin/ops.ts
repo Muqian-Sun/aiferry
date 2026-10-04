@@ -214,7 +214,8 @@ export default {
         resetRuntimeConfigConfirm: 'Reset to startup configuration (env/yaml) and apply immediately?',
         runtimeConfigReset: 'Reset to startup log configuration',
         runtimeConfigResetFailed: 'Failed to reset log configuration',
-        cleanupConfirm: 'Clean up system logs matching the current filters? This cannot be undone.',
+        cleanupConfirm: 'System logs matching the current filters will be deleted. This cannot be undone.',
+        cleanupAction: 'Clean up logs',
         cleanupSuccess: 'Cleanup complete. Deleted {count} log entries.',
         cleanupFilterRequired: 'Cleanup requires at least one filter condition (start/end time or another field)',
         cleanupFailed: 'Failed to clean up system logs'
@@ -620,8 +621,8 @@ export default {
         create: 'Create Rule',
         createTitle: 'Create Alert Rule',
         editTitle: 'Edit Alert Rule',
-        deleteConfirmTitle: 'Delete this rule?',
-        deleteConfirmMessage: 'This will remove the rule and its related events. Continue?',
+        deleteConfirmTitle: 'Delete alert rule "{name}"?',
+        deleteConfirmMessage: 'No more alerts will fire from this rule. Existing alert records are kept.',
         metricGroups: {
           system: 'System Metrics',
           account: 'Account-level Metrics'

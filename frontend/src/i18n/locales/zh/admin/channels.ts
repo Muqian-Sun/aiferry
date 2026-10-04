@@ -300,7 +300,7 @@ export default {
     subscriptions: {
       batchAssign: {
         enable: '批量分配订阅',
-        hint: '搜索并添加多个用户，统一分配所选分组和有效期。每次最多 100 人。',
+        hint: '搜索并添加多个用户，统一分配所选套餐和有效期。每次最多 100 人。',
         selected: '已添加 {count} 位用户',
         removeUser: '移除 {email}',
         result: '分配完成：成功 {success} 人，失败 {failed} 人',
@@ -385,9 +385,9 @@ export default {
       adjustDaysPlaceholder: '正数延长，负数缩短',
       adjustHint: '输入正数延长订阅，负数缩短订阅（缩短后剩余天数需大于0）',
       assign: '分配',
-      assigning: '分配中...',
+      assigning: '分配中…',
       adjust: '调整',
-      adjusting: '调整中...',
+      adjusting: '调整中…',
       revoke: '撤销',
       restore: '恢复',
       resetQuota: '重置配额',

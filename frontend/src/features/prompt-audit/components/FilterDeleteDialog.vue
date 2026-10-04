@@ -104,7 +104,7 @@
           data-test="confirm-filter-delete"
           @click="requestConfirm"
         >
-          {{ deleting ? t('common.submitting') : t('admin.promptAudit.events.confirmFilterDelete') }}
+          {{ deleting ? t('common.deleting') : t('admin.promptAudit.events.confirmFilterDelete') }}
         </button>
       </div>
     </template>

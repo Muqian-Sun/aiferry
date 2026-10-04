@@ -24,7 +24,7 @@
 
       <!-- Client Tabs -->
       <div v-if="clientTabs.length" class="overflow-x-auto border-b border-af-hairline">
-        <nav class="-mb-px flex min-w-max gap-4 sm:gap-6" aria-label="Client">
+        <nav class="-mb-px flex min-w-max gap-4 sm:gap-6" :aria-label="t('keys.useKeyModal.clientTabsLabel')">
           <button
             v-for="tab in clientTabs"
             :key="tab.id"
@@ -106,7 +106,7 @@
 
       <!-- OS/Shell Tabs -->
       <div v-if="showShellTabs" class="overflow-x-auto border-b border-af-hairline">
-        <nav class="-mb-px flex min-w-max gap-4" aria-label="Tabs">
+        <nav class="-mb-px flex min-w-max gap-4" :aria-label="t('keys.useKeyModal.shellTabsLabel')">
           <button
             v-for="tab in currentTabs"
             :key="tab.id"

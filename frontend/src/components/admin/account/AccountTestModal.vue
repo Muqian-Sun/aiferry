@@ -899,7 +899,7 @@ const startTest = async () => {
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      throw new Error(t('admin.accounts.testHttpStatus', { status: response.status }))
     }
 
     const reader = response.body?.getReader()

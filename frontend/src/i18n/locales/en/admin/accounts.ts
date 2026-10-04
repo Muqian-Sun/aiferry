@@ -1205,6 +1205,7 @@ export default {
       testCompleted: 'Test completed successfully!',
       testFailed: 'Test failed',
       testFailedWith: 'Test failed: {message}',
+      testHttpStatus: 'Test request failed (HTTP {status})',
       connectedToApi: 'Connected to API',
       usingModel: 'Using model: {model}',
       sendingTestMessage: 'Sending test message: "hi"',

@@ -23,7 +23,8 @@ export default {
     tableOfContents: 'Contents',
     copyCode: 'Copy',
     copiedCode: 'Copied',
-    copyCodeFailed: 'Failed'
+    copyCodeFailed: 'Failed',
+    loadFailed: 'Failed to load the page. Refresh to try again.'
   },
 
   // Announcements Page
@@ -406,7 +407,7 @@ export default {
       createPlan: 'Create Plan',
       editPlan: 'Edit Plan',
       deletePlan: 'Delete Plan',
-      deletePlanConfirm: 'Are you sure you want to delete this plan?',
+      deletePlanConfirm: 'Users will no longer be able to buy this plan. Plans with unfinished orders cannot be deleted.',
       noPlansYet: 'No plans yet',
       createFirstPlan: 'A plan sets the models it can call and its daily / weekly / monthly limits. Once created, assign it to users or put it on sale.',
       ordersEmptyHint: 'Orders appear here once users top up or buy a subscription.',

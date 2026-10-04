@@ -23,7 +23,8 @@ export default {
     tableOfContents: '目录',
     copyCode: '复制',
     copiedCode: '已复制',
-    copyCodeFailed: '失败'
+    copyCodeFailed: '失败',
+    loadFailed: '页面加载失败，请稍后刷新重试'
   },
 
   // Announcements Page
@@ -112,27 +113,27 @@ export default {
         title: '欢迎使用 {siteName}',
         description:
           '<div style="line-height: 1.8;"><p style="margin-bottom: 12px;">三步接入：</p><ol style="margin-left: 20px; margin-bottom: 12px;"><li>创建 API 密钥</li><li>把密钥填进你的应用</li><li>发起请求，回到「用量」逐条核对</li></ol><p>只需一分钟。</p></div>',
-        nextBtn: '开始 🚀',
+        nextBtn: '开始',
         prevBtn: '跳过'
       },
       keyManage: {
-        title: '🔑 API 密钥管理',
+        title: 'API 密钥管理',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">在这里管理你的所有 API 访问密钥。</p><p style="padding: 8px 12px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 13px;"><b>📌 什么是 API 密钥？</b><br/>API 密钥是你访问 AI 服务的凭证，就像一把钥匙，让你的应用能够调用 AI 能力。</p><p style="margin-top: 12px; color: #10b981; font-weight: 600;">👉 点击进入密钥页面</p></div>'
       },
       createKey: {
-        title: '➕ 创建新密钥',
+        title: '创建新密钥',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">点击按钮创建你的第一个 API 密钥。</p><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 提示：</b>创建后密钥只显示一次，请务必复制保存</p><p style="margin-top: 12px; color: #10b981; font-weight: 600;">👉 点击"创建密钥"</p></div>'
       },
       keyName: {
-        title: '✏️ 密钥名称',
+        title: '密钥名称',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">为密钥起一个便于识别的名称。</p><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>"我的第一个密钥"、"测试用" 等</p></div>',
         nextBtn: '下一步'
       },
       keySubmit: {
-        title: '🎉 完成创建',
+        title: '完成创建',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">点击确认创建你的 API 密钥。</p><div style="padding: 8px 12px; background: #fee2e2; border-left: 3px solid #ef4444; border-radius: 4px; font-size: 13px; margin-bottom: 12px;"><b>⚠️ 重要：</b><ul style="margin: 8px 0 0 16px;"><li>创建后请立即复制密钥（sk-xxx）</li><li>密钥只显示一次，丢失需重新生成</li></ul></div><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>🚀 如何使用：</b><br/>将密钥配置到支持 OpenAI 接口的任何客户端（如 ChatBox、OpenCat 等），即可开始使用！</p><p style="margin-top: 12px; color: #10b981; font-weight: 600;">👉 点击"创建"按钮</p></div>'
       }
@@ -191,7 +192,7 @@ export default {
       expiredDesc: '订单已超时，请重新创建订单',
       cancelled: '订单已取消',
       cancelledDesc: '你已取消本次支付',
-      waitingPayment: '等待支付...',
+      waitingPayment: '等待支付…',
       cancelOrder: '取消订单',
       alipayOpening: '正在打开支付宝',
       alipayContinueInApp: '请在支付宝中完成支付',
@@ -300,10 +301,10 @@ export default {
     },
     airwallexPay: 'Airwallex 支付',
     stripePay: '立即支付',
-    stripeSuccessProcessing: '支付成功，正在处理订单...',
+    stripeSuccessProcessing: '支付成功，正在处理订单…',
     stripePopup: {
-      redirecting: '正在跳转到支付页面...',
-      loadingQr: '正在获取微信支付二维码...',
+      redirecting: '正在跳转到支付页面…',
+      loadingQr: '正在获取微信支付二维码…',
       timeout: '等待支付凭证超时，请重试',
       qrFailed: '未能获取微信支付二维码',
     },
@@ -354,7 +355,7 @@ export default {
       day: '天',
       week: '周',
       month: '月',
-      searchOrders: '搜索订单...',
+      searchOrders: '搜索订单…',
       orderDetail: '订单详情',
       orderType: '订单类型',
       orders: '订单',
@@ -409,7 +410,7 @@ export default {
       createPlan: '创建套餐',
       editPlan: '编辑套餐',
       deletePlan: '删除套餐',
-      deletePlanConfirm: '确定要删除此套餐吗？',
+      deletePlanConfirm: '删除后用户不能再购买这个套餐。有未完成的订单时不能删除。',
       noPlansYet: '还没有套餐',
       createFirstPlan: '套餐定好可调用的模型和日 / 周 / 月限额，建好后即可分配给用户或上架售卖。',
       ordersEmptyHint: '用户充值或购买订阅后，订单会出现在这里。',
@@ -426,14 +427,14 @@ export default {
       models: '模型',
       modelsHint: '只列目录里已上架的条目；订阅密钥只能调用这里勾选的模型',
       modelsRequired: '套餐至少要包含一个模型',
-      selectModels: '选择模型...',
+      selectModels: '选择模型…',
       limits: '限额',
       dailyLimitShort: '日',
       weeklyLimitShort: '周',
       monthlyLimitShort: '月',
       features: '功能特性',
       featuresHint: '每行一个特性',
-      featuresPlaceholder: '输入套餐特性...',
+      featuresPlaceholder: '输入套餐特性…',
       providerManagement: '服务商管理',
       providerManagementDesc: '管理支付服务商实例',
       createProvider: '创建服务商',
@@ -464,7 +465,7 @@ export default {
       weeklyLimit: '周限额',
       monthlyLimit: '月限额',
       unlimited: '无限制',
-      searchUserSubs: '搜索用户订阅...',
+      searchUserSubs: '搜索用户订阅…',
       daily: '日',
       weekly: '周',
       monthly: '月',

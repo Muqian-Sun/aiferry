@@ -5,7 +5,7 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types'
-import { getLocale } from '@/i18n'
+import { getLocale, i18n } from '@/i18n'
 import { IS_ADMIN_SITE } from '@/app/site'
 import {
   ADMIN_UI_REQUEST_HEADER,
@@ -262,7 +262,7 @@ apiClient.interceptors.response.use(
     // Network error
     return Promise.reject({
       status: 0,
-      message: 'Network error. Please check your connection.'
+      message: i18n.global.t('common.networkError')
     })
   }
 )
