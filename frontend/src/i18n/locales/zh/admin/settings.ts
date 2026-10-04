@@ -6,7 +6,7 @@ export default {
         features: '功能',
       },
       sections: {
-        other: { title: '其它', description: '最低毛利率。' },
+        other: { title: '利润门', description: '渠道的毛利达不到最低毛利率时，这次请求不派给它。' },
         features: { title: '开关', description: '各功能的总开关。' },
       },
       description: '网关与功能开关的全局设置，每一节单独保存。',
@@ -217,7 +217,7 @@ export default {
       discard: '放弃修改',
       unsavedHint: '有未保存的修改',
       leaveTitle: '还有未保存的修改',
-      leaveMessage: '离开这一节会丢掉刚才的改动。',
+      leaveMessage: '现在离开会丢掉还没保存的改动。',
       stay: '留在这里',
       settingsSaved: '设置保存成功',
       failedToLoad: '加载设置失败',
