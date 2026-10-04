@@ -95,12 +95,23 @@ const widthClass = computed(() => (props.width === 'lg' ? 'sm:max-w-[720px]' : '
 
 let previousFocus: HTMLElement | null = null
 
+const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'])
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUT_TYPES.has(target.type)
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
+  return target instanceof HTMLElement && target.isContentEditable
+}
+
 function onKey(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !props.closeOnEscape) return
   // 抽屉上面开着对话框（BaseDialog 给 body 加 modal-open）或弹出菜单时，Esc 归它们。
   // 监听挂在捕获阶段：对话框的 Esc 处理在冒泡阶段，它一关，Vue 在两个监听之间就把 modal-open 摘掉了。
   if (document.body.classList.contains('modal-open')) return
-  if (document.querySelector('body > [role="menu"]')) return
+  // 下拉选择（Select 的列表 Teleport 到 body）开着时 Esc 只收起下拉
+  if (document.querySelector('body > [role="menu"], body > [role="listbox"]')) return
+  // 正在输入框里打字时 Esc 不关抽屉：抽屉里的表单（如定时测试）一按就整个关掉，填了的内容静默丢失
+  if (isEditableTarget(event.target)) return
   emit('close')
 }
 

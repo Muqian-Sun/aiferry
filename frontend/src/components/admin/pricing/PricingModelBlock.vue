@@ -38,7 +38,7 @@
       </div>
     </header>
 
-    <div class="overflow-x-auto">
+    <div class="relative overflow-x-auto">
       <table class="w-full min-w-[980px] text-13">
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
