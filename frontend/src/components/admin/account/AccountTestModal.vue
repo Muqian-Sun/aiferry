@@ -207,7 +207,8 @@
             class="mt-3 flex items-center gap-2 border-t border-af-ink-3 pt-3 text-af-danger"
           >
             <Icon name="x" size="sm" :stroke-width="2" />
-            <span>{{ errorMessage }}</span>
+            <!-- 上游 / 网络报错多是英文原文（如 dial tcp …），前面带一句中文说明是测试失败 -->
+            <span>{{ errorMessage ? t('admin.accounts.testFailedWith', { message: errorMessage }) : t('admin.accounts.testFailed') }}</span>
           </div>
         </div>
 
@@ -1027,13 +1028,13 @@ const handleEvent = (event: {
         status.value = 'success'
       } else {
         status.value = 'error'
-        errorMessage.value = event.error || t('admin.accounts.testFailed')
+        errorMessage.value = event.error || ''
       }
       break
 
     case 'error':
       status.value = 'error'
-      errorMessage.value = event.error || t('common.unknownError')
+      errorMessage.value = event.error || ''
       if (streamingContent.value) {
         addLine(streamingContent.value, 'text-af-success')
         streamingContent.value = ''

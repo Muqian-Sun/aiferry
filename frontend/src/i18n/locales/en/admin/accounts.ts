@@ -605,11 +605,11 @@ export default {
         // Account connectivity test modal
         testMode: 'Test mode',
         testModeHint:
-          'Text / image / video use the selected model. Web search, TTS, STT and Realtime hit standalone endpoints (not free-form chat tools).',
+          'Text / image / video / web search use the selected model; TTS, STT and Realtime hit standalone endpoints.',
         testModeText: 'Text (Responses)',
         testModeImage: 'Image (/images/generations)',
         testModeVideo: 'Video (/videos/generations)',
-        testModeSearch: 'Web search (/web_search)',
+        testModeSearch: 'Web search (Responses + web_search tool)',
         testModeTTS: 'TTS (/tts)',
         testModeSTT: 'STT (/stt)',
         testModeRealtime: 'Realtime (WS /realtime)',
@@ -1198,6 +1198,7 @@ export default {
       connectingToApi: 'Connecting to API...',
       testCompleted: 'Test completed successfully!',
       testFailed: 'Test failed',
+      testFailedWith: 'Test failed: {message}',
       connectedToApi: 'Connected to API',
       usingModel: 'Using model: {model}',
       sendingTestMessage: 'Sending test message: "hi"',

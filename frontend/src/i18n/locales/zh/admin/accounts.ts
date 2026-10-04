@@ -649,6 +649,7 @@ export default {
       statusReset: '渠道状态已重置',
       failedToResetStatus: '重置渠道状态失败',
       testFailed: '渠道测试失败',
+      testFailedWith: '渠道测试失败：{message}',
       failedToLoad: '加载渠道列表失败',
       failedToDelete: '删除渠道失败',
       deleteFailedWithReason: '删除渠道失败：{message}',
@@ -726,11 +727,11 @@ export default {
         // 账号连通性测试弹窗
         testMode: '测试模式',
         testModeHint:
-          '文本 / 图片 / 视频使用所选模型。网页搜索、TTS、STT、Realtime 走独立接口探测（不是对话里的 tools）。',
+          '文本 / 图片 / 视频 / 网页搜索使用所选模型；TTS、STT、Realtime 走独立接口探测。',
         testModeText: '文本（Responses）',
         testModeImage: '图片（/images/generations）',
         testModeVideo: '视频（/videos/generations）',
-        testModeSearch: '网页搜索（/web_search）',
+        testModeSearch: '网页搜索（Responses + web_search 工具）',
         testModeTTS: '语音合成 TTS（/tts）',
         testModeSTT: '语音识别 STT（/stt）',
         testModeRealtime: '实时语音 Realtime（WS /realtime）',
