@@ -51,8 +51,9 @@
           <span class="text-af-ink-2">
             {{ t('keys.bulkEdit.selectedCount', { count: selectedIds.length }) }}
           </span>
+          <!-- 次按钮：页头已有实心的「创建密钥」，一屏只留一个主按钮 -->
           <button
-            class="btn btn-primary btn-sm"
+            class="btn btn-secondary btn-sm"
             :disabled="loading"
             data-test="bulk-edit-keys"
             @click="showBulkEditModal = true"
