@@ -46,6 +46,9 @@ export async function getRealtimeMetrics(): Promise<{
 export interface TrendParams {
   start_date?: string
   end_date?: string
+  /** 精确时刻（近 24 小时），与 start_date / end_date 二选一，见 utils/dateRange */
+  start_time?: string
+  end_time?: string
   granularity?: 'day' | 'hour'
   user_id?: number
   api_key_id?: number
@@ -78,6 +81,8 @@ export async function getUsageTrend(params?: TrendParams): Promise<TrendResponse
 export interface ModelStatsParams {
   start_date?: string
   end_date?: string
+  start_time?: string
+  end_time?: string
   user_id?: number
   api_key_id?: number
   model?: string
@@ -135,6 +140,8 @@ export interface DashboardSnapshotV2Response {
 export interface UserBreakdownParams {
   start_date?: string
   end_date?: string
+  start_time?: string
+  end_time?: string
   model?: string
   model_source?: 'requested' | 'upstream' | 'mapping'
   endpoint?: string

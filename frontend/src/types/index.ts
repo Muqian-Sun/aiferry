@@ -1581,6 +1581,9 @@ export interface UserErrorListParams {
   page_size?: number
   start_date?: string
   end_date?: string
+  /** 精确时刻（近 24 小时），与 start_date / end_date 二选一，见 utils/dateRange */
+  start_time?: string
+  end_time?: string
   timezone?: string
   model?: string
   status_code?: number
@@ -1605,6 +1608,9 @@ export interface UsageQueryParams {
   billing_mode?: string | null
   start_date?: string
   end_date?: string
+  /** 精确时刻（近 24 小时），与 start_date / end_date 二选一，见 utils/dateRange */
+  start_time?: string
+  end_time?: string
   timezone?: string
   sort_by?: string
   sort_order?: 'asc' | 'desc'

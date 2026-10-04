@@ -10,7 +10,7 @@
   -->
   <AppLayout>
     <template #header-actions>
-      <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
+      <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" :preset="datePreset" @change="onDateRangeChange" />
       <div class="w-28">
         <Select v-model="granularity" :options="granularityOptions" :title="t('admin.dashboard.granularity')" @change="loadChartData" />
       </div>
@@ -104,8 +104,7 @@
           :model-stats="modelStats"
           :series="modelSeries"
           :load-user-breakdown="getUserBreakdown"
-          :start-date="startDate"
-          :end-date="endDate"
+          :range="rangeQuery"
           :loading="chartsLoading"
         />
       </SheetSection>
@@ -135,7 +134,8 @@ import ModelTokenTrendChart from '@/components/admin/dashboard/ModelTokenTrendCh
 import DashboardModelTable from '@/components/admin/dashboard/DashboardModelTable.vue'
 import DashboardUserTable from '@/components/admin/dashboard/DashboardUserTable.vue'
 import { splitModelSeries } from '@/components/admin/dashboard/modelSeries'
-import { fillTrendBuckets, formatLocalDate, trendBucketKeys, type TrendGranularity } from '@/utils/trendBuckets'
+import { fillTrendBuckets, formatLocalDate, trendBucketKeys, trendBucketKeysBetween, type TrendGranularity } from '@/utils/trendBuckets'
+import { rangeParams, windowForPreset } from '@/utils/dateRange'
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 
 const { t } = useI18n()
@@ -164,6 +164,11 @@ const granularity = ref<TrendGranularity>('day')
 const defaultRange = getLast7DaysRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
+// 默认是按天的近 7 天（null：日期选择器按日期认出预设）
+const datePreset = ref<string | null>(null)
+// 近 24 小时按精确时刻查，窗口在每次加载图表时按此刻重算；按天的范围为 null
+const timeWindow = ref(windowForPreset(datePreset.value))
+const rangeQuery = computed(() => rangeParams(startDate.value, endDate.value, timeWindow.value))
 
 const granularityOptions = computed(() => [
   { value: 'day', label: t('admin.dashboard.day') },
@@ -244,7 +249,11 @@ const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() =
   { key: 'profit', label: t('common.money.profit') }
 ])
 
-const bucketKeys = computed(() => trendBucketKeys(startDate.value, endDate.value, granularity.value))
+const bucketKeys = computed(() =>
+  timeWindow.value
+    ? trendBucketKeysBetween(new Date(timeWindow.value.start_time), new Date(timeWindow.value.end_time), granularity.value)
+    : trendBucketKeys(startDate.value, endDate.value, granularity.value)
+)
 const trendFilled = computed(() => fillTrendBuckets(trendData.value, bucketKeys.value))
 
 /** 模型配色：前 8 个模型各一色，其余并进「其他」；柱状图与模型表共用 */
@@ -252,14 +261,16 @@ const modelSeries = computed(() => splitModelSeries(modelStats.value))
 /** 区间内全站 Token（用户表占比的分母，不是前 N 名之和） */
 const rangeTotalTokens = computed(() => trendData.value.reduce((sum, point) => sum + toFiniteNumber(point.total_tokens), 0))
 
+/** 跳到用量页看这个人：按天的范围原样带过去；近 24 小时不带日期，用量页默认就是近 24 小时 */
 const goToUserUsage = (userId: number) => {
   void router.push({
     path: '/usage',
-    query: { user_id: String(userId), start_date: startDate.value, end_date: endDate.value }
+    query: { user_id: String(userId), ...(timeWindow.value ? {} : { start_date: startDate.value, end_date: endDate.value }) }
   })
 }
 
 const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
+  datePreset.value = range.preset
   const start = new Date(range.startDate)
   const end = new Date(range.endDate)
   const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
@@ -271,10 +282,10 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
   const currentSeq = ++chartLoadSeq
   if (includeStats && !stats.value) loading.value = true
   chartsLoading.value = true
+  timeWindow.value = windowForPreset(datePreset.value)
   try {
     const response = await adminAPI.dashboard.getSnapshotV2({
-      start_date: startDate.value,
-      end_date: endDate.value,
+      ...rangeQuery.value,
       granularity: granularity.value,
       include_stats: includeStats,
       include_trend: true,

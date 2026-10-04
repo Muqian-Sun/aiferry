@@ -10,6 +10,7 @@
       <DateRangePicker
         v-model:start-date="startDate"
         v-model:end-date="endDate"
+        :preset="datePreset"
         @change="onDateRangeChange"
       />
       <button
@@ -122,6 +123,7 @@ import { formatReasoningEffort } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { formatMoneyExact, profitOf } from '@/utils/money'
 import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
+import { LAST_24_HOURS_PRESET, isReversedDateRange, rangeParams, windowForPreset } from '@/utils/dateRange'
 import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination from '@/components/common/Pagination.vue'; import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageSummary from '@/components/admin/usage/UsageSummary.vue'
@@ -167,7 +169,7 @@ const modelFilterOptions = computed(() => {
 const loadModelOptions = async () => {
   const seq = ++modelOptionsReqSeq
   try {
-    const res = await adminAPI.dashboard.getModelStats({ start_date: startDate.value, end_date: endDate.value, model_source: 'requested' })
+    const res = await adminAPI.dashboard.getModelStats({ ...rangeQuery.value, model_source: 'requested' })
     if (seq !== modelOptionsReqSeq) return
     modelNames.value = (res.models || []).map((m) => m.model).filter(Boolean)
   } catch (error) {
@@ -202,6 +204,12 @@ const getLast24HoursRangeDates = (): { start: string; end: string } => {
 }
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start); const endDate = ref(defaultRange.end)
+// 默认近 24 小时：按精确时刻查（startDate / endDate 只给日期选择器显示用）。窗口在应用筛选、刷新时按此刻重算，翻页和排序沿用同一个窗口
+const datePreset = ref<string | null>(LAST_24_HOURS_PRESET)
+const timeWindow = ref(windowForPreset(datePreset.value))
+const renewWindow = () => { timeWindow.value = windowForPreset(datePreset.value) }
+/** 发给列表 / 统计 / 模型候选的时间范围；铺在 filters 后面，盖掉 filters 里跟着日期选择器走的 start_date / end_date */
+const rangeQuery = computed(() => rangeParams(startDate.value, endDate.value, timeWindow.value))
 const filters = ref<AdminUsageQueryParams>({ user_id: undefined, model: undefined, request_type: undefined, native_compaction_v2: null, billing_type: null, start_date: startDate.value, end_date: endDate.value })
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
@@ -226,11 +234,12 @@ const applyRouteQueryFilters = () => {
   const queryEndDate = getSingleQueryValue(route.query.end_date)
   const queryUserId = getNumericQueryValue(route.query.user_id)
 
-  if (queryStartDate) {
+  // 概览点用户带来的是按天的范围（概览当时是近 24 小时就不带，这里沿用默认的近 24 小时）；起止颠倒的地址不认
+  if (queryStartDate && queryEndDate && !isReversedDateRange(queryStartDate, queryEndDate)) {
     startDate.value = queryStartDate
-  }
-  if (queryEndDate) {
     endDate.value = queryEndDate
+    datePreset.value = null
+    timeWindow.value = null
   }
 
   filters.value = {
@@ -265,6 +274,7 @@ const loadRouteUserFilterLabel = async () => {
 const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
   startDate.value = range.startDate
   endDate.value = range.endDate
+  datePreset.value = range.preset
   filters.value = {
     ...filters.value,
     start_date: range.startDate,
@@ -274,18 +284,18 @@ const onDateRangeChange = (range: { startDate: string; endDate: string; preset: 
   loadModelOptions()
 }
 
-const buildUsageListParams = (
-  page: number,
-  pageSize: number,
-  exactTotal: boolean
-): AdminUsageQueryParams => {
+// 总数一律要精确值（exact_total）：不要时后端只回「本页之前的条数 + 本页条数 + 1」表示还有下一页，
+// 第 1 页显示「共 21 条」、翻到第 2 页变成「共 27 条」（2026-10-04 走查）。精确计数是同一 WHERE 的 COUNT(*)，
+// 同一页的区间统计接口本来就在同一 WHERE 上做 COUNT / SUM / AVG，列表再数一次不改变量级。
+const buildUsageListParams = (page: number, pageSize: number): AdminUsageQueryParams => {
   const requestType = filters.value.request_type
   const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
   return {
     page,
     page_size: pageSize,
-    exact_total: exactTotal,
+    exact_total: true,
     ...filters.value,
+    ...rangeQuery.value,
     stream: legacyStream === null ? undefined : legacyStream,
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
@@ -296,7 +306,7 @@ const loadLogs = async () => {
   abortController?.abort(); const c = new AbortController(); abortController = c; loading.value = true
   try {
     const res = await adminAPI.usage.list(
-      buildUsageListParams(pagination.page, pagination.page_size, false),
+      buildUsageListParams(pagination.page, pagination.page_size),
       { signal: c.signal }
     )
     if(!c.signal.aborted) { usageLogs.value = res.items; pagination.total = res.total }
@@ -309,6 +319,7 @@ const loadStats = async (force = false) => {
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
     const s = await adminAPI.usage.getStats({
       ...filters.value,
+      ...rangeQuery.value,
       stream: legacyStream === null ? undefined : legacyStream,
       ...(force ? { nocache: 1 } : {}),
     })
@@ -321,6 +332,7 @@ const loadStats = async (force = false) => {
 }
 
 const applyFilters = () => {
+  renewWindow()
   pagination.page = 1
   loadLogs()
   loadStats()
@@ -332,6 +344,7 @@ const applyFilters = () => {
   }
 }
 const refreshData = () => {
+  renewWindow()
   loadLogs()
   loadStats(true)
   loadModelOptions()
@@ -341,6 +354,7 @@ const resetFilters = () => {
   const range = getLast24HoursRangeDates()
   startDate.value = range.start
   endDate.value = range.end
+  datePreset.value = LAST_24_HOURS_PRESET
   filters.value = { start_date: startDate.value, end_date: endDate.value, request_type: undefined, native_compaction_v2: null, billing_type: null, billing_mode: undefined }
   applyFilters()
   loadModelOptions()
@@ -365,6 +379,8 @@ const openCleanupDialog = () => { cleanupDialogVisible.value = true }
 const exportToExcel = async () => {
   if (exporting.value) return; exporting.value = true; exportProgress.show = true
   const c = new AbortController(); exportAbortController = c
+  // 文件名按开始导出时的范围取：导出过程中改了范围也不影响这一份
+  const fileName = `usage_${startDate.value}_to_${endDate.value}.xlsx`
   try {
     let p = 1; let total = pagination.total; let exportedCount = 0
     const XLSX = await import('xlsx')
@@ -384,7 +400,7 @@ const exportToExcel = async () => {
     const ws = XLSX.utils.aoa_to_sheet([headers])
     while (true) {
       const res = await adminUsageAPI.list(
-        buildUsageListParams(p, 100, true),
+        buildUsageListParams(p, 100),
         { signal: c.signal }
       )
       if (c.signal.aborted) break; if (p === 1) { total = res.total; exportProgress.total = total }
@@ -414,7 +430,7 @@ const exportToExcel = async () => {
     if(!c.signal.aborted) {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Usage')
-      saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `usage_${filters.value.start_date}_to_${filters.value.end_date}.xlsx`)
+      saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName)
     }
   } catch (error) { console.error('Failed to export:', error); }
   finally { if(exportAbortController === c) { exportAbortController = null; exporting.value = false; exportProgress.show = false } }
@@ -507,8 +523,9 @@ const loadAdminErrors = async () => {
       page: errPage.value,
       page_size: errPageSize.value,
       view: 'all',
-      start_time: toRFC3339(filters.value.start_date),
-      end_time: toRFC3339(filters.value.end_date, true),
+      // 近 24 小时用同一个精确窗口；按天的范围换成本地零点到当天结束
+      start_time: timeWindow.value?.start_time ?? toRFC3339(startDate.value),
+      end_time: timeWindow.value?.end_time ?? toRFC3339(endDate.value, true),
       user_id: filters.value.user_id ?? undefined,
       api_key_id: filters.value.api_key_id ?? undefined,
       account_id: filters.value.account_id ?? undefined,

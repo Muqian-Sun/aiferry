@@ -67,14 +67,15 @@ import UserBreakdownSubTable from '@/components/charts/UserBreakdownSubTable.vue
 import type { UserBreakdownLoader } from '@/components/charts/userBreakdown'
 import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 import type { ModelStat, UserBreakdownItem } from '@/types'
+import type { RangeParams } from '@/utils/dateRange'
 import { modelSwatchColor, modelsByTokens, type ModelSeries } from './modelSeries'
 
 const props = withDefaults(defineProps<{
   modelStats: ModelStat[]
   series: ModelSeries
   loadUserBreakdown: UserBreakdownLoader
-  startDate: string
-  endDate: string
+  /** 与概览图表同一个时间范围（近 24 小时是精确时刻） */
+  range: RangeParams
   loading?: boolean
   limit?: number
 }>(), {
@@ -102,7 +103,7 @@ async function toggle(model: string) {
   breakdownLoading.value = true
   breakdownItems.value = []
   try {
-    const res = await props.loadUserBreakdown({ start_date: props.startDate, end_date: props.endDate, model, model_source: 'requested' })
+    const res = await props.loadUserBreakdown({ ...props.range, model, model_source: 'requested' })
     if (expanded.value === model) breakdownItems.value = res.users || []
   } catch {
     if (expanded.value === model) breakdownItems.value = []

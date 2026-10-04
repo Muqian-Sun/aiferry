@@ -788,7 +788,8 @@ export default {
     startDate: '开始日期',
     endDate: '结束日期',
     apply: '应用',
-    selectDateRange: '选择日期范围'
+    selectDateRange: '选择日期范围',
+    rangeReversed: '开始日期不能晚于结束日期'
   },
 
   // Admin
