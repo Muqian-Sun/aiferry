@@ -205,13 +205,16 @@
                 <Icon name="refresh" size="xs" class="animate-spin" />
                 {{ t('admin.proxies.testing') }}
               </span>
-              <span
-                v-else-if="row.latency_status === 'failed'"
-                class="text-af-danger"
-                :title="row.latency_message || undefined"
-              >
-                {{ t('admin.proxies.latencyFailed') }}
-              </span>
+              <!-- 失败原因是后端原文（多为英文的网络报错），直接显示在「连接失败」下方，不藏在悬停提示里 -->
+              <template v-else-if="row.latency_status === 'failed'">
+                <span class="text-af-danger">{{ t('admin.proxies.latencyFailed') }}</span>
+                <span
+                  v-if="row.latency_message"
+                  class="line-clamp-2 max-w-[16rem] break-all text-xs text-af-ink-3"
+                  :title="row.latency_message"
+                  data-testid="proxy-latency-message"
+                >{{ row.latency_message }}</span>
+              </template>
               <span
                 v-else-if="typeof row.latency_ms === 'number'"
                 :class="['tabular-nums', row.latency_ms < 200 ? 'text-af-ink-2' : 'text-af-warning']"
@@ -507,6 +510,7 @@ import { useSwipeSelect } from '@/composables/useSwipeSelect'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatDateOnly, formatDateTime } from '@/utils/format'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { EXPIRY_DANGER_DAYS, EXPIRY_WARN_DAYS, daysUntil, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 
 const { t } = useI18n()
@@ -812,17 +816,15 @@ const stopQualityCheckingProxy = (proxyId: number) => {
   qualityCheckingProxyIds.value = next
 }
 
-const runProxyTest = async (proxyId: number, notify: boolean) => {
+const runProxyTest = async (proxyId: number) => {
   startTestingProxy(proxyId)
   try {
+    // 成功与失败（含原因）都写回这一行的延迟列，就地可见
     const result = await adminAPI.proxies.testProxy(proxyId)
     applyLatencyResult(proxyId, result)
-    if (notify && !result.success) {
-      console.error(result.message || t('admin.proxies.proxyTestFailed'))
-    }
     return result
-  } catch (error: any) {
-    const message = error.response?.data?.detail || t('admin.proxies.failedToTest')
+  } catch (error: unknown) {
+    const message = extractApiErrorMessage(error, t('admin.proxies.failedToTest'))
     applyLatencyResult(proxyId, { success: false, message })
     console.error('Error testing proxy:', error)
     return null
@@ -832,7 +834,7 @@ const runProxyTest = async (proxyId: number, notify: boolean) => {
 }
 
 const handleTestConnection = async (proxy: Proxy) => {
-  await runProxyTest(proxy.id, true)
+  await runProxyTest(proxy.id)
 }
 
 const handleQualityCheck = async (proxy: Proxy) => {
@@ -1010,7 +1012,7 @@ const runBatchProxyTests = async (ids: number[]) => {
     while (index < ids.length) {
       const current = ids[index]
       index++
-      await runProxyTest(current, false)
+      await runProxyTest(current)
     }
   }
 

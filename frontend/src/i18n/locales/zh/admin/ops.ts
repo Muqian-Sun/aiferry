@@ -648,6 +648,8 @@ export default {
           metricRequired: '指标不能为空',
           operatorRequired: '运算符不能为空',
           thresholdRequired: '阈值必须为数字',
+          thresholdPercentRange: '这个指标按百分比算，阈值要在 0 到 100 之间',
+          thresholdNonNegative: '阈值不能小于 0',
           windowRange: '统计窗口必须为 1 / 5 / 60 分钟之一',
           sustainedRange: '连续样本数必须在 1 到 1440 之间',
           cooldownRange: '冷却期必须在 0 到 1440 分钟之间'

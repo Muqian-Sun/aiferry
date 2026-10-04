@@ -133,7 +133,7 @@ export default {
       testAll: '全部测试连接',
       qualityCheckAll: '全部质量检测',
       testFailed: '失败',
-      latencyFailed: '链接失败',
+      latencyFailed: '连接失败',
       batchTestEmpty: '暂无可测试的代理',
       batchTestDone: '批量测试完成，共测试 {count} 个代理',
       batchTestFailed: '批量测试失败',
@@ -432,6 +432,12 @@ export default {
       failedToCreate: '创建公告失败',
       failedToUpdate: '更新公告失败',
       failedToDelete: '删除公告失败',
+      // 后端 reason → 文案（保存公告时）
+      errors: {
+        ANNOUNCEMENT_TIME_RANGE_INVALID: '开始时间必须早于结束时间',
+        ANNOUNCEMENT_TITLE_INVALID: '标题不能为空，也不能超过 200 个字符（一个汉字按 3 个算）',
+        ANNOUNCEMENT_CONTENT_REQUIRED: '内容不能为空'
+      },
       failedToLoadReadStatus: '加载已读情况失败',
       deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
     },

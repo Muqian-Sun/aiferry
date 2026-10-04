@@ -118,7 +118,9 @@ async function save() {
     emit('saved', updated)
     emit('close')
   } catch (error) {
-    submitError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.saveFailed'))
+    submitError.value = extractApiErrorMessage(error, t('admin.modelCatalog.dialog.saveFailed'), {
+      MODEL_CATALOG_ENTRY_EXISTS: t('admin.modelCatalog.dialog.idTaken')
+    })
   } finally {
     saving.value = false
   }

@@ -102,6 +102,7 @@
             {{ t('admin.accounts.listPendingSyncAction') }}
           </button>
         </p>
+        <FormError class="mt-2" :message="schedulableError" data-testid="accounts-schedulable-error" />
       </template>
 
       <template #table>
@@ -342,7 +343,9 @@
       @updated="handleBulkUpdated"
     />
     <TempUnschedStatusModal :show="showTempUnsched" :account="tempUnschedAcc" @close="showTempUnsched = false" @reset="handleTempUnschedReset" />
-    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+      <FormError :message="deleteError" />
+    </ConfirmDialog>
     <ConfirmDialog :show="showCreateShadowDialog" :title="t('admin.accounts.createSparkShadow')" :message="t('admin.accounts.createSparkShadowConfirm', { name: creatingShadowAcc?.name })" @confirm="confirmCreateSparkShadow" @cancel="showCreateShadowDialog = false" />
     <ConfirmDialog :show="showExportDataDialog" :title="t('admin.accounts.dataExport')" :message="t('admin.accounts.dataExportConfirmMessage')" :confirm-text="t('admin.accounts.dataExportConfirm')" :cancel-text="t('common.cancel')" @confirm="handleExportData" @cancel="showExportDataDialog = false">
       <label class="flex items-center gap-2 text-sm text-af-ink-2">
@@ -371,6 +374,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import { BulkEditAccountModal, CreateAccountModal, EditAccountModal, TempUnschedStatusModal } from '@/components/account'
 import AccountTableFilters from '@/components/admin/account/AccountTableFilters.vue'
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
@@ -499,6 +503,10 @@ const creatingShadowAcc = ref<Account | null>(null)
 const reAuthAcc = ref<Account | null>(null)
 const testingAcc = ref<Account | null>(null)
 const togglingSchedulable = ref<number | null>(null)
+// 行内调度开关切换失败的原因：成功时开关本身会翻过来，失败时开关不动，所以原因写在工具行下方
+const schedulableError = ref('')
+// 删除渠道失败的原因，显示在删除确认弹窗里（失败时弹窗不关）
+const deleteError = ref('')
 const menu = reactive<{show:boolean, acc:Account|null, anchorRect:DOMRect|null}>({ show: false, acc: null, anchorRect: null })
 const exportingData = ref(false)
 
@@ -1603,16 +1611,33 @@ const confirmCreateSparkShadow = async () => {
     console.error('Failed to create spark shadow:', error)
   }
 }
-const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
-const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
+const handleDelete = (a: Account) => { deletingAcc.value = a; deleteError.value = ''; showDeleteDialog.value = true }
+const confirmDelete = async () => {
+  if (!deletingAcc.value) return
+  deleteError.value = ''
+  try {
+    await adminAPI.accounts.delete(deletingAcc.value.id)
+    showDeleteDialog.value = false
+    deletingAcc.value = null
+    reload()
+  } catch (error) {
+    deleteError.value = t('admin.accounts.deleteFailedWithReason', { message: extractApiErrorMessage(error, t('common.error')) })
+    console.error('Failed to delete account:', error)
+  }
+}
 const handleToggleSchedulable = async (a: Account) => {
   const nextSchedulable = !a.schedulable
   togglingSchedulable.value = a.id
+  schedulableError.value = ''
   try {
     const updated = await adminAPI.accounts.setSchedulable(a.id, nextSchedulable)
     updateSchedulableInList([a.id], updated?.schedulable ?? nextSchedulable)
     enterAutoRefreshSilentWindow()
   } catch (error) {
+    schedulableError.value = t('admin.accounts.toggleSchedulableFailedFor', {
+      name: a.name,
+      message: extractApiErrorMessage(error, t('common.error'))
+    })
     console.error('Failed to toggle schedulable:', error)
   } finally {
     togglingSchedulable.value = null

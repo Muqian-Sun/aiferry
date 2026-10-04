@@ -74,6 +74,8 @@ export default {
       },
       createFailed: '模型创建失败',
       exists: '目录里已有这个模型：在列表里编辑或上架它。',
+      // 编辑时把标识改成了目录里另一条已有的标识（后端 409 MODEL_CATALOG_ENTRY_EXISTS）
+      idTaken: '目录里已有这个模型标识，换一个标识，或去列表里编辑已有的那条。',
       saveFailed: '模型保存失败',
       pricingHint: '这就是价格页里这个模型的那一块：可以改官方价；加一个渠道就是让它承接这个模型。改完点这一块的「保存」。',
       pricingLoading: '正在加载价格…',

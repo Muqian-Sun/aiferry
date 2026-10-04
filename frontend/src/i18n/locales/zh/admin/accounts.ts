@@ -210,6 +210,7 @@ export default {
       schedulableEnabled: '调度已开启',
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
+      toggleSchedulableFailedFor: '「{name}」切换调度状态失败：{message}',
       // 第三方 key 列表里协议地址的短标签，悬停显示主机。
       protocolShort: {
         anthropic: 'Messages',
@@ -642,6 +643,7 @@ export default {
       testFailed: '渠道测试失败',
       failedToLoad: '加载渠道列表失败',
       failedToDelete: '删除渠道失败',
+      deleteFailedWithReason: '删除渠道失败：{message}',
       failedToRefresh: '刷新 Cookie 失败',
       // Create/Edit Account Modal
       platform: '平台',
