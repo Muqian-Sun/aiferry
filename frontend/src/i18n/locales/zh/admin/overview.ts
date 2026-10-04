@@ -171,7 +171,7 @@ export default {
       },
       editUser: '编辑用户',
       deleteUser: '删除用户',
-      deleteConfirmMessage: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
+      deleteConfirmMessage: '确定要删除用户「{email}」吗？此操作无法撤销。',
       searchPlaceholder: '邮箱/用户名/备注/API Key 模糊搜索…',
       searchUsers: '邮箱/用户名/备注/API Key 模糊搜索',
       roleFilter: '角色筛选',
@@ -246,7 +246,7 @@ export default {
       failedToDelete: '删除用户失败',
       failedToToggle: '更新用户状态失败',
       failedToLoadApiKeys: '加载用户 API 密钥失败',
-      deleteConfirm: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
+      deleteConfirm: '确定要删除用户「{email}」吗？此操作无法撤销。',
       roles: {
         admin: '管理员',
         user: '用户'
@@ -354,7 +354,7 @@ export default {
         addAttribute: '添加属性',
         editAttribute: '编辑属性',
         deleteAttribute: '删除属性',
-        deleteConfirm: "确定要删除属性 '{name}' 吗？所有用户的该属性值将被删除。",
+        deleteConfirm: '确定要删除属性「{name}」吗？所有用户的该属性值将被删除。',
         noAttributes: '暂无自定义属性',
         noAttributesHint: '点击上方按钮添加自定义属性',
         key: '属性键',

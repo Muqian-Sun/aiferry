@@ -149,7 +149,7 @@ export default {
       db: '数据库',
       goroutines: '协程',
       jobs: '后台任务',
-      jobsHelp: '点击“明细”查看任务心跳与报错信息',
+      jobsHelp: '点击「明细」查看任务心跳与报错信息',
       active: '活跃',
       idle: '空闲',
       waiting: '等待',

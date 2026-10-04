@@ -48,7 +48,7 @@ export default {
       },
       purchase: {
         title: '充值/订阅页面',
-        description: '在侧边栏展示“充值/订阅”入口，并在页面内通过 iframe 打开指定链接',
+        description: '在侧边栏展示「充值/订阅」入口，并在页面内通过 iframe 打开指定链接',
         enabled: '显示充值/订阅入口',
         enabledHint: '仅在标准模式（非简单模式）下展示',
         url: '充值/订阅页面 URL',
@@ -298,7 +298,7 @@ export default {
       ruleCreated: '规则创建成功',
       ruleUpdated: '规则更新成功',
       ruleDeleted: '规则删除成功',
-      deleteConfirm: '确定要删除规则 "{name}" 吗？',
+      deleteConfirm: '确定要删除规则「{name}」吗？',
       failedToLoad: '加载规则失败',
       failedToSave: '保存规则失败',
       failedToDelete: '删除规则失败',
@@ -351,7 +351,7 @@ export default {
       },
 
       deleteConfirm: '删除模板',
-      deleteConfirmMessage: '确定要删除模板 "{name}" 吗？使用此模板的渠道将回退到内置默认值。',
+      deleteConfirmMessage: '确定要删除模板「{name}」吗？使用此模板的渠道将回退到内置默认值。',
       createSuccess: '模板创建成功',
       updateSuccess: '模板更新成功',
       deleteSuccess: '模板删除成功',

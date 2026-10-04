@@ -351,7 +351,7 @@ export default {
       accountDeleted: '渠道删除成功',
       rateLimitCleared: '速率限制已清除',
       apiKey: 'API Key',
-      deleteConfirm: "确定要删除渠道 '{name}' 吗？此操作无法撤销。",
+      deleteConfirm: '确定要删除渠道「{name}」吗？此操作无法撤销。',
       failedToClearRateLimit: '清除速率限制失败',
       platforms: {
         claude: 'Claude',
@@ -562,7 +562,7 @@ export default {
           failed: '自动重置失败'
         },
         confirmTitle: '确认重置周限',
-        confirmMessage: '将消耗 1 次重置次数立即恢复当前窗口，剩余 {count} 次。此操作不可撤销，确定继续吗？'
+        confirmMessage: '将消耗 1 次重置次数立即恢复当前窗口，剩余 {count} 次。此操作无法撤销，确定继续吗？'
       },
       tier: {
         free: 'Free',
@@ -915,7 +915,7 @@ export default {
       failedToUpdate: '更新渠道失败',
       pleaseSelectStatus: '请选择有效的渠道状态',
       mixedChannelWarningTitle: '混合渠道警告',
-      mixedChannelWarning: '警告：分组 "{groupName}" 中同时包含 {currentPlatform} 和 {otherPlatform} 渠道。混合使用不同渠道可能导致 thinking block 签名验证问题，会自动回退到非 thinking 模式。确定要继续吗？',
+      mixedChannelWarning: '警告：分组「{groupName}」中同时包含 {currentPlatform} 和 {otherPlatform} 渠道。混合使用不同渠道可能导致 thinking block 签名验证问题，会自动回退到非 thinking 模式。确定要继续吗？',
       pleaseEnterAccountName: '请输入渠道名称',
       pleaseEnterApiKey: '请输入 API Key',
       bedrockAccessKeyId: 'AWS Access Key ID',
@@ -1236,7 +1236,7 @@ export default {
         },
         quotaPolicy: {
           title: 'Gemini 配额与限流政策（参考）',
-          note: '注意：Gemini 官方未提供用量查询接口。此处显示的“每日配额”是由系统根据账号等级模拟计算的估算值，仅供调度参考，请以 Google 官方实际报错为准。',
+          note: '注意：Gemini 官方未提供用量查询接口。此处显示的「每日配额」是由系统根据账号等级模拟计算的估算值，仅供调度参考，请以 Google 官方实际报错为准。',
           columns: {
             channel: '授权通道',
             account: '账号状态',

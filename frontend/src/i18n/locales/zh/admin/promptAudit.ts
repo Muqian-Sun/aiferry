@@ -71,7 +71,7 @@ export default {
       filterDeletePreviewAction: '获取删除预览', filterDeletePreviewing: '正在生成预览…', filterDeleteNeedPreview: '可直接确认删除；如需提前查看匹配数量，可先获取删除预览。',
       filterDeleteConfirmInvalidRange: '请先选择有效的删除时间范围（自定义范围需开始早于结束）。', filterDeleteConfirmNoMatches: '当前筛选匹配 0 条事件，没有可删除的内容。',
       selectAll: '选择当前页全部事件', selectEvent: '选择 {time} 的事件', time: '时间', identity: '用户 / 邮箱 / API 密钥', user: '用户名', email: '用户邮箱', apiKey: 'API 密钥名称', route: '入口 / 模型', result: '判定 / 风险', preview: '脱敏预览', empty: '没有符合条件的事件。',
-      passEventsDisabled: '当前未开启“保存安全事件”：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
+      passEventsDisabled: '当前未开启「保存安全事件」：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
       detailTitle: '提示词审计事件详情', tabs: { summary: '审计摘要', risks: '具体风险', technical: '技术信息' },
       promptFull: '完整提示词（未脱敏）',
       promptFullHint: '完整提示词已随事件入库，仅供管理员复核触发内容；请按敏感数据妥善处理，切勿外泄。',
