@@ -539,7 +539,7 @@
               submitting
                 ? t('keys.saving')
                 : showEditModal
-                  ? t('common.update')
+                  ? t('common.save')
                   : t('common.create')
             }}
           </button>

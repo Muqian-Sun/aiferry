@@ -21,6 +21,8 @@
           {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
         </button>
       </form>
+      <FormError class="mt-2" :message="errorMessage" />
+      <FormSuccess class="mt-2" :message="saved.message.value" />
     </div>
   </div>
 </template>
@@ -31,6 +33,9 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import FormError from '@/components/common/FormError.vue'
+import FormSuccess from '@/components/common/FormSuccess.vue'
+import { useTransientMessage } from '@/composables/useTransientMessage'
 
 const props = defineProps<{
   initialUsername: string
@@ -41,14 +46,18 @@ const authStore = useAuthStore()
 
 const username = ref(props.initialUsername)
 const loading = ref(false)
+const errorMessage = ref('')
+const saved = useTransientMessage()
 
 watch(() => props.initialUsername, (val) => {
   username.value = val
 })
 
 const handleUpdateProfile = async () => {
+  errorMessage.value = ''
+  saved.clear()
   if (!username.value.trim()) {
-    console.error(t('profile.usernameRequired'))
+    errorMessage.value = t('profile.usernameRequired')
     return
   }
 
@@ -58,8 +67,9 @@ const handleUpdateProfile = async () => {
       username: username.value
     })
     authStore.user = updatedUser
+    saved.show(t('common.saved'))
   } catch (error: unknown) {
-    console.error(extractApiErrorMessage(error, t('profile.updateFailed')), error)
+    errorMessage.value = extractApiErrorMessage(error, t('profile.updateFailed'))
   } finally {
     loading.value = false
   }

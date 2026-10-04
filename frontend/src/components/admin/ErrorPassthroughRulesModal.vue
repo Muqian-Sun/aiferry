@@ -409,7 +409,7 @@
           </button>
           <button @click="handleSubmit" :disabled="submitting" class="btn btn-primary">
             <Icon v-if="submitting" name="refresh" size="sm" class="mr-1 animate-spin" />
-            {{ showEditModal ? t('common.update') : t('common.create') }}
+            {{ showEditModal ? t('common.save') : t('common.create') }}
           </button>
         </div>
       </template>

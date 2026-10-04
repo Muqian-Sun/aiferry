@@ -16,7 +16,7 @@
         <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
         <button type="button" class="btn btn-secondary" @click="$emit('close')">{{ t('common.cancel') }}</button>
         <button type="submit" form="edit-user-form" :disabled="submitting" class="btn btn-primary" data-testid="user-edit-submit">
-          {{ submitting ? t('admin.users.updating') : t('common.update') }}
+          {{ submitting ? t('common.saving') : t('common.save') }}
         </button>
       </div>
     </template>

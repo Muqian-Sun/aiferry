@@ -631,7 +631,7 @@
                     <button
                       type="button"
                       class="btn btn-secondary p-2"
-                      title="Copy URL"
+                      :title="copied ? t('common.copied') : t('common.copy')"
                       @click="handleCopyUrl"
                     >
                       <svg

@@ -117,7 +117,7 @@ export default {
         keyQuotaOne: '密钥「{name}」额度已用尽',
         keyQuota: '{count} 把密钥额度已用尽',
         keyQuotaNearOne: '密钥「{name}」额度已用 {percent}%',
-        keyNearLimitOne: '密钥「{name}」{limit}限额已用 {percent}%',
+        keyNearLimitOne: '密钥「{name}」{limit} 限额已用 {percent}%',
         keyNearLimit: '{count} 把密钥限额将满',
         keyExpiringOne: '密钥「{name}」{days} 天后到期',
         keyExpiring: '{count} 把密钥 7 天内到期',
@@ -127,7 +127,7 @@ export default {
         contactAdminWith: '本站没开在线充值，请联系管理员充值：{contact}',
         balanceRunway: '余额 {balance}，按近 7 天的用量约够 {days} 天',
         balanceBelowThreshold: '余额 {balance}，低于你设的提醒线 {threshold}',
-        subscriptionQuota: '订阅「{name}」{window}额度已用 {percent}%',
+        subscriptionQuota: '订阅「{name}」{window} 额度已用 {percent}%',
         subscriptionExpiring: '订阅「{name}」{days} 天后到期',
         failuresToday: '今天有 {count} 次失败请求'
       },
@@ -300,7 +300,7 @@ export default {
       segmentNote: '分段计价的模型按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求都按那一段的价格计费。',
       copyId: '复制模型 ID',
       copied: '已复制',
-      empty: '暂无可用模型',
+      empty: '没有可用模型',
       noSearchResult: '没有匹配的模型',
       loadFailed: '模型目录没有加载出来'
     },

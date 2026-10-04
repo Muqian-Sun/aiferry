@@ -140,6 +140,7 @@ async function reset() {
       :show="confirmReset"
       :title="t('admin.ops.systemLogs.resetDefaults')"
       :message="t('admin.ops.systemLogs.resetRuntimeConfigConfirm')"
+      :confirm-text="t('common.reset')"
       @confirm="reset"
       @cancel="confirmReset = false"
     />

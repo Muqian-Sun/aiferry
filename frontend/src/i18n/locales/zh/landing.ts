@@ -120,10 +120,10 @@ export default {
     subtitle: '输入你的 API 密钥，查看实时消费金额与使用状态',
     placeholder: 'sk-xxxxxxxxxxxx',
     query: '查询',
-    querying: '查询中...',
+    querying: '查询中…',
     // 查询要把密钥发到本站服务器（GET /v1/usage 带 Authorization），只是页面不保存它
     privacyNote: '密钥只用来向本站服务器查询用量，页面不会保存它',
-    dateRange: '统计范围:',
+    dateRange: '统计范围：',
     dateRangeToday: '今日',
     dateRange7d: '7 天',
     dateRange30d: '30 天',
@@ -168,6 +168,14 @@ export default {
     todayExpires: '(今日到期)',
     daysLeft: '({days} 天)',
     usedQuota: '已用额度',
+    usedQuotaIn: '已用额度（{window}）',
+    windows: {
+      fiveHours: '5 小时',
+      day: '每日',
+      sevenDays: '7 天',
+      week: '每周',
+      month: '每月'
+    },
     resetNow: '即将重置',
     subscriptionType: '订阅类型',
     billingType: '计费方式',
@@ -203,16 +211,16 @@ export default {
       ACCESS_DENIED: '当前 IP 不在这把密钥允许的范围内',
       INVALID_AUTH_RATE_LIMITED: '无效查询太多，请稍后再试'
     },
-    noDailyUsage: '暂无按日用量数据',
+    noDailyUsage: '这段时间没有用量',
   },
 
   // Setup Wizard
   setup: {
     title: 'AiFerry 安装向导',
-    description: '配置您的 AiFerry 实例',
+    description: '配置 AiFerry 实例',
     database: {
       title: '数据库配置',
-      description: '连接到您的 PostgreSQL 数据库',
+      description: '连接 PostgreSQL 数据库',
       host: '主机',
       port: '端口',
       username: '用户名',
@@ -229,7 +237,7 @@ export default {
     },
     redis: {
       title: 'Redis 配置',
-      description: '连接到您的 Redis 服务器',
+      description: '连接 Redis 服务器',
       host: '主机',
       port: '端口',
       username: '用户名（可选）',
@@ -242,7 +250,7 @@ export default {
     },
     admin: {
       title: '管理员账户',
-      description: '创建您的管理员账户',
+      description: '创建管理员账户',
       email: '邮箱',
       password: '密码',
       confirmPassword: '确认密码',
@@ -256,20 +264,20 @@ export default {
     ready: {
       adminConsole: '管理后台地址',
       title: '准备安装',
-      description: '检查您的配置并完成安装',
+      description: '检查配置并完成安装',
       database: '数据库',
       redis: 'Redis',
       adminEmail: '管理员邮箱'
     },
     status: {
-      testing: '测试中...',
+      testing: '测试中…',
       success: '连接成功',
       testConnection: '测试连接',
-      installing: '安装中...',
+      installing: '安装中…',
       completeInstallation: '完成安装',
-      completed: '安装完成！',
-      redirecting: '正在跳转到登录页面...',
-      restarting: '服务正在重启，请稍候...',
+      completed: '安装完成',
+      redirecting: '正在跳转到登录页面…',
+      restarting: '服务正在重启，请稍候…',
       timeout: '服务重启时间超出预期，请手动刷新页面。'
     }
   },

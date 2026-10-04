@@ -6,7 +6,7 @@ import zh from '../locales/zh'
 describe('usage ipGeo locale keys', () => {
   it('contains zh labels for IP geolocation UI', () => {
     expect(zh.usage.ipGeo.fetch).toBe('获取地区')
-    expect(zh.usage.ipGeo.fetching).toBe('获取中...')
+    expect(zh.usage.ipGeo.fetching).toBe('获取中…')
     expect(zh.usage.ipGeo.failed).toBe('获取失败')
     expect(zh.usage.ipGeo.private).toBe('内网地址')
     expect(zh.usage.ipGeo.batchFetch).toBe('批量获取地区')

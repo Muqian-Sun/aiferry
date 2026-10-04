@@ -103,6 +103,7 @@
                   :placeholder="emailPasswordPlaceholder"
                   :disabled="isBindingEmail"
                 />
+                <FormError class="sm:col-span-2" :message="emailFormError" />
                 <button
                   data-testid="profile-binding-email-submit"
                   type="button"
@@ -117,6 +118,7 @@
                   }}
                 </button>
               </div>
+              <FormError v-if="unbindError?.provider === item.provider" :message="unbindError.message" />
             </div>
           </div>
 
@@ -181,6 +183,8 @@ import {
   unbindAuthIdentity,
 } from '@/api/user'
 import Icon from '@/components/icons/Icon.vue'
+import FormError from '@/components/common/FormError.vue'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import ProviderMark from './ProviderMark.vue'
 import { useAppStore, useAuthStore } from '@/stores'
 import type { User, UserAuthBindingStatus, UserAuthProvider } from '@/types'
@@ -212,6 +216,8 @@ const localUser = ref<User | null>(null)
 const isSendingEmailCode = ref(false)
 const isBindingEmail = ref(false)
 const isEmailFormExpanded = ref(!props.compact)
+const emailFormError = ref('')
+const unbindError = ref<{ provider: BindableProvider; message: string } | null>(null)
 const unbindingProvider = ref<BindableProvider | null>(null)
 const emailBindingForm = reactive({
   email: '',
@@ -466,11 +472,12 @@ function applyUpdatedUser(user: User): void {
 
 async function handleUnbind(provider: BindableProvider): Promise<void> {
   unbindingProvider.value = provider
+  unbindError.value = null
   try {
     const user = await unbindAuthIdentity(provider)
     applyUpdatedUser(user)
   } catch (error) {
-    console.error((error as { message?: string }).message || t('common.tryAgain'), error)
+    unbindError.value = { provider, message: extractI18nErrorMessage(error, t, 'auth.errors', t('common.tryAgain')) }
   } finally {
     unbindingProvider.value = null
   }
@@ -484,27 +491,19 @@ function handleUnbindForItem(provider: UserAuthProvider): void {
 }
 
 function validateEmailBindingForm(requireCode: boolean): boolean {
+  emailFormError.value = ''
   if (!emailBindingForm.email) {
-    console.error(t('auth.emailRequired'))
-    return false
+    emailFormError.value = t('auth.emailRequired')
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailBindingForm.email)) {
+    emailFormError.value = t('auth.invalidEmail')
+  } else if (requireCode && !emailBindingForm.verifyCode) {
+    emailFormError.value = t('auth.codeRequired')
+  } else if (requireCode && !emailBindingForm.password) {
+    emailFormError.value = t('auth.passwordRequired')
+  } else if (requireCode && !emailBound.value && emailBindingForm.password.length < 6) {
+    emailFormError.value = t('auth.passwordMinLength')
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailBindingForm.email)) {
-    console.error(t('auth.invalidEmail'))
-    return false
-  }
-  if (requireCode && !emailBindingForm.verifyCode) {
-    console.error(t('auth.codeRequired'))
-    return false
-  }
-  if (requireCode && !emailBindingForm.password) {
-    console.error(t('auth.passwordRequired'))
-    return false
-  }
-  if (requireCode && !emailBound.value && emailBindingForm.password.length < 6) {
-    console.error(t('auth.passwordMinLength'))
-    return false
-  }
-  return true
+  return emailFormError.value === ''
 }
 
 async function sendEmailCode(): Promise<void> {
@@ -516,7 +515,7 @@ async function sendEmailCode(): Promise<void> {
   try {
     await sendEmailBindingCode(emailBindingForm.email)
   } catch (error) {
-    console.error((error as { message?: string }).message || t('auth.sendCodeFailed'), error)
+    emailFormError.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.sendCodeFailed'))
   } finally {
     isSendingEmailCode.value = false
   }
@@ -541,7 +540,7 @@ async function bindEmail(): Promise<void> {
       isEmailFormExpanded.value = false
     }
   } catch (error) {
-    console.error((error as { message?: string }).message || t('common.tryAgain'), error)
+    emailFormError.value = extractI18nErrorMessage(error, t, 'auth.errors', t('common.tryAgain'))
   } finally {
     isBindingEmail.value = false
   }

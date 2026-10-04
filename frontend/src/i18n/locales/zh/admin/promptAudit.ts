@@ -43,7 +43,7 @@ export default {
     metrics: { total: '总计', allowed: '放行', flagged: '标记', blocked: '阻止', unavailable: '不可用', timeouts: '超时', failovers: '故障切换' },
     pool: {
       title: '审计池', description: '按顺序使用启用的 OpenAI 兼容节点；探测由服务端真实网络环境发起。',
-      add: '新增节点', edit: '编辑节点', empty: '尚未配置审计节点。', node: '节点', model: '模型', limits: '超时 / 单片上限', credential: '凭据与探测',
+      add: '新增节点', edit: '编辑节点', empty: '还没有配置审计节点', node: '节点', model: '模型', limits: '超时 / 单片上限', credential: '凭据与探测',
       configured: 'API 密钥已配置', missing: '未配置 API 密钥', invalid: 'API 密钥无法解密，请重新输入', probe: '连接测试', probing: '探测中…',
       probeProgress: '配置校验 ✓ · 请求已发送 · 等待服务响应…', probeResult: '配置校验 ✓ · 请求 ✓ · HTTP {http} · {status} · {latency} ms',
       name: '节点名称', baseUrl: 'Base URL', apiKey: 'API 密钥', keepSecret: '留空以保留已保存的 API 密钥', reenterSecret: '已保存的 API 密钥无法解密（加密密钥已变更），请重新输入',
@@ -71,7 +71,7 @@ export default {
       filterDeletePreviewAction: '获取删除预览', filterDeletePreviewing: '正在生成预览…', filterDeleteNeedPreview: '可直接确认删除；如需提前查看匹配数量，可先获取删除预览。',
       filterDeleteConfirmInvalidRange: '请先选择有效的删除时间范围（自定义范围需开始早于结束）。', filterDeleteConfirmNoMatches: '当前筛选匹配 0 条事件，没有可删除的内容。',
       selectAll: '选择当前页全部事件', selectEvent: '选择 {time} 的事件', time: '时间', identity: '用户 / 邮箱 / API 密钥', user: '用户名', email: '用户邮箱', apiKey: 'API 密钥名称', route: '入口 / 模型', result: '判定 / 风险', preview: '脱敏预览', empty: '没有符合条件的事件。',
-      passEventsDisabled: '当前未开启“保存安全事件”：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
+      passEventsDisabled: '当前未开启「保存安全事件」：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
       detailTitle: '提示词审计事件详情', tabs: { summary: '审计摘要', risks: '具体风险', technical: '技术信息' },
       promptFull: '完整提示词（未脱敏）',
       promptFullHint: '完整提示词已随事件入库，仅供管理员复核触发内容；请按敏感数据妥善处理，切勿外泄。',

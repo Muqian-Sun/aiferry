@@ -338,7 +338,7 @@
     <!-- Batch Delete Confirmation Dialog -->
     <ConfirmDialog
       :show="showBatchDeleteDialog"
-      :title="t('admin.proxies.batchDelete')"
+      :title="t('admin.proxies.batchDelete', { count: selectedCount })"
       :message="t('admin.proxies.batchDeleteConfirm', { count: selectedCount })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"

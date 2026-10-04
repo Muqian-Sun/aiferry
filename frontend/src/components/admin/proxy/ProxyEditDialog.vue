@@ -110,7 +110,7 @@
           class="btn btn-primary"
         >
           <Icon v-if="submitting" name="refresh" size="sm" class="animate-spin" />
-          {{ submitting ? t('admin.proxies.updating') : t('common.update') }}
+          {{ submitting ? t('common.saving') : t('common.save') }}
         </button>
       </div>
     </template>

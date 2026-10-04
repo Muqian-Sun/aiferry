@@ -5,6 +5,7 @@ import type { AxiosInstance } from 'axios'
 // 需要在导入 client 之前设置 mock
 vi.mock('@/i18n', () => ({
   getLocale: () => 'zh-CN',
+  i18n: { global: { t: (key: string) => key } },
 }))
 
 // 管理 UI 标记按站点决定（管理后台是独立站点），按用例切换
@@ -467,7 +468,7 @@ describe('API Client', () => {
       await expect(apiClient.get('/test')).rejects.toEqual(
         expect.objectContaining({
           status: 0,
-          message: 'Network error. Please check your connection.',
+          message: 'common.networkError',
         })
       )
     })

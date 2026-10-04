@@ -533,10 +533,11 @@ function cancelDelete() {
 
     <ConfirmDialog
       :show="showDeleteConfirm"
-      :title="t('admin.ops.alertRules.deleteConfirmTitle')"
+      :title="t('admin.ops.alertRules.deleteConfirmTitle', { name: pendingDelete?.name ?? '' })"
       :message="t('admin.ops.alertRules.deleteConfirmMessage')"
       :confirmText="t('common.delete')"
       :cancelText="t('common.cancel')"
+      danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
     >

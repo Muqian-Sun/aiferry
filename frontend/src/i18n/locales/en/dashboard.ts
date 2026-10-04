@@ -83,7 +83,7 @@ export default {
       failureHint: 'These keys could not be updated. Adjust the settings and retry. Only failed keys will be retried.'
     },
     deleteKey: 'Delete API Key',
-    deleteConfirmMessage: "Are you sure you want to delete '{name}'? This action cannot be undone.",
+    deleteConfirmMessage: 'Requests using key "{name}" will fail immediately. This cannot be undone.',
     apiKey: 'API Key',
     currentConcurrency: 'Current Concurrency',
     created: 'Created',
@@ -115,10 +115,10 @@ export default {
     errors: {
       INVALID_IP_PATTERN: 'The IP whitelist or blacklist has an invalid entry: put one IP or CIDR range per line, e.g. 192.168.1.100 or 10.0.0.0/8',
       API_KEY_EXISTS: 'This custom key is already taken, please choose another',
-      SUBSCRIPTION_KEY_PROTECTED: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group'
+      SUBSCRIPTION_KEY_PROTECTED: 'Subscription keys are generated with the subscription and cannot be deleted'
     },
     subscriptionKey: 'Subscription · {plan}',
-    subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group',
+    subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted',
     usage: 'Usage',
     today: 'Today',
     total: 'Last 30d',
@@ -127,6 +127,8 @@ export default {
     lastUsedIP: 'Last Used IP',
     useKey: 'Use Key',
     useKeyModal: {
+      clientTabsLabel: 'Client',
+      shellTabsLabel: 'OS and shell',
       // Config templates use the listed catalog (D4)
       catalog: {
         loadFailed: 'The model catalog did not load, so config templates cannot be generated right now.',
@@ -581,8 +583,8 @@ export default {
     role: 'Role',
     enterUsername: 'Enter username',
     editProfile: 'Edit Profile',
-    updateProfile: 'Update Profile',
-    updating: 'Updating...',
+    updateProfile: 'Save',
+    updating: 'Saving...',
     updateSuccess: 'Profile updated successfully',
     updateFailed: 'Failed to update profile',
     usernameRequired: 'Username is required',
@@ -689,6 +691,10 @@ export default {
       removeEmail: 'Remove',
       removeSuccess: 'Email removed',
       emailDuplicate: 'This email already exists',
+      saveFailed: 'Failed to save. Please try again later.',
+      sendCodeFailed: 'Failed to send the code. Please try again later.',
+      verifyFailed: 'Verification failed. Check the code.',
+      removeFailed: 'Failed to remove. Please try again later.',
       maxEmailsReached: 'Maximum number of notification emails reached',
       unverified: 'Unverified',
       verified: 'Verified',
@@ -707,6 +713,8 @@ export default {
       compressFailed: 'Failed to compress the selected image.',
       readFailed: 'Failed to read the selected image.',
       emptyDeleteHint: 'Avatar is already empty',
+      saveFailed: 'Failed to save avatar',
+      deleteFailed: 'Failed to delete avatar',
     },
     authBindings: {
       title: 'Connected Sign-In Methods',

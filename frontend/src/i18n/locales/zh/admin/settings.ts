@@ -48,14 +48,14 @@ export default {
       },
       purchase: {
         title: '充值/订阅页面',
-        description: '在侧边栏展示“充值/订阅”入口，并在页面内通过 iframe 打开指定链接',
+        description: '在侧边栏展示「充值/订阅」入口，并在页面内通过 iframe 打开指定链接',
         enabled: '显示充值/订阅入口',
         enabledHint: '仅在标准模式（非简单模式）下展示',
         url: '充值/订阅页面 URL',
         urlPlaceholder: 'https://example.com/purchase',
         urlHint: '必须是完整的 http(s) 链接',
         iframeWarning:
-          '⚠️ iframe 提示：部分网站会通过 X-Frame-Options 或 CSP（frame-ancestors）禁止被 iframe 嵌入，出现空白时可引导用户使用”新窗口打开”。',
+          'iframe 提示：部分网站会通过 X-Frame-Options 或 CSP（frame-ancestors）禁止被 iframe 嵌入，出现空白时可引导用户使用”新窗口打开”。',
         integrationDoc: '支付集成文档',
         integrationDocHint: '包含接口说明、幂等语义及示例代码'
       },
@@ -179,7 +179,7 @@ export default {
         wxpayGuideH5Open: '需开通 H5 支付。',
         wxpayGuideH5Call: '移动端非微信浏览器且有客户端 IP 时调用 H5 支付，跳转微信收银台。',
         wxpayGuideH5Fallback: '未开通 H5 或下单失败时，自动改走扫码支付。',
-        noProviders: '暂无服务商实例',
+        noProviders: '还没有服务商实例',
         supportedTypes: '支持的支付方式',
         supportedTypesHint: '逗号分隔，如 alipay,wxpay',
         refundEnabled: '允许退款',
@@ -203,7 +203,7 @@ export default {
       },
       adminApiKey: {
         configured: '管理员 API Key 已启用',
-        deleting: '删除中...',
+        deleting: '删除中…',
       },
       paymentVisibleMethods: {
         methodLabel: '{title} 可见方式',
@@ -212,7 +212,7 @@ export default {
         sourceHint: '启用后必须明确选择一个来源；未配置状态不会对外展示该支付方式。',
         sourceRequiredError: '{title} 已启用，请先选择支付来源。'
       },
-      saving: '保存中...',
+      saving: '保存中…',
       saveSection: '保存本节',
       discard: '放弃修改',
       unsavedHint: '有未保存的修改',
@@ -235,7 +235,7 @@ export default {
       createRule: '创建规则',
       editRule: '编辑规则',
       deleteRule: '删除规则',
-      noRules: '暂无规则',
+      noRules: '还没有规则',
       createFirstRule: '创建第一条错误透传规则',
       allPlatforms: '所有平台',
       passthrough: '透传',
@@ -270,7 +270,7 @@ export default {
         priority: '优先级',
         priorityHint: '数值越小优先级越高，优先匹配',
         description: '规则描述',
-        descriptionPlaceholder: '描述此规则的用途...',
+        descriptionPlaceholder: '描述此规则的用途…',
         matchConditions: '匹配条件',
         errorCodes: '错误码',
         errorCodesPlaceholder: '422, 400, 429',
@@ -286,7 +286,7 @@ export default {
         responseCode: '自定义状态码',
         passthroughBody: '透传上游错误信息',
         customMessage: '自定义错误信息',
-        customMessagePlaceholder: '返回给客户端的错误信息...',
+        customMessagePlaceholder: '返回给客户端的错误信息…',
         skipMonitoring: '跳过运维监控记录',
         skipMonitoringHint: '开启后，匹配此规则的错误不会被记录到运维监控中',
         enabled: '启用此规则'
@@ -298,7 +298,7 @@ export default {
       ruleCreated: '规则创建成功',
       ruleUpdated: '规则更新成功',
       ruleDeleted: '规则删除成功',
-      deleteConfirm: '确定要删除规则 "{name}" 吗？',
+      deleteConfirm: '确定要删除规则「{name}」吗？',
       failedToLoad: '加载规则失败',
       failedToSave: '保存规则失败',
       failedToDelete: '删除规则失败',
@@ -312,7 +312,7 @@ export default {
       createProfile: '创建模板',
       editProfile: '编辑模板',
       deleteProfile: '删除模板',
-      noProfiles: '暂无模板',
+      noProfiles: '还没有模板',
       createFirstProfile: '创建你的第一个 TLS 指纹模板',
 
       columns: {
@@ -325,7 +325,7 @@ export default {
 
       form: {
         pasteYaml: '粘贴 YAML 配置',
-        pasteYamlPlaceholder: '将 TLS 指纹采集器复制的 YAML 粘贴到这里...',
+        pasteYamlPlaceholder: '将 TLS 指纹采集器复制的 YAML 粘贴到这里…',
         pasteYamlHint: '粘贴从 TLS 指纹采集器复制的 YAML 配置，自动填充所有字段。',
         parseYaml: '解析 YAML',
         yamlParsed: 'YAML 解析成功，字段已自动填充',
@@ -351,7 +351,7 @@ export default {
       },
 
       deleteConfirm: '删除模板',
-      deleteConfirmMessage: '确定要删除模板 "{name}" 吗？使用此模板的渠道将回退到内置默认值。',
+      deleteConfirmMessage: '确定要删除模板「{name}」吗？使用此模板的渠道将回退到内置默认值。',
       createSuccess: '模板创建成功',
       updateSuccess: '模板更新成功',
       deleteSuccess: '模板删除成功',
