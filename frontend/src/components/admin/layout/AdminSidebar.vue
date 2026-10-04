@@ -54,18 +54,24 @@ function visibleItems(items: NavItem[]): NavItem[] {
   return authStore.isSimpleMode ? visible.filter((item) => !item.hideInSimpleMode) : visible
 }
 
-// A3 导航（管理站改造方案，muqian 2026-09-24「渠道在前」）：概览 / 供给 / 用户 / 运营 / 安全 / 设置。
-// 订阅、订单、审查各是一个入口，同组的页面在页头页签里切（activePaths 让同组页面都点亮这一项）；
+// A3 导航（管理站改造方案，muqian 2026-09-24「渠道在前」）；2026-10-04 改成方案 A（方案页 8ARyR9…）：
+// 概览 / 监控 / 供给 / 用户 / 安全 / 设置。监控三页按排查去处排：运维看全站 → 渠道状态看哪个渠道 → 用量查到那一条；
+// 公告是发给用户的，归「用户」。订阅、订单、审查各是一个入口，同组的页面在页头页签里切（activePaths 让同组页面都点亮这一项）；
 // 账号安全只在右上角头像菜单里。后台有开关的功能没开时入口显示为灰色，点进去是「未开启 · 去设置打开」；
 // 代码或部署配置关掉的功能入口直接不出现。
 const sections = computed((): NavSection[] => {
   const groups: NavSection[] = [
     {
       key: 'overview',
-      title: t('nav.sections.overview'),
+      items: [{ path: '/dashboard', label: t('nav.overview'), icon: DashboardIcon }],
+    },
+    {
+      key: 'monitor',
+      title: t('nav.sections.monitor'),
       items: [
-        { path: '/dashboard', label: t('nav.overview'), icon: DashboardIcon },
         { path: '/ops', label: t('nav.ops'), icon: ChartIcon, presentWhen: flagOpsMonitoring },
+        { path: '/channels/status', label: t('nav.channelStatus'), icon: SignalIcon },
+        { path: '/usage', label: t('nav.usage'), icon: ChartIcon },
       ],
     },
     {
@@ -74,7 +80,6 @@ const sections = computed((): NavSection[] => {
       items: [
         // 渠道 = 资源（成品号 / 第三方 key）；模型决定上架与标价
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
-        { path: '/channels/status', label: t('nav.channelStatus'), icon: SignalIcon },
         { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
         // 官方价与上游价都在价格页改，给模型加渠道就是承接
         { path: '/pricing', label: t('nav.pricing'), icon: CurrencyIcon },
@@ -91,13 +96,6 @@ const sections = computed((): NavSection[] => {
           ? [{ path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, activePaths: ['/orders/plans'] }]
           : []),
         { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, presentWhen: flagAdminPayment, activePaths: ['/orders/dashboard'] },
-      ],
-    },
-    {
-      key: 'operations',
-      title: t('nav.sections.operations'),
-      items: [
-        { path: '/usage', label: t('nav.usage'), icon: ChartIcon },
         { path: '/announcements', label: t('nav.announcements'), icon: BellIcon },
       ],
     },

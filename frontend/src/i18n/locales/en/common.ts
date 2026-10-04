@@ -143,10 +143,9 @@ export default {
   // Navigation
   nav: {
     sections: {
-      overview: 'Overview',
+      monitor: 'Monitoring',
       supply: 'Supply',
       users: 'Users',
-      operations: 'Operations',
       security: 'Security'
     },
     overview: 'Overview',

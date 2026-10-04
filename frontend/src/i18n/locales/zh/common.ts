@@ -143,10 +143,9 @@ export default {
   // Navigation
   nav: {
     sections: {
-      overview: '概览',
+      monitor: '监控',
       supply: '供给',
       users: '用户',
-      operations: '运营',
       security: '安全'
     },
     overview: '概览',
