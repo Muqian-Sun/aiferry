@@ -3,10 +3,11 @@
     按模型的一块：官方价一行 + 每个承接渠道一行（上游价）。给模型加一个渠道就是承接（muqian 2026-09-30，D1）。
     整块一起保存：官方价与全部承接关系一个事务整份覆盖；改过的块底部出现「改了 N 处 · 撤销 · 保存」。
   -->
-  <section class="overflow-hidden rounded-lg border border-af-hairline bg-af-sheet" :data-testid="`pricing-model-${entry.id}`">
-    <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-af-hairline bg-af-sunken px-4 py-2.5">
+  <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
+  <section class="border-t border-af-hairline pt-4" :data-testid="`pricing-model-${entry.id}`">
+    <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-2">
       <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span class="font-mono text-sm font-semibold text-af-ink">{{ entry.model_id }}</span>
+        <span class="font-mono text-base font-semibold text-af-ink">{{ entry.model_id }}</span>
         <span class="text-13 text-af-ink-3">
           {{ headerMeta }}
         </span>
@@ -42,20 +43,19 @@
       <table class="w-full min-w-[980px] text-13">
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
-            <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.channel') }}</th>
+            <th class="py-2 pl-0 pr-3 font-medium">{{ t('admin.pricing.columns.channel') }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
             <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
             <th class="px-3 py-2 text-right font-medium">{{ t('admin.pricing.columns.margin') }}</th>
             <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.status') }}</th>
-            <th class="px-3 py-2"><span class="sr-only">{{ t('admin.pricing.columns.actions') }}</span></th>
+            <th class="py-2 pl-3 pr-0"><span class="sr-only">{{ t('admin.pricing.columns.actions') }}</span></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-af-hairline">
           <PricingPriceRows
             v-model:prices="draft.official"
             :issues="officialRowIssues"
-            row-class="bg-af-sunken/40"
             test-id="pricing-official"
             :search-keys="searchKeys"
             :search-placeholders="officialSearchPlaceholders(t, searchKeys, entry.search_defaults)"
@@ -108,7 +108,7 @@
             </template>
           </PricingPriceRows>
           <tr v-if="draft.rows.length === 0">
-            <td :colspan="11" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noChannels') }}</td>
+            <td :colspan="11" class="py-3 pl-0 pr-3 text-13 text-af-ink-3">{{ t('admin.pricing.noChannels') }}</td>
           </tr>
         </tbody>
       </table>
@@ -116,7 +116,7 @@
 
     <footer
       v-if="changes > 0 || saveError"
-      class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-af-hairline px-4 py-2.5"
+      class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-af-hairline py-2.5"
     >
       <div class="min-w-0 flex-1 space-y-0.5">
         <p v-for="message in issueMessages" :key="message" class="text-xs text-af-danger">{{ message }}</p>

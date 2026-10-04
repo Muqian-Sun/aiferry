@@ -48,7 +48,7 @@
       <template v-else-if="overview">
         <FormError v-if="loadError" :message="loadError" />
         <StatusState v-if="visibleCount === 0" kind="empty" :title="t('admin.pricing.empty')" />
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-8">
           <template v-if="view === 'model'">
             <PricingModelBlock
               v-for="entry in pagedEntries"

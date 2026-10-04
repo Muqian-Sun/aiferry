@@ -289,28 +289,25 @@ const availabilityCount = useCountUp(() => snapshot.value?.metrics.availability)
 const ttftCount = useCountUp(() => snapshot.value?.metrics.ttft_p50_ms)
 const cacheCount = useCountUp(() => snapshot.value?.metrics.cache_hit_rate)
 
+// 页首三个数一律墨色（2026-10-04 muqian：按健康度上色时「请求太少」是灰的，看着像失效）；健康度看下面各模型的状态
 const statItems = computed<StatItem[]>(() => {
   const metrics = snapshot.value?.metrics
-  const health = snapshot.value?.health
   return [
     {
       key: 'availability',
       label: t('userUi.serviceStatus.stats.availability'),
-      value: metrics?.availability == null ? formatPercent(null) : formatPercent(availabilityCount.value),
-      valueClass: health ? HEALTH_TEXT[health.availability] : undefined
+      value: metrics?.availability == null ? formatPercent(null) : formatPercent(availabilityCount.value)
     },
     {
       key: 'ttft',
       label: t('userUi.serviceStatus.stats.ttft'),
       value: metrics?.ttft_p50_ms == null ? formatLatency(null) : formatLatency(ttftCount.value),
-      hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined,
-      valueClass: health ? HEALTH_TEXT[health.ttft] : undefined
+      hint: metrics?.ttft_p90_ms != null ? t('userUi.serviceStatus.stats.ttftP90', { value: formatLatency(metrics.ttft_p90_ms) }) : undefined
     },
     {
       key: 'cache',
       label: t('userUi.serviceStatus.stats.cache'),
-      value: metrics?.cache_hit_rate == null ? formatPercent(null) : formatPercent(cacheCount.value),
-      valueClass: health ? HEALTH_TEXT[health.cache] : undefined
+      value: metrics?.cache_hit_rate == null ? formatPercent(null) : formatPercent(cacheCount.value)
     }
   ]
 })

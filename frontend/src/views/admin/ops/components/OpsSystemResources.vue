@@ -1,7 +1,10 @@
 <script setup lang="ts">
 /**
- * 运维页最上面的系统资源（muqian 2026-10-04「把系统资源放在最前面」）：一行数字，不画框；
- * 正常时是墨色，到提醒线变黄、到异常线变红。阈值沿用原页头的那一套（CPU / 内存与智能诊断共用）。
+ * 运维页最上面的系统资源（muqian 2026-10-04「把系统资源放在最前面」）：一行六格，不画框、不用卡片。
+ * 每格「标签 + 数字 + 一根细用量条」（2026-10-04 muqian：单纯的文字数字不直观）：
+ * 有容量的（CPU / 内存 / 数据库连接 / Redis 连接）按占用比例画，条上一根细刻度是提醒线；
+ * 协程没有容量，按异常线折算；后台任务每个任务一个圆点。
+ * 正常时墨色，到提醒线变黄、到异常线变红。阈值沿用原页头的那一套（CPU / 内存与智能诊断共用）。
  */
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -43,6 +46,16 @@ function levelClass(level: Level): string {
   return 'text-af-ink'
 }
 
+function barClass(level: Level): string {
+  if (level === 'critical') return 'bg-af-danger'
+  if (level === 'warning') return 'bg-af-warning'
+  return 'bg-af-ink-2'
+}
+
+function clampPercent(value: number | null): number | null {
+  return value == null ? null : Math.min(100, Math.max(0, value))
+}
+
 function jobFailed(hb: OpsJobHeartbeat): boolean {
   return !!hb.last_error_at && (!hb.last_success_at || hb.last_error_at > hb.last_success_at)
 }
@@ -55,6 +68,12 @@ interface Stat {
   value: string
   detail?: string
   level: Level
+  /** 用量条：0–100；没有就不画条 */
+  percent?: number | null
+  /** 提醒线在条上的位置（0–100） */
+  warnAt?: number
+  /** 后台任务：每个任务一个圆点 */
+  dots?: Array<{ key: string; label: string; failed: boolean }>
   onClick?: () => void
 }
 
@@ -62,7 +81,8 @@ const showJobs = ref(false)
 
 const stats = computed<Stat[]>(() => {
   const m = props.metrics
-  const noData = t('admin.ops.noData')
+  // 还没拿到数据（含加载中）一律写「—」，不写「没有数据」
+  const noData = '—'
   const cpu = num(m?.cpu_usage_percent)
   const mem = num(m?.memory_usage_percent)
   const memUsed = num(m?.memory_used_mb)
@@ -86,33 +106,45 @@ const stats = computed<Stat[]>(() => {
       key: 'cpu',
       label: t('admin.ops.page.resources.cpu'),
       value: cpu == null ? noData : `${cpu.toFixed(1)}%`,
-      level: levelOf(cpu, CPU_WARNING_PERCENT, CPU_CRITICAL_PERCENT)
+      level: levelOf(cpu, CPU_WARNING_PERCENT, CPU_CRITICAL_PERCENT),
+      percent: clampPercent(cpu),
+      warnAt: CPU_WARNING_PERCENT
     },
     {
       key: 'memory',
       label: t('admin.ops.page.resources.memory'),
       value: mem == null ? noData : `${mem.toFixed(1)}%`,
       detail: memUsed != null && memTotal != null ? `${(memUsed / 1024).toFixed(1)} / ${(memTotal / 1024).toFixed(1)} GB` : undefined,
-      level: levelOf(mem, MEMORY_WARNING_PERCENT, MEMORY_CRITICAL_PERCENT)
+      level: levelOf(mem, MEMORY_WARNING_PERCENT, MEMORY_CRITICAL_PERCENT),
+      percent: clampPercent(mem),
+      warnAt: MEMORY_WARNING_PERCENT
     },
     {
       key: 'db',
       label: t('admin.ops.page.resources.db'),
       value: m?.db_ok === false ? t('admin.ops.page.resources.down') : dbOpen == null ? noData : dbMax ? `${dbOpen} / ${dbMax}` : String(dbOpen),
       detail: dbWaiting ? t('admin.ops.page.resources.waiting', { count: dbWaiting }) : undefined,
-      level: m?.db_ok === false ? 'critical' : levelOf(dbPct, POOL_WARNING_PERCENT, POOL_CRITICAL_PERCENT)
+      level: m?.db_ok === false ? 'critical' : levelOf(dbPct, POOL_WARNING_PERCENT, POOL_CRITICAL_PERCENT),
+      percent: m?.db_ok === false ? 100 : clampPercent(dbPct),
+      warnAt: POOL_WARNING_PERCENT
     },
     {
       key: 'redis',
       label: t('admin.ops.page.resources.redis'),
       value: m?.redis_ok === false ? t('admin.ops.page.resources.down') : redisTotal == null ? noData : redisPool ? `${redisTotal} / ${redisPool}` : String(redisTotal),
-      level: m?.redis_ok === false ? 'critical' : levelOf(redisPct, POOL_WARNING_PERCENT, POOL_CRITICAL_PERCENT)
+      level: m?.redis_ok === false ? 'critical' : levelOf(redisPct, POOL_WARNING_PERCENT, POOL_CRITICAL_PERCENT),
+      percent: m?.redis_ok === false ? 100 : clampPercent(redisPct),
+      warnAt: POOL_WARNING_PERCENT
     },
     {
       key: 'goroutines',
       label: t('admin.ops.page.resources.goroutines'),
       value: goroutines == null ? noData : goroutines.toLocaleString(),
-      level: levelOf(goroutines, GOROUTINE_WARNING, GOROUTINE_CRITICAL)
+      detail: goroutines == null ? undefined : t('admin.ops.page.resources.goroutinesScale', { count: GOROUTINE_CRITICAL.toLocaleString() }),
+      level: levelOf(goroutines, GOROUTINE_WARNING, GOROUTINE_CRITICAL),
+      // 协程没有容量上限：按异常线折算
+      percent: goroutines == null ? null : clampPercent((goroutines / GOROUTINE_CRITICAL) * 100),
+      warnAt: (GOROUTINE_WARNING / GOROUTINE_CRITICAL) * 100
     },
     {
       key: 'jobs',
@@ -123,6 +155,7 @@ const stats = computed<Stat[]>(() => {
           ? t('admin.ops.page.resources.jobsFailed', { count: failedJobs.value })
           : t('admin.ops.page.resources.jobsOk', { count: props.jobs.length }),
       level: failedJobs.value > 0 ? 'warning' : 'normal',
+      dots: props.jobs.filter(Boolean).map((hb) => ({ key: hb.job_name, label: jobLabel(hb.job_name), failed: jobFailed(hb) })),
       onClick: props.jobs.length ? () => (showJobs.value = true) : undefined
     }
   ]
@@ -164,26 +197,46 @@ function formatJobResult(result?: string | null): string {
 
 <template>
   <section class="border-t border-af-hairline py-4" data-testid="ops-system-resources">
-    <h2 class="mb-2 text-sm font-semibold text-af-ink">{{ t('admin.ops.page.resources.title') }}</h2>
-    <dl class="flex flex-wrap gap-y-3">
-      <div
-        v-for="stat in stats"
-        :key="stat.key"
-        class="mr-6 min-w-0 last:mr-0 sm:mr-5 sm:border-r sm:border-af-hairline sm:pr-5 sm:last:border-r-0 sm:last:pr-0"
-      >
+    <h2 class="mb-3 text-sm font-semibold text-af-ink">{{ t('admin.ops.page.resources.title') }}</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+      <div v-for="stat in stats" :key="stat.key" class="min-w-0" :data-testid="`ops-resource-${stat.key}`">
         <dt class="text-xs text-af-ink-3">{{ stat.label }}</dt>
-        <dd class="m-0">
-          <button
-            v-if="stat.onClick"
-            type="button"
-            class="text-base font-semibold tabular-nums underline decoration-af-hairline-strong underline-offset-4 hover:decoration-af-ink-3"
-            :class="levelClass(stat.level)"
-            @click="stat.onClick"
+        <dd class="m-0 mt-1">
+          <div class="flex min-w-0 items-baseline gap-1.5">
+            <button
+              v-if="stat.onClick"
+              type="button"
+              class="truncate text-lg font-semibold tabular-nums underline decoration-af-hairline-strong underline-offset-4 hover:decoration-af-ink-3"
+              :class="levelClass(stat.level)"
+              @click="stat.onClick"
+            >
+              {{ stat.value }}
+            </button>
+            <span v-else class="truncate text-lg font-semibold tabular-nums" :class="levelClass(stat.level)">{{ stat.value }}</span>
+            <span v-if="stat.detail" class="truncate text-xs tabular-nums text-af-ink-3">{{ stat.detail }}</span>
+          </div>
+          <!-- 用量条：底色是浅灰轨道，细刻度是提醒线 -->
+          <div
+            v-if="stat.percent != null"
+            class="relative mt-2 h-1.5 overflow-hidden rounded-full bg-af-sunken"
+            role="meter"
+            :aria-valuenow="Math.round(stat.percent)"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-label="stat.label"
           >
-            {{ stat.value }}
-          </button>
-          <span v-else class="text-base font-semibold tabular-nums" :class="levelClass(stat.level)">{{ stat.value }}</span>
-          <span v-if="stat.detail" class="ml-1.5 text-xs text-af-ink-3 tabular-nums">{{ stat.detail }}</span>
+            <div class="h-full rounded-full transition-[width] duration-500" :class="barClass(stat.level)" :style="{ width: `${stat.percent}%` }" />
+            <span v-if="stat.warnAt != null" class="absolute inset-y-0 w-px bg-af-hairline-strong" :style="{ left: `${stat.warnAt}%` }" aria-hidden="true" />
+          </div>
+          <div v-else-if="stat.dots?.length" class="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span
+              v-for="dot in stat.dots"
+              :key="dot.key"
+              class="h-1.5 w-1.5 rounded-full"
+              :class="dot.failed ? 'bg-af-danger' : 'bg-af-success'"
+              :title="dot.label"
+            />
+          </div>
         </dd>
       </div>
     </dl>

@@ -3,10 +3,11 @@
     按渠道的一块：这个渠道承接的每个模型一行（上游价），每格下面标官方价作参考；官方价要改请切回「按模型」。
     整块一起保存：这个渠道的承接关系一个事务整份覆盖（删掉不在列表里的、改价、新增），别的渠道不动。
   -->
-  <section class="overflow-hidden rounded-lg border border-af-hairline bg-af-sheet" :data-testid="`pricing-channel-${account.id}`">
-    <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-af-hairline bg-af-sunken px-4 py-2.5">
+  <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
+  <section class="border-t border-af-hairline pt-4" :data-testid="`pricing-channel-${account.id}`">
+    <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-2">
       <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span class="text-sm font-semibold text-af-ink">{{ account.name }}</span>
+        <span class="text-base font-semibold text-af-ink">{{ account.name }}</span>
         <span class="text-13 text-af-ink-3">{{ headerMeta }}</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -48,13 +49,13 @@
       <table class="w-full min-w-[980px] text-13">
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
-            <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.model') }}</th>
+            <th class="py-2 pl-0 pr-3 font-medium">{{ t('admin.pricing.columns.model') }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
             <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
             <th class="px-3 py-2 text-right font-medium">{{ t('admin.pricing.columns.margin') }}</th>
             <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.status') }}</th>
-            <th class="px-3 py-2"><span class="sr-only">{{ t('admin.pricing.columns.actions') }}</span></th>
+            <th class="py-2 pl-3 pr-0"><span class="sr-only">{{ t('admin.pricing.columns.actions') }}</span></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-af-hairline">
@@ -100,13 +101,13 @@
             </template>
           </PricingPriceRows>
           <tr v-if="draft.rows.length === 0">
-            <td :colspan="11" class="px-3 py-3 text-13 text-af-ink-3">{{ t('admin.pricing.noModels') }}</td>
+            <td :colspan="11" class="py-3 pl-0 pr-3 text-13 text-af-ink-3">{{ t('admin.pricing.noModels') }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <footer class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-af-hairline px-4 py-2.5">
+    <footer class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-af-hairline py-2.5">
       <div class="min-w-0 flex-1 space-y-0.5">
         <p v-for="message in issueMessages" :key="message" class="text-xs text-af-danger">{{ message }}</p>
         <FormError :message="saveError" />
