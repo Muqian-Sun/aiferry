@@ -331,7 +331,9 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 		assert.Contains(t, w2.Body.String(), `nonce="nonce2"`)
 	})
 
-	t.Run("sets_etag_header", func(t *testing.T) {
+	// 页面里有每次请求都换的 CSP nonce：不发 ETag，带着旧的 If-None-Match 再来也回完整页面和新 nonce
+	// （2026-10-04 UI E2E：原来回 304，浏览器沿用旧页面，内联配置脚本被 CSP 拦掉）。
+	t.Run("never_304_and_always_fresh_nonce", func(t *testing.T) {
 		provider := &mockSettingsProvider{
 			settings: map[string]string{"test": "value"},
 		}
@@ -339,68 +341,29 @@ func TestFrontendServer_ServeIndexHTML(t *testing.T) {
 		server, err := NewFrontendServer(provider, AppUser)
 		require.NoError(t, err)
 
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-		c.Set(middleware.CSPNonceKey, "nonce123")
-
-		server.serveIndexHTML(c)
-
-		etag := w.Header().Get("ETag")
-		assert.NotEmpty(t, etag)
-		assert.True(t, strings.HasPrefix(etag, `"`))
-		assert.True(t, strings.HasSuffix(etag, `"`))
-	})
-
-	t.Run("returns_304_for_matching_etag", func(t *testing.T) {
-		provider := &mockSettingsProvider{
-			settings: map[string]string{"test": "value"},
-		}
-
-		server, err := NewFrontendServer(provider, AppUser)
-		require.NoError(t, err)
-
-		// Use a real router for proper 304 handling
+		nonce := "first-nonce"
 		router := gin.New()
 		router.Use(func(c *gin.Context) {
-			c.Set(middleware.CSPNonceKey, "test-nonce")
+			c.Set(middleware.CSPNonceKey, nonce)
 			c.Next()
 		})
 		router.Use(server.Middleware())
 
-		// First request to populate cache and get ETag
 		w1 := httptest.NewRecorder()
-		req1 := httptest.NewRequest(http.MethodGet, "/", nil)
-		router.ServeHTTP(w1, req1)
-		etag := w1.Header().Get("ETag")
-		require.NotEmpty(t, etag)
+		router.ServeHTTP(w1, httptest.NewRequest(http.MethodGet, "/", nil))
+		require.Equal(t, http.StatusOK, w1.Code)
+		assert.Empty(t, w1.Header().Get("ETag"))
+		assert.Equal(t, "no-store", w1.Header().Get("Cache-Control"))
 
-		// Second request with If-None-Match
-		w2 := httptest.NewRecorder()
+		nonce = "second-nonce"
 		req2 := httptest.NewRequest(http.MethodGet, "/", nil)
-		req2.Header.Set("If-None-Match", etag)
+		req2.Header.Set("If-None-Match", `"anything"`)
+		w2 := httptest.NewRecorder()
 		router.ServeHTTP(w2, req2)
 
-		assert.Equal(t, http.StatusNotModified, w2.Code)
-		assert.Empty(t, w2.Body.String())
-	})
-
-	t.Run("sets_cache_control_header", func(t *testing.T) {
-		provider := &mockSettingsProvider{
-			settings: map[string]string{"test": "value"},
-		}
-
-		server, err := NewFrontendServer(provider, AppUser)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-		c.Set(middleware.CSPNonceKey, "nonce123")
-
-		server.serveIndexHTML(c)
-
-		assert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))
+		assert.Equal(t, http.StatusOK, w2.Code)
+		assert.Contains(t, w2.Body.String(), `nonce="second-nonce"`)
+		assert.Equal(t, "no-store", w2.Header().Get("Cache-Control"))
 	})
 
 	t.Run("fallback_on_settings_error", func(t *testing.T) {
@@ -650,11 +613,11 @@ func TestFrontendServer_Middleware(t *testing.T) {
 
 		// Request for existing static file
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+		req := httptest.NewRequest(http.MethodGet, "/logo.svg", nil) // 前端 public 里的站点图标（logo.png 早已不在）
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Header().Get("Content-Type"), "image/png")
+		assert.Contains(t, w.Header().Get("Content-Type"), "image/svg+xml")
 		assert.Empty(t, w.Header().Get("Cache-Control"))
 
 		entries, err := fs.ReadDir(server.distFS, "assets")
@@ -735,11 +698,11 @@ func TestServeEmbeddedFrontend(t *testing.T) {
 		router.Use(middleware)
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+		req := httptest.NewRequest(http.MethodGet, "/logo.svg", nil)
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Header().Get("Content-Type"), "image/png")
+		assert.Contains(t, w.Header().Get("Content-Type"), "image/svg+xml")
 	})
 
 	t.Run("serves_index_html_for_root", func(t *testing.T) {
@@ -821,63 +784,14 @@ func TestHTMLCache(t *testing.T) {
 		assert.Nil(t, cache.Get())
 	})
 
-	t.Run("set_and_get", func(t *testing.T) {
+	t.Run("set_get_and_invalidate", func(t *testing.T) {
 		cache := NewHTMLCache()
-		cache.SetBaseHTML([]byte("<html></html>"))
-
 		html := []byte("<html><body>test</body></html>")
-		settings := []byte(`{"key":"value"}`)
-		cache.Set(html, settings)
-
-		result := cache.Get()
-		require.NotNil(t, result)
-		assert.Equal(t, html, result.Content)
-		assert.NotEmpty(t, result.ETag)
-	})
-
-	t.Run("invalidate_clears_cache", func(t *testing.T) {
-		cache := NewHTMLCache()
-		cache.SetBaseHTML([]byte("<html></html>"))
-
-		html := []byte("<html><body>test</body></html>")
-		settings := []byte(`{"key":"value"}`)
-		cache.Set(html, settings)
-
-		require.NotNil(t, cache.Get())
+		cache.Set(html)
+		assert.Equal(t, html, cache.Get())
 
 		cache.Invalidate()
-
 		assert.Nil(t, cache.Get())
-	})
-
-	t.Run("etag_changes_with_settings", func(t *testing.T) {
-		cache := NewHTMLCache()
-		cache.SetBaseHTML([]byte("<html></html>"))
-
-		html := []byte("<html><body>test</body></html>")
-
-		cache.Set(html, []byte(`{"v":1}`))
-		etag1 := cache.Get().ETag
-
-		cache.Invalidate()
-		cache.Set(html, []byte(`{"v":2}`))
-		etag2 := cache.Get().ETag
-
-		assert.NotEqual(t, etag1, etag2)
-	})
-
-	t.Run("etag_format", func(t *testing.T) {
-		cache := NewHTMLCache()
-		cache.SetBaseHTML([]byte("<html></html>"))
-
-		cache.Set([]byte("<html></html>"), []byte(`{}`))
-		result := cache.Get()
-
-		// ETag should be quoted
-		assert.True(t, strings.HasPrefix(result.ETag, `"`))
-		assert.True(t, strings.HasSuffix(result.ETag, `"`))
-		// Should contain dash separator
-		assert.Contains(t, result.ETag[1:len(result.ETag)-1], "-")
 	})
 }
 
