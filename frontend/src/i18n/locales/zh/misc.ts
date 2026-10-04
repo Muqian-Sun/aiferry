@@ -1,14 +1,9 @@
 export default {
 
-  // Subscription Progress (Header component)
-  subscriptionProgress: {
-    noSubscriptions: '没有有效订阅',
-  },
-
 
   // Recharge / Subscription Page
   purchase: {
-    rechargeDescription: '为账户余额充值，调用时按量从余额扣费',
+    rechargeDescription: '充值到余额，调用时按量从余额扣费',
     subscriptionDescription: '购买订阅套餐，在套餐额度内使用'
   },
 
@@ -18,8 +13,8 @@ export default {
     openInNewTab: '新窗口打开',
     notFoundTitle: '页面不存在',
     notFoundDesc: '该自定义页面不存在或已被删除。',
-    notConfiguredTitle: '页面链接未配置',
-    notConfiguredDesc: '该自定义页面的 URL 未正确配置。',
+    notConfiguredTitle: '页面链接未设置',
+    notConfiguredDesc: '这个自定义页面的链接还没有设置。',
     tableOfContents: '目录',
     copyCode: '复制',
     copiedCode: '已复制',
@@ -30,22 +25,11 @@ export default {
   // Announcements Page
   announcements: {
     title: '公告',
-    description: '查看系统公告',
-    unreadOnly: '仅显示未读',
     markRead: '标记已读',
     markAllRead: '全部已读',
-    viewAll: '查看全部公告',
-    markedAsRead: '已标记为已读',
-    allMarkedAsRead: '所有公告已标记为已读',
-    newCount: '有 {count} 条新公告',
-    readAt: '已读时间',
     read: '已读',
     unread: '未读',
-    startsAt: '开始时间',
-    endsAt: '结束时间',
     empty: '还没有公告',
-    emptyUnread: '没有未读公告',
-    total: '条公告',
     emptyDescription: '暂时没有任何系统公告',
     readStatus: '你已阅读此公告',
     markReadHint: '点击"已读"标记此公告',
@@ -60,52 +44,26 @@ export default {
     unnamedPlan: '订阅套餐',
     noActiveSubscriptions: '没有有效订阅',
     noActiveSubscriptionsDesc: '你没有任何有效订阅。请联系管理员获取订阅。',
-    failedToLoad: '加载订阅失败',
     status: {
       active: '有效',
       expired: '已过期',
       revoked: '已撤销'
     },
-    usage: '用量',
     expires: '到期时间',
     noExpiration: '无到期时间',
     daysRemaining: '剩余 {days} 天',
-    expiresOn: '{date} 到期',
     resetIn: '{time} 后重置',
     quotaEndsIn: '额度将在 {time} 后结束',
     windowNotActive: '等待首次使用',
-    usageOf: '已用 {used} / {limit}'
   },
 
   // Onboarding Tour
   onboarding: {
     restartTour: '重新查看新手引导',
-    dontShowAgain: '不再提示',
-    dontShowAgainTitle: '永久关闭新手引导',
-    confirmDontShow: '确定不再显示新手引导吗？\n\n你可以随时在右上角头像菜单中重新开启。',
-    confirmExit: '确定要退出新手引导吗？你可以随时在右上角菜单重新开始。',
     interactiveHint: '按 Enter 或点击继续',
     navigation: {
       flipPage: '翻页',
       exit: '退出'
-    },
-    // Admin tour steps
-    admin: {
-      accountName: {
-        nextBtn: '下一步'
-      },
-      accountPlatform: {
-        nextBtn: '下一步'
-      },
-      accountType: {
-        nextBtn: '下一步'
-      },
-      accountPriority: {
-        nextBtn: '下一步'
-      },
-      keyName: {
-        nextBtn: '下一步'
-      },
     },
     // User tour steps
     user: {
@@ -130,7 +88,6 @@ export default {
         title: '密钥名称',
         description:
           '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">为密钥起一个便于识别的名称。</p><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 示例：</b>"我的第一个密钥"、"测试用" 等</p></div>',
-        nextBtn: '下一步'
       },
       keySubmit: {
         title: '完成创建',
@@ -142,7 +99,6 @@ export default {
 
   // Payment System
   payment: {
-    title: '充值/订阅',
     amountLabel: '充值金额',
     creditedBalance: '到账余额',
     quickAmounts: '快捷金额',
@@ -204,16 +160,13 @@ export default {
       alipaySaveAndScanHint: '保存二维码后，打开支付宝扫一扫，从相册选择二维码',
     },
     orders: {
-      title: '我的订单',
       empty: '还没有订单',
-      orderId: '订单 ID',
       orderNo: '订单编号',
       amount: '金额',
       payAmount: '实付',
       creditedAmount: '到账金额',
       fee: '手续费',
       baseAmount: '充值金额',
-      includedInPayAmount: '已含在实付金额中',
       status: '状态',
       paymentMethod: '支付方式',
       createdAt: '创建时间',
@@ -231,13 +184,8 @@ export default {
     currentBalance: '当前余额',
     rechargeAccount: '充值账户',
     activeSubscription: '当前订阅',
-    noActiveSubscription: '没有有效订阅',
-    tabTopUp: '充值',
-    tabSubscribe: '订阅',
     noPlans: '没有可购买的订阅套餐',
     notAvailable: '充值功能暂未开放',
-    billingUnavailable: '充值与订阅均暂未开放，请联系管理员。',
-    confirmSubscription: '确认订阅',
     amountTooLow: '最低金额为 {min}',
     amountTooHigh: '最高金额为 {max}',
     amountNoMethod: '该金额没有可用的支付方式',
@@ -266,7 +214,7 @@ export default {
       alipayMobileOpenHint: '请允许当前页面打开支付宝 App，或改用系统浏览器重新发起支付。',
       // Structured error codes (reason strings from backend ApplicationError)
       PAYMENT_DISABLED: '支付系统已关闭',
-      USER_INACTIVE: '账号已被禁用',
+      USER_INACTIVE: '账户已被停用',
       BALANCE_PAYMENT_DISABLED: '余额充值功能已关闭',
       INVALID_AMOUNT: '金额无效',
       USD_TO_CNY_RATE_NOT_CONFIGURED: '暂时无法用人民币支付：管理员尚未配置美元汇率',
@@ -280,7 +228,7 @@ export default {
       GROUP_NOT_FOUND: '订阅分组不可用',
       GROUP_TYPE_MISMATCH: '分组类型不是订阅类型',
       TOO_MANY_PENDING: '待支付订单过多（最多 {max} 个），请先完成或取消现有订单',
-      DAILY_LIMIT_EXCEEDED: '今日充值已达上限，剩余额度 {remaining}',
+      DAILY_LIMIT_EXCEEDED: '今日充值已达上限，今天还能充 {remaining}',
       PAYMENT_GATEWAY_ERROR: '支付方式不可用',
       NO_AVAILABLE_INSTANCE: '现在没有可用的支付通道',
       PAYMENT_PROVIDER_MISCONFIGURED: '支付通道配置错误，请联系管理员',
@@ -306,18 +254,16 @@ export default {
       redirecting: '正在跳转到支付页面…',
       loadingQr: '正在获取微信支付二维码…',
       timeout: '等待支付凭证超时，请重试',
-      qrFailed: '未能获取微信支付二维码',
     },
     subscribeNow: '立即开通',
     renewNow: '续费',
     renewPlanUnavailable: '该套餐已下架，暂时无法续费',
     selectPlan: '选择套餐',
-    planFeatures: '功能特性',
     planCard: {
       dailyLimit: '日限额',
       weeklyLimit: '周限额',
       monthlyLimit: '月限额',
-      quota: '配额',
+      quota: '额度',
       unlimited: '无限制',
       models: '模型',
       apiKey: '订阅密钥',
@@ -326,11 +272,9 @@ export default {
     days: '天',
     weeks: '周',
     months: '个月',
-    years: '年',
     oneMonth: '1 个月',
     oneYear: '1 年',
     perMonth: '月',
-    perYear: '年',
     admin: {
       tabs: {
         overview: '概览',
@@ -373,6 +317,9 @@ export default {
       confirmRefund: '确认退款',
       refundSuccess: '退款成功',
       refundPending: '退款处理中，待网关确认',
+      refundRequireForce: '没能从用户那里扣回（余额不足，或查不到余额 / 订阅）。确认无误可勾选下面的「强制退款」继续。',
+      refundGatewayFailed: '支付网关退款没有成功，请稍后重试或到服务商后台核对',
+      refundQueryFailed: '查询退款状态失败，请到服务商后台核对',
       queryRefundStatus: '查询退款状态',
       refundEnabled: '允许退款',
       allowUserRefund: '允许用户退款',
@@ -399,12 +346,12 @@ export default {
       operatorUserWithEmail: '用户（{email}）',
       operatorAdmin: '管理员',
       operatorSystem: '系统',
-      channelName: '渠道名称',
-      channelDescription: '渠道描述',
-      createChannel: '创建渠道',
-      editChannel: '编辑渠道',
-      deleteChannel: '删除渠道',
-      deleteChannelConfirm: '确定要删除此渠道吗？',
+      channelName: '支付渠道名称',
+      channelDescription: '支付渠道描述',
+      createChannel: '创建支付渠道',
+      editChannel: '编辑支付渠道',
+      deleteChannel: '删除支付渠道',
+      deleteChannelConfirm: '删除后用户不能再通过这个支付渠道付款。',
       planName: '套餐名称',
       planDescription: '套餐描述',
       createPlan: '创建套餐',
@@ -453,11 +400,11 @@ export default {
       dashboardTitle: '支付概览',
       dashboardDesc: '充值订单统计与分析',
       daySuffix: '天',
-      paymentConfigTitle: '支付配置',
+      paymentConfigTitle: '支付设置',
       paymentConfigDesc: '管理支付服务商与相关设置',
       plansPageTitle: '订阅套餐管理',
-      plansPageDesc: '管理订阅套餐配置',
-      tabPlanConfig: '套餐配置',
+      plansPageDesc: '管理订阅套餐',
+      tabPlanConfig: '套餐设置',
       tabUserSubs: '用户订阅',
       priceRequired: '价格必须大于 0',
       validityRequired: '有效期必须大于 0',

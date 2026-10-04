@@ -40,10 +40,8 @@ export default {
       list: '上架',
       unlist: '下架',
       selectEntry: '选择 {model}',
-      nothingToDo: '选中的条目已经是目标状态',
-      listedDone: '已上架 {count} 个模型',
-      unlistedDone: '已下架 {count} 个模型',
-      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：'
+      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：',
+      itemFailed: '保存失败'
     },
     editor: {
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
@@ -116,8 +114,6 @@ export default {
       },
       unpricedBanner: '已上架但没有配价：用户看不到这个模型。',
       unboundBanner: '已上架但没有绑定渠道：用户调用这个模型会失败。',
-      listedDone: '已上架 {model}',
-      unlistedDone: '已下架 {model}',
       aliases: '别名',
       notes: '备注',
       updatedAt: '更新时间',

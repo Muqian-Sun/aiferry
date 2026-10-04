@@ -110,7 +110,8 @@ describe('BulkEditKeysModal', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Second: Group access denied')
+    // 后端 message 不上屏：显示前端的兜底文案
+    expect(wrapper.text()).toContain('Second: keys.failedToSave')
     expect(wrapper.emitted('updated')).toEqual([[[1]]])
     expect(wrapper.emitted('close')).toBeUndefined()
     await wrapper.setProps({ selectedKeys: [{ id: 2, name: 'Second' }, { id: 3, name: 'New selection' }] })

@@ -54,7 +54,7 @@ const (
 
 const antigravityProjectIDFallbackCredentialKey = "antigravity_project_id"
 
-var errAntigravityProjectIDRequired = errors.New("该 standard-tier Antigravity 账号需配置 project_id")
+var errAntigravityProjectIDRequired = errors.New("this standard-tier Antigravity account requires a project_id")
 
 // AntigravityAccountSwitchError 账号切换信号
 // 当账号限流时间超过阈值时，通知上层切换账号
@@ -327,7 +327,7 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 	}
 	accessToken, err := s.tokenProvider.GetAccessToken(ctx, account)
 	if err != nil {
-		return nil, fmt.Errorf("获取 access_token 失败: %w", err)
+		return nil, fmt.Errorf("get access_token: %w", err)
 	}
 
 	projectID, err := resolveAntigravityProjectID(account)
@@ -349,7 +349,7 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("构建请求失败: %w", err)
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 
 	// 代理 URL
@@ -381,7 +381,7 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 		// AccountSwitchError → 测试时不切换账号，返回友好提示
 		var switchErr *AntigravityAccountSwitchError
 		if errors.As(err, &switchErr) {
-			return nil, fmt.Errorf("该账号模型 %s 当前限流中，请稍后重试", switchErr.RateLimitedModel)
+			return nil, fmt.Errorf("model %s is rate limited on this account, please retry later", switchErr.RateLimitedModel)
 		}
 		return nil, err
 	}
@@ -393,11 +393,11 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 
 	respBody, err := io.ReadAll(io.LimitReader(result.resp.Body, s.upstreamErrorBodyReadLimit()))
 	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
 	if result.resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API 返回 %d: %s", result.resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API returned %d: %s", result.resp.StatusCode, string(respBody))
 	}
 
 	text := extractTextFromSSEResponse(respBody)
@@ -538,7 +538,7 @@ func extractTextFromSSEResponse(respBody []byte) string {
 func injectIdentityPatchToGeminiRequest(body []byte) ([]byte, error) {
 	var request map[string]any
 	if err := json.Unmarshal(body, &request); err != nil {
-		return nil, fmt.Errorf("解析 Gemini 请求失败: %w", err)
+		return nil, fmt.Errorf("parse Gemini request: %w", err)
 	}
 
 	// 检查现有 systemInstruction 是否已包含身份提示词
@@ -584,7 +584,7 @@ func injectIdentityPatchToGeminiRequest(body []byte) ([]byte, error) {
 func (s *AntigravityGatewayService) wrapV1InternalRequest(projectID, model string, originalBody []byte) ([]byte, error) {
 	var request any
 	if err := json.Unmarshal(originalBody, &request); err != nil {
-		return nil, fmt.Errorf("解析请求体失败: %w", err)
+		return nil, fmt.Errorf("parse request body: %w", err)
 	}
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" {

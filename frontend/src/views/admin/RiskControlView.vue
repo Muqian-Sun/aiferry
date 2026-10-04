@@ -1131,7 +1131,8 @@ const riskThresholdDefaults: Record<string, number> = {
 const riskThresholdCategories = Object.keys(riskThresholdDefaults)
 
 const { t } = useI18n()
-const defaultBlockMessage = () => t('admin.riskControl.defaultBlockMessage')
+// 拦截提示会原样返回给调用模型的 API 客户端，默认英文，与后端默认一致（调用模型的 API 报错一律英文）
+const DEFAULT_BLOCK_MESSAGE = 'Content audit matched a risk rule. Please adjust your input and try again.'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -1181,7 +1182,7 @@ const configForm = reactive({
   worker_count: 4,
   queue_size: 32768,
   block_status: 403,
-  block_message: defaultBlockMessage(),
+  block_message: DEFAULT_BLOCK_MESSAGE,
   email_on_hit: true,
   auto_ban_enabled: true,
   cyber_policy_exclude_from_ban_count: false,
@@ -1619,7 +1620,7 @@ function applyConfig(config: ContentModerationConfig) {
   configForm.worker_count = config.worker_count || 4
   configForm.queue_size = config.queue_size || 32768
   configForm.block_status = config.block_status || 403
-  configForm.block_message = config.block_message || defaultBlockMessage()
+  configForm.block_message = config.block_message || DEFAULT_BLOCK_MESSAGE
   configForm.email_on_hit = config.email_on_hit ?? true
   configForm.auto_ban_enabled = config.auto_ban_enabled ?? true
   configForm.cyber_policy_exclude_from_ban_count = config.cyber_policy_exclude_from_ban_count ?? false
@@ -1703,7 +1704,7 @@ async function saveConfig() {
       worker_count: Number(configForm.worker_count) || 4,
       queue_size: Number(configForm.queue_size) || 32768,
       block_status: Number(configForm.block_status) || 403,
-      block_message: configForm.block_message || defaultBlockMessage(),
+      block_message: configForm.block_message || DEFAULT_BLOCK_MESSAGE,
       email_on_hit: configForm.email_on_hit,
       auto_ban_enabled: configForm.auto_ban_enabled,
       cyber_policy_exclude_from_ban_count: configForm.cyber_policy_exclude_from_ban_count,

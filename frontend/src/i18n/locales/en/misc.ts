@@ -1,10 +1,5 @@
 export default {
 
-  // Subscription Progress (Header component)
-  subscriptionProgress: {
-    noSubscriptions: 'No active subscriptions',
-  },
-
 
   // Recharge / Subscription Page
   purchase: {
@@ -30,22 +25,11 @@ export default {
   // Announcements Page
   announcements: {
     title: 'Announcements',
-    description: 'View system announcements',
-    unreadOnly: 'Show unread only',
     markRead: 'Mark as read',
     markAllRead: 'Mark all as read',
-    viewAll: 'View all announcements',
-    markedAsRead: 'Marked as read',
-    allMarkedAsRead: 'All announcements marked as read',
-    newCount: '{count} new announcement | {count} new announcements',
-    readAt: 'Read at',
     read: 'Read',
     unread: 'Unread',
-    startsAt: 'Starts at',
-    endsAt: 'Ends at',
     empty: 'No announcements',
-    emptyUnread: 'No unread announcements',
-    total: 'announcements',
     emptyDescription: 'There are no system announcements at this time',
     readStatus: 'You have read this announcement',
     markReadHint: 'Click "Mark as read" to mark this announcement',
@@ -61,52 +45,26 @@ export default {
     noActiveSubscriptions: 'No Active Subscriptions',
     noActiveSubscriptionsDesc:
       "You don't have any active subscriptions. Contact administrator to get one.",
-    failedToLoad: 'Failed to load subscriptions',
     status: {
       active: 'Active',
       expired: 'Expired',
       revoked: 'Revoked'
     },
-    usage: 'Usage',
     expires: 'Expires',
     noExpiration: 'No expiration',
     daysRemaining: '{days} days remaining',
-    expiresOn: 'Expires on {date}',
     resetIn: 'Resets in {time}',
     quotaEndsIn: 'Quota ends in {time}',
     windowNotActive: 'Awaiting first use',
-    usageOf: '{used} of {limit}'
   },
 
   // Onboarding Tour
   onboarding: {
     restartTour: 'Restart Onboarding Tour',
-    dontShowAgain: "Don't show again",
-    dontShowAgainTitle: 'Permanently close onboarding guide',
-    confirmDontShow: "Are you sure you don't want to see the onboarding guide again?\n\nYou can restart it anytime from the user menu in the top right corner.",
-    confirmExit: 'Are you sure you want to exit the onboarding guide? You can restart it anytime from the top right menu.',
     interactiveHint: 'Press Enter or Click to continue',
     navigation: {
       flipPage: 'Flip Page',
       exit: 'Exit'
-    },
-    // Admin tour steps
-    admin: {
-      accountName: {
-        nextBtn: 'Next'
-      },
-      accountPlatform: {
-        nextBtn: 'Next'
-      },
-      accountType: {
-        nextBtn: 'Next'
-      },
-      accountPriority: {
-        nextBtn: 'Next'
-      },
-      keyName: {
-        nextBtn: 'Next'
-      },
     },
     // User tour steps
     user: {
@@ -128,7 +86,6 @@ export default {
       keyName: {
         title: '✏️ Key Name',
         description: '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">Give your key an easy-to-identify name.</p><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>💡 Examples:</b> "My First Key", "For Testing", etc.</p></div>',
-        nextBtn: 'Next'
       },
       keySubmit: {
         title: '🎉 Complete Creation',
@@ -139,7 +96,6 @@ export default {
 
   // Payment System
   payment: {
-    title: 'Recharge / Subscription',
     amountLabel: 'Amount',
     creditedBalance: 'Credited Balance',
     quickAmounts: 'Quick Amounts',
@@ -201,16 +157,13 @@ export default {
       alipaySaveAndScanHint: 'Save the QR code, open Alipay Scan, then select it from your photo album',
     },
     orders: {
-      title: 'My Orders',
       empty: 'No orders yet',
-      orderId: 'Order ID',
       orderNo: 'Order No.',
       amount: 'Amount',
       payAmount: 'Paid',
       creditedAmount: 'Credited Amount',
       fee: 'Fee',
       baseAmount: 'Base Amount',
-      includedInPayAmount: 'included in paid amount',
       status: 'Status',
       paymentMethod: 'Payment Method',
       createdAt: 'Created',
@@ -228,13 +181,8 @@ export default {
     currentBalance: 'Current Balance',
     rechargeAccount: 'Recharge Account',
     activeSubscription: 'Active Subscription',
-    noActiveSubscription: 'No active subscription',
-    tabTopUp: 'Top Up',
-    tabSubscribe: 'Subscribe',
     noPlans: 'No subscription plans available',
     notAvailable: 'Top-up is currently unavailable',
-    billingUnavailable: 'Neither top-up nor subscriptions are currently available. Please contact the administrator.',
-    confirmSubscription: 'Confirm Subscription',
     amountTooLow: 'Minimum amount is {min}',
     amountTooHigh: 'Maximum amount is {max}',
     amountNoMethod: 'No payment method available for this amount',
@@ -303,13 +251,11 @@ export default {
       redirecting: 'Redirecting to payment page...',
       loadingQr: 'Loading WeChat Pay QR code...',
       timeout: 'Timed out waiting for payment credentials, please retry',
-      qrFailed: 'Failed to get WeChat Pay QR code',
     },
     subscribeNow: 'Subscribe Now',
     renewNow: 'Renew',
     renewPlanUnavailable: 'This plan is no longer on sale and cannot be renewed right now',
     selectPlan: 'Select Plan',
-    planFeatures: 'Features',
     planCard: {
       dailyLimit: 'Daily',
       weeklyLimit: 'Weekly',
@@ -323,11 +269,9 @@ export default {
     days: 'days',
     weeks: 'weeks',
     months: 'months',
-    years: 'years',
     oneMonth: '1 Month',
     oneYear: '1 Year',
     perMonth: 'month',
-    perYear: 'year',
     admin: {
       tabs: {
         overview: 'Overview',
@@ -370,6 +314,9 @@ export default {
       confirmRefund: 'Confirm Refund',
       refundSuccess: 'Refund successful',
       refundPending: 'Refund pending gateway confirmation',
+      refundRequireForce: 'Could not deduct from the user (insufficient balance, or balance / subscription not found). Check "Force refund" below to continue.',
+      refundGatewayFailed: 'The payment gateway did not complete the refund. Retry later or check the provider dashboard.',
+      refundQueryFailed: 'Failed to query refund status. Check the provider dashboard.',
       queryRefundStatus: 'Query refund status',
       refundEnabled: 'Refund Enabled',
       allowUserRefund: 'Allow User Refund',

@@ -621,10 +621,9 @@ async function testDatabaseConnection() {
   try {
     await testDatabase(formData.database)
     dbConnected.value = true
-  } catch (error: unknown) {
-    const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-    errorMessage.value =
-      err.response?.data?.detail || err.response?.data?.message || err.message || 'Connection failed'
+  } catch {
+    // 后端返回的是英文原因，不上屏；给出要检查哪几项
+    errorMessage.value = t('setup.errors.database')
   } finally {
     testingDb.value = false
   }
@@ -638,10 +637,8 @@ async function testRedisConnection() {
   try {
     await testRedis(formData.redis)
     redisConnected.value = true
-  } catch (error: unknown) {
-    const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-    errorMessage.value =
-      err.response?.data?.detail || err.response?.data?.message || err.message || 'Connection failed'
+  } catch {
+    errorMessage.value = t('setup.errors.redis')
   } finally {
     testingRedis.value = false
   }
@@ -663,10 +660,8 @@ async function performInstall() {
     installSuccess.value = true
     // Start polling for service restart
     waitForServiceRestart(result.admin_port)
-  } catch (error: unknown) {
-    const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-    errorMessage.value =
-      err.response?.data?.detail || err.response?.data?.message || err.message || 'Installation failed'
+  } catch {
+    errorMessage.value = t('setup.errors.install')
   } finally {
     installing.value = false
   }

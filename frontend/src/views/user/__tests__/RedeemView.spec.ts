@@ -102,7 +102,9 @@ describe('RedeemView refresh after redemption', () => {
     redeem.mockRejectedValue({ status: 400, code: 400, message: 'Invalid code' })
     const wrapper = await submitCode()
 
-    expect(wrapper.text()).toContain('Invalid code')
+    // 后端 message 不上屏：显示前端的兜底文案
+    expect(wrapper.text()).toContain('redeem.failedToRedeem')
+    expect(wrapper.text()).not.toContain('Invalid code')
     expect(wrapper.text()).not.toContain('redeem.redeemSuccess')
     expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe(' REDEEM-CODE ')
     expect(refreshUser).not.toHaveBeenCalled()

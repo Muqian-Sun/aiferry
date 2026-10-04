@@ -2439,8 +2439,8 @@ func buildCyberPolicyOpsErrorEntry(meta cyberPolicyOpsErrorMeta, mark *service.C
 	return entry
 }
 
-// 双语单串：网关客户端面向中英用户，且本错误无 i18n 协商通道。
-const cyberSessionBlockedClientMsg = "该会话已被网络安全策略屏蔽，请开启新会话 / This session is blocked by cyber-security policy, please start a new session"
+// 调用模型的 API 报错一律英文（2026-10-04 muqian）。
+const cyberSessionBlockedClientMsg = "This session is blocked by cyber-security policy, please start a new session"
 
 // buildCyberSessionBlockedOpsEntry builds the ops_error_logs entry for a request
 // rejected locally by the cyber session block (F5a). Distinct error_type from

@@ -1587,7 +1587,7 @@ const handleRefresh = async (a: Account) => {
     const result = await adminAPI.accounts.refreshCredentials(a.id)
     patchAccountInList(result.account)
     enterAutoRefreshSilentWindow()
-    if (result.warning) rowActionError.value = result.message
+    if (result.warning === 'missing_project_id_temporary') rowActionError.value = t('admin.accounts.refreshMissingProjectId')
   } catch (error) {
     rowActionFailed(error, 'admin.accounts.refreshCredentialsFailed')
   }

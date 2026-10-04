@@ -33,17 +33,17 @@ type AntigravityAuthURLResult struct {
 func (s *AntigravityOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64) (*AntigravityAuthURLResult, error) {
 	state, err := antigravity.GenerateState()
 	if err != nil {
-		return nil, fmt.Errorf("生成 state 失败: %w", err)
+		return nil, fmt.Errorf("generate state: %w", err)
 	}
 
 	codeVerifier, err := antigravity.GenerateCodeVerifier()
 	if err != nil {
-		return nil, fmt.Errorf("生成 code_verifier 失败: %w", err)
+		return nil, fmt.Errorf("generate code_verifier: %w", err)
 	}
 
 	sessionID, err := antigravity.GenerateSessionID()
 	if err != nil {
-		return nil, fmt.Errorf("生成 session_id 失败: %w", err)
+		return nil, fmt.Errorf("generate session_id: %w", err)
 	}
 
 	var proxyURL string
@@ -98,11 +98,11 @@ type AntigravityTokenInfo struct {
 func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *AntigravityExchangeCodeInput) (*AntigravityTokenInfo, error) {
 	session, ok := s.sessionStore.Get(input.SessionID)
 	if !ok {
-		return nil, fmt.Errorf("session 不存在或已过期")
+		return nil, fmt.Errorf("session not found or expired")
 	}
 
 	if strings.TrimSpace(input.State) == "" || input.State != session.State {
-		return nil, fmt.Errorf("state 无效")
+		return nil, fmt.Errorf("invalid state")
 	}
 
 	// 确定代理 URL
@@ -122,7 +122,7 @@ func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *Antig
 	// 交换 token
 	tokenResp, err := client.ExchangeCode(ctx, input.Code, session.CodeVerifier)
 	if err != nil {
-		return nil, fmt.Errorf("token 交换失败: %w", err)
+		return nil, fmt.Errorf("token exchange: %w", err)
 	}
 
 	// 删除 session
@@ -142,7 +142,7 @@ func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *Antig
 	// 获取用户信息
 	userInfo, err := client.GetUserInfo(ctx, tokenResp.AccessToken)
 	if err != nil {
-		fmt.Printf("[AntigravityOAuth] 警告: 获取用户信息失败: %v\n", err)
+		fmt.Printf("[AntigravityOAuth] warning: fetch user info failed: %v\n", err)
 	} else {
 		result.Email = userInfo.Email
 	}
@@ -150,7 +150,7 @@ func (s *AntigravityOAuthService) ExchangeCode(ctx context.Context, input *Antig
 	// 获取 project_id + plan_type（部分账户类型可能没有），失败时重试
 	loadResult, loadErr := s.loadProjectIDWithRetry(ctx, tokenResp.AccessToken, proxyURL, 3)
 	if loadErr != nil {
-		fmt.Printf("[AntigravityOAuth] 警告: 获取 project_id 失败（重试后）: %v\n", loadErr)
+		fmt.Printf("[AntigravityOAuth] warning: fetch project_id failed after retries: %v\n", loadErr)
 		result.ProjectIDMissing = true
 	}
 	if loadResult != nil {
@@ -208,7 +208,7 @@ func (s *AntigravityOAuthService) RefreshToken(ctx context.Context, refreshToken
 		lastErr = err
 	}
 
-	return nil, fmt.Errorf("token 刷新失败 (重试后): %w", lastErr)
+	return nil, fmt.Errorf("token refresh failed after retries: %w", lastErr)
 }
 
 // ValidateRefreshToken 用 refresh token 验证并获取完整的 token 信息（含 email 和 project_id）
@@ -234,7 +234,7 @@ func (s *AntigravityOAuthService) ValidateRefreshToken(ctx context.Context, refr
 	}
 	userInfo, err := client.GetUserInfo(ctx, tokenInfo.AccessToken)
 	if err != nil {
-		fmt.Printf("[AntigravityOAuth] 警告: 获取用户信息失败: %v\n", err)
+		fmt.Printf("[AntigravityOAuth] warning: fetch user info failed: %v\n", err)
 	} else {
 		tokenInfo.Email = userInfo.Email
 	}
@@ -242,7 +242,7 @@ func (s *AntigravityOAuthService) ValidateRefreshToken(ctx context.Context, refr
 	// 获取 project_id + plan_type（容错，失败不阻塞）
 	loadResult, loadErr := s.loadProjectIDWithRetry(ctx, tokenInfo.AccessToken, proxyURL, 3)
 	if loadErr != nil {
-		fmt.Printf("[AntigravityOAuth] 警告: 获取 project_id 失败（重试后）: %v\n", loadErr)
+		fmt.Printf("[AntigravityOAuth] warning: fetch project_id failed after retries: %v\n", loadErr)
 		tokenInfo.ProjectIDMissing = true
 	}
 	if loadResult != nil {
@@ -277,12 +277,12 @@ func isNonRetryableAntigravityOAuthError(err error) bool {
 // RefreshAccountToken 刷新账户的 token
 func (s *AntigravityOAuthService) RefreshAccountToken(ctx context.Context, account *Account) (*AntigravityTokenInfo, error) {
 	if !account.IsAntigravity() || account.Type != AccountTypeOAuth {
-		return nil, fmt.Errorf("非 Antigravity OAuth 账户")
+		return nil, fmt.Errorf("not an Antigravity OAuth account")
 	}
 
 	refreshToken := account.GetCredential("refresh_token")
 	if strings.TrimSpace(refreshToken) == "" {
-		return nil, fmt.Errorf("无可用的 refresh_token")
+		return nil, fmt.Errorf("no refresh_token available")
 	}
 
 	var proxyURL string
@@ -380,27 +380,27 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 		if err != nil {
 			lastErr = err
 		} else if loadResp == nil {
-			lastErr = fmt.Errorf("LoadCodeAssist 返回空响应")
+			lastErr = fmt.Errorf("LoadCodeAssist returned an empty response")
 		} else {
-			lastErr = fmt.Errorf("LoadCodeAssist 返回空 project_id")
+			lastErr = fmt.Errorf("LoadCodeAssist returned an empty project_id")
 		}
 	}
 
 	if lastSubscription != nil {
-		return &loadCodeAssistResult{Subscription: lastSubscription}, fmt.Errorf("获取 project_id 失败 (重试 %d 次后): %w", maxRetries, lastErr)
+		return &loadCodeAssistResult{Subscription: lastSubscription}, fmt.Errorf("fetch project_id failed after %d retries: %w", maxRetries, lastErr)
 	}
-	return nil, fmt.Errorf("获取 project_id 失败 (重试 %d 次后): %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("fetch project_id failed after %d retries: %w", maxRetries, lastErr)
 }
 
 func tryOnboardProjectID(ctx context.Context, client *antigravity.Client, accessToken string, loadRaw map[string]any) (string, error) {
 	tierID := resolveDefaultTierID(loadRaw)
 	if tierID == "" {
-		return "", fmt.Errorf("loadCodeAssist 未返回可用的默认 tier")
+		return "", fmt.Errorf("loadCodeAssist returned no usable default tier")
 	}
 
 	projectID, err := client.OnboardUser(ctx, accessToken, tierID)
 	if err != nil {
-		return "", fmt.Errorf("onboardUser 失败 (tier=%s): %w", tierID, err)
+		return "", fmt.Errorf("onboardUser failed (tier=%s): %w", tierID, err)
 	}
 	return projectID, nil
 }

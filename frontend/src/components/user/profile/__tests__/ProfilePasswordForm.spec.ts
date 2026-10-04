@@ -54,9 +54,10 @@ describe('ProfilePasswordForm', () => {
     expect(wrapper.get('.input-error-text').text()).toContain('New passwords do not match')
   })
 
+  // 后端 message 不上屏：没有对应文案的错误码都落到前端兜底
   it.each([
-    [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'current password is incorrect'],
-    [{ status: 500, code: 500, message: 'backend failure' }, 'backend failure'],
+    [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'Failed to change password'],
+    [{ status: 500, code: 500, message: 'backend failure' }, 'Failed to change password'],
     [{}, 'Failed to change password'],
   ])('shows API failure %j inline', async (error, expectedMessage) => {
     changePasswordMock.mockRejectedValue(error)

@@ -68,7 +68,6 @@ export default {
     },
     promptPopover: {
       title: '完整 Prompt',
-      copied: 'Prompt 已复制',
     },
     detail: {
       title: '任务详情',

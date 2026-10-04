@@ -17,7 +17,6 @@ export default {
       docs: 'Docs',
       console: 'Console',
       login: 'Sign in',
-      openMenu: 'Open navigation',
       primaryNav: 'Primary',
       collapseSidebar: 'Collapse',
       expandSidebar: 'Expand sidebar'
@@ -29,11 +28,8 @@ export default {
     topbar: {
       balance: 'Balance',
       debt: 'Owed',
-      available: 'Available',
       frozen: 'Frozen',
-      total: 'Total',
       language: 'Language',
-      theme: 'Theme',
       switchToLight: 'Switch to light',
       switchToDark: 'Switch to dark',
       accountMenu: 'Account menu'
@@ -99,10 +95,6 @@ export default {
         today: 'Tokens today',
         range: 'Tokens, last {days} days',
         total: 'Tokens, all time'
-      },
-      models: {
-        other: 'Other',
-        empty: 'No usage in this range'
       },
       trend: {
         title: 'Usage trend'
@@ -189,7 +181,6 @@ export default {
         eyebrow: 'Request',
         request: 'Request info',
         requestId: 'Request ID',
-        requestIdCopied: 'Request ID copied',
         copy: 'Copy'
       },
       trend: {
