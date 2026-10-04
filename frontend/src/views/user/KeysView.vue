@@ -63,6 +63,7 @@
             {{ t('keys.bulkEdit.clearSelection') }}
           </button>
         </div>
+        <FormError :message="statusToggleError" data-testid="keys-status-error" />
       </div>
       <!-- 桌面表格出血到页边让行线贯通；窄屏是卡片列表，留页边距 -->
       <div class="md:-mx-6">
@@ -557,8 +558,10 @@
       :cancel-text="t('common.cancel')"
       :danger="true"
       @confirm="handleDelete"
-      @cancel="showDeleteDialog = false"
-    />
+      @cancel="cancelConfirm"
+    >
+      <FormError :message="confirmError" />
+    </ConfirmDialog>
 
     <!-- Reset Quota Confirmation Dialog -->
     <ConfirmDialog
@@ -569,8 +572,10 @@
       :cancel-text="t('common.cancel')"
       :danger="true"
       @confirm="resetQuotaUsed"
-      @cancel="showResetQuotaDialog = false"
-    />
+      @cancel="cancelConfirm"
+    >
+      <FormError :message="confirmError" />
+    </ConfirmDialog>
 
     <!-- Reset Rate Limit Confirmation Dialog -->
     <ConfirmDialog
@@ -581,8 +586,10 @@
       :cancel-text="t('common.cancel')"
       :danger="true"
       @confirm="resetRateLimitUsage"
-      @cancel="showResetRateLimitDialog = false"
-    />
+      @cancel="cancelConfirm"
+    >
+      <FormError :message="confirmError" />
+    </ConfirmDialog>
 
     <!-- CCS Client Selection Dialog：导入哪个客户端由用户选 -->
     <BaseDialog
@@ -665,7 +672,7 @@ import type { BatchApiKeyUsageStats } from '@/api/usage'
 import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import { formatCurrency, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
-import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -729,6 +736,11 @@ const loading = ref(false)
 const submitting = ref(false)
 // 新建 / 编辑弹窗的报错：校验不过或保存失败都显示在弹窗底部，不再只进控制台
 const submitError = ref('')
+// 删除 / 重置的确认弹窗：失败时弹窗不关，原因写在弹窗里；confirmBusy 防止请求途中重复点确认
+const confirmError = ref('')
+const confirmBusy = ref(false)
+// 行菜单里启用 / 停用失败的原因（没有弹窗），写在筛选栏下方
+const statusToggleError = ref('')
 const now = ref(new Date())
 let nowTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
@@ -1055,16 +1067,31 @@ const editKey = (key: ApiKey) => {
 
 const toggleKeyStatus = async (key: ApiKey) => {
   const newStatus = key.status === 'active' ? 'inactive' : 'active'
+  statusToggleError.value = ''
   try {
     await keysAPI.toggleStatus(key.id, newStatus)
     loadApiKeys({ refreshAttention: true })
   } catch (error) {
-    console.error(t('keys.failedToUpdateStatus'), error)
+    statusToggleError.value = t('keys.toggleStatusFailedFor', { name: key.name, message: keyErrorReason(error) })
+    console.error(statusToggleError.value, error)
   }
+}
+
+/** 失败原因：后端 reason 能映射就用中文，否则用后端原文 */
+const keyErrorReason = (error: unknown) => extractI18nErrorMessage(error, t, 'keys.errors', t('common.error'))
+
+const cancelConfirm = () => {
+  if (confirmBusy.value) return
+  showDeleteDialog.value = false
+  showResetQuotaDialog.value = false
+  showResetRateLimitDialog.value = false
+  resetTarget.value = null
+  confirmError.value = ''
 }
 
 const confirmDelete = (key: ApiKey) => {
   selectedKey.value = key
+  confirmError.value = ''
   showDeleteDialog.value = true
 }
 
@@ -1171,17 +1198,20 @@ const handleSubmit = async () => {
  * 若后端未返回消息则显示默认的国际化文本
  */
 const handleDelete = async () => {
-  if (!selectedKey.value) return
+  if (!selectedKey.value || confirmBusy.value) return
 
+  confirmError.value = ''
+  confirmBusy.value = true
   try {
     await keysAPI.delete(selectedKey.value.id)
     showDeleteDialog.value = false
     if (detailKey.value?.id === selectedKey.value.id) detailKey.value = null
     loadApiKeys({ refreshAttention: true })
-  } catch (error: any) {
-    // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
-    const errorMsg = error?.message || t('keys.failedToDelete')
-    console.error(errorMsg, error)
+  } catch (error: unknown) {
+    confirmError.value = t('keys.failedWithReason', { action: t('keys.failedToDelete'), message: keyErrorReason(error) })
+    console.error(confirmError.value, error)
+  } finally {
+    confirmBusy.value = false
   }
 }
 
@@ -1219,11 +1249,13 @@ watch(
 // ---------- 重置已用（详情抽屉里发起，先确认） ----------
 const confirmResetQuota = (key: ApiKey) => {
   resetTarget.value = key
+  confirmError.value = ''
   showResetQuotaDialog.value = true
 }
 
 const confirmResetRateLimit = (key: ApiKey) => {
   resetTarget.value = key
+  confirmError.value = ''
   showResetRateLimitDialog.value = true
 }
 
@@ -1237,31 +1269,37 @@ function applyKeyUpdate(updated: ApiKey) {
 
 const resetQuotaUsed = async () => {
   const key = resetTarget.value
-  if (!key) return
-  showResetQuotaDialog.value = false
+  if (!key || confirmBusy.value) return
+  confirmError.value = ''
+  confirmBusy.value = true
   try {
     const updatedKey = await keysAPI.update(key.id, { reset_quota: true })
     applyKeyUpdate({ ...key, quota_used: updatedKey.quota_used, status: updatedKey.status })
-  } catch (error: any) {
-    const errorMsg = extractApiErrorMessage(error, t('keys.failedToResetQuota'))
-    console.error(errorMsg, error)
-  } finally {
+    showResetQuotaDialog.value = false
     resetTarget.value = null
+  } catch (error: unknown) {
+    confirmError.value = t('keys.failedWithReason', { action: t('keys.failedToResetQuota'), message: keyErrorReason(error) })
+    console.error(confirmError.value, error)
+  } finally {
+    confirmBusy.value = false
   }
 }
 
 const resetRateLimitUsage = async () => {
   const key = resetTarget.value
-  if (!key) return
-  showResetRateLimitDialog.value = false
+  if (!key || confirmBusy.value) return
+  confirmError.value = ''
+  confirmBusy.value = true
   try {
     await keysAPI.update(key.id, { reset_rate_limit_usage: true })
-    await loadApiKeys({ refreshAttention: true })
-  } catch (error: any) {
-    const errorMsg = extractApiErrorMessage(error, t('keys.failedToResetRateLimit'))
-    console.error(errorMsg, error)
-  } finally {
+    showResetRateLimitDialog.value = false
     resetTarget.value = null
+    await loadApiKeys({ refreshAttention: true })
+  } catch (error: unknown) {
+    confirmError.value = t('keys.failedWithReason', { action: t('keys.failedToResetRateLimit'), message: keyErrorReason(error) })
+    console.error(confirmError.value, error)
+  } finally {
+    confirmBusy.value = false
   }
 }
 

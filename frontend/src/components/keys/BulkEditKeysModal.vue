@@ -115,18 +115,21 @@
     </form>
 
     <template #footer>
-      <button type="button" class="btn btn-secondary" :disabled="submitting" @click="close">
-        {{ t('common.cancel') }}
-      </button>
-      <button
-        type="submit"
-        form="bulk-edit-keys-form"
-        class="btn btn-primary"
-        :disabled="!canSubmit"
-        data-test="submit"
-      >
-        {{ submitting ? t('keys.saving') : t('keys.bulkEdit.apply', { count: pendingKeys.length }) }}
-      </button>
+      <div class="flex w-full flex-wrap items-center justify-end gap-3">
+        <FormError class="mr-auto min-w-0 flex-1" :message="submitError" />
+        <button type="button" class="btn btn-secondary" :disabled="submitting" @click="close">
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          type="submit"
+          form="bulk-edit-keys-form"
+          class="btn btn-primary"
+          :disabled="!canSubmit"
+          data-test="submit"
+        >
+          {{ submitting ? t('keys.saving') : t('keys.bulkEdit.apply', { count: pendingKeys.length }) }}
+        </button>
+      </div>
     </template>
   </BaseDialog>
 </template>
@@ -136,8 +139,10 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormError from '@/components/common/FormError.vue'
 import Select from '@/components/common/Select.vue'
 import type { ApiKey, UpdateApiKeyRequest } from '@/types'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 type SelectedKey = Pick<ApiKey, 'id' | 'name'>
 type LimitField = 'quota' | 'rate_limit_5h' | 'rate_limit_1d' | 'rate_limit_7d'
@@ -157,6 +162,8 @@ const { t } = useI18n()
 const submitting = ref(false)
 const pendingKeys = ref<SelectedKey[]>([])
 const failures = ref<Array<{ id: number; name: string; message: string }>>([])
+// 整批请求没发出去 / 意外失败（不是逐条失败）时的原因，显示在弹窗底部
+const submitError = ref('')
 const enabled = reactive<Record<EditableField, boolean>>({
   status: false,
   quota: false,
@@ -211,6 +218,7 @@ watch(() => props.show, (show) => {
   if (!show) return
   pendingKeys.value = props.selectedKeys.map(({ id, name }) => ({ id, name }))
   failures.value = []
+  submitError.value = ''
   for (const field of Object.keys(enabled) as EditableField[]) enabled[field] = false
   for (const { key } of limitFields) limits[key] = ''
   for (const { key } of ipFields) ipLists[key] = ''
@@ -223,10 +231,8 @@ const close = () => {
   if (!submitting.value) emit('close')
 }
 
-const errorMessage = (error: unknown): string => {
-  const message = (error as { message?: unknown } | null)?.message
-  return typeof message === 'string' && message ? message : t('keys.failedToSave')
-}
+// 逐条失败的原因：与单把编辑同一套 reason 映射（如 IP 填错），没有映射用后端原文
+const errorMessage = (error: unknown): string => extractI18nErrorMessage(error, t, 'keys.errors', t('keys.failedToSave'))
 
 const submit = async () => {
   if (!canSubmit.value) return
@@ -243,6 +249,7 @@ const submit = async () => {
   }
 
   submitting.value = true
+  submitError.value = ''
   try {
     const result = await keysAPI.bulkUpdate(pendingKeys.value.map((key) => key.id), updates)
     failures.value = result.failures.map(({ id, error }) => ({
@@ -261,7 +268,8 @@ const submit = async () => {
       emit('close')
     }
   } catch (error) {
-    console.error(errorMessage(error), error)
+    submitError.value = errorMessage(error)
+    console.error(submitError.value, error)
   } finally {
     submitting.value = false
   }
