@@ -63,7 +63,6 @@
           >
             <template #lead>
               <div class="font-medium text-af-ink">{{ t('admin.pricing.official') }}</div>
-              <div class="text-xs text-af-ink-3">{{ t('admin.pricing.officialHint', { rate: rateText }) }}</div>
             </template>
             <template #upstream><span class="text-xs text-af-ink-3">{{ t('admin.pricing.catalogName') }}</span></template>
             <template #margin><span class="text-af-ink-3">—</span></template>
@@ -222,11 +221,6 @@ function savedMargin(row: KeyedRow): number | null | undefined {
   const binding = props.entry.bindings.find((item) => item.account_id === row.id)
   return marginOf(binding?.cost_ratio, props.defaultUserRate)
 }
-
-const rateText = computed(() => {
-  const inverse = 1 / props.defaultUserRate
-  return Math.abs(inverse - Math.round(inverse)) < 1e-6 ? `1/${Math.round(inverse)}` : String(props.defaultUserRate)
-})
 
 const headerMeta = computed(() =>
   [

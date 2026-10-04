@@ -9,7 +9,6 @@ export default {
     },
     // Dashboard
     dashboard: {
-      description: '系统概览与统计数据',
       totalApiKeys: 'API 密钥总数',
       activeApiKeys: '活跃密钥',
       users: '用户',
@@ -36,9 +35,7 @@ export default {
       hour: '按小时',
       modelDistribution: '模型分布',
       modelSection: '模型用量',
-      modelSectionHint: '柱高是每段时间的 Token 总量，颜色区分模型；悬停看各模型用量，排第一的就是用得最多的',
       userSection: '用户用量',
-      userSectionHint: '按 Token 从高到低；每行的格子是这个用户各段时间的用量，越深用得越多',
       otherModels: '其他 {count} 个模型',
       bucketTotal: '合计 {value}',
       showAll: '显示全部 {count} 个',
@@ -71,7 +68,7 @@ export default {
       standardHint: '标准 {amount}',
       cacheHitRate: '缓存命中率',
       channels: '渠道',
-      schedulableCount: '{count} 可调度',
+      schedulableCount: '{count} 个可调度',
       attentionTitle: '需要处理',
       attentionError: '{count} 个渠道异常',
       attentionRateLimited: '{count} 个渠道限流中',
@@ -84,7 +81,6 @@ export default {
 
     // Users Management
     users: {
-      description: '管理用户账户和权限',
       createUser: '创建用户',
       bulkDelete: {
         title: '删除已选用户',
@@ -97,7 +93,7 @@ export default {
         todayActive: '今日活跃',
         todayActiveHint: '调用过 API',
         apiKeys: 'API 密钥',
-        apiKeysActive: '{count} 个启用'
+        apiKeysInactive: '{count} 个停用'
       },
       // 用户详情抽屉（A5）
       detail: {
@@ -157,7 +153,7 @@ export default {
       },
       editUser: '编辑用户',
       deleteUser: '删除用户',
-      searchUsers: '搜索邮箱、用户名、备注或 API 密钥',
+      searchUsers: '搜索邮箱、用户名、备注或密钥',
       admin: '管理员',
       user: '用户',
       disabled: '禁用',

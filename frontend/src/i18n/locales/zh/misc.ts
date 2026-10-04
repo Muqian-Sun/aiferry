@@ -3,7 +3,6 @@ export default {
 
   // Recharge / Subscription Page
   purchase: {
-    rechargeDescription: '充值到余额，调用时按量从余额扣费',
     subscriptionDescription: '购买订阅套餐，在套餐额度内使用'
   },
 
@@ -40,7 +39,6 @@ export default {
   // User Subscriptions Page
   userSubscriptions: {
     title: '我的订阅',
-    description: '查看你的订阅计划和用量',
     unnamedPlan: '订阅套餐',
     noActiveSubscriptions: '没有有效订阅',
     noActiveSubscriptionsDesc: '你没有任何有效订阅。请联系管理员获取订阅。',

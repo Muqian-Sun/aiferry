@@ -48,10 +48,12 @@
             <!-- 标签在上、数字在下：与用量页、各列表页的数字带同一种排法（原来这里数字在上） -->
             <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               <div v-for="cell in row.cells" :key="cell.key" class="flex min-w-0 flex-col">
-                <dt class="truncate text-13 text-af-ink-3" :title="cell.title">
-                  {{ cell.label }}<span v-if="cell.hint"> · {{ cell.hint }}</span>
-                </dt>
-                <dd class="mt-1 truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</dd>
+                <dt class="truncate text-13 text-af-ink-3" :title="cell.title">{{ cell.label }}</dt>
+                <!-- 附注跟在数字后面（与数字行 StatRow 同一种排法），不塞进标签里 -->
+                <dd class="mt-1 flex min-w-0 items-baseline gap-2">
+                  <span class="truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</span>
+                  <span v-if="cell.hint" class="truncate text-xs text-af-ink-3">{{ cell.hint }}</span>
+                </dd>
               </div>
             </dl>
           </div>
@@ -86,7 +88,7 @@
         <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
       </SheetSection>
 
-      <SheetSection :title="t('admin.dashboard.modelSection')" :description="t('admin.dashboard.modelSectionHint')" data-testid="dashboard-models">
+      <SheetSection :title="t('admin.dashboard.modelSection')" data-testid="dashboard-models">
         <ModelTokenTrendChart :points="modelTrend" :days="bucketKeys" :series="modelSeries" :loading="chartsLoading" />
         <DashboardModelTable
           class="mt-6"
@@ -98,7 +100,7 @@
         />
       </SheetSection>
 
-      <SheetSection :title="t('admin.dashboard.userSection')" :description="t('admin.dashboard.userSectionHint')" data-testid="dashboard-users">
+      <SheetSection :title="t('admin.dashboard.userSection')" data-testid="dashboard-users">
         <DashboardUserTable :points="userTrend" :days="bucketKeys" :total-tokens="rangeTotalTokens" :loading="chartsLoading" @select="goToUserUsage" />
       </SheetSection>
     </div>

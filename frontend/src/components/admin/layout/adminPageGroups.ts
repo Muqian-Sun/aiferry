@@ -8,14 +8,12 @@ export type AdminPageGroupKey = 'subscriptions' | 'orders' | 'review'
 
 export interface AdminPageGroup {
   titleKey: string
-  descriptionKey: string
   tabs: Array<{ path: string; labelKey: string; siteFeature?: SiteFeature }>
 }
 
 export const ADMIN_PAGE_GROUPS: Record<AdminPageGroupKey, AdminPageGroup> = {
   subscriptions: {
     titleKey: 'nav.subscriptions',
-    descriptionKey: 'nav.groupDescriptions.subscriptions',
     tabs: [
       { path: '/subscriptions', labelKey: 'nav.tabs.subscriptions' },
       { path: '/orders/plans', labelKey: 'nav.tabs.plans' }
@@ -23,7 +21,6 @@ export const ADMIN_PAGE_GROUPS: Record<AdminPageGroupKey, AdminPageGroup> = {
   },
   orders: {
     titleKey: 'nav.orders',
-    descriptionKey: 'nav.groupDescriptions.orders',
     tabs: [
       { path: '/orders', labelKey: 'nav.tabs.orders' },
       { path: '/orders/dashboard', labelKey: 'nav.tabs.collections' }
@@ -31,7 +28,6 @@ export const ADMIN_PAGE_GROUPS: Record<AdminPageGroupKey, AdminPageGroup> = {
   },
   review: {
     titleKey: 'nav.review',
-    descriptionKey: 'nav.groupDescriptions.review',
     tabs: [
       { path: '/risk-control', labelKey: 'nav.tabs.moderation' },
       { path: '/prompt-audit', labelKey: 'nav.tabs.prompts', siteFeature: 'promptAudit' }

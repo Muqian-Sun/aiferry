@@ -53,7 +53,8 @@
 
         <!-- 管理站：密钥 / 渠道查不到名字就是已删除；用户站保持原样 -->
         <template #cell-api_key="{ row }">
-          <span class="text-sm text-af-ink">{{ row.api_key?.name || (isAdmin ? t('common.deletedKey') : '-') }}</span>
+          <!-- 有密钥 id 却没名字就是这把密钥已删除（两站一样写明，不显示内部 id） -->
+          <span class="text-sm text-af-ink">{{ row.api_key?.name || (row.api_key_id ? t('common.deletedKey') : '-') }}</span>
         </template>
 
         <template #cell-account="{ row }">

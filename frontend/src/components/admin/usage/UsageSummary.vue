@@ -1,6 +1,6 @@
 <template>
   <!--
-    用量页数字摘要：请求 · Token · 收入 · 成本 · 利润；缓存命中率、平均响应（从概览挪来）作次要数字排在后面，小一号、墨色浅一档。
+    用量页数字摘要：请求 · Token · 收入 · 成本 · 利润 · 缓存命中率 · 平均响应，七个数同一字号（2026-10-05：原来后两个小一号，看着像没对齐）。
     版式照 StatRow（行内大数字、竖 hairline 分隔，lg 以下两列网格）。利润为负要标红，StatRow 没有这个口子，所以这里自己画。
   -->
   <dl class="grid grid-cols-2 gap-y-4 lg:flex lg:items-baseline lg:divide-x lg:divide-af-hairline" data-testid="usage-summary">
@@ -9,7 +9,7 @@
       :key="item.key"
       class="min-w-0 pr-6 lg:px-6 lg:first:pl-0 lg:last:pr-0"
       :class="[
-        item.secondary ? 'lg:flex-none' : 'lg:flex-1',
+        'lg:flex-1',
         index >= 2 ? 'border-t border-af-hairline pt-4 lg:border-t-0 lg:pt-0' : '',
         // 两列时项数为奇数：最后一项占满一行，分隔线不会只画半截
         index === items.length - 1 && items.length % 2 === 1 ? 'col-span-2' : ''
@@ -18,8 +18,8 @@
     >
       <dt class="truncate text-13 text-af-ink-3" :title="item.title">{{ item.label }}</dt>
       <dd
-        class="mt-1.5 font-semibold tabular-nums"
-        :class="[item.secondary ? 'text-lg' : 'text-2xl tracking-[-0.01em]', item.valueClass]"
+        class="mt-1.5 text-2xl font-semibold tracking-[-0.01em] tabular-nums"
+        :class="item.valueClass"
         :title="item.title"
       >
         {{ item.value }}
@@ -44,7 +44,6 @@ interface SummaryItem {
   value: string
   title?: string
   valueClass: string
-  secondary?: boolean
 }
 
 const num = (value: unknown): number => {
@@ -95,15 +94,13 @@ const items = computed<SummaryItem[]>(() => {
       key: 'cacheHitRate',
       label: t('admin.usage.summary.cacheHitRate'),
       value: hitShare === null ? '—' : `${(hitShare * 100).toFixed(hitShare > 0 && hitShare < 0.1 ? 1 : 0)}%`,
-      valueClass: 'text-af-ink-2',
-      secondary: true
+      valueClass: 'text-af-ink'
     },
     {
       key: 'avgResponse',
       label: t('admin.usage.summary.avgResponse'),
       value: formatDuration(num(s.average_duration_ms)),
-      valueClass: 'text-af-ink-2',
-      secondary: true
+      valueClass: 'text-af-ink'
     }
   ]
 })

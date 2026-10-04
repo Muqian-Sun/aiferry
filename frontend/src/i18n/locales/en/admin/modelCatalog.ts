@@ -1,7 +1,6 @@
 export default {
   modelCatalog: {
-    description: 'Official model prices and aliases.',
-    search: 'Search by model id, display name, vendor or alias',
+    search: 'Model, vendor or alias',
     create: 'New model',
     noMatch: 'No entries match',
     noneListed: 'No models are listed yet',
@@ -12,7 +11,6 @@ export default {
       listedWithoutResources: 'Listed without a schedulable channel',
       showThem: 'Filter'
     },
-    filtered: '{count} after filters',
     aliasCount: '{count} aliases',
     filters: {
       noVendor: '(no vendor)',

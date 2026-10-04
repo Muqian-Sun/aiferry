@@ -43,7 +43,6 @@ export default {
 
     // Proxies
     proxies: {
-      description: 'Manage proxy servers for accounts',
       createProxy: 'Create Proxy',
       editProxy: 'Edit Proxy',
       deleteProxy: 'Delete Proxy',
@@ -271,7 +270,6 @@ export default {
 
     // Announcements
     announcements: {
-      description: 'Create announcements and target by conditions',
       noAnnouncementsYet: 'No announcements yet',
       emptyHint: 'Active announcements pop up after users sign in',
       createAnnouncement: 'Create Announcement',
@@ -343,7 +341,6 @@ export default {
 
     // Usage Records
     usage: {
-      description: 'View and manage all user usage records',
       tabs: { records: 'Records', errors: 'Errors' },
       moreFilters: 'More filters',
       clearFilters: 'Clear filters',
@@ -369,9 +366,9 @@ export default {
         webSearchRevenueHint: 'Charged at the official price, not multiplied by the user rate'
       },
       userFilter: 'User',
-      searchUserPlaceholder: 'Search user by email...',
-      searchApiKeyPlaceholder: 'Search API key by name...',
-      searchAccountPlaceholder: 'Search channel by name...',
+      searchUserPlaceholder: 'Search user...',
+      searchApiKeyPlaceholder: 'Search key...',
+      searchAccountPlaceholder: 'Search channel...',
       user: 'User',
       account: 'Channel',
       requestId: 'Request ID',

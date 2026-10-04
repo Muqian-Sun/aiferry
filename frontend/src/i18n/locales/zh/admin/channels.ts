@@ -1,12 +1,10 @@
 export default {
     channelStatus: {
-      description: '按渠道看最近的可用率、首字延迟、缓存命中率与请求数，与用户站服务状态同一份统计',
       filters: { model: '模型', platform: '平台' },
       loadFailed: '渠道状态没有加载出来',
       stats: { requests: '请求数' },
       channels: {
         title: '各渠道',
-        description: '有问题的排在前面；点渠道进编辑页。色条从左到右是时间，一格是一段，悬停看那一段的数字',
         search: '搜索渠道',
         empty: '还没有渠道',
         noMatch: '没有匹配的渠道',
@@ -14,7 +12,7 @@ export default {
         showIdle: '展开',
         hideIdle: '收起',
         unrouted: '没选到渠道',
-        unroutedHint: '请求没分到任何渠道就失败了（如没有可用渠道）',
+        unroutedHint: '无可用渠道',
         deleted: '已删除',
         requests: '请求',
         filter: { label: '按状态筛选', all: '全部', issues: '有问题 {count}', healthy: '正常 {count}' }
@@ -23,7 +21,6 @@ export default {
 
 
     riskControl: {
-      description: '设置内容审计策略，查看审核记录',
       loadFailed: '加载内容审核失败',
       saveFailed: '保存内容审计设置失败',
       logsFailed: '加载审核记录失败',
@@ -92,7 +89,6 @@ export default {
       queueDelay: '排队 {ms} ms',
       emptyLogs: '还没有审核记录',
       preBlockSyncStatus: '前置拦截同步状态',
-      preBlockSyncHint: '同步审核链路的实时计数，不包含异步写记录任务。',
       preBlockActive: '同步处理中',
       preBlockChecked: '已检查',
       preBlockAllowed: '已放行',
@@ -100,7 +96,6 @@ export default {
       preBlockErrors: '审核异常',
       preBlockAvgLatency: '平均耗时',
       preBlockAPIKeyLoad: '审核密钥负载',
-      preBlockAPIKeyLoadHint: '同步前置拦截直接轮询可用审核密钥。',
       preBlockAPIKeyLoadSummary: '同步并发 {active} / 可用密钥 {available}，累计 {total} 次，工作线程：{workerActive} / {workerTotal}',
       preBlockAPIKeyTotals: '累计 {total}，成功 {success}，异常 {errors}',
       preBlockAPIKeyLoadEmpty: '还没有审核密钥负载数据',
@@ -109,7 +104,6 @@ export default {
       preBlockKeyAvgShort: '平均',
       preBlockKeyLastShort: '最近',
       workerStatus: '工作线程运行状态',
-      workerStatusHint: '异步审计任务和前置拦截记录任务的队列与工作线程池状态，不包含同步前置拦截审核请求。',
       workerPool: '工作线程池',
       workerPoolMeta: '{active} 个处理中，{idle} 个空闲可用，共 {total} 个',
       queueUsage: '队列占用',
@@ -220,7 +214,6 @@ export default {
         itemFailed: '操作失败'
       },
       title: '订阅管理',
-      description: '管理用户订阅和限额',
       assignSubscription: '分配订阅',
       adjustSubscription: '调整订阅',
       revokeSubscription: '撤销订阅',

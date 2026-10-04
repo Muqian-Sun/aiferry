@@ -43,7 +43,6 @@ export default {
 
     // Proxies Management
     proxies: {
-      description: '管理代理服务器',
       createProxy: '添加代理',
       editProxy: '编辑代理',
       deleteProxy: '删除代理',
@@ -269,7 +268,6 @@ export default {
 
     // Announcements
     announcements: {
-      description: '创建公告并按条件投放',
       noAnnouncementsYet: '还没有公告',
       emptyHint: '「展示中」的公告会在用户登录后弹出',
       createAnnouncement: '创建公告',
@@ -341,7 +339,6 @@ export default {
 
     // Usage Records
     usage: {
-      description: '查看和管理所有用户的使用记录',
       tabs: { records: '明细', errors: '错误' },
       moreFilters: '更多筛选',
       clearFilters: '清除筛选',
@@ -367,9 +364,9 @@ export default {
         webSearchRevenueHint: '按官方原价收，不乘用户倍率'
       },
       userFilter: '用户',
-      searchUserPlaceholder: '按邮箱搜索用户…',
-      searchApiKeyPlaceholder: '按名称搜索 API 密钥…',
-      searchAccountPlaceholder: '按名称搜索渠道…',
+      searchUserPlaceholder: '搜索用户…',
+      searchApiKeyPlaceholder: '搜索密钥…',
+      searchAccountPlaceholder: '搜索渠道…',
       user: '用户',
       account: '渠道',
       requestId: '请求 ID',

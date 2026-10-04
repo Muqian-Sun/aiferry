@@ -11,7 +11,7 @@ AiFerry 是一个 AI API 网关平台：统一接入上游资源（OAuth 成品�
 只支持 Docker Compose 部署。镜像 `aiferry:${AIFERRY_VERSION:-latest}` 由本仓库根目录的 `Dockerfile` 在本地构建，不从任何镜像仓库拉取。
 
 ```bash
-git clone https://github.com/Muqian-Sun/tokenferry.git aiferry
+git clone https://github.com/Muqian-Sun/aiferry.git
 cd aiferry/deploy
 
 cp .env.example .env

@@ -160,7 +160,7 @@ describe('admin RiskControlView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('admin.riskControl.workerStatusHint')
+    expect(wrapper.text()).toContain('admin.riskControl.workerStatus')
     expect(wrapper.text()).not.toContain('admin.riskControl.preBlockSyncStatus')
     expect(wrapper.text()).toContain('admin.riskControl.records')
     expect(wrapper.text()).toContain('12')
@@ -228,7 +228,6 @@ describe('admin RiskControlView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('admin.riskControl.preBlockSyncStatus')
-    expect(wrapper.text()).toContain('admin.riskControl.preBlockSyncHint')
     expect(wrapper.text()).not.toContain('admin.riskControl.workerStatus')
     expect(wrapper.text()).toContain('admin.riskControl.records')
     expect(wrapper.text()).toContain('128')
@@ -249,9 +248,7 @@ describe('admin RiskControlView', () => {
     expect(syncCard.element.parentElement).toBe(runtimeCards.element)
     expect(apiKeyLoadCard.element.parentElement).toBe(runtimeCards.element)
     expect(syncCard.get('h2').text()).toBe('admin.riskControl.preBlockSyncStatus')
-    expect(syncCard.text()).toContain('admin.riskControl.preBlockSyncHint')
     expect(apiKeyLoadCard.get('h2').text()).toBe('admin.riskControl.preBlockAPIKeyLoad')
-    expect(apiKeyLoadCard.text()).toContain('admin.riskControl.preBlockAPIKeyLoadHint')
     expect(wrapper.get('[data-test="pre-block-api-key-load-list"]').classes()).toEqual(expect.arrayContaining([
       'max-h-[280px]',
       'overflow-y-auto',

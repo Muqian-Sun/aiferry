@@ -1,12 +1,10 @@
 export default {
     channelStatus: {
-      description: 'Recent availability, time to first token, cache hit rate and requests per channel — the same statistics as the public service status',
       filters: { model: 'Model', platform: 'Platform' },
       loadFailed: 'Could not load channel status',
       stats: { requests: 'Requests' },
       channels: {
         title: 'Channels',
-        description: 'Problems first; open a channel to edit it. Time runs left to right, one block per period; hover a block for its numbers',
         search: 'Search channels',
         empty: 'No channels yet',
         noMatch: 'No matching channels',
@@ -14,7 +12,7 @@ export default {
         showIdle: 'Show',
         hideIdle: 'Hide',
         unrouted: 'No channel selected',
-        unroutedHint: 'Requests that failed before reaching any channel (e.g. none available)',
+        unroutedHint: 'No channel available',
         deleted: 'Deleted',
         requests: 'Requests',
         filter: { label: 'Filter by status', all: 'All', issues: 'Problems {count}', healthy: 'Normal {count}' }
@@ -23,7 +21,6 @@ export default {
 
 
     riskControl: {
-      description: 'Configure content moderation and review audit records',
       loadFailed: 'Failed to load content moderation',
       saveFailed: 'Failed to save content moderation config',
       logsFailed: 'Failed to load audit records',
@@ -92,7 +89,6 @@ export default {
       queueDelay: 'Queued {ms} ms',
       emptyLogs: 'No audit records',
       preBlockSyncStatus: 'Pre-Block Sync Status',
-      preBlockSyncHint: 'Live counters for the synchronous moderation path, excluding async record tasks.',
       preBlockActive: 'Sync Processing',
       preBlockChecked: 'Checked',
       preBlockAllowed: 'Allowed',
@@ -100,7 +96,6 @@ export default {
       preBlockErrors: 'Audit Errors',
       preBlockAvgLatency: 'Avg Latency',
       preBlockAPIKeyLoad: 'Audit Key Load',
-      preBlockAPIKeyLoadHint: 'Synchronous pre-block checks round-robin usable audit keys directly.',
       preBlockAPIKeyLoadSummary: 'Sync active {active} / usable keys {available}, {total} total, worker: {workerActive} / {workerTotal}',
       preBlockAPIKeyTotals: 'Total {total}, success {success}, errors {errors}',
       preBlockAPIKeyLoadEmpty: 'No audit key load data yet',
@@ -109,7 +104,6 @@ export default {
       preBlockKeyAvgShort: 'Avg',
       preBlockKeyLastShort: 'Last',
       workerStatus: 'Worker Runtime',
-      workerStatusHint: 'Queue and worker pool status for async audit tasks and pre-block record tasks, excluding synchronous pre-block checks.',
       workerPool: 'Worker Pool',
       workerPoolMeta: '{active} processing, {idle} idle and ready, {total} total',
       queueUsage: 'Queue Usage',
@@ -220,7 +214,6 @@ export default {
         itemFailed: 'Action failed'
       },
       title: 'Subscription Management',
-      description: 'Manage user subscriptions and quota limits',
       assignSubscription: 'Assign Subscription',
       adjustSubscription: 'Adjust Subscription',
       revokeSubscription: 'Revoke Subscription',

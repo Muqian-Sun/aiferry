@@ -32,11 +32,11 @@
           数字用数字行（黑色）；红绿黄只留在结果徽标与状态点上。
         -->
         <div v-if="showPreBlockRuntimeCard" data-test="pre-block-runtime-cards" class="space-y-8 border-t border-af-hairline pt-6">
-          <SheetSection data-test="pre-block-sync-card" :title="t('admin.riskControl.preBlockSyncStatus')" :description="t('admin.riskControl.preBlockSyncHint')">
+          <SheetSection data-test="pre-block-sync-card" :title="t('admin.riskControl.preBlockSyncStatus')">
             <StatRow :items="preBlockMetricItems" data-test="pre-block-metric-grid" />
           </SheetSection>
 
-          <SheetSection data-test="pre-block-api-key-load-card" :title="t('admin.riskControl.preBlockAPIKeyLoad')" :description="t('admin.riskControl.preBlockAPIKeyLoadHint')">
+          <SheetSection data-test="pre-block-api-key-load-card" :title="t('admin.riskControl.preBlockAPIKeyLoad')">
             <template #actions>
               <span class="text-13 tabular-nums text-af-ink-3">{{ preBlockAPIKeyLoadSummaryText }}</span>
             </template>
@@ -88,7 +88,7 @@
           </SheetSection>
         </div>
 
-        <SheetSection v-if="showWorkerRuntimeCard" :title="t('admin.riskControl.workerStatus')" :description="t('admin.riskControl.workerStatusHint')">
+        <SheetSection v-if="showWorkerRuntimeCard" :title="t('admin.riskControl.workerStatus')">
           <template #actions>
             <span class="text-13 text-af-ink-3">
               {{ t('admin.riskControl.autoRefresh') }}

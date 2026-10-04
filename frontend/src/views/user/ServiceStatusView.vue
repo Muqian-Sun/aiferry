@@ -50,7 +50,7 @@
       </section>
 
       <!-- ② 各模型 -->
-      <SheetSection :title="t('userUi.serviceStatus.models.title')" :description="t('userUi.serviceStatus.models.description')">
+      <SheetSection :title="t('userUi.serviceStatus.models.title')">
         <template v-if="rows.length > SEARCH_THRESHOLD" #actions>
           <SegmentedControl v-model="healthFilter" :options="filterOptions" :label="t('userUi.serviceStatus.models.filter.label')" />
           <div class="w-full sm:w-48">
@@ -129,8 +129,6 @@
           </ul>
         </template>
       </SheetSection>
-
-      <p class="text-xs text-af-ink-3">{{ t('userUi.serviceStatus.footnote') }}</p>
     </div>
   </SiteShell>
 </template>

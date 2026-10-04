@@ -1,10 +1,19 @@
 <template>
   <AppLayout>
-    <!-- 三个安全组件本身是平铺区块（与用户站共用），管理端在这里套卡片 -->
-    <div data-testid="account-security-shell" class="mx-auto max-w-[950px] space-y-6">
-      <div class="card p-6"><ProfilePasswordForm /></div>
-      <div class="card p-6"><ProfileTotpCard /></div>
-      <div class="card p-6"><ProfilePasskeyCard :enabled="passkeyEnabled" /></div>
+    <!--
+      与用户站「基本信息」同一种两栏设置行（左标题 + 说明，右内容），行间 hairline，不套卡片（2026-10-05）；
+      Passkey 只在站点开启了才出现。-mt-8 抵掉第一行的顶部留白。
+    -->
+    <div data-testid="account-security-shell" class="-mt-8 divide-y divide-af-hairline">
+      <SettingsRow :title="t('profile.changePassword')" :description="t('userUi.account.rows.passwordDesc')">
+        <ProfilePasswordForm headless />
+      </SettingsRow>
+      <SettingsRow :title="t('profile.totp.title')" :description="t('profile.totp.description')">
+        <ProfileTotpCard headless />
+      </SettingsRow>
+      <SettingsRow v-if="passkeyEnabled" :title="t('profile.passkey.title')" :description="t('profile.passkey.description')">
+        <ProfilePasskeyCard :enabled="passkeyEnabled" headless />
+      </SettingsRow>
     </div>
   </AppLayout>
 </template>
@@ -15,13 +24,16 @@
  * 用户站功能，对应接口也不在管理后台注册。
  */
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
 import ProfileTotpCard from '@/components/user/profile/ProfileTotpCard.vue'
 import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const passkeyEnabled = ref(false)

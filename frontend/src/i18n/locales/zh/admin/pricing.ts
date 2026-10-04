@@ -1,6 +1,5 @@
 export default {
   pricing: {
-    description: '官方价与每个渠道的上游价。给模型加一个渠道，就是让这个渠道承接这个模型。',
     views: {
       label: '查看方式',
       model: '按模型',
@@ -15,8 +14,8 @@ export default {
       problems: '有问题的',
       unsaved: '未保存的'
     },
-    basis: '单价按 $ / 百万 Token。毛利按默认售价（官方价 × {rate}）算；最低毛利率 {margin}，低于它的承接，利润门会跳过。',
-    basisGateOff: '单价按 $ / 百万 Token。毛利按默认售价（官方价 × {rate}）算；利润门已关闭。',
+    basis: '$ / 百万 Token · 毛利按默认售价（官方价 × {rate}）算，低于 {margin} 的承接利润门会跳过',
+    basisGateOff: '$ / 百万 Token · 毛利按默认售价（官方价 × {rate}）算 · 利润门已关闭',
     unsavedBlocks: '{count} 块未保存',
     empty: '没有符合条件的模型或渠道',
     loadFailed: '价格加载失败',
@@ -59,7 +58,6 @@ export default {
     catalogName: '目录标识',
     sameName: '同名',
     upstreamModelHint: '这个渠道给这个模型用的模型名；留空 = 与目录模型标识同名。用户只能请求目录模型标识，转发时只转换这一次。',
-    officialHint: '售价 = 官方价 × 用户倍率（默认 {rate}）',
     officialRef: '官方 {price}',
     officialUnset: '官方未设',
     officialReadOnly: '这个视图里官方价只作参考，要改官方价请切到「按模型」。',

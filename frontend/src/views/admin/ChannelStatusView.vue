@@ -37,7 +37,7 @@
       </section>
 
       <!-- ② 各渠道 -->
-      <SheetSection :title="t('admin.channelStatus.channels.title')" :description="t('admin.channelStatus.channels.description')">
+      <SheetSection :title="t('admin.channelStatus.channels.title')">
         <template #actions>
           <SegmentedControl v-model="healthFilter" :options="filterOptions" :label="t('admin.channelStatus.channels.filter.label')" />
           <div class="w-full sm:w-48">
@@ -135,8 +135,6 @@
           </ul>
         </template>
       </SheetSection>
-
-      <p class="text-xs text-af-ink-3">{{ t('userUi.serviceStatus.footnote') }}</p>
     </div>
   </AppLayout>
 </template>

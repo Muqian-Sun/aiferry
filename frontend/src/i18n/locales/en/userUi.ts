@@ -136,7 +136,7 @@ export default {
       },
       gettingStarted: {
         title: 'Get started',
-        description: 'Put the base URL and a key into your SDK or client and start calling. After your first request this page switches to your usage overview.',
+        description: 'Put the base URL and a key into your SDK or client and start calling.',
         baseUrl: 'Base URL',
         key: 'Your key',
         noKey: 'No active key yet',
@@ -151,7 +151,6 @@ export default {
     },
     billing: {
       title: 'Billing',
-      description: 'Top up, subscriptions and redeem codes',
       tabs: {
         recharge: 'Top up',
         subscriptions: 'Subscriptions'
@@ -159,7 +158,6 @@ export default {
     },
     usage: {
       title: 'Usage details',
-      description: 'Where the money went, and what happened to each request',
       moreActions: 'More actions',
       moreFilters: 'More filters',
       clearFilters: 'Clear filters',
@@ -201,11 +199,6 @@ export default {
         security: 'Security',
         notifications: 'Notifications'
       },
-      descriptions: {
-        profile: 'Avatar, username and account details',
-        security: 'Linked sign-ins, password, two-factor and passkeys',
-        notifications: 'Email alerts when your balance runs low'
-      },
       notificationsOff: 'Balance alerts are not enabled on this site',
       rows: {
         overview: 'Account',
@@ -219,11 +212,10 @@ export default {
     },
     models: {
       title: 'Models',
-      description: 'Listed models and their list prices, billed per token or per request',
       hero: {
         title: 'Every model, ',
         titleAccent: 'priced in the open',
-        description: 'Every listed model and its list price, in one place. Search or filter by vendor, then copy a model ID and call it.'
+        description: 'Copy a model ID and call it.'
       },
       allVendors: 'All',
       allBilling: 'All billing',
@@ -286,7 +278,6 @@ export default {
         unitPerSecond: 'USD / second',
         noPricing: 'The catalog has no price for this model yet.'
       },
-      priceNote: 'Every request and its charge is recorded on the usage page.',
       segmentRange: 'Input tokens',
       segmentNote: 'Segmented models bill the whole request at the segment its input tokens (input + cache write + cache read) fall into.',
       copyId: 'Copy model ID',
@@ -306,12 +297,11 @@ export default {
     },
     serviceStatus: {
       title: 'Service status',
-      description: 'Recent availability, time to first token and cache hit rate for each model, measured from real requests on this site',
+      description: 'Measured from real requests on this site',
       range: { label: 'Time range', '90m': '90 min', '24h': '24 hours', '7d': '7 days', '30d': '30 days' },
       stats: { availability: 'Availability', ttft: 'Time to first token (median)', ttftP90: '90% within {value}', cache: 'Cache hit rate' },
       models: {
         title: 'Models',
-        description: 'Problems first. Time runs left to right, one block per period; hover a block for its numbers',
         search: 'Search models',
         filter: { label: 'Filter by status', all: 'All', issues: 'Problems {count}', healthy: 'Normal {count}' },
         empty: 'No model data for this period yet',
@@ -326,7 +316,6 @@ export default {
       slot: { detail: '{time}  Availability {availability} · First token {ttft} · Cache hits {cache}', fewRequests: ' (too few requests to rate)', noRequests: '{time}  No requests' },
       trend: { title: 'Overall trend', empty: 'No data for this period yet' },
       loadFailed: 'Could not load service status',
-      footnote: 'Measured from real requests on this site. Time to first token is the time from sending a request to receiving the first output; cache hit rate is the share of input tokens served from cache.'
     }
   }
 }

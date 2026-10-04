@@ -1,6 +1,5 @@
 export default {
   pricing: {
-    description: 'Official prices and each channel’s upstream price. Adding a channel to a model makes that channel serve the model.',
     views: {
       label: 'View',
       model: 'By model',
@@ -15,8 +14,8 @@ export default {
       problems: 'With problems',
       unsaved: 'Unsaved'
     },
-    basis: 'Prices are $ / 1M tokens. Margin uses the default sale price (official × {rate}); minimum margin {margin} — the profit gate skips bindings below it.',
-    basisGateOff: 'Prices are $ / 1M tokens. Margin uses the default sale price (official × {rate}); the profit gate is off.',
+    basis: '$ / 1M tokens · margin uses the default sale price (official × {rate}); the profit gate skips bindings below {margin}',
+    basisGateOff: '$ / 1M tokens · margin uses the default sale price (official × {rate}) · profit gate off',
     unsavedBlocks: '{count} unsaved',
     empty: 'No models or channels match',
     loadFailed: 'Failed to load prices',
@@ -59,7 +58,6 @@ export default {
     catalogName: 'Catalog ID',
     sameName: 'Same name',
     upstreamModelHint: 'The model name this channel uses for this model; blank = same as the catalog model ID. Users can only request catalog model IDs, and the name is converted exactly once when forwarding.',
-    officialHint: 'Sale price = official × user rate (default {rate})',
     officialRef: 'Official {price}',
     officialUnset: 'No official',
     officialReadOnly: 'Official prices are for reference here; switch to “By model” to edit them.',

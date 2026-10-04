@@ -159,11 +159,6 @@ export default {
       moderation: 'Content moderation',
       prompts: 'Prompts'
     },
-    groupDescriptions: {
-      subscriptions: 'Subscriptions users hold and the plans on sale',
-      orders: 'Top-up and subscription orders, collection overview',
-      review: 'Moderate request content; block and record matches'
-    },
     announcements: 'Announcements',
     usage: 'Usage',
     accountSecurity: 'Account Security',

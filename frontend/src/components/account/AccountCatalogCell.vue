@@ -12,7 +12,9 @@
     @click.stop="emit('open')"
   >
     <span data-testid="account-catalog-count">{{ listedCount }}</span>
-    <span v-if="unlistedCount > 0" class="ml-1 text-xs text-af-ink-3" data-testid="account-catalog-unlisted">
+    <!-- 数字和「M 个未上架」之间加个间隔点，不然读成「31 个未上架」 -->
+    <span v-if="unlistedCount > 0" class="mx-1 text-xs text-af-ink-4" aria-hidden="true">·</span>
+    <span v-if="unlistedCount > 0" class="text-xs text-af-ink-3" data-testid="account-catalog-unlisted">
       {{ t('admin.accounts.catalogUnlistedCount', { count: unlistedCount }) }}
     </span>
   </button>

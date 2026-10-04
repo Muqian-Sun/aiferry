@@ -26,7 +26,7 @@ repository (repo root `Dockerfile`) and is never pulled from or pushed to a regi
 ### Quick Start
 
 ```bash
-git clone https://github.com/Muqian-Sun/tokenferry.git aiferry
+git clone https://github.com/Muqian-Sun/aiferry.git
 cd aiferry/deploy
 
 # Configure environment
@@ -195,7 +195,7 @@ scp aiferry-complete.tar.gz user@new-server:/path/to/destination/
 
 # On new server: clone the repository (needed to build the image),
 # extract the archive over its deploy/ directory, then start
-git clone https://github.com/Muqian-Sun/tokenferry.git aiferry
+git clone https://github.com/Muqian-Sun/aiferry.git
 cd aiferry
 tar xzf /path/to/destination/aiferry-complete.tar.gz
 cd deploy
