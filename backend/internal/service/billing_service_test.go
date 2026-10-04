@@ -160,14 +160,14 @@ func TestGetModelPricing_FallbackWarnLoggedOncePerModel(t *testing.T) {
 	svc := newTestBillingService()
 	buf := captureStdLog(t)
 
-	// glm-5.2 不在 LiteLLM,经 strings.Contains 命中 glm-5 兜底价 → 触发 fallback warn。
+	// claude-mystery-9 不在 LiteLLM、内置表也没有它的条目,按 Claude 系列兜底到 Sonnet 价 → 触发 fallback warn。
 	for i := 0; i < 5; i++ {
-		pricing, err := svc.GetModelPricing("glm-5.2")
+		pricing, err := svc.GetModelPricing("claude-mystery-9")
 		require.NoError(t, err)
 		require.NotNil(t, pricing)
 	}
 
-	got := strings.Count(buf.String(), "Using fallback pricing for model: glm-5.2")
+	got := strings.Count(buf.String(), "Using fallback pricing for model: claude-mystery-9")
 	require.Equal(t, 1, got, "同一模型的 fallback warn 应只打一条,实际日志:\n%s", buf.String())
 }
 
@@ -177,15 +177,32 @@ func TestGetModelPricing_FallbackWarnPerModelNotGlobal(t *testing.T) {
 	buf := captureStdLog(t)
 
 	for i := 0; i < 3; i++ {
-		_, _ = svc.GetModelPricing("glm-5.2")
-		_, _ = svc.GetModelPricing("GLM-5.2") // 与上一行同模型(ToLower 后),去重后不再打
-		_, _ = svc.GetModelPricing("glm-4.6")
+		_, _ = svc.GetModelPricing("claude-mystery-9")
+		_, _ = svc.GetModelPricing("CLAUDE-MYSTERY-9") // 与上一行同模型(ToLower 后),去重后不再打
+		_, _ = svc.GetModelPricing("claude-mystery-10")
 	}
 
 	out := buf.String()
-	require.Equal(t, 1, strings.Count(out, "model: glm-5.2"), out)
-	require.Equal(t, 1, strings.Count(out, "model: glm-4.6"), out)
-	require.Equal(t, 0, strings.Count(out, "model: GLM-5.2"), out) // 大写经 ToLower 归一,不应单独成行
+	require.Equal(t, 1, strings.Count(out, "model: claude-mystery-9"), out)
+	require.Equal(t, 1, strings.Count(out, "model: claude-mystery-10"), out)
+	require.Equal(t, 0, strings.Count(out, "model: CLAUDE-MYSTERY-9"), out) // 大写经 ToLower 归一,不应单独成行
+}
+
+// 内置价格表里有自己条目的模型（grok-4.5、glm-5.2）用的就是它的标准价,不是兜底,不打 fallback warn（2026-10-04 走查）
+func TestGetModelPricing_OwnBuiltinEntryDoesNotWarn(t *testing.T) {
+	svc := newTestBillingService()
+	buf := captureStdLog(t)
+
+	for _, model := range []string{"grok-4.5", "GLM-5.2"} {
+		pricing, err := svc.GetModelPricing(model)
+		require.NoError(t, err)
+		require.NotNil(t, pricing)
+	}
+	grok, err := svc.GetModelPricing("grok-4.5")
+	require.NoError(t, err)
+	require.InDelta(t, 2e-6, grok.InputPricePerToken, 1e-15)
+
+	require.NotContains(t, buf.String(), "Using fallback pricing", buf.String())
 }
 
 // 回归:glm-5.2 必须命中自己的兜底价,不能被 strings.Contains("glm-5") 抢成 glm-5 价。

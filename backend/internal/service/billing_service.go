@@ -1156,10 +1156,15 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 	// 2. 使用硬编码回退价格
 	fallback := s.getFallbackPricing(model)
 	if fallback != nil {
+		// 内置价格表里本来就有这个模型的条目（如 grok-4.5、glm-5.2）：这就是它的标准价，不算兜底，不打警告。
+		// 只有按系列套用的兜底价（未知型号借用同系列的价）才警告，提醒补价（2026-10-04 走查：运维系统日志里
+		// 「Using fallback pricing for model: grok-4.5」看着像计费出错，其实内置价与模型目录一致）。
 		// 按模型名去重:每个模型每进程最多打一条 warn,避免热路径每请求刷屏（issue #3394）。
-		// model 在函数入口已 ToLower,故 GLM-5.2 / glm-5.2 视为同一条目。
-		if _, seen := s.fallbackWarnSeen.LoadOrStore(model, struct{}{}); !seen {
-			log.Printf("[Billing] Using fallback pricing for model: %s", model)
+		// model 在函数入口已 ToLower,故 CLAUDE-X / claude-x 视为同一条目。
+		if _, exact := s.fallbackPrices[model]; !exact {
+			if _, seen := s.fallbackWarnSeen.LoadOrStore(model, struct{}{}); !seen {
+				log.Printf("[Billing] Using fallback pricing for model: %s", model)
+			}
 		}
 		return s.applyModelSpecificPricingPolicyEx(model, fallback, true, pricingAt), nil
 	}
