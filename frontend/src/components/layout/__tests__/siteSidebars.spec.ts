@@ -76,31 +76,32 @@ describe('AdminSidebar', () => {
     expect(adminSettingsStore.fetch).toHaveBeenCalled()
   })
 
-  // A3 导航（渠道在前）：概览 / 供给 / 用户 / 运营 / 安全，最后是不带标题的设置；
+  // 方案 A（2026-10-04）：不带标题的概览，监控 / 供给 / 用户 / 安全四个带标题的组，最后是不带标题的设置；
   // 订阅、订单、审查各一个入口，同组页面走页头页签。
-  it('groups the navigation into five titled sections plus settings', () => {
+  it('groups the navigation into four titled sections between overview and settings', () => {
     appStore.cachedPublicSettings = { risk_control_enabled: true }
     const wrapper = mount(AdminSidebar, mountOptions)
     const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
-    expect(sections.map((section) => section.key)).toEqual(['overview', 'supply', 'users', 'operations', 'security', 'settings'])
-    expect(sections.filter((section) => section.key !== 'settings').every((section) => section.title)).toBe(true)
+    expect(sections.map((section) => section.key)).toEqual(['overview', 'monitor', 'supply', 'users', 'security', 'settings'])
+    expect(sections.filter((section) => !['overview', 'settings'].includes(section.key)).every((section) => section.title)).toBe(true)
+    expect(sections.find((section) => section.key === 'overview')?.title).toBeUndefined()
     expect(sections.find((section) => section.key === 'settings')?.title).toBeUndefined()
     expect(sectionPaths(wrapper)).toEqual({
-      overview: ['/dashboard', '/ops'],
-      supply: ['/accounts', '/channels/status', '/model-catalog', '/pricing', '/proxies'],
-      users: ['/users', '/orders'],
-      operations: ['/usage', '/announcements'],
+      overview: ['/dashboard'],
+      monitor: ['/ops', '/channels/status', '/usage'],
+      supply: ['/accounts', '/model-catalog', '/pricing', '/proxies'],
+      users: ['/users', '/orders', '/announcements'],
       security: ['/risk-control'],
       settings: ['/settings'],
     })
   })
 
-  it('drops a whole section when every item in it is hidden', () => {
+  it('hides user management in simple mode', () => {
     authStore.isSimpleMode = true
     const wrapper = mount(AdminSidebar, mountOptions)
     const paths = sectionPaths(wrapper)
-    // 简易模式：用户 / 订阅 / 订单 / 兑换码全部收起 → 「用户」整组消失
-    expect(Object.keys(paths)).not.toContain('users')
+    // 简易模式：用户 / 订阅 / 订单收起，「用户」组只剩公告
+    expect(paths.users).toEqual(['/announcements'])
     expect(paths.security).toEqual(['/risk-control'])
   })
 
