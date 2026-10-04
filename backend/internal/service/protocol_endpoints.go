@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -55,6 +56,11 @@ func NormalizeProtocolEndpoints(in map[string]string) (map[string]string, error)
 		value := strings.TrimRight(strings.TrimSpace(rawValue), "/")
 		if value == "" {
 			return nil, fmt.Errorf("protocol %q has an empty base URL", key)
+		}
+		// 地址必须是带主机名的 http(s) 地址：原来随便一串（如 "not a url"）也能存，渠道显示正常、可调度，
+		// 到转发时才失败（2026-10-04 UI E2E）。
+		if parsed, err := url.Parse(value); err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return nil, fmt.Errorf("protocol %q base URL %q must be an http(s) URL with a host", key, value)
 		}
 		if _, exists := out[key]; exists {
 			return nil, fmt.Errorf("protocol %q is configured more than once", key)

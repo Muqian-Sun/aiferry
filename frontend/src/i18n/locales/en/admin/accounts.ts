@@ -168,6 +168,7 @@ export default {
         protocolFailed: 'Protocol detection failed',
         modelsLoading: 'Fetching the upstream model list…',
         modelsFailed: 'Failed to fetch the model list',
+        modelsUnreachable: 'Failed to fetch the model list: the upstream is unreachable or returned an error',
         summary: 'The upstream lists {total} models: {listed} listed in the catalog · {unlisted} in the catalog but unlisted · {missing} not in the catalog',
         referenceOnly: 'The list is only a reference: some relays serve models that are not in their own list.',
         unbound: '{count} of them are not served by this channel yet,',
@@ -556,7 +557,8 @@ export default {
         errors: {
           empty: 'Choose a protocol and fill in the address',
           multiple: 'A channel can serve only one protocol',
-          blank: 'The {protocol} endpoint cannot be empty'
+          blank: 'The {protocol} endpoint cannot be empty',
+          invalidUrl: 'The {protocol} endpoint must start with http:// or https:// and include a host'
         },
         protocols: {
           anthropic: 'Anthropic Messages',

@@ -103,8 +103,9 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 		}
 		model := pickProtocolProbeModel(r.Protocol, models)
 		if model == "" {
-			// 401 / 403、内容不像这个协议这类空请求就拿到的原因比「没有模型」更有用，保留
-			if r.Reason == ProtocolProbeReasonUpstreamError || r.Reason == ProtocolProbeReasonNetworkError {
+			// 401 / 403、内容不像这个协议、连不上这类空请求就拿到的原因比「没有模型」更有用，保留
+			// （连不上原来也被改写成「拿不到模型名」，2026-10-04 UI E2E）
+			if r.Reason == ProtocolProbeReasonUpstreamError {
 				r.Reason = ProtocolProbeReasonNoModel
 			}
 			continue
