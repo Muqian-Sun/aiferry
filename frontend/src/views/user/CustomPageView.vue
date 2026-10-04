@@ -17,7 +17,7 @@
             <div
               class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-af-ink-4" />
+              <Icon name="link" size="lg" class="text-af-ink-3" />
             </div>
             <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notFoundTitle') }}
@@ -83,7 +83,7 @@
             <div
               class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-af-ink-4" />
+              <Icon name="link" size="lg" class="text-af-ink-3" />
             </div>
             <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notConfiguredTitle') }}
@@ -457,7 +457,7 @@ onMounted(async () => {
 }
 
 .toc-close-btn {
-  @apply rounded p-1 text-af-ink-4 transition-colors hover:bg-af-hairline hover:text-af-ink-2;
+  @apply rounded p-1 text-af-ink-3 transition-colors hover:bg-af-hairline hover:text-af-ink-2;
 }
 
 .toc-nav {

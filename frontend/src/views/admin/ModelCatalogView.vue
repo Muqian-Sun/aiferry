@@ -107,7 +107,7 @@
               <div class="truncate font-mono font-medium text-af-ink">{{ row.model_id }}</div>
               <div v-if="row.display_name || row.aliases?.length" class="mt-0.5 truncate text-xs text-af-ink-3">
                 <span v-if="row.display_name">{{ row.display_name }}</span>
-                <span v-if="row.display_name && row.aliases?.length" class="text-af-ink-4"> · </span>
+                <span v-if="row.display_name && row.aliases?.length" class="text-af-ink-3"> · </span>
                 <span v-if="row.aliases?.length" :title="row.aliases.map((a: ModelCatalogAlias) => a.alias).join(', ')">
                   {{ t('admin.modelCatalog.aliasCount', { count: row.aliases.length }) }}
                 </span>
@@ -116,7 +116,7 @@
           </template>
           <template #cell-vendor="{ row }">
             <span v-if="catalogVendorLabel(row)" class="text-af-ink-2">{{ catalogVendorLabel(row) }}</span>
-            <span v-else class="text-af-ink-4">—</span>
+            <span v-else class="text-af-ink-3">—</span>
           </template>
           <template #cell-price="{ row }">
             <PriceCell :entry="row" :decimals="priceDecimals" />

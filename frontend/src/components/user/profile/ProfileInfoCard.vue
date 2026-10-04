@@ -33,7 +33,7 @@
         <p v-if="primaryEmailDisplay && primaryEmailDisplay !== displayName" class="mt-0.5 truncate text-13 text-af-ink-3">
           {{ primaryEmailDisplay }}
         </p>
-        <ul v-if="sourceHints.length" class="mt-1 space-y-0.5 text-xs text-af-ink-4">
+        <ul v-if="sourceHints.length" class="mt-1 space-y-0.5 text-xs text-af-ink-3">
           <li v-for="hint in sourceHints" :key="hint.key">{{ hint.text }}</li>
         </ul>
       </div>

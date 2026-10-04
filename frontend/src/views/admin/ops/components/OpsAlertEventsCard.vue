@@ -407,21 +407,21 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
             @click="openDetail(row)"
           >
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(row.severity || ''))">
+              <span class="rounded-full px-2 py-1 text-xs font-bold" :class="severityBadgeClass(String(row.severity || ''))">
                 {{ row.severity || '-' }}
               </span>
-              <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
+              <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
                 {{ formatStatusLabel(row.status) }}
               </span>
-              <span class="ml-auto text-[11px] text-af-ink-3">
+              <span class="ml-auto text-xs text-af-ink-3">
                 {{ formatDateTime(row.fired_at || row.created_at) }}
               </span>
             </div>
             <div class="text-xs font-semibold text-af-ink">{{ row.title || '-' }}</div>
-            <div v-if="row.description" class="line-clamp-2 text-[11px] text-af-ink-3">
+            <div v-if="row.description" class="line-clamp-2 text-xs text-af-ink-3">
               {{ row.description }}
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-af-ink-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-af-ink-3">
               <span>{{ ruleName(row.rule_id) }} · {{ formatDurationLabel(row) }}</span>
               <span class="inline-flex items-center gap-1">
                 <Icon
@@ -439,34 +439,34 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
                 {{ row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored') }}
               </span>
             </div>
-            <div class="text-[11px] text-af-ink-3">{{ formatDimensionsSummary(row) }}</div>
+            <div class="text-xs text-af-ink-3">{{ formatDimensionsSummary(row) }}</div>
           </div>
         </div>
         <table v-else class="min-w-full divide-y divide-af-hairline">
           <thead class="sticky top-0 z-10 bg-af-sunken">
             <tr>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.time') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.severity') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.platform') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.rule') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.title') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.duration') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.dimensions') }}
               </th>
-              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+              <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertEvents.table.email') }}
               </th>
             </tr>
@@ -484,10 +484,10 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               </td>
               <td class="whitespace-nowrap px-4 py-3">
                 <div class="flex items-center gap-2">
-                  <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(row.severity || ''))">
+                  <span class="rounded-full px-2 py-1 text-xs font-bold" :class="severityBadgeClass(String(row.severity || ''))">
                     {{ row.severity || '-' }}
                   </span>
-                  <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
+                  <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
                     {{ formatStatusLabel(row.status) }}
                   </span>
                 </div>
@@ -500,14 +500,14 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               </td>
               <td class="min-w-[260px] px-4 py-3 text-xs text-af-ink-2">
                 <div class="font-semibold truncate max-w-[360px]">{{ row.title || '-' }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-af-ink-3">
+                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-xs text-af-ink-3">
                   {{ row.description }}
                 </div>
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-xs text-af-ink-2">
                 {{ formatDurationLabel(row) }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-[11px] text-af-ink-3">
+              <td class="whitespace-nowrap px-4 py-3 text-xs text-af-ink-3">
                 {{ formatDimensionsSummary(row) }}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
@@ -527,7 +527,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
                     size="sm"
                     class="text-af-ink-3"
                   />
-                  <span class="text-[11px] font-bold text-af-ink-2">
+                  <span class="text-xs font-bold text-af-ink-2">
                     {{ row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored') }}
                   </span>
                 </span>
@@ -568,10 +568,10 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
           <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(selected.severity || ''))">
+                <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-bold" :class="severityBadgeClass(String(selected.severity || ''))">
                   {{ selected.severity || '-' }}
                 </span>
-                <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(selected.status)">
+                <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ring-1 ring-inset" :class="statusBadgeClass(selected.status)">
                   {{ formatStatusLabel(selected.status) }}
                 </span>
               </div>
@@ -585,7 +585,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
 
             <div class="flex flex-wrap gap-2">
               <div class="flex items-center gap-2 rounded-lg bg-af-sheet px-2 py-1 ring-1 ring-af-hairline">
-                <span class="text-[11px] font-bold text-af-ink-2">{{ t('admin.ops.alertEvents.detail.silence') }}</span>
+                <span class="text-xs font-bold text-af-ink-2">{{ t('admin.ops.alertEvents.detail.silence') }}</span>
                 <Select
                   :model-value="silenceDuration"
                   :options="silenceDurationOptions"
@@ -620,14 +620,14 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               <div class="mt-1 flex flex-wrap items-center gap-2">
                 <div class="text-sm font-bold text-af-ink">{{ ruleName(selected.rule_id) }}</div>
                 <a
-                  class="inline-flex items-center gap-1 rounded-md bg-af-sheet px-2 py-1 text-[11px] font-bold text-af-ink-2 ring-1 ring-af-hairline hover:bg-af-sunken"
+                  class="inline-flex items-center gap-1 rounded-md bg-af-sheet px-2 py-1 text-xs font-bold text-af-ink-2 ring-1 ring-af-hairline hover:bg-af-sunken"
                   :href="`/ops?open_alert_rules=1&alert_rule_id=${selected.rule_id}`"
                 >
                   <Icon name="externalLink" size="xs" />
                   {{ t('admin.ops.alertEvents.detail.viewRule') }}
                 </a>
                 <a
-                  class="inline-flex items-center gap-1 rounded-md bg-af-sheet px-2 py-1 text-[11px] font-bold text-af-ink-2 ring-1 ring-af-hairline hover:bg-af-sunken"
+                  class="inline-flex items-center gap-1 rounded-md bg-af-sheet px-2 py-1 text-xs font-bold text-af-ink-2 ring-1 ring-af-hairline hover:bg-af-sunken"
                   :href="`/ops?platform=${encodeURIComponent(getDimensionString(selected,'platform')||'')}&error_type=request&open_error_details=1`"
                 >
                   <Icon name="externalLink" size="xs" />
@@ -664,16 +664,16 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
             <table class="min-w-full divide-y divide-af-hairline">
               <thead class="bg-af-sunken">
                 <tr>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.time') }}</th>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.status') }}</th>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.metric') }}</th>
+                  <th class="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.time') }}</th>
+                  <th class="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.status') }}</th>
+                  <th class="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.alertEvents.table.metric') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-af-hairline">
                 <tr v-for="it in history" :key="it.id" class="hover:bg-af-sunken">
                   <td class="px-3 py-2 text-xs text-af-ink-2">{{ formatDateTime(it.fired_at || it.created_at) }}</td>
                   <td class="px-3 py-2 text-xs">
-                    <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(it.status)">
+                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-bold ring-1 ring-inset" :class="statusBadgeClass(it.status)">
                       {{ formatStatusLabel(it.status) }}
                     </span>
                   </td>

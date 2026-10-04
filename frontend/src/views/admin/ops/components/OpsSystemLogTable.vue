@@ -350,10 +350,10 @@ const hasData = computed(() => logs.value.length > 0)
         <table class="min-w-full table-fixed divide-y divide-af-hairline">
           <thead class="bg-af-sunken">
             <tr>
-              <th class="w-[170px] px-3 py-2 text-left text-[11px] font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.time') }}</th>
-              <th class="w-[160px] px-3 py-2 text-left text-[11px] font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.host') }}</th>
-              <th class="w-[80px] px-3 py-2 text-left text-[11px] font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.level') }}</th>
-              <th class="px-3 py-2 text-left text-[11px] font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.logDetails') }}</th>
+              <th class="w-[170px] px-3 py-2 text-left text-xs font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.time') }}</th>
+              <th class="w-[160px] px-3 py-2 text-left text-xs font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.host') }}</th>
+              <th class="w-[80px] px-3 py-2 text-left text-xs font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.level') }}</th>
+              <th class="px-3 py-2 text-left text-xs font-semibold text-af-ink-3">{{ t('admin.ops.systemLogs.logDetails') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-af-hairline">

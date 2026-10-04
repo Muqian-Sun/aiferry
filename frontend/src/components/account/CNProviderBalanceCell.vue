@@ -4,7 +4,7 @@
     <div class="flex flex-wrap items-center gap-1.5">
       <span
         data-test="cn-provider-balance-value"
-        class="text-[10px] font-medium leading-4 text-af-ink-2"
+        class="text-xs font-medium leading-4 text-af-ink-2"
         :title="t('admin.accounts.cnProviders.balanceProbeTooltip')"
       >
         {{ balanceLabel }}
@@ -13,7 +13,7 @@
       <!-- Low balance badge (reactive 402/429 marker or probe-detected) -->
       <span
         v-if="balanceLow"
-        class="inline-flex items-center rounded bg-af-danger-tint px-1 py-0.5 text-[10px] font-medium text-af-danger"
+        class="inline-flex items-center rounded bg-af-danger-tint px-1 py-0.5 text-xs font-medium text-af-danger"
       >
         {{ t('admin.accounts.cnProviders.balanceLow') }}
       </span>
@@ -27,7 +27,7 @@
       <button
         type="button"
         data-test="cn-provider-balance-probe"
-        class="inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium leading-4 text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium leading-4 text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="loading"
         :title="t('admin.accounts.cnProviders.balanceProbeTooltip')"
         @click="handleProbe"
@@ -50,7 +50,7 @@
       </button>
     </div>
 
-    <div v-if="error" class="truncate text-[10px] text-af-danger" :title="error">
+    <div v-if="error" class="truncate text-xs text-af-danger" :title="error">
       {{ truncatedError }}
     </div>
   </div>

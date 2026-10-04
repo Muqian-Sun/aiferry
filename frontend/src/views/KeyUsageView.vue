@@ -16,7 +16,7 @@
       <div class="max-w-xl mx-auto mb-14">
         <div class="flex gap-3">
           <div class="flex-1 relative">
-            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-af-ink-4">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-af-ink-3">
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
@@ -25,12 +25,12 @@
               v-model="apiKey"
               :type="keyVisible ? 'text' : 'password'"
               :placeholder="t('keyUsage.placeholder')"
-              class="input-ring w-full h-12 pl-12 pr-12 rounded-md border border-af-hairline bg-af-sheet text-sm text-af-ink placeholder:text-af-ink-4 transition-all"
+              class="input-ring w-full h-12 pl-12 pr-12 rounded-md border border-af-hairline bg-af-sheet text-sm text-af-ink placeholder:text-af-ink-3 transition-all"
               @keydown.enter="queryKey"
             />
             <button
               @click="keyVisible = !keyVisible"
-              class="absolute right-4 top-1/2 -translate-y-1/2 text-af-ink-4 hover:text-af-ink-2 transition-colors"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-af-ink-3 hover:text-af-ink-2 transition-colors"
             >
               <svg v-if="!keyVisible" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
@@ -57,7 +57,7 @@
           </button>
         </div>
         <FormError class="mt-3 justify-center" :message="queryError" data-testid="key-usage-error" />
-        <p class="text-xs text-af-ink-4 mt-3 text-center">
+        <p class="text-xs text-af-ink-3 mt-3 text-center">
           {{ t('keyUsage.privacyNote') }}
         </p>
 
@@ -80,7 +80,7 @@
                 type="date"
                 class="input-ring text-xs px-2 py-1.5 rounded-lg border border-af-hairline bg-af-sheet text-af-ink"
               />
-              <span class="text-xs text-af-ink-4">-</span>
+              <span class="text-xs text-af-ink-3">-</span>
               <input
                 v-model="customEndDate"
                 type="date"
@@ -130,7 +130,7 @@
                 :class="statusInfo.isActive ? 'bg-af-success' : 'bg-af-danger'"
               ></span>
               <span class="text-sm font-medium text-af-ink">{{ statusInfo.label }}</span>
-              <span class="text-xs text-af-ink-4">|</span>
+              <span class="text-xs text-af-ink-3">|</span>
               <span class="text-xs text-af-ink-3">{{ statusInfo.statusText }}</span>
             </div>
           </div>
@@ -148,15 +148,15 @@
                   {{ ring.title }}
                 </h3>
                 <!-- Clock icon -->
-                <svg v-if="ring.iconType === 'clock'" class="w-5 h-5 text-af-ink-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-if="ring.iconType === 'clock'" class="w-5 h-5 text-af-ink-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                 </svg>
                 <!-- Calendar icon -->
-                <svg v-else-if="ring.iconType === 'calendar'" class="w-5 h-5 text-af-ink-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-else-if="ring.iconType === 'calendar'" class="w-5 h-5 text-af-ink-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
                 <!-- Dollar icon -->
-                <svg v-else class="w-5 h-5 text-af-ink-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-else class="w-5 h-5 text-af-ink-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
               </div>
@@ -185,7 +185,7 @@
                       </span>
                       <span class="text-xs text-af-ink-3 mt-0.5">{{ t('keyUsage.used') }}</span>
                       <span class="mt-1 text-sm font-semibold tabular-nums text-af-ink">{{ ring.amount }}</span>
-                      <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="text-xs text-af-ink-4 mt-0.5 tabular-nums">
+                      <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="text-xs text-af-ink-3 mt-0.5 tabular-nums">
                         ⟳ {{ formatResetTime(ring.resetAt) }}
                       </p>
                     </template>

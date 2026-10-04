@@ -54,10 +54,10 @@
             :data-testid="`nav-disabled-${item.path}`"
             @click="handleMenuItemClick"
           >
-            <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-4" />
+            <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
             <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
               <span class="min-w-0 truncate">{{ item.label }}</span>
-              <span class="shrink-0 text-xs text-af-ink-4">{{ t('nav.featureOff') }}</span>
+              <span class="shrink-0 text-xs text-af-ink-3">{{ t('nav.featureOff') }}</span>
             </span>
           </router-link>
           <!-- Normal item (no children) -->

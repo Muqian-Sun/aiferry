@@ -57,7 +57,7 @@
             </ul>
             <!-- 窄屏没有图标云：列目录里真有的厂商，拿不到目录就不出现 -->
             <div v-if="vendors.length" class="mt-12 lg:hidden">
-              <p class="text-13 text-af-ink-4">{{ t('userUi.home.hero.vendorsLabel') }}</p>
+              <p class="text-13 text-af-ink-3">{{ t('userUi.home.hero.vendorsLabel') }}</p>
               <VendorStrip class="mt-4" :vendors="vendors" />
             </div>
           </div>
@@ -101,7 +101,7 @@
               data-testid="home-feature"
             >
               <div :class="['min-w-0', index % 2 ? 'lg:order-2' : '']">
-                <p class="font-mono text-13 text-af-ink-4">{{ String(index + 1).padStart(2, '0') }}</p>
+                <p class="font-mono text-13 text-af-ink-3">{{ String(index + 1).padStart(2, '0') }}</p>
                 <h3 class="mt-3 text-2xl font-semibold tracking-tight text-af-ink">{{ t(`userUi.home.features.items.${feature}.title`) }}</h3>
                 <p class="mt-3 max-w-lg text-base leading-7 text-af-ink-2">{{ t(`userUi.home.features.items.${feature}.body`) }}</p>
               </div>

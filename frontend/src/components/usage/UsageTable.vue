@@ -45,7 +45,7 @@
             </button>
             <!-- 用户列只有管理站有；查不到用户（已被彻底删除）时写「已删除用户」，不露内部 id -->
             <span v-else class="font-medium text-af-ink-3">{{ t('common.deletedUser') }}</span>
-            <span v-if="row.user?.deleted_at" class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30">
+            <span v-if="row.user?.deleted_at" class="ml-1 inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30">
               {{ t('admin.usage.userDeletedBadge') }}
             </span>
           </div>
@@ -73,19 +73,19 @@
             <span v-else class="font-medium text-af-ink">{{ row.model }}</span>
             <span
               v-if="row.web_search_delegated"
-              class="inline-flex rounded bg-af-sunken px-1.5 py-px text-[11px] font-medium text-af-ink-2"
+              class="inline-flex rounded bg-af-sunken px-1.5 py-px text-xs font-medium text-af-ink-2"
               :title="isAdmin ? t('usage.webSearchDelegatedAdminHint') : t('usage.webSearchDelegatedHint')"
               data-testid="usage-web-search-delegated"
             >{{ t('usage.webSearch') }}</span>
             <div
               v-if="row.upstream_model_mismatch === true && row.upstream_response_model"
-              class="break-all pl-3 text-[11px]"
+              class="break-all pl-3 text-xs"
               :class="isLikelyModelVariant(row) ? 'text-af-warning' : 'text-af-danger'"
               :title="modelAuditTitle(row)"
             >
               <span class="mr-1">↳ {{ t('usage.upstreamResponseModel') }}:</span>{{ row.upstream_response_model }}
               <span
-                class="ml-1 inline-flex rounded px-1 py-px text-[10px] font-medium ring-1 ring-inset"
+                class="ml-1 inline-flex rounded px-1 py-px text-xs font-medium ring-1 ring-inset"
                 :class="isLikelyModelVariant(row)
                   ? 'bg-af-warning-tint text-af-warning ring-af-warning/30'
                   : 'bg-af-danger-tint text-af-danger ring-af-danger/30'"
@@ -155,47 +155,47 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span class="font-medium text-af-ink">{{ row.image_count }}{{ t('usage.imageUnit') }}</span>
-            <span class="text-af-ink-4">({{ formatImageBillingSize(row, t) }})</span>
+            <span class="text-af-ink-3">({{ formatImageBillingSize(row, t) }})</span>
           </div>
           <!-- Token 请求 -->
           <div v-else class="flex items-center gap-1.5">
             <div class="space-y-1 text-sm">
               <div class="flex items-center gap-2">
                 <div class="inline-flex items-center gap-1">
-                  <Icon name="arrowDown" size="sm" class="h-3.5 w-3.5 text-af-ink-4" />
+                  <Icon name="arrowDown" size="sm" class="h-3.5 w-3.5 text-af-ink-3" />
                   <span class="font-medium text-af-ink">{{ row.input_tokens?.toLocaleString() || 0 }}</span>
                 </div>
                 <div class="inline-flex items-center gap-1">
-                  <Icon name="arrowUp" size="sm" class="h-3.5 w-3.5 text-af-ink-4" />
+                  <Icon name="arrowUp" size="sm" class="h-3.5 w-3.5 text-af-ink-3" />
                   <span class="font-medium text-af-ink">{{ row.output_tokens?.toLocaleString() || 0 }}</span>
                 </div>
               </div>
               <div v-if="row.cache_read_tokens > 0 || row.cache_creation_tokens > 0" class="flex items-center gap-2">
                 <div v-if="row.cache_read_tokens > 0" class="inline-flex items-center gap-1">
-                  <svg class="h-3.5 w-3.5 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                  <svg class="h-3.5 w-3.5 text-af-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                   <span class="font-medium text-af-ink-2">{{ formatCacheTokens(row.cache_read_tokens) }}</span>
                 </div>
                 <div v-if="row.cache_creation_tokens > 0" class="inline-flex items-center gap-1">
-                  <svg class="h-3.5 w-3.5 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  <svg class="h-3.5 w-3.5 text-af-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   <span class="font-medium text-af-ink-2">{{ formatCacheTokens(row.cache_creation_tokens) }}</span>
-                  <span v-if="row.cache_creation_1h_tokens > 0" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-sunken text-af-ink-2">1h</span>
-                  <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30 cursor-help">R</span>
+                  <span v-if="row.cache_creation_1h_tokens > 0" class="inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-sunken text-af-ink-2">1h</span>
+                  <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30 cursor-help">R</span>
                 </div>
               </div>
               <div v-if="hasImageInputTokens(row)" class="flex items-center gap-2">
                 <div class="inline-flex items-center gap-1">
-                  <svg class="h-3.5 w-3.5 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <svg class="h-3.5 w-3.5 text-af-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   <span class="font-medium text-af-ink-2">{{ row.image_input_tokens.toLocaleString() }}</span>
                 </div>
               </div>
               <div v-if="hasImageOutputTokens(row)" class="flex items-center gap-2">
                 <div class="inline-flex items-center gap-1">
-                  <svg class="h-3.5 w-3.5 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <svg class="h-3.5 w-3.5 text-af-ink-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   <span class="font-medium text-af-ink-2">{{ row.image_output_tokens.toLocaleString() }}</span>
                 </div>
               </div>
               <div v-if="row.web_search_count > 0" class="inline-flex items-center gap-1 text-af-ink-2" data-testid="usage-web-search">
-                <Icon name="search" size="sm" class="h-3.5 w-3.5 text-af-ink-4" />
+                <Icon name="search" size="sm" class="h-3.5 w-3.5 text-af-ink-3" />
                 <span class="font-medium">{{ t('usage.webSearchTimes', { count: row.web_search_count }) }}</span>
               </div>
             </div>
@@ -206,7 +206,7 @@
               @mouseleave="hideTokenTooltip"
             >
               <div class="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-sunken transition-colors group-hover:bg-af-brand-tint">
-                <Icon name="infoCircle" size="xs" class="text-af-ink-4 group-hover:text-af-brand" />
+                <Icon name="infoCircle" size="xs" class="text-af-ink-3 group-hover:text-af-brand" />
               </div>
             </div>
           </div>
@@ -225,7 +225,7 @@
                 @mouseleave="hideTooltip"
               >
                 <div class="flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-sunken transition-colors group-hover:bg-af-brand-tint">
-                  <Icon name="infoCircle" size="xs" class="text-af-ink-4 group-hover:text-af-brand" />
+                  <Icon name="infoCircle" size="xs" class="text-af-ink-3 group-hover:text-af-brand" />
                 </div>
               </div>
             </div>
@@ -247,10 +247,10 @@
               <span class="flex-1" :class="LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"></span>
             </span>
             <div class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
-              <span class="text-af-ink-4">{{ t('usage.latencyFirstToken') }}</span>
+              <span class="text-af-ink-3">{{ t('usage.latencyFirstToken') }}</span>
               <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
-              <span v-else class="text-af-ink-4">-</span>
-              <span class="text-af-ink-4">{{ t('usage.latencyDuration') }}</span>
+              <span v-else class="text-af-ink-3">-</span>
+              <span class="text-af-ink-3">{{ t('usage.latencyDuration') }}</span>
               <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
             </div>
           </div>
@@ -262,7 +262,7 @@
 
         <template #cell-user_agent="{ row }">
           <span v-if="row.user_agent" class="text-sm text-af-ink-2 block max-w-[320px] truncate" :title="row.user_agent">{{ row.user_agent }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-ip_address="{ row }">
@@ -270,7 +270,7 @@
             <span class="text-sm font-mono text-af-ink-2">{{ row.ip_address }}</span>
             <IpGeoCell :ip="row.ip_address" />
           </div>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #empty><EmptyState :message="t('usage.noRecords')" /></template>

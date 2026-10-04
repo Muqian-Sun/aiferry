@@ -28,5 +28,5 @@ const state = computed<'missing' | 'error' | 'disabled' | 'paused' | 'ok'>(() =>
   return props.account.schedulable ? 'ok' : 'paused'
 })
 const stateText = computed(() => t(`admin.pricing.channelState.${state.value}`))
-const stateClass = computed(() => ({ ok: 'text-af-ink-2', paused: 'text-af-warning', error: 'text-af-danger', disabled: 'text-af-ink-4', missing: 'text-af-ink-4' })[state.value])
+const stateClass = computed(() => ({ ok: 'text-af-ink-2', paused: 'text-af-warning', error: 'text-af-danger', disabled: 'text-af-ink-3', missing: 'text-af-ink-3' })[state.value])
 </script>

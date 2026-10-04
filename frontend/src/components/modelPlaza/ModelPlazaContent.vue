@@ -66,7 +66,7 @@
           >
             <VendorIcon v-if="tab.key !== 'all'" :vendor="tab.key" :size="16" colored />
             {{ tab.label }}
-            <span class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
+            <span class="tabular-nums text-af-ink-3">{{ tab.count }}</span>
           </button>
         </div>
         <div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 lg:flex-nowrap lg:py-2">
@@ -119,7 +119,7 @@
                 </button>
                 <button
                   type="button"
-                  class="shrink-0 rounded p-1 text-af-ink-4 opacity-0 transition-opacity hover:text-af-ink focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                  class="shrink-0 rounded p-1 text-af-ink-3 opacity-0 transition-opacity hover:text-af-ink focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   :aria-label="t('userUi.models.copyId')"
                   :title="copiedId === entry.id ? t('userUi.models.copied') : t('userUi.models.copyId')"
                   data-testid="copy-model-id"
@@ -140,7 +140,7 @@
           -->
           <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums" data-testid="price-summary">
             <div v-for="item in cellItems(entry)" :key="item.key" class="flex items-baseline justify-between gap-3">
-              <dt class="text-af-ink-4">{{ item.label }}</dt>
+              <dt class="text-af-ink-3">{{ item.label }}</dt>
               <dd class="font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</dd>
             </div>
           </dl>

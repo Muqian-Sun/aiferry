@@ -142,7 +142,7 @@
           <div class="overflow-hidden rounded-md border border-af-hairline bg-af-sunken">
             <!-- Code Header -->
             <div class="flex items-center justify-between px-4 py-2 bg-af-sunken border-b border-af-hairline">
-              <span class="min-w-0 truncate text-xs text-af-ink-4 font-mono">{{ file.path }}</span>
+              <span class="min-w-0 truncate text-xs text-af-ink-3 font-mono">{{ file.path }}</span>
               <button
                 type="button"
                 @click="copyContent(file.content, index)"
@@ -239,7 +239,7 @@
         <p class="text-xs text-af-ink-3">{{ t('keys.useKeyModal.modelsApi.hint') }}</p>
         <div class="overflow-hidden rounded-md border border-af-hairline bg-af-sunken">
           <div class="flex items-center justify-between border-b border-af-hairline px-4 py-2">
-            <span class="min-w-0 truncate font-mono text-xs text-af-ink-4">GET /v1/models</span>
+            <span class="min-w-0 truncate font-mono text-xs text-af-ink-3">GET /v1/models</span>
             <button
               type="button"
               class="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
@@ -628,7 +628,7 @@ const wrapToken = (className: string, value: string) =>
 
 const keyword = (value: string) => wrapToken('text-af-brand', value)
 const variable = (value: string) => wrapToken('text-af-ink', value)
-const operator = (value: string) => wrapToken('text-af-ink-4', value)
+const operator = (value: string) => wrapToken('text-af-ink-3', value)
 const string = (value: string) => wrapToken('text-af-warning', value)
 const comment = (value: string) => wrapToken('text-af-ink-3', value)
 

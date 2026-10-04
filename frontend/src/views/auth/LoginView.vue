@@ -55,7 +55,7 @@
             <button
               type="button"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-af-ink-4 transition-colors hover:text-af-ink"
+              class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-af-ink-3 transition-colors hover:text-af-ink"
               @click="showPassword = !showPassword"
             >
               <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />

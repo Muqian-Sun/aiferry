@@ -38,7 +38,7 @@
                 </span>
               </div>
               <p class="mt-1 text-13">
-                <span class="text-af-ink-4">{{ t('userSubscriptions.expires') }}</span>
+                <span class="text-af-ink-3">{{ t('userSubscriptions.expires') }}</span>
                 <span v-if="subscription.expires_at" class="ml-1.5" :class="getExpirationClass(subscription.expires_at)">
                   {{ formatExpirationDate(subscription.expires_at) }}
                 </span>
@@ -66,7 +66,7 @@
               <div class="flex items-baseline justify-between gap-3 text-13">
                 <span class="text-af-ink-3">{{ block.label }}</span>
                 <span v-if="block.limit !== null" class="tabular-nums text-af-ink">
-                  ${{ block.used.toFixed(2) }} <span class="text-af-ink-4">/ ${{ block.limit.toFixed(2) }}</span>
+                  ${{ block.used.toFixed(2) }} <span class="text-af-ink-3">/ ${{ block.limit.toFixed(2) }}</span>
                 </span>
                 <span v-else class="text-af-ink">{{ t('payment.planCard.unlimited') }}</span>
               </div>
@@ -81,7 +81,7 @@
                 >
                   <div class="h-full rounded-full" :class="getProgressBarClass(block.used, block.limit)" :style="{ width: getProgressWidth(block.used, block.limit) }"></div>
                 </div>
-                <p v-if="block.hint" class="mt-1.5 text-xs text-af-ink-4">{{ block.hint }}</p>
+                <p v-if="block.hint" class="mt-1.5 text-xs text-af-ink-3">{{ block.hint }}</p>
               </template>
             </div>
           </div>
@@ -99,7 +99,7 @@
               <dt class="text-af-ink-3">{{ t('payment.planCard.apiKey') }}</dt>
               <dd class="text-af-ink" data-testid="subscription-key">
                 {{ subscription.api_key.name }}
-                <code class="ml-1 tabular-nums text-af-ink-4">{{ subscription.api_key.key_masked }}</code>
+                <code class="ml-1 tabular-nums text-af-ink-3">{{ subscription.api_key.key_masked }}</code>
               </dd>
             </template>
           </dl>

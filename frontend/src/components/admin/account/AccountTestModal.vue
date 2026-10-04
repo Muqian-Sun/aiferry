@@ -20,7 +20,7 @@
           <div>
             <div class="font-semibold text-af-ink">{{ account.name }}</div>
             <div class="flex items-center gap-1.5 text-xs text-af-ink-3">
-              <span class="rounded bg-af-hairline px-1.5 py-0.5 text-[10px] font-medium">
+              <span class="rounded bg-af-hairline px-1.5 py-0.5 text-xs font-medium">
                 {{ t(accountAccessKey(account)) }}
               </span>
               <span>{{ t('admin.accounts.account') }}</span>
@@ -332,7 +332,7 @@
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
             !canStartTest
-              ? 'cursor-not-allowed bg-af-hairline text-af-ink-4'
+              ? 'cursor-not-allowed bg-af-hairline text-af-ink-3'
               : 'bg-af-brand text-af-on-brand hover:bg-af-brand-hover'
           ]"
         >
@@ -822,7 +822,7 @@ const abortStream = () => {
   }
 }
 
-const addLine = (text: string, className: string = 'text-af-ink-4') => {
+const addLine = (text: string, className: string = 'text-af-ink-3') => {
   outputLines.value.push({ text, class: className })
   scrollToBottom()
 }
@@ -846,7 +846,7 @@ const startTest = async () => {
       grokTestModeOptions.value.find((o) => o.value === grokTestMode.value)?.label || grokTestMode.value
     addLine(t('admin.accounts.grok.selectedTestMode', { mode: modeLabel }), 'text-af-ink-3')
   }
-  addLine('', 'text-af-ink-4')
+  addLine('', 'text-af-ink-3')
 
   abortStream()
 
@@ -984,7 +984,7 @@ const handleEvent = (event: {
             : t('admin.accounts.sendingTestMessage'),
         'text-af-ink-3'
       )
-      addLine('', 'text-af-ink-4')
+      addLine('', 'text-af-ink-3')
       addLine(t('admin.accounts.response'), 'text-af-warning')
       break
 

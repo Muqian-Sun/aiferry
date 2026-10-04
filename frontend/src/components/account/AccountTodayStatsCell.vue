@@ -13,18 +13,18 @@
     data-testid="account-today"
   >
     <span>{{ t('admin.accounts.today.requests', { count: formatNumber(stats.requests) }) }}</span>
-    <span class="text-af-ink-4" aria-hidden="true">·</span>
+    <span class="text-af-ink-3" aria-hidden="true">·</span>
     <span class="inline-flex items-baseline gap-1">
       <span class="text-af-ink-3">{{ t('common.money.revenue') }}</span>
       <span>{{ formatMoney(revenue) }}</span>
     </span>
-    <span class="text-af-ink-4" aria-hidden="true">·</span>
+    <span class="text-af-ink-3" aria-hidden="true">·</span>
     <span class="inline-flex items-baseline gap-1">
       <span class="text-af-ink-3">{{ t('common.money.profit') }}</span>
       <span :class="profitTextClass(profit)" data-testid="account-today-profit">{{ formatMoney(profit) }}</span>
     </span>
   </span>
-  <span v-else class="text-sm text-af-ink-4">—</span>
+  <span v-else class="text-sm text-af-ink-3">—</span>
 </template>
 
 <script setup lang="ts">

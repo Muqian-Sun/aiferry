@@ -17,7 +17,7 @@
         :class="[
           'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg px-3 transition-colors',
           !method.available
-            ? 'cursor-not-allowed text-af-ink-4 opacity-50'
+            ? 'cursor-not-allowed text-af-ink-3 opacity-50'
             : selected === method.type
               ? 'bg-af-sunken text-af-ink'
               : 'text-af-ink-2 hover:bg-af-sunken/70 hover:text-af-ink',
@@ -33,7 +33,7 @@
             </span>
             <span
               v-if="method.fee_rate > 0"
-              class="text-[10px] text-af-ink-3"
+              class="text-xs text-af-ink-3"
             >
               {{ t('payment.fee') }} {{ method.fee_rate }}%
             </span>

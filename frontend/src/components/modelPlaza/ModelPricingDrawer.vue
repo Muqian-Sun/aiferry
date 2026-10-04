@@ -25,13 +25,13 @@
       >
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ block.title }}</h3>
-          <span class="shrink-0 text-xs text-af-ink-4">{{ t('userUi.models.detail.unitPerMillion') }}</span>
+          <span class="shrink-0 text-xs text-af-ink-3">{{ t('userUi.models.detail.unitPerMillion') }}</span>
         </div>
         <p v-if="block.hint" class="-mt-1 mb-3 text-xs text-af-ink-3">{{ block.hint }}</p>
         <div class="overflow-x-auto">
           <table class="w-full table-fixed text-13 tabular-nums" :style="{ minWidth: tableMinWidth }">
             <thead>
-              <tr class="border-b border-af-hairline text-af-ink-4">
+              <tr class="border-b border-af-hairline text-af-ink-3">
                 <th v-if="segmented" scope="col" class="w-[5.5rem] whitespace-nowrap pb-2 pr-3 text-left align-bottom font-normal">
                   {{ t('userUi.models.segmentRange') }}
                 </th>
@@ -63,7 +63,7 @@
       <section v-if="mediaItems.length" class="py-6 first:pt-0" data-testid="pricing-block-media">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.media') }}</h3>
-          <span class="shrink-0 text-xs text-af-ink-4">{{ t('userUi.models.detail.unitPerMillion') }}</span>
+          <span class="shrink-0 text-xs text-af-ink-3">{{ t('userUi.models.detail.unitPerMillion') }}</span>
         </div>
         <dl class="divide-y divide-af-hairline">
           <DetailField v-for="item in mediaItems" :key="item.key" :label="item.label">
@@ -76,12 +76,12 @@
       <section v-if="unitBlock" class="py-6 first:pt-0" data-testid="pricing-block-unit">
         <div class="mb-3 flex items-baseline justify-between gap-4">
           <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.unitPrice') }}</h3>
-          <span class="shrink-0 text-xs text-af-ink-4">{{ unitBlock.unit }}</span>
+          <span class="shrink-0 text-xs text-af-ink-3">{{ unitBlock.unit }}</span>
         </div>
         <div v-if="unitBlock.tiers.length" class="overflow-x-auto">
           <table class="w-full text-13 tabular-nums">
             <thead>
-              <tr class="border-b border-af-hairline text-af-ink-4">
+              <tr class="border-b border-af-hairline text-af-ink-3">
                 <th scope="col" class="pb-2 pr-3 text-left font-normal">{{ t('userUi.models.detail.tier') }}</th>
                 <th scope="col" class="pb-2 pl-3 text-right font-normal">{{ unitBlock.label }}</th>
               </tr>

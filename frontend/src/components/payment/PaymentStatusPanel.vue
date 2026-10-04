@@ -36,7 +36,7 @@
       <div class="p-6">
         <div class="flex flex-col items-center space-y-4 py-4">
           <div class="flex h-16 w-16 items-center justify-center rounded-full bg-af-sunken">
-            <svg class="h-8 w-8 text-af-ink-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="h-8 w-8 text-af-ink-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
@@ -98,7 +98,7 @@
         <div class="p-4 text-center">
           <p class="text-sm text-af-ink-3">{{ t('payment.qr.expiresIn') }}</p>
           <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
-          <p class="mt-1 text-xs text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
+          <p class="mt-1 text-xs text-af-ink-3">{{ t('payment.qr.waitingPayment') }}</p>
         </div>
       </template>
       <template v-else>
@@ -185,7 +185,7 @@
       <div class="p-4 text-center">
         <p class="text-sm text-af-ink-3">{{ t('payment.qr.expiresIn') }}</p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
-        <p class="mt-1 text-xs text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
+        <p class="mt-1 text-xs text-af-ink-3">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
       <FormError :message="cancelError" />
       <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
@@ -206,7 +206,7 @@
       </div>
       <div class="p-4 text-center">
         <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
-        <p class="mt-1 text-xs text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
+        <p class="mt-1 text-xs text-af-ink-3">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
       <FormError :message="cancelError" />
       <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">

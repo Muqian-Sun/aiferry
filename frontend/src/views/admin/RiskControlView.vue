@@ -315,7 +315,7 @@
                         @click="openInputDetail(row)"
                       >
                         <span class="min-w-0 flex-1 truncate">{{ inputSummaryText(row) }}</span>
-                        <Icon name="eye" size="xs" class="flex-shrink-0 text-af-ink-4 transition-colors group-hover:text-af-brand-hover" />
+                        <Icon name="eye" size="xs" class="flex-shrink-0 text-af-ink-3 transition-colors group-hover:text-af-brand-hover" />
                       </button>
                     </td>
                   </tr>
@@ -557,13 +557,13 @@
                       <p class="text-sm font-semibold text-af-ink">{{ t('admin.riskControl.apiKeyHealth') }}</p>
                       <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.riskControl.apiKeyFreezeRule') }}</p>
                     </div>
-                    <span class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-af-sheet px-2 py-0.5 text-[11px] font-medium leading-5 text-af-ink-2">
+                    <span class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-af-sheet px-2 py-0.5 text-xs font-medium leading-5 text-af-ink-2">
                       {{ t('admin.riskControl.apiKeyRows', { count: apiKeyRows.length }) }}
                     </span>
                   </div>
 
                   <div v-if="apiKeyRows.length === 0" class="flex min-h-32 flex-col items-center justify-center rounded-lg border border-dashed border-af-hairline bg-af-sheet px-4 py-6 text-center">
-                    <Icon name="infoCircle" size="lg" class="text-af-ink-4" />
+                    <Icon name="infoCircle" size="lg" class="text-af-ink-3" />
                     <p class="mt-2 text-sm font-medium text-af-ink-2">{{ t('admin.riskControl.apiKeyHealthEmpty') }}</p>
                     <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.riskControl.apiKeyHealthEmptyHint') }}</p>
                   </div>
@@ -580,7 +580,7 @@
                             <div class="flex min-w-0 flex-wrap items-center gap-2">
                               <span class="truncate font-mono text-sm font-semibold text-af-ink">{{ row.masked || '-' }}</span>
                               <span
-                                class="inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+                                class="inline-flex rounded-md px-1.5 py-0.5 text-xs font-medium"
                                 :class="row.configured ? 'bg-af-brand-tint text-af-brand' : 'bg-af-sunken text-af-ink-2'"
                               >
                                 {{ isStoredApiKeyPendingDelete(row) ? t('admin.riskControl.apiKeyPendingDelete') : row.configured ? t('admin.riskControl.apiKeyConfigured') : t('admin.riskControl.apiKeyTemporary') }}

@@ -115,7 +115,7 @@
               <div class="flex items-center gap-1 text-xs text-af-ink-3">
                 <span v-if="row.protocol">{{ row.protocol.toUpperCase() }}</span>
                 <template v-if="row.status && row.status !== 'active'">
-                  <span v-if="row.protocol" class="text-af-ink-4">·</span>
+                  <span v-if="row.protocol" class="text-af-ink-3">·</span>
                   <span :class="row.status === 'expired' ? 'text-af-danger' : 'text-af-ink-2'">{{ statusLabel(row.status) }}</span>
                 </template>
               </div>
@@ -135,7 +135,7 @@
                   <template #trigger>
                     <button
                       type="button"
-                      class="rounded p-0.5 text-af-ink-4 transition-colors hover:text-af-ink-2"
+                      class="rounded p-0.5 text-af-ink-3 transition-colors hover:text-af-ink-2"
                       :title="t('admin.proxies.copyProxyUrl')"
                       :aria-label="t('admin.proxies.copyProxyUrl')"
                       @click.stop="copyProxyUrl(row)"
@@ -151,14 +151,14 @@
               </div>
               <div v-if="row.username || row.password" class="mt-0.5 flex items-center gap-1.5 text-xs text-af-ink-3">
                 <span v-if="row.username">{{ row.username }}</span>
-                <span v-if="row.username && row.password" class="text-af-ink-4">·</span>
+                <span v-if="row.username && row.password" class="text-af-ink-3">·</span>
                 <span v-if="row.password" class="font-mono">
                   {{ visiblePasswordIds.has(row.id) ? row.password : '••••••' }}
                 </span>
                 <button
                   v-if="row.password"
                   type="button"
-                  class="rounded p-0.5 text-af-ink-4 hover:text-af-ink-2"
+                  class="rounded p-0.5 text-af-ink-3 hover:text-af-ink-2"
                   :aria-label="t('admin.proxies.password')"
                   @click.stop="visiblePasswordIds.has(row.id) ? visiblePasswordIds.delete(row.id) : visiblePasswordIds.add(row.id)"
                 >
@@ -178,7 +178,7 @@
               />
               <span class="truncate text-af-ink-2" :title="formatLocation(row)">{{ formatLocation(row) }}</span>
             </div>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <!-- 账号数：有账号时可点开看是哪些账号 -->
@@ -192,7 +192,7 @@
             >
               {{ value }}
             </button>
-            <span v-else class="tabular-nums text-af-ink-4">0</span>
+            <span v-else class="tabular-nums text-af-ink-3">0</span>
           </template>
 
           <!-- 延迟：失败红字、≥200ms 黄字，其余常态；下一行是质量检测结果 -->
@@ -221,7 +221,7 @@
               >
                 {{ row.latency_ms }}ms
               </span>
-              <span v-else class="text-af-ink-4">-</span>
+              <span v-else class="text-af-ink-3">-</span>
               <span
                 v-if="typeof row.quality_checked === 'number'"
                 class="text-xs"

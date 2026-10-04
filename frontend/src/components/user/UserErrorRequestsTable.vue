@@ -16,7 +16,7 @@
       >
         <template #cell-model="{ row }">
           <span v-if="row.model" class="text-sm font-medium text-af-ink">{{ row.model }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-key_name="{ row }">
@@ -24,7 +24,7 @@
             <span class="text-af-ink">{{ row.key_name || '-' }}</span>
             <span
               v-if="row.key_deleted"
-              class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
+              class="ml-1 inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
             >{{ t('usage.errors.keyDeleted') }}</span>
           </div>
         </template>
@@ -54,7 +54,7 @@
             class="block max-w-[280px] truncate text-sm text-af-ink-2"
             :title="row.message"
           >{{ row.message }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-type="{ row }">
@@ -63,7 +63,7 @@
             class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
             :class="requestTypeBadge(row)!.className"
           >{{ requestTypeBadge(row)!.label }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-client_ip="{ row }">
@@ -72,7 +72,7 @@
               <span class="text-sm font-mono text-af-ink-2">{{ row.client_ip }}</span>
               <IpGeoCell :ip="row.client_ip" />
             </div>
-            <span v-else class="text-sm text-af-ink-4">-</span>
+            <span v-else class="text-sm text-af-ink-3">-</span>
           </div>
         </template>
 
@@ -86,7 +86,7 @@
             class="block max-w-[320px] truncate text-sm text-af-ink-2"
             :title="row.user_agent"
           >{{ row.user_agent }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #empty><EmptyState :message="t('usage.errors.empty')" /></template>

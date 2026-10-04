@@ -31,7 +31,7 @@
         {{ t('payment.customAmount') }}
       </label>
       <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-4">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">
           $
         </span>
         <input

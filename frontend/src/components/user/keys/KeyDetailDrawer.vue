@@ -102,7 +102,7 @@
             <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-af-hairline">
               <div class="h-full rounded-full" :class="LEVEL_BAR[limitLevel(meter.ratio)]" :style="{ width: `${Math.min(meter.ratio, 1) * 100}%` }" />
             </div>
-            <p v-if="meter.resetAt && resetText(meter.resetAt)" class="mt-1 text-xs text-af-ink-4">
+            <p v-if="meter.resetAt && resetText(meter.resetAt)" class="mt-1 text-xs text-af-ink-3">
               {{ t('keys.detail.resetsIn', { time: resetText(meter.resetAt) }) }}
             </p>
           </li>

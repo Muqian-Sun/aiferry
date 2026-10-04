@@ -13,7 +13,7 @@
         <tr class="text-af-ink-3">
           <th class="pb-2 text-left font-medium">{{ t('admin.dashboard.user') }}</th>
           <th class="hidden w-[36%] pb-2 font-medium md:table-cell">
-            <span class="flex justify-between gap-2 px-1 font-normal tabular-nums text-af-ink-4">
+            <span class="flex justify-between gap-2 px-1 font-normal tabular-nums text-af-ink-3">
               <span>{{ firstLabel }}</span><span>{{ lastLabel }}</span>
             </span>
           </th>
@@ -47,7 +47,7 @@
           </td>
           <td class="py-2 text-right tabular-nums text-af-ink-2">{{ row.requests.toLocaleString() }}</td>
           <td class="py-2 text-right tabular-nums text-af-ink">
-            {{ formatTokens(row.tokens) }} <span class="text-af-ink-4">{{ formatShare(row.tokens) }}</span>
+            {{ formatTokens(row.tokens) }} <span class="text-af-ink-3">{{ formatShare(row.tokens) }}</span>
           </td>
           <td class="py-2 text-right tabular-nums text-af-ink">{{ formatMoney(row.revenue) }}</td>
           <td class="py-2 text-right tabular-nums text-af-ink-3">{{ formatMoney(row.cost) }}</td>

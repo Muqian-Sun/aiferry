@@ -54,7 +54,7 @@
             <dt class="w-24 shrink-0 pt-2.5 text-13 text-af-ink-3">{{ t('userUi.overview.gettingStarted.example') }}</dt>
             <dd class="min-w-0 flex-1">
               <pre class="overflow-x-auto rounded-md bg-af-sunken px-4 py-3 font-mono text-13 leading-6 text-af-ink-2"><code>{{ example }}</code></pre>
-              <p class="mt-2 text-xs text-af-ink-4">{{ t('userUi.overview.gettingStarted.exampleHint') }}</p>
+              <p class="mt-2 text-xs text-af-ink-3">{{ t('userUi.overview.gettingStarted.exampleHint') }}</p>
             </dd>
             <button type="button" :class="[COPY_BUTTON, 'pt-2.5']" @click="copy('example', example)">
               <Icon :name="copied === 'example' ? 'check' : 'copy'" size="sm" />

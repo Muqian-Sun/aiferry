@@ -98,7 +98,7 @@
               <button
                 type="button"
                 class="rounded p-0.5 transition-colors"
-                :class="copiedCode === value ? 'text-af-success' : 'text-af-ink-4 hover:text-af-ink-2'"
+                :class="copiedCode === value ? 'text-af-success' : 'text-af-ink-3 hover:text-af-ink-2'"
                 :title="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
                 :aria-label="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
                 @click.stop="copyToClipboard(value)"
@@ -119,7 +119,7 @@
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
                 <span v-if="row.plan" class="ml-1 text-xs text-af-ink-3">{{ row.plan.name }}</span>
               </template>
-              <template v-else-if="row.type === 'invitation'"><span class="text-af-ink-4">-</span></template>
+              <template v-else-if="row.type === 'invitation'"><span class="text-af-ink-3">-</span></template>
               <template v-else>{{ value }}</template>
             </span>
           </template>
@@ -136,12 +136,12 @@
             <span v-if="row.user?.email || value" class="text-af-ink-2">
               {{ row.user?.email || t('common.deletedUser') }}
             </span>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <template #cell-used_at="{ value }">
             <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
-            <span v-else class="text-af-ink-4">-</span>
+            <span v-else class="text-af-ink-3">-</span>
           </template>
 
           <template #cell-expires_at="{ value }">

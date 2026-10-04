@@ -18,7 +18,7 @@
       <div v-else class="text-center">
         <p class="text-sm text-af-ink-3">{{ qrUrl ? t('payment.qr.expiresIn') : t('payment.qr.payInNewWindowHint') }}</p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-af-ink">{{ countdownDisplay }}</p>
-        <p class="mt-2 text-sm text-af-ink-4">{{ t('payment.qr.waitingPayment') }}</p>
+        <p class="mt-2 text-sm text-af-ink-3">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
       <a v-if="payUrl && !qrUrl && !expired" :href="payUrl" target="_blank" rel="noopener noreferrer"
         class="btn btn-primary btn-md w-full">

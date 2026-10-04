@@ -36,14 +36,14 @@
           <div v-if="row.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
             <span class="text-af-ink-3 flex items-center gap-1.5">
               {{ t('admin.usage.cacheCreation5mTokens') }}
-              <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-sunken text-af-ink-2">5m</span>
+              <span class="inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-sunken text-af-ink-2">5m</span>
             </span>
             <span class="font-medium text-af-ink">{{ row.cache_creation_5m_tokens.toLocaleString() }}</span>
           </div>
           <div v-if="row.cache_creation_1h_tokens > 0" class="flex items-center justify-between gap-4">
             <span class="text-af-ink-3 flex items-center gap-1.5">
               {{ t('admin.usage.cacheCreation1hTokens') }}
-              <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-sunken text-af-ink-2">1h</span>
+              <span class="inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-sunken text-af-ink-2">1h</span>
             </span>
             <span class="font-medium text-af-ink">{{ row.cache_creation_1h_tokens.toLocaleString() }}</span>
           </div>
@@ -57,7 +57,7 @@
       <div v-if="row && row.cache_ttl_overridden" class="flex items-center justify-between gap-4">
         <span class="text-af-ink-3 flex items-center gap-1.5">
           {{ t('usage.cacheTtlOverriddenLabel') }}
-          <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger/20 text-af-danger ring-1 ring-inset ring-af-danger/30">R-{{ row.cache_creation_1h_tokens > 0 ? '5m' : '1H' }}</span>
+          <span class="inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-danger/20 text-af-danger ring-1 ring-inset ring-af-danger/30">R-{{ row.cache_creation_1h_tokens > 0 ? '5m' : '1H' }}</span>
         </span>
         <span class="font-medium text-af-danger">{{ row.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
       </div>

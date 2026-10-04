@@ -130,7 +130,7 @@
         </template>
       </SheetSection>
 
-      <p class="text-xs text-af-ink-4">{{ t('userUi.serviceStatus.footnote') }}</p>
+      <p class="text-xs text-af-ink-3">{{ t('userUi.serviceStatus.footnote') }}</p>
     </div>
   </SiteShell>
 </template>

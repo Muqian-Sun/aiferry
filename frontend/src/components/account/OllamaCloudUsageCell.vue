@@ -21,7 +21,7 @@
     <div v-if="state.configured" class="flex items-center pt-0.5">
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="refreshing"
         data-testid="ollama-cloud-usage-query"
         @click="refreshUsage"

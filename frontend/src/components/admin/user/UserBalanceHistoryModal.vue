@@ -8,7 +8,7 @@
             <p class="truncate font-medium text-af-ink">{{ user.email }}</p>
             <span
               v-if="user.deleted_at"
-              class="inline-flex flex-shrink-0 items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
+              class="inline-flex flex-shrink-0 items-center rounded px-1 py-px text-xs font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
             >
               {{ t('admin.usage.userDeletedBadge') }}
             </span>

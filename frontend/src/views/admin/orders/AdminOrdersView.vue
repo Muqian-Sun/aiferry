@@ -80,7 +80,7 @@
               <span class="break-all font-mono" data-testid="order-detail-out-trade-no">{{ selectedOrder.out_trade_no }}</span>
               <button
                 type="button"
-                class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
+                class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
                 :title="t('keys.copyToClipboard')"
                 :aria-label="t('keys.copyToClipboard')"
                 data-testid="order-detail-copy-out-trade-no"

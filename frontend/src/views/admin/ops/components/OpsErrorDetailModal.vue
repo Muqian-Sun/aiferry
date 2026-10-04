@@ -21,7 +21,7 @@
             <span class="min-w-0 break-all font-mono text-sm font-medium text-af-ink">{{ requestId }}</span>
             <button
               type="button"
-              class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
+              class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
               :title="t('common.copy')"
               :aria-label="t('common.copy')"
               data-testid="error-detail-copy-request-id"
@@ -168,7 +168,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="text-xs font-black text-af-ink">
                 #{{ idx + 1 }}
-                <span v-if="ev.type" class="ml-2 rounded-md bg-af-sunken px-2 py-0.5 font-mono text-[10px] font-bold text-af-ink-2">{{ ev.type }}</span>
+                <span v-if="ev.type" class="ml-2 rounded-md bg-af-sunken px-2 py-0.5 font-mono text-xs font-bold text-af-ink-2">{{ ev.type }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="font-mono text-xs text-af-ink-3">
@@ -176,7 +176,7 @@
                 </div>
                 <button
                   type="button"
-                  class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-bold text-af-brand hover:bg-af-brand-tint disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-bold text-af-brand hover:bg-af-brand-tint disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="!getUpstreamResponsePreview(ev)"
                   :title="getUpstreamResponsePreview(ev) ? '' : t('common.noData')"
                   @click="toggleUpstreamDetail(ev.id)"

@@ -168,7 +168,7 @@
           </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-af-ink-2">{{ value }}</span>
-            <span v-else class="text-sm text-af-ink-4">-</span>
+            <span v-else class="text-sm text-af-ink-3">-</span>
           </template>
           <template #cell-status="{ row }">
             <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
@@ -197,7 +197,7 @@
               <span v-if="row.proxy" class="text-sm text-af-ink-2">
                 {{ row.proxy.name }}<span v-if="row.proxy.country_code" class="text-xs text-af-ink-3"> ({{ row.proxy.country_code }})</span>
               </span>
-              <span v-else class="text-sm text-af-ink-4">-</span>
+              <span v-else class="text-sm text-af-ink-3">-</span>
               <span v-if="row.proxy && row.proxy.expires_at" :class="['text-xs', proxyExpiryBadge(row.proxy)]" :title="formatDateTime(row.proxy.expires_at)">
                 {{ proxyExpiryText(row.proxy) }}
               </span>

@@ -65,8 +65,8 @@
               <div class="font-medium text-af-ink">{{ t('admin.pricing.official') }}</div>
               <div class="text-xs text-af-ink-3">{{ t('admin.pricing.officialHint', { rate: rateText }) }}</div>
             </template>
-            <template #upstream><span class="text-xs text-af-ink-4">{{ t('admin.pricing.catalogName') }}</span></template>
-            <template #margin><span class="text-af-ink-4">—</span></template>
+            <template #upstream><span class="text-xs text-af-ink-3">{{ t('admin.pricing.catalogName') }}</span></template>
+            <template #margin><span class="text-af-ink-3">—</span></template>
           </PricingPriceRows>
           <PricingPriceRows
             v-for="row in draft.rows"
@@ -83,7 +83,7 @@
             <template #lead>
               <div class="flex items-center gap-1.5">
                 <span class="font-medium text-af-ink">{{ accountName(row.id) }}</span>
-                <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-[11px] text-af-warning">{{ t('admin.pricing.newRow') }}</span>
+                <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-xs text-af-warning">{{ t('admin.pricing.newRow') }}</span>
               </div>
             </template>
             <template #upstream>

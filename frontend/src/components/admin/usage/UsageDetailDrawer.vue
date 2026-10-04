@@ -48,7 +48,7 @@
           <DetailField :label="t('admin.usage.user')">
             <template v-if="log.user?.email">
               {{ log.user.email }}
-              <span v-if="log.user.deleted_at" class="ml-1 inline-flex items-center rounded bg-af-danger-tint px-1 py-px text-[10px] font-medium leading-tight text-af-danger">
+              <span v-if="log.user.deleted_at" class="ml-1 inline-flex items-center rounded bg-af-danger-tint px-1 py-px text-xs font-medium leading-tight text-af-danger">
                 {{ t('admin.usage.userDeletedBadge') }}
               </span>
             </template>
@@ -98,7 +98,7 @@
               <span class="break-all font-mono text-xs">{{ id.value }}</span>
               <button
                 type="button"
-                class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
+                class="shrink-0 rounded p-0.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
                 :title="t('keys.copyToClipboard')"
                 :aria-label="t('keys.copyToClipboard')"
                 :data-testid="`usage-detail-copy-${id.key}`"

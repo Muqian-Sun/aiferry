@@ -10,8 +10,8 @@
     :aria-busy="kind === 'loading' ? 'true' : undefined"
     :data-testid="`status-${kind}`"
   >
-    <span v-if="kind === 'loading'" class="spinner mb-3 text-af-ink-4" data-testid="status-spinner" aria-hidden="true"></span>
-    <Icon v-else :name="kind === 'error' ? 'exclamationCircle' : 'inbox'" size="lg" class="mb-3 text-af-ink-4" aria-hidden="true" />
+    <span v-if="kind === 'loading'" class="spinner mb-3 text-af-ink-3" data-testid="status-spinner" aria-hidden="true"></span>
+    <Icon v-else :name="kind === 'error' ? 'exclamationCircle' : 'inbox'" size="lg" class="mb-3 text-af-ink-3" aria-hidden="true" />
     <p class="text-sm font-medium text-af-ink">{{ title }}</p>
     <p v-if="description" class="mt-1 max-w-sm text-13 text-af-ink-3">{{ description }}</p>
     <button

@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
         <button
           v-if="props.trigger === 'click'"
           type="button"
-          class="absolute right-1.5 top-1.5 rounded p-1 text-af-ink-4 transition-colors hover:bg-af-sheet/10 hover:text-af-on-brand"
+          class="absolute right-1.5 top-1.5 rounded p-1 text-af-ink-3 transition-colors hover:bg-af-sheet/10 hover:text-af-on-brand"
           :aria-label="t('common.close')"
           @click.stop="closeTooltip"
         >

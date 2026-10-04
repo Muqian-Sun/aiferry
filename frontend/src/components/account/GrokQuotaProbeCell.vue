@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center gap-1.5">
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="loading"
         :title="t('admin.accounts.usageWindow.grokProbeTooltip')"
         @click="handleProbe"
@@ -29,11 +29,11 @@
     <!-- Compact mode: parent already shows 7d/30d/prepaid or 24h — only surface errors. -->
     <div
       v-if="!compact && summary"
-      class="text-[10px] text-af-ink-2"
+      class="text-xs text-af-ink-2"
     >
       {{ summary }}
     </div>
-    <div v-if="error" class="truncate text-[10px] text-af-danger" :title="error">
+    <div v-if="error" class="truncate text-xs text-af-danger" :title="error">
       {{ truncatedError }}
     </div>
   </div>

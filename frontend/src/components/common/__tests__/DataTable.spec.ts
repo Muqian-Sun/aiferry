@@ -73,13 +73,13 @@ describe('DataTable', () => {
     expect(nameHeader.attributes('aria-sort')).toBe('ascending')
     expect(nameHeader.findAll('svg')).toHaveLength(2)
     expect(nameHeader.findAll('svg')[0].classes()).toContain('text-af-brand')
-    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-af-ink-4')
+    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-af-ink-3')
 
     await nameHeader.trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(nameHeader.attributes('aria-sort')).toBe('descending')
-    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-af-ink-4')
+    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-af-ink-3')
     expect(nameHeader.findAll('svg')[1].classes()).toContain('text-af-brand')
   })
 

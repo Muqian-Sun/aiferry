@@ -95,7 +95,7 @@
               :class="
                 copiedKeyId === row.id
                   ? 'text-af-success'
-                  : 'text-af-ink-4 hover:text-af-ink'
+                  : 'text-af-ink-3 hover:text-af-ink'
               "
               :title="copiedKeyId === row.id ? t('keys.copied') : t('keys.copyToClipboard')"
             >
@@ -132,7 +132,7 @@
         </template>
 
         <template #cell-current_concurrency="{ value }">
-          <span class="text-sm tabular-nums" :class="(value ?? 0) > 0 ? 'font-semibold text-af-ink' : 'text-af-ink-4'">
+          <span class="text-sm tabular-nums" :class="(value ?? 0) > 0 ? 'font-semibold text-af-ink' : 'text-af-ink-3'">
             {{ value ?? 0 }}
           </span>
         </template>
@@ -149,7 +149,7 @@
         </template>
 
         <template #cell-expires_at="{ value, row }">
-          <span v-if="!value" class="text-sm text-af-ink-4">{{ t('keys.noExpiration') }}</span>
+          <span v-if="!value" class="text-sm text-af-ink-3">{{ t('keys.noExpiration') }}</span>
           <span v-else-if="new Date(value) < now" class="text-sm text-af-danger">{{ formatDateTime(value) }}</span>
           <span v-else-if="isExpiringSoon(row, now)" class="text-sm text-af-warning" :title="formatDateTime(value)">
             {{ t('keys.expiresInDaysShort', { days: daysUntilExpiry(row, now) }) }}
@@ -158,7 +158,7 @@
         </template>
 
         <template #cell-status="{ value }">
-          <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-sm" :class="value === 'inactive' ? 'text-af-ink-4' : 'text-af-ink-2'">
+          <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-sm" :class="value === 'inactive' ? 'text-af-ink-3' : 'text-af-ink-2'">
             <span
               class="h-1.5 w-1.5 shrink-0 rounded-full"
               :class="
@@ -178,14 +178,14 @@
           <span v-if="value" class="whitespace-nowrap text-sm text-af-ink-2" :title="formatDateTime(value)">
             {{ formatRelativeTime(value) }}
           </span>
-          <span v-else class="text-sm text-af-ink-4">{{ t('keys.detail.neverUsed') }}</span>
+          <span v-else class="text-sm text-af-ink-3">{{ t('keys.detail.neverUsed') }}</span>
         </template>
 
         <template #cell-last_used_ip="{ value }">
           <span v-if="value" class="text-sm text-af-ink-3">
             {{ value }}
           </span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-created_at="{ value }">

@@ -197,11 +197,11 @@ const kindBadgeClass = (kind: string) => {
               <div v-if="!isDesktopViewport" class="divide-y divide-af-hairline">
                 <div v-for="(row, idx) in items" :key="idx" class="space-y-2 p-4">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="kindBadgeClass(row.kind)">
+                    <span class="rounded-full px-2 py-1 text-xs font-bold" :class="kindBadgeClass(row.kind)">
                       {{ row.kind === 'error' ? t('admin.ops.requestDetails.kind.error') : t('admin.ops.requestDetails.kind.success') }}
                     </span>
                     <span class="text-xs font-medium text-af-ink-2">{{ (row.platform || 'unknown').toUpperCase() }}</span>
-                    <span class="ml-auto text-[11px] text-af-ink-3">{{ formatDateTime(row.created_at) }}</span>
+                    <span class="ml-auto text-xs text-af-ink-3">{{ formatDateTime(row.created_at) }}</span>
                   </div>
                   <div class="break-all text-xs text-af-ink-2">{{ row.model || '-' }}</div>
                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-af-ink-2">
@@ -209,11 +209,11 @@ const kindBadgeClass = (kind: string) => {
                     <span>{{ row.status_code ?? '-' }}</span>
                   </div>
                   <div v-if="row.request_id" class="flex items-center gap-2">
-                    <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-af-ink-2" :title="row.request_id">
+                    <span class="min-w-0 flex-1 truncate font-mono text-xs text-af-ink-2" :title="row.request_id">
                       {{ row.request_id }}
                     </span>
                     <button
-                      class="shrink-0 rounded-md bg-af-sunken px-2 py-1 text-[10px] font-bold text-af-ink-2 hover:bg-af-hairline"
+                      class="shrink-0 rounded-md bg-af-sunken px-2 py-1 text-xs font-bold text-af-ink-2 hover:bg-af-hairline"
                       @click="handleCopyRequestId(row.request_id)"
                     >
                       {{ t('admin.ops.requestDetails.copy') }}
@@ -231,28 +231,28 @@ const kindBadgeClass = (kind: string) => {
               <table v-else class="min-w-full divide-y divide-af-hairline">
                 <thead class="sticky top-0 z-10 bg-af-sunken">
                 <tr>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.time') }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.kind') }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.platform') }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.model') }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ latencyLabel }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.status') }}
                   </th>
-                  <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.requestId') }}
                   </th>
-                  <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
+                  <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-af-ink-3">
                     {{ t('admin.ops.requestDetails.table.actions') }}
                   </th>
                 </tr>
@@ -263,7 +263,7 @@ const kindBadgeClass = (kind: string) => {
                     {{ formatDateTime(row.created_at) }}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3">
-                    <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="kindBadgeClass(row.kind)">
+                    <span class="rounded-full px-2 py-1 text-xs font-bold" :class="kindBadgeClass(row.kind)">
                       {{ row.kind === 'error' ? t('admin.ops.requestDetails.kind.error') : t('admin.ops.requestDetails.kind.success') }}
                     </span>
                   </td>
@@ -281,11 +281,11 @@ const kindBadgeClass = (kind: string) => {
                   </td>
                   <td class="px-4 py-3">
                     <div v-if="row.request_id" class="flex items-center gap-2">
-                      <span class="max-w-[220px] truncate font-mono text-[11px] text-af-ink-2" :title="row.request_id">
+                      <span class="max-w-[220px] truncate font-mono text-xs text-af-ink-2" :title="row.request_id">
                         {{ row.request_id }}
                       </span>
                       <button
-                        class="rounded-md bg-af-sunken px-2 py-1 text-[10px] font-bold text-af-ink-2 hover:bg-af-hairline"
+                        class="rounded-md bg-af-sunken px-2 py-1 text-xs font-bold text-af-ink-2 hover:bg-af-hairline"
                         @click="handleCopyRequestId(row.request_id)"
                       >
                         {{ t('admin.ops.requestDetails.copy') }}

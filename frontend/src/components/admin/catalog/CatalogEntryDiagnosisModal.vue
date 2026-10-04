@@ -52,7 +52,7 @@
               :data-serves="account.serves?.[inbound] ? 'true' : 'false'"
             >
               <span v-if="account.serves?.[inbound]" class="text-af-success">✓</span>
-              <span v-else class="text-af-ink-4">✗</span>
+              <span v-else class="text-af-ink-3">✗</span>
             </td>
           </tr>
         </tbody>

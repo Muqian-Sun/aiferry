@@ -77,7 +77,7 @@
       </span>
     </div>
     <!-- Row 3: Subscription expiration (non-free paid accounts only) -->
-    <div v-if="expiresLabel" class="text-[10px] leading-tight text-af-ink-3 pl-0.5" :title="subscriptionExpiresAt">
+    <div v-if="expiresLabel" class="text-xs leading-tight text-af-ink-3 pl-0.5" :title="subscriptionExpiresAt">
       {{ expiresLabel }}
     </div>
   </div>

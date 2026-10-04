@@ -175,7 +175,7 @@
               <template v-if="usageWindows(sub).length">
                 <span v-for="w in usageWindows(sub)" :key="w.key">
                   <span class="text-af-ink-3">{{ w.label }}</span>
-                  {{ formatMoney(w.used) }}<span class="text-af-ink-4"> / {{ formatMoney(w.limit) }}</span>
+                  {{ formatMoney(w.used) }}<span class="text-af-ink-3"> / {{ formatMoney(w.limit) }}</span>
                 </span>
               </template>
               <span v-else class="text-af-ink-3">{{ t('admin.users.detail.unlimited') }}</span>

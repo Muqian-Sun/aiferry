@@ -100,7 +100,7 @@ async function reset() {
         <label class="text-xs text-af-ink-2">
           {{ t('admin.ops.systemLogs.retentionDays') }}
           <input v-model.number="config.retention_days" type="number" min="1" max="3650" class="input mt-1" />
-          <span class="mt-1 block text-[11px] text-af-ink-3">{{ t('admin.ops.systemLogs.retentionDaysHint') }}</span>
+          <span class="mt-1 block text-xs text-af-ink-3">{{ t('admin.ops.systemLogs.retentionDaysHint') }}</span>
         </label>
         <label class="text-xs text-af-ink-2">
           {{ t('admin.ops.systemLogs.samplingInitial') }}

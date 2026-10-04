@@ -681,7 +681,7 @@
   }
 
   .sidebar-link-disabled {
-    @apply text-af-ink-4 hover:text-af-ink-3;
+    @apply text-af-ink-3 hover:text-af-ink-2;
   }
 
   .sidebar-link-active::before {

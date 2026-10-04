@@ -1,7 +1,7 @@
 <template>
   <!-- 毛利 = 1 − 上游成本比 ÷ 默认售价倍率；低于最低毛利率标红（利润门会跳过）。改过的行要保存后才重算。 -->
-  <span v-if="margin === undefined" class="whitespace-nowrap text-xs text-af-ink-4">{{ t('admin.pricing.marginAfterSave') }}</span>
-  <span v-else-if="margin === null" class="text-af-ink-4">—</span>
+  <span v-if="margin === undefined" class="whitespace-nowrap text-xs text-af-ink-3">{{ t('admin.pricing.marginAfterSave') }}</span>
+  <span v-else-if="margin === null" class="text-af-ink-3">—</span>
   <span
     v-else
     :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium tabular-nums', tone]"
