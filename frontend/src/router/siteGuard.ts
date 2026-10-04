@@ -5,20 +5,17 @@
  */
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import type { AppSite } from '@/app/site'
-import type { CustomMenuItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
-import { resolveRouteDocumentTitle } from './title'
 import { defaultAuthedPath } from './defaultAuthedPath'
 
 export { defaultAuthedPath }
 
 export interface SiteGuardOptions {
   site: AppSite
-  getCustomMenuItems: () => CustomMenuItem[]
 }
 
 const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/payment/result', '/payment/airwallex', '/legal']
@@ -64,9 +61,8 @@ export function createSiteGuard(options: SiteGuardOptions) {
       authInitialized = true
     }
 
-    document.title = resolveRouteDocumentTitle(to, appStore.siteName, options.getCustomMenuItems(), {
-      legalDocuments: appStore.cachedPublicSettings?.login_agreement_documents
-    })
+    // 标签页标题不在这里设：被拦回当前页的导航（如支付关着时从概览点订单）是重复导航，不会再进守卫，
+    // 先写上的目标页标题会一直留着。标题统一由 AppShell 按「当前路由」更新。
 
     const requiresAuth = to.meta.requiresAuth !== false // Default to true
     const backendModeBlocksUsers = isUserSite && appStore.backendModeEnabled

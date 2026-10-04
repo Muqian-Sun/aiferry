@@ -116,7 +116,7 @@ export default {
       detail: {
         tabs: {
           overview: '概况',
-          balance: '余额流水',
+          balance: '余额与并发变更',
           keys: 'API 密钥',
           subscriptions: '订阅',
           usage: '用量'
@@ -284,7 +284,7 @@ export default {
         nonNegativeInteger: '请输入非负整数',
         nonNegativeNumber: '请输入非负数',
         initialBalance: '初始余额',
-        initialBalanceHint: '会记进余额流水，算作管理员调整',
+        initialBalanceHint: '会记进「余额与并发变更」，算作管理员调整',
         zeroUnlimited: '0 = 不限',
         emailExists: '这个邮箱已被注册'
       },
@@ -321,14 +321,14 @@ export default {
       notesOptional: '备注为可选项，有助于未来查账',
       amountHint: '请输入正数金额',
       newBalance: '操作后余额',
-      // 余额流水（抽屉页签、行菜单、余额数字的悬停提示同一个叫法）
-      balanceHistory: '余额流水',
-      balanceHistoryTip: '查看余额流水',
+      // 余额与并发变更（抽屉页签、行菜单、余额数字的悬停提示同一个叫法）：记录里既有余额也有并发数的增减
+      balanceHistory: '余额与并发变更',
+      balanceHistoryTip: '查看余额与并发变更',
       columnAlwaysVisible: '该列固定显示，不可隐藏',
       // 「近 30 天消费」悬停里的按平台拆分
       platformBreakdown: '近 30 天 · 按平台',
       platformOther: '其他',
-      balanceHistoryTitle: '余额流水',
+      balanceHistoryTitle: '余额与并发变更',
       noBalanceHistory: '暂无变动记录',
       allTypes: '全部类型',
       // 在线支付到账也记成这一类
@@ -338,7 +338,7 @@ export default {
       typeConcurrency: '并发（兑换码）',
       typeAdminConcurrency: '并发（管理员调整）',
       typeSubscription: '订阅',
-      failedToLoadBalanceHistory: '加载余额记录失败',
+      failedToLoadBalanceHistory: '加载余额与并发变更失败',
       createdAt: '创建时间',
       totalRecharged: '总充值',
       // Settings Dropdowns

@@ -178,7 +178,8 @@ export default {
     seedDone: 'Import finished: {inserted} added, {refreshed} updated, {skipped} skipped (edited by hand)',
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
-    deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
+    deleteConfirm: 'Deleting {model} also deletes its aliases, {intervals}, and time pricing. Continue?',
+    deleteIntervals: { segments: 'token segments', tiers: 'tiers' },
     noResources: 'No channels',
     fields: {
       modelId: 'Model id',

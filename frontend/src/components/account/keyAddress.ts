@@ -58,7 +58,8 @@ const normalizeUrl = (url: string) => url.trim().replace(/\/+$/, '')
 
 /**
  * 常用官方地址：国产厂商用带国际站的预设表，其余（OpenCode）取后端官方地址表。
- * 同一厂商同一协议同一地址只留一条。
+ * 同一厂商同一协议同一地址只留一条。后端官方地址表按每个模式各回一份（default / coding / zen / go），
+ * OpenCode 的 default、coding 与 zen 是同一组地址：先放有明确模式的，没标模式的同址条目不再重复列出。
  */
 export function keyAddressPresets(defaults: ProtocolDefaultsResponse | null): KeyAddressPreset[] {
   const out: KeyAddressPreset[] = []
@@ -76,10 +77,16 @@ export function keyAddressPresets(defaults: ProtocolDefaultsResponse | null): Ke
       }
       continue
     }
-    for (const [modeKey, endpoints] of Object.entries(perMode)) {
-      const mode = modeKey === 'zen' || modeKey === 'go' ? modeKey : undefined
+    const listedAddresses = new Set<string>()
+    const modeOf = (modeKey: string) => (modeKey === 'zen' || modeKey === 'go' ? modeKey : undefined)
+    const byMode = Object.entries(perMode).sort(([a], [b]) => Number(!modeOf(a)) - Number(!modeOf(b)))
+    for (const [modeKey, endpoints] of byMode) {
+      const mode = modeOf(modeKey)
       for (const [protocol, url] of Object.entries(endpoints)) {
-        if (url) push({ vendor, mode, protocol: protocol as UpstreamProtocol, url })
+        const address = `${protocol}|${normalizeUrl(url)}`
+        if (!url || (!mode && listedAddresses.has(address))) continue
+        listedAddresses.add(address)
+        push({ vendor, mode, protocol: protocol as UpstreamProtocol, url })
       }
     }
   }

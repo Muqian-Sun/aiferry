@@ -6,17 +6,17 @@ export default {
         features: '功能',
       },
       sections: {
-        other: { title: '其它', description: '最低毛利率。' },
+        other: { title: '利润门', description: '渠道的毛利达不到最低毛利率时，这次请求不派给它。' },
         features: { title: '开关', description: '各功能的总开关。' },
       },
       description: '网关与功能开关的全局设置，每一节单独保存。',
       features: {
         riskControl: {
-          title: '风控中心',
-          description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',
-          configureLink: '前往 风控中心 配置内容审计',
-          enabled: '启用风控中心',
-          enabledHint: '关闭后管理员侧边栏入口隐藏，网关内容审计不会执行。',
+          title: '审查',
+          description: '启用内容审核与提示词审查，以及全端点请求审核入口。默认关闭。',
+          configureLink: '前往「审查」配置内容审核',
+          enabled: '启用审查',
+          enabledHint: '关闭后侧栏「审查」入口变灰，网关不做内容审核。',
         },
       },
       turnstile: {
@@ -217,7 +217,7 @@ export default {
       discard: '放弃修改',
       unsavedHint: '有未保存的修改',
       leaveTitle: '还有未保存的修改',
-      leaveMessage: '离开这一节会丢掉刚才的改动。',
+      leaveMessage: '现在离开会丢掉还没保存的改动。',
       stay: '留在这里',
       settingsSaved: '设置保存成功',
       failedToLoad: '加载设置失败',

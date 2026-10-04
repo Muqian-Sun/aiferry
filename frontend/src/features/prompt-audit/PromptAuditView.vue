@@ -4,7 +4,7 @@
     <template v-if="draft" #header-actions>
       <div class="text-right text-xs text-af-ink-3" data-test="config-version">
         <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
-        <p v-if="draft.updated_at" class="mt-0.5">{{ formatDate(draft.updated_at) }}</p>
+        <p v-if="savedAt" class="mt-0.5">{{ formatDate(savedAt) }}</p>
       </div>
     </template>
 
@@ -169,6 +169,12 @@ const onTabChange = (key: string) => {
 }
 const serverConfig = ref<PromptAuditDraft | null>(null)
 const draft = ref<PromptAuditDraft | null>(null)
+// 从没保存过的配置，后端给的是 Go 的零值时间 0001-01-01：当作没有，不显示「1年1月1日」
+const savedAt = computed(() => {
+  const value = draft.value?.updated_at
+  if (!value) return null
+  return new Date(value).getUTCFullYear() > 1 ? value : null
+})
 const runtime = ref<PromptAuditRuntime | null>(null)
 const events = reactive<PromptEventPage>({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
 const filters = ref<PromptEventFilters>(emptyEventFilters())

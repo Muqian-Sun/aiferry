@@ -116,7 +116,7 @@ export default {
       detail: {
         tabs: {
           overview: 'Overview',
-          balance: 'Balance history',
+          balance: 'Balance & concurrency changes',
           keys: 'API keys',
           subscriptions: 'Subscriptions',
           usage: 'Usage'
@@ -232,7 +232,7 @@ export default {
         nonNegativeInteger: 'Enter a non-negative integer',
         nonNegativeNumber: 'Enter a non-negative number',
         initialBalance: 'Initial balance',
-        initialBalanceHint: 'Recorded in the balance history as an admin adjustment',
+        initialBalanceHint: 'Recorded in balance & concurrency changes as an admin adjustment',
         zeroUnlimited: '0 = unlimited',
         emailExists: 'This email is already registered'
       },
@@ -318,13 +318,13 @@ export default {
       amountHint: 'Please enter a positive amount',
       newBalance: 'New Balance',
       // Balance history (drawer tab, row menu and the balance tooltip share one name)
-      balanceHistory: 'Balance history',
-      balanceHistoryTip: 'View balance history',
+      balanceHistory: 'Balance & concurrency changes',
+      balanceHistoryTip: 'View balance & concurrency changes',
       columnAlwaysVisible: 'This column is always visible',
       // Per-platform split in the last-30-day spend tooltip
       platformBreakdown: 'Last 30 days · by platform',
       platformOther: 'Other',
-      balanceHistoryTitle: 'Balance history',
+      balanceHistoryTitle: 'Balance & concurrency changes',
       noBalanceHistory: 'No records found for this user',
       allTypes: 'All Types',
       // Online payments are credited as this type too
@@ -334,7 +334,7 @@ export default {
       typeConcurrency: 'Concurrency (Redeem)',
       typeAdminConcurrency: 'Concurrency (Admin)',
       typeSubscription: 'Subscription',
-      failedToLoadBalanceHistory: 'Failed to load balance history',
+      failedToLoadBalanceHistory: 'Failed to load balance & concurrency changes',
       createdAt: 'Created',
       totalRecharged: 'Total Recharged',
       roles: {

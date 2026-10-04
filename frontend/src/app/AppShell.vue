@@ -40,7 +40,7 @@ watch(
     () => getSiteContext().getCustomMenuItems(),
   ],
   updateDocumentTitle,
-  { deep: true }
+  { deep: true, immediate: true }
 )
 
 onMounted(async () => {

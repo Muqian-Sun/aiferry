@@ -762,7 +762,7 @@ function buildEmailSuffixNotAllowedMessage(): string {
   return t('auth.emailSuffixNotAllowedWithAllowed', {
     suffixes: formatRegistrationEmailSuffixWhitelistForMessage(normalizedWhitelist, {
       separator,
-      more: (count) => t('auth.emailSuffixAllowedMore', { count })
+      more: (count, total) => t('auth.emailSuffixAllowedMore', { count, total })
     })
   })
 }

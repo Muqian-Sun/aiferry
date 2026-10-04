@@ -96,6 +96,7 @@
 
           <template #empty>
             <EmptyState
+              :filtered="hasActiveFilters"
               :title="t('empty.noData')"
               :description="t('admin.announcements.createFirstAnnouncement')"
               :action-text="t('admin.announcements.createAnnouncement')"
@@ -178,7 +179,7 @@
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.announcements.deleteAnnouncement')"
-      :message="t('admin.announcements.deleteConfirm')"
+      :message="t('admin.announcements.deleteConfirm', { title: deletingAnnouncement?.title ?? '' })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       danger
@@ -246,6 +247,8 @@ const filters = reactive({
   status: '',
 })
 const searchQuery = ref('')
+/** 带着搜索 / 状态筛选却没有结果时，空状态说「没有符合条件的」，不给「创建第一条」 */
+const hasActiveFilters = computed(() => Boolean(searchQuery.value.trim() || filters.status))
 
 const pagination = reactive({
   page: 1,

@@ -75,7 +75,7 @@ export default {
     modelCount: '{count} 个模型',
     priority: '优先级 {priority}',
     segmentsNone: '不分段',
-    segmentsCount: '{count} 段',
+    segmentsCount: '分 {count} 段',
     segmentAbove: '超过',
     segmentInherit: '同第 1 段',
     segmentAdd: '加一段',
@@ -100,6 +100,7 @@ export default {
     channelState: {
       ok: '可调度',
       paused: '暂不可调度',
+      error: '异常',
       disabled: '已停用',
       missing: '渠道不存在'
     },

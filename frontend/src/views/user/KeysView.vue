@@ -231,7 +231,10 @@
         </template>
 
         <template #empty>
+          <!-- 有搜索 / 状态筛选时空列表是「没有符合条件的」，不给「创建第一个」的引导 -->
+          <StatusState v-if="hasActiveFilters" kind="empty" :title="t('common.noMatch')" :description="t('common.noMatchHint')" />
           <StatusState
+            v-else
             kind="empty"
             :title="t('keys.noKeysYet')"
             :description="t('keys.createFirstKey')"
@@ -785,6 +788,7 @@ const allKeys = ref<ApiKey[] | null>(null)
 
 type AttentionFilter = 'near_limit' | 'expiring'
 const attentionFilter = ref<AttentionFilter | ''>('')
+const hasActiveFilters = computed(() => !!filterSearch.value.trim() || filterStatus.value !== '' || !!attentionFilter.value)
 
 function setAttentionFilter(value: AttentionFilter) {
   selectedIds.value = []

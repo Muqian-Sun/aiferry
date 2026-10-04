@@ -70,7 +70,7 @@
         <div class="mx-auto max-w-site px-6">
           <dl
             v-reveal
-            class="grid grid-cols-2 gap-y-8 border-y border-af-hairline py-10 sm:grid-cols-4 sm:gap-y-0 sm:divide-x sm:divide-af-hairline"
+            class="grid grid-cols-3 border-y border-af-hairline py-10 divide-x divide-af-hairline"
             data-testid="home-stats"
           >
             <div v-for="stat in stats" :key="stat.key" class="px-4 text-center">
@@ -162,10 +162,12 @@ const HERO_POINTS = ['protocol', 'sameModel', 'ledger'] as const
 // 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字段，不放假数字
 const catalog = ref<CatalogModel[]>([])
 const vendors = computed(() => catalogVendors(catalog.value))
-/** 数字段：前两个从目录算，后两个是产品事实（四条协议 / 「使用密钥」弹窗里有配置片段的客户端数） */
+/**
+ * 数字段：模型数从目录算，后两个是产品事实（四条协议 / 「使用密钥」弹窗里有配置片段的客户端数）。
+ * 不放厂商数：首屏图标云是固定的 11 家，和目录里实际接入的厂商数对不上（2026-10-04 走查）。
+ */
 const stats = computed(() => [
   { key: 'models', value: catalog.value.length },
-  { key: 'vendors', value: vendors.value.length },
   { key: 'protocols', value: PROTOCOL_ROUTES.length },
   { key: 'clients', value: HOME_CLIENTS.length }
 ])

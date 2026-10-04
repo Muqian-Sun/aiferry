@@ -70,7 +70,7 @@
       <!-- Desktop pagination buttons -->
       <nav
         class="inline-flex items-center gap-0.5"
-        aria-label="Pagination"
+        :aria-label="t('common.pagination')"
       >
         <!-- Previous button -->
         <button

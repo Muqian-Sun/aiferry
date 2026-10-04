@@ -41,7 +41,7 @@ function createDeferred<T>() {
 function runGuard(site: AppSite, meta: Record<string, unknown>, path: string) {
   // 两个站点各自只有一种角色，登录态按站点给出
   authStore.isAdmin = site === 'admin'
-  const guard = createSiteGuard({ site, getCustomMenuItems: () => [] })
+  const guard = createSiteGuard({ site })
   const next = vi.fn()
   const to = { path, fullPath: path, name: 'FeatureRoute', params: {}, meta: { requiresAuth: true, ...meta } } as unknown as RouteLocationNormalized
   const navigation = guard(to, to, next)

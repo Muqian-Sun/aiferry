@@ -105,20 +105,20 @@ export function isRegistrationEmailSuffixAllowed(
   })
 }
 
+// 列出前几项，其余写成「等 N 个」：这一截跟在列表后面、用空格隔开，不当成列表的一项（否则中文会成「a、等 7 项」）
 export function formatRegistrationEmailSuffixWhitelistForMessage(
   whitelist: string[] | null | undefined,
   options: {
     separator: string
-    more: (count: number) => string
+    /** hidden = 没列出来的个数，total = 总数 */
+    more: (hidden: number, total: number) => string
   }
 ): string {
   const normalizedWhitelist = normalizeRegistrationEmailSuffixWhitelist(whitelist)
   const visible = normalizedWhitelist.slice(0, EMAIL_SUFFIX_MESSAGE_VISIBLE_LIMIT)
   const hiddenCount = normalizedWhitelist.length - visible.length
-  if (hiddenCount > 0) {
-    visible.push(options.more(hiddenCount))
-  }
-  return visible.join(options.separator)
+  const listed = visible.join(options.separator)
+  return hiddenCount > 0 ? `${listed} ${options.more(hiddenCount, normalizedWhitelist.length)}` : listed
 }
 
 // Pasted domains should be strict: any invalid character drops the whole token.

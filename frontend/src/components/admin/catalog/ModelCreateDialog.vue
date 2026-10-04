@@ -110,14 +110,15 @@ import {
 import { extractApiErrorMessage } from '@/utils/apiError'
 import ModelBasicsFields from './ModelBasicsFields.vue'
 import { entryToRequest } from './entryRequest'
+import type { CatalogVendorChoice } from './vendorLabel'
 import { DETAIL_PRICE_MAX_DECIMALS, formatListPrice, perMillion, sharedPriceDecimals } from './priceFormat'
 import { tokenIntervals } from '@/utils/tokenSegments'
 
 const props = withDefaults(
   defineProps<{
     show: boolean
-    /** 目录里已有的厂商标签 */
-    vendorOptions: string[]
+    /** 目录里已有的厂商（按展示名分组） */
+    vendorOptions: CatalogVendorChoice[]
     /** 目录里已有的模型标识：输入撞上时直接提示，不必等后端拒 */
     existingModelIds?: string[]
     /** 预填的模型标识（从渠道「检测上游」里目录没有的模型进来） */

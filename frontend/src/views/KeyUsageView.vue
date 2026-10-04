@@ -361,7 +361,7 @@ import FormError from '@/components/common/FormError.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useChartTheme } from '@/composables/useChartTheme'
 import { buildGatewayUrl } from '@/api/client'
-import { formatDateLocalInput } from '@/utils/format'
+import { formatCurrency, formatDateLocalInput } from '@/utils/format'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 
 const { t, locale } = useI18n()
@@ -512,21 +512,17 @@ const statusInfo = computed(() => {
 
   if (data.mode === 'quota_limited') {
     const isValid = data.isValid !== false
-    const statusMap: Record<string, string> = {
-      active: 'Active',
-      quota_exhausted: 'Quota Exhausted',
-      expired: 'Expired',
-    }
+    // 密钥状态：active / disabled / quota_exhausted / expired（后端 service/api_key.go）
     return {
       label: t('keyUsage.quotaMode'),
-      statusText: statusMap[data.status] || data.status || 'Unknown',
+      statusText: t(`keyUsage.keyStatus.${data.status}`),
       isActive: isValid && data.status === 'active',
     }
   }
 
   return {
     label: data.planName || t('keyUsage.walletBalance'),
-    statusText: 'Active',
+    statusText: t('keyUsage.keyStatus.active'),
     isActive: true,
   }
 })
@@ -755,9 +751,10 @@ const showDailyUsage = computed(() => Boolean(resultData.value && Array.isArray(
 
 // ==================== Utility Functions ====================
 
+// 金额与用户站其它页同一个格式（formatCurrency）：小于 1 美分的写到有效位，不写成 $0.00
 function usd(value: number | null | undefined): string {
   if (value == null || value < 0) return '-'
-  return '$' + Number(value).toFixed(2)
+  return formatCurrency(Number(value))
 }
 
 function fmtNum(val: number | null | undefined): string {

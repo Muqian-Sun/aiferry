@@ -58,7 +58,8 @@ describe('SiteShell public footer', () => {
       ]
     }
     const wrapper = mountShell()
-    expect(wrapper.findAll('[data-testid="footer-legal"] a').map((a) => a.text())).toEqual(['Terms', 'Privacy'])
+    // 认得的文档（privacy）按界面语言取译名（这里的 t 原样返回 key），认不得的用文档自带标题
+    expect(wrapper.findAll('[data-testid="footer-legal"] a').map((a) => a.text())).toEqual(['Terms', 'legal.documents.privacy'])
     expect(linkTargets(wrapper)).toEqual(expect.arrayContaining(['/legal/tos', '/legal/privacy']))
   })
 

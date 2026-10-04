@@ -26,9 +26,8 @@ export default {
 
 
     riskControl: {
-      title: 'Risk Control',
       description: 'Configure content moderation and review audit records',
-      loadFailed: 'Failed to load risk control',
+      loadFailed: 'Failed to load content moderation',
       saveFailed: 'Failed to save content moderation config',
       logsFailed: 'Failed to load audit records',
       saved: 'Content moderation config saved',
@@ -43,7 +42,7 @@ export default {
       saveConfig: 'Save Moderation Config',
       statusFailed: 'Failed to load runtime status',
       enabled: 'Enable Content Moderation',
-      enabledHint: 'When off, gateway requests are not moderated even if the menu is enabled.',
+      enabledHint: 'When off, gateway requests are not moderated even if the Review entry is on.',
       mode: 'Global Mode',
       modePreBlock: 'Pre-Block',
       modePreBlockDesc: 'Synchronously reviews the latest user input before every request and rejects hits immediately.',
@@ -125,8 +124,8 @@ export default {
       timeoutMs: 'HTTP Timeout (ms)',
       retryCount: 'Retry Count',
       sampleRate: 'Sample Rate',
-      proxy: 'Proxy Server',
-      proxyHint: 'Send moderation requests through the selected proxy (IP Management - Proxy Servers), useful when the egress IP is not supported by OpenAI. Defaults to direct connection.',
+      proxy: 'Proxy',
+      proxyHint: 'Send moderation requests through the selected proxy (configured on the Proxies page), useful when the egress IP is not supported by OpenAI. Defaults to direct connection.',
       recordNonHits: 'Record Non-Hits',
       recordNonHitsHint: 'When enabled, sampled non-hit request summaries are redacted before storage.',
       preHashCheck: 'Enable Pre-Hash Check',

@@ -252,6 +252,7 @@
 
           <template #empty>
             <EmptyState
+              :filtered="hasActiveFilters"
               :title="t('admin.proxies.noProxiesYet')"
               :description="t('admin.proxies.createFirstProxy')"
               :action-text="t('admin.proxies.createProxy')"
@@ -553,6 +554,8 @@ const filters = reactive({
   protocol: '',
   status: ''
 })
+/** 带着搜索 / 筛选却没有结果时，空状态说「没有符合条件的」，不给「添加第一个代理」 */
+const hasActiveFilters = computed(() => Boolean(searchQuery.value.trim() || filters.protocol || filters.status))
 const pagination = reactive({
   page: 1,
   page_size: getPersistedPageSize(),

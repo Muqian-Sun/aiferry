@@ -442,7 +442,7 @@ export default {
         ANNOUNCEMENT_CONTENT_REQUIRED: 'The content is required'
       },
       failedToLoadReadStatus: 'Failed to load read status',
-      deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
+      deleteConfirm: 'Are you sure you want to delete the announcement "{title}"? This action cannot be undone.'
     },
 
     // Usage Records

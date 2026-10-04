@@ -35,7 +35,7 @@ import { createSiteGuard, defaultAuthedPath } from '@/router/siteGuard'
 type Outcome = { redirect: unknown; allowed: boolean }
 
 async function navigate(site: AppSite, path: string, meta: Record<string, unknown> = {}): Promise<Outcome> {
-  const guard = createSiteGuard({ site, getCustomMenuItems: () => [] })
+  const guard = createSiteGuard({ site })
   const next = vi.fn()
   const to = { path, fullPath: path, name: undefined, params: {}, query: {}, hash: '', matched: [], redirectedFrom: undefined, meta } as unknown as RouteLocationNormalized
   await guard(to, to, next)

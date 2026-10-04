@@ -11,7 +11,7 @@
       <article v-else>
         <header class="mb-8 border-b border-af-hairline pb-6">
           <p class="text-13 font-medium text-af-ink-3">{{ documentTypeLabel }}</p>
-          <h1 class="mt-1 break-words text-28 font-semibold text-af-ink">{{ currentDocument.title }}</h1>
+          <h1 class="mt-1 break-words text-28 font-semibold text-af-ink">{{ legalDocumentTitle(currentDocument, t) }}</h1>
           <p v-if="updatedAt" class="mt-2 text-13 text-af-ink-3">{{ t('legal.updatedAt', { date: updatedAt }) }}</p>
         </header>
 
@@ -32,6 +32,7 @@ import SiteShell from '@/components/user/shell/SiteShell.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import { useAppStore } from '@/stores/app'
 import type { LoginAgreementDocument } from '@/types'
+import { legalDocumentTitle } from '@/utils/legalDocumentTitle'
 
 const route = useRoute()
 const { t } = useI18n()

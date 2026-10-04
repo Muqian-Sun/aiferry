@@ -34,7 +34,8 @@
           :data-testid="testId ? `${testId}-segments-toggle` : undefined"
           @click="expanded = !expanded"
         >
-          {{ prices.segments.length ? t('admin.pricing.segmentsCount', { count: prices.segments.length }) : t('admin.pricing.segmentsNone') }}
+          <!-- 段数含第 1 段（基础价），与模型页「分 N 段」同一口径 -->
+          {{ prices.segments.length ? t('admin.pricing.segmentsCount', { count: prices.segments.length + 1 }) : t('admin.pricing.segmentsNone') }}
           <Icon :name="expanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
         <button

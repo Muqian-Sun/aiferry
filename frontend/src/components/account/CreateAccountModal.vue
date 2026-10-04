@@ -1030,6 +1030,7 @@ import { classifyUpstreamModels, upstreamModelFor, type DetectedModels } from '@
 import { suggestChannelName, upstreamHostLabel } from '@/components/account/channel/channelName'
 import PricingChannelBlock from '@/components/admin/pricing/PricingChannelBlock.vue'
 import ModelCreateDialog from '@/components/admin/catalog/ModelCreateDialog.vue'
+import { catalogVendorChoices } from '@/components/admin/catalog/vendorLabel'
 import {
   channelDraftChanges,
   channelDraftFrom,
@@ -1731,7 +1732,7 @@ const creatingModelId = ref('')
 const createdModelId = ref<number | null>(null)
 
 const bindAccount = computed(() => overview.value?.accounts.find((account) => account.id === bindAccountId.value) ?? null)
-const catalogVendors = computed(() => [...new Set(catalogEntries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+const catalogVendors = computed(() => catalogVendorChoices(catalogEntries.value))
 const catalogModelIds = computed(() => catalogEntries.value.map((entry) => entry.model_id))
 // 上游列出、目录里没有的（按最新的目录重新对照：刚在叠层里建好的就不再列）
 const missingModels = computed(() =>

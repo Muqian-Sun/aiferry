@@ -52,10 +52,6 @@ function tooltipHint(endpoint: string): string {
     : t('keys.endpoints.clickToCopy')
 }
 
-function speedTestUrl(endpoint: string): string {
-  return `https://www.tcptest.cn/http/${encodeURIComponent(endpoint)}`
-}
-
 onBeforeUnmount(() => {
   if (copiedResetTimer !== undefined) {
     window.clearTimeout(copiedResetTimer)
@@ -65,7 +61,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!--
-    接口地址条：默认地址一行、自定义端点各一行，名称在左、地址 + 复制 + 测速在右；只有一条地址时不标「默认」。
+    接口地址条：默认地址一行、自定义端点各一行，名称在左、地址 + 复制在右；只有一条地址时不标「默认」。
     地址是密钥页最常复制的东西，放在表格上方常驻，不折进弹层。
   -->
   <dl v-if="allEndpoints.length > 0" class="space-y-2" data-testid="endpoint-strip">
@@ -124,17 +120,6 @@ onBeforeUnmount(() => {
           </svg>
         </button>
 
-        <a
-          :href="speedTestUrl(item.endpoint)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="rounded p-0.5 text-af-ink-4 transition-colors hover:text-af-ink"
-          :title="t('keys.endpoints.speedTest')"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </a>
       </dd>
     </div>
   </dl>

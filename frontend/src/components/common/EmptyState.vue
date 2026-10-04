@@ -28,11 +28,11 @@
 
     <!-- Description -->
     <p class="empty-state-description">
-      {{ description }}
+      {{ displayDescription }}
     </p>
 
-    <!-- Action -->
-    <div v-if="actionText || $slots.action" class="mt-6">
+    <!-- Action：有筛选时没结果，不给「创建第一个」这类引导 -->
+    <div v-if="!filtered && (actionText || $slots.action)" class="mt-6">
       <slot name="action">
         <component
           :is="actionTo ? 'RouterLink' : 'button'"
@@ -65,14 +65,21 @@ interface Props {
   actionTo?: string | object
   actionIcon?: boolean
   message?: string
+  /**
+   * 列表带着搜索 / 筛选条件却没有结果：换成「没有符合条件的结果」，忽略 title / description / 操作按钮。
+   * 调用方按自己的筛选状态传；不传时按「列表本来就是空的」显示。
+   */
+  filtered?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   description: '',
-  actionIcon: true
+  actionIcon: true,
+  filtered: false
 })
 
-const displayTitle = computed(() => props.title || t('common.noData'))
+const displayTitle = computed(() => (props.filtered ? t('common.noMatch') : props.title || t('common.noData')))
+const displayDescription = computed(() => (props.filtered ? t('common.noMatchHint') : props.description))
 
 defineEmits(['action'])
 </script>

@@ -29,7 +29,7 @@
         </label>
         <div class="rounded-lg bg-af-sunken px-4 py-3 text-sm text-af-ink-2">
           <p class="font-medium text-af-ink">{{ t('admin.promptAudit.policy.strategy') }}</p>
-          <p class="mt-1">priority · {{ t('admin.promptAudit.policy.strategyHint') }}</p>
+          <p class="mt-1">{{ t(`admin.promptAudit.policy.strategies.${draft.strategy}`) }} · {{ t('admin.promptAudit.policy.strategyHint') }}</p>
         </div>
       </div>
     </div>

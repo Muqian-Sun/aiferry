@@ -21,6 +21,31 @@ export default {
           jobsOk: '{count} 个正常',
           jobsFailed: '{count} 个出错',
           jobName: '任务',
+          jobNames: {
+            ops_preaggregation_hourly: '按小时汇总',
+            ops_preaggregation_daily: '按天汇总',
+            ops_alert_evaluator: '告警评估',
+            ops_metrics_collector: '系统指标采集',
+            ops_cleanup: '过期数据清理'
+          },
+          // 后台任务的结果摘要（后端写成 key=value）里各项的叫法；没列的原样显示
+          jobResultKeys: {
+            window: '时间段',
+            rules: '规则',
+            enabled: '启用',
+            evaluated: '已评估',
+            created: '新触发',
+            resolved: '已恢复',
+            emails_sent: '已发邮件',
+            error_logs: '错误日志',
+            ingress_rejects: '入口拒绝',
+            alert_events: '告警事件',
+            system_logs: '系统日志',
+            log_audits: '日志审计',
+            system_metrics: '系统指标',
+            hourly_preagg: '小时汇总',
+            daily_preagg: '天汇总'
+          },
           down: '连不上',
           waiting: '排队 {count}'
         },
@@ -263,7 +288,7 @@ export default {
         '1d': '近1天',
         '15d': '近15天',
         '6h': '近6小时',
-        '24h': '近24小时',
+        '24h': '近 24 小时',
         '7d': '近7天',
         '30d': '近30天',
         custom: '自定义'
@@ -717,8 +742,8 @@ export default {
         aggregation: '预聚合任务',
         enableAggregation: '启用预聚合任务',
         aggregationHint: '预聚合可提升长时间窗口查询性能',
-        openaiQuotaAutoPause: 'OpenAI 账号配额自动暂停',
-        openaiQuotaAutoPauseHint: '当 OpenAI 账号 5h / 7d 用量达到阈值时，调度会自动跳过该渠道；窗口滚动后自动恢复。渠道级阈值优先于此全局默认值。',
+        openaiQuotaAutoPause: 'OpenAI 成品号用量自动暂停',
+        openaiQuotaAutoPauseHint: '当 OpenAI 成品号 5 小时 / 7 天用量达到阈值时，调度会自动跳过该渠道；窗口滚动后自动恢复。渠道级阈值优先于此全局默认值。',
         openaiQuotaAutoPauseDefault5h: '默认 5h 用量阈值 (%)',
         openaiQuotaAutoPauseDefault7d: '默认 7d 用量阈值 (%)',
         openaiQuotaAutoPauseThresholdHint: '取值 0-100，留空或 0 表示不启用全局默认阈值。',

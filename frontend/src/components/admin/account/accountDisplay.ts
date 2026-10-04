@@ -3,6 +3,7 @@ import type { Account, AccountPlatform } from '@/types'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import { sanitizeUrl } from '@/utils/url'
 import { platformLabel, RELAY_PLATFORM } from '@/utils/platformLabel'
+import { vendorLabel } from '@/components/modelPlaza/catalog'
 
 const GROK_QUOTA_SIGNAL_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const GROK_QUOTA_SIGNAL_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000
@@ -122,12 +123,12 @@ export function accountDisplayEmail(row: any): string {
 }
 
 // 列表名称下面那行「厂商 · 接入方式」（方案 2026-09-25）：厂商用图标 + 名称；第三方 key 看按地址识别的厂商，
-// 没识别出来的是中转。套餐、隐私、到期、协议地址都在详情抽屉里看。
+// 写公司名（Moonshot AI，不写 Kimi），没识别出来的是中转。套餐、隐私、到期、协议地址都在详情抽屉里看。
 export function accountVendor(
   row: Pick<Account, 'platform' | 'type' | 'vendor'>
 ): { icon: AccountPlatform | typeof RELAY_PLATFORM; labelKey?: string; label?: string } {
   if (row.type !== 'apikey') return { icon: row.platform, label: platformLabel(row.platform) }
-  if (row.vendor) return { icon: row.vendor as AccountPlatform, label: platformLabel(row.vendor) }
+  if (row.vendor) return { icon: row.vendor as AccountPlatform, label: vendorLabel(row.vendor) }
   return { icon: RELAY_PLATFORM, labelKey: 'admin.accounts.vendorRelay' }
 }
 

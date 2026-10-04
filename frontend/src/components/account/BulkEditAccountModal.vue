@@ -21,16 +21,6 @@
         </p>
       </div>
 
-      <!-- Mixed platform warning -->
-      <div v-if="isMixedPlatform" class="rounded-lg bg-af-warning-tint p-4">
-        <p class="text-sm text-af-warning">
-          <svg class="mr-1.5 inline h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          {{ t('admin.accounts.bulkEdit.mixedPlatformWarning', { platforms: targetSelectedPlatforms.join(', ') }) }}
-        </p>
-      </div>
-
       <!-- Intercept warmup requests (Anthropic only) -->
       <div class="border-t border-af-hairline pt-4">
         <div class="flex items-center justify-between gap-4">
@@ -403,7 +393,6 @@ const targetMode = computed(() => props.target?.mode ?? 'selected')
 const targetPreviewCount = computed(() => props.target?.previewCount ?? props.accountIds.length)
 const targetSelectedPlatforms = computed(() => props.target?.selectedPlatforms ?? props.selectedPlatforms)
 const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.selectedTypes)
-const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 
 // 是否全部为支持请求头覆写的平台/账号类型
 // 所选平台 × 所选类型的全组合均需具备覆写资格（实际选中账号是该组合的子集，

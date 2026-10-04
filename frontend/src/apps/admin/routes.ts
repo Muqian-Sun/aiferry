@@ -187,8 +187,8 @@ export const adminRoutes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'Risk Control',
-      titleKey: 'admin.riskControl.title',
+      title: 'Review',
+      titleKey: 'nav.review',
       descriptionKey: 'admin.riskControl.description',
       requiresRiskControl: true,
       pageGroup: 'review'
@@ -201,8 +201,8 @@ export const adminRoutes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'Prompt Audit',
-      titleKey: 'admin.promptAudit.title',
+      title: 'Review',
+      titleKey: 'nav.review',
       descriptionKey: 'admin.promptAudit.description',
       requiresRiskControl: true,
       pageGroup: 'review'

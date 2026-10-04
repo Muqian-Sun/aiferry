@@ -58,12 +58,13 @@ import Icon from '@/components/icons/Icon.vue'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import ModelBasicsFields from './ModelBasicsFields.vue'
 import { entryToRequest } from './entryRequest'
+import type { CatalogVendorChoice } from './vendorLabel'
 
 const props = defineProps<{
   show: boolean
   entry: ModelCatalogEntry | null
-  /** 目录里已有的厂商标签 */
-  vendorOptions: string[]
+  /** 目录里已有的厂商（按展示名分组） */
+  vendorOptions: CatalogVendorChoice[]
 }>()
 
 const emit = defineEmits<{ close: []; saved: [entry: ModelCatalogEntry] }>()

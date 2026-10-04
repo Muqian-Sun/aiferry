@@ -46,6 +46,7 @@ import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { usePageTitle } from '@/composables/usePageTitle'
+import { legalDocumentTitle } from '@/utils/legalDocumentTitle'
 import ConsoleSidebar from './ConsoleSidebar.vue'
 import PageHeader from './PageHeader.vue'
 import SiteNav from './SiteNav.vue'
@@ -76,7 +77,7 @@ const legalLinks = computed(() => {
   if (props.variant !== 'public') return []
   return (appStore.cachedPublicSettings?.login_agreement_documents ?? []).map((doc) => ({
     key: `legal-${doc.id}`,
-    label: doc.title,
+    label: legalDocumentTitle(doc, t),
     to: `/legal/${doc.id}`
   }))
 })

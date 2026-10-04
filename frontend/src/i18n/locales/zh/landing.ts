@@ -116,12 +116,13 @@ export default {
 
   // Key Usage Query Page
   keyUsage: {
-    title: 'API Key 用量查询',
-    subtitle: '输入您的 API Key 以查看实时消费金额与使用状态',
-    placeholder: 'sk-ant-mirror-xxxxxxxxxxxx',
+    title: 'API 密钥用量查询',
+    subtitle: '输入你的 API 密钥，查看实时消费金额与使用状态',
+    placeholder: 'sk-xxxxxxxxxxxx',
     query: '查询',
     querying: '查询中...',
-    privacyNote: '您的 Key 仅在浏览器本地处理，不会被存储',
+    // 查询要把密钥发到本站服务器（GET /v1/usage 带 Authorization），只是页面不保存它
+    privacyNote: '密钥只用来向本站服务器查询用量，页面不会保存它',
     dateRange: '统计范围:',
     dateRangeToday: '今日',
     dateRange7d: '7 天',
@@ -146,8 +147,14 @@ export default {
     totalTokens: '总 Tokens',
     cost: '费用',
     // Status
-    quotaMode: 'Key 限额模式',
+    quotaMode: '密钥限额模式',
     walletBalance: '钱包余额',
+    keyStatus: {
+      active: '可用',
+      disabled: '已停用',
+      quota_exhausted: '额度已用完',
+      expired: '已过期'
+    },
     // Ring card titles
     totalQuota: '总额度',
     limit5h: '5 小时限额',
@@ -183,7 +190,7 @@ export default {
     totalCost: '累计费用',
     avgDuration: '平均耗时',
     // Messages
-    enterApiKey: '请输入 API Key',
+    enterApiKey: '请输入 API 密钥',
     querySuccess: '查询成功',
     queryFailed: '查询失败',
     queryFailedRetry: '查询失败，请稍后重试',

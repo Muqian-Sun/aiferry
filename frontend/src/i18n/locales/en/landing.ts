@@ -117,11 +117,11 @@ export default {
   // Key Usage Query Page
   keyUsage: {
     title: 'API Key Usage',
-    subtitle: 'Enter your API Key to view real-time spending and usage status',
-    placeholder: 'sk-ant-mirror-xxxxxxxxxxxx',
+    subtitle: 'Enter your API key to view real-time spending and usage status',
+    placeholder: 'sk-xxxxxxxxxxxx',
     query: 'Query',
     querying: 'Querying...',
-    privacyNote: 'Your Key is processed locally in the browser and will not be stored',
+    privacyNote: 'Your key is sent to this site\'s server only to look up usage; this page does not save it',
     dateRange: 'Date Range:',
     dateRangeToday: 'Today',
     dateRange7d: '7 Days',
@@ -148,6 +148,12 @@ export default {
     // Status
     quotaMode: 'Key Quota Mode',
     walletBalance: 'Wallet Balance',
+    keyStatus: {
+      active: 'Active',
+      disabled: 'Disabled',
+      quota_exhausted: 'Quota exhausted',
+      expired: 'Expired'
+    },
     // Ring card titles
     totalQuota: 'Total Quota',
     limit5h: '5-Hour Limit',

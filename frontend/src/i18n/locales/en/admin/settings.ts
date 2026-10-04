@@ -6,17 +6,17 @@ export default {
         features: 'Features',
       },
       sections: {
-        other: { title: 'Other', description: 'Minimum margin.' },
+        other: { title: 'Profit gate', description: 'Skip a channel for a request when its margin falls below the minimum.' },
         features: { title: 'Switches', description: 'Master switches for each feature.' },
       },
       description: 'Site-wide settings for the gateway and feature switches. Each section saves on its own.',
       features: {
         riskControl: {
-          title: 'Risk Control',
-          description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',
-          configureLink: 'Configure content moderation in Risk Control',
-          enabled: 'Enable Risk Control',
-          enabledHint: 'When off, the admin sidebar entry is hidden and gateway moderation is skipped.',
+          title: 'Review',
+          description: 'Enable content moderation, prompt review and the gateway audit entry point. Disabled by default.',
+          configureLink: 'Configure content moderation in Review',
+          enabled: 'Enable Review',
+          enabledHint: 'When off, the Review entry in the sidebar is grayed out and gateway moderation is skipped.',
         },
       },
       turnstile: {
@@ -217,7 +217,7 @@ export default {
       discard: 'Discard changes',
       unsavedHint: 'Unsaved changes',
       leaveTitle: 'You have unsaved changes',
-      leaveMessage: 'Leaving this section will throw away the changes you just made.',
+      leaveMessage: 'Leaving now discards the changes you have not saved.',
       stay: 'Stay here',
       settingsSaved: 'Settings saved successfully',
       failedToLoad: 'Failed to load settings',

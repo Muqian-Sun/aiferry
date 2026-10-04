@@ -21,6 +21,31 @@ export default {
           jobsOk: '{count} healthy',
           jobsFailed: '{count} failing',
           jobName: 'Job',
+          jobNames: {
+            ops_preaggregation_hourly: 'Hourly rollup',
+            ops_preaggregation_daily: 'Daily rollup',
+            ops_alert_evaluator: 'Alert evaluation',
+            ops_metrics_collector: 'System metrics collection',
+            ops_cleanup: 'Expired data cleanup'
+          },
+          // Labels for the key=value pairs in a job's result summary; unknown keys are shown as-is
+          jobResultKeys: {
+            window: 'Window',
+            rules: 'Rules',
+            enabled: 'Enabled',
+            evaluated: 'Evaluated',
+            created: 'Fired',
+            resolved: 'Resolved',
+            emails_sent: 'Emails sent',
+            error_logs: 'Error logs',
+            ingress_rejects: 'Ingress rejects',
+            alert_events: 'Alert events',
+            system_logs: 'System logs',
+            log_audits: 'Log audits',
+            system_metrics: 'System metrics',
+            hourly_preagg: 'Hourly rollups',
+            daily_preagg: 'Daily rollups'
+          },
           down: 'Unreachable',
           waiting: '{count} waiting'
         },
