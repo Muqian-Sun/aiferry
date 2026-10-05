@@ -13,7 +13,7 @@
           <ProfilePasswordForm headless />
         </SettingsRow>
         <p v-if="contactInfo" class="border-t border-af-hairline py-6 text-13 text-af-ink-3">
-          {{ t('common.contactSupport') }}:
+          {{ t('common.contactSupport') }}{{ t('common.labelSeparator') }}
           <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
         </p>
       </template>

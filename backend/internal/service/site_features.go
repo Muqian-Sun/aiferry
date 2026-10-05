@@ -19,9 +19,9 @@ const (
 	SiteName = "AiFerry"
 	// SiteLogo 站点 Logo 地址；留空用前端内置的 Logo。
 	SiteLogo = ""
-	// SiteContactInfo 客服联系方式，显示在用户站；空着不显示。
-	// 2026-09-26 定「要有、先留占位」——上线前要填。
-	SiteContactInfo = ""
+	// SiteContactInfo 客服联系方式，显示在用户站（用户菜单、基本信息页、余额不足时的「联系管理员充值」）；空着不显示。
+	// 2026-10-05 muqian 给：上线先人工充值，用户进 QQ 群找管理员。
+	SiteContactInfo = "QQ 群 929165537"
 	// SiteDocURL 文档链接；空着不显示。
 	SiteDocURL = ""
 	// ModelPlazaDescription 模型页顶部的价格说明（Markdown）；空着不显示。

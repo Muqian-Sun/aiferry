@@ -53,7 +53,7 @@
         </div>
 
         <div v-if="contactInfo" class="border-t border-af-hairline px-4 py-2.5 text-xs text-af-ink-3">
-          {{ t('common.contactSupport') }}:
+          {{ t('common.contactSupport') }}{{ t('common.labelSeparator') }}
           <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
         </div>
 
