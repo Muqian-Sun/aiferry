@@ -29,6 +29,7 @@ export default {
       balance: 'Balance',
       debt: 'Owed',
       frozen: 'Frozen',
+      rechargeViaSupport: 'Contact support to top up',
       language: 'Language',
       switchToLight: 'Switch to light',
       switchToDark: 'Switch to dark',

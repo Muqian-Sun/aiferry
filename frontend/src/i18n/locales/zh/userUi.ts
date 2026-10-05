@@ -29,6 +29,7 @@ export default {
       balance: '余额',
       debt: '欠费',
       frozen: '冻结',
+      rechargeViaSupport: '联系客服充值',
       language: '语言',
       switchToLight: '切换到浅色',
       switchToDark: '切换到深色',
