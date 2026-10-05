@@ -172,8 +172,12 @@ export default {
         openPricing: '去价格页承接 →'
       },
       protocolProbe: {
-        costNote: '拿不准的协议用上游的一个模型发了 1 token 的真实请求确认，会产生极少费用',
+        costNote: '拿不准的协议用上游的模型发了 1 token 的真实请求确认（每个协议最多试两个模型），会产生极少费用',
         viaModel: '用 {model} 发 1 token 确认',
+        upstreamSaid: '上游原话：{detail}',
+        conclusionUsable: '能用：{protocols}',
+        conclusionNone: '没有确认能用的协议，原因见每一项后面的说明',
+        listSeparator: '、',
         status: {
           supported: '支持',
           unsupported: '不支持',
@@ -186,7 +190,7 @@ export default {
           not_api: '返回的不是 API 响应（像是网页）',
           unexpected_body: '返回内容不像这个协议的响应',
           real_rejected: '真实请求被上游拒绝，这个 Key 多半用不了该协议',
-          auth_rejected: 'Key 被拒绝，无法判断',
+          auth_rejected: 'Key 没有权限，无法判断',
           rate_limited: '被限流，无法判断',
           upstream_error: '上游出错，无法判断',
           network_error: '连不上上游',

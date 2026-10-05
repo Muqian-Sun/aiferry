@@ -73,7 +73,10 @@ func (h *AccountHandler) ProbeUpstreamProtocols(c *gin.Context) {
 	if !ok {
 		return
 	}
-	results, err := h.accountTestService.ProbeUpstreamProtocols(c.Request.Context(), temp, req.BaseURL)
+	ctx := c.Request.Context()
+	results, err := h.accountTestService.ProbeUpstreamProtocols(ctx, temp, req.BaseURL, func(model string) bool {
+		return h.modelCatalog != nil && h.modelCatalog.LookupPricingEntry(ctx, model) != nil
+	})
 	if err != nil {
 		writeProbeError(c, err, "probe_upstream_protocols_failed", "Failed to probe upstream protocols")
 		return

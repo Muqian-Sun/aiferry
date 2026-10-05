@@ -172,8 +172,12 @@ export default {
         openPricing: 'serve them on the pricing page →'
       },
       protocolProbe: {
-        costNote: 'Uncertain protocols were confirmed with a 1-token real request using one upstream model, which may cost a tiny amount',
+        costNote: 'Uncertain protocols were confirmed with a 1-token real request using upstream models (at most two per protocol), which may cost a tiny amount',
         viaModel: 'confirmed with a 1-token request to {model}',
+        upstreamSaid: 'Upstream said: {detail}',
+        conclusionUsable: 'Usable: {protocols}',
+        conclusionNone: 'No protocol was confirmed usable; see the reason after each one',
+        listSeparator: ', ',
         status: {
           supported: 'Supported',
           unsupported: 'No',
@@ -186,7 +190,7 @@ export default {
           not_api: 'Response is not an API response (looks like a web page)',
           unexpected_body: 'Response does not look like this protocol',
           real_rejected: 'Real request rejected by upstream; this key likely cannot use this protocol',
-          auth_rejected: 'Key rejected, cannot tell',
+          auth_rejected: 'Key not authorized, cannot tell',
           rate_limited: 'Rate limited, cannot tell',
           upstream_error: 'Upstream error, cannot tell',
           network_error: 'Could not reach upstream',

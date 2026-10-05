@@ -598,8 +598,10 @@ export interface ProbedUpstreamProtocol {
     | 'network_error'
     | 'no_model'
   http_status?: number
-  /** 发真实请求确认时用的模型；只发空请求时没有 */
+  /** 发真实请求确认时用的模型（试了两个时是后一个）；只发空请求时没有 */
   model?: string
+  /** 上游出错时回的原话（已截断、去掉 key） */
+  detail?: string
 }
 
 /**
