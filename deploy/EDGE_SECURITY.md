@@ -75,6 +75,23 @@ server:
     - ::1/128
 ```
 
+Under Docker Compose the direct peer is not `127.0.0.1` even when the proxy runs
+on the same host: a host proxy that connects to the published port reaches the
+container through the Docker bridge, so AiFerry sees the bridge gateway (for
+example `172.19.0.1`). With only the loopback entries above, every request
+appears to come from that gateway. Either keep the default compatibility mode
+(do not set `server.trusted_proxies`) and publish the ports on `127.0.0.1` only
+(`BIND_HOST=127.0.0.1` in `.env`) so nothing but the local proxy can reach the
+origin, or add the Docker bridge range to the list:
+
+```yaml
+server:
+  trusted_proxies:
+    - 127.0.0.1/32
+    - ::1/128
+    - 172.16.0.0/12 # Docker bridge networks; check with `docker network inspect`
+```
+
 ## Nginx baseline
 
 Define shared zones in the `http` block. Tune rates to measured legitimate
