@@ -6,6 +6,14 @@
 # (mounted at /app/data/config.yaml).
 # Docker Compose 部署：复制为 deploy/config.yaml 并按需修改，再打开 compose 文件里
 # 注释掉的 config.yaml 卷挂载（挂到 /app/data/config.yaml）。
+#
+# Most deployments need no config.yaml: the site URL, SMTP and Turnstile can be
+# set in .env. If you do use one, add it only AFTER the first start — when
+# /app/data/config.yaml already exists on the first start, auto setup is skipped
+# and no admin account is created.
+# 多数部署用不到这个文件：站点地址、发信、Turnstile 都能写在 .env 里。要用的话，
+# 只能在首次启动之后再放——首次启动时 /app/data/config.yaml 已存在，程序会跳过
+# 自动安装、不创建管理员账号。
 
 # =============================================================================
 # Server Configuration
@@ -46,12 +54,20 @@ server:
   # Trusted proxies used when security.trust_forwarded_ip_for_api_key_acl is false.
   # List only the exact proxy addresses that connect directly to AiFerry.
   # Set [] explicitly to disable forwarded-IP trust in high-security mode.
+  # Under Docker the app sees the Docker bridge gateway (e.g. 172.19.0.1) as the
+  # peer, NOT 127.0.0.1, even when the proxy runs on the same host — hence the
+  # 172.16.0.0/12 entry (Docker's default bridge range). Without it every real
+  # client IP collapses into the gateway address.
   # security.trust_forwarded_ip_for_api_key_acl=false 时使用的可信代理。
   # 只填写直接连接 AiFerry 的精确代理地址；显式设置 [] 可在高安全模式下
   # 禁用转发 IP 信任。
+  # Docker 部署时，即使反向代理在同一台机器上，程序看到的对端也是 Docker 网关
+  # （如 172.19.0.1），不是 127.0.0.1——所以要带上 172.16.0.0/12（Docker 默认网段），
+  # 否则所有用户的真实 IP 都会变成网关地址。
   trusted_proxies:
     - 127.0.0.1/32
     - ::1/128
+    - 172.16.0.0/12
   # Global max request body size in bytes (default: 256MB)
   # 全局最大请求体大小（字节，默认 256MB）
   # Applies to all requests, especially important for h2c first request memory protection
@@ -1046,6 +1062,22 @@ billing:
   # Cache TTL (seconds) for per-user × per-platform quota records
   # 用户 × 平台 quota 缓存 TTL（秒），默认 86400=1天，覆盖典型 daily 窗口
   user_platform_quota_cache_ttl_seconds: 86400
+
+# =============================================================================
+# SMTP (deployment config only; cannot be changed from admin UI)
+# 发信（只认部署配置，后台不能改）
+# =============================================================================
+# host 与 from 都配了才算配了 SMTP：邮箱验证、余额 / 渠道额度提醒跟着它开关；找回密码还要配 server.frontend_url。
+# use_tls: true = 隐式 TLS（一般 465 端口）；false = 服务器支持时走 STARTTLS（一般 587 端口）。
+# password 一般是邮箱服务商给的「授权码」，不是登录密码。
+# 环境变量：SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM / SMTP_USE_TLS
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  from: ""
+  use_tls: false
 
 # =============================================================================
 # Captcha (deployment config only; cannot be changed from admin UI)

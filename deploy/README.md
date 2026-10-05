@@ -32,8 +32,9 @@ cd aiferry/deploy
 # Configure environment
 cp .env.example .env
 chmod 600 .env
-nano .env  # Set POSTGRES_PASSWORD; set fixed JWT_SECRET and TOTP_ENCRYPTION_KEY
-           # (generate each with: openssl rand -hex 32)
+nano .env  # Set POSTGRES_PASSWORD and a fixed TOTP_ENCRYPTION_KEY
+           # (generate with: openssl rand -hex 32); optionally the site URL,
+           # SMTP and Turnstile
 
 # Create data directories (local directory version)
 mkdir -p data postgres_data redis_data
@@ -82,6 +83,11 @@ When using Docker Compose with `AUTO_SETUP=true`:
    - Writes config.yaml
 
 2. No manual Setup Wizard needed - just configure `.env` and start
+
+   Do not place or mount a `config.yaml` before the first start: if
+   `/app/data/config.yaml` already exists, auto-setup is skipped and **no admin
+   account is created**. The site URL, SMTP and Turnstile can all be set in `.env`;
+   use a `config.yaml` mount only for other settings, and only after the first start.
 
 3. If `ADMIN_PASSWORD` is not set, check logs for the generated password:
    ```bash
@@ -163,8 +169,12 @@ docker compose down -v
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `POSTGRES_PASSWORD` | **Yes** | - | PostgreSQL password |
-| `JWT_SECRET` | **Recommended** | *(auto-generated)* | JWT secret (fixed for persistent sessions) |
-| `TOTP_ENCRYPTION_KEY` | **Recommended** | *(auto-generated)* | TOTP encryption key (fixed for persistent 2FA) |
+| `TOTP_ENCRYPTION_KEY` | **Yes** | *(random per start)* | Encrypts stored secrets (2FA, channel monitor keys, ...); 2FA is only offered when it is set. An empty value gets a new random key on every start, so data encrypted before a restart can no longer be read. Set it once (`openssl rand -hex 32`) and never change it |
+| `JWT_SECRET` | No | *(auto-generated)* | Login token signing key; generated on first start and stored in the database, so sessions survive restarts without it |
+| `BIND_HOST` | No | `0.0.0.0` | Host address the user site port binds to; use `127.0.0.1` behind a reverse proxy on the same host |
+| `SERVER_FRONTEND_URL` | No | - | Public user site URL (e.g. `https://example.com`), used for links in emails and third-party login callbacks |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` / `SMTP_USE_TLS` | No | port `587`, TLS `false` | Outgoing mail. Email verification and alert emails turn on when `SMTP_HOST` and `SMTP_FROM` are set; password reset also needs `SERVER_FRONTEND_URL`. `SMTP_USE_TLS=true` = implicit TLS (port 465); `false` = STARTTLS (port 587) |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | No | - | Cloudflare Turnstile captcha; on when both are set. Setting only one of them fails startup |
 | `AIFERRY_VERSION` | No | `latest` | Tag of the locally built `aiferry` image used by compose |
 | `SERVER_PORT` | No | `8080` | User site port on the host |
 | `SERVER_ADMIN_PORT` | No | `8081` | Admin console port on the host |
@@ -208,6 +218,10 @@ Your entire deployment (configuration + data) is migrated!
 
 - A Caddy example lives in `Caddyfile`; see [EDGE_SECURITY.md](./EDGE_SECURITY.md) for CDN/WAF,
   trusted proxy, and ingress hardening.
+- With the proxy on the same host, set `BIND_HOST=127.0.0.1` so the user site is only reachable
+  through the proxy. Under Docker, AiFerry sees the Docker bridge gateway (e.g. `172.19.0.1`) as
+  the peer, not `127.0.0.1`: leave `server.trusted_proxies` unset, or include the Docker range
+  (see EDGE_SECURITY.md). Listing only `127.0.0.1` records every client under the gateway address.
 - When using Nginx in front of AiFerry with Codex CLI, add `underscores_in_headers on;` to the
   `http` block. Nginx drops headers containing underscores by default (e.g. `session_id`),
   which breaks sticky session routing in multi-account setups.
