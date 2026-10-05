@@ -88,6 +88,29 @@ services:
       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
 
       # =======================================================================
+      # TOTP / 加密密钥（必须固定，见 .env.example）
+      # =======================================================================
+      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
+
+      # =======================================================================
+      # 站点地址 / 发信 / 人机验证（可选，说明见 .env.example）
+      # Site URL / SMTP / captcha. Empty values fall back to config.yaml or the
+      # built-in defaults, so leaving them unset changes nothing.
+      # =======================================================================
+      # 用户站对外地址：邮件里的链接、第三方登录回调都用它，例：https://example.com
+      - SERVER_FRONTEND_URL=${SERVER_FRONTEND_URL:-}
+      # 发信：SMTP_HOST 与 SMTP_FROM 都填了才开邮箱验证与提醒邮件（找回密码还要 SERVER_FRONTEND_URL）
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-}
+      # 人机验证（Cloudflare Turnstile）：两项都填了就开，只填一项启动会报错
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
+
+      # =======================================================================
       # Setup Configuration
       # =======================================================================
       - SETUP_MIGRATION_TIMEOUT_SECONDS=${SETUP_MIGRATION_TIMEOUT_SECONDS:-0}

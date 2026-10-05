@@ -41,6 +41,13 @@ services:
       # Optional: Mount custom config.yaml (uncomment and create the file first)
       # Copy config.example.yaml to config.yaml, modify it, then uncomment:
       # - ./config.yaml:/app/data/config.yaml
+      # WARNING: only do this AFTER the first start. If /app/data/config.yaml
+      # exists on the very first start, auto setup is skipped and NO admin
+      # account is created. Most deployments need no config.yaml at all: set
+      # the site URL / SMTP / captcha in .env instead.
+      # 注意：只能在首次启动之后再挂。首次启动时 /app/data/config.yaml 已存在，
+      # 程序会跳过自动安装、不创建管理员账号。多数部署用不到 config.yaml：
+      # 站点地址、发信、人机验证都写在 .env 里即可。
       # Optional: Mount a custom Codex instructions template file, then point
       # gateway.forced_codex_instructions_template_file at /app/data/codex-instructions.md.tmpl
       # in config.yaml.
@@ -119,6 +126,24 @@ services:
       # with 2FA).
       # Generate a secure key: openssl rand -hex 32
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
+
+      # =======================================================================
+      # 站点地址 / 发信 / 人机验证（可选，说明见 .env.example）
+      # Site URL / SMTP / captcha. Empty values fall back to config.yaml or the
+      # built-in defaults, so leaving them unset changes nothing.
+      # =======================================================================
+      # 用户站对外地址：邮件里的链接、第三方登录回调都用它，例：https://example.com
+      - SERVER_FRONTEND_URL=${SERVER_FRONTEND_URL:-}
+      # 发信：SMTP_HOST 与 SMTP_FROM 都填了才开邮箱验证与提醒邮件（找回密码还要 SERVER_FRONTEND_URL）
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-}
+      # 人机验证（Cloudflare Turnstile）：两项都填了就开，只填一项启动会报错
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
 
       # =======================================================================
       # Prompt Audit guard endpoints (JSON array; see config.example.yaml)
