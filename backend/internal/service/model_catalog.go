@@ -95,7 +95,7 @@ type ModelCatalogEntry struct {
 
 // ModelCatalogBinding 是承接关系：一个渠道（账号）承接一个目录条目，带这个渠道给这个模型的上游价
 // （USD / token）。渠道成本 = 用量 × 上游价，算法与官方价相同（分段、缓存 5 分钟 / 1 小时、最高推理倍率）。
-// 输入 / 输出必填；官方价有的缓存项上游价也必须填（ValidateAgainst）；Intervals 是按 Token 分段的上游价，
+// 输入 / 输出必填；官方价有的缓存项上游价也必须填、搜索价可不填（ValidateAgainst）；Intervals 是按 Token 分段的上游价，
 // 只用绝对价。UpstreamModel 是这个渠道给这个模型用的上游模型名，空 = 与目录标识同名：转发时
 // 目录标识 → 上游名只转换这一次（D4，muqian 2026-10-01）。
 type ModelCatalogBinding struct {

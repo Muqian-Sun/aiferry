@@ -198,13 +198,13 @@ func officialWebSearchPrices(entry *ModelCatalogEntry) webSearchPrices {
 	return webSearchPrices{}.override(entry.SearchPricePerCall, entry.XPostPrice, entry.XUserPrice)
 }
 
-// upstreamWebSearchPrices 渠道成本用的搜索上游价：承接关系上填了的项用它，没填的按官方搜索价（假设上游原价转收）。
-func upstreamWebSearchPrices(entry *ModelCatalogEntry, binding *ModelCatalogBinding) webSearchPrices {
-	prices := officialWebSearchPrices(entry)
-	if binding != nil {
-		prices = prices.override(binding.SearchPricePerCall, binding.XPostPrice, binding.XUserPrice)
+// upstreamWebSearchPrices 渠道成本用的搜索上游价：只认承接关系上填的项，没填的不收（muqian 2026-10-06：
+// 「上游没填费用就是免费」）。
+func upstreamWebSearchPrices(binding *ModelCatalogBinding) webSearchPrices {
+	if binding == nil {
+		return webSearchPrices{}
 	}
-	return prices
+	return webSearchPrices{}.override(binding.SearchPricePerCall, binding.XPostPrice, binding.XUserPrice)
 }
 
 // override 用设了的项（非 nil、不为负）覆盖。

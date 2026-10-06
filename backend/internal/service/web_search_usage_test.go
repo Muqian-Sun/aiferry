@@ -342,7 +342,7 @@ func TestGatewayRecordUsageCostAddsWebSearchWithoutRate(t *testing.T) {
 	require.InDelta(t, 0.021+0.03, cost.ActualCost, 1e-9)
 }
 
-// 渠道成本里的搜索部分：承接关系上的搜索上游价没填时按官方搜索价记。
+// 渠道成本里的搜索部分：承接关系上的搜索上游价没填 = 上游不收（muqian 2026-10-06），填了按它记。
 func TestRecordUsageAccountCostIncludesWebSearch(t *testing.T) {
 	t.Parallel()
 
@@ -353,10 +353,17 @@ func TestRecordUsageAccountCostIncludesWebSearch(t *testing.T) {
 		SearchPricePerCall: testPtrFloat64(0.02),
 	}, ModelCatalogBinding{AccountID: 7, InputPrice: 1e-6, OutputPrice: 2e-6})
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 1000}
-	// token 成本 1000 × 1e-6 + 1000 × 2e-6 = 0.003；搜索 2 × 0.02 = 0.04
+	// token 成本 1000 × 1e-6 + 1000 × 2e-6 = 0.003；搜索上游价没填：官方收 0.02 一次，上游不收
 	got := recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"gpt-5.5"}, tokens, WebSearchUsage{WebSearchCalls: 2}, time.Time{}, "")
-	require.InDelta(t, 0.043, got, 1e-12)
-	require.InDelta(t, 0.003, recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"gpt-5.5"}, tokens, WebSearchUsage{}, time.Time{}, ""), 1e-12)
+	require.InDelta(t, 0.003, got, 1e-12)
+
+	paid := newUpstreamCostTestResolver(t, bs, ModelCatalogEntry{
+		ID: 1, ModelID: "gpt-5.5", Vendor: "openai", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
+		InputPrice: testPtrFloat64(5e-6), OutputPrice: testPtrFloat64(30e-6), ManagedBy: ModelCatalogManagedByAdmin,
+		SearchPricePerCall: testPtrFloat64(0.02),
+	}, ModelCatalogBinding{AccountID: 7, InputPrice: 1e-6, OutputPrice: 2e-6, SearchPricePerCall: testPtrFloat64(0.015)})
+	// 填了：搜索 2 × 0.015 = 0.03
+	require.InDelta(t, 0.033, recordUsageAccountCost(context.Background(), bs, paid, 7, []string{"gpt-5.5"}, tokens, WebSearchUsage{WebSearchCalls: 2}, time.Time{}, ""), 1e-12)
 }
 
 // Anthropic 主链路非流式：搜索次数从响应体的 usage.server_tool_use 读出来。
@@ -398,7 +405,7 @@ func TestHandleNonStreamingResponseParsesWebSearchRequests(t *testing.T) {
 	require.Equal(t, 1, usage.webSearchCalls())
 }
 
-// 承接关系上填了搜索上游价就按它记渠道成本（xAI 三项分别覆盖，没填的项按官方价）。
+// 承接关系上填了搜索上游价就按它记渠道成本（xAI 三项分别算，没填的项不收）。
 func TestRecordUsageAccountCostUsesBindingSearchPrices(t *testing.T) {
 	t.Parallel()
 
@@ -409,15 +416,15 @@ func TestRecordUsageAccountCostUsesBindingSearchPrices(t *testing.T) {
 		XUserPrice: testPtrFloat64(0.02),
 	}, ModelCatalogBinding{AccountID: 7, InputPrice: 0, OutputPrice: 0, SearchPricePerCall: testPtrFloat64(0.001), XPostPrice: testPtrFloat64(0.002)})
 	usage := WebSearchUsage{WebSearchCalls: 3, XPostsFetched: 10, XUsersFetched: 2}
-	// 上游：web 3 × 0.001 + 帖子 10 × 0.002 + 主页 2 × 0.02（上游没填，按官方条目价）= 0.063
+	// 上游：web 3 × 0.001 + 帖子 10 × 0.002 + 主页（上游没填，不收）= 0.023
 	got := recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"grok-4.5"}, UsageTokens{}, usage, time.Time{}, "")
-	require.InDelta(t, 0.063, got, 1e-12)
+	require.InDelta(t, 0.023, got, 1e-12)
 
 	// 官方价只认条目：主页 0.02（条目设的），web / 帖子条目没填就不收
 	entry := &ModelCatalogEntry{Vendor: "xai", XUserPrice: testPtrFloat64(0.02)}
 	require.Equal(t, webSearchPrices{PerXUser: 0.02}, officialWebSearchPrices(entry))
-	require.Equal(t, webSearchPrices{PerCall: 0.001, PerXUser: 0.02},
-		upstreamWebSearchPrices(entry, &ModelCatalogBinding{SearchPricePerCall: testPtrFloat64(0.001)}))
+	require.Equal(t, webSearchPrices{PerCall: 0.001},
+		upstreamWebSearchPrices(&ModelCatalogBinding{SearchPricePerCall: testPtrFloat64(0.001)}), "上游没填的项不按官方价")
 }
 
 func TestWebSearchDefaults(t *testing.T) {
@@ -430,7 +437,7 @@ func TestWebSearchDefaults(t *testing.T) {
 	require.Nil(t, WebSearchDefaults(&ModelCatalogEntry{Vendor: "deepseek"}))
 }
 
-// 承接校验：搜索上游价不能为负；官方价显式设了的项上游价必须填，官方没设（用厂商公开价）的可不填。
+// 承接校验：搜索上游价不能为负；可不填（没填 = 上游不收），官方设没设都一样。
 func TestBindingValidateSearchPrices(t *testing.T) {
 	t.Parallel()
 
@@ -447,12 +454,7 @@ func TestBindingValidateSearchPrices(t *testing.T) {
 	withOfficial := *entry
 	withOfficial.SearchPricePerCall = testPtrFloat64(0.004)
 	withOfficial.XUserPrice = testPtrFloat64(0.01)
-	missing := binding()
-	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream search_price_per_call is required")
-	missing.SearchPricePerCall = testPtrFloat64(0.003)
-	require.ErrorContains(t, missing.ValidateAgainst(&withOfficial), "upstream x_user_price is required")
-	missing.XUserPrice = testPtrFloat64(0.008)
-	require.NoError(t, missing.ValidateAgainst(&withOfficial))
+	require.NoError(t, binding().ValidateAgainst(&withOfficial), "官方设了搜索价，上游也可不填")
 
 	// 官方搜索价改了算运营者定价（种子不再刷新它）
 	changed := withOfficial
