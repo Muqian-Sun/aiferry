@@ -68,14 +68,14 @@ export interface PricingPrices {
   cache_write_1h_price: number | null
   cache_read_price: number | null
   intervals: PricingInterval[]
-  /** 每次 web 搜索；官方价为 null = 按厂商公开价收，上游价为 null = 按官方搜索价记成本 */
+  /** 每次 web 搜索；官方价为 null = 不收搜索费（计费只认目录），上游价为 null = 按官方搜索价记成本 */
   search_price_per_call?: number | null
   /** xAI X 搜索按取回条目收：每条帖子、每个主页 */
   x_post_price?: number | null
   x_user_price?: number | null
 }
 
-/** 厂商公开的联网搜索价（$/次、$/条），官方价没设时按它收；X 帖子 / 主页价只有 xAI 有 */
+/** 厂商公开的联网搜索价（$/次、$/条）：播种时写进官方价，价格页当参考；X 帖子 / 主页价只有 xAI 有 */
 export interface PricingSearchDefaults {
   search_price_per_call: number
   x_post_price: number | null
@@ -125,12 +125,14 @@ export interface PricingEntry extends PricingPrices {
   display_name: string
   vendor: string
   status: 'listed' | 'unlisted'
-  /** 厂商公开的搜索价；null = 这个厂商没有官方搜索工具，不填搜索价 */
+  /** 厂商公开的搜索价（播种时已写进官方价，这里只作参考）；null = 这个厂商没有官方搜索工具，不填搜索价 */
   search_defaults: PricingSearchDefaults | null
   /** 「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项） */
   web_search_delegate?: boolean
   /** 售价（muqian 2026-10-06：每项单独填，没填的按官方价 × default_sale_ratio） */
   sale_prices: PricingSalePrices
+  /** 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱整单乘倍数；新加承接默认带上它。null = 不分忙闲时 */
+  time_pricing: TimePricing | null
   bindings: PricingBinding[]
   /** 能承接这个模型的渠道 */
   bindable_account_ids: number[]
@@ -157,8 +159,6 @@ export interface PricingOverview {
   default_sale_ratio: number
   /** 利润门的最低毛利率，0 = 关闭 */
   min_margin: number
-  /** DeepSeek 官方忙闲时：给 DeepSeek 模型新加承接时默认带上，也是快捷选项 */
-  deepseek_peak_time_pricing: TimePricing
   entries: PricingEntry[]
   accounts: PricingAccount[]
 }
@@ -166,6 +166,8 @@ export interface PricingOverview {
 /** 按模型保存一块：官方价、售价 + 这个模型的全部承接关系（整份覆盖） */
 export interface PricingModelSaveRequest extends PricingPrices {
   sale_prices: PricingSalePrices
+  /** 官方忙闲时（null = 不分忙闲时） */
+  time_pricing: TimePricing | null
   bindings: Array<PricingPrices & { account_id: number; upstream_model: string; time_pricing: TimePricing | null }>
 }
 

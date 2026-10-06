@@ -734,7 +734,6 @@
           :entries="overview.entries"
           :default-sale-ratio="overview.default_sale_ratio"
           :min-margin="overview.min_margin"
-          :deepseek-peak="overview.deepseek_peak_time_pricing"
           @saved="onBindSaved"
         />
       </template>
@@ -1792,13 +1791,13 @@ async function enterBindStep(account: Account) {
   void lookupOfficialModels()
 }
 
-/** 新承接行：同上游渠道承接过这个模型的带上它的价与忙闲时；DeepSeek 模型的忙闲时默认按官方 */
+/** 新承接行：同上游渠道承接过这个模型的带上它的价与忙闲时；否则上游忙闲时默认同官方忙闲时 */
 function newBindRow(entryId: number, upstreamModel: string): KeyedRow {
   const data = overview.value
   const account = bindAccount.value
   const entry = data?.entries.find((item) => item.id === entryId)
   if (!entry || !account || !data) return { id: entryId, upstreamModel, prices: emptyPriceRow(), peak: null }
-  return newChannelRow(entry, account, data.accounts, data.deepseek_peak_time_pricing, upstreamModel)
+  return newChannelRow(entry, account, data.accounts, upstreamModel)
 }
 
 /** 上游名单里目录有的（已上架与未上架都算）、这个渠道能承接、还没加的：默认都加成新行（muqian 2026-10-06 定默认勾上） */

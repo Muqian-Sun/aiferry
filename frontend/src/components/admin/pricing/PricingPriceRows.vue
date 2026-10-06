@@ -2,7 +2,8 @@
   <!--
     价格页表格里的一行价（官方价或一条承接关系的上游价）：五项价 + 「分段」开关，展开后每段一行、价格列对齐；
     有官方搜索工具的模型另有「联网搜索」开关，展开后填搜索价（存 $/次、$/条，按每千次 / 千条 / 千个显示）。
-    承接行（peak-editable）另有「忙闲时」开关：上游忙时整单乘倍数（v-model:peak，null = 不分忙闲时）。
+    peak 给了就有「忙闲时」开关（v-model:peak，null = 不分忙闲时）：官方价那一行是目录条目的分时（向用户收钱整单乘倍数），
+    承接行是上游忙闲时（渠道成本整单乘倍数）；承接行可一键「按官方忙闲时」。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
@@ -92,20 +93,20 @@
   </tr>
   <tr v-if="peakEditable && peakExpanded" :data-testid="testId ? `${testId}-peak` : undefined">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
-      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.peak.title') }}</div>
-      <div class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ t('admin.pricing.peak.note') }}</div>
+      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t(`admin.pricing.peak.${peakEditable}.title`) }}</div>
+      <div class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ t(`admin.pricing.peak.${peakEditable}.note`) }}</div>
     </td>
     <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
       <div class="flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-13">
           <button
-            v-if="deepseekPeak"
+            v-if="officialPeak"
             type="button"
             class="font-medium text-af-ink-2 transition-colors hover:text-af-ink"
-            :data-testid="testId ? `${testId}-peak-deepseek` : undefined"
-            @click="peak = peakFormFrom(deepseekPeak)"
+            :data-testid="testId ? `${testId}-peak-official` : undefined"
+            @click="peak = clonePeakForm(officialPeak)"
           >
-            {{ t('admin.pricing.peak.useDeepSeek') }}
+            {{ t('admin.pricing.peak.useOfficial') }}
           </button>
           <button
             v-if="peak"
@@ -128,7 +129,7 @@
               {{ t('admin.pricing.peak.weekdaysOnly') }}
             </label>
           </template>
-          <span v-else class="text-xs text-af-ink-3">{{ t('admin.pricing.peak.noneHint') }}</span>
+          <span v-else class="text-xs text-af-ink-3">{{ t(`admin.pricing.peak.${peakEditable}.noneHint`) }}</span>
         </div>
         <div
           v-for="(period, index) in peak?.periods ?? []"
@@ -242,11 +243,10 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PriceInput from '@/components/admin/catalog/PriceInput.vue'
-import type { TimePricing } from '@/api/admin/pricing'
 import {
   PRICE_KEYS,
   SEARCH_KEYS,
-  peakFormFrom,
+  clonePeakForm,
   peakMaxMultiplier,
   type PeakForm,
   type PriceKey,
@@ -261,7 +261,7 @@ const PER_MILLION = 1_000_000
 const PER_THOUSAND = 1_000
 
 const prices = defineModel<PriceRow>('prices', { required: true })
-/** 上游忙闲时（只有承接行，peak-editable 时显示）；null = 不分忙闲时 */
+/** 忙闲时（peak-editable 给了才显示）；null = 不分忙闲时 */
 const peak = defineModel<PeakForm | null>('peak', { default: null })
 
 const props = withDefaults(
@@ -279,10 +279,10 @@ const props = withDefaults(
     searchHints?: Partial<Record<SearchKey, string>>
     /** 「联网搜索」那一行的说明 */
     searchNote?: string
-    /** 承接行：显示「忙闲时」开关 */
-    peakEditable?: boolean
-    /** DeepSeek 官方忙闲时（快捷选项） */
-    deepseekPeak?: TimePricing
+    /** 显示「忙闲时」开关：official = 官方价那一行（目录条目的分时），upstream = 承接行（上游忙闲时） */
+    peakEditable?: 'official' | 'upstream'
+    /** 承接行的快捷选项「按官方忙闲时」：这个模型（可能还没保存的）官方忙闲时 */
+    officialPeak?: PeakForm | null
   }>(),
   {
     refs: undefined,
@@ -292,8 +292,8 @@ const props = withDefaults(
     searchPlaceholders: undefined,
     searchHints: undefined,
     searchNote: undefined,
-    peakEditable: false,
-    deepseekPeak: undefined
+    peakEditable: undefined,
+    officialPeak: null
   }
 )
 

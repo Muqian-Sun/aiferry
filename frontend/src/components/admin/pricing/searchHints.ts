@@ -1,5 +1,5 @@
 import type { PricingSearchDefaults } from '@/api/admin/pricing'
-import { effectiveOfficialSearch, type SearchKey } from './pricingDraft'
+import type { SearchKey } from './pricingDraft'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -8,7 +8,7 @@ function perThousand(value: number): string {
   return String(Number((value * 1000).toPrecision(6)))
 }
 
-/** 官方价那一行的占位：空着按厂商公开价收 */
+/** 官方价那一行的占位：写厂商公开价作参考（播种时已写进官方价；空着不收搜索费） */
 export function officialSearchPlaceholders(t: Translate, keys: SearchKey[], defaults: PricingSearchDefaults | null | undefined): Partial<Record<SearchKey, string>> {
   const out: Partial<Record<SearchKey, string>> = {}
   for (const key of keys) {
@@ -18,21 +18,12 @@ export function officialSearchPlaceholders(t: Translate, keys: SearchKey[], defa
   return out
 }
 
-/** 承接行搜索价下面的参考：官方设了的写官方价，没设的写厂商公开价 */
-export function upstreamSearchHints(
-  t: Translate,
-  keys: SearchKey[],
-  official: Partial<Record<SearchKey, number | null | undefined>>,
-  defaults: PricingSearchDefaults | null | undefined
-): Partial<Record<SearchKey, string>> {
-  const effective = effectiveOfficialSearch({ search_price_per_call: official.search_price_per_call, x_post_price: official.x_post_price, x_user_price: official.x_user_price }, defaults)
+/** 承接行搜索价下面的参考：官方设了的写官方价，没设的写「官方不收」（计费只认目录） */
+export function upstreamSearchHints(t: Translate, keys: SearchKey[], official: Partial<Record<SearchKey, number | null | undefined>>): Partial<Record<SearchKey, string>> {
   const out: Partial<Record<SearchKey, string>> = {}
   for (const key of keys) {
-    const value = effective[key]
-    if (value == null) continue
-    out[key] = official[key] != null
-      ? t('admin.pricing.search.officialRef', { price: perThousand(value) })
-      : t('admin.pricing.search.officialDefaultRef', { price: perThousand(value) })
+    const value = official[key]
+    out[key] = value != null ? t('admin.pricing.search.officialRef', { price: perThousand(value) }) : t('admin.pricing.search.officialNone')
   }
   return out
 }

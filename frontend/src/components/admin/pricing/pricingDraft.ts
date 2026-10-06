@@ -38,15 +38,6 @@ export function searchKeysOf(defaults: PricingSearchDefaults | null | undefined)
   return defaults.x_post_price != null ? [...SEARCH_KEYS] : ['search_price_per_call']
 }
 
-/** 官方搜索价的实际值：设了用设的，没设按厂商公开价 */
-export function effectiveOfficialSearch(official: Record<SearchKey, number | null | undefined>, defaults: PricingSearchDefaults | null | undefined): Record<SearchKey, number | null> {
-  return {
-    search_price_per_call: official.search_price_per_call ?? defaults?.search_price_per_call ?? null,
-    x_post_price: official.x_post_price ?? defaults?.x_post_price ?? null,
-    x_user_price: official.x_user_price ?? defaults?.x_user_price ?? null
-  }
-}
-
 export function priceRowFrom(prices: Pick<PricingPrices, PriceKey | 'intervals'> & Partial<Record<SearchKey, number | null>>): PriceRow {
   return {
     input_price: prices.input_price ?? null,
@@ -245,9 +236,11 @@ export interface BlockState<D> {
   draft: D
 }
 
-/** 按模型的一块：官方价、售价 + 每个承接渠道一行（id = 渠道 ID），按渠道优先级排 */
+/** 按模型的一块：官方价（含官方忙闲时）、售价 + 每个承接渠道一行（id = 渠道 ID），按渠道优先级排 */
 export interface ModelDraft {
   official: PriceRow
+  /** 官方忙闲时（目录条目的分时）；null = 不分忙闲时 */
+  officialPeak: PeakForm | null
   sale: SaleRow
   rows: KeyedRow[]
 }
@@ -264,6 +257,7 @@ export function cloneKeyedRows(rows: KeyedRow[]): KeyedRow[] {
 export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: number) => number): ModelDraft {
   return {
     official: priceRowFrom(entry),
+    officialPeak: peakFormFrom(entry.time_pricing),
     sale: saleRowFrom(entry.sale_prices),
     rows: [...entry.bindings]
       .sort((a, b) => accountOrder(a.account_id) - accountOrder(b.account_id))
@@ -277,12 +271,18 @@ export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: nu
 }
 
 export function cloneModelDraft(draft: ModelDraft): ModelDraft {
-  return { official: clonePriceRow(draft.official), sale: cloneSaleRow(draft.sale), rows: cloneKeyedRows(draft.rows) }
+  return {
+    official: clonePriceRow(draft.official),
+    officialPeak: clonePeakForm(draft.officialPeak),
+    sale: cloneSaleRow(draft.sale),
+    rows: cloneKeyedRows(draft.rows)
+  }
 }
 
 export function modelDraftChanges(state: BlockState<ModelDraft>): number {
   return (
     priceRowChanges(state.draft.official, state.initial.official) +
+    (samePeak(state.draft.officialPeak, state.initial.officialPeak) ? 0 : 1) +
     saleRowChanges(state.draft.sale, state.initial.sale) +
     keyedRowsChanges(state.draft.rows, state.initial.rows)
   )
@@ -354,17 +354,11 @@ export function bindingRowFrom(binding: PricingBinding): Omit<KeyedRow, 'id'> {
 
 /**
  * 按渠道给模型新加的一行（id = 模型条目 ID）：同一上游的渠道承接过这个模型的，带上它的上游模型名、上游价与忙闲时；
- * 否则价格空着，DeepSeek 模型的忙闲时默认按官方（muqian 2026-10-06）。upstreamModel 给了就用它。
+ * 否则价格空着，上游忙闲时默认同官方（目录条目的分时，如 DeepSeek 高峰）。upstreamModel 给了就用它。
  */
-export function newChannelRow(
-  entry: PricingEntry,
-  account: PricingAccount,
-  accounts: PricingAccount[],
-  deepseekPeak: TimePricing | undefined,
-  upstreamModel?: string
-): KeyedRow {
+export function newChannelRow(entry: PricingEntry, account: PricingAccount, accounts: PricingAccount[], upstreamModel?: string): KeyedRow {
   const sibling = siblingBindingOf(entry, account, accounts)
-  const base = sibling ? bindingRowFrom(sibling) : { upstreamModel: '', prices: emptyPriceRow(), peak: defaultPeakFor(entry.model_id, deepseekPeak) }
+  const base = sibling ? bindingRowFrom(sibling) : { upstreamModel: '', prices: emptyPriceRow(), peak: peakFormFrom(entry.time_pricing) }
   return { id: entry.id, ...base, upstreamModel: upstreamModel ?? base.upstreamModel }
 }
 
@@ -520,7 +514,8 @@ export function fillSaleByRatio(sale: SaleRow, official: PriceRow, ratio: number
   return filled
 }
 
-// ---- 上游忙闲时（muqian 2026-10-06：算成本按我们填的上游价，上游有没有忙闲时在填承接时定；忙时整单乘倍数）
+// ---- 忙闲时：官方的（目录条目的分时，向用户收钱整单乘倍数）与上游的（承接上的，渠道成本整单乘倍数）同一份表单
+// （muqian 2026-10-06：所有模型的计费都从模型目录出发；上游有没有忙闲时在填承接时定）
 
 /** 一个时段：开始 / 结束为 HH:mm（结束 00:00 = 到当天结束），倍数是输入框原文 */
 export interface PeakPeriodForm {
@@ -549,16 +544,6 @@ export function peakFormFrom(tp: TimePricing | null | undefined): PeakForm | nul
 
 export function clonePeakForm(form: PeakForm | null): PeakForm | null {
   return form ? { ...form, periods: form.periods.map((period) => ({ ...period })) } : null
-}
-
-/** 后端 isDeepSeekModel 同口径：deepseek- 开头的都算 */
-export function isDeepSeekModel(modelId: string): boolean {
-  return modelId.trim().toLowerCase().startsWith('deepseek-')
-}
-
-/** 新加承接时的默认忙闲时：DeepSeek 模型按官方，其余不分忙闲时 */
-export function defaultPeakFor(modelId: string, deepseekPeak: TimePricing | undefined): PeakForm | null {
-  return isDeepSeekModel(modelId) ? peakFormFrom(deepseekPeak) : null
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
