@@ -137,9 +137,41 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 	sort.Strings(keys)
 	entries := make([]ModelCatalogEntry, 0, len(keys))
 	for _, key := range keys {
-		entries = append(entries, byKey[key])
+		entry := byKey[key]
+		if !CatalogVendorAllowed(entry.Vendor) {
+			// fail-loud：价格文件或兜底价表里混进了白名单外的厂商，打出来而不是静默播进目录
+			slog.Warn("skipping catalog seed from a vendor outside the catalog allowlist", "model_id", entry.ModelID, "vendor", entry.Vendor)
+			continue
+		}
+		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// catalogVendorAllowlist 模型目录只收这 11 家的模型（muqian 2026-10-06）：OpenAI、Anthropic、Google、xAI、DeepSeek、
+// 智谱、月之暗面（Kimi）、MiniMax、阿里（通义）、字节（豆包）、小米（MiMo）。键是条目的厂商串（价格文件 provider 口径，
+// Google 有 gemini 与 vertex_ai-* 两种写法、OpenAI 有 openai 与 text-completion-openai）。
+// 只管播种（价格文件 / 兜底价表 → 目录）；管理员在后台手动建的条目不受限。
+var catalogVendorAllowlist = map[string]bool{
+	"openai":                     true,
+	"text-completion-openai":     true,
+	"anthropic":                  true,
+	"gemini":                     true,
+	"vertex_ai-language-models":  true,
+	"vertex_ai-embedding-models": true,
+	"xai":                        true,
+	"deepseek":                   true,
+	"zhipu":                      true,
+	"moonshot":                   true,
+	"minimax":                    true,
+	"dashscope":                  true,
+	"volcengine":                 true,
+	"xiaomi":                     true,
+}
+
+// CatalogVendorAllowed 厂商串在不在目录白名单里（不分大小写）。
+func CatalogVendorAllowed(vendor string) bool {
+	return catalogVendorAllowlist[strings.ToLower(strings.TrimSpace(vendor))]
 }
 
 // LookupPriceFileEntry 按模型标识构造一条建议条目，给「添加模型」自动带出厂商 / 计费方式 / 价格。

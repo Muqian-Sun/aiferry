@@ -213,12 +213,9 @@ const VENDOR_LABELS: Record<string, string> = {
   minimax: 'MiniMax',
   zhipu: 'Zhipu AI',
   volcengine: 'Volcengine',
-  // 联网官方模型名单（LiteLLM）带进来的厂商（2026-10-06）
-  mistral: 'Mistral AI',
+  // 目录只收 11 家（2026-10-06）：通义在价格文件里叫 dashscope，小米 MiMo 叫 xiaomi
   dashscope: 'Alibaba',
-  cohere: 'Cohere',
-  ai21: 'AI21 Labs',
-  perplexity: 'Perplexity',
+  xiaomi: 'Xiaomi',
   bedrock: 'AWS',
   // 目录播种带进来的 litellm 供应商名：展示按品牌，归一化留给播种
   'vertex_ai-language-models': 'Google',

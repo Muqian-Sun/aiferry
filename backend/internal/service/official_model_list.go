@@ -18,7 +18,7 @@ import (
 // 官方模型名单（muqian 2026-10-06 定）：建渠道时上游名单里目录没有的模型，联网查 LiteLLM 公开价格表判断是不是
 // 官方模型 ID——是就能带着官方价加进目录，不是就在承接关系上做别名映射（上游模型名）。
 //
-// 只认官方厂商自己的条目（openrouter、azure、bedrock 这类转售不算）：键去掉厂商前缀后按小写精确比对，
+// 只认目录白名单里官方厂商自己的条目（openrouter、azure、bedrock 这类转售不算）：键去掉厂商前缀后按小写精确比对，
 // 不做去日期、去前缀之类的识别——「anthropic/claude-…」这种写法不是官方 ID，该映射到目录里已有的模型。
 // 2026-10-06 实测这份表 4472 条、138 个提供方；它会删掉下线的模型（claude-opus-4-1、grok-4 已不在），
 // 也可能还没收录刚发布的，所以查不到只说明「表里没有」，最后由管理员判断。
@@ -40,23 +40,21 @@ const (
 	officialModelListMaxBytes = 32 << 20
 )
 
-// officialModelProviders LiteLLM 里算官方厂商的提供方 → 写进目录条目的厂商串。与内置目录同一套写法：
-// 智谱在 LiteLLM 里叫 zai，目录（兜底价表）里叫 zhipu。
+// officialModelProviders LiteLLM 里算官方厂商的提供方 → 写进目录条目的厂商串。只认目录白名单里的 11 家
+// （catalogVendorAllowlist，muqian 2026-10-06）；与内置目录同一套写法：智谱在 LiteLLM 里叫 zai、目录里叫 zhipu，
+// 小米 MiMo 叫 xiaomi_mimo、目录里叫 xiaomi。
 var officialModelProviders = map[string]string{
-	"openai":     "openai",
-	"anthropic":  "anthropic",
-	"gemini":     "gemini",
-	"xai":        "xai",
-	"deepseek":   "deepseek",
-	"mistral":    "mistral",
-	"dashscope":  "dashscope",
-	"zai":        "zhipu",
-	"volcengine": "volcengine",
-	"moonshot":   "moonshot",
-	"minimax":    "minimax",
-	"cohere":     "cohere",
-	"ai21":       "ai21",
-	"perplexity": "perplexity",
+	"openai":      "openai",
+	"anthropic":   "anthropic",
+	"gemini":      "gemini",
+	"xai":         "xai",
+	"deepseek":    "deepseek",
+	"dashscope":   "dashscope",
+	"zai":         "zhipu",
+	"volcengine":  "volcengine",
+	"moonshot":    "moonshot",
+	"minimax":     "minimax",
+	"xiaomi_mimo": "xiaomi",
 }
 
 // ErrOfficialModelListUnavailable 联网名单一份都没拉到过。
