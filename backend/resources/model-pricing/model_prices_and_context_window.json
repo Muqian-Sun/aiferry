@@ -6947,5 +6947,84 @@
     "mode": "chat",
     "output_cost_per_token": 4.7e-07,
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+  },
+  "mimo-v2.6-pro": {
+    "cache_read_input_token_cost": 3.6e-09,
+    "input_cost_per_token": 4.35e-07,
+    "litellm_provider": "xiaomi",
+    "mode": "chat",
+    "output_cost_per_token": 8.7e-07,
+    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+  },
+  "mimo-v2.6-flash": {
+    "cache_read_input_token_cost": 2.8e-09,
+    "input_cost_per_token": 1.4e-07,
+    "litellm_provider": "xiaomi",
+    "mode": "chat",
+    "output_cost_per_token": 2.8e-07,
+    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+  },
+  "mimo-v2.6-pro-ultraspeed": {
+    "cache_read_input_token_cost": 3.6e-08,
+    "input_cost_per_token": 4.35e-06,
+    "litellm_provider": "xiaomi",
+    "mode": "chat",
+    "output_cost_per_token": 8.7e-06,
+    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+  },
+  "doubao-seed-2-1-pro-260915": {
+    "cache_read_input_token_cost": 1.68067e-07,
+    "input_cost_per_token": 8.40336e-07,
+    "litellm_provider": "volcengine",
+    "mode": "chat",
+    "output_cost_per_token": 4.20168e-06,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
+  },
+  "doubao-seed-2-1-pro-260628": {
+    "cache_read_input_token_cost": 1.68067e-07,
+    "input_cost_per_token": 8.40336e-07,
+    "litellm_provider": "volcengine",
+    "mode": "chat",
+    "output_cost_per_token": 4.20168e-06,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
+  },
+  "doubao-seed-2-1-turbo-260628": {
+    "cache_read_input_token_cost": 8.40336e-08,
+    "input_cost_per_token": 4.20168e-07,
+    "litellm_provider": "volcengine",
+    "mode": "chat",
+    "output_cost_per_token": 2.10084e-06,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
+  },
+  "doubao-seed-2-1-lite-260915": {
+    "cache_read_input_token_cost": 2.2409e-08,
+    "input_cost_per_audio_token": 1.68067e-06,
+    "input_cost_per_token": 1.12045e-07,
+    "litellm_provider": "volcengine",
+    "mode": "chat",
+    "output_cost_per_token": 3.78151e-07,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
+  },
+  "doubao-seed-character-260628": {
+    "cache_read_input_token_cost": 2.2409e-08,
+    "input_cost_per_token": 1.12045e-07,
+    "litellm_provider": "volcengine",
+    "long_context_input_cost_multiplier": 1.5,
+    "long_context_input_token_threshold": 32000,
+    "long_context_output_cost_multiplier": 3.0,
+    "mode": "chat",
+    "output_cost_per_token": 2.80112e-07,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
+  },
+  "doubao-seed-character-251128": {
+    "cache_read_input_token_cost": 2.2409e-08,
+    "input_cost_per_token": 1.12045e-07,
+    "litellm_provider": "volcengine",
+    "long_context_input_cost_multiplier": 1.5,
+    "long_context_input_token_threshold": 32000,
+    "long_context_output_cost_multiplier": 3.0,
+    "mode": "chat",
+    "output_cost_per_token": 2.80112e-07,
+    "source": "https://www.volcengine.com/docs/82379/1544106（人民币价按 1 美元 = 7.14 元换算）"
   }
 }

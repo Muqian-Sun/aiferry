@@ -31,6 +31,9 @@ func seedEntriesByModelID(entries []ModelCatalogEntry) map[string]ModelCatalogEn
 	return out
 }
 
+// xaiImagineSeeds 五条里 grok-imagine-image-quality 已弃用（xAI 2026-11-02 下线），在排除清单里，实际播进目录的是四条。
+const seededImagineCount = 4
+
 func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
@@ -48,13 +51,13 @@ func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	// 2 条来自价格文件 / 兜底表 + 5 条 xAI Imagine 媒体种子
-	require.Equal(t, 2+len(xaiImagineSeeds()), result.Inserted)
+	// 2 条来自价格文件 / 兜底表 + 4 条 xAI Imagine 媒体种子
+	require.Equal(t, 2+seededImagineCount, result.Inserted)
 	require.Zero(t, result.Refreshed)
 	require.Zero(t, result.SkippedAdmin)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 2+len(xaiImagineSeeds()))
+	require.Len(t, entries, 2+seededImagineCount)
 
 	sonnet := entries["claude-sonnet-4"]
 	require.Equal(t, ModelCatalogManagedBySeed, sonnet.ManagedBy)
@@ -84,7 +87,7 @@ func TestSeed_PricingFileWinsOverFallbackTableForSameModel(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 1+len(xaiImagineSeeds()))
+	require.Len(t, entries, 1+seededImagineCount)
 	require.InDelta(t, 3e-6, *entries["claude-sonnet-4"].InputPrice, 1e-12)
 }
 
@@ -94,11 +97,11 @@ func TestSeed_SkipsFallbackWhenPricingFileCanAlreadyPriceIt(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
 		map[string]*LiteLLMModelPricing{
-			"claude-sonnet-4-20250514": {LiteLLMProvider: "anthropic", InputCostPerToken: 3e-6},
+			"claude-opus-4-5-20251101": {LiteLLMProvider: "anthropic", InputCostPerToken: 3e-6},
 		},
 		map[string]*ModelPricing{
-			// 价格文件能通过去日期后缀定到 claude-sonnet-4-20250514。
-			"claude-sonnet-4-20250514-thinking": {InputPricePerToken: 99e-6},
+			// 价格文件能通过去日期后缀定到 claude-opus-4-5-20251101。
+			"claude-opus-4-5-20251101-thinking": {InputPricePerToken: 99e-6},
 		},
 	))
 
@@ -106,8 +109,8 @@ func TestSeed_SkipsFallbackWhenPricingFileCanAlreadyPriceIt(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Contains(t, entries, "claude-sonnet-4-20250514")
-	require.NotContains(t, entries, "claude-sonnet-4-20250514-thinking")
+	require.Contains(t, entries, "claude-opus-4-5-20251101")
+	require.NotContains(t, entries, "claude-opus-4-5-20251101-thinking")
 }
 
 // 仅有图片价、没有 token 价的条目今天会被 getModelPricingAt 明确拒绝
@@ -152,7 +155,7 @@ func TestSeed_RefreshesSeedEntriesAndNeverOverwritesAdminEdits(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, len(xaiImagineSeeds()), result.Inserted, "只有 Imagine 媒体种子是新插入的")
+	require.Equal(t, seededImagineCount, result.Inserted, "只有 Imagine 媒体种子是新插入的")
 	require.Equal(t, 1, result.Refreshed)
 	require.Equal(t, 1, result.SkippedAdmin)
 
@@ -366,7 +369,7 @@ func TestSeed_ImageGenerationWithPerImagePriceSeedsImageMode(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
 		map[string]*LiteLLMModelPricing{
-			"gemini-2.5-flash-image": {
+			"gemini-3.1-flash-image": {
 				LiteLLMProvider: "gemini", Mode: "image_generation",
 				InputCostPerToken: 3e-7, OutputCostPerToken: 2.5e-6,
 				OutputCostPerImage: 0.039, OutputCostPerImageToken: 3e-5,
@@ -386,7 +389,7 @@ func TestSeed_ImageGenerationWithPerImagePriceSeedsImageMode(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	flashImage := entries["gemini-2.5-flash-image"]
+	flashImage := entries["gemini-3.1-flash-image"]
 	require.Equal(t, BillingModeImage, flashImage.BillingMode)
 	require.NotNil(t, flashImage.PerRequestPrice)
 	require.InDelta(t, 0.039, *flashImage.PerRequestPrice, 1e-12)
@@ -428,7 +431,7 @@ func TestSeed_ImagineSeedsSkippedWhenPricingFileHasModel(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
 		map[string]*LiteLLMModelPricing{
-			"grok-imagine-image-quality": {LiteLLMProvider: "xai", Mode: "image_generation", OutputCostPerImage: 0.09, InputCostPerToken: 1e-6},
+			"grok-imagine-image-2.0": {LiteLLMProvider: "xai", Mode: "image_generation", OutputCostPerImage: 0.09, InputCostPerToken: 1e-6},
 		},
 		nil,
 	))
@@ -437,12 +440,12 @@ func TestSeed_ImagineSeedsSkippedWhenPricingFileHasModel(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	quality := entries["grok-imagine-image-quality"]
-	require.InDelta(t, 0.09, *quality.PerRequestPrice, 1e-12, "价格文件的价赢过种子")
-	require.Empty(t, quality.Intervals, "价格文件条目不带种子的分档")
-	// 其余四条 Imagine 种子照常播入
+	image20 := entries["grok-imagine-image-2.0"]
+	require.InDelta(t, 0.09, *image20.PerRequestPrice, 1e-12, "价格文件的价赢过种子")
+	require.Empty(t, image20.Intervals, "价格文件条目不带种子的分档")
+	// 其余 Imagine 种子照常播入
 	require.Contains(t, entries, "grok-imagine-video-1.5")
-	require.Len(t, entries, len(xaiImagineSeeds()))
+	require.Len(t, entries, seededImagineCount)
 }
 
 // Imagine 种子带分档与别名一起落库；再次播种时分档随种子刷新、别名只补不删。
@@ -456,20 +459,22 @@ func TestSeed_ImagineSeedsCarryIntervalsAndAliases(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	quality := entries["grok-imagine-image-quality"]
-	require.Equal(t, BillingModeImage, quality.BillingMode)
-	require.InDelta(t, 0.05, *quality.PerRequestPrice, 1e-12)
-	require.Len(t, quality.Intervals, 2)
-	require.Equal(t, ImageBillingSize1K, quality.Intervals[0].TierLabel)
-	require.InDelta(t, 0.05, *quality.Intervals[0].PerRequestPrice, 1e-12)
-	require.Equal(t, ImageBillingSize2K, quality.Intervals[1].TierLabel)
-	require.InDelta(t, 0.07, *quality.Intervals[1].PerRequestPrice, 1e-12)
-	aliases := make([]string, 0, len(quality.Aliases))
-	for _, alias := range quality.Aliases {
+	image20 := entries["grok-imagine-image-2.0"]
+	require.Equal(t, BillingModeImage, image20.BillingMode)
+	require.InDelta(t, 0.06, *image20.PerRequestPrice, 1e-12)
+	require.Len(t, image20.Intervals, 2)
+	require.Equal(t, ImageBillingSize1K, image20.Intervals[0].TierLabel)
+	require.InDelta(t, 0.06, *image20.Intervals[0].PerRequestPrice, 1e-12)
+	require.Equal(t, ImageBillingSize2K, image20.Intervals[1].TierLabel)
+	require.InDelta(t, 0.08, *image20.Intervals[1].PerRequestPrice, 1e-12)
+
+	video := entries["grok-imagine-video"]
+	aliases := make([]string, 0, len(video.Aliases))
+	for _, alias := range video.Aliases {
 		require.Equal(t, ModelCatalogAliasSourceSeed, alias.Source)
 		aliases = append(aliases, alias.Alias)
 	}
-	require.ElementsMatch(t, []string{"grok-imagine", "grok-imagine-1", "grok-imagine-edit"}, aliases)
+	require.ElementsMatch(t, []string{"grok-video", "grok-video-latest", "grok-imagine-video-preview"}, aliases)
 
 	video15 := entries["grok-imagine-video-1.5"]
 	require.Equal(t, BillingModeVideo, video15.BillingMode)
@@ -477,19 +482,23 @@ func TestSeed_ImagineSeedsCarryIntervalsAndAliases(t *testing.T) {
 	require.Equal(t, VideoBillingResolution1080P, video15.Intervals[2].TierLabel)
 	require.InDelta(t, 0.25, *video15.Intervals[2].PerRequestPrice, 1e-12)
 
-	// 别名解析：经目录快照 grok-imagine → quality 条目
+	// 别名解析：经目录快照 grok-video → grok-imagine-video 条目
 	catalog, _ := newTestModelCatalogService(repo.entries...)
-	resolved := catalog.LookupPricingEntry(context.Background(), "grok-imagine")
+	resolved := catalog.LookupPricingEntry(context.Background(), "grok-video")
 	require.NotNil(t, resolved)
-	require.Equal(t, "grok-imagine-image-quality", resolved.ModelID)
+	require.Equal(t, "grok-imagine-video", resolved.ModelID)
+
+	// 已弃用的 quality 不播，它的三个别名也就不在目录里
+	require.NotContains(t, entries, "grok-imagine-image-quality")
+	require.Nil(t, catalog.LookupPricingEntry(context.Background(), "grok-imagine"))
 
 	// 重播：条目刷新而不是重复插入，分档与别名保持
 	second, err := svc.Seed(context.Background())
 	require.NoError(t, err)
 	require.Zero(t, second.Inserted)
-	requality := seedEntriesByModelID(repo.entries)["grok-imagine-image-quality"]
-	require.Len(t, requality.Intervals, 2)
-	require.Len(t, requality.Aliases, 3)
+	reseeded := seedEntriesByModelID(repo.entries)
+	require.Len(t, reseeded["grok-imagine-image-2.0"].Intervals, 2)
+	require.Len(t, reseeded["grok-imagine-video"].Aliases, 3)
 }
 
 // 管理员已手建同名别名指向别的条目时，种子别名跳过、不覆盖。
@@ -497,7 +506,7 @@ func TestSeed_AliasConflictKeepsAdminAlias(t *testing.T) {
 	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
 		{ID: 1, ModelID: "my-image", BillingMode: BillingModeImage, Status: ModelCatalogStatusListed,
 			ManagedBy: ModelCatalogManagedByAdmin, PerRequestPrice: testPtrFloat64(0.5),
-			Aliases: []ModelCatalogAlias{{EntryID: 1, Alias: "grok-imagine", Source: ModelCatalogAliasSourceManual}}},
+			Aliases: []ModelCatalogAlias{{EntryID: 1, Alias: "grok-video", Source: ModelCatalogAliasSourceManual}}},
 	}}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(nil, nil))
 
@@ -505,13 +514,13 @@ func TestSeed_AliasConflictKeepsAdminAlias(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	quality := entries["grok-imagine-image-quality"]
-	aliases := make([]string, 0, len(quality.Aliases))
-	for _, alias := range quality.Aliases {
+	video := entries["grok-imagine-video"]
+	aliases := make([]string, 0, len(video.Aliases))
+	for _, alias := range video.Aliases {
 		aliases = append(aliases, alias.Alias)
 	}
-	require.ElementsMatch(t, []string{"grok-imagine-1", "grok-imagine-edit"}, aliases, "被占用的 grok-imagine 不写")
-	require.Equal(t, "grok-imagine", entries["my-image"].Aliases[0].Alias, "管理员别名不动")
+	require.ElementsMatch(t, []string{"grok-video-latest", "grok-imagine-video-preview"}, aliases, "被占用的 grok-video 不写")
+	require.Equal(t, "grok-video", entries["my-image"].Aliases[0].Alias, "管理员别名不动")
 }
 
 func TestValidateIntervals_ImageVideoTiersRequireLabelAndPrice(t *testing.T) {
