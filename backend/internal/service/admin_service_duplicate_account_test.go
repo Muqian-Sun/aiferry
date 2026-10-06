@@ -130,6 +130,8 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.True(t, source.ExpiresAt.Equal(*duplicate.ExpiresAt))
 	require.Equal(t, source.Notes, duplicate.Notes)
 	require.Equal(t, source.ProxyFallbackOriginID, duplicate.ProxyID)
+	require.Equal(t, source.ProtocolEndpoints, duplicate.ProtocolEndpoints, "上游地址随渠道配置一起复制")
+	require.NoError(t, duplicate.ValidateProtocolEndpoints(), "落库前的「第三方 key 必须有协议地址」校验要能过")
 
 	require.Equal(t, StatusActive, duplicate.Status)
 	require.False(t, duplicate.Schedulable)

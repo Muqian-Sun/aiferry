@@ -251,6 +251,9 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		Concurrency: source.Concurrency,
 		Priority:    source.Priority,
 		ExpiresAt:   expiresAt,
+		// 第三方 key 的上游地址是渠道配置的一部分：不带过去，落库时会被「第三方 key 必须有协议地址」拦下
+		// （2026-10-06 生产：复制渠道 400 INVALID_PROTOCOL_ENDPOINTS）。
+		ProtocolEndpoints: source.ProtocolEndpoints, // 建账号时 NormalizeProtocolEndpoints 另起一份 map，不会与源共用
 	}
 	accountExtra := input.Extra
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {

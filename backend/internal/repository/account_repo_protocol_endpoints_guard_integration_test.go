@@ -65,3 +65,28 @@ func TestAccountUpdatePathsRejectThirdPartyKeyWithoutEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// 复制渠道也是一条建账号路径：第三方 key 的上游地址要随配置一起复制，否则落库被守卫拦下
+// （2026-10-06 生产：复制渠道 400 INVALID_PROTOCOL_ENDPOINTS）。走真仓储，守卫与生产同一份代码。
+func TestDuplicateThirdPartyKeyCarriesProtocolEndpoints(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
+	admin := service.NewAdminService(nil, nil, repo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	endpoints := map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com"}
+	source := mustCreateAccount(t, tx.Client(), &service.Account{
+		Name: "dup-source", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "sk-dup"},
+		ProtocolEndpoints: endpoints,
+	})
+
+	duplicate, err := admin.DuplicateAccount(ctx, source.ID, "admin:1", "")
+
+	require.NoError(t, err)
+	persisted, err := repo.GetByID(ctx, duplicate.ID)
+	require.NoError(t, err)
+	require.Equal(t, endpoints, persisted.ProtocolEndpoints)
+	require.Equal(t, "dup-source (Copy)", persisted.Name)
+	require.False(t, persisted.Schedulable, "复制出来的渠道先暂停，确认后再接流量")
+}
+
