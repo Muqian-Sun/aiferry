@@ -96,7 +96,7 @@
                 :placeholder="t('admin.pricing.sameName')"
                 :aria-label="t('admin.pricing.columns.upstreamModel')"
                 :title="t('admin.pricing.upstreamModelHint')"
-                :class="['input h-8 w-40 px-2 py-1 font-mono text-13', upstreamModelInvalid(row.upstreamModel) ? 'border-af-danger' : '']"
+                :class="['input h-8 w-32 px-2 py-1 font-mono text-13', upstreamModelInvalid(row.upstreamModel) ? 'border-af-danger' : '']"
                 data-testid="pricing-upstream-model"
               />
             </template>
