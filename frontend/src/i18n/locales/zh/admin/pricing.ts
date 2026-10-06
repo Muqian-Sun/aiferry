@@ -14,8 +14,8 @@ export default {
       problems: '有问题的',
       unsaved: '未保存的'
     },
-    basis: '$ / 百万 Token · 毛利按售价算（没单独定售价的项按官方价 × {rate}），低于 {margin} 的承接利润门会跳过',
-    basisGateOff: '$ / 百万 Token · 毛利按售价算（没单独定售价的项按官方价 × {rate}）· 利润门已关闭',
+    basis: '$ / 百万 Token · 最低毛利 {margin}',
+    basisGateOff: '$ / 百万 Token · 利润门已关',
     unsavedBlocks: '{count} 块未保存',
     empty: '没有符合条件的模型或渠道',
     loadFailed: '价格加载失败',
@@ -38,13 +38,12 @@ export default {
       actions: '操作'
     },
     official: '官方价',
+    costGroup: '成本价',
     webSearchDelegate: '联网搜索计费项',
-    webSearchDelegateHint: 'Claude Code 配第三方模型时，那次单独的搜索请求交给这个模型执行：它的官方价就是「联网搜索」计费项（Token × 用户倍率 + 每次搜索按原价），承接它的渠道就是执行渠道；不对用户上架',
+    webSearchDelegateHint: 'Claude Code 第三方模型的联网搜索由它执行；不对用户上架',
     search: {
       toggle: '联网搜索',
       title: '联网搜索',
-      officialNote: '按原价收，不乘用户倍率；空着不收搜索费',
-      upstreamNote: '官方价设了的项必须填；没填的按官方价记成本',
       units: {
         search_price_per_call: '$ / 千次',
         x_post_price: '$ / 千条',
@@ -53,18 +52,16 @@ export default {
       defaultPlaceholder: '公开价 {price}',
       officialRef: '官方 {price}',
       officialNone: '官方不收',
-      optional: '选填'
+      free: '免费'
     },
-    catalogName: '目录标识',
     sameName: '同名',
-    upstreamModelHint: '这个渠道给这个模型用的模型名；留空 = 与目录模型标识同名。用户只能请求目录模型标识，转发时只转换这一次。',
+    upstreamModelHint: '留空 = 与目录标识同名',
     officialRef: '官方 {price}',
     officialUnset: '官方未设',
-    officialReadOnly: '这个视图里官方价只作参考，要改官方价请切到「按模型」。',
     required: '必填',
     newRow: '新加',
-    noChannels: '还没有渠道承接这个模型。点「加渠道」选一个渠道并填上游价。',
-    noModels: '这个渠道还没有承接任何模型。点「加模型」选模型并填上游价。',
+    noChannels: '还没有渠道',
+    noModels: '还没有模型',
     noVendor: '未设厂商',
     status: {
       listed: '已上架',
@@ -78,7 +75,6 @@ export default {
     segmentAbove: '超过',
     segmentInherit: '同第 1 段',
     segmentAdd: '加一段',
-    segmentHint: '按单次请求的输入 Token 数（输入 + 缓存写 + 缓存读）落在哪一段，整条请求按那一段的价计费。上面一行是第 1 段；各段没填的价按第 1 段算。',
     remove: '移除',
     addChannel: '加渠道',
     addModel: '加模型',
@@ -88,8 +84,6 @@ export default {
     fillFromPriceFile: '按价格文件带官方价',
     sale: {
       label: '售价',
-      hint: '没填 = 官方价 × {ratio}',
-      scope: '实付 = 售价 × 用户折扣',
       cell: '售价 · {item}',
       clear: '全部清空',
       segmentAbove: '超过 {tokens} Token',
@@ -98,12 +92,10 @@ export default {
     },
     saleFill: {
       trigger: '按比例填售价',
-      hint: '空着的售价按「官方价 × 比例」填上（分段一起），已填的不动；填完记得保存这一块。',
       ratio: '比例'
     },
     discountFill: {
-      trigger: '按折扣填上游价',
-      hint: '空着的上游价按「官方价 × 折扣」填上（分段一起折），已填的不动；上游免费就填 0。填完记得保存这一块。',
+      trigger: '按折扣填成本价',
       prefix: '官方价 ×',
       ratio: '折扣',
       apply: '填入'
@@ -117,13 +109,11 @@ export default {
       summary: '忙时 ×{multiplier}',
       official: {
         title: '官方忙闲时',
-        note: '官网的忙闲时；售价忙闲时没单独设时，向用户收钱按它整单乘倍数。',
         noneHint: '全天一个价'
       },
       sale: {
         title: '售价忙闲时',
-        note: '向用户收钱时这些时段整单按倍数收；默认跟官方忙闲时。',
-        noneHint: '全天一个价（官方忙时也不加价）',
+        noneHint: '全天一个价',
         follow: '跟官方忙闲时（{summary}）',
         followShort: '跟官方忙闲时',
         custom: '单独设',
@@ -131,8 +121,7 @@ export default {
       },
       upstream: {
         title: '上游忙闲时',
-        note: '上游在这些时段整单按倍数收；只影响渠道成本与利润门，不影响向用户收的钱。',
-        noneHint: '上游全天一个价'
+        noneHint: '全天一个价'
       },
       excludeDates: '节假日（全天按平时）',
       excludeDatesPlaceholder: '2026-10-01 2026-10-02 …',
@@ -151,7 +140,6 @@ export default {
       end: '结束',
       multiplier: '倍数',
       add: '加一个时段',
-      endHint: '结束填 00:00 表示到当天结束',
       margin: '忙时 {margin}',
       gateSkips: '忙时利润门会跳过',
       errors: {

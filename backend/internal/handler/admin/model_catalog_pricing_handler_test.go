@@ -274,7 +274,7 @@ func TestModelCatalogHandler_SavePricingChannel(t *testing.T) {
 	})
 }
 
-// 联网搜索价：价格页给出厂商公开价作占位；官方价显式设了的项，上游价也必须填；保存后原样带回。
+// 联网搜索价：价格页给出厂商公开价作占位；上游搜索价可不填（= 上游不收）；保存后原样带回。
 func TestModelCatalogHandler_PricingSearchPrices(t *testing.T) {
 	router, repo := newPricingTestRouter(t)
 	rec := httptest.NewRecorder()
@@ -293,8 +293,8 @@ func TestModelCatalogHandler_PricingSearchPrices(t *testing.T) {
 		},
 	}
 	rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", body)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Contains(t, rec.Body.String(), "upstream search_price_per_call is required")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Nil(t, repo.bindings[1][0].SearchPricePerCall, "上游搜索价可不填")
 
 	body["bindings"].([]any)[0].(map[string]any)["search_price_per_call"] = 0.015
 	rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", body)

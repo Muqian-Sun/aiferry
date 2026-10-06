@@ -14,7 +14,7 @@
       :placeholder="placeholder"
       :aria-label="label"
       :class="[
-        compact ? 'input h-8 w-24 px-2 py-1 text-right text-13 tabular-nums' : 'input pr-28 tabular-nums',
+        compact ? 'input h-8 w-20 px-2 py-1 text-right text-13 tabular-nums' : 'input pr-28 tabular-nums',
         invalid || (required && modelValue == null) ? 'border-af-danger' : ''
       ]"
       :data-testid="testId"

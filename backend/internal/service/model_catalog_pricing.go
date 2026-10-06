@@ -43,8 +43,7 @@ func (e *ModelCatalogEntry) UpstreamPeakCostRatio(b *ModelCatalogBinding) (ratio
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
-//   - 联网搜索价同理：官方价显式设了的项（每次 web 搜索、X 帖子、X 主页）上游价也必须填；官方没设（用厂商公开价）的可不填，
-//     不填按官方搜索价记成本；
+//   - 联网搜索价可不填：没填 = 上游不收搜索费（muqian 2026-10-06：「上游没填费用就是免费」）；
 //   - 分段与官方价同一套规则（ValidateIntervals），只用绝对价，每段至少一项价；
 //   - 上游模型名是一个具体的名字：不带通配、不含空白，最长 255 个字符。
 func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
@@ -77,9 +76,6 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 		{"cache_write_price", entry.CacheWritePrice, b.CacheWritePrice},
 		{"cache_write_1h_price", entry.CacheWrite1hPrice, b.CacheWrite1hPrice},
 		{"cache_read_price", entry.CacheReadPrice, b.CacheReadPrice},
-		{"search_price_per_call", entry.SearchPricePerCall, b.SearchPricePerCall},
-		{"x_post_price", entry.XPostPrice, b.XPostPrice},
-		{"x_user_price", entry.XUserPrice, b.XUserPrice},
 	}
 	for _, item := range required {
 		if item.official != nil && item.upstream == nil {

@@ -28,11 +28,7 @@ export function upstreamSearchHints(t: Translate, keys: SearchKey[], official: P
   return out
 }
 
-/** 承接行搜索价的占位：官方没设的项可不填（按官方价记成本） */
-export function upstreamSearchPlaceholders(t: Translate, keys: SearchKey[], official: Partial<Record<SearchKey, number | null | undefined>>): Partial<Record<SearchKey, string>> {
-  const out: Partial<Record<SearchKey, string>> = {}
-  for (const key of keys) {
-    if (official[key] == null) out[key] = t('admin.pricing.search.optional')
-  }
-  return out
+/** 成本价搜索价的占位：空着 = 上游不收（muqian 2026-10-06） */
+export function upstreamSearchPlaceholders(t: Translate, keys: SearchKey[]): Partial<Record<SearchKey, string>> {
+  return Object.fromEntries(keys.map((key) => [key, t('admin.pricing.search.free')]))
 }

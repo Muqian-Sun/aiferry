@@ -236,13 +236,8 @@ const focusOptions = computed<FilterOption[]>(() => [
 
 const basisText = computed(() => {
   if (!overview.value) return ''
-  const rate = overview.value.default_sale_ratio
-  const inverse = 1 / rate
-  const rateText = Math.abs(inverse - Math.round(inverse)) < 1e-6 ? `1/${Math.round(inverse)}` : String(rate)
   const minMargin = overview.value.min_margin
-  return minMargin > 0
-    ? t('admin.pricing.basis', { rate: rateText, margin: `${Math.round(minMargin * 1000) / 10}%` })
-    : t('admin.pricing.basisGateOff', { rate: rateText })
+  return minMargin > 0 ? t('admin.pricing.basis', { margin: `${Math.round(minMargin * 1000) / 10}%` }) : t('admin.pricing.basisGateOff')
 })
 
 function includesQuery(text: string, query: string): boolean {
