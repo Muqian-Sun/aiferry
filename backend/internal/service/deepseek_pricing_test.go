@@ -31,8 +31,9 @@ func TestIsDeepSeekModel(t *testing.T) {
 	}
 }
 
-// 价格文件里的 DeepSeek 官方价（计费只认目录，目录按价格文件播种）：低谷价；deepseek-v4-pro 自 2026-09-14
-// 起被上游路由到 V4.1-Flash 并按 Flash 价收，目录存现价（V4.1 Pro 上线后改回）。
+// 价格文件里的 DeepSeek 官方价（计费只认目录，目录按价格文件播种）：低谷价。deepseek-v4-pro 按 V4-Pro 价收——
+// 官方更新日志 2026-09-10：「continue providing API services for DeepSeek V4 Pro after September 14, 2026,
+// with the billing method remaining unchanged」（同日公告里「路由到 V4.1-Flash 按 Flash 价收」已撤回）。
 func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
 	pricingData := loadBuiltinPricingFile(t)
 
@@ -43,13 +44,21 @@ func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
 		require.False(t, ok, "%s 已停止服务，必须从价格表中移除", discontinued)
 	}
 
-	for _, model := range []string{"deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "deepseek-v4-pro"} {
-		t.Run(model, func(t *testing.T) {
-			entry, ok := pricingData[model]
-			require.True(t, ok, "model %s must exist in pricing file", model)
-			require.InDelta(t, 1.5e-7, entry.InputCostPerToken, 1e-15)
-			require.InDelta(t, 6e-7, entry.OutputCostPerToken, 1e-15)
-			require.InDelta(t, 3e-9, entry.CacheReadInputTokenCost, 1e-15)
+	for _, tt := range []struct {
+		model                    string
+		input, output, cacheRead float64
+	}{
+		{"deepseek-flash", 1.5e-7, 6e-7, 3e-9},
+		{"deepseek-v4-flash", 1.5e-7, 6e-7, 3e-9},
+		{"deepseek-v4-flash-vision-exp", 1.5e-7, 6e-7, 3e-9},
+		{"deepseek-v4-pro", 6.6e-7, 1.98e-6, 2.2e-8},
+	} {
+		t.Run(tt.model, func(t *testing.T) {
+			entry, ok := pricingData[tt.model]
+			require.True(t, ok, "model %s must exist in pricing file", tt.model)
+			require.InDelta(t, tt.input, entry.InputCostPerToken, 1e-15)
+			require.InDelta(t, tt.output, entry.OutputCostPerToken, 1e-15)
+			require.InDelta(t, tt.cacheRead, entry.CacheReadInputTokenCost, 1e-15)
 		})
 	}
 }
