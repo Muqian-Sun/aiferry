@@ -81,6 +81,14 @@ func TestUpstreamCostRatio_UsesSaleTimePricing(t *testing.T) {
 	entry.SalePrices.TimePricing = saleCustom(1.5)
 	got, _ = bindingCostRatioAt(&entry, &b, upstreamPeakAt)
 	require.InDelta(t, 0.04, got, 1e-12, "上游 × 2、售价 × 1.5")
+
+	// 售价夜里打五折、上游不分忙闲时：最差的时段在售价自己的时段里（官方忙闲时的切点找不到它）
+	entry.SalePrices.TimePricing = &TimePricingSpec{Timezone: "Asia/Shanghai",
+		Periods: []TimePricingSpecPeriod{{StartTime: "02:00", EndTime: "05:00", Multiplier: 0.5}}}
+	flat := deepseekTestBinding(nil)
+	peak, worse = bindingPeakCostRatio(&entry, &flat)
+	require.True(t, worse)
+	require.InDelta(t, 0.06, peak, 1e-12, "平时 0.03 ÷ 售价 0.5")
 }
 
 // 保存：全天一个价存成空时段；自定义的时区去空白；时段不对报 sale_prices.time_pricing。
