@@ -117,10 +117,10 @@ export default {
         },
         // 新建第 3 步「承接模型」：价格页「按渠道」里这个渠道的那一块
         bind: {
-          hint: '这就是价格页里这个渠道的那一块：检测到的、目录里已上架的模型已经加好，填上游价（可以按折扣一次填）后点这一块的「保存」。不承接也可以直接点「完成」，以后在价格页加。',
+          hint: '上面是检测到的上游名单，目录里有的已经勾上；下面是价格页里这个渠道的那一块，填上游价（可以按折扣一次填）后点这一块的「保存」。不承接也可以直接点「完成」，以后在价格页加。',
+          hintNoDetect: '这就是价格页里这个渠道的那一块：点「添加模型」加要承接的模型，填上游价后点「保存」。不承接也可以直接点「完成」，以后在价格页加。',
           loading: '正在加载价格…',
           notFound: '价格页里找不到这个渠道。',
-          missing: '上游列出、目录里没有的模型：点一个新建它，建好回来就能承接。',
           unsaved: '承接这一块还有没保存的改动：先保存，或点那一块的「撤销」。',
           done: '完成'
         }
@@ -158,6 +158,34 @@ export default {
         relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
       },
       // 检测上游（2026-10-03）：一次查协议与模型
+      // 建渠道「承接模型」那一步的上游名单（2026-10-06）
+      upstreamBind: {
+        title: '上游名单',
+        meta: '{protocol} · {count} 个模型',
+        matched: '目录里有（{count}）：勾上的就承接',
+        upstreamName: '上游叫 {name}',
+        unlisted: '未上架',
+        unlistedHint: '未上架的模型承接后还要去「模型」页上架，用户才看得到。',
+        notBindable: '这个渠道承接不了这个模型',
+        lookupLoading: '正在查目录里没有的模型是不是官方模型…',
+        official: '官方模型，目录里还没有（{count}）',
+        officialPrice: '官方价：输入 {input} · 输出 {output} / 百万 Token',
+        officialNoPrice: '官方模型，读不出官方价',
+        addToCatalog: '加进目录',
+        addWithPrice: '加进目录（填价）',
+        addAll: '全部加进目录（{count}）',
+        addFailed: '加进目录失败',
+        unofficial: '不是官方模型 ID（{count}）',
+        unofficialHint: '这是上游自己起的名字：映射到目录里对应的模型，这个渠道请求上游时就用这个名字。',
+        undetermined: '目录里没有（{count}）',
+        undeterminedHint: '暂时查不到是不是官方模型：是官方的就加进目录，不是的映射到目录里对应的模型。',
+        mapTo: '映射到',
+        pickModel: '选择目录模型',
+        mapAction: '承接',
+        mappedTo: '已映射到 {model}',
+        undo: '撤销',
+        asOfficial: '作为官方模型加进目录'
+      },
       upstreamDetect: {
         hint: '用填好的地址和 Key 试四种协议，再向上游要模型名单；在协议结果前面选一个，协议和地址会填进上面',
         run: '检测上游',

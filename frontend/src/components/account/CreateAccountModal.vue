@@ -698,41 +698,45 @@
     </div>
 
     <!--
-      第 3 步「承接模型」（2026-10-03）：就是价格页「按渠道」里这个渠道的那一块（同组件、同保存接口）。
-      检测到的、目录里已上架、这个渠道能承接的模型预填成新行（名字相近的填上游模型名，同上游渠道有价的带上它的价）；
-      目录里没有的列在下面，点一个打开「新建模型」并预填标识，建好回来就能加上。
+      第 3 步「承接模型」：上面是上游名单（2026-10-06：按检测到的上游名单承接，不再列整个目录），
+      下面就是价格页「按渠道」里这个渠道的那一块（同组件、同保存接口），填上游价后保存。
+      名单里目录有的默认勾上；目录没有的先看是不是官方模型 ID——是的加进目录，不是的映射到目录里的模型。
     -->
     <div v-else class="space-y-4" data-testid="create-account-bind">
-      <p class="text-13 text-af-ink-3">{{ t('admin.accounts.dialog.bind.hint') }}</p>
+      <p class="text-13 text-af-ink-3">{{ detected ? t('admin.accounts.dialog.bind.hint') : t('admin.accounts.dialog.bind.hintNoDetect') }}</p>
       <FormError v-if="bindLoadError" :message="bindLoadError" />
       <p v-else-if="!bindAccount || !channelState || !overview" class="flex items-center gap-2 text-13 text-af-ink-3">
         <Icon name="refresh" size="sm" class="animate-spin" />
         {{ t('admin.accounts.dialog.bind.loading') }}
       </p>
-      <PricingChannelBlock
-        v-else
-        :account="bindAccount"
-        :state="channelState"
-        :accounts="overview.accounts"
-        :entries="overview.entries"
-        :default-user-rate="overview.default_user_rate"
-        :min-margin="overview.min_margin"
-        @saved="onBindSaved"
-      />
-      <div v-if="missingModels.length > 0" class="rounded-lg bg-af-sunken px-3 py-2 text-13" data-testid="create-account-missing-models">
-        <p class="text-af-ink-2">{{ t('admin.accounts.dialog.bind.missing') }}</p>
-        <div class="mt-2 flex flex-wrap gap-2">
-          <button
-            v-for="name in missingModels"
-            :key="name"
-            type="button"
-            class="inline-flex items-center gap-1 rounded-md border border-af-hairline bg-af-sheet px-2 py-1 font-mono text-xs text-af-ink-2 transition-colors hover:border-af-hairline-strong hover:text-af-ink"
-            @click="creatingModelId = name"
-          >
-            <Icon name="plus" size="xs" />{{ name }}
-          </button>
-        </div>
-      </div>
+      <template v-else>
+        <UpstreamBindPanel
+          v-if="detected && detected.names.length > 0"
+          :protocol-label="bindProtocolLabel"
+          :names="detected.names"
+          :catalog="catalogEntries"
+          :bindable-ids="bindableEntryIds"
+          :rows="channelState.draft.rows"
+          :lookup="officialLookup"
+          :lookup-state="officialLookupState"
+          :busy="addingOfficial"
+          @toggle="onToggleDetected"
+          @map="onMapUpstream"
+          @unmap="onUnmapUpstream"
+          @add-official="onAddOfficial"
+          @add-all-official="onAddAllOfficial"
+        />
+        <FormError :message="addOfficialError" />
+        <PricingChannelBlock
+          :account="bindAccount"
+          :state="channelState"
+          :accounts="overview.accounts"
+          :entries="overview.entries"
+          :default-user-rate="overview.default_user_rate"
+          :min-margin="overview.min_margin"
+          @saved="onBindSaved"
+        />
+      </template>
     </div>
 
     <template #footer>
@@ -1026,7 +1030,15 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import UpstreamDetect from '@/components/account/channel/UpstreamDetect.vue'
-import { classifyUpstreamModels, upstreamModelFor, type DetectedModels } from '@/components/account/channel/upstreamModels'
+import {
+  classifyUpstreamModels,
+  upstreamModelFor,
+  type DetectedMatch,
+  type DetectedModels,
+  type OfficialCandidate
+} from '@/components/account/channel/upstreamModels'
+import UpstreamBindPanel from '@/components/account/channel/UpstreamBindPanel.vue'
+import { entryToRequest } from '@/components/admin/catalog/entryRequest'
 import { suggestChannelName, upstreamHostLabel } from '@/components/account/channel/channelName'
 import PricingChannelBlock from '@/components/admin/pricing/PricingChannelBlock.vue'
 import ModelCreateDialog from '@/components/admin/catalog/ModelCreateDialog.vue'
@@ -1043,7 +1055,7 @@ import {
   type ChannelDraft
 } from '@/components/admin/pricing/pricingDraft'
 import type { PricingOverview } from '@/api/admin/pricing'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
+import type { ModelCatalogEntry, OfficialModelLookupResult } from '@/api/admin/modelCatalog'
 import {
   DEFAULT_ACCESS_SOURCE_ID,
   findAccessSource
@@ -1637,6 +1649,10 @@ const resetForm = () => {
   catalogEntries.value = []
   creatingModelId.value = ''
   createdModelId.value = null
+  officialLookup.value = null
+  officialLookupState.value = 'idle'
+  addingOfficial.value = false
+  addOfficialError.value = ''
   nameSuggestion = ''
   form.name = ''
   form.notes = ''
@@ -1734,32 +1750,136 @@ const createdModelId = ref<number | null>(null)
 const bindAccount = computed(() => overview.value?.accounts.find((account) => account.id === bindAccountId.value) ?? null)
 const catalogVendors = computed(() => catalogVendorChoices(catalogEntries.value))
 const catalogModelIds = computed(() => catalogEntries.value.map((entry) => entry.model_id))
-// 上游列出、目录里没有的（按最新的目录重新对照：刚在叠层里建好的就不再列）
-const missingModels = computed(() =>
-  detected.value ? classifyUpstreamModels(detected.value.names, catalogEntries.value).missing : []
-)
+const bindProtocolLabel = computed(() => {
+  const protocol = bindAccount.value?.protocol
+  return protocol ? t(`admin.accounts.protocolEndpoints.protocols.${protocol}`) : ''
+})
+// 这个渠道能承接的目录条目（价格页那一块只收这些）
+const bindableEntryIds = computed(() => {
+  const accountId = bindAccountId.value
+  return (overview.value?.entries ?? []).filter((entry) => accountId != null && entry.bindable_account_ids.includes(accountId)).map((entry) => entry.id)
+})
+
+// 上游名单里目录没有的：查一次是不是官方模型 ID（联网的 LiteLLM 公开价格表）
+const officialLookup = ref<OfficialModelLookupResult | null>(null)
+const officialLookupState = ref<'idle' | 'loading' | 'done'>('idle')
+const addingOfficial = ref(false)
+const addOfficialError = ref('')
+
+async function lookupOfficialModels() {
+  const missing = detected.value ? classifyUpstreamModels(detected.value.names, catalogEntries.value).missing : []
+  if (missing.length === 0) {
+    officialLookupState.value = 'done'
+    return
+  }
+  officialLookupState.value = 'loading'
+  try {
+    officialLookup.value = await adminAPI.modelCatalog.officialLookup(missing)
+  } catch {
+    // 查不到就当联网名单不可用：两种做法（加进目录 / 映射）都给，由管理员判断
+    officialLookup.value = null
+  } finally {
+    officialLookupState.value = 'done'
+  }
+}
 
 async function enterBindStep(account: Account) {
   bindAccountId.value = account.id
   step.value = 3
   submitError.value = ''
   await loadBindData(true)
+  void lookupOfficialModels()
 }
 
-/** 检测到的、目录里已上架、这个渠道能承接、还没加的模型：加成新行（同上游渠道有价的带上它的价） */
+/** 新承接行：同上游渠道承接过这个模型的带上它的价 */
+function newBindRow(entryId: number, upstreamModel: string) {
+  const data = overview.value
+  const account = bindAccount.value
+  const entry = data?.entries.find((item) => item.id === entryId)
+  const sibling = entry && account && data ? siblingBindingOf(entry, account, data.accounts) : null
+  return { id: entryId, upstreamModel, prices: sibling ? priceRowFrom(sibling) : emptyPriceRow() }
+}
+
+/** 上游名单里目录有的（已上架与未上架都算）、这个渠道能承接、还没加的：默认都加成新行（muqian 2026-10-06 定默认勾上） */
 function addDetectedRows(draft: ChannelDraft, data: PricingOverview, account: PricingOverview['accounts'][number]) {
   if (!detected.value) return
-  const entriesById = new Map(data.entries.map((entry) => [entry.id, entry]))
-  for (const match of classifyUpstreamModels(detected.value.names, catalogEntries.value).listed) {
-    const entry = entriesById.get(match.entry.id)
+  const result = classifyUpstreamModels(detected.value.names, catalogEntries.value)
+  for (const match of [...result.listed, ...result.unlisted]) {
+    const entry = data.entries.find((item) => item.id === match.entry.id)
     if (!entry || !entry.bindable_account_ids.includes(account.id)) continue
     if (draft.rows.some((row) => row.id === entry.id)) continue
-    const sibling = siblingBindingOf(entry, account, data.accounts)
-    draft.rows.push({
-      id: entry.id,
-      upstreamModel: upstreamModelFor(match),
-      prices: sibling ? priceRowFrom(sibling) : emptyPriceRow()
+    draft.rows.push(newBindRow(entry.id, upstreamModelFor(match)))
+  }
+}
+
+// ---- 上游名单那一块的操作：都改下面价格块的草稿，保存仍在那一块
+function onToggleDetected(match: DetectedMatch, checked: boolean) {
+  const draft = channelState.value?.draft
+  if (!draft) return
+  if (!checked) {
+    draft.rows = draft.rows.filter((row) => row.id !== match.entry.id)
+  } else if (!draft.rows.some((row) => row.id === match.entry.id)) {
+    draft.rows.push(newBindRow(match.entry.id, upstreamModelFor(match)))
+  }
+}
+
+/** 非官方名字映射到目录模型：这个渠道承接那个模型，上游模型名填这个名字 */
+function onMapUpstream(name: string, entryId: number) {
+  const draft = channelState.value?.draft
+  if (!draft) return
+  const existing = draft.rows.find((row) => row.id === entryId)
+  if (existing) existing.upstreamModel = name
+  else draft.rows.push(newBindRow(entryId, name))
+}
+
+function onUnmapUpstream(name: string) {
+  const draft = channelState.value?.draft
+  if (!draft) return
+  draft.rows = draft.rows.filter((row) => row.upstreamModel !== name)
+}
+
+/** 官方模型加进目录：有官方价的直接建（未上架、带官方价），读不出价的打开新建弹窗填价 */
+async function onAddOfficial(candidate: OfficialCandidate) {
+  if (!candidate.priced || !candidate.entry) {
+    creatingModelId.value = candidate.name
+    return
+  }
+  await addOfficialEntries([candidate])
+}
+
+async function onAddAllOfficial(candidates: OfficialCandidate[]) {
+  await addOfficialEntries(candidates.filter((candidate) => candidate.priced && candidate.entry))
+}
+
+async function addOfficialEntries(candidates: OfficialCandidate[]) {
+  addingOfficial.value = true
+  addOfficialError.value = ''
+  const createdIds: number[] = []
+  try {
+    for (const candidate of candidates) {
+      if (!candidate.entry) continue
+      const created = await adminAPI.modelCatalog.createEntry({
+        ...entryToRequest(candidate.entry),
+        model_id: candidate.name,
+        billing_mode: 'token',
+        status: 'unlisted'
+      })
+      createdIds.push(created.id)
+    }
+  } catch (error) {
+    addOfficialError.value = extractApiErrorMessage(error, t('admin.accounts.upstreamBind.addFailed'), {
+      MODEL_CATALOG_ENTRY_EXISTS: t('admin.modelCatalog.dialog.exists')
     })
+  } finally {
+    // 建好的（哪怕中途失败也有一部分）重拉目录与价格，能承接的加成新行
+    if (createdIds.length > 0) {
+      await loadBindData(false)
+      const draft = channelState.value?.draft
+      for (const id of createdIds) {
+        if (draft && bindableEntryIds.value.includes(id) && !draft.rows.some((row) => row.id === id)) draft.rows.push(newBindRow(id, ''))
+      }
+    }
+    addingOfficial.value = false
   }
 }
 
@@ -1810,8 +1930,7 @@ async function onModelDialogClose() {
   if (entryId == null || !data || !account || !state) return
   const entry = data.entries.find((item) => item.id === entryId)
   if (!entry || !entry.bindable_account_ids.includes(account.id) || state.draft.rows.some((row) => row.id === entry.id)) return
-  const sibling = siblingBindingOf(entry, account, data.accounts)
-  state.draft.rows.push({ id: entry.id, upstreamModel: '', prices: sibling ? priceRowFrom(sibling) : emptyPriceRow() })
+  state.draft.rows.push(newBindRow(entry.id, ''))
 }
 
 watch(
