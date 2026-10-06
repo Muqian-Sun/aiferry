@@ -33,9 +33,11 @@ type PricingOverviewResponse struct {
 	// DefaultSaleRatio 默认售价比例：没单独填售价的项按官方价 × 它收；毛利 = 1 − 上游成本比 ÷ 它。
 	DefaultSaleRatio float64 `json:"default_sale_ratio"`
 	// MinMargin 利润门的最低毛利率，0 = 利润门关闭。
-	MinMargin float64                  `json:"min_margin"`
-	Entries   []PricingEntryResponse   `json:"entries"`
-	Accounts  []PricingAccountResponse `json:"accounts"`
+	MinMargin float64 `json:"min_margin"`
+	// DeepSeekPeakTimePricing DeepSeek 官方忙闲时：给 DeepSeek 模型新加承接时默认带上的上游忙闲时，也是快捷选项。
+	DeepSeekPeakTimePricing service.TimePricing      `json:"deepseek_peak_time_pricing"`
+	Entries                 []PricingEntryResponse   `json:"entries"`
+	Accounts                []PricingAccountResponse `json:"accounts"`
 }
 
 // PricingEntryResponse 价格页上的一个模型：官方价、分段与承接关系。
@@ -90,8 +92,12 @@ type PricingBindingResponse struct {
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
 	// CostRatio 上游成本比（上游价 ÷ 售价口径，逐项、逐段取最高；售价口径 = 定了售价的项按售价 ÷ 默认售价比例，
-	// 没定的按官方价），与利润门同一个数；毛利 = 1 − 它 ÷ 默认售价比例。没有可比项时为 null。
+	// 没定的按官方价），与利润门同一个数；毛利 = 1 − 它 ÷ 默认售价比例。没有可比项时为 null。平时的值（两边都不分时）。
 	CostRatio *float64 `json:"cost_ratio"`
+	// PeakCostRatio 一周里最差的上游成本比（上游忙时涨、我们没涨的时段）；不比平时差时为 null。
+	PeakCostRatio *float64 `json:"peak_cost_ratio"`
+	// TimePricing 上游忙闲时：渠道成本按请求时刻整单 × 倍率；null = 上游不分忙闲时。
+	TimePricing *service.TimePricing `json:"time_pricing"`
 }
 
 // PricingAccountResponse 价格页上的一个渠道。
@@ -121,6 +127,8 @@ type PricingPricesRequest struct {
 	SearchPricePerCall *float64                  `json:"search_price_per_call"`
 	XPostPrice         *float64                  `json:"x_post_price"`
 	XUserPrice         *float64                  `json:"x_user_price"`
+	// TimePricing 只有上游价用：上游忙闲时（null = 不分忙闲时）；官方价那一块忽略它。
+	TimePricing *service.TimePricing `json:"time_pricing"`
 }
 
 // PricingModelBindingRequest 按模型保存时的一条承接关系。
@@ -167,6 +175,7 @@ func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel
 		SearchPricePerCall: r.SearchPricePerCall,
 		XPostPrice:         r.XPostPrice,
 		XUserPrice:         r.XUserPrice,
+		TimePricing:        r.TimePricing,
 	}, ""
 }
 
@@ -185,10 +194,11 @@ func (h *ModelCatalogHandler) PricingOverview(c *gin.Context) {
 		return
 	}
 	out := PricingOverviewResponse{
-		DefaultSaleRatio: service.DefaultSalePriceRatio,
-		MinMargin:        h.settings.GetProfitControlSettings(ctx).MinMargin,
-		Entries:          make([]PricingEntryResponse, 0, len(entries)),
-		Accounts:         make([]PricingAccountResponse, 0, len(accounts)),
+		DefaultSaleRatio:        service.DefaultSalePriceRatio,
+		DeepSeekPeakTimePricing: service.DeepSeekOfficialPeakTimePricing(),
+		MinMargin:               h.settings.GetProfitControlSettings(ctx).MinMargin,
+		Entries:                 make([]PricingEntryResponse, 0, len(entries)),
+		Accounts:                make([]PricingAccountResponse, 0, len(accounts)),
 	}
 	for i := range entries {
 		out.Entries = append(out.Entries, h.pricingEntryResponse(&entries[i], accounts))
@@ -353,9 +363,13 @@ func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCa
 		SearchPricePerCall: b.SearchPricePerCall,
 		XPostPrice:         b.XPostPrice,
 		XUserPrice:         b.XUserPrice,
+		TimePricing:        b.TimePricing,
 	}
 	if ratio, ok := entry.UpstreamCostRatio(b); ok {
 		out.CostRatio = &ratio
+	}
+	if ratio, ok := entry.UpstreamPeakCostRatio(b); ok {
+		out.PeakCostRatio = &ratio
 	}
 	return out
 }

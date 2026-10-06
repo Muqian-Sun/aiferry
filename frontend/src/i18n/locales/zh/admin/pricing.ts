@@ -110,6 +110,36 @@ export default {
     priceFileMissing: '价格文件里没有这个模型的按 Token 价',
     marginAfterSave: '保存后计算',
     gateSkips: '利润门会跳过',
+    peak: {
+      toggle: '忙闲时',
+      none: '不分忙闲时',
+      summary: '忙时 ×{multiplier}',
+      title: '上游忙闲时',
+      note: '上游在这些时段整单按倍数收；只影响渠道成本与利润门，不影响向用户收的钱。',
+      noneHint: '上游全天一个价',
+      useDeepSeek: '按 DeepSeek 官方',
+      clear: '改成不分忙闲时',
+      timezone: '时区',
+      zones: {
+        beijing: '北京时间',
+        utc: 'UTC',
+        pacific: '美西时间'
+      },
+      weekdaysOnly: '只在工作日（周末全天按平时）',
+      start: '开始',
+      end: '结束',
+      multiplier: '倍数',
+      add: '加一个时段',
+      endHint: '结束填 00:00 表示到当天结束',
+      margin: '忙时 {margin}',
+      gateSkips: '忙时利润门会跳过',
+      errors: {
+        time: '时间没填或格式不对',
+        order: '开始要早于结束',
+        multiplier: '倍数要大于 0、最多两位小数',
+        overlap: '和别的时段重叠'
+      }
+    },
     channelState: {
       ok: '可调度',
       paused: '暂不可调度',
@@ -126,7 +156,8 @@ export default {
       missing: '{fields} 还没填',
       invalid: '{fields} 格式不对（只能填非负数）',
       segment: '第 {index} 段：{error}',
-      upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格'
+      upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格',
+      peak: '忙闲时第 {index} 段：{error}'
     },
     discardTitle: '放弃未保存的修改？',
     discardMessage: '有 {count} 块改了还没保存，继续会丢掉这些修改。',

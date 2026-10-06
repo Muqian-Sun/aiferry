@@ -37,6 +37,8 @@ const (
 	FieldUpstreamModel = "upstream_model"
 	// FieldPriceIntervals holds the string denoting the price_intervals field in the database.
 	FieldPriceIntervals = "price_intervals"
+	// FieldTimePricing holds the string denoting the time_pricing field in the database.
+	FieldTimePricing = "time_pricing"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -81,6 +83,7 @@ var Columns = []string{
 	FieldXUserPrice,
 	FieldUpstreamModel,
 	FieldPriceIntervals,
+	FieldTimePricing,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }

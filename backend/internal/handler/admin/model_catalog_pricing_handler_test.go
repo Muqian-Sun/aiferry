@@ -90,6 +90,11 @@ func TestModelCatalogHandler_PricingOverview(t *testing.T) {
 	require.NotNil(t, entry.Bindings[0].CostRatio)
 	require.InDelta(t, 0.03, *entry.Bindings[0].CostRatio, 1e-12)
 	require.Contains(t, rec.Body.String(), `"intervals":[]`, "no upstream segments encodes as an empty list")
+	require.Nil(t, entry.Bindings[0].PeakCostRatio, "neither side has peak pricing")
+	require.Nil(t, entry.Bindings[0].TimePricing)
+	require.Equal(t, "Asia/Shanghai", got.DeepSeekPeakTimePricing.Timezone)
+	require.True(t, got.DeepSeekPeakTimePricing.WeekdaysOnly)
+	require.Len(t, got.DeepSeekPeakTimePricing.Periods, 2)
 
 	require.Len(t, got.Accounts, 3)
 	byID := map[int64]PricingAccountResponse{}
@@ -161,6 +166,29 @@ func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 		require.Contains(t, rec.Body.String(), "upstream_model")
+	})
+
+	t.Run("upstream time pricing round-trips", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		b := body()
+		b["bindings"].([]any)[0].(map[string]any)["time_pricing"] = map[string]any{
+			"timezone": "Asia/Shanghai", "weekdays_only": true,
+			"periods": []any{map[string]any{"start_time": "09:00", "end_time": "18:00", "multiplier": 2}},
+		}
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingEntryResponse](t, rec)
+		require.NotNil(t, got.Bindings[0].TimePricing)
+		require.Len(t, got.Bindings[0].TimePricing.Periods, 1)
+		require.InDelta(t, 0.05, *got.Bindings[0].CostRatio, 1e-12, "cost ratio stays off-peak")
+		require.NotNil(t, got.Bindings[0].PeakCostRatio)
+		require.InDelta(t, 0.1, *got.Bindings[0].PeakCostRatio, 1e-12)
+		require.NotNil(t, repo.bindings[1][0].TimePricing)
+
+		b["bindings"].([]any)[0].(map[string]any)["time_pricing"].(map[string]any)["timezone"] = "Mars/Olympus"
+		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "upstream time_pricing")
 	})
 
 	t.Run("upstream output price is required", func(t *testing.T) {

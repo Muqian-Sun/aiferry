@@ -110,6 +110,36 @@ export default {
     priceFileMissing: 'The price file has no per-token price for this model',
     marginAfterSave: 'After save',
     gateSkips: 'Profit gate skips',
+    peak: {
+      toggle: 'Peak hours',
+      none: 'No peak hours',
+      summary: 'Peak ×{multiplier}',
+      title: 'Upstream peak hours',
+      note: 'The upstream charges the whole request × multiplier in these periods. Affects channel cost and the profit gate only, not what users pay.',
+      noneHint: 'The upstream charges one price all day',
+      useDeepSeek: 'Use DeepSeek official',
+      clear: 'Remove peak hours',
+      timezone: 'Time zone',
+      zones: {
+        beijing: 'Beijing time',
+        utc: 'UTC',
+        pacific: 'US Pacific'
+      },
+      weekdaysOnly: 'Weekdays only (weekends at the normal price)',
+      start: 'Start',
+      end: 'End',
+      multiplier: 'Multiplier',
+      add: 'Add a period',
+      endHint: 'End 00:00 means end of day',
+      margin: 'Peak {margin}',
+      gateSkips: 'Profit gate skips at peak',
+      errors: {
+        time: 'Time missing or invalid',
+        order: 'Start must be before end',
+        multiplier: 'Multiplier must be above 0 with at most two decimals',
+        overlap: 'Overlaps another period'
+      }
+    },
     channelState: {
       ok: 'Schedulable',
       paused: 'Not schedulable now',
@@ -126,7 +156,8 @@ export default {
       missing: '{fields} missing',
       invalid: '{fields} invalid (non-negative numbers only)',
       segment: 'segment {index}: {error}',
-      upstreamModel: 'upstream model must be a single name without * or spaces'
+      upstreamModel: 'upstream model must be a single name without * or spaces',
+      peak: 'Peak period {index}: {error}'
     },
     discardTitle: 'Discard unsaved changes?',
     discardMessage: '{count} blocks have unsaved changes; continuing discards them.',

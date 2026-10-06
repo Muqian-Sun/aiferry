@@ -63,6 +63,9 @@
             v-for="row in draft.rows"
             :key="row.id"
             v-model:prices="row.prices"
+            v-model:peak="row.peak"
+            peak-editable
+            :deepseek-peak="deepseekPeak"
             :issues="rowIssues(row)"
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
@@ -92,8 +95,10 @@
                 data-testid="pricing-upstream-model"
               />
             </template>
-            <template #margin><MarginCell :margin="savedMargin(row)" :min-margin="minMargin" /></template>
-            <template #status><ChannelStatusCell :account="account" :margin="savedMargin(row)" :min-margin="minMargin" /></template>
+            <template #margin><MarginCell :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" /></template>
+            <template #status>
+              <ChannelStatusCell :account="account" :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" />
+            </template>
             <template #actions>
               <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
                 {{ t('admin.pricing.remove') }}
@@ -134,7 +139,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { PricingAccount, PricingEntry } from '@/api/admin/pricing'
+import type { PricingAccount, PricingEntry, TimePricing } from '@/api/admin/pricing'
 import Icon from '@/components/icons/Icon.vue'
 import FormError from '@/components/common/FormError.vue'
 import { MenuItem, PopoverMenu } from '@/components/admin/list'
@@ -145,18 +150,19 @@ import ChannelStatusCell from './ChannelStatusCell.vue'
 import DiscountFillMenu from './DiscountFillMenu.vue'
 import {
   PRICE_KEYS,
+  bindingRowFrom,
   bindingRowIssues,
   channelDraftChanges,
   cloneChannelDraft,
-  emptyPriceRow,
   fillByDiscount,
   hasRowIssues,
   keyedRowUnchanged,
   marginOf,
+  newChannelRow,
+  peakFormToRequest,
   priceRowFrom,
   priceRowToRequest,
   searchKeysOf,
-  siblingBindingOf,
   upstreamModelInvalid,
   type BlockState,
   type ChannelDraft,
@@ -177,6 +183,8 @@ const props = defineProps<{
   entries: PricingEntry[]
   defaultSaleRatio: number
   minMargin: number
+  /** DeepSeek 官方忙闲时：DeepSeek 模型新加承接时默认带上 */
+  deepseekPeak?: TimePricing
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
@@ -224,6 +232,13 @@ function savedMargin(row: KeyedRow): number | null | undefined {
   return marginOf(binding?.cost_ratio, props.defaultSaleRatio)
 }
 
+/** 忙时毛利：与平时毛利同样只对没改过的行显示 */
+function savedPeakMargin(row: KeyedRow): number | null {
+  if (savedMargin(row) === undefined) return null
+  const binding = entriesById.value.get(row.id)?.bindings.find((item) => item.account_id === props.account.id)
+  return marginOf(binding?.peak_cost_ratio, props.defaultSaleRatio)
+}
+
 const headerMeta = computed(() => {
   const parts: string[] = []
   if (props.account.protocol) parts.push(t(`admin.accounts.protocolEndpoints.protocols.${props.account.protocol}`))
@@ -247,16 +262,11 @@ const filteredAddable = computed(() => {
 })
 
 function addModel(entry: PricingEntry) {
-  const sibling = siblingBinding(entry.id)
-  draft.value.rows.push({
-    id: entry.id,
-    upstreamModel: sibling?.upstream_model ?? '',
-    prices: sibling ? priceRowFrom(sibling) : emptyPriceRow()
-  })
+  draft.value.rows.push(newChannelRow(entry, props.account, props.accounts, props.deepseekPeak))
 }
 
 // ---- 从同上游的渠道复制价格：同一家上游按协议建了几个渠道（fenno 有 Chat / Responses / Messages）时，
-// 把另一个渠道里同一个模型的上游价与分段复制过来；这个渠道还没承接、但能承接的模型一并加上。
+// 把另一个渠道里同一个模型的上游价、分段与忙闲时复制过来；这个渠道还没承接、但能承接的模型一并加上。
 const copySources = computed(() => {
   const host = props.account.upstream_host
   if (!host) return []
@@ -265,24 +275,14 @@ const copySources = computed(() => {
   )
 })
 
-/** 同上游的渠道承接这个模型时的那条承接关系（取第一个） */
-function siblingBinding(entryId: number) {
-  const entry = entriesById.value.get(entryId)
-  return entry ? siblingBindingOf(entry, props.account, props.accounts) : null
-}
-
 function copyFrom(sourceId: number) {
   for (const entry of props.entries) {
     const binding = entry.bindings.find((b) => b.account_id === sourceId)
     if (!binding || !entry.bindable_account_ids.includes(props.account.id)) continue
-    const prices = priceRowFrom(binding)
+    const copied = bindingRowFrom(binding)
     const existing = draft.value.rows.find((row) => row.id === entry.id)
-    if (existing) {
-      existing.prices = prices
-      existing.upstreamModel = binding.upstream_model ?? ''
-    } else {
-      draft.value.rows.push({ id: entry.id, upstreamModel: binding.upstream_model ?? '', prices })
-    }
+    if (existing) Object.assign(existing, copied)
+    else draft.value.rows.push({ id: entry.id, ...copied })
   }
 }
 
@@ -322,7 +322,8 @@ async function save() {
       bindings: props.state.draft.rows.map((row) => ({
         entry_id: row.id,
         upstream_model: row.upstreamModel.trim(),
-        ...priceRowToRequest(row.prices)
+        ...priceRowToRequest(row.prices),
+        time_pricing: peakFormToRequest(row.peak)
       }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利

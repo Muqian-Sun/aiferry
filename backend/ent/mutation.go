@@ -22229,6 +22229,7 @@ type ModelCatalogBindingMutation struct {
 	upstream_model           *string
 	price_intervals          *[]domain.PriceSegment
 	appendprice_intervals    []domain.PriceSegment
+	time_pricing             **domain.TimePricingSpec
 	created_at               *time.Time
 	updated_at               *time.Time
 	clearedFields            map[string]struct{}
@@ -22766,6 +22767,38 @@ func (m *ModelCatalogBindingMutation) ResetPriceIntervals() {
 	m.appendprice_intervals = nil
 }
 
+// SetTimePricing sets the "time_pricing" field.
+func (m *ModelCatalogBindingMutation) SetTimePricing(dps *domain.TimePricingSpec) {
+	m.time_pricing = &dps
+}
+
+// TimePricing returns the value of the "time_pricing" field in the mutation.
+func (m *ModelCatalogBindingMutation) TimePricing() (r *domain.TimePricingSpec, exists bool) {
+	v := m.time_pricing
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (m *ModelCatalogBindingMutation) ClearTimePricing() {
+	m.time_pricing = nil
+	m.clearedFields[modelcatalogbinding.FieldTimePricing] = struct{}{}
+}
+
+// TimePricingCleared returns if the "time_pricing" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) TimePricingCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldTimePricing]
+	return ok
+}
+
+// ResetTimePricing resets all changes to the "time_pricing" field.
+func (m *ModelCatalogBindingMutation) ResetTimePricing() {
+	m.time_pricing = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldTimePricing)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *ModelCatalogBindingMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -22892,7 +22925,7 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
@@ -22928,6 +22961,9 @@ func (m *ModelCatalogBindingMutation) Fields() []string {
 	}
 	if m.price_intervals != nil {
 		fields = append(fields, modelcatalogbinding.FieldPriceIntervals)
+	}
+	if m.time_pricing != nil {
+		fields = append(fields, modelcatalogbinding.FieldTimePricing)
 	}
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogbinding.FieldCreatedAt)
@@ -22967,6 +23003,8 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.UpstreamModel()
 	case modelcatalogbinding.FieldPriceIntervals:
 		return m.PriceIntervals()
+	case modelcatalogbinding.FieldTimePricing:
+		return m.TimePricing()
 	case modelcatalogbinding.FieldCreatedAt:
 		return m.CreatedAt()
 	case modelcatalogbinding.FieldUpdatedAt:
@@ -23070,6 +23108,13 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPriceIntervals(v)
+		return nil
+	case modelcatalogbinding.FieldTimePricing:
+		v, ok := value.(*domain.TimePricingSpec)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimePricing(v)
 		return nil
 	case modelcatalogbinding.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -23232,6 +23277,9 @@ func (m *ModelCatalogBindingMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogbinding.FieldXUserPrice) {
 		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
 	}
+	if m.FieldCleared(modelcatalogbinding.FieldTimePricing) {
+		fields = append(fields, modelcatalogbinding.FieldTimePricing)
+	}
 	return fields
 }
 
@@ -23263,6 +23311,9 @@ func (m *ModelCatalogBindingMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldXUserPrice:
 		m.ClearXUserPrice()
+		return nil
+	case modelcatalogbinding.FieldTimePricing:
+		m.ClearTimePricing()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding nullable field %s", name)
@@ -23307,6 +23358,9 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldPriceIntervals:
 		m.ResetPriceIntervals()
+		return nil
+	case modelcatalogbinding.FieldTimePricing:
+		m.ResetTimePricing()
 		return nil
 	case modelcatalogbinding.FieldCreatedAt:
 		m.ResetCreatedAt()

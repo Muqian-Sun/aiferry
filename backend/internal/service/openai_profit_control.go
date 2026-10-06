@@ -251,7 +251,7 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 	if !ok || route.Entry == nil {
 		return false, ""
 	}
-	if rejected, reason := profitGateRejectsBinding(route.Entry, route.Entry.BindingFor(account.ID), gate.threshold); rejected {
+	if rejected, reason := profitGateRejectsBinding(route.Entry, route.Entry.BindingFor(account.ID), gate.threshold, gate.pricingAt); rejected {
 		openAIProfitControlObserverInstance.recordVeto(gate.threshold, reason)
 		return true, reason
 	}
@@ -259,9 +259,10 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 }
 
 // profitGateRejectsBinding 利润门是否跳过这条承接：上游成本比算不出（缺上游价 / 官方价）或超过阈值。
+// 按 at 时刻比（muqian 2026-10-06：按请求当时的价判断）：上游忙时涨、售价没涨就在忙时跳过；at 为零值 = 平时。
 // 调度的否决点与上架提示（SchedulableBindings）共用这一个判断，两边口径不会分叉。
-func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, threshold float64) (bool, string) {
-	upstream, ok := bindingCostRatio(entry, b)
+func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, threshold float64, at time.Time) (bool, string) {
+	upstream, ok := bindingCostRatioAt(entry, b, at)
 	if !ok {
 		return true, openAIProfitFilterReasonMissingUpstreamPrice
 	}

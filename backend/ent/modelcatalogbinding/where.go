@@ -560,6 +560,16 @@ func UpstreamModelContainsFold(v string) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldContainsFold(FieldUpstreamModel, v))
 }
 
+// TimePricingIsNil applies the IsNil predicate on the "time_pricing" field.
+func TimePricingIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldTimePricing))
+}
+
+// TimePricingNotNil applies the NotNil predicate on the "time_pricing" field.
+func TimePricingNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldTimePricing))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldCreatedAt, v))
