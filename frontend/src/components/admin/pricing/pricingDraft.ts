@@ -389,6 +389,9 @@ type SalePrices = Record<PriceKey, number | null>
 export interface SaleRow {
   base: SalePrices
   segments: Record<number, SalePrices>
+  /** 售价忙闲时跟官方忙闲时（默认）；false 时按 peak 收（null = 全天一个价） */
+  peakFollowsOfficial: boolean
+  peak: PeakForm | null
 }
 
 function emptySalePrices(): SalePrices {
@@ -404,13 +407,26 @@ function salePricesOf(source: Partial<Record<PriceKey, number | null>> | undefin
 export function saleRowFrom(prices: PricingSalePrices | null | undefined): SaleRow {
   const segments: Record<number, SalePrices> = {}
   for (const segment of prices?.segments ?? []) segments[segment.min_tokens] = salePricesOf(segment)
-  return { base: salePricesOf(prices ?? undefined), segments }
+  const timePricing = prices?.time_pricing
+  return { base: salePricesOf(prices ?? undefined), segments, peakFollowsOfficial: timePricing == null, peak: peakFormFrom(timePricing) }
 }
 
 export function cloneSaleRow(row: SaleRow): SaleRow {
   const segments: Record<number, SalePrices> = {}
   for (const [min, prices] of Object.entries(row.segments)) segments[Number(min)] = { ...prices }
-  return { base: { ...row.base }, segments }
+  return { base: { ...row.base }, segments, peakFollowsOfficial: row.peakFollowsOfficial, peak: clonePeakForm(row.peak) }
+}
+
+/** 售价忙闲时一样：都跟官方，或都单独设且时段一样 */
+function sameSalePeak(a: SaleRow, b: SaleRow): boolean {
+  if (a.peakFollowsOfficial || b.peakFollowsOfficial) return a.peakFollowsOfficial === b.peakFollowsOfficial
+  return samePeak(a.peak, b.peak)
+}
+
+/** 售价忙闲时单独设了、但时段或节假日没填对 */
+export function salePeakInvalid(row: SaleRow): boolean {
+  if (row.peakFollowsOfficial) return false
+  return peakErrors(row.peak).some((error) => error != null) || peakDatesInvalid(row.peak)
 }
 
 /** 官方价这一行当前有效的分段下界（输入框里填对了的） */
@@ -418,9 +434,10 @@ export function officialSegmentMins(official: PriceRow): number[] {
   return official.segments.map((segment) => parseTokenThreshold(segment.above)).filter((min): min is number => min != null)
 }
 
-/** 售价改了几处：每格算一处（只数官方价现在还有的分段） */
+/** 售价改了几处：每格算一处（只数官方价现在还有的分段），忙闲时算一处 */
 export function saleRowChanges(current: SaleRow, initial: SaleRow): number {
   let changed = PRICE_KEYS.filter((key) => !sameNumber(current.base[key], initial.base[key])).length
+  if (!sameSalePeak(current, initial)) changed += 1
   const mins = new Set([...Object.keys(current.segments), ...Object.keys(initial.segments)].map(Number))
   for (const min of mins) {
     const a = current.segments[min] ?? emptySalePrices()
@@ -449,7 +466,9 @@ export function saleRowToRequest(row: SaleRow, official: PriceRow): PricingSaleP
     cache_write_price: numberOrNull(row.base.cache_write_price),
     cache_write_1h_price: numberOrNull(row.base.cache_write_1h_price),
     cache_read_price: numberOrNull(row.base.cache_read_price),
-    segments
+    segments,
+    // 跟官方 = 不带；单独设了没有时段 = 全天一个价（空时段）
+    time_pricing: row.peakFollowsOfficial ? null : (peakFormToRequest(row.peak) ?? { timezone: '', periods: [] })
   }
 }
 

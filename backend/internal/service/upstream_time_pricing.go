@@ -5,13 +5,13 @@ import "time"
 // 上游忙闲时（muqian 2026-10-06：算成本按我们填的渠道价，上游有没有忙闲时在填承接时定；忙时整单乘倍数；
 // 利润门按请求当时的价判断）。承接上的 TimePricing 只影响渠道成本与利润门，不影响向用户收的钱。
 
-// saleTimeMultiplierAt 我们向用户收钱在 at 时刻整单乘的倍数：目录条目的分时（如 DeepSeek 工作日高峰 × 2，
-// 播种时从价格文件写进目录）。at 为零值 = 平时。
+// saleTimeMultiplierAt 我们向用户收钱在 at 时刻整单乘的倍数：售价忙闲时（没单独定跟官方忙闲时，如 DeepSeek
+// 工作日高峰 × 2，播种时从价格文件写进目录）。at 为零值 = 平时。
 func saleTimeMultiplierAt(entry *ModelCatalogEntry, at time.Time) float64 {
 	if entry == nil {
 		return 1
 	}
-	return entry.TimePricing.MultiplierAt(at)
+	return entry.SaleTimePricing().MultiplierAt(at)
 }
 
 // bindingCostRatioAt at 时刻的上游成本比：平时的比值（bindingCostRatio）× 上游当时的倍数 ÷ 我们当时的倍数。
@@ -39,8 +39,8 @@ func bindingPeakCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (flo
 	if b.TimePricing != nil {
 		schedules = append(schedules, b.TimePricing)
 	}
-	if entry.TimePricing != nil {
-		schedules = append(schedules, entry.TimePricing)
+	if sale := entry.SaleTimePricing(); sale != nil {
+		schedules = append(schedules, sale)
 	}
 	worst, worse := base, false
 	for _, at := range weeklyBreakpoints(schedules) {

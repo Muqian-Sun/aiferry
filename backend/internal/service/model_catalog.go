@@ -141,6 +141,12 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 	if e.SalePrices.Segments != nil {
 		cp.SalePrices.Segments = append([]CatalogSaleSegment(nil), e.SalePrices.Segments...)
 	}
+	if spec := e.SalePrices.TimePricing; spec != nil {
+		tp := *spec
+		tp.Periods = append([]TimePricingSpecPeriod(nil), spec.Periods...)
+		tp.ExcludeDates = append([]string(nil), spec.ExcludeDates...)
+		cp.SalePrices.TimePricing = &tp
+	}
 	if e.Bindings != nil {
 		cp.Bindings = append([]ModelCatalogBinding(nil), e.Bindings...)
 	}
@@ -193,7 +199,8 @@ func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 		ImageInputPrice:              e.ImageInputPrice,
 		ImageOutputPrice:             e.ImageOutputPrice,
 		PerRequestPrice:              e.PerRequestPrice,
-		TimePricing:                  e.TimePricing,
+		// 价卡是向用户收钱的口径：忙闲时按售价的（没单独定跟官方）
+		TimePricing: e.SaleTimePricing(),
 	}
 	if e.Intervals != nil {
 		card.Intervals = append([]PricingInterval(nil), e.Intervals...)

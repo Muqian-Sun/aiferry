@@ -94,7 +94,7 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 				XPostPrice:            xPost,
 				XUserPrice:            xUser,
 			},
-			TimePricing: entry.TimePricing,
+			TimePricing: entry.SaleTimePricing(),
 		})
 	}
 	return models
