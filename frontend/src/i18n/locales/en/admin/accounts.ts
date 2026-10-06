@@ -117,10 +117,10 @@ export default {
         },
         // Create, step 3 "Serve models": this channel's block on the pricing page
         bind: {
-          hint: 'This is the channel\'s block on the pricing page: detected models that are listed in the catalog are already added. Fill in upstream prices (a discount can fill them at once) and save the block. You can also click Done and add them on the pricing page later.',
+          hint: 'Above is the detected upstream model list, with catalog models already checked. Below is the channel\'s block on the pricing page: fill in upstream prices (a discount can fill them at once) and save the block. You can also click Done and add them on the pricing page later.',
+          hintNoDetect: 'This is the channel\'s block on the pricing page: use Add model to pick the models it serves, fill in upstream prices and save. You can also click Done and add them on the pricing page later.',
           loading: 'Loading prices…',
           notFound: 'This channel is not on the pricing page.',
-          missing: 'Models the upstream lists but the catalog lacks: click one to create it, then come back to serve it.',
           unsaved: 'The serving block has unsaved changes: save it or undo them first.',
           done: 'Done'
         }
@@ -158,6 +158,34 @@ export default {
         relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
       },
       // Upstream detection (2026-10-03): protocols and models in one go
+      // Upstream model list in the "serve models" step of adding a channel (2026-10-06)
+      upstreamBind: {
+        title: 'Upstream models',
+        meta: '{protocol} · {count} models',
+        matched: 'In the catalog ({count}): checked ones are served',
+        upstreamName: 'upstream name {name}',
+        unlisted: 'unlisted',
+        unlistedHint: 'Unlisted models must still be listed on the Models page before users can see them.',
+        notBindable: 'This channel cannot serve this model',
+        lookupLoading: 'Checking whether the models missing from the catalog are official…',
+        official: 'Official models not in the catalog yet ({count})',
+        officialPrice: 'Official price: input {input} · output {output} per million tokens',
+        officialNoPrice: 'Official model, no readable official price',
+        addToCatalog: 'Add to catalog',
+        addWithPrice: 'Add to catalog (set price)',
+        addAll: 'Add all to catalog ({count})',
+        addFailed: 'Failed to add to the catalog',
+        unofficial: 'Not official model IDs ({count})',
+        unofficialHint: 'These are the upstream\'s own names: map each to the matching catalog model and this channel will use the name when calling the upstream.',
+        undetermined: 'Not in the catalog ({count})',
+        undeterminedHint: 'Cannot tell right now whether these are official: add official ones to the catalog, map the rest to the matching catalog model.',
+        mapTo: 'Map to',
+        pickModel: 'Pick a catalog model',
+        mapAction: 'Serve',
+        mappedTo: 'Mapped to {model}',
+        undo: 'Undo',
+        asOfficial: 'Add to catalog as official'
+      },
       upstreamDetect: {
         hint: 'Tries the four protocols with the address and key, then asks the upstream for its model list; pick a protocol result to fill it in above',
         run: 'Detect upstream',

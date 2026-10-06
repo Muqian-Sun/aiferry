@@ -131,6 +131,20 @@ export interface ModelCatalogEntryRequest {
   time_pricing?: TimePricing | null
 }
 
+/** 一个上游模型 ID 是不是官方 ID（联网的 LiteLLM 公开价格表）；priced 为 false 时 entry 只有模型 ID 与厂商 */
+export interface OfficialModelMatch {
+  model_id: string
+  official: boolean
+  priced: boolean
+  entry?: ModelCatalogEntry
+}
+
+/** available 为 false：联网名单拉不到，判断不了是不是官方 */
+export interface OfficialModelLookupResult {
+  available: boolean
+  models: OfficialModelMatch[]
+}
+
 export interface ModelCatalogSeedResult {
   inserted: number
   refreshed: number
@@ -183,6 +197,11 @@ const modelCatalogAPI = {
     return data
   },
   /** 按模型 ID 从价格文件带出厂商与价格；找不到返回 null。 */
+  /** 批量判断上游模型 ID 是不是官方 ID（建渠道承接时用） */
+  officialLookup: async (modelIds: string[]): Promise<OfficialModelLookupResult> => {
+    const { data } = await apiClient.post<OfficialModelLookupResult>('/admin/model-catalog/official-lookup', { model_ids: modelIds })
+    return data
+  },
   priceLookup: async (modelId: string): Promise<ModelCatalogEntry | null> => {
     const { data } = await apiClient.get<{ found: boolean; entry?: ModelCatalogEntry }>('/admin/model-catalog/price-lookup', {
       params: { model_id: modelId }
