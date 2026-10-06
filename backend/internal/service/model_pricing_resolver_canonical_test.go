@@ -6,13 +6,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 // 只在目录里有价的模型（价格文件查不到）必须被判定为「有价」，否则会被回退到具体模型。
 func TestHasResolvableTokenPricing_CatalogOnlyModel(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	entry := catalogEntryFromCard("team/only", ModelCatalogManagedBySeed, PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  float64Ptr(1e-6),
@@ -20,7 +19,7 @@ func TestHasResolvableTokenPricing_CatalogOnlyModel(t *testing.T) {
 	})
 	entry.ID = 1
 	catalog, _ := newTestModelCatalogService(entry)
-	svc := &GatewayService{billingService: bs, resolver: NewModelPricingResolver(catalog, bs)}
+	svc := &GatewayService{billingService: bs, resolver: NewModelPricingResolver(catalog)}
 	ctx := context.Background()
 
 	require.True(t, svc.hasResolvableTokenPricing(ctx, "team/only", &APIKey{}))
@@ -30,7 +29,7 @@ func TestHasResolvableTokenPricing_CatalogOnlyModel(t *testing.T) {
 
 // 没有分组、也没有推理等级时，只要有解析器就必须走目录，不能退回价格文件直查。
 func TestCalculateTokenCostForRequest_NoGroupUsesCatalog(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	entry := catalogEntryFromCard("team/only", ModelCatalogManagedBySeed, PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  float64Ptr(1e-6),
@@ -44,7 +43,7 @@ func TestCalculateTokenCostForRequest_NoGroupUsesCatalog(t *testing.T) {
 		Model:          "team/only",
 		Tokens:         UsageTokens{InputTokens: 1000, OutputTokens: 500},
 		RateMultiplier: 1,
-		Resolver:       NewModelPricingResolver(catalog, bs),
+		Resolver:       NewModelPricingResolver(catalog),
 	})
 
 	require.NoError(t, err)

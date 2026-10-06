@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/stretchr/testify/require"
 )
@@ -175,26 +174,27 @@ func TestCNProviderAnthropicUsageBillsUncachedInput(t *testing.T) {
 		},
 	}
 
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// 计费只认目录：给这个模型一条目录条目
+			input, output, cacheRead := 1e-6, 2e-6, 0.1e-6
+			entry := ModelCatalogEntry{ModelID: tt.model, BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
+				InputPrice: &input, OutputPrice: &output, CacheReadPrice: &cacheRead}
+			resolver := newResolverWithSeededEntries(billing, entry)
 			// ClaudeUsage.InputTokens 已是未缓存输入（归一化在 parse 里做），直接计费。
 			claudeUsage := parseClaudeUsageFromResponseBody([]byte(tt.body))
 			uncachedInput := max(claudeUsage.InputTokens, 0)
 			require.Equal(t, tt.wantInput, uncachedInput)
 
-			cost, err := billing.CalculateCost(tt.model, UsageTokens{
+			cost := costViaCatalog(t, billing, resolver, tt.model, UsageTokens{
 				InputTokens:         uncachedInput,
 				OutputTokens:        claudeUsage.OutputTokens,
 				CacheCreationTokens: claudeUsage.CacheCreationInputTokens,
 				CacheReadTokens:     claudeUsage.CacheReadInputTokens,
-			}, 1)
-			require.NoError(t, err)
+			})
 			require.Positive(t, cost.InputCost, "uncached input must contribute to the final charge")
-
-			pricing, err := billing.GetModelPricing(tt.model)
-			require.NoError(t, err)
-			require.InDelta(t, float64(tt.wantInput)*pricing.InputPricePerToken, cost.InputCost, 1e-12)
+			require.InDelta(t, float64(tt.wantInput)*1e-6, cost.InputCost, 1e-12)
 		})
 	}
 }

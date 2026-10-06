@@ -482,18 +482,11 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	tokens UsageTokens,
 	reasoningEffort string,
 ) (*CostBreakdown, error) {
-	if s.resolver != nil {
-		return s.billingService.CalculateCostUnified(CostInput{
-			Ctx: ctx, Model: billingModel,
-			Tokens: tokens, RequestCount: 1, RateMultiplier: multiplier, PricingAt: pricingAt,
-			ReasoningEffort: reasoningEffort, Resolver: s.resolver,
-		})
-	}
-	breakdown, err := s.billingService.CalculateCost(billingModel, tokens, multiplier)
-	if err == nil {
-		applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(billingModel, reasoningEffort, nil))
-	}
-	return breakdown, err
+	return s.billingService.CalculateCostUnified(CostInput{
+		Ctx: ctx, Model: billingModel,
+		Tokens: tokens, RequestCount: 1, RateMultiplier: multiplier, PricingAt: pricingAt,
+		ReasoningEffort: reasoningEffort, Resolver: s.resolver,
+	})
 }
 
 // filterCNProviderBillingModelCandidates 过滤国产供应商（kimi/zhipu/deepseek）

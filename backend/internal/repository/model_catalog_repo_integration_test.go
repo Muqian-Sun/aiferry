@@ -691,7 +691,10 @@ func TestModelCatalogRepository_BindingTimePricingRoundTrips(t *testing.T) {
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
 	})
 
-	peak := service.DeepSeekOfficialPeakTimePricing()
+	peak := service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{
+		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
+		{StartTime: "14:00", EndTime: "18:00", Multiplier: 2},
+	}}
 	require.NoError(t, repo.SaveEntryPricing(ctx, entry, []service.ModelCatalogBinding{
 		{AccountID: accountA.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6, TimePricing: &peak},
 		{AccountID: accountB.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
@@ -733,4 +736,35 @@ func TestModelCatalogRepository_BindingTimePricingRoundTrips(t *testing.T) {
 	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
 	require.NoError(t, err)
 	require.Nil(t, bindings[0].TimePricing)
+}
+
+// 播种条目带忙闲时（价格文件的 time_pricing，如 DeepSeek 高峰 × 2）：插入与刷新都写进目录。
+func TestModelCatalogRepository_SeedWritesTimePricing(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-peak")
+	peak := &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{
+		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
+	}}
+	seed := func(tp *service.TimePricing) {
+		_, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{{
+			ModelID: unique("deepseek"), BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(1e-6), TimePricing: tp,
+		}})
+		require.NoError(t, err)
+	}
+	load := func() *service.ModelCatalogEntry {
+		got, err := repo.GetEntryByModelID(ctx, unique("deepseek"))
+		require.NoError(t, err)
+		return got
+	}
+
+	seed(peak)
+	require.Equal(t, peak, load().TimePricing, "insert writes the seed's time pricing")
+
+	changed := &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{
+		{StartTime: "14:00", EndTime: "18:00", Multiplier: 2},
+	}}
+	seed(changed)
+	require.Equal(t, changed, load().TimePricing, "refresh follows the price file")
 }

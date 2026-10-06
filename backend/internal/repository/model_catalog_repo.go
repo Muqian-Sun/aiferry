@@ -396,17 +396,19 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	return result, nil
 }
 
-// writeSeedChildren 写种子条目自带的分档；失败按单条播种失败处理（ctx 到期才整体中止）。
+// writeSeedChildren 写种子条目自带的分段与忙闲时（如 DeepSeek 高峰 × 2）；种子两样都没带时不动已有的。
+// 失败按单条播种失败处理（ctx 到期才整体中止）。
 func (r *modelCatalogRepository) writeSeedChildren(ctx context.Context, result *service.ModelCatalogSeedResult, entryID int64, entry *service.ModelCatalogEntry) error {
-	if len(entry.Intervals) > 0 {
-		entry.ID = entryID
-		err := r.withTx(ctx, func(tx *dbent.Tx) error {
-			return replaceCatalogChildren(ctx, tx, entry)
-		})
-		if err != nil {
-			if abort := seedRowFailed(ctx, result, "intervals", entry.ModelID, err); abort != nil {
-				return abort
-			}
+	if len(entry.Intervals) == 0 && entry.TimePricing == nil {
+		return nil
+	}
+	entry.ID = entryID
+	err := r.withTx(ctx, func(tx *dbent.Tx) error {
+		return replaceCatalogChildren(ctx, tx, entry)
+	})
+	if err != nil {
+		if abort := seedRowFailed(ctx, result, "children", entry.ModelID, err); abort != nil {
+			return abort
 		}
 	}
 	return nil

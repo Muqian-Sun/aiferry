@@ -71,7 +71,7 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	gatewaySvc := service.NewOpenAIGatewayService(
 		accountRepo, usageRepo, nil, nil, nil, gatewayCache, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), nil, billingCacheSvc, nil, &service.DeferredService{},
+		service.NewBillingService(), nil, billingCacheSvc, nil, &service.DeferredService{},
 		nil, nil, nil, nil, settingSvc,
 		newTestSchedulerOverRepo(cfg, accountRepo),
 	)

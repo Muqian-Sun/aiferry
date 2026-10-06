@@ -123,7 +123,7 @@ func newFailoverE2EHandlerWithRepo(t *testing.T, accounts []*service.Account, up
 	t.Cleanup(billingCacheSvc.Stop)
 	openAISvc := service.NewOpenAIGatewayService(
 		nil, &handlerUsageLogRepoStub{}, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), rateLimitSvc, &service.BillingCacheService{}, upstream,
+		service.NewBillingService(), rateLimitSvc, &service.BillingCacheService{}, upstream,
 		&service.DeferredService{}, nil, nil, nil, nil, nil,
 		nil,
 	)

@@ -92,9 +92,7 @@ func TestModelCatalogHandler_PricingOverview(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"intervals":[]`, "no upstream segments encodes as an empty list")
 	require.Nil(t, entry.Bindings[0].PeakCostRatio, "neither side has peak pricing")
 	require.Nil(t, entry.Bindings[0].TimePricing)
-	require.Equal(t, "Asia/Shanghai", got.DeepSeekPeakTimePricing.Timezone)
-	require.True(t, got.DeepSeekPeakTimePricing.WeekdaysOnly)
-	require.Len(t, got.DeepSeekPeakTimePricing.Periods, 2)
+	require.Nil(t, entry.TimePricing, "the entry has no official peak hours")
 
 	require.Len(t, got.Accounts, 3)
 	byID := map[int64]PricingAccountResponse{}
@@ -189,6 +187,27 @@ func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 		require.Contains(t, rec.Body.String(), "upstream time_pricing")
+	})
+
+	t.Run("official time pricing round-trips onto the entry", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		b := body()
+		b["time_pricing"] = map[string]any{
+			"timezone": "Asia/Shanghai", "weekdays_only": true,
+			"periods": []any{map[string]any{"start_time": "09:00", "end_time": "12:00", "multiplier": 2}},
+		}
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingEntryResponse](t, rec)
+		require.NotNil(t, got.TimePricing)
+		require.Len(t, got.TimePricing.Periods, 1)
+		require.NotNil(t, repo.entries[0].TimePricing, "stored on the catalog entry")
+		require.Nil(t, repo.bindings[1][0].TimePricing, "the binding keeps its own (none)")
+
+		b["time_pricing"].(map[string]any)["periods"] = []any{map[string]any{"start_time": "12:00", "end_time": "09:00", "multiplier": 2}}
+		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "time_pricing")
 	})
 
 	t.Run("upstream output price is required", func(t *testing.T) {

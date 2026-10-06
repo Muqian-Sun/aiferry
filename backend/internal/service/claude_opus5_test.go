@@ -3,7 +3,6 @@ package service
 import (
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/stretchr/testify/assert"
@@ -18,43 +17,11 @@ const (
 	opus5CacheReadPricePerToken     = 0.5e-6
 )
 
-// TestClaudeOpus5_FamilyFallbackDoesNotUseOpus4Rates 覆盖定价数据里还没有
-// claude-opus-5 条目的场景（远端价格表滞后于模型发布）。
-// 修复前 matchByModelFamily 会把 claude-opus-5 归到 "opus-4" 系列，
-// 按 $15/$75 计费 —— 输入与输出双双 3 倍超收。
-func TestClaudeOpus5_FamilyFallbackDoesNotUseOpus4Rates(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, &PricingService{
-		pricingData: map[string]*LiteLLMModelPricing{
-			// 有 4.8（同价），故意不放 claude-opus-5
-			"claude-opus-4-8": {
-				InputCostPerToken:           opus5InputPricePerToken,
-				OutputCostPerToken:          opus5OutputPricePerToken,
-				CacheCreationInputTokenCost: opus5CacheCreationPricePerToken,
-				CacheReadInputTokenCost:     opus5CacheReadPricePerToken,
-			},
-			// 修复前会被误命中的旧 Opus 条目（$15/$75）
-			"claude-opus-4-1":        {InputCostPerToken: 15e-6, OutputCostPerToken: 75e-6},
-			"claude-opus-4-20250514": {InputCostPerToken: 15e-6, OutputCostPerToken: 75e-6},
-			"claude-3-opus-20240229": {InputCostPerToken: 15e-6, OutputCostPerToken: 75e-6},
-		},
-	})
-
-	for _, model := range []string{"claude-opus-5", "us.anthropic.claude-opus-5-v1"} {
-		t.Run(model, func(t *testing.T) {
-			pricing, err := svc.GetModelPricing(model)
-			require.NoError(t, err)
-			require.NotNil(t, pricing)
-			assert.InDelta(t, opus5InputPricePerToken, pricing.InputPricePerToken, 1e-12)
-			assert.InDelta(t, opus5OutputPricePerToken, pricing.OutputPricePerToken, 1e-12)
-		})
-	}
-}
-
 // TestClaudeOpus5_HardcodedFallbackPricing 覆盖动态价格服务完全不可用时的
 // 硬编码兜底表。同时锁定不能被 "opus-5" 子串误伤的相邻型号。
 func TestClaudeOpus5_HardcodedFallbackPricing(t *testing.T) {
-	// pricingService 为 nil，强制走硬编码兜底表
-	svc := NewBillingService(&config.Config{}, nil)
+	// 内置价表（播种目录的来源之一）里的 Opus 价
+	svc := NewBillingService()
 
 	tests := []struct {
 		model  string
@@ -62,17 +29,13 @@ func TestClaudeOpus5_HardcodedFallbackPricing(t *testing.T) {
 		output float64
 	}{
 		{"claude-opus-5", opus5InputPricePerToken, opus5OutputPricePerToken},
-		{"us.anthropic.claude-opus-5-v1", opus5InputPricePerToken, opus5OutputPricePerToken},
-		// 4.8 与 5 同价；修复前兜底表缺失，会掉到 claude-3-opus 的 $15/$75
-		{"claude-opus-4-8", opus5InputPricePerToken, opus5OutputPricePerToken},
-		// 相邻型号不能被 "opus-5" 误匹配
-		{"claude-opus-4-5-20251101", 5e-6, 25e-6},
-		{"claude-opus-4-1-20250805", 15e-6, 75e-6},
-		{"claude-3-opus-20240229", 15e-6, 75e-6},
+		// 4.8 与 5 同价
+		{"claude-opus-4.8", opus5InputPricePerToken, opus5OutputPricePerToken},
+		{"claude-opus-4.5", 5e-6, 25e-6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			pricing, err := svc.GetModelPricing(tt.model)
+			pricing, err := builtinPricing(svc, tt.model)
 			require.NoError(t, err)
 			require.NotNil(t, pricing)
 			assert.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12)
@@ -80,7 +43,7 @@ func TestClaudeOpus5_HardcodedFallbackPricing(t *testing.T) {
 		})
 	}
 
-	opus5, err := svc.GetModelPricing("claude-opus-5")
+	opus5, err := builtinPricing(svc, "claude-opus-5")
 	require.NoError(t, err)
 	assert.InDelta(t, opus5CacheCreationPricePerToken, opus5.CacheCreationPricePerToken, 1e-12)
 	assert.InDelta(t, opus5CacheReadPricePerToken, opus5.CacheReadPricePerToken, 1e-12)

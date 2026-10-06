@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +22,7 @@ func saleTestEntry() ModelCatalogEntry {
 
 func saleCost(t *testing.T, entry ModelCatalogEntry, user *User, tokens UsageTokens, at time.Time) *CostBreakdown {
 	t.Helper()
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
 		Ctx: context.Background(), Model: entry.ModelID, Tokens: tokens,
 		RateMultiplier: UserRateMultiplier(user), PricingAt: at,
@@ -69,21 +68,24 @@ func TestSalePrices_SegmentsFollowOfficialRatioOrOwnPrice(t *testing.T) {
 	require.InDelta(t, 1000*0.5e-6, low.ActualCost, 1e-15)
 }
 
-// DeepSeek 目录存闲时价、高峰加倍；售价也按闲时价填，高峰同样加倍。
-func TestSalePrices_DeepSeekPeakDoublesSalePrice(t *testing.T) {
-	entry := ModelCatalogEntry{
-		ID: 1, ModelID: "deepseek-flash", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
-		ManagedBy:  ModelCatalogManagedBySeed,
-		InputPrice: upstreamCostPtr(deepseekFlashOffPeakInputPrice), OutputPrice: upstreamCostPtr(deepseekFlashOffPeakOutputPrice),
-		SalePrices: CatalogSalePrices{InputPrice: upstreamCostPtr(0.02e-6)},
-	}
-	peak := time.Date(2026, 9, 16, 2, 0, 0, 0, time.UTC) // 周三 02:00 UTC，官方高峰
-	require.Equal(t, 2.0, deepseekPeakMultiplierAt(peak))
+// DeepSeek 目录存闲时价、条目带官方忙闲时（高峰 × 2）；售价也按闲时价填，高峰同样加倍，官方价合计一起加倍。
+func TestSalePrices_EntryPeakDoublesSalePrice(t *testing.T) {
+	entry := deepseekTestEntry()
+	entry.SalePrices = CatalogSalePrices{InputPrice: upstreamCostPtr(0.02e-6)}
+	peak := time.Date(2026, 9, 16, 2, 0, 0, 0, time.UTC)    // 周三北京 10:00，官方高峰
 	offPeak := time.Date(2026, 9, 19, 2, 0, 0, 0, time.UTC) // 周六，全天闲时
 
 	tokens := UsageTokens{InputTokens: 1_000_000}
-	require.InDelta(t, 0.02, saleCost(t, entry, &User{}, tokens, offPeak).ActualCost, 1e-12)
-	require.InDelta(t, 0.04, saleCost(t, entry, &User{}, tokens, peak).ActualCost, 1e-12)
+	off := saleCost(t, entry, &User{}, tokens, offPeak)
+	require.InDelta(t, 0.02, off.ActualCost, 1e-12)
+	require.InDelta(t, 0.15, off.TotalCost, 1e-12)
+	on := saleCost(t, entry, &User{}, tokens, peak)
+	require.InDelta(t, 0.04, on.ActualCost, 1e-12)
+	require.InDelta(t, 0.30, on.TotalCost, 1e-12)
+
+	// 条目没有忙闲时就不加价：不按模型名套高峰
+	entry.TimePricing = nil
+	require.InDelta(t, 0.02, saleCost(t, entry, &User{}, tokens, peak).ActualCost, 1e-12)
 }
 
 // 利润门与价格页毛利和售价比：售价定高了，同一条上游价就能过门。

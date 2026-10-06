@@ -259,7 +259,7 @@ func TestResolve_CatalogEntryWithoutPricesKeepsModelUnpriced(t *testing.T) {
 		ID: 1, ModelID: "ghost-model", BillingMode: BillingModeToken,
 		Status: ModelCatalogStatusListed, ManagedBy: ModelCatalogManagedByAdmin,
 	})
-	r := NewModelPricingResolver(svc, bs)
+	r := NewModelPricingResolver(svc)
 
 	resolved := r.Resolve(context.Background(), PricingInput{Model: "ghost-model"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)

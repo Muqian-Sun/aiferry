@@ -48,7 +48,7 @@ func newUpstreamCostTestResolver(t *testing.T, bs *BillingService, entry ModelCa
 	t.Helper()
 	catalog, repo := newTestModelCatalogService(entry)
 	repo.bindings = map[int64][]ModelCatalogBinding{entry.ID: bindings}
-	return NewModelPricingResolver(catalog, bs)
+	return NewModelPricingResolver(catalog)
 }
 
 func TestBindingCostRatio(t *testing.T) {
@@ -106,7 +106,7 @@ func TestBindingCostRatio(t *testing.T) {
 }
 
 func TestCalculateUpstreamCost(t *testing.T) {
-	bs := NewBillingService(nil, nil)
+	bs := NewBillingService()
 	entry := upstreamCostTestEntry()
 	binding := upstreamCostTestBinding(7)
 	resolver := newUpstreamCostTestResolver(t, bs, entry, binding)
@@ -139,7 +139,7 @@ func TestCalculateUpstreamCost(t *testing.T) {
 
 // DeepSeek 的「强制官方价」与高峰加价是官方售价的规则，不能盖掉上游价。
 func TestCalculateUpstreamCost_DeepSeekKeepsUpstreamPrice(t *testing.T) {
-	bs := NewBillingService(nil, nil)
+	bs := NewBillingService()
 	entry := ModelCatalogEntry{
 		ID: 1, ModelID: "deepseek-v4.1-flash", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
 		ManagedBy: ModelCatalogManagedBySeed, InputPrice: upstreamCostPtr(0.14e-6), OutputPrice: upstreamCostPtr(0.28e-6),

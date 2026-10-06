@@ -145,6 +145,9 @@ type LiteLLMModelPricing struct {
 	// InputTokenTiers 官网按「整次请求的输入侧 token 数」分段的价（价格文件的 input_token_tiers）：
 	// 第一段就是基础价，其余各段播种时换算成目录的按 token 分段。
 	InputTokenTiers []LiteLLMInputTokenTier `json:"-"`
+	// TimePricing 官方忙闲时（价格文件的 time_pricing，如 DeepSeek 工作日高峰 × 2）：播种时写进目录条目的分时，
+	// 计费只认目录（muqian 2026-10-06：所有模型的计费都从模型目录出发）。nil = 不分忙闲时。
+	TimePricing *TimePricing `json:"-"`
 
 	// TokenPricingAbsent 表示源数据中 input/output token 价格均缺失（仅有图片价）。
 	// 此类条目只可用于图片计费，token 计费必须回退到 fallback 或 fail-closed，
@@ -175,6 +178,7 @@ type rawInputTokenTier struct {
 type LiteLLMRawEntry struct {
 	ModelID                             string              `json:"model_id"`
 	InputTokenTiers                     []rawInputTokenTier `json:"input_token_tiers"`
+	TimePricing                         *TimePricing        `json:"time_pricing"`
 	InputCostPerToken                   *float64            `json:"input_cost_per_token"`
 	OutputCostPerToken                  *float64            `json:"output_cost_per_token"`
 	CacheCreationInputTokenCost         *float64            `json:"cache_creation_input_token_cost"`
@@ -525,8 +529,8 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			orphanCacheTiers = append(orphanCacheTiers, modelName+"("+strings.Join(orphans, ",")+")")
 		}
 
-		// 官网写法的模型 ID 与多段价是我们自己加的字段；写错了整条不收（fail-closed：
-		// 只收基础价会让高段按低段价算，ID 对不上会让目录出现第二个写法）。
+		// 官网写法的模型 ID、多段价、忙闲时是我们自己加的字段；写错了整条不收（fail-closed：
+		// 只收基础价会让高段按低段价算，ID 对不上会让目录出现第二个写法，忙闲时丢了会让高峰按平时价收）。
 		if entry.ModelID != "" {
 			if !strings.EqualFold(strings.TrimSpace(entry.ModelID), modelName) {
 				invalidEntries = append(invalidEntries, modelName+"(model_id "+entry.ModelID+" differs from the key)")
@@ -542,6 +546,13 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			}
 			pricing.InputTokenTiers = tiers
 		}
+		if entry.TimePricing != nil {
+			if err := validateTimePricing(entry.TimePricing); err != nil || len(entry.TimePricing.Periods) == 0 {
+				invalidEntries = append(invalidEntries, modelName+"(invalid time_pricing)")
+				continue
+			}
+			pricing.TimePricing = entry.TimePricing
+		}
 
 		result[modelName] = pricing
 	}
@@ -553,7 +564,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 	warnLopsidedLongContextLadders(lopsidedLadders)
 	if len(invalidEntries) > 0 {
 		sort.Strings(invalidEntries)
-		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: skipped %d model(s) with an invalid model_id or input_token_tiers: %s", len(invalidEntries), strings.Join(invalidEntries, ", "))
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: skipped %d model(s) with an invalid model_id, input_token_tiers or time_pricing: %s", len(invalidEntries), strings.Join(invalidEntries, ", "))
 	}
 
 	if len(result) == 0 {

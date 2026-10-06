@@ -24,40 +24,20 @@ func newTestBillingServiceForResolver() *BillingService {
 	return bs
 }
 
-func TestResolve_NoGroupID(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
-
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model: "claude-sonnet-4",
-	})
-
-	require.NotNil(t, resolved)
-	require.Equal(t, BillingModeToken, resolved.Mode)
-	require.NotNil(t, resolved.BasePricing)
-	require.InDelta(t, 3e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
-	// BillingService.GetModelPricing uses fallback internally, but resolveBasePricing
-	// reports "litellm" when GetModelPricing succeeds (regardless of internal source)
-	require.Equal(t, "litellm", resolved.Source)
-}
-
-func TestResolve_UnknownModel(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
-
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model: "unknown-model-xyz",
-	})
-
-	require.NotNil(t, resolved)
-	require.Nil(t, resolved.BasePricing)
-	// Unknown model: GetModelPricing returns error, source is "fallback"
-	require.Equal(t, "fallback", resolved.Source)
+// 计费只认模型目录：目录查不到就没有价，内置价表里有的模型（claude-sonnet-4）也不例外。
+func TestResolve_CatalogMissHasNoPrice(t *testing.T) {
+	r := NewModelPricingResolver(nil)
+	for _, model := range []string{"unknown-model-xyz", "claude-sonnet-4"} {
+		resolved := r.Resolve(context.Background(), PricingInput{Model: model})
+		require.NotNil(t, resolved)
+		require.Nil(t, resolved.BasePricing, model)
+		require.Empty(t, resolved.Source, model)
+		require.False(t, resolved.hasUsablePricing(), model)
+	}
 }
 
 func TestGetIntervalPricing_NoIntervals(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	basePricing := &ModelPricing{InputPricePerToken: 5e-6}
 	resolved := &ResolvedPricing{
@@ -71,8 +51,7 @@ func TestGetIntervalPricing_NoIntervals(t *testing.T) {
 }
 
 func TestGetIntervalPricing_MatchesInterval(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode:                   BillingModeToken,
@@ -96,8 +75,7 @@ func TestGetIntervalPricing_MatchesInterval(t *testing.T) {
 }
 
 func TestGetIntervalPricing_NoMatch_FallsBackToBase(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	basePricing := &ModelPricing{InputPricePerToken: 99e-6}
 	resolved := &ResolvedPricing{
@@ -112,50 +90,8 @@ func TestGetIntervalPricing_NoMatch_FallsBackToBase(t *testing.T) {
 	require.Equal(t, basePricing, result)
 }
 
-func TestGPT56ExplicitZeroCacheWritePriceIsPreserved(t *testing.T) {
-	bs := &BillingService{}
-	resolver := NewModelPricingResolver(nil, bs)
-	zero := 0.0
-
-	t.Run("flat catalog price", func(t *testing.T) {
-		pricing := &ModelPricing{InputPricePerToken: 5e-6, OutputPricePerToken: 30e-6}
-		applyChannelTokenPriceOverrides(pricing, &PricingCard{CacheWritePrice: &zero})
-		resolved := &ResolvedPricing{Mode: BillingModeToken, BasePricing: pricing}
-
-		require.True(t, resolved.BasePricing.CacheCreationPriceExplicit)
-		cost, err := bs.CalculateCostUnified(CostInput{
-			Model:          "gpt-5.6-sol",
-			Tokens:         UsageTokens{CacheCreationTokens: 100},
-			RateMultiplier: 1,
-			Resolver:       resolver,
-			Resolved:       resolved,
-		})
-		require.NoError(t, err)
-		require.Zero(t, cost.CacheCreationCost)
-	})
-
-	t.Run("interval price", func(t *testing.T) {
-		pricing := intervalToModelPricing(&PricingInterval{CacheWritePrice: &zero}, &ModelPricing{}, nil, false)
-		require.True(t, pricing.CacheCreationPriceExplicit)
-
-		cost, err := bs.CalculateCostUnified(CostInput{
-			Model:          "gpt-5.6-sol",
-			Tokens:         UsageTokens{CacheCreationTokens: 100},
-			RateMultiplier: 1,
-			Resolver:       resolver,
-			Resolved: &ResolvedPricing{
-				Mode:        BillingModeToken,
-				BasePricing: pricing,
-			},
-		})
-		require.NoError(t, err)
-		require.Zero(t, cost.CacheCreationCost)
-	})
-}
-
 func TestGetRequestTierPrice(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -171,8 +107,7 @@ func TestGetRequestTierPrice(t *testing.T) {
 }
 
 func TestGetRequestTierPriceByContext(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -187,8 +122,7 @@ func TestGetRequestTierPriceByContext(t *testing.T) {
 }
 
 func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -237,7 +171,7 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 }
 
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
-	// Channel only sets InputPrice; OutputPrice should remain from the base (LiteLLM/fallback).
+	// 目录条目只填了输入价：输出价就是 0，不再拿价格文件 / 内置价表补（计费只认目录）。
 	r := newResolverWithCatalog(t, []PricingCard{{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -254,8 +188,7 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	require.NotNil(t, resolved.BasePricing)
 	// InputPrice overridden by channel
 	require.InDelta(t, 20e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
-	// OutputPrice kept from base (fallback: 15e-6)
-	require.InDelta(t, 15e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
+	require.Zero(t, resolved.BasePricing.OutputPricePerToken)
 }
 
 func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
@@ -507,15 +440,13 @@ func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 func TestResolve_CatalogLoadError(t *testing.T) {
 	repo := &stubModelCatalogRepo{listErr: errors.New("database unavailable")}
 	catalog := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(catalog, bs)
+	r := NewModelPricingResolver(catalog)
 
 	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
 
 	require.NotNil(t, resolved)
 	require.NotEqual(t, PricingSourceCatalog, resolved.Source)
-	require.NotNil(t, resolved.BasePricing)
-	require.InDelta(t, 3e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
+	require.Nil(t, resolved.BasePricing, "目录读不出来就没有价，不落回内置价表")
 }
 
 // ===========================================================================
@@ -523,8 +454,7 @@ func TestResolve_CatalogLoadError(t *testing.T) {
 // ===========================================================================
 
 func TestGetRequestTierPriceByContext_EmptyTiers(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode:         BillingModePerRequest,
@@ -545,8 +475,7 @@ func TestGetRequestTierPriceByContext_EmptyTiers(t *testing.T) {
 }
 
 func TestGetRequestTierPriceByContext_ExactBoundary(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(nil, bs)
+	r := NewModelPricingResolver(nil)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -664,10 +593,9 @@ func newBillingServiceWithImageOutputPrice() *BillingService {
 	return bs
 }
 
-// TestCatalogTokenCard_KeepsBaseImageOutputPrice：目录条目没配图片输出价时，
-// 必须保留价格文件里的图片输出价，也不能置 Explicit——否则图片 token 会被
-// 静默按 $0 计费（今天是回退到文本输出价）。
-func TestCatalogTokenCard_KeepsBaseImageOutputPrice(t *testing.T) {
+// 目录条目没配图片输出价：价是 0 且不置 Explicit，计费回退到文本输出价（不会静默按 $0 收），
+// 也不再拿价格文件 / 内置价表补。
+func TestCatalogTokenCard_UnsetImageOutputPriceFallsBackToText(t *testing.T) {
 	bs := newBillingServiceWithImageOutputPrice()
 	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:      []string{"claude-sonnet-4"},
@@ -680,8 +608,8 @@ func TestCatalogTokenCard_KeepsBaseImageOutputPrice(t *testing.T) {
 	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
 
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
-	require.False(t, resolved.BasePricing.ImageOutputPriceExplicit)
-	require.InDelta(t, 40e-6, resolved.BasePricing.ImageOutputPricePerToken, 1e-12)
+	require.False(t, resolved.BasePricing.ImageOutputPriceExplicit, "没填图片输出价：计费回退到文本输出价")
+	require.Zero(t, resolved.BasePricing.ImageOutputPricePerToken, "不再拿内置价表补")
 }
 
 // TestCatalogTokenCard_ImageOutputPriceSetsExplicit：目录条目显式配了图片输出价时
@@ -702,8 +630,8 @@ func TestCatalogTokenCard_ImageOutputPriceSetsExplicit(t *testing.T) {
 	require.InDelta(t, 50e-6, resolved.BasePricing.ImageOutputPricePerToken, 1e-12)
 }
 
-// TestCatalogIntervalCard_KeepsBaseImageOutputPrice：命中分档时同样不得归零。
-func TestCatalogIntervalCard_KeepsBaseImageOutputPrice(t *testing.T) {
+// 命中分段时同样：没配图片输出价不置 Explicit。
+func TestCatalogIntervalCard_UnsetImageOutputPriceFallsBackToText(t *testing.T) {
 	bs := newBillingServiceWithImageOutputPrice()
 	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:      []string{"claude-sonnet-4"},
@@ -718,35 +646,12 @@ func TestCatalogIntervalCard_KeepsBaseImageOutputPrice(t *testing.T) {
 
 	pricing := r.GetIntervalPricing(resolved, 50000)
 	require.False(t, pricing.ImageOutputPriceExplicit)
-	require.InDelta(t, 40e-6, pricing.ImageOutputPricePerToken, 1e-12)
+	require.Zero(t, pricing.ImageOutputPricePerToken)
 }
 
 // ===========================================================================
 // 10. 回归：价卡覆盖不得污染共享的 fallbackPrices 指针
 // ===========================================================================
-
-// TestCatalogFlatCard_DoesNotPolluteFallbackPrices 目录平价覆盖前必须先克隆
-// BasePricing，否则会写穿共享的 fallbackPrices 条目。
-func TestCatalogFlatCard_DoesNotPolluteFallbackPrices(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	r := newResolverWithCatalogCards(bs, PricingCard{
-		Models:      []string{"claude-sonnet-4"},
-		BillingMode: BillingModeToken,
-		InputPrice:  testPtrFloat64(10e-6), // base is 3e-6
-		OutputPrice: testPtrFloat64(50e-6), // base is 15e-6
-	})
-
-	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
-
-	require.NotNil(t, resolved)
-	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
-
-	fp := r.billingService.fallbackPrices["claude-sonnet-4"]
-	require.InDelta(t, 3e-6, fp.InputPricePerToken, 1e-12, "fallback InputPricePerToken polluted")
-	require.InDelta(t, 15e-6, fp.OutputPricePerToken, 1e-12, "fallback OutputPricePerToken polluted")
-	require.False(t, fp.CacheCreationPriceExplicit, "fallback CacheCreationPriceExplicit polluted")
-}
 
 func TestCalculateCostUnified_UsesContinuousMediaUnits(t *testing.T) {
 	bs := newTestBillingServiceForResolver()

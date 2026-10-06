@@ -1030,7 +1030,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
+		service.NewBillingService(), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil,
 		newTestSchedulerOverRepo(cfg, repo),
 	)

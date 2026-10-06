@@ -6,14 +6,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 // CalculateMediaCost 是两个网关共用的媒体计价：按目录条目模式分发，图片 / 视频只认目录，
 // seed 与 admin 条目一视同仁；音频 / grok 搜索用内置常量；alpha search 用条目 search_price_per_call。
 func TestCalculateMediaCost(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	ctx := context.Background()
 	p := func(v float64) *float64 { return &v }
 
@@ -29,7 +28,7 @@ func TestCalculateMediaCost(t *testing.T) {
 	seedEntry := catalogEntryFromCard("img", ModelCatalogManagedBySeed, imageCard)
 	seedEntry.ID = 1
 	seedCatalog, _ := newTestModelCatalogService(seedEntry)
-	seedResolver := NewModelPricingResolver(seedCatalog, bs)
+	seedResolver := NewModelPricingResolver(seedCatalog)
 
 	cases := []struct {
 		name       string
@@ -52,7 +51,8 @@ func TestCalculateMediaCost(t *testing.T) {
 		{"image on token entry goes to token path", adminResolver, "tok", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1, false, false, 0, 0, ""},
 		{"video on token entry is an error, not zero", adminResolver, "tok", mediaUsage{VideoCount: 1, VideoDurationSeconds: 5}, 1, true, true, 0, 0, ""},
 		{"image on unknown model is an error", adminResolver, "nope", mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize1K}, 1, true, true, 0, 0, ""},
-		{"audio tts 0.5M chars at built-in 15/M", adminResolver, "tok", mediaUsage{Audio: &AudioUsage{Mode: "tts", DurationOrUnits: 0.5}}, 1, true, false, 7.5, 7.5, "per_request"},
+		// 语音不在目录里、接口已关：用量来了也没有价（不再按写死的单价收）
+		{"audio usage has no catalog price", adminResolver, "tok", mediaUsage{Audio: &AudioUsage{Mode: "tts", DurationOrUnits: 0.5}}, 1, true, true, 0, 0, ""},
 		{"no media usage is not handled", adminResolver, "tok", mediaUsage{}, 1, false, false, 0, 0, ""},
 	}
 	for _, tc := range cases {
@@ -81,14 +81,14 @@ func TestCalculateMediaCost(t *testing.T) {
 
 // 用户价 = 目录价 × 用户倍率：seed 与 admin 条目在图片路径上给出同一个价（原来只认 admin 条目）。
 func TestCalculateMediaCost_SeedAndAdminEntriesPriceTheSame(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	price := 0.25
 	card := PricingCard{Models: []string{"gpt-image-x"}, BillingMode: BillingModeImage, PerRequestPrice: &price}
 	for _, managedBy := range []string{ModelCatalogManagedBySeed, ModelCatalogManagedByAdmin} {
 		entry := catalogEntryFromCard("gpt-image-x", managedBy, card)
 		entry.ID = 1
 		catalog, _ := newTestModelCatalogService(entry)
-		resolver := NewModelPricingResolver(catalog, bs)
+		resolver := NewModelPricingResolver(catalog)
 		cost, handled, err := bs.CalculateMediaCost(context.Background(), resolver, "gpt-image-x", mediaUsage{ImageCount: 3, ImageSizeTier: ImageBillingSize1K}, 2)
 		require.NoError(t, err, managedBy)
 		require.True(t, handled, managedBy)

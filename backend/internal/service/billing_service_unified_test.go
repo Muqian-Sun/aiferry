@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,31 +14,9 @@ import (
 // CalculateCostUnified
 // ---------------------------------------------------------------------------
 
-func TestCalculateCostUnified_NilResolver_FallsBackToOldPath(t *testing.T) {
-	svc := newTestBillingService()
-
-	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 500}
-	input := CostInput{
-		Model:          "claude-sonnet-4",
-		Tokens:         tokens,
-		RateMultiplier: 1.0,
-		Resolver:       nil, // no resolver
-	}
-	cost, err := svc.CalculateCostUnified(input)
-	require.NoError(t, err)
-
-	// Should match the old-path result exactly
-	expected, err := svc.calculateCostInternal("claude-sonnet-4", tokens, 1.0, nil)
-	require.NoError(t, err)
-	require.InDelta(t, expected.TotalCost, cost.TotalCost, 1e-10)
-	require.InDelta(t, expected.ActualCost, cost.ActualCost, 1e-10)
-	// BillingMode is NOT set by old path through CalculateCostUnified (resolver == nil)
-	require.Empty(t, cost.BillingMode)
-}
-
 func TestCalculateCostUnified_TokenMode(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 500}
 	input := CostInput{
@@ -62,7 +39,7 @@ func TestCalculateCostUnified_TokenMode(t *testing.T) {
 
 func TestCalculateCostUnified_TokenModeAppliesRateMultiplierToImageTokens(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 600, ImageOutputTokens: 100}
 	cost, err := bs.CalculateCostUnified(CostInput{
@@ -112,7 +89,6 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 
 func TestCalculateCostUnified_ImageMode(t *testing.T) {
 	bs := &BillingService{
-		cfg:            &config.Config{},
 		fallbackPrices: map[string]*ModelPricing{},
 	}
 	resolver := newResolverWithCatalogCards(bs, PricingCard{
@@ -160,7 +136,7 @@ func channelTimeResolvedForTest(base *ModelPricing, intervals []PricingInterval)
 }
 
 func TestCalculateCostUnified_ChannelTimePricingScalesBaseAndActualCost(t *testing.T) {
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 	resolved := channelTimeResolvedForTest(&ModelPricing{InputPricePerToken: 0.001}, nil)
 
 	cost, err := billing.CalculateCostUnified(CostInput{
@@ -184,7 +160,7 @@ func TestCalculateCostUnified_ChannelTimePricingScalesMatchingInterval(t *testin
 		&ModelPricing{InputPricePerToken: 0.001},
 		[]PricingInterval{{MinTokens: 0, InputPrice: &intervalInputPrice}},
 	)
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 
 	cost, err := billing.CalculateCostUnified(CostInput{
 		Ctx:       context.Background(),
@@ -205,7 +181,7 @@ func TestCalculateCostUnified_ChannelTimePricingScalesBaseOnUnmatchedInterval(t 
 		&ModelPricing{InputPricePerToken: 0.001},
 		[]PricingInterval{{MinTokens: 2000, InputPrice: &intervalInputPrice}},
 	)
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 
 	cost, err := billing.CalculateCostUnified(CostInput{
 		Ctx:       context.Background(),
@@ -222,7 +198,7 @@ func TestCalculateCostUnified_ChannelTimePricingScalesBaseOnUnmatchedInterval(t 
 
 func TestCalculateCostUnified_ChannelTimePricingDoesNotApplyOutsideMatchingTime(t *testing.T) {
 	resolved := channelTimeResolvedForTest(&ModelPricing{InputPricePerToken: 0.001}, nil)
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 
 	for _, pricingAt := range []time.Time{
 		time.Time{},
@@ -271,7 +247,7 @@ func TestApplyCostBreakdownMultiplierScalesAllMonetaryFields(t *testing.T) {
 // 保存时强制 > 0；若 0 仍泄漏到计费层，按 0 计费（而非历史上的 1.0）。
 func TestCalculateCostUnified_RateMultiplierZeroProducesZero(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 500}
 
@@ -291,7 +267,7 @@ func TestCalculateCostUnified_RateMultiplierZeroProducesZero(t *testing.T) {
 // 负数倍率按 0 计费，避免历史的 <=0 → 1.0 把配置异常静默按标准价扣费。
 func TestCalculateCostUnified_NegativeRateMultiplierClampedToZero(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	tokens := UsageTokens{InputTokens: 1000}
 
@@ -309,7 +285,7 @@ func TestCalculateCostUnified_NegativeRateMultiplierClampedToZero(t *testing.T) 
 
 func TestCalculateCostUnified_BillingModeFieldFilled(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	cost, err := bs.CalculateCostUnified(CostInput{
 		Ctx:            context.Background(),
@@ -324,7 +300,7 @@ func TestCalculateCostUnified_BillingModeFieldFilled(t *testing.T) {
 
 func TestCalculateCostUnified_UsesPreResolvedPricing(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
+	resolver := builtinSeededResolver(bs)
 
 	// Pre-resolve with per_request mode to verify it's used instead of re-resolving
 	preResolved := &ResolvedPricing{

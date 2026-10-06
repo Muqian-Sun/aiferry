@@ -25,40 +25,31 @@ func beijingDaytimeDouble() *TimePricing {
 		Periods: []TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 2}}}
 }
 
+// testDeepSeekPeak DeepSeek 官方忙闲时（与价格文件里 DeepSeek 条目的 time_pricing 相同）：北京时间工作日 09–12、14–18 × 2。
+func testDeepSeekPeak() *TimePricing {
+	return &TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []TimePricingPeriod{
+		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
+		{StartTime: "14:00", EndTime: "18:00", Multiplier: 2},
+	}}
+}
+
+// deepseekTestEntry 目录里的 DeepSeek 条目：低谷价 0.15 / 0.60，带官方忙闲时（播种自价格文件）。
 func deepseekTestEntry() ModelCatalogEntry {
 	return ModelCatalogEntry{
 		ID: 1, ModelID: "deepseek-flash", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
 		ManagedBy:  ModelCatalogManagedBySeed,
-		InputPrice: upstreamCostPtr(deepseekFlashOffPeakInputPrice), OutputPrice: upstreamCostPtr(deepseekFlashOffPeakOutputPrice),
+		InputPrice: upstreamCostPtr(0.15e-6), OutputPrice: upstreamCostPtr(0.6e-6),
+		TimePricing: testDeepSeekPeak(),
 	}
 }
 
 func deepseekTestBinding(tp *TimePricing) ModelCatalogBinding {
-	return ModelCatalogBinding{EntryID: 1, AccountID: 7, InputPrice: deepseekFlashOffPeakInputPrice * 0.03,
-		OutputPrice: deepseekFlashOffPeakOutputPrice * 0.03, TimePricing: tp}
-}
-
-// 价格页给 DeepSeek 承接预填的官方忙闲时，必须与向用户收钱的高峰规则逐分钟一致。
-func TestDeepSeekOfficialPeakTimePricingMatchesBillingRule(t *testing.T) {
-	preset := DeepSeekOfficialPeakTimePricing()
-	require.NoError(t, validateTimePricing(&preset))
-	start := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC) // 周日 UTC，跨上一周末到下一周一
-	peakMinutes := 0
-	for at := start; at.Before(start.AddDate(0, 0, 8)); at = at.Add(time.Minute) {
-		require.Equal(t, deepseekPeakMultiplierAt(at), preset.MultiplierAt(at), at.Format(time.RFC3339))
-		if preset.MultiplierAt(at) > 1 {
-			peakMinutes++
-		}
-	}
-	require.Equal(t, 5*7*60, peakMinutes, "每个工作日 7 小时高峰")
-
-	preset.Periods[0].Multiplier = 3
-	require.Equal(t, 2.0, deepseekOfficialPeakTimePricing.Periods[0].Multiplier, "返回的是副本")
+	return ModelCatalogBinding{EntryID: 1, AccountID: 7, InputPrice: 0.15e-6 * 0.03, OutputPrice: 0.6e-6 * 0.03, TimePricing: tp}
 }
 
 // 渠道成本：承接上的忙闲时按请求时刻整单乘倍数；条目自己的 DeepSeek 高峰不叠到上游价上。
 func TestCalculateUpstreamCost_BindingTimePricing(t *testing.T) {
-	bs := NewBillingService(nil, nil)
+	bs := NewBillingService()
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 200, CacheReadTokens: 3000}
 	const base = 0.000375 // 1000 × 0.15 + 200 × 0.9 + 3000 × 0.015（$ / 百万 Token）
 
@@ -92,7 +83,7 @@ func TestCalculateUpstreamCost_BindingTimePricing(t *testing.T) {
 		dsFound, dsB := dsResolver.LookupUpstreamPrice(context.Background(), ds.ModelID, 7)
 		cost, err := bs.CalculateUpstreamCost(context.Background(), dsResolver, dsFound, dsB, UsageTokens{InputTokens: 1_000_000}, upstreamPeakAt, "")
 		require.NoError(t, err)
-		require.InDelta(t, deepseekFlashOffPeakInputPrice*0.03*1_000_000, cost, 1e-12, "上游不分忙闲时：我们高峰加价不影响成本")
+		require.InDelta(t, 0.15e-6*0.03*1_000_000, cost, 1e-12, "上游不分忙闲时：我们高峰加价不影响成本")
 	})
 }
 
@@ -110,8 +101,7 @@ func TestBindingCostRatioAt(t *testing.T) {
 
 	t.Run("deepseek: both sides double at peak", func(t *testing.T) {
 		entry := deepseekTestEntry()
-		preset := DeepSeekOfficialPeakTimePricing()
-		b := deepseekTestBinding(&preset)
+		b := deepseekTestBinding(testDeepSeekPeak())
 		got, ok := bindingCostRatioAt(&entry, &b, upstreamPeakAt)
 		require.True(t, ok)
 		require.InDelta(t, 0.03, got, 1e-12)
@@ -121,13 +111,12 @@ func TestBindingCostRatioAt(t *testing.T) {
 		require.InDelta(t, 0.015, got, 1e-12, "上游不涨、我们涨：忙时成本比减半")
 	})
 
-	t.Run("operator-authored deepseek entry does not double", func(t *testing.T) {
+	t.Run("entry without time pricing does not double", func(t *testing.T) {
 		entry := deepseekTestEntry()
-		entry.ManagedBy = ModelCatalogManagedByAdmin
-		preset := DeepSeekOfficialPeakTimePricing()
-		b := deepseekTestBinding(&preset)
+		entry.TimePricing = nil
+		b := deepseekTestBinding(testDeepSeekPeak())
 		got, _ := bindingCostRatioAt(&entry, &b, upstreamPeakAt)
-		require.InDelta(t, 0.06, got, 1e-12, "与计费同口径：运营者定价不套官方高峰")
+		require.InDelta(t, 0.06, got, 1e-12, "与计费同口径：只看目录条目的忙闲时，不按模型名套高峰")
 	})
 
 	t.Run("entry time pricing raises our side", func(t *testing.T) {
@@ -142,7 +131,7 @@ func TestBindingCostRatioAt(t *testing.T) {
 
 // 价格页的忙时毛利：一周里最差的时段；不比平时差时不显示。
 func TestBindingPeakCostRatio(t *testing.T) {
-	preset := DeepSeekOfficialPeakTimePricing()
+	preset := testDeepSeekPeak()
 	cases := []struct {
 		name    string
 		entry   ModelCatalogEntry
@@ -157,7 +146,7 @@ func TestBindingPeakCostRatio(t *testing.T) {
 				return b
 			}(),
 			want: 0.06},
-		{name: "deepseek preset matches our peak", entry: deepseekTestEntry(), binding: deepseekTestBinding(&preset)},
+		{name: "deepseek preset matches our peak", entry: deepseekTestEntry(), binding: deepseekTestBinding(preset)},
 		{name: "deepseek upstream flat", entry: deepseekTestEntry(), binding: deepseekTestBinding(nil)},
 		// 上游北京 09–18 点都 × 2，我们只在 09–12、14–18 点翻倍：12–14 点最差
 		{name: "deepseek upstream wider than ours", entry: deepseekTestEntry(), binding: deepseekTestBinding(beijingDaytimeDouble()), want: 0.06},

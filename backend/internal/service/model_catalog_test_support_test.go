@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 // stubModelCatalogRepo 是内存版目录仓储，用于单测。
@@ -250,7 +248,7 @@ func newResolverWithCatalogCards(bs *BillingService, cards ...PricingCard) *Mode
 		entries[i].ID = int64(i + 1)
 	}
 	catalog, _ := newTestModelCatalogService(entries...)
-	return NewModelPricingResolver(catalog, bs)
+	return NewModelPricingResolver(catalog)
 }
 
 // newResolverWithSeededEntries 用播种出的目录条目搭解析器：价格数据里的长上下文阶梯经播种换算成按 token 分段，
@@ -260,7 +258,7 @@ func newResolverWithSeededEntries(bs *BillingService, entries ...ModelCatalogEnt
 		entries[i].ID = int64(i + 1)
 	}
 	catalog, _ := newTestModelCatalogService(entries...)
-	return NewModelPricingResolver(catalog, bs)
+	return NewModelPricingResolver(catalog)
 }
 
 // seededLiteLLMEntry 按价格文件条目播种一条目录条目（与 ModelCatalogService 播种同一函数）。
@@ -290,10 +288,39 @@ func costViaCatalog(t *testing.T, bs *BillingService, resolver *ModelPricingReso
 func newSeededCatalogEnvFromJSON(t *testing.T, body string, models ...string) (*BillingService, *ModelPricingResolver) {
 	t.Helper()
 	ps := newStubPricingServiceFromJSON(t, body)
-	bs := NewBillingService(&config.Config{}, ps)
+	bs := NewBillingService()
 	entries := make([]ModelCatalogEntry, 0, len(models))
 	for _, model := range models {
 		entries = append(entries, seededLiteLLMEntry(t, ps, model))
 	}
 	return bs, newResolverWithSeededEntries(bs, entries...)
+}
+
+// builtinPricing 内置价表里这个模型（精确键，不分大小写）的价。计费已不再查内置价表（只认目录），
+// 它只用来播种目录；校验价表数据的用例用它。
+func builtinPricing(bs *BillingService, model string) (*ModelPricing, error) {
+	if pricing := bs.fallbackPrices[strings.ToLower(strings.TrimSpace(model))]; pricing != nil {
+		return pricing, nil
+	}
+	return nil, ErrModelPricingUnavailable
+}
+
+// builtinSeededResolver 把内置价表的每个模型按播种规则（seedEntryFromFallback）转成目录条目再建解析器：
+// 原来靠内置价表算钱的用例改走与网关相同的目录计费。
+func builtinSeededResolver(bs *BillingService) *ModelPricingResolver {
+	entries := make([]ModelCatalogEntry, 0, len(bs.fallbackPrices))
+	for name, pricing := range bs.SnapshotFallbackPricing() {
+		entry := seedEntryFromFallback(name, pricing)
+		entry.Status = ModelCatalogStatusListed
+		entries = append(entries, entry)
+	}
+	return newResolverWithSeededEntries(bs, entries...)
+}
+
+// builtinCatalogCost 按内置价表播种出的目录计费（替代已删除的 CalculateCost(model) 旧入口）。
+func builtinCatalogCost(bs *BillingService, model string, tokens UsageTokens, rateMultiplier float64) (*CostBreakdown, error) {
+	return bs.CalculateCostUnified(CostInput{
+		Ctx: context.Background(), Model: model, Tokens: tokens, RequestCount: 1,
+		RateMultiplier: rateMultiplier, Resolver: builtinSeededResolver(bs),
+	})
 }

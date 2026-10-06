@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/stretchr/testify/require"
 )
@@ -36,9 +35,9 @@ func audioCatalogResolverForTest(withAudioPrices bool) (*BillingService, *ModelP
 		entry.AudioOutputPrice = &audioOutput
 	}
 	entry.ID = 1
-	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}}
+	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	catalog, _ := newTestModelCatalogService(entry)
-	return bs, NewModelPricingResolver(catalog, bs)
+	return bs, NewModelPricingResolver(catalog)
 }
 
 func recordAudioUsageForTest(t *testing.T, withAudioPrices bool, usage OpenAIUsage) *UsageLog {
@@ -102,7 +101,7 @@ func TestOpenAIRecordUsage_AudioInputOnlyCountsUncachedTokens(t *testing.T) {
 }
 
 func TestComputeTokenBreakdown_AudioCostsAreFoldedIntoInputAndOutput(t *testing.T) {
-	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}}
+	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	pricing := &ModelPricing{
 		InputPricePerToken:       audioTestInputPrice,
 		OutputPricePerToken:      audioTestOutputPrice,
@@ -173,16 +172,14 @@ func TestExtractGeminiUsage_AudioModality(t *testing.T) {
 }
 
 func TestGatewayRecordUsageCost_GeminiAudioModalityBilledAtAudioPrice(t *testing.T) {
-	// 普通 Gemini 对话模型收音频输入：价格文件带 input_cost_per_audio_token（gemini-2.5-flash：$1/MTok vs 文本 $0.3/MTok）。
-	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}, pricingService: &PricingService{
-		pricingData: map[string]*LiteLLMModelPricing{
-			"gemini-2.5-flash": {
-				LiteLLMProvider: "gemini", Mode: "chat",
-				InputCostPerToken: 3e-7, OutputCostPerToken: 2.5e-6, InputCostPerAudioToken: 1e-6,
-			},
-		},
-	}}
-	svc := &GatewayService{billingService: bs, resolver: NewModelPricingResolver(nil, bs)}
+	// 普通 Gemini 对话模型收音频输入：价格文件带 input_cost_per_audio_token（gemini-2.5-flash：$1/MTok vs 文本 $0.3/MTok），
+	// 播种进目录后按目录计费。
+	bs := NewBillingService()
+	entry := seedEntryFromLiteLLM("gemini-2.5-flash", &LiteLLMModelPricing{
+		LiteLLMProvider: "gemini", Mode: "chat",
+		InputCostPerToken: 3e-7, OutputCostPerToken: 2.5e-6, InputCostPerAudioToken: 1e-6,
+	})
+	svc := &GatewayService{billingService: bs, resolver: newResolverWithSeededEntries(bs, entry)}
 	usage := extractGeminiUsage([]byte(`{"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":100,
 		"promptTokensDetails":[{"modality":"TEXT","tokenCount":200},{"modality":"AUDIO","tokenCount":800}]}}`))
 	require.NotNil(t, usage)
@@ -233,9 +230,8 @@ func TestPricingService_ParsesAudioTokenPrices(t *testing.T) {
 	require.InDelta(t, 4e-5, data["gpt-audio-test"].InputCostPerAudioToken, 1e-15)
 	require.InDelta(t, 8e-5, data["gpt-audio-test"].OutputCostPerAudioToken, 1e-15)
 
-	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}, pricingService: &PricingService{pricingData: data}}
-	pricing, err := bs.GetModelPricing("gpt-audio-test")
-	require.NoError(t, err)
-	require.InDelta(t, 4e-5, pricing.AudioInputPricePerToken, 1e-15)
-	require.InDelta(t, 8e-5, pricing.AudioOutputPricePerToken, 1e-15)
+	// 播种进目录：音频价带过去（计费只认目录）
+	entry := seedEntryFromLiteLLM("gpt-audio-test", data["gpt-audio-test"])
+	require.InDelta(t, 4e-5, *entry.AudioInputPrice, 1e-15)
+	require.InDelta(t, 8e-5, *entry.AudioOutputPrice, 1e-15)
 }

@@ -38,11 +38,13 @@ type plazaCatalogStub struct{ listedCatalogStub }
 func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCatalogEntry {
 	price := 1e-6
 	audio := 3e-6
+	search := 0.01 // 播种时按厂商公开价写进目录的搜索价
 	return []service.ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", DisplayName: "Sonnet 4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed, InputPrice: &price},
+		{ID: 1, ModelID: "claude-sonnet-4", DisplayName: "Sonnet 4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed, InputPrice: &price,
+			SearchPricePerCall: &search},
 		{ID: 2, ModelID: "gpt-5.6", DisplayName: "GPT-5.6", Vendor: "openai", Status: service.ModelCatalogStatusListed, InputPrice: &price,
-			AudioInputPrice: &audio,
-			TimePricing:     &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
+			AudioInputPrice: &audio, SearchPricePerCall: &search,
+			TimePricing: &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
 	}
 }
 
@@ -144,7 +146,7 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.NotNil(t, pricing.AudioInputPrice)
 	require.InDelta(t, 3e-6/15, *pricing.AudioInputPrice, 1e-18)
 
-	// 联网搜索按次价（按原价收，不乘倍率）：有官方搜索工具的厂商都给，条目没配按厂商公开价；X 帖子 / 主页价只有 xAI 有
+	// 联网搜索按次价（按原价收，不乘倍率）：条目上的价（计费只认目录）；X 帖子 / 主页价只有 xAI 有
 	require.Contains(t, string(gpt["pricing"]), `"search_price_per_call":0.01`)
 	require.NotContains(t, string(gpt["pricing"]), "x_post_price")
 	var sonnetPricing map[string]json.RawMessage
@@ -196,8 +198,9 @@ func (s plazaPricingStub) LookupPricingEntry(_ context.Context, model string) *s
 // Claude Code 配非 Anthropic 模型时那次搜索请求的计费项：token 给售价，每次搜索按原价，不提代执行的模型。
 func TestModelPlazaHandler_ClaudeCodeWebSearchBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	input, output := 1e-6, 5e-6
-	haiku := &service.ModelCatalogEntry{ID: 9, ModelID: service.WebSearchDelegateModel, Vendor: "anthropic", Status: service.ModelCatalogStatusUnlisted, InputPrice: &input, OutputPrice: &output}
+	input, output, search := 1e-6, 5e-6, 0.01
+	haiku := &service.ModelCatalogEntry{ID: 9, ModelID: service.WebSearchDelegateModel, Vendor: "anthropic", Status: service.ModelCatalogStatusUnlisted, InputPrice: &input, OutputPrice: &output,
+		SearchPricePerCall: &search}
 	get := func(pricing service.ModelCatalogPricingSource) string {
 		h := NewModelPlazaHandler(service.NewModelPlazaService(plazaCatalogStub{}, pricing), service.NewSettingService(plazaSettingRepoStub{}, &config.Config{}), plazaUserStub{})
 		w := httptest.NewRecorder()
@@ -222,7 +225,7 @@ func TestModelPlazaHandler_ClaudeCodeWebSearchBilling(t *testing.T) {
 	require.NotNil(t, envelope.Data.ClaudeCodeWebSearch)
 	require.InDelta(t, 1e-6/15, *envelope.Data.ClaudeCodeWebSearch.InputPrice, 1e-18, "token 价是售价")
 	require.InDelta(t, 5e-6/15, *envelope.Data.ClaudeCodeWebSearch.OutputPrice, 1e-18)
-	require.InDelta(t, 0.01, envelope.Data.ClaudeCodeWebSearch.SearchPricePerCall, 1e-12, "每次搜索按原价：Anthropic 公开价，不乘倍率")
+	require.InDelta(t, 0.01, envelope.Data.ClaudeCodeWebSearch.SearchPricePerCall, 1e-12, "每次搜索按目录条目上的原价，不乘倍率")
 	require.NotContains(t, body, "haiku", "广场不提代执行的模型")
 
 	require.NotContains(t, get(plazaPricingStub{}), "claude_code_web_search", "目录里没有代执行模型时不给")

@@ -351,6 +351,10 @@ func (e *ModelCatalogEntry) Validate() error {
 		if err := validateCatalogLength("time_pricing.timezone", e.TimePricing.Timezone, 64); err != nil {
 			return err
 		}
+		// 忙闲时是计费数据（如 DeepSeek 高峰 × 2）：写错了计费会静默按平时价算，存之前就拦下
+		if err := validateTimePricing(e.TimePricing); err != nil {
+			return catalogValidationError(fmt.Sprintf("time_pricing: %s", err.Error()))
+		}
 	}
 	if !e.BillingMode.IsValid() {
 		return catalogValidationError(fmt.Sprintf("invalid billing_mode: %s", e.BillingMode))

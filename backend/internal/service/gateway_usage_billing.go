@@ -673,19 +673,15 @@ func (s *GatewayService) billableModelWithFallback(ctx context.Context, apiKey *
 	return billingModel
 }
 
-// hasResolvableTokenPricing 判断模型能否沿定价解析链（模型目录 → 价格表）解析出可计费的价格。
+// hasResolvableTokenPricing 判断模型能否在模型目录里解析出可计费的价格。
 func (s *GatewayService) hasResolvableTokenPricing(ctx context.Context, model string, apiKey *APIKey) bool {
 	if strings.TrimSpace(model) == "" {
 		return false
 	}
-	if s.resolver != nil {
-		return s.resolver.Resolve(ctx, PricingInput{Model: model}).hasUsablePricing()
-	}
-	if s.billingService == nil {
+	if s.resolver == nil {
 		return false
 	}
-	_, err := s.billingService.GetModelPricing(model)
-	return err == nil
+	return s.resolver.Resolve(ctx, PricingInput{Model: model}).hasUsablePricing()
 }
 
 // calculateTokenCost 计算 Token 计费：路径选择（分组/渠道定价 → 内置定价）

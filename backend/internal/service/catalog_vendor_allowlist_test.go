@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +19,7 @@ func TestCatalogSeedOnlyAllowlistedVendors(t *testing.T) {
 	pricingSvc := &PricingService{pricingData: pricingData}
 	entries := buildModelCatalogSeedEntries(ModelCatalogSeedInput{
 		PricingService: pricingSvc,
-		BillingService: NewBillingService(&config.Config{}, pricingSvc),
+		BillingService: NewBillingService(),
 	})
 	require.NotEmpty(t, entries)
 	for _, entry := range entries {
@@ -70,7 +69,7 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 	pricingSvc := &PricingService{pricingData: pricingData}
 	entries := buildModelCatalogSeedEntries(ModelCatalogSeedInput{
 		PricingService: pricingSvc,
-		BillingService: NewBillingService(&config.Config{}, pricingSvc),
+		BillingService: NewBillingService(),
 	})
 	byID := make(map[string]ModelCatalogEntry, len(entries))
 	for _, entry := range entries {

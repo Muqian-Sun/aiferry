@@ -45,12 +45,12 @@ func mediaUsageFromOpenAIForwardResult(r *OpenAIForwardResult) mediaUsage {
 // 不再有分组价与默认价。handled=false 表示这次用量走 token 路径（没有媒体用量，或图片落在
 // token 模式的条目上——gpt-image-* 按 image token 价）。
 //
-//	Audio != nil       → 内置单价 × 单位数
+//	Audio != nil       → 没有价：语音（Grok tts / stt / realtime）不在目录里，接口已关（muqian 2026-10-06）
 //	VideoCount > 0     → mode video：单价(分辨率档) × 条 × 秒；mode image/per_request：单价 × 条
 //	ImageCount > 0 且 mode ∈ {image, per_request} → 单价(尺寸档) × 张
 func (s *BillingService) CalculateMediaCost(ctx context.Context, resolver *ModelPricingResolver, model string, usage mediaUsage, multiplier float64) (cost *CostBreakdown, handled bool, err error) {
 	if usage.Audio != nil {
-		return s.CalculateAudioCost(usage.Audio.Mode, usage.Audio.DurationOrUnits, multiplier), true, nil
+		return nil, true, fmt.Errorf("audio usage for %q: %w", model, ErrModelPricingUnavailable)
 	}
 	if usage.VideoCount <= 0 && usage.ImageCount <= 0 {
 		return nil, false, nil
