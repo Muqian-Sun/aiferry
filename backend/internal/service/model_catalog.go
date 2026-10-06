@@ -109,11 +109,14 @@ type ModelCatalogBinding struct {
 	CacheReadPrice    *float64          `json:"cache_read_price"`
 	Intervals         []PricingInterval `json:"intervals"`
 	// 联网搜索的上游价（USD / 次、/ 条）：官方价显式设了的项必须填；没填的按官方搜索价记成本。
-	SearchPricePerCall *float64  `json:"search_price_per_call"`
-	XPostPrice         *float64  `json:"x_post_price"`
-	XUserPrice         *float64  `json:"x_user_price"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	SearchPricePerCall *float64 `json:"search_price_per_call"`
+	XPostPrice         *float64 `json:"x_post_price"`
+	XUserPrice         *float64 `json:"x_user_price"`
+	// TimePricing 上游忙闲时（muqian 2026-10-06：上游有没有忙闲时在填承接时定）：渠道成本按请求时刻整单 × 倍率；
+	// nil = 上游不分忙闲时。
+	TimePricing *TimePricing `json:"time_pricing"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
 // NormalizeModelCatalogKey 返回查表用的规范化模型名。

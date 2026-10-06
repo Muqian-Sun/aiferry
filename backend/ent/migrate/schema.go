@@ -891,6 +891,7 @@ var (
 		{Name: "x_user_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "upstream_model", Type: field.TypeString, Size: 255, Default: ""},
 		{Name: "price_intervals", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "time_pricing", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "entry_id", Type: field.TypeInt64},
@@ -900,17 +901,17 @@ var (
 	ModelCatalogBindingsTable = &schema.Table{
 		Name:       "model_catalog_bindings",
 		Columns:    ModelCatalogBindingsColumns,
-		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[12], ModelCatalogBindingsColumns[13]},
+		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[13], ModelCatalogBindingsColumns[14]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "model_catalog_bindings_model_catalog_entries_entry",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[12]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[13]},
 				RefColumns: []*schema.Column{ModelCatalogEntriesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "model_catalog_bindings_accounts_account",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[13]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[14]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -919,7 +920,7 @@ var (
 			{
 				Name:    "modelcatalogbinding_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogBindingsColumns[13]},
+				Columns: []*schema.Column{ModelCatalogBindingsColumns[14]},
 			},
 		},
 	}

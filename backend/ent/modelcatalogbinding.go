@@ -43,6 +43,8 @@ type ModelCatalogBinding struct {
 	UpstreamModel string `json:"upstream_model,omitempty"`
 	// PriceIntervals holds the value of the "price_intervals" field.
 	PriceIntervals []domain.PriceSegment `json:"price_intervals,omitempty"`
+	// TimePricing holds the value of the "time_pricing" field.
+	TimePricing *domain.TimePricingSpec `json:"time_pricing,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -91,7 +93,7 @@ func (*ModelCatalogBinding) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case modelcatalogbinding.FieldPriceIntervals:
+		case modelcatalogbinding.FieldPriceIntervals, modelcatalogbinding.FieldTimePricing:
 			values[i] = new([]byte)
 		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice, modelcatalogbinding.FieldSearchPricePerCall, modelcatalogbinding.FieldXPostPrice, modelcatalogbinding.FieldXUserPrice:
 			values[i] = new(sql.NullFloat64)
@@ -194,6 +196,14 @@ func (_m *ModelCatalogBinding) assignValues(columns []string, values []any) erro
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.PriceIntervals); err != nil {
 					return fmt.Errorf("unmarshal field price_intervals: %w", err)
+				}
+			}
+		case modelcatalogbinding.FieldTimePricing:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field time_pricing", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.TimePricing); err != nil {
+					return fmt.Errorf("unmarshal field time_pricing: %w", err)
 				}
 			}
 		case modelcatalogbinding.FieldCreatedAt:
@@ -300,6 +310,9 @@ func (_m *ModelCatalogBinding) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("price_intervals=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PriceIntervals))
+	builder.WriteString(", ")
+	builder.WriteString("time_pricing=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TimePricing))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

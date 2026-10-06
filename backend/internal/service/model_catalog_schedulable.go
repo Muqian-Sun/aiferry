@@ -1,5 +1,7 @@
 package service
 
+import "time"
+
 // 上架提示（2026-10-04 D6，muqian 定：不拦上架，但上架时提示、模型列表标「没有能调度的渠道」）。
 
 // 模型没有能调度的渠道时的原因（给管理站列表与上架确认用）。
@@ -28,7 +30,8 @@ func SchedulableBindings(entry *ModelCatalogEntry, accounts map[int64]*Account, 
 		}
 		enabled++
 		if profit.Enabled() {
-			if rejected, _ := profitGateRejectsBinding(entry, b, threshold); rejected {
+			// 上架提示按平时价判断：忙时会被跳过的渠道平时仍能派到
+			if rejected, _ := profitGateRejectsBinding(entry, b, threshold, time.Time{}); rejected {
 				continue
 			}
 		}

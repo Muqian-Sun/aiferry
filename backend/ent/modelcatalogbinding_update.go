@@ -290,6 +290,18 @@ func (_u *ModelCatalogBindingUpdate) AppendPriceIntervals(v []domain.PriceSegmen
 	return _u
 }
 
+// SetTimePricing sets the "time_pricing" field.
+func (_u *ModelCatalogBindingUpdate) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingUpdate {
+	_u.mutation.SetTimePricing(v)
+	return _u
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (_u *ModelCatalogBindingUpdate) ClearTimePricing() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearTimePricing()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *ModelCatalogBindingUpdate) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpdate {
 	_u.mutation.SetUpdatedAt(v)
@@ -463,6 +475,12 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, modelcatalogbinding.FieldPriceIntervals, value)
 		})
+	}
+	if value, ok := _u.mutation.TimePricing(); ok {
+		_spec.SetField(modelcatalogbinding.FieldTimePricing, field.TypeJSON, value)
+	}
+	if _u.mutation.TimePricingCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldTimePricing, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpdatedAt, field.TypeTime, value)
@@ -803,6 +821,18 @@ func (_u *ModelCatalogBindingUpdateOne) AppendPriceIntervals(v []domain.PriceSeg
 	return _u
 }
 
+// SetTimePricing sets the "time_pricing" field.
+func (_u *ModelCatalogBindingUpdateOne) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingUpdateOne {
+	_u.mutation.SetTimePricing(v)
+	return _u
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearTimePricing() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearTimePricing()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *ModelCatalogBindingUpdateOne) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
@@ -1008,6 +1038,12 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, modelcatalogbinding.FieldPriceIntervals, value)
 		})
+	}
+	if value, ok := _u.mutation.TimePricing(); ok {
+		_spec.SetField(modelcatalogbinding.FieldTimePricing, field.TypeJSON, value)
+	}
+	if _u.mutation.TimePricingCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldTimePricing, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpdatedAt, field.TypeTime, value)

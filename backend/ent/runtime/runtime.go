@@ -973,11 +973,11 @@ func init() {
 	// modelcatalogbinding.DefaultPriceIntervals holds the default value on creation for the price_intervals field.
 	modelcatalogbinding.DefaultPriceIntervals = modelcatalogbindingDescPriceIntervals.Default.([]domain.PriceSegment)
 	// modelcatalogbindingDescCreatedAt is the schema descriptor for created_at field.
-	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[12].Descriptor()
+	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[13].Descriptor()
 	// modelcatalogbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
 	modelcatalogbinding.DefaultCreatedAt = modelcatalogbindingDescCreatedAt.Default.(func() time.Time)
 	// modelcatalogbindingDescUpdatedAt is the schema descriptor for updated_at field.
-	modelcatalogbindingDescUpdatedAt := modelcatalogbindingFields[13].Descriptor()
+	modelcatalogbindingDescUpdatedAt := modelcatalogbindingFields[14].Descriptor()
 	// modelcatalogbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	modelcatalogbinding.DefaultUpdatedAt = modelcatalogbindingDescUpdatedAt.Default.(func() time.Time)
 	// modelcatalogbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

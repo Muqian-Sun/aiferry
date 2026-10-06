@@ -33,6 +33,11 @@ func (e *ModelCatalogEntry) UpstreamCostRatio(b *ModelCatalogBinding) (ratio flo
 	return bindingCostRatio(e, b)
 }
 
+// UpstreamPeakCostRatio 一周里最差的上游成本比（上游忙时涨、我们没涨的时段）；不比平时差时 ok=false。
+func (e *ModelCatalogEntry) UpstreamPeakCostRatio(b *ModelCatalogBinding) (ratio float64, ok bool) {
+	return bindingPeakCostRatio(e, b)
+}
+
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
@@ -87,7 +92,21 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 			return catalogValidationError(fmt.Sprintf("upstream_model must be at most %d characters", maxBindingUpstreamModelLength))
 		}
 	}
+	if err := validateTimePricing(b.TimePricing); err != nil {
+		return catalogValidationError(fmt.Sprintf("upstream time_pricing: %s", err.Error()))
+	}
 	return validatePriceSegments("upstream", b.Intervals)
+}
+
+// normalizeBindingTimePricing 没有时段的忙闲时等于不分忙闲时，存成 nil。
+func normalizeBindingTimePricing(tp *TimePricing) *TimePricing {
+	if tp == nil || len(tp.Periods) == 0 {
+		return nil
+	}
+	cp := *tp
+	cp.Timezone = strings.TrimSpace(cp.Timezone)
+	cp.Periods = append([]TimePricingPeriod(nil), tp.Periods...)
+	return &cp
 }
 
 // maxBindingUpstreamModelLength 与 262 号迁移的 VARCHAR(255) 一致。
@@ -283,6 +302,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 		binding.EntryID = entryID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
+		binding.TimePricing = normalizeBindingTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}
@@ -322,6 +342,7 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 		binding.AccountID = accountID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
+		binding.TimePricing = normalizeBindingTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}

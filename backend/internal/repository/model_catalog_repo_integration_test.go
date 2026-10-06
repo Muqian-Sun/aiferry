@@ -666,3 +666,71 @@ func TestModelCatalogRepository_SalePricesSurviveSeedRefreshAndEdits(t *testing.
 	}
 	t.Fatal("entry missing from ListEntries")
 }
+
+// 承接上的上游忙闲时（muqian 2026-10-06）：按模型保存、按渠道保存都写进 time_pricing，三条读路径都带回；
+// 不分忙闲时存 NULL。
+func TestModelCatalogRepository_BindingTimePricingRoundTrips(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-peak")
+	client := testEntClient(t)
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("deepseek"), Vendor: "deepseek", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedByAdmin,
+		InputPrice: float64Value(1e-6), OutputPrice: float64Value(2e-6),
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(),
+			"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID))
+	})
+	accountA := mustCreateAccount(t, client, &service.Account{Name: unique("a")})
+	accountB := mustCreateAccount(t, client, &service.Account{Name: unique("b")})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
+	})
+
+	peak := service.DeepSeekOfficialPeakTimePricing()
+	require.NoError(t, repo.SaveEntryPricing(ctx, entry, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6, TimePricing: &peak},
+		{AccountID: accountB.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
+	}))
+
+	assertPeak := func(name string, bindings []service.ModelCatalogBinding) {
+		t.Helper()
+		require.Len(t, bindings, 2, name)
+		require.Equal(t, accountA.ID, bindings[0].AccountID, name)
+		require.Equal(t, &peak, bindings[0].TimePricing, name)
+		require.Nil(t, bindings[1].TimePricing, name)
+	}
+	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	assertPeak("ListBindingsByEntry", bindings)
+	got, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	assertPeak("GetEntryByID", got.Bindings)
+	all, err := repo.ListEntries(ctx)
+	require.NoError(t, err)
+	found := false
+	for i := range all {
+		if all[i].ID == entry.ID {
+			assertPeak("ListEntries", all[i].Bindings)
+			found = true
+		}
+	}
+	require.True(t, found, "entry missing from ListEntries")
+
+	var nulls int
+	require.NoError(t, integrationDB.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_catalog_bindings WHERE entry_id = $1 AND time_pricing IS NULL", entry.ID).Scan(&nulls))
+	require.Equal(t, 1, nulls, "不分忙闲时存 NULL")
+
+	// 按渠道保存：A 改成不分忙闲时
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, accountA.ID, []service.ModelCatalogBinding{
+		{EntryID: entry.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
+	}))
+	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Nil(t, bindings[0].TimePricing)
+}

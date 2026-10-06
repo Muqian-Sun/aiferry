@@ -70,6 +70,10 @@ func (ModelCatalogBinding) Fields() []ent.Field {
 		field.JSON("price_intervals", []domain.PriceSegment{}).
 			Default([]domain.PriceSegment{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		// time_pricing 上游忙闲时：按请求时刻整单 × 倍率算渠道成本；NULL = 上游不分忙闲时。
+		field.JSON("time_pricing", &domain.TimePricingSpec{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).

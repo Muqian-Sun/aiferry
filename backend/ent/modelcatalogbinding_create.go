@@ -153,6 +153,12 @@ func (_c *ModelCatalogBindingCreate) SetPriceIntervals(v []domain.PriceSegment) 
 	return _c
 }
 
+// SetTimePricing sets the "time_pricing" field.
+func (_c *ModelCatalogBindingCreate) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingCreate {
+	_c.mutation.SetTimePricing(v)
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *ModelCatalogBindingCreate) SetCreatedAt(v time.Time) *ModelCatalogBindingCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -343,6 +349,10 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 	if value, ok := _c.mutation.PriceIntervals(); ok {
 		_spec.SetField(modelcatalogbinding.FieldPriceIntervals, field.TypeJSON, value)
 		_node.PriceIntervals = value
+	}
+	if value, ok := _c.mutation.TimePricing(); ok {
+		_spec.SetField(modelcatalogbinding.FieldTimePricing, field.TypeJSON, value)
+		_node.TimePricing = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(modelcatalogbinding.FieldCreatedAt, field.TypeTime, value)
@@ -666,6 +676,24 @@ func (u *ModelCatalogBindingUpsert) UpdatePriceIntervals() *ModelCatalogBindingU
 	return u
 }
 
+// SetTimePricing sets the "time_pricing" field.
+func (u *ModelCatalogBindingUpsert) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldTimePricing, v)
+	return u
+}
+
+// UpdateTimePricing sets the "time_pricing" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateTimePricing() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldTimePricing)
+	return u
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (u *ModelCatalogBindingUpsert) ClearTimePricing() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldTimePricing)
+	return u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (u *ModelCatalogBindingUpsert) SetUpdatedAt(v time.Time) *ModelCatalogBindingUpsert {
 	u.Set(modelcatalogbinding.FieldUpdatedAt, v)
@@ -986,6 +1014,27 @@ func (u *ModelCatalogBindingUpsertOne) SetPriceIntervals(v []domain.PriceSegment
 func (u *ModelCatalogBindingUpsertOne) UpdatePriceIntervals() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.UpdatePriceIntervals()
+	})
+}
+
+// SetTimePricing sets the "time_pricing" field.
+func (u *ModelCatalogBindingUpsertOne) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetTimePricing(v)
+	})
+}
+
+// UpdateTimePricing sets the "time_pricing" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateTimePricing() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateTimePricing()
+	})
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (u *ModelCatalogBindingUpsertOne) ClearTimePricing() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearTimePricing()
 	})
 }
 
@@ -1454,6 +1503,27 @@ func (u *ModelCatalogBindingUpsertBulk) SetPriceIntervals(v []domain.PriceSegmen
 func (u *ModelCatalogBindingUpsertBulk) UpdatePriceIntervals() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.UpdatePriceIntervals()
+	})
+}
+
+// SetTimePricing sets the "time_pricing" field.
+func (u *ModelCatalogBindingUpsertBulk) SetTimePricing(v *domain.TimePricingSpec) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetTimePricing(v)
+	})
+}
+
+// UpdateTimePricing sets the "time_pricing" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateTimePricing() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateTimePricing()
+	})
+}
+
+// ClearTimePricing clears the value of the "time_pricing" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearTimePricing() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearTimePricing()
 	})
 }
 

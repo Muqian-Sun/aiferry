@@ -253,7 +253,15 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 			CacheReadPrice:    iv.CacheReadPrice,
 		})
 	}
-	_, err := tx.ModelCatalogBinding.Create().
+	builder := tx.ModelCatalogBinding.Create()
+	if tp := binding.TimePricing; tp != nil {
+		spec := &domain.TimePricingSpec{Timezone: tp.Timezone, WeekdaysOnly: tp.WeekdaysOnly}
+		for _, period := range tp.Periods {
+			spec.Periods = append(spec.Periods, domain.TimePricingSpecPeriod{StartTime: period.StartTime, EndTime: period.EndTime, Multiplier: period.Multiplier})
+		}
+		builder = builder.SetTimePricing(spec)
+	}
+	_, err := builder.
 		SetEntryID(entryID).
 		SetAccountID(accountID).
 		SetUpstreamModel(binding.UpstreamModel).
@@ -622,6 +630,13 @@ func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelC
 		XUserPrice:         row.XUserPrice,
 		CreatedAt:          row.CreatedAt,
 		UpdatedAt:          row.UpdatedAt,
+	}
+	if spec := row.TimePricing; spec != nil && len(spec.Periods) > 0 {
+		tp := &service.TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly}
+		for _, period := range spec.Periods {
+			tp.Periods = append(tp.Periods, service.TimePricingPeriod{StartTime: period.StartTime, EndTime: period.EndTime, Multiplier: period.Multiplier})
+		}
+		binding.TimePricing = tp
 	}
 	if len(row.PriceIntervals) > 0 {
 		binding.Intervals = make([]service.PricingInterval, 0, len(row.PriceIntervals))
