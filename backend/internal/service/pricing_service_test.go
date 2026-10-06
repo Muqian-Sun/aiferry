@@ -61,10 +61,9 @@ func TestPricingService_IgnoresLegacyDownloadedFileInDataDir(t *testing.T) {
 	require.InDelta(t, 2e-6, got.OutputCostPerToken, 1e-12)
 	require.Nil(t, svc.GetIdentifiedModelPricing("legacy-only-model"), "models only present in the stale file must not be loaded")
 
-	billing := NewBillingService(cfg, svc)
-	pricing, err := billing.GetModelPricing("builtin-model")
-	require.NoError(t, err)
-	require.InDelta(t, 1e-6, pricing.InputPricePerToken, 1e-12, "billing must use the built-in price")
+	// 播种目录用的是内置价格文件的价（计费只认目录）
+	entry := seedEntryFromLiteLLM("builtin-model", got)
+	require.InDelta(t, 1e-6, *entry.InputPrice, 1e-12, "the catalog is seeded from the built-in price")
 
 	body, err := os.ReadFile(legacyPricing)
 	require.NoError(t, err)
@@ -149,12 +148,12 @@ func TestGPT6AstraDedicatedFallbacksUseOfficialRates(t *testing.T) {
 		name string
 		svc  *BillingService
 	}{
-		{name: "pricing_service", svc: NewBillingService(&config.Config{}, &PricingService{pricingData: map[string]*LiteLLMModelPricing{}})},
-		{name: "billing_service", svc: NewBillingService(&config.Config{}, nil)},
+		{name: "pricing_service", svc: NewBillingService()},
+		{name: "billing_service", svc: NewBillingService()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pricing, err := tt.svc.GetModelPricing("gpt-6-astra")
+			pricing, err := builtinPricing(tt.svc, "gpt-6-astra")
 			require.NoError(t, err)
 			require.InDelta(t, 10e-6, pricing.InputPricePerToken, 1e-12)
 			require.InDelta(t, 50e-6, pricing.OutputPricePerToken, 1e-12)
@@ -173,40 +172,6 @@ func TestPricingServiceBareGPT6AliasUsesAstra(t *testing.T) {
 	}
 }
 
-func TestBillingService_GPT56CacheWritePricingUsesOfficialMultiplier(t *testing.T) {
-	tests := []struct {
-		model     string
-		input     float64
-		output    float64
-		cacheRead float64
-	}{
-		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6},
-		{model: "gpt-5.6-terra", input: 2e-6, output: 12e-6, cacheRead: 0.2e-6},
-		{model: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, cacheRead: 0.02e-6},
-	}
-	for _, tt := range tests {
-		t.Run(tt.model, func(t *testing.T) {
-			pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-				tt.model: {
-					InputCostPerToken:       tt.input,
-					OutputCostPerToken:      tt.output,
-					CacheReadInputTokenCost: tt.cacheRead,
-				},
-			}}
-			svc := NewBillingService(&config.Config{}, pricingSvc)
-
-			pricing, err := svc.GetModelPricing(tt.model)
-			require.NoError(t, err)
-			require.InDelta(t, tt.input*1.25, pricing.CacheCreationPricePerToken, 1e-12)
-
-			tokens := UsageTokens{InputTokens: 700, OutputTokens: 50, CacheCreationTokens: 200, CacheReadTokens: 100}
-			standard, err := svc.CalculateCost(tt.model, tokens, 1)
-			require.NoError(t, err)
-			require.InDelta(t, 200*tt.input*1.25, standard.CacheCreationCost, 1e-12)
-		})
-	}
-}
-
 // gpt56LadderCatalogJSON 三个 5.6 模型的目录条目：above_272k 绝对价 + priority 平价，
 // cache_write 缺失由策略按 1.25 倍输入价补齐。
 const gpt56LadderCatalogJSON = `{
@@ -214,6 +179,7 @@ const gpt56LadderCatalogJSON = `{
 		"input_cost_per_token": 5e-06, "input_cost_per_token_priority": 1e-05,
 		"output_cost_per_token": 3e-05, "output_cost_per_token_priority": 6e-05,
 		"cache_read_input_token_cost": 5e-07, "cache_read_input_token_cost_priority": 1e-06,
+		"cache_creation_input_token_cost": 6.25e-06,
 		"input_cost_per_token_above_272k_tokens": 1e-05,
 		"output_cost_per_token_above_272k_tokens": 4.5e-05,
 		"cache_read_input_token_cost_above_272k_tokens": 1e-06},
@@ -221,6 +187,7 @@ const gpt56LadderCatalogJSON = `{
 		"input_cost_per_token": 2e-06, "input_cost_per_token_priority": 4e-06,
 		"output_cost_per_token": 1.2e-05, "output_cost_per_token_priority": 2.4e-05,
 		"cache_read_input_token_cost": 2e-07, "cache_read_input_token_cost_priority": 4e-07,
+		"cache_creation_input_token_cost": 2.5e-06,
 		"input_cost_per_token_above_272k_tokens": 4e-06,
 		"output_cost_per_token_above_272k_tokens": 1.8e-05,
 		"cache_read_input_token_cost_above_272k_tokens": 4e-07},
@@ -228,13 +195,14 @@ const gpt56LadderCatalogJSON = `{
 		"input_cost_per_token": 2e-07, "input_cost_per_token_priority": 4e-07,
 		"output_cost_per_token": 1.2e-06, "output_cost_per_token_priority": 2.4e-06,
 		"cache_read_input_token_cost": 2e-08, "cache_read_input_token_cost_priority": 4e-08,
+		"cache_creation_input_token_cost": 2.5e-07,
 		"input_cost_per_token_above_272k_tokens": 4e-07,
 		"output_cost_per_token_above_272k_tokens": 1.8e-06,
 		"cache_read_input_token_cost_above_272k_tokens": 4e-08}
 }`
 
-// GPT-5.6 三个型号的 above_272k 阶梯播种成分段后按高段价；
-// 缓存写价 = 高段输入价 × 1.25（模型策略在取段价之后补，与原来「基础补 1.25 再乘倍数」一样）。
+// GPT-5.6 三个型号的 above_272k 阶梯播种成分段后按高段价；缓存写价（价格文件写明 = 输入价 × 1.25）
+// 在高段按「本段输入价 ÷ 基础输入价」同比例加。
 func TestBillingService_GPT56UsesTokenSegmentAcrossModels(t *testing.T) {
 	models := []struct {
 		name               string
@@ -275,31 +243,6 @@ func TestBillingService_GPT56TokenSegmentBoundaryIsExclusive(t *testing.T) {
 	require.InDelta(t, 10*30e-6, cost.OutputCost, 1e-12)
 }
 
-func TestPricingService_BareGPT56AliasDeterministicallyUsesSol(t *testing.T) {
-	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-		"gpt-5.6-sol":   {InputCostPerToken: 5e-6},
-		"gpt-5.6-terra": {InputCostPerToken: 2e-6},
-		"gpt-5.6-luna":  {InputCostPerToken: 0.2e-6},
-		"gpt-5.4":       {InputCostPerToken: 2.5e-6},
-	}}
-
-	for i := 0; i < 100; i++ {
-		for _, alias := range []string{"gpt-5.6", "openai/gpt-5.6"} {
-			pricing := pricingSvc.GetModelPricing(alias)
-			require.NotNil(t, pricing)
-			require.InDelta(t, 5e-6, pricing.InputCostPerToken, 1e-12, "iteration=%d alias=%s", i, alias)
-		}
-	}
-
-	billingSvc := NewBillingService(&config.Config{}, pricingSvc)
-	for _, alias := range []string{"gpt-5.6", "openai/gpt-5.6"} {
-		pricing, err := billingSvc.GetModelPricing(alias)
-		require.NoError(t, err)
-		require.InDelta(t, 5e-6, pricing.InputPricePerToken, 1e-12)
-		require.InDelta(t, 6.25e-6, pricing.CacheCreationPricePerToken, 1e-12)
-	}
-}
-
 func TestDefaultPricingIncludesOfficialGPT56Rates(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
@@ -308,7 +251,7 @@ func TestDefaultPricingIncludesOfficialGPT56Rates(t *testing.T) {
 	pricingData, err := pricingSvc.parsePricingData(data)
 	require.NoError(t, err)
 	pricingSvc.pricingData = pricingData
-	billingSvc := NewBillingService(&config.Config{}, pricingSvc)
+	billingSvc := NewBillingService()
 
 	tests := []struct {
 		model                             string
@@ -320,7 +263,7 @@ func TestDefaultPricingIncludesOfficialGPT56Rates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			pricing, err := billingSvc.GetModelPricing(tt.model)
+			pricing, err := builtinPricing(billingSvc, tt.model)
 			require.NoError(t, err)
 			require.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12)
 			require.InDelta(t, tt.cached, pricing.CacheReadPricePerToken, 1e-12)
@@ -341,19 +284,9 @@ func TestGPT56DedicatedFallbacksUseOfficialRates(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.model+"/pricing_service", func(t *testing.T) {
-			pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-				"gpt-5.1-codex": {InputCostPerToken: 1.25e-6},
-			}}
-			svc := NewBillingService(&config.Config{}, pricingSvc)
-			pricing, err := svc.GetModelPricing(tt.model + "-preview")
-			require.NoError(t, err)
-			assertGPT56FallbackPricing(t, pricing, tt.input, tt.cached, tt.cacheWrite, tt.output)
-		})
-
 		t.Run(tt.model+"/billing_service", func(t *testing.T) {
-			svc := NewBillingService(&config.Config{}, nil)
-			pricing, err := svc.GetModelPricing(tt.model)
+			svc := NewBillingService()
+			pricing, err := builtinPricing(svc, tt.model)
 			require.NoError(t, err)
 			assertGPT56FallbackPricing(t, pricing, tt.input, tt.cached, tt.cacheWrite, tt.output)
 		})
@@ -406,17 +339,13 @@ func TestBillingService_GetModelPricing_FailsClosedForImageOnlyEntries(t *testin
 	}`))
 	require.NoError(t, err)
 	pricingSvc.pricingData = data
-	billingSvc := NewBillingService(&config.Config{}, pricingSvc)
 
-	// image-only 条目不得进入 token 计费（否则 token 流量按 $0 计费），
-	// 必须落到 fallback / ErrModelPricingUnavailable 的 fail-closed 路径。
-	_, err = billingSvc.GetModelPricing("imagen-9.0-generate")
-	require.ErrorIs(t, err, ErrModelPricingUnavailable)
-
-	// 显式 0 token 价的免费条目保持历史行为：正常返回。
-	pricing, err := billingSvc.GetModelPricing("gemini-image-with-token-price")
-	require.NoError(t, err)
-	require.Zero(t, pricing.InputPricePerToken)
+	// image-only 条目播种成按张计价（不是按 $0 的 token 价）：计费只认目录，目录里它就是生图模型。
+	imagen := seedEntryFromLiteLLM("imagen-9.0-generate", data["imagen-9.0-generate"])
+	require.True(t, data["imagen-9.0-generate"].TokenPricingAbsent)
+	require.Equal(t, BillingModeImage, imagen.BillingMode)
+	require.InDelta(t, 0.04, *imagen.PerRequestPrice, 1e-12)
+	require.False(t, imagen.HasAnyTokenPrice())
 
 	// 图片计费路径不受影响：仍能读到 image-only 条目的图片单价。
 	raw := pricingSvc.GetModelPricing("imagen-9.0-generate")
@@ -532,29 +461,6 @@ func TestPricingService_GeminiFlashTierSpecificPricingTakesPrecedence(t *testing
 	}
 }
 
-func TestBillingService_Gemini36FlashThinkingTierFallbacksAreBillable(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, nil)
-	tokens := UsageTokens{InputTokens: 1_000_000, OutputTokens: 1_000_000, CacheReadTokens: 1_000_000}
-
-	for _, model := range []string{
-		"gemini-3.6-flash",
-		"gemini-3.6-flash-high",
-		"gemini-3.6-flash-low",
-		"gemini-3.6-flash-medium",
-		"gemini-3.6-flash-tiered",
-	} {
-		t.Run(model, func(t *testing.T) {
-			cost, err := svc.CalculateCost(model, tokens, 1)
-			require.NoError(t, err)
-			// 官网优惠价（到 2026-12-31）：$0.75 / $3.75 / $0.075
-			require.InDelta(t, 0.75, cost.InputCost, 1e-12)
-			require.InDelta(t, 3.75, cost.OutputCost, 1e-12)
-			require.InDelta(t, 0.075, cost.CacheReadCost, 1e-12)
-			require.InDelta(t, 4.575, cost.TotalCost, 1e-12)
-		})
-	}
-}
-
 func TestPricingService_Gemini37FlashThinkingTiersUseBasePricing(t *testing.T) {
 	basePricing := &LiteLLMModelPricing{
 		InputCostPerToken:       0.75e-6,
@@ -574,28 +480,6 @@ func TestPricingService_Gemini37FlashThinkingTiersUseBasePricing(t *testing.T) {
 	} {
 		t.Run(model, func(t *testing.T) {
 			require.Same(t, basePricing, svc.GetModelPricing(model))
-		})
-	}
-}
-
-func TestBillingService_Gemini37FlashThinkingTierFallbacksAreBillable(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, nil)
-	tokens := UsageTokens{InputTokens: 1_000_000, OutputTokens: 1_000_000, CacheReadTokens: 1_000_000}
-
-	for _, model := range []string{
-		"gemini-3.7-flash",
-		"gemini-3.7-flash-high",
-		"gemini-3.7-flash-low",
-		"gemini-3.7-flash-medium",
-		"gemini-3.7-flash-tiered",
-	} {
-		t.Run(model, func(t *testing.T) {
-			cost, err := svc.CalculateCost(model, tokens, 1)
-			require.NoError(t, err)
-			require.InDelta(t, 0.75, cost.InputCost, 1e-12)
-			require.InDelta(t, 3.75, cost.OutputCost, 1e-12)
-			require.InDelta(t, 0.075, cost.CacheReadCost, 1e-12)
-			require.InDelta(t, 4.575, cost.TotalCost, 1e-12)
 		})
 	}
 }
@@ -623,28 +507,6 @@ func TestPricingService_Gemini38FlashThinkingTiersUseBasePricing(t *testing.T) {
 	}
 }
 
-func TestBillingService_Gemini38FlashThinkingTierFallbacksAreBillable(t *testing.T) {
-	svc := NewBillingService(&config.Config{}, nil)
-	tokens := UsageTokens{InputTokens: 1_000_000, OutputTokens: 1_000_000, CacheReadTokens: 1_000_000}
-
-	for _, model := range []string{
-		"gemini-3.8-flash",
-		"gemini-3.8-flash-high",
-		"gemini-3.8-flash-low",
-		"gemini-3.8-flash-medium",
-		"gemini-3.8-flash-tiered",
-	} {
-		t.Run(model, func(t *testing.T) {
-			cost, err := svc.CalculateCost(model, tokens, 1)
-			require.NoError(t, err)
-			require.InDelta(t, 0.75, cost.InputCost, 1e-12)
-			require.InDelta(t, 3.75, cost.OutputCost, 1e-12)
-			require.InDelta(t, 0.075, cost.CacheReadCost, 1e-12)
-			require.InDelta(t, 4.575, cost.TotalCost, 1e-12)
-		})
-	}
-}
-
 func TestDefaultPricingIncludesGemini36FlashRates(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
@@ -653,11 +515,11 @@ func TestDefaultPricingIncludesGemini36FlashRates(t *testing.T) {
 	pricingData, err := pricingSvc.parsePricingData(data)
 	require.NoError(t, err)
 	pricingSvc.pricingData = pricingData
-	billingSvc := NewBillingService(&config.Config{}, pricingSvc)
+	billingSvc := NewBillingService()
 
-	for _, model := range []string{"gemini-3.6-flash", "gemini-3.6-flash-low", "gemini-3.6-flash-high"} {
+	for _, model := range []string{"gemini-3.6-flash"} {
 		t.Run(model, func(t *testing.T) {
-			pricing, err := billingSvc.GetModelPricing(model)
+			pricing, err := builtinPricing(billingSvc, model)
 			require.NoError(t, err)
 			// 官网优惠价（到 2026-12-31，2027 年起翻倍为 $1.50 / $7.50 / $0.15）
 			require.InDelta(t, 0.75e-6, pricing.InputPricePerToken, 1e-12)

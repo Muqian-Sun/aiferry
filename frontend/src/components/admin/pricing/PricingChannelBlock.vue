@@ -64,15 +64,15 @@
             :key="row.id"
             v-model:prices="row.prices"
             v-model:peak="row.peak"
-            peak-editable
-            :deepseek-peak="deepseekPeak"
+            peak-editable="upstream"
+            :official-peak="officialPeakOf(row.id)"
             :issues="rowIssues(row)"
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-channel-row-${row.id}`"
             :search-keys="searchKeysOf(entriesById.get(row.id)?.search_defaults)"
             :search-placeholders="upstreamSearchPlaceholders(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id))"
-            :search-hints="upstreamSearchHints(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id), entriesById.get(row.id)?.search_defaults)"
+            :search-hints="upstreamSearchHints(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id))"
             :search-note="t('admin.pricing.search.upstreamNote')"
           >
             <template #lead>
@@ -139,7 +139,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { PricingAccount, PricingEntry, TimePricing } from '@/api/admin/pricing'
+import type { PricingAccount, PricingEntry } from '@/api/admin/pricing'
 import Icon from '@/components/icons/Icon.vue'
 import FormError from '@/components/common/FormError.vue'
 import { MenuItem, PopoverMenu } from '@/components/admin/list'
@@ -159,6 +159,7 @@ import {
   keyedRowUnchanged,
   marginOf,
   newChannelRow,
+  peakFormFrom,
   peakFormToRequest,
   priceRowFrom,
   priceRowToRequest,
@@ -183,8 +184,6 @@ const props = defineProps<{
   entries: PricingEntry[]
   defaultSaleRatio: number
   minMargin: number
-  /** DeepSeek 官方忙闲时：DeepSeek 模型新加承接时默认带上 */
-  deepseekPeak?: TimePricing
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
@@ -216,6 +215,11 @@ function officialOf(entryId: number): Record<PriceKey, number | null> & Record<S
     x_post_price: entry?.x_post_price ?? null,
     x_user_price: entry?.x_user_price ?? null
   }
+}
+
+/** 这个模型的官方忙闲时（目录条目的分时；官方价只读，按服务端的值） */
+function officialPeakOf(entryId: number) {
+  return peakFormFrom(entriesById.value.get(entryId)?.time_pricing)
 }
 
 function rowIssues(row: KeyedRow): RowIssues {
@@ -262,7 +266,7 @@ const filteredAddable = computed(() => {
 })
 
 function addModel(entry: PricingEntry) {
-  draft.value.rows.push(newChannelRow(entry, props.account, props.accounts, props.deepseekPeak))
+  draft.value.rows.push(newChannelRow(entry, props.account, props.accounts))
 }
 
 // ---- 从同上游的渠道复制价格：同一家上游按协议建了几个渠道（fenno 有 Chat / Responses / Messages）时，

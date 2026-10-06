@@ -18,17 +18,10 @@ type TokenCostRequest struct {
 	Resolved *ResolvedPricing
 }
 
-// CalculateTokenCostForRequest 按通用网关的路径选择计算 token 费用：
-//  1. 有解析器（模型目录 → 价格文件；按 token 分段只在模型目录里）
-//     或带推理等级 → 统一计费；
-//  2. 否则直接按价格文件计费。
-//
-// 模型广场的阶梯表查询与网关使用同一入口，保证展示与扣费同源。
+// CalculateTokenCostForRequest 计算 token 费用：只按模型目录（muqian 2026-10-06：所有模型的计费都从模型目录出发），
+// 没有解析器 / 预解析结果就没有价。模型广场的阶梯表查询与网关使用同一入口，保证展示与扣费同源。
 func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*CostBreakdown, error) {
-	if req.Resolver != nil || req.Resolved != nil || req.ReasoningEffort != "" {
-		return s.CalculateCostUnified(s.tokenCostInput(req, req.Resolved))
-	}
-	return s.CalculateCost(req.Model, req.Tokens, req.RateMultiplier)
+	return s.CalculateCostUnified(s.tokenCostInput(req, req.Resolved))
 }
 
 func (s *BillingService) tokenCostInput(req TokenCostRequest, resolved *ResolvedPricing) CostInput {

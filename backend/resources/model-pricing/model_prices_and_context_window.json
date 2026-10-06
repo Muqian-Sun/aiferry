@@ -740,7 +740,15 @@
     "supports_response_schema": true,
     "supports_system_messages": true,
     "supports_tool_choice": true,
-    "supports_vision": true
+    "supports_vision": true,
+    "time_pricing": {
+      "timezone": "Asia/Shanghai",
+      "weekdays_only": true,
+      "periods": [
+        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
+        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ]
+    }
   },
   "deepseek-v4-flash": {
     "cache_read_input_token_cost": 3e-09,
@@ -762,7 +770,15 @@
     "supports_reasoning": true,
     "supports_response_schema": true,
     "supports_system_messages": true,
-    "supports_tool_choice": true
+    "supports_tool_choice": true,
+    "time_pricing": {
+      "timezone": "Asia/Shanghai",
+      "weekdays_only": true,
+      "periods": [
+        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
+        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ]
+    }
   },
   "deepseek-v4-flash-vision-exp": {
     "cache_read_input_token_cost": 3e-09,
@@ -785,7 +801,15 @@
     "supports_response_schema": true,
     "supports_system_messages": true,
     "supports_tool_choice": true,
-    "supports_vision": true
+    "supports_vision": true,
+    "time_pricing": {
+      "timezone": "Asia/Shanghai",
+      "weekdays_only": true,
+      "periods": [
+        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
+        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ]
+    }
   },
   "deepseek-v4-pro": {
     "cache_read_input_token_cost": 2.2e-08,
@@ -807,7 +831,15 @@
     "supports_reasoning": true,
     "supports_response_schema": true,
     "supports_system_messages": true,
-    "supports_tool_choice": true
+    "supports_tool_choice": true,
+    "time_pricing": {
+      "timezone": "Asia/Shanghai",
+      "weekdays_only": true,
+      "periods": [
+        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
+        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ]
+    }
   },
   "gemini-2.0-flash": {
     "cache_read_input_token_cost": 2.5e-08,

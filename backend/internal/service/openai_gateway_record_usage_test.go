@@ -213,7 +213,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		cfg,
 		nil,
 		nil,
-		NewBillingService(cfg, nil),
+		NewBillingService(),
 		nil,
 		&BillingCacheService{},
 		nil,
@@ -223,7 +223,8 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil,
 		nil, nil)
-
+	// 计费只认模型目录：按内置价表播种一份目录，与生产同一条计费路径
+	svc.resolver = builtinSeededResolver(svc.billingService)
 	return svc
 }
 
@@ -236,7 +237,7 @@ func newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogReposit
 func expectedOpenAICost(t *testing.T, svc *OpenAIGatewayService, model string, usage OpenAIUsage, multiplier float64) *CostBreakdown {
 	t.Helper()
 
-	cost, err := svc.billingService.CalculateCost(model, UsageTokens{
+	cost, err := builtinCatalogCost(svc.billingService, model, UsageTokens{
 		InputTokens:         max(usage.InputTokens-usage.CacheReadInputTokens-usage.CacheCreationInputTokens, 0),
 		OutputTokens:        usage.OutputTokens,
 		CacheCreationTokens: usage.CacheCreationInputTokens,
@@ -855,13 +856,12 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
-	svc.billingService = NewBillingService(svc.cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-		"gpt-5.6-sol": {
-			InputCostPerToken:       5e-6,
-			OutputCostPerToken:      30e-6,
-			CacheReadInputTokenCost: 0.5e-6,
-		},
-	}})
+	svc.resolver = newResolverWithSeededEntries(svc.billingService, seedEntryFromLiteLLM("gpt-5.6-sol", &LiteLLMModelPricing{
+		InputCostPerToken:           5e-6,
+		OutputCostPerToken:          30e-6,
+		CacheCreationInputTokenCost: 6.25e-6,
+		CacheReadInputTokenCost:     0.5e-6,
+	}))
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -944,7 +944,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityRecordedAtStandardPr
 	require.NotNil(t, usageRepo.lastLog.ServiceTier)
 	require.Equal(t, serviceTier, *usageRepo.lastLog.ServiceTier)
 
-	baseCost, calcErr := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
+	baseCost, calcErr := builtinCatalogCost(svc.billingService, "gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, calcErr)
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
@@ -1144,7 +1144,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsMappedRequestsUsingRequestedModel(
 
 	// Billing should use the requested model ("gpt-5.1"), not the upstream mapped model ("gpt-5.1-codex").
 	// This ensures pricing is always based on the model the user requested.
-	expectedCost, err := svc.billingService.CalculateCost("gpt-5.1", UsageTokens{
+	expectedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.1", UsageTokens{
 		InputTokens:  20,
 		OutputTokens: 10,
 	}, 1.1)
@@ -1180,7 +1180,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelMappedDoesNotOverrideBillingMode
 
 	// 渠道未发生模型映射时，应使用 result.BillingModel 中记录的实际上游计费模型，
 	// 而不是未映射的原始请求模型。
-	expectedCost, err := svc.billingService.CalculateCost("gpt-5.1", UsageTokens{
+	expectedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.1", UsageTokens{
 		InputTokens:  20,
 		OutputTokens: 10,
 	}, 1.1)
@@ -1218,9 +1218,9 @@ func TestOpenAIGatewayServiceRecordUsage_ResponsesMappedBillingModelBillsMappedM
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
-	expectedCost, err := svc.billingService.CalculateCost("gpt-5.5", tokens, 1.1)
+	expectedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.5", tokens, 1.1)
 	require.NoError(t, err)
-	requestedCost, err := svc.billingService.CalculateCost("gpt-5.4", tokens, 1.1)
+	requestedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.4", tokens, 1.1)
 	require.NoError(t, err)
 	require.NotEqual(t, requestedCost.ActualCost, expectedCost.ActualCost, "fixture models must price differently")
 
@@ -1255,7 +1255,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsCompactOpenAIModelAlias(t *testing
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
-	expectedCost, err := svc.billingService.CalculateCost("gpt-5.5", UsageTokens{
+	expectedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.5", UsageTokens{
 		InputTokens:  20,
 		OutputTokens: 10,
 	}, 1.1)
@@ -1291,7 +1291,7 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToUpstreamModelWhenPrimaryUnpr
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
-	expectedCost, err := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{
+	expectedCost, err := builtinCatalogCost(svc.billingService, "gpt-5.4", UsageTokens{
 		InputTokens:  20,
 		OutputTokens: 10,
 	}, 1.1)
@@ -1764,7 +1764,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 // groupID 只保留签名兼容：目录是全局的，不按分组隔离。
 func newOpenAIImageChannelPricingResolverForTest(t *testing.T, _ int64, model string, price float64) *ModelPricingResolver {
 	t.Helper()
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), PricingCard{
+	return newResolverWithCatalogCards(NewBillingService(), PricingCard{
 		Models:          []string{model},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: &price,
@@ -1781,7 +1781,7 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 	inputPrice := 3e-6
 	outputPrice := 15e-6
 	imageOutputPrice := 15e-6
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), PricingCard{
+	return newResolverWithCatalogCards(NewBillingService(), PricingCard{
 		Models:           []string{model},
 		BillingMode:      BillingModeToken,
 		InputPrice:       &inputPrice,
@@ -1792,7 +1792,7 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 }
 
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCount(t *testing.T) {
-	billingService := NewBillingService(&config.Config{}, nil)
+	billingService := NewBillingService()
 	svc := &GatewayService{
 		billingService: billingService,
 		resolver:       newOpenAIImageChannelPricingResolverForTest(t, 0, "gemini-image", 0.25),
@@ -1816,7 +1816,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCoun
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(t *testing.T) {
 	defaultPrice := 0.10
 	price4K := 0.40
-	billingService := NewBillingService(&config.Config{}, nil)
+	billingService := NewBillingService()
 	svc := &GatewayService{
 		billingService: billingService,
 		resolver: newResolverWithCatalogCards(billingService, PricingCard{
@@ -1897,7 +1897,7 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMissingSizeTier(t *testing.T) {
 	defaultPrice := 0.10
 	price2K := 0.22
-	billingService := NewBillingService(&config.Config{}, nil)
+	billingService := NewBillingService()
 	svc := &GatewayService{
 		billingService: billingService,
 		resolver: newResolverWithCatalogCards(billingService, PricingCard{
@@ -1953,7 +1953,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 	require.NotNil(t, usageRepo.lastLog.ServiceTier)
 	require.Equal(t, "default", *usageRepo.lastLog.ServiceTier, "usage log must record the tier actually billed")
 
-	baseCost, calcErr := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
+	baseCost, calcErr := builtinCatalogCost(svc.billingService, "gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, calcErr)
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10, "a request served at default must not pay the priority price")
 }
@@ -1989,7 +1989,7 @@ func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsPriorityTier(t *te
 			require.NotNil(t, usageRepo.lastLog.ServiceTier)
 			require.Equal(t, "priority", *usageRepo.lastLog.ServiceTier)
 
-			standardCost, calcErr := svc.billingService.CalculateCost("gpt-5.6-sol", tokens, 1.0)
+			standardCost, calcErr := builtinCatalogCost(svc.billingService, "gpt-5.6-sol", tokens, 1.0)
 			require.NoError(t, calcErr)
 			require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 		})
@@ -2035,7 +2035,7 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 	require.NotNil(t, usageRepo.lastLog.ServiceTier)
 	require.Equal(t, "priority", *usageRepo.lastLog.ServiceTier)
 
-	standardCost, calcErr := svc.billingService.CalculateCost("gpt-5.6-sol", tokens, 1.0)
+	standardCost, calcErr := builtinCatalogCost(svc.billingService, "gpt-5.6-sol", tokens, 1.0)
 	require.NoError(t, calcErr)
 	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
@@ -2064,7 +2064,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 	require.NotNil(t, usageRepo.lastLog)
 	require.Nil(t, usageRepo.lastLog.ServiceTier)
 
-	baseCost, calcErr := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
+	baseCost, calcErr := builtinCatalogCost(svc.billingService, "gpt-5.4", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, calcErr)
 	require.InDelta(t, baseCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
@@ -2102,5 +2102,5 @@ func seededImagineResolverForTest(bs *BillingService) *ModelPricingResolver {
 		entries[i].Status = ModelCatalogStatusListed
 	}
 	catalog, _ := newTestModelCatalogService(entries...)
-	return NewModelPricingResolver(catalog, bs)
+	return NewModelPricingResolver(catalog)
 }

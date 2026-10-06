@@ -33,11 +33,9 @@ type PricingOverviewResponse struct {
 	// DefaultSaleRatio 默认售价比例：没单独填售价的项按官方价 × 它收；毛利 = 1 − 上游成本比 ÷ 它。
 	DefaultSaleRatio float64 `json:"default_sale_ratio"`
 	// MinMargin 利润门的最低毛利率，0 = 利润门关闭。
-	MinMargin float64 `json:"min_margin"`
-	// DeepSeekPeakTimePricing DeepSeek 官方忙闲时：给 DeepSeek 模型新加承接时默认带上的上游忙闲时，也是快捷选项。
-	DeepSeekPeakTimePricing service.TimePricing      `json:"deepseek_peak_time_pricing"`
-	Entries                 []PricingEntryResponse   `json:"entries"`
-	Accounts                []PricingAccountResponse `json:"accounts"`
+	MinMargin float64                  `json:"min_margin"`
+	Entries   []PricingEntryResponse   `json:"entries"`
+	Accounts  []PricingAccountResponse `json:"accounts"`
 }
 
 // PricingEntryResponse 价格页上的一个模型：官方价、分段与承接关系。
@@ -55,12 +53,15 @@ type PricingEntryResponse struct {
 	Intervals         []service.PricingInterval `json:"intervals"`
 	// SalePrices 我们自己定的售价（五项 + 各段，按下界对上官方价的分段）；没填的项按官方价 × 默认售价比例。
 	SalePrices service.CatalogSalePrices `json:"sale_prices"`
-	// 联网搜索官方价（USD / 次、/ 条）；null = 没设，按 SearchDefaults 收。
+	// 联网搜索官方价（USD / 次、/ 条）；null = 没设，不收搜索费（计费只认目录）。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
-	// SearchDefaults 厂商公开的搜索价（官方价没设时按它收）；null = 这个厂商没有官方搜索工具，不填搜索价。
+	// SearchDefaults 厂商公开的搜索价（播种时写进目录，价格页当参考）；null = 这个厂商没有官方搜索工具，不填搜索价。
 	SearchDefaults *PricingSearchDefaults `json:"search_defaults"`
+	// TimePricing 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱整单乘倍数；
+	// 新加承接默认带上它作上游忙闲时。null = 不分忙闲时。
+	TimePricing *service.TimePricing `json:"time_pricing"`
 	// WebSearchDelegate 这条是「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项）。
 	WebSearchDelegate bool                     `json:"web_search_delegate"`
 	Bindings          []PricingBindingResponse `json:"bindings"`
@@ -127,7 +128,7 @@ type PricingPricesRequest struct {
 	SearchPricePerCall *float64                  `json:"search_price_per_call"`
 	XPostPrice         *float64                  `json:"x_post_price"`
 	XUserPrice         *float64                  `json:"x_user_price"`
-	// TimePricing 只有上游价用：上游忙闲时（null = 不分忙闲时）；官方价那一块忽略它。
+	// TimePricing 忙闲时（null = 不分忙闲时）：按模型保存时顶层的是官方忙闲时，承接上的是上游忙闲时。
 	TimePricing *service.TimePricing `json:"time_pricing"`
 }
 
@@ -194,11 +195,10 @@ func (h *ModelCatalogHandler) PricingOverview(c *gin.Context) {
 		return
 	}
 	out := PricingOverviewResponse{
-		DefaultSaleRatio:        service.DefaultSalePriceRatio,
-		DeepSeekPeakTimePricing: service.DeepSeekOfficialPeakTimePricing(),
-		MinMargin:               h.settings.GetProfitControlSettings(ctx).MinMargin,
-		Entries:                 make([]PricingEntryResponse, 0, len(entries)),
-		Accounts:                make([]PricingAccountResponse, 0, len(accounts)),
+		DefaultSaleRatio: service.DefaultSalePriceRatio,
+		MinMargin:        h.settings.GetProfitControlSettings(ctx).MinMargin,
+		Entries:          make([]PricingEntryResponse, 0, len(entries)),
+		Accounts:         make([]PricingAccountResponse, 0, len(accounts)),
 	}
 	for i := range entries {
 		out.Entries = append(out.Entries, h.pricingEntryResponse(&entries[i], accounts))
@@ -240,6 +240,7 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		SearchPricePerCall: req.SearchPricePerCall,
 		XPostPrice:         req.XPostPrice,
 		XUserPrice:         req.XUserPrice,
+		TimePricing:        req.TimePricing,
 	}
 	ctx := c.Request.Context()
 	entry, err := h.service.SaveEntryPricing(ctx, id, official, req.SalePrices, bindings, h.accounts)
@@ -327,6 +328,7 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 		SearchPricePerCall: entry.SearchPricePerCall,
 		XPostPrice:         entry.XPostPrice,
 		XUserPrice:         entry.XUserPrice,
+		TimePricing:        entry.TimePricing,
 		Bindings:           make([]PricingBindingResponse, 0, len(entry.Bindings)),
 		BindableAccountIDs: make([]int64, 0),
 		WebSearchDelegate:  entry.ModelID == service.WebSearchDelegateModel,

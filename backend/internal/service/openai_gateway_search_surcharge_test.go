@@ -14,14 +14,13 @@ import (
 func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 	t.Parallel()
 
-	svc := &OpenAIGatewayService{
-		billingService: newTestBillingService(),
-	}
+	bs := newTestBillingService()
+	svc := &OpenAIGatewayService{billingService: bs, resolver: builtinSeededResolver(bs)}
 	apiKey := &APIKey{}
 
-	// claude-sonnet-4 fallback: Input $3/MTok, Output $15/MTok
+	// 目录里的 claude-sonnet-4（按内置价表播种）: Input $3/MTok, Output $15/MTok
 	// 1000 in + 500 out → 0.003 + 0.0075 = 0.0105，× 倍率 2 = 0.021
-	// + 100 次搜索 × 内置 $0.01（不乘倍率）= 1.0
+	// + 100 次搜索 × 目录条目的 $0.01（播种的 Anthropic 公开价，不乘倍率）= 1.0
 	cost, _, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(),
 		&OpenAIForwardResult{WebSearch: WebSearchUsage{WebSearchCalls: 100}},
@@ -42,9 +41,8 @@ func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 func TestCalculateOpenAIRecordUsageCost_TokenPricingErrorNotSwallowedBySearch(t *testing.T) {
 	t.Parallel()
 
-	svc := &OpenAIGatewayService{
-		billingService: newTestBillingService(),
-	}
+	bs := newTestBillingService()
+	svc := &OpenAIGatewayService{billingService: bs, resolver: builtinSeededResolver(bs)}
 	apiKey := &APIKey{}
 	// Unknown model → token pricing fails; search must not replace that with $0/$search bill.
 	cost, _, err := svc.calculateOpenAIRecordUsageCost(

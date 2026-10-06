@@ -16,7 +16,7 @@ import (
 
 func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *GatewayService {
 	cfg := &config.Config{}
-	return NewGatewayService(
+	svc := NewGatewayService(
 		nil,
 		usageRepo,
 		nil,
@@ -27,7 +27,7 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		cfg,
 		nil,
 		nil,
-		NewBillingService(cfg, nil),
+		NewBillingService(),
 		nil,
 		&BillingCacheService{},
 		nil,
@@ -42,6 +42,9 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		nil,
 	)
+	// 计费只认模型目录：按内置价表播种一份目录，与生产同一条计费路径
+	svc.resolver = builtinSeededResolver(svc.billingService)
+	return svc
 }
 
 func newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *GatewayService {
@@ -187,41 +190,6 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 	require.Equal(t, "claude-sonnet-4", usageRepo.lastLog.RequestedModel)
 	require.NotNil(t, usageRepo.lastLog.UpstreamModel)
 	require.Equal(t, mappedModel, *usageRepo.lastLog.UpstreamModel)
-}
-
-func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *testing.T) {
-	for _, baseModel := range []string{"gemini-3.7-flash", "gemini-3.8-flash"} {
-		t.Run(baseModel, func(t *testing.T) {
-			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-			userRepo := &openAIRecordUsageUserRepoStub{}
-			svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-			svc.billingService = NewBillingService(svc.cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-				baseModel: {InputCostPerToken: 0.75e-6, OutputCostPerToken: 3.75e-6, CacheReadInputTokenCost: 0.075e-6},
-			}})
-			svc.resolver = NewModelPricingResolver(nil, svc.billingService)
-			model := baseModel + "-medium"
-
-			err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-				Result: &ForwardResult{
-					RequestID:     "gemini_thinking_tier",
-					Model:         model,
-					UpstreamModel: model,
-					Usage:         ClaudeUsage{InputTokens: 8498, OutputTokens: 469, CacheReadInputTokens: 159248},
-					Duration:      time.Second,
-				},
-				APIKey:  &APIKey{ID: 501},
-				User:    &User{ID: 601, RateMultiplier: officialRate(0.15)},
-				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
-			})
-
-			require.NoError(t, err)
-			require.NotNil(t, usageRepo.lastLog)
-			require.Equal(t, model, usageRepo.lastLog.Model)
-			require.InDelta(t, 0.02007585, usageRepo.lastLog.TotalCost, 1e-12)
-			require.InDelta(t, 0.0030113775, usageRepo.lastLog.ActualCost, 1e-12)
-			require.InDelta(t, 0.0030113775, userRepo.lastAmount, 1e-12)
-		})
-	}
 }
 
 func TestGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *testing.T) {
@@ -583,7 +551,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 // token billing: a pricing resolver selects the unified billing path.
 func newGatewayRecordUsageServiceWithResolverForTest(usageRepo UsageLogRepository) (*GatewayService, *APIKey) {
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
-	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
+	svc.resolver = builtinSeededResolver(svc.billingService)
 	return svc, &APIKey{ID: 1}
 }
 
@@ -612,7 +580,7 @@ func TestGatewayServiceRecordUsage_FastSpeedDowngradedByUpstreamResponse(t *test
 	require.Equal(t, "standard", *usageRepo.lastLog.ServiceTier)
 
 	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
-	standardCost, err := svc.billingService.CalculateCost("claude-opus-5", tokens, 1.0)
+	standardCost, err := builtinCatalogCost(svc.billingService, "claude-opus-5", tokens, 1.0)
 	require.NoError(t, err)
 	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
@@ -641,7 +609,7 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredRecordedAtStandardPrice(t *t
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, "fast", *usageRepo.lastLog.ServiceTier)
 
-	standardCost, err := svc.billingService.CalculateCost("claude-opus-5", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
+	standardCost, err := builtinCatalogCost(svc.billingService, "claude-opus-5", UsageTokens{InputTokens: 100, OutputTokens: 50}, 1.0)
 	require.NoError(t, err)
 	require.InDelta(t, standardCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }

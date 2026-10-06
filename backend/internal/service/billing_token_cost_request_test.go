@@ -6,16 +6,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
-// newTokenCostTestEnv 构造带渠道定价的计费环境：group 100 挂一个渠道，定价由 pricing 指定。
-// newTokenCostTestEnv 搭一个「运营者显式配了价」的环境。价卡从渠道搬到了模型目录，
-// groupPlatform 只保留签名兼容（目录是全局的，不按平台隔离）。
-func newTokenCostTestEnv(t *testing.T, _ string, pricing []PricingCard, catalog *PricingService) (*BillingService, *ModelPricingResolver) {
+// newTokenCostTestEnv 搭一个「运营者显式配了价」的环境：目录里只有 pricing 这些条目（计费只认目录）。
+func newTokenCostTestEnv(t *testing.T, pricing []PricingCard) (*BillingService, *ModelPricingResolver) {
 	t.Helper()
-	bs := NewBillingService(&config.Config{}, catalog)
+	bs := NewBillingService()
 	return bs, newResolverWithCatalogCards(bs, pricing...)
 }
 
@@ -53,10 +50,10 @@ func geminiLadderCatalogStub(t *testing.T) *PricingService {
 // 目录条目只配了平价、没配分段时，超过价格文件阶梯阈值也按平价：分段只认目录条目自己的，
 // 不从价格文件继承（阶梯只在播种 / 导入时换算成分段写进条目）。
 func TestCalculateTokenCostForRequest_CatalogFlatPriceDoesNotInheritPriceFileLadder(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
+	bs, resolver := newTokenCostTestEnv(t, []PricingCard{{
 		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
-	}}, geminiLadderCatalogStub(t))
+	}})
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 
@@ -72,10 +69,10 @@ func TestCalculateTokenCostForRequest_CatalogFlatPriceDoesNotInheritPriceFileLad
 
 // 目录条目的分段按请求输入侧 token 数整条取价，价格文件的阶梯不再叠加。
 func TestCalculateTokenCostForRequest_CatalogIntervalsPriceWholeRequest(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
+	bs, resolver := newTokenCostTestEnv(t, []PricingCard{{
 		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
-	}}, geminiLadderCatalogStub(t))
+	}})
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 	require.NotEmpty(t, resolved.Intervals)
@@ -93,7 +90,7 @@ func TestCalculateTokenCostForRequest_CatalogIntervalsPriceWholeRequest(t *testi
 // 价格文件的阶梯（above_200k：输入 ×2、输出 ×1.5）播种成分段后走目录计费：超阈值整单按高段价。
 func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToWholeRequest(t *testing.T) {
 	ps := geminiLadderCatalogStub(t)
-	bs := NewBillingService(&config.Config{}, ps)
+	bs := NewBillingService()
 	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 
 	got := costViaCatalog(t, bs, resolver, "gemini-2.5-pro", UsageTokens{InputTokens: 300000, OutputTokens: 1000})
@@ -105,7 +102,7 @@ func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToWholeRequest(t
 // 分段按全部输入侧 token（input + cache_creation + cache_read）判定。
 func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToCacheItems(t *testing.T) {
 	ps := geminiLadderCatalogStub(t)
-	bs := NewBillingService(&config.Config{}, ps)
+	bs := NewBillingService()
 	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "gemini-2.5-pro"))
 	calc := func(tokens UsageTokens) *CostBreakdown {
 		return costViaCatalog(t, bs, resolver, "gemini-2.5-pro", tokens)
@@ -126,9 +123,10 @@ func TestCalculateTokenCostForRequest_SeededLadderSegmentAppliesToCacheItems(t *
 	require.InDelta(t, 40000*1.25e-7, below.CacheReadCost, 1e-9)
 }
 
-// 价格数据没有阶梯时不产生分段。
+// 价格数据没有阶梯时播种出的条目不带分段。
 func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiCatalogStub())
+	bs := NewBillingService()
+	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, geminiCatalogStub(), "gemini-2.5-pro"))
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
@@ -140,60 +138,60 @@ func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) 
 	require.InDelta(t, 0.385, got.ActualCost, 1e-9)
 }
 
-func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformOpenAI, nil, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
-	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gpt-5.4"})
+// 计费只认模型目录：目录里没有这个模型、或者根本没有解析器，都没有价（不再按价格文件 / 内置价表算）。
+func TestCalculateTokenCostForRequest_NoCatalogEntryHasNoPrice(t *testing.T) {
+	bs := NewBillingService()
+	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 10}
 
-	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gpt-5.4", Tokens: tokens, RateMultiplier: 1,
-		Resolver: resolver, Resolved: resolved,
+	_, err := bs.CalculateTokenCostForRequest(TokenCostRequest{Model: "gpt-5.4", Tokens: tokens, RateMultiplier: 1})
+	require.ErrorIs(t, err, ErrModelPricingUnavailable, "no resolver")
+
+	resolver := newResolverWithSeededEntries(bs)
+	_, err = bs.CalculateTokenCostForRequest(TokenCostRequest{
+		Ctx: context.Background(), Model: "gpt-5.4", Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
 	})
-	require.NoError(t, err)
-	want, err := bs.CalculateCostUnified(CostInput{
-		Ctx: context.Background(), Model: "gpt-5.4", Tokens: tokens,
-		RequestCount: 1, RateMultiplier: 1, Resolver: resolver,
-	})
-	require.NoError(t, err)
-	require.Equal(t, want, got)
-	// 没有目录条目、直接按价格文件计费时没有分段（分段只存在于模型目录）：超 272K 仍按基础价
-	require.InDelta(t, 300000*2.5e-6, got.InputCost, 1e-9)
+	require.ErrorIs(t, err, ErrModelPricingUnavailable, "not in catalog")
 }
 
-func TestCalculateTokenCostForRequest_NoResolverFallsBackToCatalog(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
+// Fable 5.1 的 max 推理等级 × 3：来自目录条目（播种自内置价表），不再按模型名默认补。
+func TestCalculateTokenCostForRequest_Fable51MaxEffortUsesCatalogMultiplier(t *testing.T) {
+	bs := NewBillingService()
+	resolver := newResolverWithSeededEntries(bs, seedEntryFromFallback("claude-fable-5-1", bs.SnapshotFallbackPricing()["claude-fable-5-1"]))
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 10}
-	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{Model: "gpt-5.4", Tokens: tokens, RateMultiplier: 1})
-	require.NoError(t, err)
-	want, err := bs.CalculateCost("gpt-5.4", tokens, 1)
-	require.NoError(t, err)
-	require.Equal(t, want, got)
-}
-
-func TestCalculateTokenCostForRequest_Fable51MaxEffortUsesDefaultMultiplier(t *testing.T) {
-	bs := NewBillingService(&config.Config{}, nil)
-	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 10}
-	standard, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Model: "claude-fable-5-1", Tokens: tokens, RateMultiplier: 1, ReasoningEffort: "xhigh",
-	})
-	require.NoError(t, err)
-	max, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Model: "claude-fable-5-1", Tokens: tokens, RateMultiplier: 1, ReasoningEffort: "max",
-	})
-	require.NoError(t, err)
+	calc := func(effort string) *CostBreakdown {
+		got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
+			Ctx: context.Background(), Model: "claude-fable-5-1", Tokens: tokens, RateMultiplier: 1,
+			ReasoningEffort: effort, Resolver: resolver,
+		})
+		require.NoError(t, err)
+		return got
+	}
+	standard, max := calc("xhigh"), calc("max")
 	require.InDelta(t, standard.TotalCost*3, max.TotalCost, 1e-12)
 	require.InDelta(t, standard.ActualCost*3, max.ActualCost, 1e-12)
 	require.InDelta(t, standard.InputCost*3, max.InputCost, 1e-12)
 	require.InDelta(t, standard.OutputCost*3, max.OutputCost, 1e-12)
+
+	// 目录条目没设倍率就不加：不按模型名补默认值
+	plain := newResolverWithSeededEntries(bs, ModelCatalogEntry{
+		ModelID: "claude-fable-5-1", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
+		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
+	})
+	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
+		Ctx: context.Background(), Model: "claude-fable-5-1", Tokens: tokens, RateMultiplier: 1,
+		ReasoningEffort: "max", Resolver: plain,
+	})
+	require.NoError(t, err)
+	require.InDelta(t, standard.TotalCost, got.TotalCost, 1e-12)
 }
 
 func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier(t *testing.T) {
 	configured := 1.5
-	bs, resolver := newTokenCostTestEnv(t, PlatformAnthropic, []PricingCard{{
+	bs, resolver := newTokenCostTestEnv(t, []PricingCard{{
 		Models: []string{"claude-fable-5-1"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
 		MaxReasoningEffortMultiplier: &configured,
-	}}, nil)
+	}})
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-fable-5-1"})
 
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
@@ -220,7 +218,7 @@ func TestCalculateTokenCostForRequest_BlankSegmentCachePricesFollowInputRatio(t 
 	}
 	onlyInputOutput := base("seg-io", PricingInterval{MinTokens: 200000, InputPrice: price(6e-6), OutputPrice: price(22.5e-6)})
 	explicit5m := base("seg-5m", PricingInterval{MinTokens: 200000, InputPrice: price(6e-6), OutputPrice: price(22.5e-6), CacheWritePrice: price(7.5e-6)})
-	bs := NewBillingService(&config.Config{}, nil)
+	bs := NewBillingService()
 	resolver := newResolverWithSeededEntries(bs, onlyInputOutput, explicit5m)
 	tokens := UsageTokens{InputTokens: 100000, CacheReadTokens: 100000, CacheCreationTokens: 30000,
 		CacheCreation5mTokens: 20000, CacheCreation1hTokens: 10000, OutputTokens: 1000}

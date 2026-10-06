@@ -50,9 +50,9 @@ func TestPricingOverride_ExplicitZeroThresholdDisablesCatalogLadder(t *testing.T
 	require.Empty(t, seedEntryFromLiteLLM("gpt-5.5", patched).Intervals, "阶梯被压掉的模型播种不出分段")
 
 	svc.pricingData = data
-	billing := NewBillingService(&config.Config{}, svc)
+	billing := NewBillingService()
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000, CacheReadTokens: 10000}
-	cost, err := billing.CalculateCost("gpt-5.5", tokens, 1)
+	cost, err := builtinCatalogCost(billing, "gpt-5.5", tokens, 1)
 	require.NoError(t, err)
 	require.InDelta(t, 300000*5e-6, cost.InputCost, 1e-10)
 	require.InDelta(t, 1000*3e-5, cost.OutputCost, 1e-10)
@@ -184,13 +184,11 @@ func TestPricingOverride_DisablesGPT55LadderOnDefaultCatalog(t *testing.T) {
 	data, err := svc.parsePricingData(body)
 	require.NoError(t, err)
 	svc.pricingData = data
-	billing := NewBillingService(&config.Config{}, svc)
 
 	for _, model := range []string{"gpt-5.5", "gpt-5.5-2026-04-23"} {
-		pricing, err := billing.GetModelPricing(model)
-		require.NoError(t, err)
-		require.InDelta(t, 5e-6, pricing.InputPricePerToken, 1e-12, model)
-		require.Empty(t, seedEntryFromLiteLLM(model, data[model]).Intervals, model)
+		entry := seedEntryFromLiteLLM(model, data[model])
+		require.InDelta(t, 5e-6, *entry.InputPrice, 1e-12, model)
+		require.Empty(t, entry.Intervals, model)
 	}
 
 	gpt54 := seedEntryFromLiteLLM("gpt-5.4", data["gpt-5.4"])

@@ -210,7 +210,7 @@ func TestPricingUpdateHook_FiresOnlyWhenDataChanged(t *testing.T) {
 // 装配层把「价格文件更新 → 目录重播」挂上：价格文件改价重载后，seed 条目要跟上新价。
 func TestProvideModelCatalogService_ReseedsAfterPricingUpdate(t *testing.T) {
 	pricing := newHotReloadPricingService(t, hotReloadBuiltinJSON(), "")
-	bs := &BillingService{cfg: &config.Config{}, pricingService: pricing, fallbackPrices: map[string]*ModelPricing{}}
+	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	repo := &stubModelCatalogRepo{}
 
 	catalog := ProvideModelCatalogService(repo, nil, pricing, bs)

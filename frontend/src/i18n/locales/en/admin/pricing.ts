@@ -43,16 +43,16 @@ export default {
     search: {
       toggle: 'Web search',
       title: 'Web search',
-      officialNote: 'Charged at the official price, not multiplied by the user rate; empty = the vendor\'s public price',
+      officialNote: 'Charged at the list price, not multiplied by the user rate; empty = no search charge',
       upstreamNote: 'Required where the official price is set; empty items cost the official price',
       units: {
         search_price_per_call: '$ / 1K searches',
         x_post_price: '$ / 1K posts',
         x_user_price: '$ / 1K profiles'
       },
-      defaultPlaceholder: 'Default {price}',
+      defaultPlaceholder: 'Public {price}',
       officialRef: 'Official {price}',
-      officialDefaultRef: 'Official {price} (vendor public price)',
+      officialNone: 'Not charged',
       optional: 'Optional'
     },
     catalogName: 'Catalog ID',
@@ -114,10 +114,17 @@ export default {
       toggle: 'Peak hours',
       none: 'No peak hours',
       summary: 'Peak ×{multiplier}',
-      title: 'Upstream peak hours',
-      note: 'The upstream charges the whole request × multiplier in these periods. Affects channel cost and the profit gate only, not what users pay.',
-      noneHint: 'The upstream charges one price all day',
-      useDeepSeek: 'Use DeepSeek official',
+      official: {
+        title: 'Official peak hours',
+        note: 'Users are charged the whole request × multiplier in these periods (sale prices included).',
+        noneHint: 'One price all day'
+      },
+      upstream: {
+        title: 'Upstream peak hours',
+        note: 'The upstream charges the whole request × multiplier in these periods. Affects channel cost and the profit gate only, not what users pay.',
+        noneHint: 'The upstream charges one price all day'
+      },
+      useOfficial: 'Use official peak hours',
       clear: 'Remove peak hours',
       timezone: 'Time zone',
       zones: {

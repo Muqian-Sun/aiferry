@@ -82,12 +82,11 @@ func modelPricingItems(p *ModelPricing) [5]*float64 {
 	return [5]*float64{pos(p.InputPricePerToken), pos(p.OutputPricePerToken), pos(cacheWrite), pos(p.CacheCreation1hPrice), pos(p.CacheReadPricePerToken)}
 }
 
-// saleEquivalentPricing 计费用：把这次请求落到的那一段里单独定了售价的项换成官方口径，放进 adjusted 的副本。
-// officialBase / officialSeg 是没套厂商政策的官方价（基础价、本段）；adjusted 是套过厂商政策与 DeepSeek 高峰的
-// 官方价——没定售价的项沿用它。peak 是 DeepSeek 高峰倍率（≤ 1 = 不加价），与官方价一样只乘输入 / 输出 / 缓存读：
-// DeepSeek 的售价也按闲时价填，高峰同样加倍。一项都没定时返回 nil（实付就按 adjusted 算）。
-func saleEquivalentPricing(sale CatalogSalePrices, segment *PricingInterval, officialBase, officialSeg, adjusted *ModelPricing, peak float64) *ModelPricing {
-	if sale.IsZero() || adjusted == nil {
+// saleEquivalentPricing 计费用：把这次请求落到的那一段里单独定了售价的项换成官方口径，放进 officialSeg 的副本。
+// officialBase / officialSeg 是目录官方价（基础价、本段）——没定售价的项沿用本段官方价。忙闲时不在这里乘：
+// 计费最后整单乘条目的分时，售价与官方价一起加。一项都没定时返回 nil（实付就按 officialSeg 算）。
+func saleEquivalentPricing(sale CatalogSalePrices, segment *PricingInterval, officialBase, officialSeg *ModelPricing) *ModelPricing {
+	if sale.IsZero() || officialSeg == nil {
 		return nil
 	}
 	var segmentMin *int
@@ -98,15 +97,12 @@ func saleEquivalentPricing(sale CatalogSalePrices, segment *PricingInterval, off
 	if explicit == [5]*float64{} {
 		return nil
 	}
-	if peak < 1 {
-		peak = 1
-	}
-	out := *adjusted
+	out := *officialSeg
 	if v := explicit[0]; v != nil {
-		out.InputPricePerToken = toOfficialBasis(*v) * peak
+		out.InputPricePerToken = toOfficialBasis(*v)
 	}
 	if v := explicit[1]; v != nil {
-		out.OutputPricePerToken = toOfficialBasis(*v) * peak
+		out.OutputPricePerToken = toOfficialBasis(*v)
 	}
 	if v := explicit[2]; v != nil {
 		out.CacheCreationPricePerToken = toOfficialBasis(*v)
@@ -117,7 +113,7 @@ func saleEquivalentPricing(sale CatalogSalePrices, segment *PricingInterval, off
 		out.CacheCreation1hPrice = toOfficialBasis(*v)
 	}
 	if v := explicit[4]; v != nil {
-		out.CacheReadPricePerToken = toOfficialBasis(*v) * peak
+		out.CacheReadPricePerToken = toOfficialBasis(*v)
 	}
 	return &out
 }

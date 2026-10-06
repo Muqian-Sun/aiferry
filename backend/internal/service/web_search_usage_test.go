@@ -122,15 +122,16 @@ func TestResponsesWebSearchCounter(t *testing.T) {
 func TestOfficialWebSearchPrices(t *testing.T) {
 	t.Parallel()
 
+	// 只认目录条目上的价：没填的项不收（厂商公开价由播种写进目录）
 	configured := 0.02
-	require.Equal(t, webSearchPrices{PerCall: 0.01, PerXPost: 0.005, PerXUser: 0.01}, officialWebSearchPrices(nil))
-	require.Equal(t, 0.01, officialWebSearchPrices(&ModelCatalogEntry{Vendor: "openai"}).PerCall)
-	require.Equal(t, 0.01, officialWebSearchPrices(&ModelCatalogEntry{Vendor: "anthropic"}).PerCall)
-	require.Equal(t, 0.005, officialWebSearchPrices(&ModelCatalogEntry{Vendor: "xai"}).PerCall)
+	require.Equal(t, webSearchPrices{}, officialWebSearchPrices(nil))
+	require.Equal(t, webSearchPrices{}, officialWebSearchPrices(&ModelCatalogEntry{Vendor: "openai"}))
 	require.Equal(t, 0.02, officialWebSearchPrices(&ModelCatalogEntry{Vendor: "xai", SearchPricePerCall: &configured}).PerCall)
 
-	// xAI：2 次 web 搜索 + 10 条帖子 + 3 个主页 = 0.01 + 0.05 + 0.03
-	xai := officialWebSearchPrices(&ModelCatalogEntry{Vendor: "xai"})
+	// 播种后的 xAI 条目：2 次 web 搜索 + 10 条帖子 + 3 个主页 = 0.01 + 0.05 + 0.03
+	seeded := ModelCatalogEntry{Vendor: "xai", BillingMode: BillingModeToken}
+	applyVendorWebSearchPrices(&seeded)
+	xai := officialWebSearchPrices(&seeded)
 	require.InDelta(t, 0.09, xai.cost(WebSearchUsage{WebSearchCalls: 2, XSearchCalls: 4, XPostsFetched: 10, XUsersFetched: 3}), 1e-12)
 }
 
@@ -141,9 +142,10 @@ func TestAddWebSearchCharge(t *testing.T) {
 	resolver := newResolverWithSeededEntries(newTestBillingService(), ModelCatalogEntry{
 		ModelID: "grok-4.5", Vendor: "xai", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
 		InputPrice: testPtrFloat64(2e-6), OutputPrice: testPtrFloat64(6e-6), ManagedBy: ModelCatalogManagedByAdmin,
+		SearchPricePerCall: testPtrFloat64(0.005), XPostPrice: testPtrFloat64(0.005), XUserPrice: testPtrFloat64(0.01),
 	})
 
-	// 搜索费按官方原价、不乘用户倍率，计入总价和实付
+	// 搜索费按目录条目上的官方价、不乘用户倍率，计入总价和实付
 	tokenCost := &CostBreakdown{TotalCost: 1, ActualCost: 0.5}
 	got := addWebSearchCharge(ctx, resolver, "grok-4.5", WebSearchUsage{WebSearchCalls: 2, XPostsFetched: 4}, tokenCost)
 	require.Same(t, tokenCost, got)
@@ -156,10 +158,11 @@ func TestAddWebSearchCharge(t *testing.T) {
 	plain := &CostBreakdown{TotalCost: 1, ActualCost: 0.5}
 	require.Equal(t, &CostBreakdown{TotalCost: 1, ActualCost: 0.5}, addWebSearchCharge(ctx, resolver, "grok-4.5", WebSearchUsage{}, plain))
 
-	// token 价算不出来：只记搜索费
+	// token 价算不出来：只记搜索费——目录查不到的模型连搜索价也没有，记 0
 	only := addWebSearchCharge(ctx, resolver, "not-in-catalog", WebSearchUsage{WebSearchCalls: 1}, nil)
-	require.InDelta(t, 0.01, only.ActualCost, 1e-12)
-	require.InDelta(t, 0.01, only.TotalCost, 1e-12)
+	require.Equal(t, 1, only.WebSearchCount)
+	require.Zero(t, only.ActualCost)
+	require.Zero(t, only.TotalCost)
 }
 
 func TestPlazaWebSearchPrices(t *testing.T) {
@@ -171,17 +174,18 @@ func TestPlazaWebSearchPrices(t *testing.T) {
 	require.Nil(t, post)
 	require.Nil(t, user)
 
+	// 只认目录：条目上没填的不列（厂商公开价由播种写进目录）
 	web, post, user = plazaWebSearchPrices(&ModelCatalogEntry{Vendor: "anthropic"})
-	require.Equal(t, 0.01, *web)
+	require.Nil(t, web)
 	require.Nil(t, post)
 	require.Nil(t, user)
 
-	web, post, user = plazaWebSearchPrices(&ModelCatalogEntry{Vendor: "xai"})
+	xPost, xUser := 0.005, 0.01
+	web, post, user = plazaWebSearchPrices(&ModelCatalogEntry{Vendor: "xai", SearchPricePerCall: &xPost, XPostPrice: &xPost, XUserPrice: &xUser})
 	require.Equal(t, 0.005, *web)
 	require.Equal(t, 0.005, *post)
 	require.Equal(t, 0.01, *user)
 
-	// 没有官方搜索工具的厂商不列
 	web, post, user = plazaWebSearchPrices(&ModelCatalogEntry{Vendor: "deepseek"})
 	require.Nil(t, web)
 	require.Nil(t, post)
@@ -326,9 +330,10 @@ func TestAnthropicUsageParsesWebSearch(t *testing.T) {
 func TestGatewayRecordUsageCostAddsWebSearchWithoutRate(t *testing.T) {
 	t.Parallel()
 
-	svc := &GatewayService{billingService: newTestBillingService()}
+	bs := newTestBillingService()
+	svc := &GatewayService{billingService: bs, resolver: builtinSeededResolver(bs)}
 	result := &ForwardResult{Model: "claude-sonnet-4", Usage: ClaudeUsage{InputTokens: 1000, OutputTokens: 500, WebSearchResults: 3}}
-	// claude-sonnet-4 兜底价 $3 / $15：token 0.0105，× 倍率 2 = 0.021；搜索 3 × 0.01 不乘倍率
+	// 目录里 claude-sonnet-4 $3 / $15：token 0.0105，× 倍率 2 = 0.021；搜索 3 × 0.01（播种的 Anthropic 公开价）不乘倍率
 	cost, tokenPath := svc.calculateRecordUsageCost(context.Background(), result, &APIKey{}, "claude-sonnet-4", 2, time.Time{})
 	require.True(t, tokenPath)
 	require.Equal(t, 3, cost.WebSearchCount)
@@ -408,10 +413,10 @@ func TestRecordUsageAccountCostUsesBindingSearchPrices(t *testing.T) {
 	got := recordUsageAccountCost(context.Background(), bs, resolver, 7, []string{"grok-4.5"}, UsageTokens{}, usage, time.Time{}, "")
 	require.InDelta(t, 0.063, got, 1e-12)
 
-	// 官方价：web 按 xAI 公开价 0.005、帖子 0.005（公开价）、主页 0.02（条目设的）
+	// 官方价只认条目：主页 0.02（条目设的），web / 帖子条目没填就不收
 	entry := &ModelCatalogEntry{Vendor: "xai", XUserPrice: testPtrFloat64(0.02)}
-	require.Equal(t, webSearchPrices{PerCall: 0.005, PerXPost: 0.005, PerXUser: 0.02}, officialWebSearchPrices(entry))
-	require.Equal(t, webSearchPrices{PerCall: 0.001, PerXPost: 0.005, PerXUser: 0.02},
+	require.Equal(t, webSearchPrices{PerXUser: 0.02}, officialWebSearchPrices(entry))
+	require.Equal(t, webSearchPrices{PerCall: 0.001, PerXUser: 0.02},
 		upstreamWebSearchPrices(entry, &ModelCatalogBinding{SearchPricePerCall: testPtrFloat64(0.001)}))
 }
 

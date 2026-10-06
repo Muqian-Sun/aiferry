@@ -1773,7 +1773,7 @@ func TestGatewayResponses_APIKeyPoolAuthFailureRetriesThenSwitchesToHealthyAccou
 				cfg,
 				nil,
 				nil,
-				service.NewBillingService(cfg, nil),
+				service.NewBillingService(),
 				rateLimitSvc,
 				billingCacheSvc,
 				upstream,
@@ -1849,7 +1849,7 @@ func TestGatewayResponses_APIKeySSERateLimitUsesPoolRetry(t *testing.T) {
 		cfg,
 		nil,
 		nil,
-		service.NewBillingService(cfg, nil),
+		service.NewBillingService(),
 		nil,
 		billingCacheSvc,
 		upstream,
@@ -2000,7 +2000,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		cfg,
 		nil,
 		nil,
-		service.NewBillingService(cfg, nil),
+		service.NewBillingService(),
 		rateLimitSvc,
 		billingCacheSvc,
 		nil,
@@ -2198,7 +2198,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	gatewaySvc := service.NewOpenAIGatewayService(
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), rateLimitSvc, billingCacheSvc,
+		service.NewBillingService(), rateLimitSvc, billingCacheSvc,
 		nil, &service.DeferredService{}, nil, nil, nil, nil, nil,
 		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
@@ -2405,14 +2405,18 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		cfg,
 		nil,
 		nil,
-		service.NewBillingService(cfg, nil),
+		service.NewBillingService(),
 		nil,
 		billingCacheSvc,
 		nil,
 		&service.DeferredService{},
 		nil,
 		nil,
-		nil,
+		// 计费只认模型目录：给用到的模型各一条目录条目（gpt-5.6-sol 官网优惠价 4 / 20，terra 2 / 12）
+		service.NewModelPricingResolver(wsCatalogPricingStub{
+			"gpt-5.6-sol":   {ModelID: "gpt-5.6-sol", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: wsPrice(4e-6), OutputPrice: wsPrice(20e-6)},
+			"gpt-5.6-terra": {ModelID: "gpt-5.6-terra", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: wsPrice(2e-6), OutputPrice: wsPrice(12e-6)},
+		}),
 		nil,
 		nil,
 		newTestSchedulerOverRepo(cfg, accountRepo),
@@ -2639,3 +2643,12 @@ data: {"type":"response.failed","error":{"message":"This content was flagged"}}
 		require.False(t, openAIForwardErrorAlreadyCommunicated(c, c.Writer.Size(), errors.New("openai cyber_policy: blocked")))
 	})
 }
+
+// wsCatalogPricingStub 按模型名查目录条目（Responses WebSocket 计费用例的目录）。
+type wsCatalogPricingStub map[string]*service.ModelCatalogEntry
+
+func (s wsCatalogPricingStub) LookupPricingEntry(_ context.Context, model string) *service.ModelCatalogEntry {
+	return s[model]
+}
+
+func wsPrice(v float64) *float64 { return &v }

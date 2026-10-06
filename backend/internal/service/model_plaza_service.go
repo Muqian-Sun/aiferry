@@ -85,7 +85,7 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 			Vendor:      entry.Vendor,
 			BillingMode: entry.EffectiveBillingMode(),
 			// 售价口径（官方口径，定了售价的项 = 售价 ÷ 默认售价比例）：展示时 × 访问者的计费倍率 = 售价 × 折扣。
-			Pricing: withDefaultMaxReasoningEffortMultiplier(entry.SaleEquivalentPricingCard(), entry.ModelID),
+			Pricing: entry.SaleEquivalentPricingCard(),
 			TokenExtras: PlazaTokenExtras{
 				ImageCacheReadPrice:   entry.ImageCacheReadPrice,
 				AudioInputPrice:       entry.AudioInputPrice,
@@ -98,17 +98,4 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 		})
 	}
 	return models
-}
-
-func withDefaultMaxReasoningEffortMultiplier(pricing *PricingCard, model string) *PricingCard {
-	if pricing == nil || pricing.MaxReasoningEffortMultiplier != nil {
-		return pricing
-	}
-	multiplier := defaultMaxReasoningEffortMultiplier(model)
-	if multiplier == nil {
-		return pricing
-	}
-	cloned := pricing.Clone()
-	cloned.MaxReasoningEffortMultiplier = multiplier
-	return &cloned
 }

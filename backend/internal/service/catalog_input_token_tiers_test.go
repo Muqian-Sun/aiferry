@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +36,7 @@ func seededBuiltinCatalog(t *testing.T) map[string]ModelCatalogEntry {
 	pricingSvc := &PricingService{pricingData: pricingData}
 	entries := buildModelCatalogSeedEntries(ModelCatalogSeedInput{
 		PricingService: pricingSvc,
-		BillingService: NewBillingService(&config.Config{}, pricingSvc),
+		BillingService: NewBillingService(),
 	})
 	byID := make(map[string]ModelCatalogEntry, len(entries))
 	for _, entry := range entries {
@@ -133,7 +132,7 @@ func TestCatalogSeedInputTokenTiersFollowOfficialPrices(t *testing.T) {
 // 输入落在高段时整条按高段计：文本、缓存命中、输出用这一段写明的价，音频输入按本段输入价的比例加价。
 func TestCalculateTokenCost_InputTokenTierAppliesToWholeRequest(t *testing.T) {
 	ps := newStubPricingServiceFromJSON(t, string(readBuiltinPricingFile(t)))
-	bs := NewBillingService(&config.Config{}, ps)
+	bs := NewBillingService()
 	resolver := newResolverWithSeededEntries(bs, seededLiteLLMEntry(t, ps, "doubao-seed-2-0-lite-260428"))
 
 	// 输入侧 100K + 缓存命中 10K = 110K，落在 (32K, 128K]

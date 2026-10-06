@@ -56,6 +56,8 @@
         <tbody class="divide-y divide-af-hairline">
           <PricingPriceRows
             v-model:prices="draft.official"
+            v-model:peak="draft.officialPeak"
+            peak-editable="official"
             :issues="officialRowIssues"
             test-id="pricing-official"
             :search-keys="searchKeys"
@@ -74,14 +76,14 @@
             :key="row.id"
             v-model:prices="row.prices"
             v-model:peak="row.peak"
-            peak-editable
-            :deepseek-peak="deepseekPeak"
+            peak-editable="upstream"
+            :official-peak="draft.officialPeak"
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
             :search-keys="searchKeys"
             :search-placeholders="upstreamSearchPlaceholders(t, searchKeys, draft.official)"
-            :search-hints="upstreamSearchHints(t, searchKeys, draft.official, entry.search_defaults)"
+            :search-hints="upstreamSearchHints(t, searchKeys, draft.official)"
             :search-note="t('admin.pricing.search.upstreamNote')"
           >
             <template #lead>
@@ -149,7 +151,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { PricingAccount, PricingEntry, TimePricing } from '@/api/admin/pricing'
+import type { PricingAccount, PricingEntry } from '@/api/admin/pricing'
 import Icon from '@/components/icons/Icon.vue'
 import FormError from '@/components/common/FormError.vue'
 import { MenuItem, PopoverMenu } from '@/components/admin/list'
@@ -165,7 +167,6 @@ import {
   cloneModelDraft,
   clonePeakForm,
   clonePriceRow,
-  defaultPeakFor,
   emptyPriceRow,
   fillByDiscount,
   fillSaleByRatio,
@@ -174,11 +175,14 @@ import {
   marginOf,
   modelDraftChanges,
   officialIssues,
+  peakErrors,
+  peakFormFrom,
   peakFormToRequest,
   priceRowChanges,
   priceRowFrom,
   priceRowToRequest,
   saleRowChanges,
+  samePeak,
   saleRowInvalid,
   saleRowToRequest,
   searchKeysOf,
@@ -200,8 +204,6 @@ const props = defineProps<{
   accountOrder: (accountId: number) => number
   defaultSaleRatio: number
   minMargin: number
-  /** DeepSeek 官方忙闲时：DeepSeek 模型新加承接时默认带上 */
-  deepseekPeak?: TimePricing
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
@@ -213,14 +215,18 @@ const blockState = computed(() => props.state)
 const draft = computed(() => props.state.draft)
 
 const changes = computed(() => modelDraftChanges(props.state))
-// 毛利按售价算（上游成本比由后端按售价口径算）：官方价或售价改了都要保存后重算
+// 毛利按售价算（上游成本比由后端按售价口径算）：官方价（含官方忙闲时）或售价改了都要保存后重算
 const officialChanged = computed(
   () =>
     priceRowChanges(props.state.draft.official, props.state.initial.official) > 0 ||
+    !samePeak(props.state.draft.officialPeak, props.state.initial.officialPeak) ||
     saleRowChanges(props.state.draft.sale, props.state.initial.sale) > 0
 )
 
-const officialRowIssues = computed(() => officialIssues(props.state.draft.official))
+const officialRowIssues = computed(() => ({
+  ...officialIssues(props.state.draft.official),
+  peak: peakErrors(props.state.draft.officialPeak)
+}))
 
 /** 这个模型能填的搜索价（厂商没有官方搜索工具时为空） */
 const searchKeys = computed(() => searchKeysOf(props.entry.search_defaults))
@@ -269,7 +275,7 @@ const addableAccounts = computed(() => {
 })
 
 /** 新加的渠道：同一上游（主机名相同）已经承接这个模型的，先带上它的上游模型名、上游价与忙闲时；
- * 否则价格空着，DeepSeek 模型的忙闲时默认按官方 */
+ * 否则价格空着，上游忙闲时默认同官方忙闲时（如 DeepSeek 高峰） */
 function addChannel(account: PricingAccount) {
   const sibling = account.upstream_host
     ? draft.value.rows.find((row) => props.accounts.get(row.id)?.upstream_host === account.upstream_host)
@@ -278,7 +284,7 @@ function addChannel(account: PricingAccount) {
     id: account.id,
     upstreamModel: sibling?.upstreamModel ?? '',
     prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow(),
-    peak: sibling ? clonePeakForm(sibling.peak) : defaultPeakFor(props.entry.model_id, props.deepseekPeak)
+    peak: clonePeakForm(sibling ? sibling.peak : draft.value.officialPeak)
   })
 }
 
@@ -322,6 +328,7 @@ async function save() {
   try {
     await adminAPI.pricing.saveModel(props.entry.id, {
       ...priceRowToRequest(props.state.draft.official),
+      time_pricing: peakFormToRequest(props.state.draft.officialPeak),
       sale_prices: saleRowToRequest(props.state.draft.sale, props.state.draft.official),
       bindings: props.state.draft.rows.map((row) => ({
         account_id: row.id,
@@ -354,6 +361,7 @@ async function fillFromPriceFile() {
       return
     }
     draft.value.official = priceRowFrom({ ...found, cache_write_1h_price: found.cache_write_1h_price ?? null, intervals: found.intervals ?? [] })
+    draft.value.officialPeak = peakFormFrom(found.time_pricing)
   } catch (error) {
     lookupMessage.value = extractApiErrorMessage(error, t('common.unknownError'))
   } finally {

@@ -152,7 +152,7 @@ func newKeyRouteHarnessWithConfig(t *testing.T, accounts []*service.Account, cfg
 	h.antigravityGatewayService = service.NewAntigravityGatewayService(nil, nil, nil, nil, nil, antigravityUpstream, nil, nil)
 	h.openAIGatewayService = service.NewOpenAIGatewayService(
 		nil, usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
-		service.NewBillingService(cfg, nil), nil, &service.BillingCacheService{}, openAIUpstream,
+		service.NewBillingService(), nil, &service.BillingCacheService{}, openAIUpstream,
 		&service.DeferredService{}, nil, nil, nil, nil, nil,
 		nil,
 	)
@@ -585,7 +585,7 @@ func TestGatewayHandlerMessages_OAuth429StormStopsAfterSwitches(t *testing.T) {
 	upstream := &grokCredentialHandlerUpstream{rateLimitIDs: map[int64]bool{801: true, 802: true}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	hs.handler.openAIGatewayService = service.NewOpenAIGatewayService(
-		repo, nil, nil, nil, nil, nil, cfg, nil, nil, service.NewBillingService(cfg, nil), nil,
+		repo, nil, nil, nil, nil, nil, cfg, nil, nil, service.NewBillingService(), nil,
 		&service.BillingCacheService{}, upstream, &service.DeferredService{}, nil, provider, nil, nil, nil,
 		nil,
 	)

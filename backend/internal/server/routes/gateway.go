@@ -212,21 +212,17 @@ func RegisterGatewayRoutes(
 		gateway.GET("/videos/:request_id", videoStatusHandler)
 		gateway.GET("/videos/:request_id/content", videoContentHandler)
 
-		// xAI Voice APIs：端点本身就是 grok 的，池由 handler 按 grok 平台装载；不再按分组平台 404。
-		// Not part of the creation-center product surface — gateway relay only.
-		voiceHandler := func(endpoint string) gin.HandlerFunc {
-			return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
-		}
-		gateway.POST("/tts", voiceHandler("tts"))
-		gateway.POST("/stt", voiceHandler("stt"))
-		gateway.POST("/custom-voices", voiceHandler("custom-voices"))
-		customVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
-		gateway.GET("/custom-voices", voiceHandler("custom-voices"))
-		gateway.GET("/custom-voices/:voice_id/audio", customVoicePathHandler)
-		gateway.GET("/custom-voices/:voice_id", customVoicePathHandler)
-		gateway.PATCH("/custom-voices/:voice_id", customVoicePathHandler)
-		gateway.DELETE("/custom-voices/:voice_id", customVoicePathHandler)
-		gateway.GET("/realtime", h.OpenAIGateway.GrokRealtime)
+		// xAI Voice APIs（tts / stt / realtime / custom-voices）已关（muqian 2026-10-06）：计费只认模型目录，
+		// 语音不在目录里、没有价。以后要卖时先进目录再接回 h.OpenAIGateway.GrokVoice / GrokRealtime。
+		gateway.POST("/tts", voiceAPIUnavailable)
+		gateway.POST("/stt", voiceAPIUnavailable)
+		gateway.POST("/custom-voices", voiceAPIUnavailable)
+		gateway.GET("/custom-voices", voiceAPIUnavailable)
+		gateway.GET("/custom-voices/:voice_id/audio", voiceAPIUnavailable)
+		gateway.GET("/custom-voices/:voice_id", voiceAPIUnavailable)
+		gateway.PATCH("/custom-voices/:voice_id", voiceAPIUnavailable)
+		gateway.DELETE("/custom-voices/:voice_id", voiceAPIUnavailable)
+		gateway.GET("/realtime", voiceAPIUnavailable)
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -307,19 +303,16 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/videos/:request_id", bodyLimit, videoStatusHandler)
 	rootRoute(http.MethodGet, "/videos/:request_id/content", bodyLimit, videoContentHandler)
 
-	rootVoiceHandler := func(endpoint string) gin.HandlerFunc {
-		return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
-	}
-	rootRoute(http.MethodPost, "/tts", bodyLimit, rootVoiceHandler("tts"))
-	rootRoute(http.MethodPost, "/stt", bodyLimit, rootVoiceHandler("stt"))
-	rootRoute(http.MethodPost, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
-	rootCustomVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
-	rootRoute(http.MethodGet, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
-	rootRoute(http.MethodGet, "/custom-voices/:voice_id/audio", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodGet, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodPatch, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodDelete, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodGet, "/realtime", bodyLimit, h.OpenAIGateway.GrokRealtime)
+	// 语音接口已关（同 /v1 下）
+	rootRoute(http.MethodPost, "/tts", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodPost, "/stt", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodPost, "/custom-voices", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodGet, "/custom-voices", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodGet, "/custom-voices/:voice_id/audio", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodGet, "/custom-voices/:voice_id", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodPatch, "/custom-voices/:voice_id", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodDelete, "/custom-voices/:voice_id", bodyLimit, voiceAPIUnavailable)
+	rootRoute(http.MethodGet, "/realtime", bodyLimit, voiceAPIUnavailable)
 
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), h.Gateway.AntigravityModels)
@@ -379,4 +372,9 @@ func grokCustomVoiceEndpoint(c *gin.Context) string {
 		endpoint += "/audio"
 	}
 	return endpoint
+}
+
+// voiceAPIUnavailable 语音接口已关：不在模型目录里、没有价（muqian 2026-10-06：所有模型的计费都从模型目录出发）。
+func voiceAPIUnavailable(c *gin.Context) {
+	c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not available"}})
 }

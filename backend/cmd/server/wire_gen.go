@@ -103,7 +103,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	billingService := service.NewBillingService(configConfig, pricingService)
+	billingService := service.NewBillingService()
 	geminiQuotaService := service.NewGeminiQuotaService(configConfig, settingRepository)
 	tempUnschedCache := repository.NewTempUnschedCache(redisClient)
 	timeoutCounterCache := repository.NewTimeoutCounterCache(redisClient)
@@ -133,7 +133,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	modelCatalogRepository := repository.NewModelCatalogRepository(client, db)
 	modelCatalogCachePubSub := repository.NewModelCatalogCache(redisClient)
 	modelCatalogService := service.ProvideModelCatalogService(modelCatalogRepository, modelCatalogCachePubSub, pricingService, billingService)
-	modelPricingResolver := service.NewModelPricingResolver(modelCatalogService, billingService)
+	modelPricingResolver := service.NewModelPricingResolver(modelCatalogService)
 	notificationEmailService := service.NewNotificationEmailService(settingRepository, emailService, configConfig)
 	balanceNotifyService := service.ProvideBalanceNotifyService(emailService, settingRepository, accountRepository, notificationEmailService, userRepository, configConfig)
 	gatewayService := service.NewGatewayService(accountRepository, usageLogRepository, usageBillingRepository, userRepository, userSubscriptionRepository, gatewayCache, configConfig, schedulerSnapshotService, concurrencyService, billingService, rateLimitService, billingCacheService, identityService, httpUpstream, deferredService, claudeTokenProvider, sessionLimitCache, rpmCache, digestSessionStore, settingService, tlsFingerprintProfileService, modelPricingResolver, balanceNotifyService)

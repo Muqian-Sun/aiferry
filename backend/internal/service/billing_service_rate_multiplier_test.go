@@ -27,7 +27,7 @@ func TestCalculateCost_RateMultiplier_NegativeClampedToZero(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cost, err := svc.CalculateCost("claude-sonnet-4", tokens, tt.multiplier)
+			cost, err := builtinCatalogCost(svc, "claude-sonnet-4", tokens, tt.multiplier)
 			require.NoError(t, err)
 			require.Greater(t, cost.TotalCost, 0.0, "TotalCost should be non-zero")
 			require.InDelta(t, tt.wantRatio*cost.TotalCost, cost.ActualCost, 1e-9)

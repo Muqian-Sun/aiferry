@@ -59,7 +59,6 @@
               :account-order="accountOrder"
               :default-sale-ratio="overview.default_sale_ratio"
               :min-margin="overview.min_margin"
-              :deepseek-peak="overview.deepseek_peak_time_pricing"
               @saved="load(false)"
             />
           </template>
@@ -73,7 +72,6 @@
               :entries="overview.entries"
               :default-sale-ratio="overview.default_sale_ratio"
               :min-margin="overview.min_margin"
-              :deepseek-peak="overview.deepseek_peak_time_pricing"
               @saved="load(false)"
             />
           </template>

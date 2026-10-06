@@ -451,8 +451,10 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		entry.PerRequestPrice = positivePrice(pricing.OutputCostPerImage)
 	}
 	// 模型内置搜索价只存 medium 档（拍的：OpenAI 按请求的 search_context_size 三档计，
-	// 我们只存一档；对账发现偏差再决定是否三档都存）。
+	// 我们只存一档；对账发现偏差再决定是否三档都存）。价格文件没写的按厂商公开价补上。
 	entry.SearchPricePerCall = positivePrice(pricing.SearchContextCostPerQuery["search_context_size_medium"])
+	applyVendorWebSearchPrices(&entry)
+	entry.TimePricing = cloneTimePricing(pricing.TimePricing)
 	// 官网逐段写明的多段价直接换算成按 token 分段；没有多段价时，价格文件的长上下文阶梯
 	// 换算成按 token 分段（xAI 的阈值是「达到即进高段」，其余提供商严格大于）。
 	if len(pricing.InputTokenTiers) > 0 {
@@ -549,6 +551,7 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 
 		MaxReasoningEffortMultiplier: clonePricePtr(pricing.MaxReasoningEffortMultiplier),
 	}
+	applyVendorWebSearchPrices(&entry)
 	if pricing.SupportsCacheBreakdown &&
 		pricing.CacheCreation1hPrice > 0 &&
 		pricing.CacheCreation1hPrice > pricing.CacheCreation5mPrice {
@@ -575,4 +578,35 @@ func clonePricePtr(value *float64) *float64 {
 	}
 	v := *value
 	return &v
+}
+
+// applyVendorWebSearchPrices 有官方搜索工具的厂商（Anthropic / OpenAI / xAI）的模型，没写搜索价的项按厂商公开价补上：
+// 计费只认目录（muqian 2026-10-06），目录里没有搜索价就不收搜索费。
+func applyVendorWebSearchPrices(entry *ModelCatalogEntry) {
+	if entry.BillingMode != BillingModeToken {
+		return
+	}
+	defaults := WebSearchDefaults(entry)
+	if defaults == nil {
+		return
+	}
+	if entry.SearchPricePerCall == nil {
+		entry.SearchPricePerCall = clonePricePtr(&defaults.PerCall)
+	}
+	if entry.XPostPrice == nil {
+		entry.XPostPrice = clonePricePtr(defaults.PerXPost)
+	}
+	if entry.XUserPrice == nil {
+		entry.XUserPrice = clonePricePtr(defaults.PerXUser)
+	}
+}
+
+// cloneTimePricing 深拷贝分时配置（价格文件的快照是浅拷贝，时段切片不能共用）。
+func cloneTimePricing(tp *TimePricing) *TimePricing {
+	if tp == nil {
+		return nil
+	}
+	cp := *tp
+	cp.Periods = append([]TimePricingPeriod(nil), tp.Periods...)
+	return &cp
 }

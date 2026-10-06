@@ -43,16 +43,16 @@ export default {
     search: {
       toggle: '联网搜索',
       title: '联网搜索',
-      officialNote: '按官方原价收，不乘用户倍率；空着按厂商公开价收',
+      officialNote: '按原价收，不乘用户倍率；空着不收搜索费',
       upstreamNote: '官方价设了的项必须填；没填的按官方价记成本',
       units: {
         search_price_per_call: '$ / 千次',
         x_post_price: '$ / 千条',
         x_user_price: '$ / 千个'
       },
-      defaultPlaceholder: '默认 {price}',
+      defaultPlaceholder: '公开价 {price}',
       officialRef: '官方 {price}',
-      officialDefaultRef: '官方 {price}（厂商公开价）',
+      officialNone: '官方不收',
       optional: '选填'
     },
     catalogName: '目录标识',
@@ -114,10 +114,17 @@ export default {
       toggle: '忙闲时',
       none: '不分忙闲时',
       summary: '忙时 ×{multiplier}',
-      title: '上游忙闲时',
-      note: '上游在这些时段整单按倍数收；只影响渠道成本与利润门，不影响向用户收的钱。',
-      noneHint: '上游全天一个价',
-      useDeepSeek: '按 DeepSeek 官方',
+      official: {
+        title: '官方忙闲时',
+        note: '向用户收钱时这些时段整单按倍数收（售价一起加）。',
+        noneHint: '全天一个价'
+      },
+      upstream: {
+        title: '上游忙闲时',
+        note: '上游在这些时段整单按倍数收；只影响渠道成本与利润门，不影响向用户收的钱。',
+        noneHint: '上游全天一个价'
+      },
+      useOfficial: '按官方忙闲时',
       clear: '改成不分忙闲时',
       timezone: '时区',
       zones: {

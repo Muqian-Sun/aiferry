@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +15,7 @@ func seedInputForTest(litellm map[string]*LiteLLMModelPricing, fallback map[stri
 	if litellm != nil {
 		pricing = newStubPricingServiceFromMap(litellm)
 	}
-	bs := &BillingService{cfg: &config.Config{}, pricingService: pricing, fallbackPrices: map[string]*ModelPricing{}}
+	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	for name, card := range fallback {
 		bs.fallbackPrices[name] = card
 	}
@@ -272,7 +271,7 @@ func TestSeed_LongContextLadderBecomesTokenSegment(t *testing.T) {
 
 // 兜底价表的阶梯表（fallbackSeedLadders）每个模型都得在兜底价表里、播种出恰好一个分段；拼错模型名会静默失效，这里 fail-closed。
 func TestFallbackSeedLaddersCoverFallbackModels(t *testing.T) {
-	fallback := NewBillingService(&config.Config{}, nil).SnapshotFallbackPricing()
+	fallback := NewBillingService().SnapshotFallbackPricing()
 	require.NotEmpty(t, fallbackSeedLadders)
 	for name := range fallbackSeedLadders {
 		pricing, ok := fallback[name]
@@ -287,14 +286,13 @@ func TestFallbackSeedLaddersCoverFallbackModels(t *testing.T) {
 	require.Equal(t, 199999, seedEntryFromFallback("grok-4.5", fallback["grok-4.5"]).Intervals[0].MinTokens)
 }
 
-// 播种出来的条目是平台默认价卡，不是运营者定价：DeepSeek 官方价强制覆盖与
-// 峰谷倍率必须照旧生效——否则播种一上线，官方价政策就会整体失效。
-func TestSeededCatalogEntryStaysPlatformDefaultPricing(t *testing.T) {
+// 播种条目按目录计费：价就是价格文件写的价（不再按模型名强制覆盖），高峰加价来自价格文件的 time_pricing。
+func TestSeededCatalogEntryBillsCatalogPriceAndTimePricing(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
-	// 价格文件里故意放一个远低于官方价的数，用来证明官方价强制覆盖确实跑了。
 	seed := seedInputForTest(
 		map[string]*LiteLLMModelPricing{
-			"deepseek-flash": {LiteLLMProvider: "deepseek", InputCostPerToken: 1e-9, OutputCostPerToken: 1e-9},
+			"deepseek-flash": {LiteLLMProvider: "deepseek", InputCostPerToken: 1e-9, OutputCostPerToken: 1e-9,
+				TimePricing: testDeepSeekPeak()},
 		},
 		nil,
 	)
@@ -302,41 +300,35 @@ func TestSeededCatalogEntryStaysPlatformDefaultPricing(t *testing.T) {
 	_, err := svc.Seed(context.Background())
 	require.NoError(t, err)
 
-	resolver := NewModelPricingResolver(svc, seed.BillingService)
+	resolver := NewModelPricingResolver(svc)
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "deepseek-flash"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 	require.False(t, resolved.operatorPricing, "播种条目不是运营者定价")
 
-	// 低谷时段（北京时间周日全天低谷）：官方 Flash 低谷价 $0.15/MTok。
-	offPeak := time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)
-	cost, err := seed.BillingService.CalculateCostUnified(CostInput{
-		Ctx: context.Background(), Model: "deepseek-flash",
-		Tokens: UsageTokens{InputTokens: 1_000_000}, RateMultiplier: 1,
-		PricingAt: offPeak, Resolver: resolver, Resolved: resolved,
-	})
-	require.NoError(t, err)
-	require.InDelta(t, 0.15, cost.TotalCost, 1e-9, "官方 DeepSeek 价必须强制覆盖播种进来的价")
-
-	// 高峰时段（工作日 02:00 UTC）：2× 低谷价。
-	peak := time.Date(2026, time.August, 24, 2, 0, 0, 0, time.UTC)
-	peakCost, err := seed.BillingService.CalculateCostUnified(CostInput{
-		Ctx: context.Background(), Model: "deepseek-flash",
-		Tokens: UsageTokens{InputTokens: 1_000_000}, RateMultiplier: 1,
-		PricingAt: peak, Resolver: resolver, Resolved: resolved,
-	})
-	require.NoError(t, err)
-	require.InDelta(t, 0.30, peakCost.TotalCost, 1e-9, "峰谷倍率必须照旧叠加在播种条目上")
+	cost := func(at time.Time) float64 {
+		got, err := seed.BillingService.CalculateCostUnified(CostInput{
+			Ctx: context.Background(), Model: "deepseek-flash",
+			Tokens: UsageTokens{InputTokens: 1_000_000}, RateMultiplier: 1,
+			PricingAt: at, Resolver: resolver, Resolved: resolved,
+		})
+		require.NoError(t, err)
+		return got.TotalCost
+	}
+	// 北京时间周日全天闲时：按价格文件写的价（不再被代码里的官方价覆盖）
+	require.InDelta(t, 0.001, cost(time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)), 1e-12)
+	// 工作日北京 10:00 高峰：目录条目的忙闲时 × 2
+	require.InDelta(t, 0.002, cost(time.Date(2026, time.August, 24, 2, 0, 0, 0, time.UTC)), 1e-12)
 }
 
-// 管理员改过的目录条目是运营者定价：官方价强制覆盖与峰谷倍率都不再叠加。
+// 管理员改过的目录条目没有忙闲时就不加价：不按模型名套 DeepSeek 高峰。
 func TestAdminEditedDeepSeekEntryKeepsOperatorPrice(t *testing.T) {
-	bs := &BillingService{cfg: &config.Config{}, fallbackPrices: map[string]*ModelPricing{}}
+	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	svc, _ := newTestModelCatalogService(ModelCatalogEntry{
 		ID: 1, ModelID: "deepseek-flash", BillingMode: BillingModeToken,
 		Status: ModelCatalogStatusListed, ManagedBy: ModelCatalogManagedByAdmin,
 		InputPrice: testPtrFloat64(1e-6),
 	})
-	resolver := NewModelPricingResolver(svc, bs)
+	resolver := NewModelPricingResolver(svc)
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "deepseek-flash"})
 	require.True(t, resolved.operatorPricing)
 
@@ -351,12 +343,11 @@ func TestAdminEditedDeepSeekEntryKeepsOperatorPrice(t *testing.T) {
 }
 
 func TestAdminEditedCatalogEntryIsOperatorPricing(t *testing.T) {
-	bs := &BillingService{fallbackPrices: map[string]*ModelPricing{}}
 	svc, _ := newTestModelCatalogService(ModelCatalogEntry{
 		ID: 1, ModelID: "m", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
 		ManagedBy: ModelCatalogManagedByAdmin, InputPrice: testPtrFloat64(1e-6),
 	})
-	resolver := NewModelPricingResolver(svc, bs)
+	resolver := NewModelPricingResolver(svc)
 
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "m"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
@@ -409,7 +400,7 @@ func TestSeed_SearchContextCostSeedsSearchPricePerCall(t *testing.T) {
 			"gpt-5.6": {
 				LiteLLMProvider: "openai", InputCostPerToken: 1e-6,
 				SearchContextCostPerQuery: map[string]float64{
-					"search_context_size_low": 0.008, "search_context_size_medium": 0.01, "search_context_size_high": 0.012,
+					"search_context_size_low": 0.02, "search_context_size_medium": 0.03, "search_context_size_high": 0.04,
 				},
 			},
 			"plain": {LiteLLMProvider: "openai", InputCostPerToken: 1e-6},
@@ -422,8 +413,10 @@ func TestSeed_SearchContextCostSeedsSearchPricePerCall(t *testing.T) {
 
 	entries := seedEntriesByModelID(repo.entries)
 	require.NotNil(t, entries["gpt-5.6"].SearchPricePerCall)
-	require.InDelta(t, 0.01, *entries["gpt-5.6"].SearchPricePerCall, 1e-12)
-	require.Nil(t, entries["plain"].SearchPricePerCall)
+	require.InDelta(t, 0.03, *entries["gpt-5.6"].SearchPricePerCall, 1e-12, "价格文件写了就用价格文件的")
+	// 价格文件没写：OpenAI 有官方搜索工具，按厂商公开价补上（计费只认目录）
+	require.NotNil(t, entries["plain"].SearchPricePerCall)
+	require.InDelta(t, defaultWebSearchPricePerCall, *entries["plain"].SearchPricePerCall, 1e-12)
 }
 
 // xAI Imagine 种子与硬编码兜底价同一优先级：价格文件已有该模型时不播。
@@ -549,7 +542,7 @@ func TestModelCatalogEntry_Validate_ListedImageVideoRequiresPerRequestPrice(t *t
 // 兜底价表的每个模型都要标上厂商（2026-09-29 E2E：grok / glm / claude-fable 等播出来厂商为空，
 // 用户站模型页归不到厂商）。表里新增模型族时漏了 modelFamilyVendors 这里会红。
 func TestFallbackSeedEntriesAllHaveVendor(t *testing.T) {
-	billing := NewBillingService(&config.Config{}, nil)
+	billing := NewBillingService()
 	fallback := billing.SnapshotFallbackPricing()
 	require.NotEmpty(t, fallback)
 	for name, pricing := range fallback {

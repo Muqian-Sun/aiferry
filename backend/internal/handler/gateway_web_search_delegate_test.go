@@ -86,8 +86,8 @@ func newDelegateHandler(t *testing.T, accounts []*service.Account, withHaiku boo
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	upstream := &recordingHTTPUpstream{respBody: anthropicSearchResponse}
 	usageLogs := &handlerUsageLogRepoStub{}
-	billing := service.NewBillingService(cfg, nil)
-	resolver := service.NewModelPricingResolver(delegateCatalogStub{entries: delegateEntries(withHaiku)}, billing)
+	billing := service.NewBillingService()
+	resolver := service.NewModelPricingResolver(delegateCatalogStub{entries: delegateEntries(withHaiku)})
 	gwSvc := service.NewGatewayService(
 		nil, usageLogs, nil, nil, nil, nil, cfg,
 		service.NewSchedulerSnapshotService(&catalogBucketSchedulerCache{fakeSchedulerCache{accounts: accounts}}, nil, nil, nil),

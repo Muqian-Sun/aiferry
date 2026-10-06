@@ -25,6 +25,8 @@ type OfficialPrices struct {
 	SearchPricePerCall *float64
 	XPostPrice         *float64
 	XUserPrice         *float64
+	// TimePricing 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱时整单乘倍数；nil = 不分忙闲时。
+	TimePricing *TimePricing
 }
 
 // UpstreamCostRatio 这条承接关系的上游成本比（上游价 ÷ 官方价，逐项、逐段取最高）；价格页的毛利
@@ -98,8 +100,8 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 	return validatePriceSegments("upstream", b.Intervals)
 }
 
-// normalizeBindingTimePricing 没有时段的忙闲时等于不分忙闲时，存成 nil。
-func normalizeBindingTimePricing(tp *TimePricing) *TimePricing {
+// normalizeTimePricing 没有时段的忙闲时等于不分忙闲时，存成 nil。
+func normalizeTimePricing(tp *TimePricing) *TimePricing {
 	if tp == nil || len(tp.Periods) == 0 {
 		return nil
 	}
@@ -158,6 +160,9 @@ func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 		if !samePricePtr(p[0], p[1]) {
 			return false
 		}
+	}
+	if !sameTimePricing(a.TimePricing, b.TimePricing) {
+		return false
 	}
 	as, bs := normalizePriceSegments(a.Intervals), normalizePriceSegments(b.Intervals)
 	if len(as) != len(bs) {
@@ -273,10 +278,10 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 	entry.SearchPricePerCall = clonePricePtr(official.SearchPricePerCall)
 	entry.XPostPrice = clonePricePtr(official.XPostPrice)
 	entry.XUserPrice = clonePricePtr(official.XUserPrice)
+	entry.TimePricing = normalizeTimePricing(official.TimePricing)
 	// 售价整份覆盖（同一块一起保存）；改售价不改条目归属：官方价照旧跟着价格文件刷新，售价播种不碰。
 	entry.SalePrices = normalizeSalePrices(sale)
-	// 官方价真改了才算运营者定价：运营者定价不再套 DeepSeek 强制官方价与高峰加价，种子也不再刷新它；
-	// 只加 / 改承接渠道时保持原来的归属。
+	// 官方价（含忙闲时）真改了才算运营者定价：种子不再刷新它；只加 / 改承接渠道、改售价时保持原来的归属。
 	if !sameOfficialPrices(current, entry) {
 		entry.ManagedBy = ModelCatalogManagedByAdmin
 	}
@@ -302,7 +307,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 		binding.EntryID = entryID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
-		binding.TimePricing = normalizeBindingTimePricing(binding.TimePricing)
+		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}
@@ -342,7 +347,7 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 		binding.AccountID = accountID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
-		binding.TimePricing = normalizeBindingTimePricing(binding.TimePricing)
+		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}
@@ -353,4 +358,21 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 	}
 	s.invalidate(ctx)
 	return normalized, nil
+}
+
+// sameTimePricing 两份忙闲时是否一样（nil 与没有时段的一样，都是不分忙闲时）。
+func sameTimePricing(a, b *TimePricing) bool {
+	a, b = normalizeTimePricing(a), normalizeTimePricing(b)
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	if a.Timezone != b.Timezone || a.WeekdaysOnly != b.WeekdaysOnly || len(a.Periods) != len(b.Periods) {
+		return false
+	}
+	for i := range a.Periods {
+		if a.Periods[i] != b.Periods[i] {
+			return false
+		}
+	}
+	return true
 }

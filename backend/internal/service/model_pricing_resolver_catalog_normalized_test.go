@@ -116,12 +116,11 @@ func TestCatalogPricing_SuffixedModelSubscriptionGroup(t *testing.T) {
 	require.InDelta(t, catalogPricingExpectedCatalogCost, log.InputCost, 1e-9)
 }
 
-// 反向保护：目录只配了不相关的模型时，归一化查找不得误命中该配置，
-// 应落回官方兜底价。
+// 反向保护：目录只配了不相关的模型时，归一化查找不得误命中该配置；
+// 计费只认目录，查不到就不计价（不再落回内置价表）。
 func TestCatalogPricing_UnrelatedCatalogModelNotMatched(t *testing.T) {
 	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.4"}, catalogPricingUnrelatedCost),
 	})
-	require.InDelta(t, catalogPricingExpectedOfficialCost, log.InputCost, 1e-9,
-		"normalized lookup must not match an unrelated catalog entry")
+	require.Zero(t, log.InputCost, "normalized lookup must not match an unrelated catalog entry")
 }

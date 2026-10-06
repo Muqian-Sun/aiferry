@@ -52,7 +52,6 @@
           :account-order="accountOrder"
           :default-sale-ratio="overview?.default_sale_ratio ?? 1"
           :min-margin="overview?.min_margin ?? 0"
-          :deepseek-peak="overview?.deepseek_peak_time_pricing"
           @saved="loadPricing"
         />
         <div class="flex items-center justify-between gap-4 rounded-lg border border-af-hairline px-4 py-3" data-testid="model-create-listing">

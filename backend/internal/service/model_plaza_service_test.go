@@ -23,24 +23,11 @@ func TestModelPlazaService_ListModelsProjectsListedEntries(t *testing.T) {
 	models := svc.ListModels(context.Background())
 	require.Len(t, models, 2, "unlisted entries are not shown")
 	require.Equal(t, "claude-fable-5-1", models[0].ModelID)
-	require.NotNil(t, models[0].Pricing.MaxReasoningEffortMultiplier, "fable default max effort multiplier is filled")
+	require.Nil(t, models[0].Pricing.MaxReasoningEffortMultiplier, "only the catalog's own multiplier is shown (none here)")
 	require.Equal(t, "gpt-5.6", models[1].ModelID)
 	require.Equal(t, "GPT-5.6", models[1].DisplayName)
 	require.Equal(t, "openai", models[1].Vendor)
 	require.Equal(t, BillingModeToken, models[1].BillingMode)
 	require.Equal(t, 1e-6, *models[1].Pricing.InputPrice)
 	require.Equal(t, "Asia/Shanghai", models[1].TimePricing.Timezone)
-}
-
-func TestWithDefaultMaxReasoningEffortMultiplier_Fable51(t *testing.T) {
-	base := &PricingCard{BillingMode: BillingModeToken}
-	got := withDefaultMaxReasoningEffortMultiplier(base, "claude-fable-5-1")
-	require.NotSame(t, base, got)
-	require.NotNil(t, got.MaxReasoningEffortMultiplier)
-	require.Equal(t, 3.0, *got.MaxReasoningEffortMultiplier)
-	require.Nil(t, base.MaxReasoningEffortMultiplier)
-
-	configured := 1.25
-	custom := &PricingCard{MaxReasoningEffortMultiplier: &configured}
-	require.Same(t, custom, withDefaultMaxReasoningEffortMultiplier(custom, "claude-fable-5-1"))
 }
