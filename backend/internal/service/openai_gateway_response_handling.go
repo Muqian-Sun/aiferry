@@ -1604,6 +1604,8 @@ func openAICacheCreationTokensFromUsage(value gjson.Result) int {
 		value.Get("prompt_tokens_details.cache_write_tokens"),
 		value.Get("input_tokens_details.cache_creation_tokens"),
 		value.Get("prompt_tokens_details.cache_creation_tokens"),
+		// 通义（DashScope）OpenAI 兼容接口的显式缓存写法，计在 prompt_tokens 里
+		value.Get("prompt_tokens_details.cache_creation_input_tokens"),
 	} {
 		if nested.Exists() {
 			return max(int(nested.Int()), 0)
