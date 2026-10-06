@@ -137,9 +137,214 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 	sort.Strings(keys)
 	entries := make([]ModelCatalogEntry, 0, len(keys))
 	for _, key := range keys {
-		entries = append(entries, byKey[key])
+		entry := byKey[key]
+		if catalogModelExcluded(entry.ModelID) {
+			continue
+		}
+		if !CatalogVendorAllowed(entry.Vendor) {
+			// fail-loud：价格文件或兜底价表里混进了白名单外的厂商，打出来而不是静默播进目录
+			slog.Warn("skipping catalog seed from a vendor outside the catalog allowlist", "model_id", entry.ModelID, "vendor", entry.Vendor)
+			continue
+		}
+		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// catalogVendorAllowlist 模型目录只收这 11 家的模型（muqian 2026-10-06）：OpenAI、Anthropic、Google、xAI、DeepSeek、
+// 智谱、月之暗面（Kimi）、MiniMax、阿里（通义）、字节（豆包）、小米（MiMo）。键是条目的厂商串（价格文件 provider 口径，
+// Google 有 gemini 与 vertex_ai-* 两种写法、OpenAI 有 openai 与 text-completion-openai）。
+// 只管播种（价格文件 / 兜底价表 → 目录）；管理员在后台手动建的条目不受限。
+var catalogVendorAllowlist = map[string]bool{
+	"openai":                     true,
+	"text-completion-openai":     true,
+	"anthropic":                  true,
+	"gemini":                     true,
+	"vertex_ai-language-models":  true,
+	"vertex_ai-embedding-models": true,
+	"xai":                        true,
+	"deepseek":                   true,
+	"zhipu":                      true,
+	"moonshot":                   true,
+	"minimax":                    true,
+	"dashscope":                  true,
+	"volcengine":                 true,
+	"xiaomi":                     true,
+}
+
+// catalogExcludedModels 目录不收的模型 ID（2026-10-06 按各家官网核对，muqian 定：目录只留官网在售、没宣布停服、
+// ID 固定的）。价格文件与兜底价表里还留着它们（计费、成品号映射、测试连接仍会用到），只是不播进目录。
+// 依据：OpenAI developers.openai.com/api/docs/deprecations、Anthropic platform.claude.com/docs/en/about-claude/model-deprecations、
+// Google ai.google.dev/gemini-api/docs/deprecations 与 changelog、xAI docs.x.ai/developers、Kimi platform.kimi.ai/docs/models、
+// 火山方舟 volcengine.com/docs/82379/1330310。官网后续恢复或改名时从这里删掉即可。
+var catalogExcludedModels = map[string]string{
+	// 官网已宣布停服（现在还能调，muqian 定现在就从目录删）
+	"claude-sonnet-4-5":                       "deprecated",
+	"claude-sonnet-4-5-20250929":              "deprecated",
+	"gemini-3.1-flash-lite":                   "deprecated",
+	"gemini-embedding-001":                    "deprecated",
+	"gpt-3.5-turbo":                           "deprecated",
+	"gpt-3.5-turbo-0125":                      "deprecated",
+	"gpt-4":                                   "deprecated",
+	"gpt-4-0613":                              "deprecated",
+	"gpt-4-turbo":                             "deprecated",
+	"gpt-4-turbo-2024-04-09":                  "deprecated",
+	"gpt-4.1-nano":                            "deprecated",
+	"gpt-4.1-nano-2025-04-14":                 "deprecated",
+	"gpt-4o-2024-05-13":                       "deprecated",
+	"gpt-4o-audio-preview-2024-12-17":         "deprecated",
+	"gpt-4o-audio-preview-2025-06-03":         "deprecated",
+	"gpt-4o-mini-audio-preview-2024-12-17":    "deprecated",
+	"gpt-4o-mini-realtime-preview":            "deprecated",
+	"gpt-4o-mini-realtime-preview-2024-12-17": "deprecated",
+	"gpt-4o-mini-transcribe":                  "deprecated",
+	"gpt-4o-mini-transcribe-2025-03-20":       "deprecated",
+	"gpt-4o-mini-transcribe-2025-12-15":       "deprecated",
+	"gpt-4o-mini-tts-2025-03-20":              "deprecated",
+	"gpt-4o-mini-tts-2025-12-15":              "deprecated",
+	"gpt-4o-realtime-preview":                 "deprecated",
+	"gpt-4o-realtime-preview-2024-12-17":      "deprecated",
+	"gpt-4o-realtime-preview-2025-06-03":      "deprecated",
+	"gpt-4o-transcribe":                       "deprecated",
+	"gpt-4o-transcribe-diarize":               "deprecated",
+	"gpt-5":                                   "deprecated",
+	"gpt-5-2025-08-07":                        "deprecated",
+	"gpt-5-mini":                              "deprecated",
+	"gpt-5-mini-2025-08-07":                   "deprecated",
+	"gpt-5-nano":                              "deprecated",
+	"gpt-5-nano-2025-08-07":                   "deprecated",
+	"gpt-5-pro":                               "deprecated",
+	"gpt-5-pro-2025-10-06":                    "deprecated",
+	"gpt-5.1":                                 "deprecated",
+	"gpt-5.3-codex":                           "deprecated",
+	"gpt-5.4-nano":                            "deprecated",
+	"gpt-audio":                               "deprecated",
+	"gpt-audio-2025-08-28":                    "deprecated",
+	"gpt-audio-mini":                          "deprecated",
+	"gpt-audio-mini-2025-12-15":               "deprecated",
+	"gpt-image-1":                             "deprecated",
+	"gpt-image-1-mini":                        "deprecated",
+	"gpt-image-1.5":                           "deprecated",
+	"gpt-image-1.5-2025-12-16":                "deprecated",
+	"gpt-realtime":                            "deprecated",
+	"gpt-realtime-2025-08-28":                 "deprecated",
+	"gpt-realtime-mini":                       "deprecated",
+	"gpt-realtime-mini-2025-12-15":            "deprecated",
+	"grok-imagine-image-quality":              "deprecated",
+	"o1-2024-12-17":                           "deprecated",
+	"o1-pro":                                  "deprecated",
+	"o1-pro-2025-03-19":                       "deprecated",
+	"o3":                                      "deprecated",
+	"o3-2025-04-16":                           "deprecated",
+	"o3-mini":                                 "deprecated",
+	"o3-mini-2025-01-31":                      "deprecated",
+	"o3-pro":                                  "deprecated",
+	"o3-pro-2025-06-10":                       "deprecated",
+	"o4-mini":                                 "deprecated",
+	"o4-mini-2025-04-16":                      "deprecated",
+	// 官网已停服
+	"gemini-2.0-flash":                        "shutdown",
+	"gemini-2.0-flash-001":                    "shutdown",
+	"gemini-2.0-flash-exp-image-generation":   "shutdown",
+	"gemini-2.0-flash-lite":                   "shutdown",
+	"gemini-2.0-flash-lite-001":               "shutdown",
+	"gemini-2.5-computer-use-preview-10-2025": "shutdown",
+	"gemini-2.5-flash-image":                  "shutdown",
+	"gemini-2.5-flash-lite-preview-06-17":     "shutdown",
+	"gemini-2.5-flash-lite-preview-09-2025":   "shutdown",
+	"gemini-2.5-flash-preview-09-2025":        "shutdown",
+	"gemini-3-pro-image-preview":              "shutdown",
+	"gemini-3-pro-preview":                    "shutdown",
+	"gemini-3.1-flash-image-preview":          "shutdown",
+	"gemini-3.1-flash-lite-preview":           "shutdown",
+	"gemini-embedding-2-preview":              "shutdown",
+	"gemini-robotics-er-1.5-preview":          "shutdown",
+	"gpt-3.5-turbo-1106":                      "shutdown",
+	"gpt-3.5-turbo-instruct":                  "shutdown",
+	"gpt-4-0125-preview":                      "shutdown",
+	"gpt-4-0314":                              "shutdown",
+	"gpt-4-1106-preview":                      "shutdown",
+	"gpt-4-turbo-preview":                     "shutdown",
+	"gpt-4o-audio-preview":                    "shutdown",
+	"gpt-4o-mini-audio-preview":               "shutdown",
+	"gpt-4o-mini-search-preview":              "shutdown",
+	"gpt-4o-mini-search-preview-2025-03-11":   "shutdown",
+	"gpt-4o-search-preview":                   "shutdown",
+	"gpt-4o-search-preview-2025-03-11":        "shutdown",
+	"gpt-5-codex":                             "shutdown",
+	"gpt-5.1-codex":                           "shutdown",
+	"gpt-5.1-codex-max":                       "shutdown",
+	"gpt-5.1-codex-mini":                      "shutdown",
+	"gpt-5.2-codex":                           "shutdown",
+	"gpt-audio-mini-2025-10-06":               "shutdown",
+	"gpt-realtime-mini-2025-10-06":            "shutdown",
+	"o3-deep-research":                        "shutdown",
+	"o3-deep-research-2025-06-26":             "shutdown",
+	"o4-mini-deep-research":                   "shutdown",
+	"o4-mini-deep-research-2025-06-26":        "shutdown",
+	// 官网已退役
+	"claude-3-5-haiku":           "retired",
+	"claude-3-7-sonnet-20250219": "retired",
+	"claude-3-haiku-20240307":    "retired",
+	"claude-3-opus-20240229":     "retired",
+	"claude-opus-4-1":            "retired",
+	"claude-opus-4-1-20250805":   "retired",
+	"claude-opus-4-20250514":     "retired",
+	"claude-sonnet-4-20250514":   "retired",
+	"kimi-k2":                    "retired",
+	"kimi-k2-thinking":           "retired",
+	"kimi-k2.5":                  "retired",
+	// 官网不再列出（模型页 / 定价页 / 停服表都没有）
+	"gemini-exp-1206": "not_listed",
+	"gemini-live-2.5-flash-preview-native-audio-09-2025": "not_listed",
+	"grok-3-mini":      "not_listed",
+	"grok-3-mini-fast": "not_listed",
+	// 官网只在更新日志里出现过、没有价格
+	"gemini-2.5-flash-native-audio-preview-09-2025": "not_priced",
+	// 不是官方 API 模型 ID（中转 / 第三方工具起的名字，或厂商名写反）
+	"claude-4-opus-20250514":      "not_official",
+	"claude-4-sonnet-20250514":    "not_official",
+	"claude-opus-4-6-20260205":    "not_official",
+	"claude-opus-4-6-thinking":    "not_official",
+	"claude-opus-4-7-20260416":    "not_official",
+	"codex-auto-review":           "not_official",
+	"doubao-embedding-vision":     "not_official",
+	"gemini-3-flash":              "not_official",
+	"gemini-3.1-pro":              "not_official",
+	"gemini-3.1-pro-high":         "not_official",
+	"gemini-3.1-pro-low":          "not_official",
+	"gemini-flash-experimental":   "not_official",
+	"gpt-3.5-turbo-16k":           "not_official",
+	"gpt-3.5-turbo-instruct-0914": "not_official",
+	"gpt-5-chat":                  "not_official",
+	"gpt-5-search-api-2025-10-14": "not_official",
+	// 会自动换指向的别名（-latest、kimi-for-coding），目录只留固定 ID
+	"chat-latest":                          "moving_alias",
+	"gemini-2.5-flash-native-audio-latest": "moving_alias",
+	"gemini-flash-latest":                  "moving_alias",
+	"gemini-flash-lite-latest":             "moving_alias",
+	"gemini-pro-latest":                    "moving_alias",
+	"gpt-5-chat-latest":                    "moving_alias",
+	"gpt-5.1-chat-latest":                  "moving_alias",
+	"gpt-5.2-chat-latest":                  "moving_alias",
+	"gpt-5.3-chat-latest":                  "moving_alias",
+	"grok-4.20-non-reasoning-latest":       "moving_alias",
+	"grok-4.20-reasoning-latest":           "moving_alias",
+	"grok-4.3-latest":                      "moving_alias",
+	"grok-4.5-latest":                      "moving_alias",
+	"grok-build-latest":                    "moving_alias",
+	"kimi-for-coding":                      "moving_alias",
+}
+
+// catalogModelExcluded 这个模型 ID 是否被目录排除（不分大小写）。
+func catalogModelExcluded(modelID string) bool {
+	_, ok := catalogExcludedModels[strings.ToLower(strings.TrimSpace(modelID))]
+	return ok
+}
+
+// CatalogVendorAllowed 厂商串在不在目录白名单里（不分大小写）。
+func CatalogVendorAllowed(vendor string) bool {
+	return catalogVendorAllowlist[strings.ToLower(strings.TrimSpace(vendor))]
 }
 
 // LookupPriceFileEntry 按模型标识构造一条建议条目，给「添加模型」自动带出厂商 / 计费方式 / 价格。

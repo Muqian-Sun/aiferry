@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const hotReloadCatalogModelJSON = `"remote-model": {"litellm_provider": "test", "mode": "chat",
+const hotReloadCatalogModelJSON = `"remote-model": {"litellm_provider": "openai", "mode": "chat",
 		"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}`
 
 func hotReloadModelJSON(name string, input, output float64) string {
-	return `"` + name + `": {"litellm_provider": "test", "mode": "chat",
+	return `"` + name + `": {"litellm_provider": "openai", "mode": "chat",
 		"input_cost_per_token": ` + formatFloat(input) + `, "output_cost_per_token": ` + formatFloat(output) + `}`
 }
 

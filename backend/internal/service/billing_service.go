@@ -715,7 +715,8 @@ func (s *BillingService) initFallbackPricing() {
 	// doubao-embedding-vision 图文向量化：上游 usage 回传 prompt_tokens_details.{text_tokens,image_tokens}，
 	// 按量付费官方价 文本 ¥0.7/MTok、图片 ¥1.8/MTok；汇率口径 ÷7.14（与本表其他国产模型一致，¥1≈$0.14）。
 	// embedding 无 output，OutputPricePerToken 置 0。
-	s.fallbackPrices["doubao-embedding-vision"] = &ModelPricing{
+	// 官方 ID 带版本号（火山方舟模型列表 2026-09-28：doubao-embedding-vision-251215；裸名只是定价页的产品名）
+	s.fallbackPrices["doubao-embedding-vision-251215"] = &ModelPricing{
 		InputPricePerToken:      0.098e-6, // ¥0.7/MTok ≈ $0.098（文本输入）
 		ImageInputPricePerToken: 0.252e-6, // ¥1.8/MTok ≈ $0.252（图片输入）
 		OutputPricePerToken:     0,
@@ -967,7 +968,7 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// most-specific-first：放在未来任何 doubao-embedding / doubao 宽匹配之前。
 	// 覆盖带版本后缀的别名（如 doubao-embedding-vision-251215）。
 	if strings.Contains(modelLower, "doubao-embedding-vision") {
-		return s.fallbackPrices["doubao-embedding-vision"]
+		return s.fallbackPrices["doubao-embedding-vision-251215"]
 	}
 
 	// OpenAI（GPT-5 / Codex 族）：仅匹配已知型号，避免未知 OpenAI 型号误计价。

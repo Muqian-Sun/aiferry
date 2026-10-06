@@ -25,15 +25,13 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 	}
 	for model, want := range map[string]rates{
 		// 新补
-		"claude-opus-5-5":      {input: 4e-6, output: 20e-6, cacheRead: 0.2e-6, cacheWrite: 5e-6, cacheWrite1h: 8e-6},
-		"claude-sonnet-5":      {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, cacheWrite1h: 4e-6},
-		"gpt-6-sol":            {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, threshold: 272000, inMul: 2, outMul: 1.5},
-		"grok-4.7":             {input: 2e-6, output: 6e-6, cacheRead: 0.5e-6, threshold: 200000, inMul: 2, outMul: 2},
-		"mistral-large-latest": {input: 0.5e-6, output: 1.5e-6, cacheRead: 0.05e-6},
-		"kimi-k2.7-code":       {input: 0.95e-6, output: 4e-6, cacheRead: 0.19e-6},
-		"qwen3.5-flash":        {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.02e-6}, // 隐式缓存命中 = 输入价 20%
-		"qwen3.8-max":          {input: 2e-6, output: 6e-6, cacheRead: 2e-6},        // 命中价官网未给：按输入原价
-		"jamba-large":          {input: 2e-6, output: 8e-6},
+		"claude-opus-5-5": {input: 4e-6, output: 20e-6, cacheRead: 0.2e-6, cacheWrite: 5e-6, cacheWrite1h: 8e-6},
+		"claude-sonnet-5": {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, cacheWrite1h: 4e-6},
+		"gpt-6-sol":       {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, threshold: 272000, inMul: 2, outMul: 1.5},
+		"grok-4.7":        {input: 2e-6, output: 6e-6, cacheRead: 0.5e-6, threshold: 200000, inMul: 2, outMul: 2},
+		"kimi-k2.7-code":  {input: 0.95e-6, output: 4e-6, cacheRead: 0.19e-6},
+		"qwen3.5-flash":   {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.02e-6}, // 隐式缓存命中 = 输入价 20%
+		"qwen3.8-max":     {input: 2e-6, output: 6e-6, cacheRead: 2e-6},        // 命中价官网未给：按输入原价
 		// 修正
 		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 10e-6},
 		"gpt-realtime-2":             {input: 4e-6, output: 24e-6, cacheRead: 0.4e-6},
@@ -59,6 +57,8 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 	// 停服 / 第三方托管的不能被这次补进来（DeepSeek 停服名单见 TestDeepseekPricingFileMatchesOfficialRates）
 	for _, absent := range []string{"deepseek-chat", "deepseek-reasoner", "zai-glm-5-3", "kimi-k2.5", "moonshot-v1-8k", "qwen-mt-plus",
 		"gpt-5.3-codex-spark", // OpenAI 2026-09-14 退役、没有 API 价（muqian 10-06「删」）
+		// 目录只收 11 家（muqian 10-06）：Mistral / Cohere / AI21 / Bedrock 写法都不收
+		"mistral-large-latest", "jamba-large", "command-r-08-2024", "claude-sonnet-4-5-20250929-v1:0",
 	} {
 		_, ok := pricingData[absent]
 		require.False(t, ok, "%s 不该出现在价格文件里", absent)
@@ -78,7 +78,7 @@ func TestPricingFileOfficialAdditionsSeedIntoCatalog(t *testing.T) {
 		require.NoError(t, entry.Validate(), entry.ModelID)
 		byID[entry.ModelID] = entry
 	}
-	for _, model := range []string{"claude-opus-5-5", "gpt-6-astra", "grok-4.20-0309-reasoning", "glm-4.6v", "minimax-m2.5-highspeed", "command-r-08-2024", "qwen3-vl-8b-instruct"} {
+	for _, model := range []string{"claude-opus-5-5", "gpt-6-astra", "grok-4.20-0309-reasoning", "glm-4.6v", "minimax-m2.5-highspeed", "qwen3-vl-8b-instruct"} {
 		entry, ok := byID[model]
 		require.True(t, ok, model)
 		require.NotNil(t, entry.InputPrice, model)
