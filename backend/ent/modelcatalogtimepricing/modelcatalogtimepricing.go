@@ -25,6 +25,8 @@ const (
 	FieldWeekdaysOnly = "weekdays_only"
 	// FieldPeriods holds the string denoting the periods field in the database.
 	FieldPeriods = "periods"
+	// FieldExcludeDates holds the string denoting the exclude_dates field in the database.
+	FieldExcludeDates = "exclude_dates"
 	// Table holds the table name of the modelcatalogtimepricing in the database.
 	Table = "model_catalog_time_pricing"
 )
@@ -38,6 +40,7 @@ var Columns = []string{
 	FieldTimezone,
 	FieldWeekdaysOnly,
 	FieldPeriods,
+	FieldExcludeDates,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

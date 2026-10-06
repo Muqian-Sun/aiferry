@@ -63,13 +63,28 @@ func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
 	}
 }
 
-// DeepSeek 官方高峰（2026-08-23 起）：UTC 01:00–04:00 与 06:00–10:00（半开区间），只在北京时间工作日；
-// 高峰价 = 2 × 低谷价。价格文件的 time_pricing 播进目录后逐分钟都要与这条官方规则一致。
+// DeepSeek 官方高峰（2026-08-23 起）：UTC 01:00–04:00 与 06:00–10:00（半开区间），北京时间周一到周五，
+// 不含中国法定节假日（定价页：excluding Chinese public holidays）；高峰价 = 2 × 低谷价。
+// 价格文件的 time_pricing 播进目录后逐分钟都要与这条官方规则一致。节假日按国办发明电〔2025〕7号
+// （2026 年放假调休日期），覆盖中秋、国庆两段假期。
 func TestDeepseekPricingFileTimePricingMatchesOfficialPeak(t *testing.T) {
 	pricingData := loadBuiltinPricingFile(t)
+	beijing := time.FixedZone("Asia/Shanghai", 8*3600)
+	holidays := map[string]bool{}
+	for _, span := range [][2]string{{"2026-09-25", "2026-09-27"}, {"2026-10-01", "2026-10-07"}} {
+		day, _ := time.Parse(time.DateOnly, span[0])
+		last, _ := time.Parse(time.DateOnly, span[1])
+		for ; !day.After(last); day = day.AddDate(0, 0, 1) {
+			holidays[day.Format(time.DateOnly)] = true
+		}
+	}
 	officialPeak := func(at time.Time) float64 {
-		switch at.In(time.FixedZone("Asia/Shanghai", 8*3600)).Weekday() {
+		local := at.In(beijing)
+		switch local.Weekday() {
 		case time.Saturday, time.Sunday:
+			return 1
+		}
+		if holidays[local.Format(time.DateOnly)] {
 			return 1
 		}
 		if h := at.UTC().Hour(); (h >= 1 && h < 4) || (h >= 6 && h < 10) {
@@ -77,19 +92,29 @@ func TestDeepseekPricingFileTimePricingMatchesOfficialPeak(t *testing.T) {
 		}
 		return 1
 	}
-	start := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC) // 周日 UTC，跨上一周末到下一周一
+	start := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC) // 跨中秋、国庆到 10 月 10 日（周六调休上班，按官方仍是闲时）
 	for _, model := range []string{"deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "deepseek-v4-pro"} {
 		entry := seedEntryFromLiteLLM(model, pricingData[model])
 		require.NotNil(t, entry.TimePricing, model)
 		peakMinutes := 0
-		for at := start; at.Before(start.AddDate(0, 0, 8)); at = at.Add(time.Minute) {
+		for at := start; at.Before(start.AddDate(0, 0, 21)); at = at.Add(time.Minute) {
 			require.Equal(t, officialPeak(at), entry.TimePricing.MultiplierAt(at), "%s at %s", model, at.Format(time.RFC3339))
 			if officialPeak(at) > 1 {
 				peakMinutes++
 			}
 		}
-		require.Equal(t, 5*7*60, peakMinutes, "每个工作日 7 小时高峰")
+		// 21 天里工作日 15 天，去掉 9-25 与 10-1 ～ 10-7 中的 6 个工作日，剩 9 天 × 7 小时
+		require.Equal(t, 9*7*60, peakMinutes, model)
 	}
+	// 国庆假期内的工作日上午（北京 10-06 10:00）按闲时
+	require.Equal(t, 1.0, seedEntryFromLiteLLM("deepseek-flash", pricingData["deepseek-flash"]).TimePricing.MultiplierAt(time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC)))
+}
+
+// 官网版本名播种成目录条目的显示名（中转按版本名叫：deepseek-v4.1-flash）。
+func TestDeepseekPricingFileDisplayNames(t *testing.T) {
+	pricingData := loadBuiltinPricingFile(t)
+	require.Equal(t, "DeepSeek-V4.1-Flash", seedEntryFromLiteLLM("deepseek-flash", pricingData["deepseek-flash"]).DisplayName)
+	require.Equal(t, "DeepSeek-V4-Pro-0813", seedEntryFromLiteLLM("deepseek-v4-pro", pricingData["deepseek-v4-pro"]).DisplayName)
 }
 
 // loadBuiltinPricingFile 读仓库里的内置价格文件（与生产同一份）。

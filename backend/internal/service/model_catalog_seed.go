@@ -224,6 +224,7 @@ var catalogExcludedModels = map[string]string{
 	"gpt-4o-mini-transcribe":                  "deprecated",
 	"gpt-4o-mini-transcribe-2025-03-20":       "deprecated",
 	"gpt-4o-mini-transcribe-2025-12-15":       "deprecated",
+	"gpt-4o-mini-tts":                         "deprecated",
 	"gpt-4o-mini-tts-2025-03-20":              "deprecated",
 	"gpt-4o-mini-tts-2025-12-15":              "deprecated",
 	"gpt-4o-realtime-preview":                 "deprecated",
@@ -240,8 +241,10 @@ var catalogExcludedModels = map[string]string{
 	"gpt-5-pro":                               "deprecated",
 	"gpt-5-pro-2025-10-06":                    "deprecated",
 	"gpt-5.1":                                 "deprecated",
+	"gpt-5.1-2025-11-13":                      "deprecated",
 	"gpt-5.3-codex":                           "deprecated",
 	"gpt-5.4-nano":                            "deprecated",
+	"gpt-5.4-nano-2026-03-17":                 "deprecated",
 	"gpt-audio":                               "deprecated",
 	"gpt-audio-2025-08-28":                    "deprecated",
 	"gpt-audio-mini":                          "deprecated",
@@ -420,8 +423,9 @@ func positivePrice(value float64) *float64 {
 
 func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalogEntry {
 	entry := ModelCatalogEntry{
-		ModelID: name,
-		Vendor:  strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
+		ModelID:     name,
+		DisplayName: pricing.DisplayName,
+		Vendor:      strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
 		// 默认 token；按张计价的生图模型下面改成 image。
 		BillingMode: BillingModeToken,
 		// 播种条目没有绑定资源，默认下架；管理员绑好资源再上架。
@@ -552,6 +556,11 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		MaxReasoningEffortMultiplier: clonePricePtr(pricing.MaxReasoningEffortMultiplier),
 	}
 	applyVendorWebSearchPrices(&entry)
+	if pricing.InputPricePerToken == 0 && pricing.OutputPricePerToken == 0 {
+		// 兜底价表里输入、输出都写 0 的是官网免费模型（GLM-4.5-Flash 等）：显式存 0 价。
+		// 不存的话条目没有任何 token 价，既不能上架，调用也按「无价」拒掉。
+		entry.InputPrice, entry.OutputPrice = new(float64), new(float64)
+	}
 	if pricing.SupportsCacheBreakdown &&
 		pricing.CacheCreation1hPrice > 0 &&
 		pricing.CacheCreation1hPrice > pricing.CacheCreation5mPrice {
@@ -608,5 +617,6 @@ func cloneTimePricing(tp *TimePricing) *TimePricing {
 	}
 	cp := *tp
 	cp.Periods = append([]TimePricingPeriod(nil), tp.Periods...)
+	cp.ExcludeDates = append([]string(nil), tp.ExcludeDates...)
 	return &cp
 }

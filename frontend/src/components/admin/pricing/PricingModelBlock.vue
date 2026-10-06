@@ -175,6 +175,7 @@ import {
   marginOf,
   modelDraftChanges,
   officialIssues,
+  peakDatesInvalid,
   peakErrors,
   peakFormFrom,
   peakFormToRequest,
@@ -225,7 +226,8 @@ const officialChanged = computed(
 
 const officialRowIssues = computed(() => ({
   ...officialIssues(props.state.draft.official),
-  peak: peakErrors(props.state.draft.officialPeak)
+  peak: peakErrors(props.state.draft.officialPeak),
+  peakDatesInvalid: peakDatesInvalid(props.state.draft.officialPeak)
 }))
 
 /** 这个模型能填的搜索价（厂商没有官方搜索工具时为空） */

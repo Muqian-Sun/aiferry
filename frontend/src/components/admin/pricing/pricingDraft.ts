@@ -96,6 +96,8 @@ export interface RowIssues {
   upstreamModelInvalid?: boolean
   /** 上游忙闲时每个时段的问题（null = 没问题），与 peak.periods 一一对应 */
   peak?: Array<PeakPeriodError | null>
+  /** 忙闲时的节假日里有写错的日期 */
+  peakDatesInvalid?: boolean
 }
 
 export function hasRowIssues(issues: RowIssues): boolean {
@@ -104,7 +106,8 @@ export function hasRowIssues(issues: RowIssues): boolean {
     issues.invalid.length > 0 ||
     issues.segments.some((error) => error != null) ||
     issues.upstreamModelInvalid === true ||
-    (issues.peak ?? []).some((error) => error != null)
+    (issues.peak ?? []).some((error) => error != null) ||
+    issues.peakDatesInvalid === true
   )
 }
 
@@ -178,7 +181,8 @@ export function bindingRowIssues(row: KeyedRow, official: OfficialRef): RowIssue
   return {
     ...upstreamIssues(row.prices, official),
     upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel),
-    peak: peakErrors(row.peak)
+    peak: peakErrors(row.peak),
+    peakDatesInvalid: peakDatesInvalid(row.peak)
   }
 }
 
@@ -532,6 +536,8 @@ export interface PeakForm {
   timezone: string
   weekdaysOnly: boolean
   periods: PeakPeriodForm[]
+  /** 节假日（这些日期全天按平时）：输入框原文，空格 / 逗号分隔的 YYYY-MM-DD */
+  excludeDates: string
 }
 
 /** 时段的问题：时间格式不对、开始不早于结束、倍数不对（> 0、最多两位小数）、与前一个时段重叠 */
@@ -542,7 +548,8 @@ export function peakFormFrom(tp: TimePricing | null | undefined): PeakForm | nul
   return {
     timezone: tp.timezone,
     weekdaysOnly: tp.weekdays_only === true,
-    periods: tp.periods.map((period) => ({ start: period.start_time, end: period.end_time, multiplier: String(period.multiplier) }))
+    periods: tp.periods.map((period) => ({ start: period.start_time, end: period.end_time, multiplier: String(period.multiplier) })),
+    excludeDates: (tp.exclude_dates ?? []).join(' ')
   }
 }
 
@@ -585,9 +592,25 @@ export function peakErrors(form: PeakForm | null): Array<PeakPeriodError | null>
   })
 }
 
-/** 提交用（调用前先确认 peakErrors 没有问题）：没有时段 = 不分忙闲时 */
+/** 节假日输入框 → 日期列表（去重、排好） */
+export function parseExcludeDates(text: string): string[] {
+  return [...new Set(text.split(/[\s,，、]+/).map((date) => date.trim()).filter(Boolean))].sort()
+}
+
+/** 节假日里有不是 YYYY-MM-DD 真实日期的 */
+export function peakDatesInvalid(form: PeakForm | null): boolean {
+  if (!form) return false
+  return parseExcludeDates(form.excludeDates).some((date) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return true
+    const parsed = new Date(`${date}T00:00:00Z`)
+    return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date
+  })
+}
+
+/** 提交用（调用前先确认 peakErrors / peakDatesInvalid 没有问题）：没有时段 = 不分忙闲时 */
 export function peakFormToRequest(form: PeakForm | null): TimePricing | null {
   if (!form || form.periods.length === 0) return null
+  const excludeDates = parseExcludeDates(form.excludeDates)
   return {
     timezone: form.timezone,
     weekdays_only: form.weekdaysOnly,
@@ -595,7 +618,8 @@ export function peakFormToRequest(form: PeakForm | null): TimePricing | null {
       start_time: period.start.trim(),
       end_time: period.end.trim(),
       multiplier: parsePeakMultiplier(period.multiplier) ?? 0
-    }))
+    })),
+    ...(excludeDates.length > 0 ? { exclude_dates: excludeDates } : {})
   }
 }
 
@@ -606,6 +630,7 @@ export function samePeak(a: PeakForm | null, b: PeakForm | null): boolean {
   return (
     left.timezone === right.timezone &&
     left.weekdaysOnly === right.weekdaysOnly &&
+    parseExcludeDates(left.excludeDates).join() === parseExcludeDates(right.excludeDates).join() &&
     left.periods.length === right.periods.length &&
     left.periods.every(
       (period, i) =>

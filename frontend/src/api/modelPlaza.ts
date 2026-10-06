@@ -65,6 +65,8 @@ export interface PlazaTimePricing {
   /** true 时时段仅周一至周五生效，周末整天按标准价计费。 */
   weekdays_only?: boolean
   periods: PlazaTimePricingPeriod[]
+  /** 这些日期（法定节假日）全天按标准价 */
+  exclude_dates?: string[]
 }
 
 /** 一个上架的目录条目。 */

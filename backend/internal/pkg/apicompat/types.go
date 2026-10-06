@@ -850,13 +850,30 @@ type ChatUsage struct {
 //   - completion_tokens_details: reasoning_tokens, audio_tokens,
 //     accepted_prediction_tokens, rejected_prediction_tokens
 type ChatTokenDetails struct {
-	CachedTokens             int `json:"cached_tokens,omitempty"`
-	AudioTokens              int `json:"audio_tokens,omitempty"`
-	CacheCreationTokens      int `json:"cache_creation_tokens,omitempty"`
-	CacheWriteTokens         int `json:"cache_write_tokens,omitempty"`
+	CachedTokens        int `json:"cached_tokens,omitempty"`
+	AudioTokens         int `json:"audio_tokens,omitempty"`
+	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
+	CacheWriteTokens    int `json:"cache_write_tokens,omitempty"`
+	// CacheCreationInputTokens 是通义（DashScope）OpenAI 兼容接口显式缓存的写法
+	// （prompt_tokens_details.cache_creation_input_tokens，计在 prompt_tokens 里）。
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	ReasoningTokens          int `json:"reasoning_tokens,omitempty"`
 	AcceptedPredictionTokens int `json:"accepted_prediction_tokens,omitempty"`
 	RejectedPredictionTokens int `json:"rejected_prediction_tokens,omitempty"`
+}
+
+// CacheCreation 取缓存写入 token：cache_write_tokens / cache_creation_tokens / cache_creation_input_tokens
+// 是同一个量的不同拼写，不相加，按这个顺序取第一个正数。
+func (d *ChatTokenDetails) CacheCreation() int {
+	if d == nil {
+		return 0
+	}
+	for _, tokens := range []int{d.CacheWriteTokens, d.CacheCreationTokens, d.CacheCreationInputTokens} {
+		if tokens > 0 {
+			return tokens
+		}
+	}
+	return 0
 }
 
 // ChatCompletionsChunk is a single streaming chunk from POST /v1/chat/completions.

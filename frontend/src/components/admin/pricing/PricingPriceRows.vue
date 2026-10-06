@@ -164,6 +164,22 @@
           </button>
           <span v-if="peakIssues[index]" class="text-xs text-af-danger">{{ t(`admin.pricing.peak.errors.${peakIssues[index]}`) }}</span>
         </div>
+        <label v-if="peak" class="flex flex-wrap items-center gap-2 text-13 text-af-ink-2">
+          {{ t('admin.pricing.peak.excludeDates') }}
+          <input
+            v-model="peak.excludeDates"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            :placeholder="t('admin.pricing.peak.excludeDatesPlaceholder')"
+            :aria-label="t('admin.pricing.peak.excludeDates')"
+            :class="['input h-8 min-w-0 flex-1 px-2 py-1 font-mono text-13 sm:max-w-xl', issues.peakDatesInvalid ? 'border-af-danger' : '']"
+            :data-testid="testId ? `${testId}-peak-exclude-dates` : undefined"
+          />
+          <span class="text-xs" :class="issues.peakDatesInvalid ? 'text-af-danger' : 'text-af-ink-3'">
+            {{ issues.peakDatesInvalid ? t('admin.pricing.peak.excludeDatesInvalid') : t('admin.pricing.peak.excludeDatesCount', { count: excludeDateCount }) }}
+          </span>
+        </label>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
           <button
             type="button"
@@ -247,6 +263,7 @@ import {
   PRICE_KEYS,
   SEARCH_KEYS,
   clonePeakForm,
+  parseExcludeDates,
   peakMaxMultiplier,
   type PeakForm,
   type PriceKey,
@@ -321,7 +338,8 @@ watch(
 // ---- 上游忙闲时
 const peakExpanded = ref(false)
 const peakIssues = computed(() => props.issues.peak ?? [])
-const peakInvalid = computed(() => peakIssues.value.some((error) => error != null))
+const peakInvalid = computed(() => peakIssues.value.some((error) => error != null) || props.issues.peakDatesInvalid === true)
+const excludeDateCount = computed(() => (peak.value ? parseExcludeDates(peak.value.excludeDates).length : 0))
 watch(
   peakInvalid,
   (invalid) => {
@@ -349,7 +367,7 @@ function timezoneLabel(zone: string): string {
 function addPeakPeriod() {
   const period = { start: '', end: '', multiplier: '2' }
   if (peak.value) peak.value.periods.push(period)
-  else peak.value = { timezone: 'Asia/Shanghai', weekdaysOnly: true, periods: [period] }
+  else peak.value = { timezone: 'Asia/Shanghai', weekdaysOnly: true, periods: [period], excludeDates: '' }
 }
 
 /** 删掉最后一个时段 = 不分忙闲时 */

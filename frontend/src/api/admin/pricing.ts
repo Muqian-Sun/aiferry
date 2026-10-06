@@ -39,6 +39,8 @@ export interface TimePricing {
   timezone: string
   weekdays_only?: boolean
   periods: TimePricingPeriod[]
+  /** 这些日期（YYYY-MM-DD，按 timezone 的本地日期）全天按平时：法定节假日 */
+  exclude_dates?: string[]
 }
 
 export interface PricingCard {

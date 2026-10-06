@@ -1846,3 +1846,18 @@ func TestBufferedResponseAccumulator_IgnoresNonFunctionCallItems(t *testing.T) {
 
 	assert.False(t, acc.HasContent())
 }
+
+// 通义（DashScope）OpenAI 兼容接口把显式缓存写入数报在 prompt_tokens_details.cache_creation_input_tokens（计在 prompt_tokens 里）。
+func TestChatUsageDashScopeCacheCreationSpelling(t *testing.T) {
+	var usage ChatUsage
+	require.NoError(t, json.Unmarshal([]byte(`{"prompt_tokens":10000,"completion_tokens":100,"total_tokens":10100,
+		"prompt_tokens_details":{"cached_tokens":5000,"cache_creation_input_tokens":2000,"cache_type":"ephemeral"}}`), &usage))
+
+	anthropic := chatUsageToAnthropicUsage(&usage)
+	require.Equal(t, 3000, anthropic.InputTokens)
+	require.Equal(t, 5000, anthropic.CacheReadInputTokens)
+	require.Equal(t, 2000, anthropic.CacheCreationInputTokens)
+
+	responses := ChatUsageToResponsesUsage(&usage)
+	require.Equal(t, 2000, responses.CacheCreationInputTokens)
+}

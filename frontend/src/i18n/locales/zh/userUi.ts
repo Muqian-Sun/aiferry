@@ -224,6 +224,7 @@ export default {
       vendorTabsLabel: '厂商',
       priceUnit: '价格单位：美元 / 百万 Token',
       weekdaysOnly: '仅工作日',
+      holidaysOffPeak: '法定节假日按标准价',
       openDetail: '查看全部计费项',
       prices: {
         input: '输入',

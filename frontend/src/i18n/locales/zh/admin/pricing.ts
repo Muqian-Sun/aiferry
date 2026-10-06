@@ -124,6 +124,10 @@ export default {
         note: '上游在这些时段整单按倍数收；只影响渠道成本与利润门，不影响向用户收的钱。',
         noneHint: '上游全天一个价'
       },
+      excludeDates: '节假日（全天按平时）',
+      excludeDatesPlaceholder: '2026-10-01 2026-10-02 …',
+      excludeDatesInvalid: '日期格式应为 YYYY-MM-DD',
+      excludeDatesCount: '{count} 天',
       useOfficial: '按官方忙闲时',
       clear: '改成不分忙闲时',
       timezone: '时区',
@@ -164,7 +168,8 @@ export default {
       invalid: '{fields} 格式不对（只能填非负数）',
       segment: '第 {index} 段：{error}',
       upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格',
-      peak: '忙闲时第 {index} 段：{error}'
+      peak: '忙闲时第 {index} 段：{error}',
+      peakDates: '忙闲时的节假日有写错的日期'
     },
     discardTitle: '放弃未保存的修改？',
     discardMessage: '有 {count} 块改了还没保存，继续会丢掉这些修改。',

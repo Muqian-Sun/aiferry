@@ -35,6 +35,30 @@ func TestMatchUpstreamModels(t *testing.T) {
 	}, got)
 }
 
+// 中转按官网版本名叫模型（deepseek-flash 的版本名 DeepSeek-V4.1-Flash → deepseek-v4.1-flash / deepseek-v4-1-flash）：
+// 模型 ID 对不上时比版本名；两个条目版本名撞了就不认。
+func TestMatchUpstreamModelsByVersionName(t *testing.T) {
+	svc, _ := newTestModelCatalogService(
+		ModelCatalogEntry{ID: 1, ModelID: "deepseek-flash", DisplayName: "DeepSeek-V4.1-Flash", Status: ModelCatalogStatusListed},
+		ModelCatalogEntry{ID: 2, ModelID: "deepseek-v4-pro", DisplayName: "DeepSeek-V4-Pro-0813"},
+		ModelCatalogEntry{ID: 3, ModelID: "twin-a", DisplayName: "Twin"},
+		ModelCatalogEntry{ID: 4, ModelID: "twin-b", DisplayName: "twin"},
+	)
+	got, err := svc.MatchUpstreamModels(context.Background(), []string{
+		"deepseek-v4.1-flash", "deepseek-v4-1-flash", "deepseek-ai/DeepSeek-V4.1-Flash",
+		"deepseek-v4-pro", "twin", "deepseek-v4.1-pro",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []ProbedUpstreamModel{
+		{ID: "deepseek-v4.1-flash", EntryID: 1, EntryModelID: "deepseek-flash", Listed: true},
+		{ID: "deepseek-v4-1-flash", EntryID: 1, EntryModelID: "deepseek-flash", Listed: true},
+		{ID: "deepseek-ai/DeepSeek-V4.1-Flash", EntryID: 1, EntryModelID: "deepseek-flash", Listed: true},
+		{ID: "deepseek-v4-pro", EntryID: 2, EntryModelID: "deepseek-v4-pro"},
+		{ID: "twin"},              // 两个条目版本名相同：不认
+		{ID: "deepseek-v4.1-pro"}, // 目录里没有
+	}, got)
+}
+
 func TestImportUpstreamModels(t *testing.T) {
 	svc, repo := newTestModelCatalogService(
 		ModelCatalogEntry{ID: 1, ModelID: "claude-sonnet-4-6", Status: ModelCatalogStatusListed},

@@ -89,11 +89,22 @@ func TestCatalogSeedInputTokenTiersFollowOfficialPrices(t *testing.T) {
 	requirePrice(t, usdPerMillion(0.1), flash.Intervals[0].InputPrice)
 	requirePrice(t, usdPerMillion(0.02), flash.Intervals[0].CacheReadPrice)
 	requirePrice(t, usdPerMillion(0.8), flash.Intervals[1].OutputPrice)
-	// 快照没有缓存折扣
-	require.Nil(t, byID["qwen3.7-flash-2026-07-15"].CacheReadPrice)
-	// qwen3.7-plus 官网限时 8 折，存现价；快照原价
-	requirePrice(t, usdPerMillion(0.32), byID["qwen3.7-plus"].InputPrice)
-	requirePrice(t, usdPerMillion(3.84), byID["qwen3.7-plus"].Intervals[0].OutputPrice)
+	requirePrice(t, usdPerMillion(0.038), flash.CacheWritePrice, "显式缓存创建价")
+	requirePrice(t, usdPerMillion(0.125), flash.Intervals[0].CacheWritePrice)
+	// 快照在不在缓存支持列表里各算各的：qwen3.7-flash-2026-07-15 在列表里，qwen3.6-flash-2026-04-16 不在
+	requirePrice(t, usdPerMillion(0.006), byID["qwen3.7-flash-2026-07-15"].CacheReadPrice)
+	require.Nil(t, byID["qwen3.6-flash-2026-04-16"].CacheReadPrice)
+	// 只有显式缓存的（qwen3.6-plus）：命中按显式读价、逐段
+	plus36 := byID["qwen3.6-plus"]
+	requirePrice(t, usdPerMillion(0.05), plus36.CacheReadPrice)
+	requirePrice(t, usdPerMillion(0.625), plus36.CacheWritePrice)
+	requirePrice(t, usdPerMillion(0.2), plus36.Intervals[0].CacheReadPrice)
+	requirePrice(t, usdPerMillion(2.5), plus36.Intervals[0].CacheWritePrice)
+	// 开源权重版不支持上下文缓存：不存缓存价
+	require.Nil(t, byID["qwen3.5-397b-a17b"].CacheReadPrice)
+	// qwen3.7-plus 限时 8 折 2026-09-30 结束（alibabacloud.com/campaign/qwen-plus-discount），回到列表价
+	requirePrice(t, usdPerMillion(0.4), byID["qwen3.7-plus"].InputPrice)
+	requirePrice(t, usdPerMillion(4.8), byID["qwen3.7-plus"].Intervals[0].OutputPrice)
 	requirePrice(t, usdPerMillion(0.4), byID["qwen3.7-plus-2026-05-26"].InputPrice)
 	coder := byID["qwen3-coder-flash"]
 	require.Len(t, coder.Intervals, 3)
@@ -121,10 +132,9 @@ func TestCatalogSeedInputTokenTiersFollowOfficialPrices(t *testing.T) {
 		requirePrice(t, usdPerMillion(0.375), entry.CacheWritePrice, model)
 	}
 
-	// 零散修正：gpt-image-2 文字没有输出价；gpt-4o-mini-tts 输出 $12；gemini-embedding-2 图片 / 音频输入价
+	// 零散修正：gpt-image-2 文字没有输出价；gemini-embedding-2 图片 / 音频输入价
 	require.Nil(t, byID["gpt-image-2"].OutputPrice)
 	require.Nil(t, byID["gpt-image-2-2026-04-21"].OutputPrice)
-	requirePrice(t, usdPerMillion(12), byID["gpt-4o-mini-tts"].OutputPrice)
 	requirePrice(t, usdPerMillion(0.45), byID["gemini-embedding-2"].ImageInputPrice)
 	requirePrice(t, usdPerMillion(6.5), byID["gemini-embedding-2"].AudioInputPrice)
 }

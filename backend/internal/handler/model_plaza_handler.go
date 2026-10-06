@@ -50,6 +50,8 @@ type modelPlazaTimePricing struct {
 	Timezone     string                        `json:"timezone"`
 	WeekdaysOnly bool                          `json:"weekdays_only,omitempty"`
 	Periods      []modelPlazaTimePricingPeriod `json:"periods"`
+	// ExcludeDates 这些日期全天按平时（法定节假日）
+	ExcludeDates []string `json:"exclude_dates,omitempty"`
 }
 
 // modelPlazaModel 广场模型条目：目录基准价（白名单形态）。
@@ -160,7 +162,7 @@ func toModelPlazaTimePricing(p *service.TimePricing) *modelPlazaTimePricing {
 			Multiplier: period.Multiplier,
 		})
 	}
-	return &modelPlazaTimePricing{Timezone: p.Timezone, WeekdaysOnly: p.WeekdaysOnly, Periods: periods}
+	return &modelPlazaTimePricing{Timezone: p.Timezone, WeekdaysOnly: p.WeekdaysOnly, Periods: periods, ExcludeDates: p.ExcludeDates}
 }
 
 // userSupportedModelPricing 用户可见的定价字段白名单。

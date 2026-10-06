@@ -90,6 +90,12 @@ func (_c *ModelCatalogTimePricingCreate) SetPeriods(v []map[string]interface{}) 
 	return _c
 }
 
+// SetExcludeDates sets the "exclude_dates" field.
+func (_c *ModelCatalogTimePricingCreate) SetExcludeDates(v []string) *ModelCatalogTimePricingCreate {
+	_c.mutation.SetExcludeDates(v)
+	return _c
+}
+
 // Mutation returns the ModelCatalogTimePricingMutation object of the builder.
 func (_c *ModelCatalogTimePricingCreate) Mutation() *ModelCatalogTimePricingMutation {
 	return _c.mutation
@@ -216,6 +222,10 @@ func (_c *ModelCatalogTimePricingCreate) createSpec() (*ModelCatalogTimePricing,
 		_spec.SetField(modelcatalogtimepricing.FieldPeriods, field.TypeJSON, value)
 		_node.Periods = value
 	}
+	if value, ok := _c.mutation.ExcludeDates(); ok {
+		_spec.SetField(modelcatalogtimepricing.FieldExcludeDates, field.TypeJSON, value)
+		_node.ExcludeDates = value
+	}
 	return _node, _spec
 }
 
@@ -337,6 +347,24 @@ func (u *ModelCatalogTimePricingUpsert) UpdatePeriods() *ModelCatalogTimePricing
 // ClearPeriods clears the value of the "periods" field.
 func (u *ModelCatalogTimePricingUpsert) ClearPeriods() *ModelCatalogTimePricingUpsert {
 	u.SetNull(modelcatalogtimepricing.FieldPeriods)
+	return u
+}
+
+// SetExcludeDates sets the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsert) SetExcludeDates(v []string) *ModelCatalogTimePricingUpsert {
+	u.Set(modelcatalogtimepricing.FieldExcludeDates, v)
+	return u
+}
+
+// UpdateExcludeDates sets the "exclude_dates" field to the value that was provided on create.
+func (u *ModelCatalogTimePricingUpsert) UpdateExcludeDates() *ModelCatalogTimePricingUpsert {
+	u.SetExcluded(modelcatalogtimepricing.FieldExcludeDates)
+	return u
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsert) ClearExcludeDates() *ModelCatalogTimePricingUpsert {
+	u.SetNull(modelcatalogtimepricing.FieldExcludeDates)
 	return u
 }
 
@@ -466,6 +494,27 @@ func (u *ModelCatalogTimePricingUpsertOne) UpdatePeriods() *ModelCatalogTimePric
 func (u *ModelCatalogTimePricingUpsertOne) ClearPeriods() *ModelCatalogTimePricingUpsertOne {
 	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
 		s.ClearPeriods()
+	})
+}
+
+// SetExcludeDates sets the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsertOne) SetExcludeDates(v []string) *ModelCatalogTimePricingUpsertOne {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.SetExcludeDates(v)
+	})
+}
+
+// UpdateExcludeDates sets the "exclude_dates" field to the value that was provided on create.
+func (u *ModelCatalogTimePricingUpsertOne) UpdateExcludeDates() *ModelCatalogTimePricingUpsertOne {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.UpdateExcludeDates()
+	})
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsertOne) ClearExcludeDates() *ModelCatalogTimePricingUpsertOne {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.ClearExcludeDates()
 	})
 }
 
@@ -761,6 +810,27 @@ func (u *ModelCatalogTimePricingUpsertBulk) UpdatePeriods() *ModelCatalogTimePri
 func (u *ModelCatalogTimePricingUpsertBulk) ClearPeriods() *ModelCatalogTimePricingUpsertBulk {
 	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
 		s.ClearPeriods()
+	})
+}
+
+// SetExcludeDates sets the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsertBulk) SetExcludeDates(v []string) *ModelCatalogTimePricingUpsertBulk {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.SetExcludeDates(v)
+	})
+}
+
+// UpdateExcludeDates sets the "exclude_dates" field to the value that was provided on create.
+func (u *ModelCatalogTimePricingUpsertBulk) UpdateExcludeDates() *ModelCatalogTimePricingUpsertBulk {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.UpdateExcludeDates()
+	})
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (u *ModelCatalogTimePricingUpsertBulk) ClearExcludeDates() *ModelCatalogTimePricingUpsertBulk {
+	return u.Update(func(s *ModelCatalogTimePricingUpsert) {
+		s.ClearExcludeDates()
 	})
 }
 

@@ -29,7 +29,9 @@ type ModelCatalogTimePricing struct {
 	// true 表示仅工作日生效，周末恒为 1 倍。
 	WeekdaysOnly bool `json:"weekdays_only,omitempty"`
 	// [{start_time,end_time,multiplier}]，秒级左闭右开，兼容 HH:mm。
-	Periods      []map[string]interface{} `json:"periods,omitempty"`
+	Periods []map[string]interface{} `json:"periods,omitempty"`
+	// 这些日期（YYYY-MM-DD，按 timezone 的本地日期）全天按平时：法定节假日。
+	ExcludeDates []string `json:"exclude_dates,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -38,7 +40,7 @@ func (*ModelCatalogTimePricing) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case modelcatalogtimepricing.FieldPeriods:
+		case modelcatalogtimepricing.FieldPeriods, modelcatalogtimepricing.FieldExcludeDates:
 			values[i] = new([]byte)
 		case modelcatalogtimepricing.FieldWeekdaysOnly:
 			values[i] = new(sql.NullBool)
@@ -107,6 +109,14 @@ func (_m *ModelCatalogTimePricing) assignValues(columns []string, values []any) 
 					return fmt.Errorf("unmarshal field periods: %w", err)
 				}
 			}
+		case modelcatalogtimepricing.FieldExcludeDates:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field exclude_dates", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ExcludeDates); err != nil {
+					return fmt.Errorf("unmarshal field exclude_dates: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -160,6 +170,9 @@ func (_m *ModelCatalogTimePricing) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("periods=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Periods))
+	builder.WriteString(", ")
+	builder.WriteString("exclude_dates=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ExcludeDates))
 	builder.WriteByte(')')
 	return builder.String()
 }

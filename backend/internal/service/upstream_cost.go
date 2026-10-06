@@ -134,12 +134,16 @@ func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio f
 	for _, iv := range b.Intervals {
 		points = append(points, iv.MinTokens)
 	}
+	upstreamCharges := false
 	for _, point := range points {
 		// 分段区间左开右闭 (min, max]：切点之后的第一个 token 数落在下一段。
 		tokens := point + 1
 		off := official.pricesAt(tokens)
 		up := upstream.pricesAt(tokens)
 		for i := range off {
+			if up[i] != nil && *up[i] > 0 {
+				upstreamCharges = true
+			}
 			if off[i] == nil || *off[i] <= 0 || up[i] == nil {
 				continue
 			}
@@ -149,8 +153,15 @@ func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio f
 			}
 		}
 	}
+	// 官网免费的模型（输入、输出价显式为 0，没有一项要钱）：上游也不收钱就不亏，成本比按 0；
+	// 上游收钱时照旧比不出（利润门按缺价挡掉）。
+	if !ok && isZeroPrice(official.input) && isZeroPrice(official.output) && !upstreamCharges {
+		return 0, true
+	}
 	return ratio, ok
 }
+
+func isZeroPrice(p *float64) bool { return p != nil && *p == 0 }
 
 // segmentPriceBase 一张价卡的五项 token 价与分段（官方价或上游价），用于按 token 数取某一段的价。
 type segmentPriceBase struct {

@@ -48,6 +48,10 @@ func (ModelCatalogTimePricing) Fields() []ent.Field {
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
 			Comment("[{start_time,end_time,multiplier}]，秒级左闭右开，兼容 HH:mm。"),
+		field.JSON("exclude_dates", []string{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+			Comment("这些日期（YYYY-MM-DD，按 timezone 的本地日期）全天按平时：法定节假日。"),
 	}
 }
 

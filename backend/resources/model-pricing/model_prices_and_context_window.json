@@ -722,6 +722,7 @@
   "deepseek-flash": {
     "cache_read_input_token_cost": 3e-09,
     "input_cost_per_token": 1.5e-07,
+    "display_name": "DeepSeek-V4.1-Flash",
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
@@ -747,6 +748,41 @@
       "periods": [
         {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
         {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ],
+      "exclude_dates": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-02-15",
+        "2026-02-16",
+        "2026-02-17",
+        "2026-02-18",
+        "2026-02-19",
+        "2026-02-20",
+        "2026-02-21",
+        "2026-02-22",
+        "2026-02-23",
+        "2026-04-04",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-02",
+        "2026-05-03",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21",
+        "2026-09-25",
+        "2026-09-26",
+        "2026-09-27",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+        "2026-10-05",
+        "2026-10-06",
+        "2026-10-07"
       ]
     }
   },
@@ -777,6 +813,41 @@
       "periods": [
         {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
         {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ],
+      "exclude_dates": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-02-15",
+        "2026-02-16",
+        "2026-02-17",
+        "2026-02-18",
+        "2026-02-19",
+        "2026-02-20",
+        "2026-02-21",
+        "2026-02-22",
+        "2026-02-23",
+        "2026-04-04",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-02",
+        "2026-05-03",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21",
+        "2026-09-25",
+        "2026-09-26",
+        "2026-09-27",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+        "2026-10-05",
+        "2026-10-06",
+        "2026-10-07"
       ]
     }
   },
@@ -808,12 +879,48 @@
       "periods": [
         {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
         {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ],
+      "exclude_dates": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-02-15",
+        "2026-02-16",
+        "2026-02-17",
+        "2026-02-18",
+        "2026-02-19",
+        "2026-02-20",
+        "2026-02-21",
+        "2026-02-22",
+        "2026-02-23",
+        "2026-04-04",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-02",
+        "2026-05-03",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21",
+        "2026-09-25",
+        "2026-09-26",
+        "2026-09-27",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+        "2026-10-05",
+        "2026-10-06",
+        "2026-10-07"
       ]
     }
   },
   "deepseek-v4-pro": {
     "cache_read_input_token_cost": 2.2e-08,
     "input_cost_per_token": 6.6e-07,
+    "display_name": "DeepSeek-V4-Pro-0813",
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
@@ -838,6 +945,41 @@
       "periods": [
         {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
         {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+      ],
+      "exclude_dates": [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-02-15",
+        "2026-02-16",
+        "2026-02-17",
+        "2026-02-18",
+        "2026-02-19",
+        "2026-02-20",
+        "2026-02-21",
+        "2026-02-22",
+        "2026-02-23",
+        "2026-04-04",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-05-01",
+        "2026-05-02",
+        "2026-05-03",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-06-19",
+        "2026-06-20",
+        "2026-06-21",
+        "2026-09-25",
+        "2026-09-26",
+        "2026-09-27",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+        "2026-10-05",
+        "2026-10-06",
+        "2026-10-07"
       ]
     }
   },
@@ -4913,8 +5055,6 @@
     "supports_xhigh_reasoning_effort": true
   },
   "gpt-5.4-pro": {
-    "cache_read_input_token_cost": 3e-06,
-    "cache_read_input_token_cost_above_272k_tokens": 6e-06,
     "input_cost_per_token": 3e-05,
     "input_cost_per_token_above_272k_tokens": 6e-05,
     "input_cost_per_token_batches": 1.5e-05,
@@ -4956,8 +5096,6 @@
     "supports_xhigh_reasoning_effort": true
   },
   "gpt-5.4-pro-2026-03-05": {
-    "cache_read_input_token_cost": 3e-06,
-    "cache_read_input_token_cost_above_272k_tokens": 6e-06,
     "input_cost_per_token": 3e-05,
     "input_cost_per_token_above_272k_tokens": 6e-05,
     "input_cost_per_token_batches": 1.5e-05,
@@ -5052,6 +5190,61 @@
     "promo_until": "2026-11-21",
     "price_after_promo": "not published",
     "source": "https://developers.openai.com/api/docs/pricing"
+  },
+  "gpt-5.6": {
+    "cache_creation_input_token_cost": 5e-06,
+    "cache_creation_input_token_cost_batches": 3.125e-06,
+    "cache_creation_input_token_cost_flex": 3.125e-06,
+    "cache_creation_input_token_cost_priority": 1.25e-05,
+    "cache_read_input_token_cost": 4e-07,
+    "cache_read_input_token_cost_flex": 2.5e-07,
+    "cache_read_input_token_cost_priority": 1e-06,
+    "input_cost_per_token": 4e-06,
+    "input_cost_per_token_batches": 2.5e-06,
+    "input_cost_per_token_flex": 2.5e-06,
+    "input_cost_per_token_priority": 1e-05,
+    "long_context_input_token_threshold": 272000,
+    "long_context_input_cost_multiplier": 2.0,
+    "long_context_output_cost_multiplier": 1.5,
+    "litellm_provider": "openai",
+    "max_input_tokens": 1050000,
+    "max_output_tokens": 128000,
+    "max_tokens": 128000,
+    "mode": "chat",
+    "output_cost_per_token": 2e-05,
+    "output_cost_per_token_batches": 1.5e-05,
+    "output_cost_per_token_flex": 1.5e-05,
+    "output_cost_per_token_priority": 6e-05,
+    "supported_endpoints": [
+      "/v1/chat/completions",
+      "/v1/batch",
+      "/v1/responses"
+    ],
+    "supported_modalities": [
+      "text",
+      "image"
+    ],
+    "supported_output_modalities": [
+      "text"
+    ],
+    "supports_function_calling": true,
+    "supports_minimal_reasoning_effort": false,
+    "supports_native_streaming": true,
+    "supports_none_reasoning_effort": true,
+    "supports_parallel_function_calling": true,
+    "supports_pdf_input": true,
+    "supports_prompt_caching": true,
+    "supports_reasoning": true,
+    "supports_response_schema": true,
+    "supports_service_tier": true,
+    "supports_system_messages": true,
+    "supports_tool_choice": true,
+    "supports_vision": true,
+    "supports_web_search": true,
+    "supports_xhigh_reasoning_effort": true,
+    "promo_until": "2026-11-21",
+    "price_after_promo": "not published",
+    "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol（The `gpt-5.6` alias routes requests to GPT-5.6 Sol，同价）"
   },
   "gpt-5.6-terra": {
     "cache_creation_input_token_cost": 2.5e-06,
@@ -5254,8 +5447,6 @@
     "supports_xhigh_reasoning_effort": true
   },
   "gpt-5.5-pro": {
-    "cache_read_input_token_cost": 3e-06,
-    "cache_read_input_token_cost_above_272k_tokens": 6e-06,
     "input_cost_per_token": 3e-05,
     "input_cost_per_token_above_272k_tokens": 6e-05,
     "input_cost_per_token_batches": 1.5e-05,
@@ -5298,8 +5489,6 @@
     "supports_xhigh_reasoning_effort": true
   },
   "gpt-5.5-pro-2026-04-23": {
-    "cache_read_input_token_cost": 3e-06,
-    "cache_read_input_token_cost_above_272k_tokens": 6e-06,
     "input_cost_per_token": 3e-05,
     "input_cost_per_token_above_272k_tokens": 6e-05,
     "input_cost_per_token_batches": 1.5e-05,
@@ -6618,6 +6807,73 @@
     "output_cost_per_token": 4e-07,
     "source": "https://docs.z.ai/guides/overview/pricing"
   },
+  "glm-5-turbo": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "input_cost_per_token": 7.35294e-07,
+    "output_cost_per_token": 3.23529e-06,
+    "cache_read_input_token_cost": 1.76471e-07,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 7.35294e-07,
+        "output_cost_per_token": 3.23529e-06,
+        "cache_read_input_token_cost": 1.76471e-07
+      },
+      {
+        "max_input_tokens": 200000,
+        "input_cost_per_token": 1.02941e-06,
+        "output_cost_per_token": 3.82353e-06,
+        "cache_read_input_token_cost": 2.64706e-07
+      }
+    ]
+  },
+  "glm-5v-turbo": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "input_cost_per_token": 7.35294e-07,
+    "output_cost_per_token": 3.23529e-06,
+    "cache_read_input_token_cost": 1.76471e-07,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 7.35294e-07,
+        "output_cost_per_token": 3.23529e-06,
+        "cache_read_input_token_cost": 1.76471e-07
+      },
+      {
+        "max_input_tokens": 200000,
+        "input_cost_per_token": 1.02941e-06,
+        "output_cost_per_token": 3.82353e-06,
+        "cache_read_input_token_cost": 2.64706e-07
+      }
+    ]
+  },
+  "glm-4-long": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "input_cost_per_token": 1.47059e-07,
+    "output_cost_per_token": 1.47059e-07,
+    "cache_read_input_token_cost": 7.35294e-08
+  },
+  "glm-4-flashx-250414": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "input_cost_per_token": 1.47059e-08,
+    "output_cost_per_token": 1.47059e-08,
+    "cache_read_input_token_cost": 7.35294e-09
+  },
+  "glm-4.1v-thinking-flashx": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "input_cost_per_token": 2.94118e-07,
+    "output_cost_per_token": 2.94118e-07
+  },
   "glm-4.5v": {
     "cache_read_input_token_cost": 1.1e-07,
     "input_cost_per_token": 6e-07,
@@ -6663,20 +6919,22 @@
     "cache_creation_input_token_cost": 3.75e-07
   },
   "qwen3.8-max": {
-    "cache_read_input_token_cost": 2e-06,
+    "cache_read_input_token_cost": 2.5e-07,
     "input_cost_per_token": 2e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 2.5e-06
   },
   "qwen3.8-max-0902": {
-    "cache_read_input_token_cost": 2e-06,
+    "cache_read_input_token_cost": 2.5e-07,
     "input_cost_per_token": 2e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 2.5e-06
   },
   "qwen3.7-max": {
     "cache_read_input_token_cost": 5e-07,
@@ -6684,7 +6942,8 @@
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 3.125e-06
   },
   "qwen3.7-max-2026-06-08": {
     "cache_read_input_token_cost": 5e-07,
@@ -6692,7 +6951,8 @@
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 3.125e-06
   },
   "qwen3.7-max-2026-05-20": {
     "cache_read_input_token_cost": 5e-07,
@@ -6700,10 +6960,10 @@
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 3.125e-06
   },
   "qwen3.7-max-preview": {
-    "cache_read_input_token_cost": 5e-07,
     "input_cost_per_token": 2.5e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6711,7 +6971,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.7-max-2026-05-17": {
-    "cache_read_input_token_cost": 5e-07,
     "input_cost_per_token": 2.5e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6726,8 +6985,31 @@
     "output_cost_per_token": 6.4e-06,
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
+  "qwen-plus-character": {
+    "litellm_provider": "dashscope",
+    "mode": "chat",
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.4e-06,
+    "cache_read_input_token_cost": 1e-07
+  },
+  "qwen-flash-character": {
+    "litellm_provider": "dashscope",
+    "mode": "chat",
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
+    "input_cost_per_token": 5e-08,
+    "output_cost_per_token": 4e-07,
+    "cache_read_input_token_cost": 1e-08
+  },
+  "qwen-plus-character-ja": {
+    "litellm_provider": "dashscope",
+    "mode": "chat",
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
+    "input_cost_per_token": 5e-07,
+    "output_cost_per_token": 1.4e-06,
+    "cache_read_input_token_cost": 1e-07
+  },
   "qwen-plus-2025-01-25": {
-    "cache_read_input_token_cost": 8e-08,
     "input_cost_per_token": 4e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6735,23 +7017,24 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.8-flash": {
-    "cache_read_input_token_cost": 1.5e-07,
+    "cache_read_input_token_cost": 1.6e-08,
     "input_cost_per_token": 1.5e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 4.7e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 2e-07
   },
   "qwen3.5-flash": {
-    "cache_read_input_token_cost": 2e-08,
+    "cache_read_input_token_cost": 1e-08,
     "input_cost_per_token": 1e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 4e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 1.25e-07
   },
   "qwen3.5-flash-2026-02-23": {
-    "cache_read_input_token_cost": 2e-08,
     "input_cost_per_token": 1e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6791,12 +7074,13 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.8-2.4t-a95b": {
-    "cache_read_input_token_cost": 2e-06,
+    "cache_read_input_token_cost": 2.5e-07,
     "input_cost_per_token": 2e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 2.5e-06
   },
   "qwen3.8-27b": {
     "cache_read_input_token_cost": 1e-07,
@@ -6804,10 +7088,10 @@
     "litellm_provider": "dashscope",
     "mode": "chat",
     "output_cost_per_token": 3e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+    "cache_creation_input_token_cost": 6.25e-07
   },
   "qwen3.6-35b-a3b": {
-    "cache_read_input_token_cost": 7.5e-08,
     "input_cost_per_token": 3.75e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6815,7 +7099,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.6-27b": {
-    "cache_read_input_token_cost": 1.2e-07,
     "input_cost_per_token": 6e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6823,7 +7106,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.5-397b-a17b": {
-    "cache_read_input_token_cost": 1.2e-07,
     "input_cost_per_token": 6e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6831,7 +7113,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.5-122b-a10b": {
-    "cache_read_input_token_cost": 8e-08,
     "input_cost_per_token": 4e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6839,7 +7120,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.5-27b": {
-    "cache_read_input_token_cost": 6e-08,
     "input_cost_per_token": 3e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -6847,7 +7127,6 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.5-35b-a3b": {
-    "cache_read_input_token_cost": 5e-08,
     "input_cost_per_token": 2.5e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
@@ -7218,23 +7497,26 @@
     "litellm_provider": "dashscope",
     "mode": "chat",
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 3.2e-07,
-    "output_cost_per_token": 1.28e-06,
+    "input_cost_per_token": 4e-07,
+    "output_cost_per_token": 1.6e-06,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 3.2e-07,
-        "output_cost_per_token": 1.28e-06,
-        "cache_read_input_token_cost": 6.4e-08
+        "input_cost_per_token": 4e-07,
+        "output_cost_per_token": 1.6e-06,
+        "cache_read_input_token_cost": 8e-08,
+        "cache_creation_input_token_cost": 5e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 9.6e-07,
-        "output_cost_per_token": 3.84e-06,
-        "cache_read_input_token_cost": 1.92e-07
+        "input_cost_per_token": 1.2e-06,
+        "output_cost_per_token": 4.8e-06,
+        "cache_read_input_token_cost": 2.4e-07,
+        "cache_creation_input_token_cost": 1.5e-06
       }
     ],
-    "cache_read_input_token_cost": 6.4e-08
+    "cache_read_input_token_cost": 8e-08,
+    "cache_creation_input_token_cost": 5e-07
   },
   "qwen3.7-plus-2026-05-26": {
     "litellm_provider": "dashscope",
@@ -7247,16 +7529,19 @@
         "max_input_tokens": 256000,
         "input_cost_per_token": 4e-07,
         "output_cost_per_token": 1.6e-06,
-        "cache_read_input_token_cost": 8e-08
+        "cache_read_input_token_cost": 8e-08,
+        "cache_creation_input_token_cost": 5e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 1.2e-06,
         "output_cost_per_token": 4.8e-06,
-        "cache_read_input_token_cost": 2.4e-07
+        "cache_read_input_token_cost": 2.4e-07,
+        "cache_creation_input_token_cost": 1.5e-06
       }
     ],
-    "cache_read_input_token_cost": 8e-08
+    "cache_read_input_token_cost": 8e-08,
+    "cache_creation_input_token_cost": 5e-07
   },
   "qwen3.6-plus": {
     "litellm_provider": "dashscope",
@@ -7268,14 +7553,20 @@
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06
+        "output_cost_per_token": 3e-06,
+        "cache_read_input_token_cost": 5e-08,
+        "cache_creation_input_token_cost": 6.25e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 2e-06,
-        "output_cost_per_token": 6e-06
+        "output_cost_per_token": 6e-06,
+        "cache_read_input_token_cost": 2e-07,
+        "cache_creation_input_token_cost": 2.5e-06
       }
-    ]
+    ],
+    "cache_read_input_token_cost": 5e-08,
+    "cache_creation_input_token_cost": 6.25e-07
   },
   "qwen3.6-plus-2026-04-02": {
     "litellm_provider": "dashscope",
@@ -7306,14 +7597,20 @@
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 2.4e-06
+        "output_cost_per_token": 2.4e-06,
+        "cache_read_input_token_cost": 4e-08,
+        "cache_creation_input_token_cost": 5e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06
+        "output_cost_per_token": 3e-06,
+        "cache_read_input_token_cost": 5e-08,
+        "cache_creation_input_token_cost": 6.25e-07
       }
-    ]
+    ],
+    "cache_read_input_token_cost": 4e-08,
+    "cache_creation_input_token_cost": 5e-07
   },
   "qwen3.5-plus-2026-04-20": {
     "litellm_provider": "dashscope",
@@ -7325,14 +7622,20 @@
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 2.4e-06
+        "output_cost_per_token": 2.4e-06,
+        "cache_read_input_token_cost": 4e-08,
+        "cache_creation_input_token_cost": 5e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06
+        "output_cost_per_token": 3e-06,
+        "cache_read_input_token_cost": 5e-08,
+        "cache_creation_input_token_cost": 6.25e-07
       }
-    ]
+    ],
+    "cache_read_input_token_cost": 4e-08,
+    "cache_creation_input_token_cost": 5e-07
   },
   "qwen3.5-plus-2026-02-15": {
     "litellm_provider": "dashscope",
@@ -7364,22 +7667,26 @@
         "max_input_tokens": 32000,
         "input_cost_per_token": 3e-08,
         "output_cost_per_token": 1.3e-07,
-        "cache_read_input_token_cost": 6e-09
+        "cache_read_input_token_cost": 6e-09,
+        "cache_creation_input_token_cost": 3.8e-08
       },
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 1e-07,
         "output_cost_per_token": 4e-07,
-        "cache_read_input_token_cost": 2e-08
+        "cache_read_input_token_cost": 2e-08,
+        "cache_creation_input_token_cost": 1.25e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 2e-07,
         "output_cost_per_token": 8e-07,
-        "cache_read_input_token_cost": 4e-08
+        "cache_read_input_token_cost": 4e-08,
+        "cache_creation_input_token_cost": 2.5e-07
       }
     ],
-    "cache_read_input_token_cost": 6e-09
+    "cache_read_input_token_cost": 6e-09,
+    "cache_creation_input_token_cost": 3.8e-08
   },
   "qwen3.7-flash-2026-07-15": {
     "litellm_provider": "dashscope",
@@ -7391,19 +7698,27 @@
       {
         "max_input_tokens": 32000,
         "input_cost_per_token": 3e-08,
-        "output_cost_per_token": 1.3e-07
+        "output_cost_per_token": 1.3e-07,
+        "cache_read_input_token_cost": 6e-09,
+        "cache_creation_input_token_cost": 3.8e-08
       },
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 1e-07,
-        "output_cost_per_token": 4e-07
+        "output_cost_per_token": 4e-07,
+        "cache_read_input_token_cost": 2e-08,
+        "cache_creation_input_token_cost": 1.25e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 2e-07,
-        "output_cost_per_token": 8e-07
+        "output_cost_per_token": 8e-07,
+        "cache_read_input_token_cost": 4e-08,
+        "cache_creation_input_token_cost": 2.5e-07
       }
-    ]
+    ],
+    "cache_read_input_token_cost": 6e-09,
+    "cache_creation_input_token_cost": 3.8e-08
   },
   "qwen3.6-flash": {
     "litellm_provider": "dashscope",
@@ -7416,16 +7731,19 @@
         "max_input_tokens": 256000,
         "input_cost_per_token": 2.5e-07,
         "output_cost_per_token": 1.5e-06,
-        "cache_read_input_token_cost": 5e-08
+        "cache_read_input_token_cost": 2.5e-08,
+        "cache_creation_input_token_cost": 3.125e-07
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 1e-06,
         "output_cost_per_token": 4e-06,
-        "cache_read_input_token_cost": 2e-07
+        "cache_read_input_token_cost": 1e-07,
+        "cache_creation_input_token_cost": 1.25e-06
       }
     ],
-    "cache_read_input_token_cost": 5e-08
+    "cache_read_input_token_cost": 2.5e-08,
+    "cache_creation_input_token_cost": 3.125e-07
   },
   "qwen3.6-flash-2026-04-16": {
     "litellm_provider": "dashscope",
@@ -7457,16 +7775,19 @@
         "max_input_tokens": 256000,
         "input_cost_per_token": 5e-08,
         "output_cost_per_token": 4e-07,
-        "cache_read_input_token_cost": 1e-08
+        "cache_read_input_token_cost": 1e-08,
+        "cache_creation_input_token_cost": 6.3e-08
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 2.5e-07,
         "output_cost_per_token": 2e-06,
-        "cache_read_input_token_cost": 5e-08
+        "cache_read_input_token_cost": 5e-08,
+        "cache_creation_input_token_cost": 3.13e-07
       }
     ],
-    "cache_read_input_token_cost": 1e-08
+    "cache_read_input_token_cost": 1e-08,
+    "cache_creation_input_token_cost": 6.3e-08
   },
   "qwen-flash-2025-07-28": {
     "litellm_provider": "dashscope",
@@ -7498,22 +7819,26 @@
         "max_input_tokens": 32000,
         "input_cost_per_token": 2e-07,
         "output_cost_per_token": 1.6e-06,
-        "cache_read_input_token_cost": 4e-08
+        "cache_read_input_token_cost": 4e-08,
+        "cache_creation_input_token_cost": 2.5e-07
       },
       {
         "max_input_tokens": 128000,
         "input_cost_per_token": 3e-07,
         "output_cost_per_token": 2.4e-06,
-        "cache_read_input_token_cost": 6e-08
+        "cache_read_input_token_cost": 6e-08,
+        "cache_creation_input_token_cost": 3.75e-07
       },
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 6e-07,
         "output_cost_per_token": 4.8e-06,
-        "cache_read_input_token_cost": 1.2e-07
+        "cache_read_input_token_cost": 1.2e-07,
+        "cache_creation_input_token_cost": 7.5e-07
       }
     ],
-    "cache_read_input_token_cost": 4e-08
+    "cache_read_input_token_cost": 4e-08,
+    "cache_creation_input_token_cost": 2.5e-07
   },
   "qwen3-coder-flash": {
     "litellm_provider": "dashscope",
@@ -7525,24 +7850,34 @@
       {
         "max_input_tokens": 32000,
         "input_cost_per_token": 3e-07,
-        "output_cost_per_token": 1.5e-06
+        "output_cost_per_token": 1.5e-06,
+        "cache_read_input_token_cost": 6e-08,
+        "cache_creation_input_token_cost": 3.75e-07
       },
       {
         "max_input_tokens": 128000,
         "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 2.5e-06
+        "output_cost_per_token": 2.5e-06,
+        "cache_read_input_token_cost": 1e-07,
+        "cache_creation_input_token_cost": 6.25e-07
       },
       {
         "max_input_tokens": 256000,
         "input_cost_per_token": 8e-07,
-        "output_cost_per_token": 4e-06
+        "output_cost_per_token": 4e-06,
+        "cache_read_input_token_cost": 1.6e-07,
+        "cache_creation_input_token_cost": 1e-06
       },
       {
         "max_input_tokens": 1000000,
         "input_cost_per_token": 1.6e-06,
-        "output_cost_per_token": 9.6e-06
+        "output_cost_per_token": 9.6e-06,
+        "cache_read_input_token_cost": 3.2e-07,
+        "cache_creation_input_token_cost": 2e-06
       }
-    ]
+    ],
+    "cache_read_input_token_cost": 6e-08,
+    "cache_creation_input_token_cost": 3.75e-07
   },
   "qwen3-coder-flash-2025-07-28": {
     "litellm_provider": "dashscope",

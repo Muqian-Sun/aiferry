@@ -7,6 +7,8 @@ type TimePricingSpec struct {
 	Timezone     string                  `json:"timezone"`
 	WeekdaysOnly bool                    `json:"weekdays_only,omitempty"`
 	Periods      []TimePricingSpecPeriod `json:"periods"`
+	// ExcludeDates 这些日期（YYYY-MM-DD，按 Timezone 的本地日期）全天按平时（法定节假日）。
+	ExcludeDates []string `json:"exclude_dates,omitempty"`
 }
 
 // TimePricingSpecPeriod 一个时段：HH:mm 或 HH:mm:ss，左闭右开，结束 00:00 表示到当天结束。

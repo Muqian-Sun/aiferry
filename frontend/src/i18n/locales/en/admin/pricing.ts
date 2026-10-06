@@ -124,6 +124,10 @@ export default {
         note: 'The upstream charges the whole request × multiplier in these periods. Affects channel cost and the profit gate only, not what users pay.',
         noneHint: 'The upstream charges one price all day'
       },
+      excludeDates: 'Holidays (off-peak all day)',
+      excludeDatesPlaceholder: '2026-10-01 2026-10-02 …',
+      excludeDatesInvalid: 'Dates must be YYYY-MM-DD',
+      excludeDatesCount: '{count} days',
       useOfficial: 'Use official peak hours',
       clear: 'Remove peak hours',
       timezone: 'Time zone',
@@ -164,7 +168,8 @@ export default {
       invalid: '{fields} invalid (non-negative numbers only)',
       segment: 'segment {index}: {error}',
       upstreamModel: 'upstream model must be a single name without * or spaces',
-      peak: 'Peak period {index}: {error}'
+      peak: 'Peak period {index}: {error}',
+      peakDates: 'Peak-hours holidays contain an invalid date'
     },
     discardTitle: 'Discard unsaved changes?',
     discardMessage: '{count} blocks have unsaved changes; continuing discards them.',

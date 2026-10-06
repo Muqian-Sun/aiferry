@@ -30,18 +30,19 @@ func (s *AccountTestService) ProbeUpstreamModels(ctx context.Context, account *A
 	return dedupeAndSortModelIDs(models), nil
 }
 
-// MatchUpstreamModels 把上游模型名对到目录条目（上架与未上架都算）：先比规范化后的模型名与别名
-// （NormalizeModelCatalogKey，与计价查表同口径），对不上再去掉厂商前缀（"anthropic/claude-…" 这类聚合平台写法）比一次。
+// MatchUpstreamModels 把上游模型名对到目录条目（上架与未上架都算）：先比规范化后的模型名
+// （NormalizeModelCatalogKey，与计价查表同口径），对不上再去掉厂商前缀（"anthropic/claude-…" 这类聚合平台写法）比一次，
+// 还对不上就比官网版本名（中转把 deepseek-flash 叫 deepseek-v4.1-flash：比 DeepSeek-V4.1-Flash）。
 func (s *ModelCatalogService) MatchUpstreamModels(ctx context.Context, upstream []string) ([]ProbedUpstreamModel, error) {
 	entries, err := s.ListEntries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	byKey := catalogEntriesByKey(entries)
+	index := newUpstreamModelIndex(entries)
 	result := make([]ProbedUpstreamModel, 0, len(upstream))
 	for _, id := range upstream {
 		probed := ProbedUpstreamModel{ID: id}
-		if entry, ok := lookupCatalogEntryForUpstreamModel(byKey, id); ok {
+		if entry, ok := index.lookup(id); ok {
 			probed.EntryID = entry.ID
 			probed.EntryModelID = entry.ModelID
 			probed.Listed = entry.Status == ModelCatalogStatusListed
@@ -60,7 +61,7 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 	if err != nil {
 		return nil, err
 	}
-	byKey := catalogEntriesByKey(entries)
+	index := newUpstreamModelIndex(entries)
 	seen := make(map[string]struct{}, len(ids))
 	result := make([]ModelCatalogEntry, 0, len(ids))
 	for _, raw := range ids {
@@ -73,7 +74,7 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 			continue
 		}
 		seen[key] = struct{}{}
-		if existing, ok := lookupCatalogEntryForUpstreamModel(byKey, id); ok {
+		if existing, ok := index.lookup(id); ok {
 			result = append(result, *existing)
 			continue
 		}
@@ -90,29 +91,64 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 		if err := s.CreateEntry(ctx, &entry); err != nil {
 			return nil, fmt.Errorf("import upstream model %q: %w", id, err)
 		}
-		byKey[key] = &entry
+		index.byKey[key] = &entry
 		result = append(result, entry)
 	}
 	return result, nil
 }
 
-func catalogEntriesByKey(entries []ModelCatalogEntry) map[string]*ModelCatalogEntry {
-	byKey := make(map[string]*ModelCatalogEntry, len(entries))
-	for i := range entries {
-		entry := &entries[i]
-		byKey[NormalizeModelCatalogKey(entry.ModelID)] = entry
-	}
-	return byKey
+// upstreamModelIndex 上游模型名对目录条目的索引：按模型 ID（规范化）与按官网版本名（只留小写字母和数字）。
+type upstreamModelIndex struct {
+	byKey map[string]*ModelCatalogEntry
+	// byDisplay 两个条目的版本名比较键相同时记成 nil：不认，免得猜错
+	byDisplay map[string]*ModelCatalogEntry
 }
 
-func lookupCatalogEntryForUpstreamModel(byKey map[string]*ModelCatalogEntry, id string) (*ModelCatalogEntry, bool) {
-	if entry, ok := byKey[NormalizeModelCatalogKey(id)]; ok {
-		return entry, true
+func newUpstreamModelIndex(entries []ModelCatalogEntry) upstreamModelIndex {
+	index := upstreamModelIndex{
+		byKey:     make(map[string]*ModelCatalogEntry, len(entries)),
+		byDisplay: make(map[string]*ModelCatalogEntry),
 	}
+	for i := range entries {
+		entry := &entries[i]
+		index.byKey[NormalizeModelCatalogKey(entry.ModelID)] = entry
+		if key := looseModelKey(entry.DisplayName); key != "" {
+			if _, dup := index.byDisplay[key]; dup {
+				index.byDisplay[key] = nil
+			} else {
+				index.byDisplay[key] = entry
+			}
+		}
+	}
+	return index
+}
+
+// lookup 先比模型 ID，再去掉厂商前缀比，最后比官网版本名。
+func (x upstreamModelIndex) lookup(id string) (*ModelCatalogEntry, bool) {
+	candidates := []string{id}
 	if i := strings.LastIndex(id, "/"); i >= 0 && i < len(id)-1 {
-		if entry, ok := byKey[NormalizeModelCatalogKey(id[i+1:])]; ok {
+		candidates = append(candidates, id[i+1:])
+	}
+	for _, candidate := range candidates {
+		if entry, ok := x.byKey[NormalizeModelCatalogKey(candidate)]; ok {
+			return entry, true
+		}
+	}
+	for _, candidate := range candidates {
+		if entry := x.byDisplay[looseModelKey(candidate)]; entry != nil {
 			return entry, true
 		}
 	}
 	return nil, false
+}
+
+// looseModelKey 比较键：只留小写字母和数字（DeepSeek-V4.1-Flash、deepseek-v4.1-flash、deepseek-v4-1-flash 都是 deepseekv41flash）。
+func looseModelKey(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

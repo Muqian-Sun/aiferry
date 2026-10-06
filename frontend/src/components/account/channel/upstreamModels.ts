@@ -4,7 +4,8 @@
  * 上游的 /models 只当参考：实测 agentrouter 承接的两个模型、qiniu 承接的 gpt-5.6-luna 都不在它们的列表里；
  * 名字也会差一点（qiniu 的 deepseek-v4-1-flash ↔ 目录 deepseek-v4.1-flash）。所以先认逐字相同的标识，
  * 再认「去掉大小写和标点后相同」的相近名——相近名承接时把上游的名字填进「上游模型名」。
- * 聚合平台写法「anthropic/claude-…」去掉斜杠前的厂商段再认一次（与后端 lookupCatalogEntryForUpstreamModel 同口径）。
+ * 聚合平台写法「anthropic/claude-…」去掉斜杠前的厂商段再认一次；还认不出就比官网版本名（目录条目的显示名，
+ * 中转把 deepseek-flash 叫 deepseek-v4.1-flash / deepseek-v4-1-flash，比 DeepSeek-V4.1-Flash）。与后端 upstreamModelIndex 同口径。
  *
  * 目录里没有的（muqian 2026-10-06）：先看是不是官方模型 ID（联网的 LiteLLM 公开价格表）——是就加进目录，
  * 不是就映射到目录里的某个模型（这个渠道的上游模型名），映射给一个建议、由管理员确认。
@@ -42,24 +43,37 @@ interface CatalogIndex {
   byLower: Map<string, ModelCatalogEntry>
   // 两个条目的比较键相同时记成 null：不认相近名，免得猜错
   byLoose: Map<string, ModelCatalogEntry | null>
+  // 官网版本名（显示名）的比较键，同样撞名记 null
+  byDisplay: Map<string, ModelCatalogEntry | null>
+}
+
+function looseIndex(catalog: ModelCatalogEntry[], keyOf: (entry: ModelCatalogEntry) => string): Map<string, ModelCatalogEntry | null> {
+  const index = new Map<string, ModelCatalogEntry | null>()
+  for (const entry of catalog) {
+    const key = keyOf(entry)
+    if (!key) continue
+    index.set(key, index.has(key) ? null : entry)
+  }
+  return index
 }
 
 function indexCatalog(catalog: ModelCatalogEntry[]): CatalogIndex {
-  const byLoose = new Map<string, ModelCatalogEntry | null>()
-  for (const entry of catalog) {
-    const key = looseKey(entry.model_id)
-    byLoose.set(key, byLoose.has(key) ? null : entry)
-  }
   return {
     byId: new Map(catalog.map((entry) => [entry.model_id, entry])),
     byLower: new Map(catalog.map((entry) => [entry.model_id.toLowerCase(), entry])),
-    byLoose
+    byLoose: looseIndex(catalog, (entry) => looseKey(entry.model_id)),
+    byDisplay: looseIndex(catalog, (entry) => looseKey(entry.display_name ?? ''))
   }
 }
 
 function findInCatalog(index: CatalogIndex, name: string): ModelCatalogEntry | null {
-  for (const candidate of new Set([name, withoutVendorPrefix(name)])) {
+  const candidates = new Set([name, withoutVendorPrefix(name)])
+  for (const candidate of candidates) {
     const entry = index.byId.get(candidate) ?? index.byLower.get(candidate.toLowerCase()) ?? index.byLoose.get(looseKey(candidate)) ?? null
+    if (entry) return entry
+  }
+  for (const candidate of candidates) {
+    const entry = index.byDisplay.get(looseKey(candidate)) ?? null
     if (entry) return entry
   }
   return null

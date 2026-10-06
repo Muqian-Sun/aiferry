@@ -287,7 +287,10 @@ const hasPricing = computed(
 const timePricingScope = computed(() => {
   const timePricing = props.entry?.timePricing
   if (!timePricing) return ''
-  return timePricing.weekdays_only ? `${timePricing.timezone} · ${t('userUi.models.weekdaysOnly')}` : timePricing.timezone
+  const parts = [timePricing.timezone]
+  if (timePricing.weekdays_only) parts.push(t('userUi.models.weekdaysOnly'))
+  if (timePricing.exclude_dates?.length) parts.push(t('userUi.models.holidaysOffPeak'))
+  return parts.join(' · ')
 })
 
 /** 脚注：分段规则（有分段时） */
