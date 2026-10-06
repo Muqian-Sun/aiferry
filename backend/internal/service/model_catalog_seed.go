@@ -556,6 +556,11 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		MaxReasoningEffortMultiplier: clonePricePtr(pricing.MaxReasoningEffortMultiplier),
 	}
 	applyVendorWebSearchPrices(&entry)
+	if pricing.InputPricePerToken == 0 && pricing.OutputPricePerToken == 0 {
+		// 兜底价表里输入、输出都写 0 的是官网免费模型（GLM-4.5-Flash 等）：显式存 0 价。
+		// 不存的话条目没有任何 token 价，既不能上架，调用也按「无价」拒掉。
+		entry.InputPrice, entry.OutputPrice = new(float64), new(float64)
+	}
 	if pricing.SupportsCacheBreakdown &&
 		pricing.CacheCreation1hPrice > 0 &&
 		pricing.CacheCreation1hPrice > pricing.CacheCreation5mPrice {

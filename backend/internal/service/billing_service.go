@@ -483,13 +483,19 @@ func (s *BillingService) initFallbackPricing() {
 		OutputPricePerToken:    0.1e-6,
 		SupportsCacheBreakdown: false,
 	}
-	// GLM-4.5-Flash / GLM-4.7-Flash 在 z.ai 上为 Free，保留 zero-cost entry 防止未知 alias 误计费。
+	// 官网免费的文本模型（输入、输出都写 0，播种成显式 0 价）：GLM-4.5-Flash / GLM-4.7-Flash 在 z.ai 上为 Free；
+	// GLM-4-Flash-250414 只在国内站 docs.bigmodel.cn 上架，免费。
 	s.fallbackPrices["glm-4.5-flash"] = &ModelPricing{
 		InputPricePerToken:     0,
 		OutputPricePerToken:    0,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7-flash"] = &ModelPricing{
+		InputPricePerToken:     0,
+		OutputPricePerToken:    0,
+		SupportsCacheBreakdown: false,
+	}
+	s.fallbackPrices["glm-4-flash-250414"] = &ModelPricing{
 		InputPricePerToken:     0,
 		OutputPricePerToken:    0,
 		SupportsCacheBreakdown: false,

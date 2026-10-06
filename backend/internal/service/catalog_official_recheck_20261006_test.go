@@ -52,12 +52,9 @@ func TestCatalogOfficialRecheck20261006(t *testing.T) {
 	requirePrice(t, cnyPerMillion(2), byID["glm-4.1v-thinking-flashx"].InputPrice)
 	require.Nil(t, byID["glm-4.1v-thinking-flashx"].CacheReadPrice, "国内站标「不支持」缓存")
 
-	// 豆包：滚动迭代旗舰与 2.1 Pro 同价
-	evolving := byID["doubao-seed-evolving"]
-	require.Equal(t, "volcengine", evolving.Vendor)
-	requirePrice(t, cnyPerMillion(6), evolving.InputPrice)
-	requirePrice(t, cnyPerMillion(30), evolving.OutputPrice)
-	requirePrice(t, cnyPerMillion(1.2), evolving.CacheReadPrice)
+	// 豆包滚动迭代模型 ID 不固定指向，不收（muqian 10-06）
+	_, evolving := byID["doubao-seed-evolving"]
+	require.False(t, evolving)
 
 	// 通义角色扮演：在隐式缓存支持列表里，命中价 = 输入价 20%
 	requirePrice(t, usdPerMillion(0.1), byID["qwen-plus-character"].CacheReadPrice)
@@ -88,4 +85,36 @@ func TestQwenExplicitCacheBilledAtOfficialPrices(t *testing.T) {
 	})
 	require.InEpsilon(t, 50_000*usdPerMillion(0.05), cost.CacheReadCost, 1e-9)
 	require.InEpsilon(t, 20_000*usdPerMillion(0.625), cost.CacheCreationCost, 1e-9)
+}
+
+// 官网免费的文本模型（muqian 10-06「免费的文本模型加入」）：存显式 0 价——能上架、按 0 计费；
+// 利润门开着时上游也免费就放行，上游收钱照旧挡掉。
+func TestFreeTextModelsSeedAsZeroPriced(t *testing.T) {
+	byID := seededBuiltinCatalog(t)
+	bs := NewBillingService()
+	for _, model := range []string{"glm-4.5-flash", "glm-4.7-flash", "glm-4-flash-250414"} {
+		entry, ok := byID[model]
+		require.True(t, ok, model)
+		require.Equal(t, "zhipu", entry.Vendor, model)
+		require.NotNil(t, entry.InputPrice, model)
+		require.NotNil(t, entry.OutputPrice, model)
+		require.Zero(t, *entry.InputPrice, model)
+		require.Zero(t, *entry.OutputPrice, model)
+
+		entry.Status = ModelCatalogStatusListed
+		entry.Normalize()
+		require.NoError(t, entry.Validate(), "免费模型要能上架：%s", model)
+
+		cost, err := builtinCatalogCost(bs, model, UsageTokens{InputTokens: 1000, OutputTokens: 1000}, 1)
+		require.NoError(t, err, model)
+		require.Zero(t, cost.TotalCost, model)
+
+		free := &ModelCatalogBinding{}
+		ratio, ok := entry.UpstreamCostRatio(free)
+		require.True(t, ok, model)
+		require.Zero(t, ratio, model)
+		paid := &ModelCatalogBinding{InputPrice: 1e-7}
+		_, ok = entry.UpstreamCostRatio(paid)
+		require.False(t, ok, "上游收钱、官方免费：比不出，利润门按缺价挡掉")
+	}
 }
