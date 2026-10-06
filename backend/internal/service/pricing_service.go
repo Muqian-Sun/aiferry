@@ -139,33 +139,61 @@ type LiteLLMModelPricing struct {
 	// SearchContextCostPerQuery 是模型内置搜索每次调用价，按 search_context_size_{low,medium,high} 分档。
 	SearchContextCostPerQuery map[string]float64 `json:"search_context_cost_per_query,omitempty"`
 
+	// ModelID 是官网写法的模型 ID（价格文件条目的 model_id，如 MiniMax-M3）：价格文件的键一律小写、用来查价，
+	// 播种时目录条目用这个写法（用户请求的模型名要与目录逐字一致）。空 = 与键相同。
+	ModelID string `json:"-"`
+	// InputTokenTiers 官网按「整次请求的输入侧 token 数」分段的价（价格文件的 input_token_tiers）：
+	// 第一段就是基础价，其余各段播种时换算成目录的按 token 分段。
+	InputTokenTiers []LiteLLMInputTokenTier `json:"-"`
+
 	// TokenPricingAbsent 表示源数据中 input/output token 价格均缺失（仅有图片价）。
 	// 此类条目只可用于图片计费，token 计费必须回退到 fallback 或 fail-closed，
 	// 否则 token 流量会被按 $0 计费。零值（false）表示条目具备 token 价格。
 	TokenPricingAbsent bool `json:"-"`
 }
 
+// LiteLLMInputTokenTier 是多段价的一段：输入侧 token 数不超过 MaxInputTokens 时整条请求按这一段的价算。
+// MaxInputTokens 为 0 表示不封顶（只允许出现在最后一段）。缓存价为 0 表示这一段没写。
+type LiteLLMInputTokenTier struct {
+	MaxInputTokens              int
+	InputCostPerToken           float64
+	OutputCostPerToken          float64
+	CacheReadInputTokenCost     float64
+	CacheCreationInputTokenCost float64
+}
+
+// rawInputTokenTier 是价格文件 input_token_tiers 的一项。
+type rawInputTokenTier struct {
+	MaxInputTokens              *int     `json:"max_input_tokens"`
+	InputCostPerToken           *float64 `json:"input_cost_per_token"`
+	OutputCostPerToken          *float64 `json:"output_cost_per_token"`
+	CacheReadInputTokenCost     *float64 `json:"cache_read_input_token_cost"`
+	CacheCreationInputTokenCost *float64 `json:"cache_creation_input_token_cost"`
+}
+
 // LiteLLMRawEntry 用于解析原始JSON数据
 type LiteLLMRawEntry struct {
-	InputCostPerToken                   *float64           `json:"input_cost_per_token"`
-	OutputCostPerToken                  *float64           `json:"output_cost_per_token"`
-	CacheCreationInputTokenCost         *float64           `json:"cache_creation_input_token_cost"`
-	CacheCreationInputTokenCostAbove1hr *float64           `json:"cache_creation_input_token_cost_above_1hr"`
-	CacheReadInputTokenCost             *float64           `json:"cache_read_input_token_cost"`
-	LongContextInputTokenThreshold      *int               `json:"long_context_input_token_threshold"`
-	LongContextInputCostMultiplier      *float64           `json:"long_context_input_cost_multiplier"`
-	LongContextOutputCostMultiplier     *float64           `json:"long_context_output_cost_multiplier"`
-	SupportsServiceTier                 bool               `json:"supports_service_tier"`
-	LiteLLMProvider                     string             `json:"litellm_provider"`
-	Mode                                string             `json:"mode"`
-	SupportsPromptCaching               bool               `json:"supports_prompt_caching"`
-	OutputCostPerImage                  *float64           `json:"output_cost_per_image"`
-	OutputCostPerImageToken             *float64           `json:"output_cost_per_image_token"`
-	InputCostPerImageToken              *float64           `json:"input_cost_per_image_token"`
-	CacheReadInputImageTokenCost        *float64           `json:"cache_read_input_image_token_cost"`
-	InputCostPerAudioToken              *float64           `json:"input_cost_per_audio_token"`
-	OutputCostPerAudioToken             *float64           `json:"output_cost_per_audio_token"`
-	SearchContextCostPerQuery           map[string]float64 `json:"search_context_cost_per_query"`
+	ModelID                             string              `json:"model_id"`
+	InputTokenTiers                     []rawInputTokenTier `json:"input_token_tiers"`
+	InputCostPerToken                   *float64            `json:"input_cost_per_token"`
+	OutputCostPerToken                  *float64            `json:"output_cost_per_token"`
+	CacheCreationInputTokenCost         *float64            `json:"cache_creation_input_token_cost"`
+	CacheCreationInputTokenCostAbove1hr *float64            `json:"cache_creation_input_token_cost_above_1hr"`
+	CacheReadInputTokenCost             *float64            `json:"cache_read_input_token_cost"`
+	LongContextInputTokenThreshold      *int                `json:"long_context_input_token_threshold"`
+	LongContextInputCostMultiplier      *float64            `json:"long_context_input_cost_multiplier"`
+	LongContextOutputCostMultiplier     *float64            `json:"long_context_output_cost_multiplier"`
+	SupportsServiceTier                 bool                `json:"supports_service_tier"`
+	LiteLLMProvider                     string              `json:"litellm_provider"`
+	Mode                                string              `json:"mode"`
+	SupportsPromptCaching               bool                `json:"supports_prompt_caching"`
+	OutputCostPerImage                  *float64            `json:"output_cost_per_image"`
+	OutputCostPerImageToken             *float64            `json:"output_cost_per_image_token"`
+	InputCostPerImageToken              *float64            `json:"input_cost_per_image_token"`
+	CacheReadInputImageTokenCost        *float64            `json:"cache_read_input_image_token_cost"`
+	InputCostPerAudioToken              *float64            `json:"input_cost_per_audio_token"`
+	OutputCostPerAudioToken             *float64            `json:"output_cost_per_audio_token"`
+	SearchContextCostPerQuery           map[string]float64  `json:"search_context_cost_per_query"`
 }
 
 // PricingService 模型价格服务：价格只来自内置价格文件（pricing.fallback_file），
@@ -409,7 +437,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 
 	result := make(map[string]*LiteLLMModelPricing)
 	skipped := 0
-	var orphanCacheTiers, lopsidedLadders []string
+	var orphanCacheTiers, lopsidedLadders, invalidEntries []string
 
 	for modelName, rawEntry := range rawData {
 		// 跳过 sample_spec 等文档条目
@@ -497,6 +525,24 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			orphanCacheTiers = append(orphanCacheTiers, modelName+"("+strings.Join(orphans, ",")+")")
 		}
 
+		// 官网写法的模型 ID 与多段价是我们自己加的字段；写错了整条不收（fail-closed：
+		// 只收基础价会让高段按低段价算，ID 对不上会让目录出现第二个写法）。
+		if entry.ModelID != "" {
+			if !strings.EqualFold(strings.TrimSpace(entry.ModelID), modelName) {
+				invalidEntries = append(invalidEntries, modelName+"(model_id "+entry.ModelID+" differs from the key)")
+				continue
+			}
+			pricing.ModelID = strings.TrimSpace(entry.ModelID)
+		}
+		if len(entry.InputTokenTiers) > 0 {
+			tiers, err := parseInputTokenTiers(entry.InputTokenTiers, pricing)
+			if err != nil {
+				invalidEntries = append(invalidEntries, modelName+"("+err.Error()+")")
+				continue
+			}
+			pricing.InputTokenTiers = tiers
+		}
+
 		result[modelName] = pricing
 	}
 
@@ -505,12 +551,63 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 	}
 	warnOrphanCacheTierFields(orphanCacheTiers)
 	warnLopsidedLongContextLadders(lopsidedLadders)
+	if len(invalidEntries) > 0 {
+		sort.Strings(invalidEntries)
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: skipped %d model(s) with an invalid model_id or input_token_tiers: %s", len(invalidEntries), strings.Join(invalidEntries, ", "))
+	}
 
 	if len(result) == 0 {
 		return nil, fmt.Errorf("no valid pricing entries found")
 	}
 
 	return result, nil
+}
+
+// parseInputTokenTiers 校验并转换价格文件的 input_token_tiers：至少两段；每段都有输入 / 输出价；
+// 除最后一段外都要有上限且逐段递增（最后一段可不写上限 = 不封顶）；第一段就是基础价，必须与条目的
+// 基础输入 / 输出 / 缓存价逐项相同；不能与长上下文阶梯（long_context_* / *_above_XXXk_tokens）同时出现。
+func parseInputTokenTiers(raw []rawInputTokenTier, base *LiteLLMModelPricing) ([]LiteLLMInputTokenTier, error) {
+	if len(raw) < 2 {
+		return nil, fmt.Errorf("input_token_tiers needs at least two tiers")
+	}
+	if base.LongContextInputTokenThreshold > 0 {
+		return nil, fmt.Errorf("input_token_tiers cannot be combined with a long-context ladder")
+	}
+	tiers := make([]LiteLLMInputTokenTier, 0, len(raw))
+	previousMax := 0
+	for i, item := range raw {
+		if item.InputCostPerToken == nil || item.OutputCostPerToken == nil {
+			return nil, fmt.Errorf("tier %d needs input and output prices", i)
+		}
+		tier := LiteLLMInputTokenTier{
+			InputCostPerToken:  *item.InputCostPerToken,
+			OutputCostPerToken: *item.OutputCostPerToken,
+		}
+		if item.CacheReadInputTokenCost != nil {
+			tier.CacheReadInputTokenCost = *item.CacheReadInputTokenCost
+		}
+		if item.CacheCreationInputTokenCost != nil {
+			tier.CacheCreationInputTokenCost = *item.CacheCreationInputTokenCost
+		}
+		last := i == len(raw)-1
+		switch {
+		case item.MaxInputTokens == nil && !last:
+			return nil, fmt.Errorf("tier %d needs max_input_tokens", i)
+		case item.MaxInputTokens != nil && *item.MaxInputTokens <= previousMax:
+			return nil, fmt.Errorf("tier %d max_input_tokens must increase", i)
+		case item.MaxInputTokens != nil:
+			tier.MaxInputTokens = *item.MaxInputTokens
+			previousMax = *item.MaxInputTokens
+		}
+		tiers = append(tiers, tier)
+	}
+	first := tiers[0]
+	if first.InputCostPerToken != base.InputCostPerToken || first.OutputCostPerToken != base.OutputCostPerToken ||
+		first.CacheReadInputTokenCost != base.CacheReadInputTokenCost ||
+		first.CacheCreationInputTokenCost != base.CacheCreationInputTokenCost {
+		return nil, fmt.Errorf("the first tier must equal the base prices")
+	}
+	return tiers, nil
 }
 
 // deriveLongContextFromAboveTierFields 把 LiteLLM 目录的 *_above_XXXk_tokens 绝对价字段

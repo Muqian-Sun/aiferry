@@ -275,6 +275,11 @@ func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *
 	} else if cacheReadMultiplier := firstNonNil(iv.CacheReadMultiplier, inputRatio); cacheReadMultiplier != nil {
 		pricing.CacheReadPricePerToken = applyMultiplier(pricing.CacheReadPricePerToken, cacheReadMultiplier)
 	}
+	// 音频输入价同样随段按输入价的比例加价（豆包 2.0 lite / mini 官网的音频输入价与文本输入价逐段同比例）；
+	// 分段不单独配音频价，留成基础价会让高段的音频按低段价算。
+	if inputRatio != nil {
+		pricing.AudioInputPricePerToken = applyMultiplier(pricing.AudioInputPricePerToken, inputRatio)
+	}
 	// 运营者价卡存在时，ImageOutputPrice 显式覆盖；图片输入价用价卡级配置
 	// （区间不携带图片输入价，与 image_output 一致）。
 	if chPricing != nil && overrideImagePrices {
