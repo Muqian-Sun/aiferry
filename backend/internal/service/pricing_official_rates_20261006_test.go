@@ -57,7 +57,9 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 	}
 
 	// 停服 / 第三方托管的不能被这次补进来（DeepSeek 停服名单见 TestDeepseekPricingFileMatchesOfficialRates）
-	for _, absent := range []string{"deepseek-chat", "deepseek-reasoner", "zai-glm-5-3", "kimi-k2.5", "moonshot-v1-8k", "qwen-mt-plus"} {
+	for _, absent := range []string{"deepseek-chat", "deepseek-reasoner", "zai-glm-5-3", "kimi-k2.5", "moonshot-v1-8k", "qwen-mt-plus",
+		"gpt-5.3-codex-spark", // OpenAI 2026-09-14 退役、没有 API 价（muqian 10-06「删」）
+	} {
 		_, ok := pricingData[absent]
 		require.False(t, ok, "%s 不该出现在价格文件里", absent)
 	}
