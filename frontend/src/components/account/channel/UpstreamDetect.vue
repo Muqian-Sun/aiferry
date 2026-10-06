@@ -23,6 +23,10 @@
     <p v-if="protocolError" class="mt-2 text-xs text-af-danger" role="alert" data-testid="upstream-detect-error">{{ protocolError }}</p>
 
     <div v-else-if="protocols" class="mt-2 space-y-1" role="radiogroup" data-testid="upstream-protocol-probe-result">
+      <!-- 一句结论：能用哪些；一个都没有就提示看每一项的原因（2026-10-06 生产四个都是不确定，管理员看不出为什么） -->
+      <p class="px-1.5 pb-1 text-13 font-medium" :class="usable.length > 0 ? 'text-af-success' : 'text-af-warning'" data-testid="upstream-protocol-probe-conclusion">
+        {{ conclusion }}
+      </p>
       <label
         v-for="result in protocols"
         :key="result.protocol"
@@ -41,7 +45,12 @@
         />
         <span class="w-36 flex-shrink-0 font-medium text-af-ink">{{ t(`admin.accounts.protocolEndpoints.protocols.${result.protocol}`) }}</span>
         <span class="w-12 flex-shrink-0" :class="STATUS_CLASS[result.status]">{{ t(`admin.accounts.protocolProbe.status.${result.status}`) }}</span>
-        <span class="min-w-0 flex-1 text-af-ink-3">{{ describe(result) }}</span>
+        <span class="min-w-0 flex-1 text-af-ink-3">
+          {{ describe(result) }}
+          <span v-if="result.detail" class="mt-0.5 block break-words text-af-ink-2" :data-testid="`upstream-protocol-probe-detail-${result.protocol}`">
+            {{ t('admin.accounts.protocolProbe.upstreamSaid', { detail: result.detail }) }}
+          </span>
+        </span>
       </label>
       <p v-if="protocols.some((r) => r.model)" class="pt-1 text-xs text-af-ink-3">{{ t('admin.accounts.protocolProbe.costNote') }}</p>
     </div>
@@ -158,6 +167,17 @@ function describe(result: ProbedUpstreamProtocol): string {
   if (result.model) parts.push(t('admin.accounts.protocolProbe.viaModel', { model: result.model }))
   return parts.join(' · ')
 }
+
+const usable = computed(() => (protocols.value ?? []).filter((result) => result.status === 'supported'))
+const conclusion = computed(() =>
+  usable.value.length > 0
+    ? t('admin.accounts.protocolProbe.conclusionUsable', {
+        protocols: usable.value
+          .map((result) => t(`admin.accounts.protocolEndpoints.protocols.${result.protocol}`))
+          .join(t('admin.accounts.protocolProbe.listSeparator'))
+      })
+    : t('admin.accounts.protocolProbe.conclusionNone')
+)
 
 const summary = computed(() => {
   const result = classified.value
