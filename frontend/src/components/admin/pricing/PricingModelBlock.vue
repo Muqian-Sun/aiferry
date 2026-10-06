@@ -1,6 +1,7 @@
 <template>
   <!--
-    按模型的一块：官方价一行 + 每个承接渠道一行（上游价）。给模型加一个渠道就是承接（muqian 2026-09-30，D1）。
+    按模型的一块：官方价、售价各一行，下面「成本价」一组、每个承接渠道一行（muqian 2026-10-06：三种价分清，少写说明）。
+    给模型加一个渠道就是承接（muqian 2026-09-30，D1）。
     整块一起保存：官方价与全部承接关系一个事务整份覆盖；改过的块底部出现「改了 N 处 · 撤销 · 保存」。
   -->
   <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
@@ -62,12 +63,10 @@
             test-id="pricing-official"
             :search-keys="searchKeys"
             :search-placeholders="officialSearchPlaceholders(t, searchKeys, entry.search_defaults)"
-            :search-note="t('admin.pricing.search.officialNote')"
           >
             <template #lead>
               <div class="font-medium text-af-ink">{{ t('admin.pricing.official') }}</div>
             </template>
-            <template #upstream><span class="text-xs text-af-ink-3">{{ t('admin.pricing.catalogName') }}</span></template>
             <template #margin><span class="text-af-ink-3">—</span></template>
           </PricingPriceRows>
           <PricingSaleRows
@@ -77,6 +76,12 @@
             :official-peak="draft.officialPeak"
             test-id="pricing-sale"
           />
+          <tr data-testid="pricing-cost-group">
+            <td :colspan="11" class="pb-1 pl-0 pr-3 pt-3 font-medium text-af-ink">
+              {{ t('admin.pricing.costGroup') }}
+              <span v-if="draft.rows.length === 0" class="ml-2 text-13 font-normal text-af-ink-3">{{ t('admin.pricing.noChannels') }}</span>
+            </td>
+          </tr>
           <PricingPriceRows
             v-for="row in draft.rows"
             :key="row.id"
@@ -88,12 +93,10 @@
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
             :search-keys="searchKeys"
-            :search-placeholders="upstreamSearchPlaceholders(t, searchKeys, draft.official)"
-            :search-hints="upstreamSearchHints(t, searchKeys, draft.official)"
-            :search-note="t('admin.pricing.search.upstreamNote')"
+            :search-placeholders="upstreamSearchPlaceholders(t, searchKeys)"
           >
             <template #lead>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 pl-4">
                 <span class="font-medium text-af-ink">{{ accountName(row.id) }}</span>
                 <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-xs text-af-warning">{{ t('admin.pricing.newRow') }}</span>
               </div>
@@ -121,9 +124,6 @@
               </button>
             </template>
           </PricingPriceRows>
-          <tr v-if="draft.rows.length === 0">
-            <td :colspan="11" class="py-3 pl-0 pr-3 text-13 text-af-ink-3">{{ t('admin.pricing.noChannels') }}</td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -201,7 +201,7 @@ import {
   type RowIssues
 } from './pricingDraft'
 import { issueSummary } from './issueSummary'
-import { officialSearchPlaceholders, upstreamSearchHints, upstreamSearchPlaceholders } from './searchHints'
+import { officialSearchPlaceholders, upstreamSearchPlaceholders } from './searchHints'
 
 const props = defineProps<{
   entry: PricingEntry

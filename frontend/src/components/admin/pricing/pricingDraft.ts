@@ -130,14 +130,9 @@ export function officialIssues(row: PriceRow): RowIssues {
   }
 }
 
-/** 上游价：输入 / 输出必填，官方价（official）有的缓存项、显式设了的搜索价也必填 */
+/** 成本价：输入 / 输出必填，官方价（official）有的缓存项也必填；搜索价可不填（空着 = 上游不收） */
 export function upstreamIssues(row: PriceRow, official: OfficialRef): RowIssues {
-  const required: PriceField[] = [
-    'input_price',
-    'output_price',
-    ...CACHE_KEYS.filter((key) => official[key] != null),
-    ...SEARCH_KEYS.filter((key) => official[key] != null)
-  ]
+  const required: PriceField[] = ['input_price', 'output_price', ...CACHE_KEYS.filter((key) => official[key] != null)]
   return {
     missing: required.filter((key) => row[key] == null),
     invalid: invalidKeys(row),

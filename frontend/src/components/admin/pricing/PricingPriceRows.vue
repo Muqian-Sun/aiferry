@@ -71,7 +71,6 @@
   <tr v-if="searchExpanded && searchKeys.length > 0" :data-testid="testId ? `${testId}-search` : undefined">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.search.title') }}</div>
-      <div v-if="searchNote" class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ searchNote }}</div>
     </td>
     <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
       <div class="flex flex-wrap items-start gap-x-6 gap-y-2">
@@ -94,7 +93,6 @@
   <tr v-if="peakEditable && peakExpanded" :data-testid="testId ? `${testId}-peak` : undefined">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t(`admin.pricing.peak.${peakEditable}.title`) }}</div>
-      <div class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ t(`admin.pricing.peak.${peakEditable}.note`) }}</div>
     </td>
     <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
       <PeakEditor
@@ -160,7 +158,6 @@
           >
             {{ t('admin.pricing.segmentAdd') }}
           </button>
-          <span class="text-xs text-af-ink-3">{{ t('admin.pricing.segmentHint') }}</span>
         </div>
       </td>
     </tr>
@@ -206,8 +203,6 @@ const props = withDefaults(
     searchPlaceholders?: Partial<Record<SearchKey, string>>
     /** 搜索价输入框下面的参考（承接行写官方价） */
     searchHints?: Partial<Record<SearchKey, string>>
-    /** 「联网搜索」那一行的说明 */
-    searchNote?: string
     /** 显示「忙闲时」开关：official = 官方价那一行（目录条目的分时），upstream = 承接行（上游忙闲时） */
     peakEditable?: 'official' | 'upstream'
     /** 承接行的快捷选项「按官方忙闲时」：这个模型（可能还没保存的）官方忙闲时 */
@@ -220,7 +215,6 @@ const props = withDefaults(
     searchKeys: () => [],
     searchPlaceholders: undefined,
     searchHints: undefined,
-    searchNote: undefined,
     peakEditable: undefined,
     officialPeak: null
   }

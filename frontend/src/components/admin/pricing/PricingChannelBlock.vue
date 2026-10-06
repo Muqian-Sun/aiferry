@@ -1,6 +1,6 @@
 <template>
   <!--
-    按渠道的一块：这个渠道承接的每个模型一行（上游价），每格下面标官方价作参考；官方价要改请切回「按模型」。
+    按渠道的一块：这个渠道承接的每个模型一行（成本价），每格下面标官方价作参考；官方价要改请切回「按模型」。
     整块一起保存：这个渠道的承接关系一个事务整份覆盖（删掉不在列表里的、改价、新增），别的渠道不动。
   -->
   <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
@@ -59,6 +59,12 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-af-hairline">
+          <tr data-testid="pricing-cost-group">
+            <td :colspan="11" class="pb-1 pl-0 pr-3 pt-3 font-medium text-af-ink">
+              {{ t('admin.pricing.costGroup') }}
+              <span v-if="draft.rows.length === 0" class="ml-2 text-13 font-normal text-af-ink-3">{{ t('admin.pricing.noModels') }}</span>
+            </td>
+          </tr>
           <PricingPriceRows
             v-for="row in draft.rows"
             :key="row.id"
@@ -71,16 +77,15 @@
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-channel-row-${row.id}`"
             :search-keys="searchKeysOf(entriesById.get(row.id)?.search_defaults)"
-            :search-placeholders="upstreamSearchPlaceholders(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id))"
+            :search-placeholders="upstreamSearchPlaceholders(t, searchKeysOf(entriesById.get(row.id)?.search_defaults))"
             :search-hints="upstreamSearchHints(t, searchKeysOf(entriesById.get(row.id)?.search_defaults), officialOf(row.id))"
-            :search-note="t('admin.pricing.search.upstreamNote')"
           >
             <template #lead>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 pl-4">
                 <span class="font-mono text-af-ink">{{ entriesById.get(row.id)?.model_id ?? `#${row.id}` }}</span>
                 <span v-if="isNewRow(row)" class="rounded-full bg-af-warning-tint px-1.5 text-xs text-af-warning">{{ t('admin.pricing.newRow') }}</span>
               </div>
-              <div v-if="entriesById.get(row.id)?.status === 'unlisted'" class="text-xs text-af-ink-3">{{ t('admin.pricing.status.unlisted') }}</div>
+              <div v-if="entriesById.get(row.id)?.status === 'unlisted'" class="pl-4 text-xs text-af-ink-3">{{ t('admin.pricing.status.unlisted') }}</div>
             </template>
             <template #upstream>
               <input
@@ -105,9 +110,6 @@
               </button>
             </template>
           </PricingPriceRows>
-          <tr v-if="draft.rows.length === 0">
-            <td :colspan="11" class="py-3 pl-0 pr-3 text-13 text-af-ink-3">{{ t('admin.pricing.noModels') }}</td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -116,7 +118,6 @@
       <div class="min-w-0 flex-1 space-y-0.5">
         <p v-for="message in issueMessages" :key="message" class="text-xs text-af-danger">{{ message }}</p>
         <FormError :message="saveError" />
-        <p v-if="changes === 0 && !saveError" class="text-xs text-af-ink-3">{{ t('admin.pricing.officialReadOnly') }}</p>
       </div>
       <div v-if="changes > 0" class="flex items-center gap-2">
         <span class="text-xs text-af-ink-3">{{ t('admin.pricing.changes', { count: changes }) }}</span>

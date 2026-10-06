@@ -95,7 +95,6 @@
       >
         {{ t('admin.pricing.peak.add') }}
       </button>
-      <span class="text-xs text-af-ink-3">{{ t('admin.pricing.peak.endHint') }}</span>
     </div>
   </div>
 </template>

@@ -9,9 +9,8 @@
   <tr :data-testid="testId">
     <td class="py-2 pl-0 pr-3 align-middle">
       <div class="font-medium text-af-ink">{{ t('admin.pricing.sale.label') }}</div>
-      <div class="text-xs text-af-ink-3">{{ t('admin.pricing.sale.hint', { ratio: ratioText }) }}</div>
     </td>
-    <td class="px-2 py-2 align-middle"><span class="text-xs text-af-ink-3">{{ t('admin.pricing.sale.scope') }}</span></td>
+    <td class="px-2 py-2 align-middle"></td>
     <td v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right align-middle">
       <PriceInput
         v-model="sale.base[key]"
@@ -65,7 +64,6 @@
   <tr v-if="peakExpanded" :data-testid="`${testId}-peak`">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.peak.sale.title') }}</div>
-      <div class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ t('admin.pricing.peak.sale.note') }}</div>
     </td>
     <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
       <div class="flex flex-col gap-2">
@@ -167,7 +165,6 @@ const expanded = ref(false)
 
 const segmentMins = computed(() => officialSegmentMins(props.official))
 const defaults = computed(() => saleDefaults(props.official, sale.value, props.ratio))
-const ratioText = computed(() => (props.ratio > 0 ? `1/${Math.round(1 / props.ratio)}` : '—'))
 
 const hasAny = computed(
   () =>

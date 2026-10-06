@@ -1,7 +1,7 @@
 <template>
   <!--
     按官方价 × 折扣快填：只填这一块里空着的格子（含分段），填过的不动；填完还要点这一块的「保存」。
-    kind = upstream 填各渠道的上游价，sale 填售价（muqian 2026-10-06）。
+    kind = upstream 填各渠道的成本价，sale 填售价（muqian 2026-10-06）。
   -->
   <PopoverMenu width-class="w-80" @open="onOpen">
     <template #trigger>
@@ -11,7 +11,6 @@
     </template>
     <template #default="{ close }">
       <div class="space-y-2 px-3 py-2">
-        <p class="text-xs text-af-ink-3">{{ t(`${textKey}.hint`) }}</p>
         <!-- 「填入」用 click 而不是表单提交：点按钮时弹出层会先关掉卸载，表单的提交就发不出去了 -->
         <div class="flex items-center gap-2">
           <span class="whitespace-nowrap text-13 text-af-ink-2">{{ t('admin.pricing.discountFill.prefix') }}</span>

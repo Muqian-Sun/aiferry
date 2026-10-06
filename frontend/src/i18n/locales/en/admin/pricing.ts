@@ -14,8 +14,8 @@ export default {
       problems: 'With problems',
       unsaved: 'Unsaved'
     },
-    basis: '$ / 1M tokens · margin uses the sale price (items without one use official × {rate}); the profit gate skips bindings below {margin}',
-    basisGateOff: '$ / 1M tokens · margin uses the sale price (items without one use official × {rate}) · profit gate off',
+    basis: '$ / 1M tokens · minimum margin {margin}',
+    basisGateOff: '$ / 1M tokens · profit gate off',
     unsavedBlocks: '{count} unsaved',
     empty: 'No models or channels match',
     loadFailed: 'Failed to load prices',
@@ -38,13 +38,12 @@ export default {
       actions: 'Actions'
     },
     official: 'Official',
+    costGroup: 'Cost',
     webSearchDelegate: 'Web search rate',
-    webSearchDelegateHint: 'When Claude Code runs on a third-party model, its standalone search request runs on this model: its official price is the web search rate (tokens × user rate + per-search fee at cost) and its channels run the search; not listed to users',
+    webSearchDelegateHint: 'Runs web search for Claude Code on third-party models; not listed to users',
     search: {
       toggle: 'Web search',
       title: 'Web search',
-      officialNote: 'Charged at the list price, not multiplied by the user rate; empty = no search charge',
-      upstreamNote: 'Required where the official price is set; empty items cost the official price',
       units: {
         search_price_per_call: '$ / 1K searches',
         x_post_price: '$ / 1K posts',
@@ -53,18 +52,16 @@ export default {
       defaultPlaceholder: 'Public {price}',
       officialRef: 'Official {price}',
       officialNone: 'Not charged',
-      optional: 'Optional'
+      free: 'Free'
     },
-    catalogName: 'Catalog ID',
     sameName: 'Same name',
-    upstreamModelHint: 'The model name this channel uses for this model; blank = same as the catalog model ID. Users can only request catalog model IDs, and the name is converted exactly once when forwarding.',
+    upstreamModelHint: 'Blank = same as the catalog ID',
     officialRef: 'Official {price}',
     officialUnset: 'No official',
-    officialReadOnly: 'Official prices are for reference here; switch to “By model” to edit them.',
     required: 'Required',
     newRow: 'New',
-    noChannels: 'No channel serves this model yet. Use “Add channel” and fill in its upstream price.',
-    noModels: 'This channel serves no models yet. Use “Add model” and fill in the upstream price.',
+    noChannels: 'No channels yet',
+    noModels: 'No models yet',
     noVendor: 'No vendor',
     status: {
       listed: 'Listed',
@@ -78,7 +75,6 @@ export default {
     segmentAbove: 'Above',
     segmentInherit: 'Same as 1st',
     segmentAdd: 'Add segment',
-    segmentHint: 'The segment is picked by the request’s input tokens (input + cache write + cache read) and applies to the whole request. The row above is segment 1; blank prices fall back to segment 1.',
     remove: 'Remove',
     addChannel: 'Add channel',
     addModel: 'Add model',
@@ -88,8 +84,6 @@ export default {
     fillFromPriceFile: 'Fill official price from price file',
     sale: {
       label: 'Sale price',
-      hint: 'Empty = official × {ratio}',
-      scope: 'Charged = sale price × user discount',
       cell: 'Sale price · {item}',
       clear: 'Clear all',
       segmentAbove: 'Above {tokens} tokens',
@@ -98,12 +92,10 @@ export default {
     },
     saleFill: {
       trigger: 'Fill sale prices by ratio',
-      hint: 'Fills empty sale prices with official price × ratio (segments included); filled cells stay as they are. Save the block afterwards.',
       ratio: 'Ratio'
     },
     discountFill: {
-      trigger: 'Fill by discount',
-      hint: 'Fills empty upstream prices with official price × discount (segments included); filled cells stay. Enter 0 for a free upstream. Remember to save this block.',
+      trigger: 'Fill cost by discount',
       prefix: 'Official ×',
       ratio: 'Discount',
       apply: 'Fill'
@@ -117,13 +109,11 @@ export default {
       summary: 'Peak ×{multiplier}',
       official: {
         title: 'Official peak hours',
-        note: "The vendor's peak hours. Unless sale peak hours are set separately, users are charged the whole request × multiplier in these periods.",
         noneHint: 'One price all day'
       },
       sale: {
         title: 'Sale peak hours',
-        note: 'Users are charged the whole request × multiplier in these periods. Follows the official peak hours by default.',
-        noneHint: 'One price all day (no surcharge even at official peak)',
+        noneHint: 'One price all day',
         follow: 'Follow official peak hours ({summary})',
         followShort: 'Follow official',
         custom: 'Set separately',
@@ -131,8 +121,7 @@ export default {
       },
       upstream: {
         title: 'Upstream peak hours',
-        note: 'The upstream charges the whole request × multiplier in these periods. Affects channel cost and the profit gate only, not what users pay.',
-        noneHint: 'The upstream charges one price all day'
+        noneHint: 'One price all day'
       },
       excludeDates: 'Holidays (off-peak all day)',
       excludeDatesPlaceholder: '2026-10-01 2026-10-02 …',
@@ -151,7 +140,6 @@ export default {
       end: 'End',
       multiplier: 'Multiplier',
       add: 'Add a period',
-      endHint: 'End 00:00 means end of day',
       margin: 'Peak {margin}',
       gateSkips: 'Profit gate skips at peak',
       errors: {
