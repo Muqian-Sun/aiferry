@@ -50,7 +50,8 @@ const emit = defineEmits<{ apply: [ratio: number] }>()
 const { t } = useI18n()
 
 const ratioText = ref('')
-const ratio = computed(() => parseDiscount(ratioText.value))
+// 上游价可以按 0 折填（免费的上游）；售价比例必须大于 0
+const ratio = computed(() => parseDiscount(ratioText.value, props.kind === 'upstream'))
 
 function onOpen() {
   ratioText.value = ''

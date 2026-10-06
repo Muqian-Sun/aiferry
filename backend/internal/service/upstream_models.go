@@ -756,44 +756,120 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 		return nil, nil, err
 	}
 
+	extractModels := extractUpstreamModelIDs
+	if usesGrokModelCatalogShape(account) {
+		extractModels = extractGrokUpstreamModelIDs
+	}
 	proxyURL := upstreamModelsProxyURL(account)
+	bodyLimit := resolveModelsListReadLimit(s.cfg)
+
+	// 分页的上游（Anthropic /v1/models 默认一页 20 个、Gemini 默认 50 个）按上一页的分页标记接着取，
+	// 只取第一页会让建渠道时的探测名单不全（2026-10-06）。
+	var models []string
+	var bodies [][]byte
+	for page := 1; req != nil; page++ {
+		if page > maxUpstreamModelPages {
+			return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list has too many pages", fmt.Errorf("more than %d pages", maxUpstreamModelPages))
+		}
+		body, err := s.readUpstreamModelsPage(req, proxyURL, account, bodyLimit)
+		if err != nil {
+			return nil, nil, err
+		}
+		pageModels, err := extractModels(body)
+		if err != nil {
+			return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+		}
+		models = append(models, pageModels...)
+		bodies = append(bodies, body)
+		if req, err = nextUpstreamModelsPage(req, body); err != nil {
+			return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list pagination failed", err)
+		}
+	}
+	if len(models) == 0 {
+		return nil, nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
+	}
+	if len(bodies) == 1 {
+		return models, bodies[0], nil
+	}
+	// 多页：各页条目合成一份，「同步上游模型」从里面抽能力元数据
+	var entries []json.RawMessage
+	for _, body := range bodies {
+		pageEntries, err := extractUpstreamModelRawEntries(body)
+		if err != nil {
+			return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+		}
+		entries = append(entries, pageEntries...)
+	}
+	merged, err := json.Marshal(map[string][]json.RawMessage{"data": entries})
+	if err != nil {
+		return nil, nil, newUpstreamModelSyncInternalError("Failed to merge upstream model list pages", err)
+	}
+	return dedupeAndSortModelIDs(models), merged, nil
+}
+
+// maxUpstreamModelPages 模型列表最多翻这么多页（拍的：Anthropic 一页 20 个也够 400 个模型；超了按失败报，不静默截断）。
+const maxUpstreamModelPages = 20
+
+// readUpstreamModelsPage 发一页模型列表请求，读回响应体（超过上限、非 2xx 都按失败）。
+func (s *AccountTestService) readUpstreamModelsPage(req *http.Request, proxyURL string, account *Account, bodyLimit int64) ([]byte, error) {
 	resp, err := s.doUpstreamModelsRequest(req, proxyURL, account)
 	if err != nil {
-		return nil, nil, newUpstreamModelSyncUpstreamError("Failed to request upstream model list", err)
+		return nil, newUpstreamModelSyncUpstreamError("Failed to request upstream model list", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	bodyLimit := resolveModelsListReadLimit(s.cfg)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, bodyLimit+1))
 	if err != nil {
-		return nil, nil, newUpstreamModelSyncUpstreamError("Failed to read upstream model list", err)
+		return nil, newUpstreamModelSyncUpstreamError("Failed to read upstream model list", err)
 	}
 	if int64(len(body)) > bodyLimit {
-		return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list response is too large", fmt.Errorf("response exceeds %d bytes", bodyLimit))
+		return nil, newUpstreamModelSyncUpstreamError("Upstream model list response is too large", fmt.Errorf("response exceeds %d bytes", bodyLimit))
 	}
-
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, nil, &UpstreamModelSyncError{
+		return nil, &UpstreamModelSyncError{
 			Kind:       UpstreamModelSyncErrorUpstream,
 			Message:    fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode),
 			StatusCode: resp.StatusCode,
 			Err:        fmt.Errorf("upstream model list returned HTTP %d", resp.StatusCode),
 		}
 	}
+	return body, nil
+}
 
-	extractModels := extractUpstreamModelIDs
-	if usesGrokModelCatalogShape(account) {
-		extractModels = extractGrokUpstreamModelIDs
+// nextUpstreamModelsPage 按这一页响应里的分页标记给出下一页的请求，没有下一页返回 nil：
+//   - Anthropic：has_more + last_id → after_id（limit 拉到 1000，少翻几页）；
+//   - Gemini：nextPageToken → pageToken（pageSize 拉到 1000）。
+//
+// 其余（OpenAI 兼容的 /v1/models 不分页）都是一页。
+func nextUpstreamModelsPage(prev *http.Request, body []byte) (*http.Request, error) {
+	var page struct {
+		HasMore       bool   `json:"has_more"`
+		LastID        string `json:"last_id"`
+		NextPageToken string `json:"nextPageToken"`
 	}
-	models, err := extractModels(body)
-	if err != nil {
-		return nil, nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+	if err := json.Unmarshal(body, &page); err != nil {
+		return nil, nil // 数组形态等：没有分页
 	}
-	if len(models) == 0 {
-		return nil, nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
+	query := prev.URL.Query()
+	switch {
+	case page.HasMore:
+		if page.LastID == "" || page.LastID == query.Get("after_id") {
+			return nil, fmt.Errorf("has_more without a new last_id")
+		}
+		query.Set("after_id", page.LastID)
+		query.Set("limit", "1000")
+	case page.NextPageToken != "":
+		if page.NextPageToken == query.Get("pageToken") {
+			return nil, fmt.Errorf("nextPageToken did not advance")
+		}
+		query.Set("pageToken", page.NextPageToken)
+		query.Set("pageSize", "1000")
+	default:
+		return nil, nil
 	}
-
-	return models, body, nil
+	next := prev.Clone(prev.Context())
+	next.URL.RawQuery = query.Encode()
+	return next, nil
 }
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
