@@ -17,5 +17,8 @@ export function issueSummary(t: Translate, name: string, issues: RowIssues): str
   issues.segments.forEach((error, index) => {
     if (error) parts.push(t('admin.pricing.issues.segment', { index: index + 2, error: t(`admin.modelCatalog.segments.errors.${error}`) }))
   })
+  issues.peak?.forEach((error, index) => {
+    if (error) parts.push(t('admin.pricing.issues.peak', { index: index + 1, error: t(`admin.pricing.peak.errors.${error}`) }))
+  })
   return `${name}${t('common.labelSeparator')}${parts.join(t('admin.pricing.issueSeparator'))}`
 }

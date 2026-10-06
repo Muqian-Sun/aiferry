@@ -2,6 +2,7 @@
   <!--
     价格页表格里的一行价（官方价或一条承接关系的上游价）：五项价 + 「分段」开关，展开后每段一行、价格列对齐；
     有官方搜索工具的模型另有「联网搜索」开关，展开后填搜索价（存 $/次、$/条，按每千次 / 千条 / 千个显示）。
+    承接行（peak-editable）另有「忙闲时」开关：上游忙时整单乘倍数（v-model:peak，null = 不分忙闲时）。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
@@ -49,6 +50,17 @@
           {{ t('admin.pricing.search.toggle') }}
           <Icon :name="searchExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
+        <button
+          v-if="peakEditable"
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', peakInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="peakExpanded"
+          :data-testid="testId ? `${testId}-peak-toggle` : undefined"
+          @click="peakExpanded = !peakExpanded"
+        >
+          {{ peakLabel }}
+          <Icon :name="peakExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
       </div>
     </td>
     <td class="px-3 py-2 text-right align-middle"><slot name="margin" /></td>
@@ -74,6 +86,93 @@
             :test-id="testId ? `${testId}-${key}` : undefined"
           />
           <p v-if="searchHints?.[key]" class="mt-0.5 text-xs tabular-nums text-af-ink-3">{{ searchHints[key] }}</p>
+        </div>
+      </div>
+    </td>
+  </tr>
+  <tr v-if="peakEditable && peakExpanded" :data-testid="testId ? `${testId}-peak` : undefined">
+    <td colspan="2" class="py-2 pl-0 pr-3 align-top">
+      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.peak.title') }}</div>
+      <div class="max-w-[16rem] pl-4 text-xs text-af-ink-3">{{ t('admin.pricing.peak.note') }}</div>
+    </td>
+    <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
+      <div class="flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-13">
+          <button
+            v-if="deepseekPeak"
+            type="button"
+            class="font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+            :data-testid="testId ? `${testId}-peak-deepseek` : undefined"
+            @click="peak = peakFormFrom(deepseekPeak)"
+          >
+            {{ t('admin.pricing.peak.useDeepSeek') }}
+          </button>
+          <button
+            v-if="peak"
+            type="button"
+            class="font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+            :data-testid="testId ? `${testId}-peak-clear` : undefined"
+            @click="peak = null"
+          >
+            {{ t('admin.pricing.peak.clear') }}
+          </button>
+          <template v-if="peak">
+            <label class="flex items-center gap-1.5 text-af-ink-2">
+              {{ t('admin.pricing.peak.timezone') }}
+              <select v-model="peak.timezone" class="input h-8 w-auto px-2 py-1 text-13">
+                <option v-for="zone in timezoneOptions" :key="zone" :value="zone">{{ timezoneLabel(zone) }}</option>
+              </select>
+            </label>
+            <label class="flex items-center gap-1.5 text-af-ink-2">
+              <input v-model="peak.weekdaysOnly" type="checkbox" class="h-4 w-4 rounded border-af-hairline" />
+              {{ t('admin.pricing.peak.weekdaysOnly') }}
+            </label>
+          </template>
+          <span v-else class="text-xs text-af-ink-3">{{ t('admin.pricing.peak.noneHint') }}</span>
+        </div>
+        <div
+          v-for="(period, index) in peak?.periods ?? []"
+          :key="index"
+          class="flex flex-wrap items-center gap-2 text-13 text-af-ink-2"
+          :data-testid="testId ? `${testId}-peak-period` : undefined"
+        >
+          <input
+            v-model="period.start"
+            type="time"
+            :aria-label="t('admin.pricing.peak.start')"
+            :class="['input h-8 w-28 px-2 py-1 text-13 tabular-nums', peakIssues[index] ? 'border-af-danger' : '']"
+          />
+          <span>–</span>
+          <input
+            v-model="period.end"
+            type="time"
+            :aria-label="t('admin.pricing.peak.end')"
+            :class="['input h-8 w-28 px-2 py-1 text-13 tabular-nums', peakIssues[index] ? 'border-af-danger' : '']"
+          />
+          <span>×</span>
+          <input
+            v-model="period.multiplier"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            :aria-label="t('admin.pricing.peak.multiplier')"
+            :class="['input h-8 w-16 px-2 py-1 text-right text-13 tabular-nums', peakIssues[index] === 'multiplier' ? 'border-af-danger' : '']"
+          />
+          <button type="button" class="whitespace-nowrap text-af-ink-3 transition-colors hover:text-af-ink" @click="removePeakPeriod(index)">
+            {{ t('admin.pricing.remove') }}
+          </button>
+          <span v-if="peakIssues[index]" class="text-xs text-af-danger">{{ t(`admin.pricing.peak.errors.${peakIssues[index]}`) }}</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <button
+            type="button"
+            class="text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+            :data-testid="testId ? `${testId}-peak-add` : undefined"
+            @click="addPeakPeriod"
+          >
+            {{ t('admin.pricing.peak.add') }}
+          </button>
+          <span class="text-xs text-af-ink-3">{{ t('admin.pricing.peak.endHint') }}</span>
         </div>
       </div>
     </td>
@@ -143,7 +242,18 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PriceInput from '@/components/admin/catalog/PriceInput.vue'
-import { PRICE_KEYS, SEARCH_KEYS, type PriceKey, type PriceRow, type RowIssues, type SearchKey } from './pricingDraft'
+import type { TimePricing } from '@/api/admin/pricing'
+import {
+  PRICE_KEYS,
+  SEARCH_KEYS,
+  peakFormFrom,
+  peakMaxMultiplier,
+  type PeakForm,
+  type PriceKey,
+  type PriceRow,
+  type RowIssues,
+  type SearchKey
+} from './pricingDraft'
 
 /** 表格总列数：首列 + 上游模型名 + 五项价 + 分段 + 毛利 + 状态 + 操作 */
 const COLUMN_COUNT = 11
@@ -151,6 +261,8 @@ const PER_MILLION = 1_000_000
 const PER_THOUSAND = 1_000
 
 const prices = defineModel<PriceRow>('prices', { required: true })
+/** 上游忙闲时（只有承接行，peak-editable 时显示）；null = 不分忙闲时 */
+const peak = defineModel<PeakForm | null>('peak', { default: null })
 
 const props = withDefaults(
   defineProps<{
@@ -167,8 +279,22 @@ const props = withDefaults(
     searchHints?: Partial<Record<SearchKey, string>>
     /** 「联网搜索」那一行的说明 */
     searchNote?: string
+    /** 承接行：显示「忙闲时」开关 */
+    peakEditable?: boolean
+    /** DeepSeek 官方忙闲时（快捷选项） */
+    deepseekPeak?: TimePricing
   }>(),
-  { refs: undefined, rowClass: undefined, testId: undefined, searchKeys: () => [], searchPlaceholders: undefined, searchHints: undefined, searchNote: undefined }
+  {
+    refs: undefined,
+    rowClass: undefined,
+    testId: undefined,
+    searchKeys: () => [],
+    searchPlaceholders: undefined,
+    searchHints: undefined,
+    searchNote: undefined,
+    peakEditable: false,
+    deepseekPeak: undefined
+  }
 )
 
 const { t } = useI18n()
@@ -191,6 +317,47 @@ watch(
   },
   { immediate: true }
 )
+
+// ---- 上游忙闲时
+const peakExpanded = ref(false)
+const peakIssues = computed(() => props.issues.peak ?? [])
+const peakInvalid = computed(() => peakIssues.value.some((error) => error != null))
+watch(
+  peakInvalid,
+  (invalid) => {
+    if (invalid) peakExpanded.value = true
+  },
+  { immediate: true }
+)
+const peakLabel = computed(() => {
+  if (!peak.value || peak.value.periods.length === 0) return t('admin.pricing.peak.none')
+  const max = peakMaxMultiplier(peak.value)
+  return max == null ? t('admin.pricing.peak.toggle') : t('admin.pricing.peak.summary', { multiplier: max })
+})
+
+/** 常用时区；已存的不在其中时也列上 */
+const COMMON_TIMEZONES = ['Asia/Shanghai', 'UTC', 'America/Los_Angeles']
+const timezoneOptions = computed(() => {
+  const current = peak.value?.timezone
+  return current && !COMMON_TIMEZONES.includes(current) ? [...COMMON_TIMEZONES, current] : COMMON_TIMEZONES
+})
+function timezoneLabel(zone: string): string {
+  const key = { 'Asia/Shanghai': 'beijing', UTC: 'utc', 'America/Los_Angeles': 'pacific' }[zone]
+  return key ? t(`admin.pricing.peak.zones.${key}`) : zone
+}
+
+function addPeakPeriod() {
+  const period = { start: '', end: '', multiplier: '2' }
+  if (peak.value) peak.value.periods.push(period)
+  else peak.value = { timezone: 'Asia/Shanghai', weekdaysOnly: true, periods: [period] }
+}
+
+/** 删掉最后一个时段 = 不分忙闲时 */
+function removePeakPeriod(index: number) {
+  if (!peak.value) return
+  peak.value.periods.splice(index, 1)
+  if (peak.value.periods.length === 0) peak.value = null
+}
 
 function addSegment() {
   prices.value.segments.push({

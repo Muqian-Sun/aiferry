@@ -90,8 +90,12 @@ export interface PricingBinding extends PricingPrices {
   upstream_model: string
   input_price: number
   output_price: number
-  /** 上游成本比（上游价 ÷ 售价口径，逐项、逐段取最高；售价口径 = 定了售价的项按售价 ÷ 默认售价比例，没定的按官方价），与利润门同一个数；没有可比项时为 null */
+  /** 上游成本比（上游价 ÷ 售价口径，逐项、逐段取最高；售价口径 = 定了售价的项按售价 ÷ 默认售价比例，没定的按官方价），与利润门同一个数；没有可比项时为 null。平时的值 */
   cost_ratio: number | null
+  /** 一周里最差的上游成本比（上游忙时涨、我们没涨的时段）；不比平时差时为 null */
+  peak_cost_ratio: number | null
+  /** 上游忙闲时：渠道成本按请求时刻整单 × 倍数；null = 上游不分忙闲时 */
+  time_pricing: TimePricing | null
 }
 
 /** 价格页上的一个模型（只有按 Token 计费的模型） */
@@ -153,6 +157,8 @@ export interface PricingOverview {
   default_sale_ratio: number
   /** 利润门的最低毛利率，0 = 关闭 */
   min_margin: number
+  /** DeepSeek 官方忙闲时：给 DeepSeek 模型新加承接时默认带上，也是快捷选项 */
+  deepseek_peak_time_pricing: TimePricing
   entries: PricingEntry[]
   accounts: PricingAccount[]
 }
@@ -160,12 +166,12 @@ export interface PricingOverview {
 /** 按模型保存一块：官方价、售价 + 这个模型的全部承接关系（整份覆盖） */
 export interface PricingModelSaveRequest extends PricingPrices {
   sale_prices: PricingSalePrices
-  bindings: Array<PricingPrices & { account_id: number; upstream_model: string }>
+  bindings: Array<PricingPrices & { account_id: number; upstream_model: string; time_pricing: TimePricing | null }>
 }
 
 /** 按渠道保存一块：这个渠道承接的全部模型与上游价（整份覆盖） */
 export interface PricingChannelSaveRequest {
-  bindings: Array<PricingPrices & { entry_id: number; upstream_model: string }>
+  bindings: Array<PricingPrices & { entry_id: number; upstream_model: string; time_pricing: TimePricing | null }>
 }
 
 export const pricingAPI = {

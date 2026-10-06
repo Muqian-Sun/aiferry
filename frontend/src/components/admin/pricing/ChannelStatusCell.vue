@@ -1,8 +1,9 @@
 <template>
-  <!-- 承接行的状态：渠道此刻能不能调度；毛利低于门槛时再标一行「利润门会跳过」 -->
+  <!-- 承接行的状态：渠道此刻能不能调度；毛利低于门槛时再标一行「利润门会跳过」（只在忙时低于门槛的标「忙时会跳过」） -->
   <div class="whitespace-nowrap text-xs">
     <span :class="stateClass">{{ stateText }}</span>
     <div v-if="belowMinMargin(margin ?? null, minMargin)" class="text-af-danger">{{ t('admin.pricing.gateSkips') }}</div>
+    <div v-else-if="margin != null && belowMinMargin(peakMargin ?? null, minMargin)" class="text-af-danger">{{ t('admin.pricing.peak.gateSkips') }}</div>
   </div>
 </template>
 
@@ -15,6 +16,8 @@ import { belowMinMargin } from './pricingDraft'
 const props = defineProps<{
   account: PricingAccount | undefined
   margin: number | null | undefined
+  /** 忙时毛利；null / 不给 = 忙时不比平时差 */
+  peakMargin?: number | null
   minMargin: number
 }>()
 

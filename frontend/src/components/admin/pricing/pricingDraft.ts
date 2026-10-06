@@ -7,7 +7,7 @@
  * 与官方价显式设了的搜索价，上游价也必填。
  */
 
-import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSalePrices, PricingSearchDefaults } from '@/api/admin/pricing'
+import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSalePrices, PricingSearchDefaults, TimePricing } from '@/api/admin/pricing'
 import {
   numberOrNull,
   parseTokenThreshold,
@@ -103,6 +103,8 @@ export interface RowIssues {
   segments: Array<TokenSegmentError | null>
   /** 上游模型名不是一个具体的名字（带通配或空白） */
   upstreamModelInvalid?: boolean
+  /** 上游忙闲时每个时段的问题（null = 没问题），与 peak.periods 一一对应 */
+  peak?: Array<PeakPeriodError | null>
 }
 
 export function hasRowIssues(issues: RowIssues): boolean {
@@ -110,7 +112,8 @@ export function hasRowIssues(issues: RowIssues): boolean {
     issues.missing.length > 0 ||
     issues.invalid.length > 0 ||
     issues.segments.some((error) => error != null) ||
-    issues.upstreamModelInvalid === true
+    issues.upstreamModelInvalid === true ||
+    (issues.peak ?? []).some((error) => error != null)
   )
 }
 
@@ -172,17 +175,23 @@ export interface KeyedRow {
   /** 这个渠道给这个模型用的上游模型名，空 = 与目录模型标识同名 */
   upstreamModel: string
   prices: PriceRow
+  /** 上游忙闲时；null = 上游不分忙闲时 */
+  peak: PeakForm | null
 }
 
 /** 上游价必填规则用的官方价：五项 token 价 + 显式设了的搜索价（没设 = null，上游可不填） */
 export type OfficialRef = Record<PriceKey, number | null | undefined> & Partial<Record<SearchKey, number | null | undefined>>
 
-/** 承接行的问题：上游价 + 上游模型名 */
+/** 承接行的问题：上游价 + 上游模型名 + 上游忙闲时 */
 export function bindingRowIssues(row: KeyedRow, official: OfficialRef): RowIssues {
-  return { ...upstreamIssues(row.prices, official), upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel) }
+  return {
+    ...upstreamIssues(row.prices, official),
+    upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel),
+    peak: peakErrors(row.peak)
+  }
 }
 
-/** 一块的承接行改了几处：新加 / 移除一行各算一处，同一行按 priceRowChanges 计，上游模型名改了算一处 */
+/** 一块的承接行改了几处：新加 / 移除一行各算一处，同一行按 priceRowChanges 计，上游模型名、忙闲时改了各算一处 */
 export function keyedRowsChanges(current: KeyedRow[], initial: KeyedRow[]): number {
   const before = new Map(initial.map((row) => [row.id, row]))
   const after = new Set(current.map((row) => row.id))
@@ -195,6 +204,7 @@ export function keyedRowsChanges(current: KeyedRow[], initial: KeyedRow[]): numb
     }
     count += priceRowChanges(row.prices, original.prices)
     if (row.upstreamModel.trim() !== original.upstreamModel.trim()) count += 1
+    if (!samePeak(row.peak, original.peak)) count += 1
   }
   return count
 }
@@ -202,7 +212,7 @@ export function keyedRowsChanges(current: KeyedRow[], initial: KeyedRow[]): numb
 /** 这一行的价与服务端保存的一致（毛利只对没改过的行显示，改过的要保存后由后端重算） */
 export function keyedRowUnchanged(row: KeyedRow, initial: KeyedRow[]): boolean {
   const original = initial.find((item) => item.id === row.id)
-  return original != null && priceRowChanges(row.prices, original.prices) === 0
+  return original != null && priceRowChanges(row.prices, original.prices) === 0 && samePeak(row.peak, original.peak)
 }
 
 /** 毛利 = 1 − 上游成本比 ÷ 默认售价比例（上游成本比由后端按售价口径算）；算不出时为 null */
@@ -216,11 +226,15 @@ export function belowMinMargin(margin: number | null, minMargin: number): boolea
   return minMargin > 0 && margin != null && margin < minMargin
 }
 
-/** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利低于门槛 */
+/** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利（平时或忙时）低于门槛 */
 export function entryHasProblem(entry: PricingEntry, defaultSaleRatio: number, minMargin: number): boolean {
   if (entry.input_price == null || entry.output_price == null) return true
   if (entry.status === 'listed' && entry.bindings.length === 0) return true
-  return entry.bindings.some((binding) => belowMinMargin(marginOf(binding.cost_ratio, defaultSaleRatio), minMargin))
+  return entry.bindings.some(
+    (binding) =>
+      belowMinMargin(marginOf(binding.cost_ratio, defaultSaleRatio), minMargin) ||
+      belowMinMargin(marginOf(binding.peak_cost_ratio, defaultSaleRatio), minMargin)
+  )
 }
 
 // ---- 块的草稿：由页面统一保管（筛选、翻页、切视图不丢），块组件只读写它
@@ -244,7 +258,7 @@ export interface ChannelDraft {
 }
 
 export function cloneKeyedRows(rows: KeyedRow[]): KeyedRow[] {
-  return rows.map((row) => ({ id: row.id, upstreamModel: row.upstreamModel, prices: clonePriceRow(row.prices) }))
+  return rows.map((row) => ({ id: row.id, upstreamModel: row.upstreamModel, prices: clonePriceRow(row.prices), peak: clonePeakForm(row.peak) }))
 }
 
 export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: number) => number): ModelDraft {
@@ -253,7 +267,12 @@ export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: nu
     sale: saleRowFrom(entry.sale_prices),
     rows: [...entry.bindings]
       .sort((a, b) => accountOrder(a.account_id) - accountOrder(b.account_id))
-      .map((binding) => ({ id: binding.account_id, upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding) }))
+      .map((binding) => ({
+        id: binding.account_id,
+        upstreamModel: binding.upstream_model ?? '',
+        prices: priceRowFrom(binding),
+        peak: peakFormFrom(binding.time_pricing)
+      }))
   }
 }
 
@@ -273,10 +292,10 @@ export function channelDraftFrom(accountId: number, entries: PricingEntry[]): Ch
   const rows: Array<KeyedRow & { modelId: string }> = []
   for (const entry of entries) {
     const binding = entry.bindings.find((item) => item.account_id === accountId)
-    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding) })
+    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, ...bindingRowFrom(binding) })
   }
   rows.sort((a, b) => a.modelId.localeCompare(b.modelId))
-  return { rows: rows.map(({ id, upstreamModel, prices }) => ({ id, upstreamModel, prices })) }
+  return { rows: rows.map(({ id, upstreamModel, prices, peak }) => ({ id, upstreamModel, prices, peak })) }
 }
 
 export function cloneChannelDraft(draft: ChannelDraft): ChannelDraft {
@@ -326,6 +345,27 @@ export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number)
     filled += 1
   }
   return filled
+}
+
+/** 一条已保存的承接关系在草稿里的样子（不含 id：按模型的块里是渠道 ID，按渠道的块里是模型条目 ID） */
+export function bindingRowFrom(binding: PricingBinding): Omit<KeyedRow, 'id'> {
+  return { upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding), peak: peakFormFrom(binding.time_pricing) }
+}
+
+/**
+ * 按渠道给模型新加的一行（id = 模型条目 ID）：同一上游的渠道承接过这个模型的，带上它的上游模型名、上游价与忙闲时；
+ * 否则价格空着，DeepSeek 模型的忙闲时默认按官方（muqian 2026-10-06）。upstreamModel 给了就用它。
+ */
+export function newChannelRow(
+  entry: PricingEntry,
+  account: PricingAccount,
+  accounts: PricingAccount[],
+  deepseekPeak: TimePricing | undefined,
+  upstreamModel?: string
+): KeyedRow {
+  const sibling = siblingBindingOf(entry, account, accounts)
+  const base = sibling ? bindingRowFrom(sibling) : { upstreamModel: '', prices: emptyPriceRow(), peak: defaultPeakFor(entry.model_id, deepseekPeak) }
+  return { id: entry.id, ...base, upstreamModel: upstreamModel ?? base.upstreamModel }
 }
 
 /** 同一上游（主机名相同）的另一个渠道承接这个模型时的那条承接关系（取第一个）；成品号没有主机名，返回 null */
@@ -478,4 +518,115 @@ export function fillSaleByRatio(sale: SaleRow, official: PriceRow, ratio: number
     }
   }
   return filled
+}
+
+// ---- 上游忙闲时（muqian 2026-10-06：算成本按我们填的上游价，上游有没有忙闲时在填承接时定；忙时整单乘倍数）
+
+/** 一个时段：开始 / 结束为 HH:mm（结束 00:00 = 到当天结束），倍数是输入框原文 */
+export interface PeakPeriodForm {
+  start: string
+  end: string
+  multiplier: string
+}
+
+export interface PeakForm {
+  timezone: string
+  weekdaysOnly: boolean
+  periods: PeakPeriodForm[]
+}
+
+/** 时段的问题：时间格式不对、开始不早于结束、倍数不对（> 0、最多两位小数）、与前一个时段重叠 */
+export type PeakPeriodError = 'time' | 'order' | 'multiplier' | 'overlap'
+
+export function peakFormFrom(tp: TimePricing | null | undefined): PeakForm | null {
+  if (!tp || !tp.periods?.length) return null
+  return {
+    timezone: tp.timezone,
+    weekdaysOnly: tp.weekdays_only === true,
+    periods: tp.periods.map((period) => ({ start: period.start_time, end: period.end_time, multiplier: String(period.multiplier) }))
+  }
+}
+
+export function clonePeakForm(form: PeakForm | null): PeakForm | null {
+  return form ? { ...form, periods: form.periods.map((period) => ({ ...period })) } : null
+}
+
+/** 后端 isDeepSeekModel 同口径：deepseek- 开头的都算 */
+export function isDeepSeekModel(modelId: string): boolean {
+  return modelId.trim().toLowerCase().startsWith('deepseek-')
+}
+
+/** 新加承接时的默认忙闲时：DeepSeek 模型按官方，其余不分忙闲时 */
+export function defaultPeakFor(modelId: string, deepseekPeak: TimePricing | undefined): PeakForm | null {
+  return isDeepSeekModel(modelId) ? peakFormFrom(deepseekPeak) : null
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
+
+/** HH:mm(:ss) → 当天第几秒；结束 00:00 = 24 点（与后端 parseChannelTime 一致）；格式不对为 null */
+function secondsOf(value: string, end: boolean): number | null {
+  const text = value.trim()
+  if (!TIME_RE.test(text)) return null
+  const [h, m, sec] = text.split(':').map(Number)
+  const seconds = h * 3600 + m * 60 + (sec ?? 0)
+  return end && seconds === 0 ? 24 * 3600 : seconds
+}
+
+/** 倍数：> 0（至少 0.01）、最多两位小数（与后端 parseChannelTimePeriods 一致）；不对为 null */
+export function parsePeakMultiplier(text: string): number | null {
+  const value = Number(text.trim())
+  if (text.trim() === '' || !Number.isFinite(value) || value < 0.01) return null
+  return Math.abs(value * 100 - Math.round(value * 100)) > 1e-9 ? null : value
+}
+
+/** 每个时段的问题，与 periods 一一对应；不分忙闲时为空 */
+export function peakErrors(form: PeakForm | null): Array<PeakPeriodError | null> {
+  if (!form) return []
+  const spans = form.periods.map((period) => ({ start: secondsOf(period.start, false), end: secondsOf(period.end, true) }))
+  return form.periods.map((period, index) => {
+    const { start, end } = spans[index]
+    if (start == null || end == null) return 'time'
+    if (start >= end) return 'order'
+    if (parsePeakMultiplier(period.multiplier) == null) return 'multiplier'
+    const overlaps = spans.some((other, j) => j !== index && other.start != null && other.end != null && other.start < end && start < other.end)
+    return overlaps ? 'overlap' : null
+  })
+}
+
+/** 提交用（调用前先确认 peakErrors 没有问题）：没有时段 = 不分忙闲时 */
+export function peakFormToRequest(form: PeakForm | null): TimePricing | null {
+  if (!form || form.periods.length === 0) return null
+  return {
+    timezone: form.timezone,
+    weekdays_only: form.weekdaysOnly,
+    periods: form.periods.map((period) => ({
+      start_time: period.start.trim(),
+      end_time: period.end.trim(),
+      multiplier: parsePeakMultiplier(period.multiplier) ?? 0
+    }))
+  }
+}
+
+export function samePeak(a: PeakForm | null, b: PeakForm | null): boolean {
+  const left = a && a.periods.length > 0 ? a : null
+  const right = b && b.periods.length > 0 ? b : null
+  if (!left || !right) return left === right
+  return (
+    left.timezone === right.timezone &&
+    left.weekdaysOnly === right.weekdaysOnly &&
+    left.periods.length === right.periods.length &&
+    left.periods.every(
+      (period, i) =>
+        period.start.trim() === right.periods[i].start.trim() &&
+        period.end.trim() === right.periods[i].end.trim() &&
+        period.multiplier.trim() === right.periods[i].multiplier.trim()
+    )
+  )
+}
+
+/** 最高的忙时倍数（开关上显示）；不分忙闲时为 null */
+export function peakMaxMultiplier(form: PeakForm | null): number | null {
+  if (!form || form.periods.length === 0) return null
+  const values = form.periods.map((period) => parsePeakMultiplier(period.multiplier)).filter((value): value is number => value != null)
+  return values.length ? Math.max(...values) : null
 }

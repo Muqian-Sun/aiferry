@@ -73,6 +73,9 @@
             v-for="row in draft.rows"
             :key="row.id"
             v-model:prices="row.prices"
+            v-model:peak="row.peak"
+            peak-editable
+            :deepseek-peak="deepseekPeak"
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
@@ -100,8 +103,10 @@
                 data-testid="pricing-upstream-model"
               />
             </template>
-            <template #margin><MarginCell :margin="savedMargin(row)" :min-margin="minMargin" /></template>
-            <template #status><ChannelStatusCell :account="accounts.get(row.id)" :margin="savedMargin(row)" :min-margin="minMargin" /></template>
+            <template #margin><MarginCell :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" /></template>
+            <template #status>
+              <ChannelStatusCell :account="accounts.get(row.id)" :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" />
+            </template>
             <template #actions>
               <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
                 {{ t('admin.pricing.remove') }}
@@ -144,7 +149,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { PricingAccount, PricingEntry } from '@/api/admin/pricing'
+import type { PricingAccount, PricingEntry, TimePricing } from '@/api/admin/pricing'
 import Icon from '@/components/icons/Icon.vue'
 import FormError from '@/components/common/FormError.vue'
 import { MenuItem, PopoverMenu } from '@/components/admin/list'
@@ -158,7 +163,9 @@ import {
   PRICE_KEYS,
   bindingRowIssues,
   cloneModelDraft,
+  clonePeakForm,
   clonePriceRow,
+  defaultPeakFor,
   emptyPriceRow,
   fillByDiscount,
   fillSaleByRatio,
@@ -167,6 +174,7 @@ import {
   marginOf,
   modelDraftChanges,
   officialIssues,
+  peakFormToRequest,
   priceRowChanges,
   priceRowFrom,
   priceRowToRequest,
@@ -192,6 +200,8 @@ const props = defineProps<{
   accountOrder: (accountId: number) => number
   defaultSaleRatio: number
   minMargin: number
+  /** DeepSeek 官方忙闲时：DeepSeek 模型新加承接时默认带上 */
+  deepseekPeak?: TimePricing
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
@@ -234,6 +244,13 @@ function savedMargin(row: KeyedRow): number | null | undefined {
   return marginOf(binding?.cost_ratio, props.defaultSaleRatio)
 }
 
+/** 忙时毛利（上游忙时涨、我们没涨的时段）：与平时毛利同样只对没改过的行显示 */
+function savedPeakMargin(row: KeyedRow): number | null {
+  if (savedMargin(row) === undefined) return null
+  const binding = props.entry.bindings.find((item) => item.account_id === row.id)
+  return marginOf(binding?.peak_cost_ratio, props.defaultSaleRatio)
+}
+
 const headerMeta = computed(() =>
   [
     props.entry.vendor || t('admin.pricing.noVendor'),
@@ -251,7 +268,8 @@ const addableAccounts = computed(() => {
     .sort((a, b) => props.accountOrder(a.id) - props.accountOrder(b.id))
 })
 
-/** 新加的渠道：同一上游（主机名相同）已经承接这个模型的，先带上它的上游模型名与上游价 */
+/** 新加的渠道：同一上游（主机名相同）已经承接这个模型的，先带上它的上游模型名、上游价与忙闲时；
+ * 否则价格空着，DeepSeek 模型的忙闲时默认按官方 */
 function addChannel(account: PricingAccount) {
   const sibling = account.upstream_host
     ? draft.value.rows.find((row) => props.accounts.get(row.id)?.upstream_host === account.upstream_host)
@@ -259,7 +277,8 @@ function addChannel(account: PricingAccount) {
   draft.value.rows.push({
     id: account.id,
     upstreamModel: sibling?.upstreamModel ?? '',
-    prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow()
+    prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow(),
+    peak: sibling ? clonePeakForm(sibling.peak) : defaultPeakFor(props.entry.model_id, props.deepseekPeak)
   })
 }
 
@@ -307,7 +326,8 @@ async function save() {
       bindings: props.state.draft.rows.map((row) => ({
         account_id: row.id,
         upstream_model: row.upstreamModel.trim(),
-        ...priceRowToRequest(row.prices)
+        ...priceRowToRequest(row.prices),
+        time_pricing: peakFormToRequest(row.peak)
       }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利
