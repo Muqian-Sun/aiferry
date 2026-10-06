@@ -300,6 +300,7 @@
       @diagnose="openCatalogDiagnosis"
       @show-temp-unsched="handleShowTempUnsched"
       @account-updated="handleAccountUpdated"
+      @catalog-changed="reloadCatalogEntries"
     />
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"

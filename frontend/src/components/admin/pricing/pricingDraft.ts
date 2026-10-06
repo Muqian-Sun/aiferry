@@ -323,31 +323,32 @@ function scaled(price: number, ratio: number): number {
 }
 
 /**
- * 按官方价 × ratio 填一行上游价：只填空着的格子，已填的不动（搜索价只在官方显式设了时填）；
- * 这一行还没有分段、官方价有分段时，按官方的分段整份折算（切点相同，各段价 × ratio）。
- * 返回填了几处（每格算一处，整份分段算一处）。
+ * 成本价按「官方价 × 折扣」重填（含搜索价与分段）：已填的也按新折扣改（muqian 2026-10-07：只填空格时，填过一次以后
+ * 再按折扣填没有反应）；官方没有的项不动，分段整份换成官方分段 × 折扣。返回改了几处（与原来一样的不算）。
  */
 export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number): number {
-  let filled = 0
+  let changed = 0
   for (const key of [...PRICE_KEYS, ...SEARCH_KEYS]) {
     const base = official[key]
-    if (row[key] == null && base != null) {
-      row[key] = scaled(base, ratio)
-      filled += 1
+    if (base == null) continue
+    const next = scaled(base, ratio)
+    if (sameNumber(row[key], next)) continue
+    row[key] = next
+    changed += 1
+  }
+  const segments = official.segments.map((segment) => {
+    const next = { ...segment }
+    for (const key of PRICE_KEYS) {
+      const base = segment[key]
+      next[key] = base == null ? null : scaled(base, ratio)
     }
+    return next
+  })
+  if (!sameSegments(row.segments, segments)) {
+    row.segments = segments
+    changed += 1
   }
-  if (row.segments.length === 0 && official.segments.length > 0) {
-    row.segments = official.segments.map((segment) => {
-      const next = { ...segment }
-      for (const key of PRICE_KEYS) {
-        const base = segment[key]
-        next[key] = base == null ? null : scaled(base, ratio)
-      }
-      return next
-    })
-    filled += 1
-  }
-  return filled
+  return changed
 }
 
 /** 一条已保存的承接关系在草稿里的样子（不含 id：按模型的块里是渠道 ID，按渠道的块里是模型条目 ID） */

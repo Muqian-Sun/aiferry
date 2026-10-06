@@ -92,6 +92,19 @@ func (r *catalogRepoStub) UpdateEntry(_ context.Context, entry *service.ModelCat
 	return service.ErrModelCatalogEntryNotFound
 }
 
+func (r *catalogRepoStub) SetEntriesStatus(_ context.Context, ids []int64, status string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, id := range ids {
+		for i := range r.entries {
+			if r.entries[i].ID == id {
+				r.entries[i].Status = status
+			}
+		}
+	}
+	return nil
+}
+
 func (r *catalogRepoStub) DeleteEntry(_ context.Context, id int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

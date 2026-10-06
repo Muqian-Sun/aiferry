@@ -595,6 +595,7 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.GET("/entries/:id/diagnosis", h.Admin.ModelCatalog.Diagnose)
 
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
+		catalog.POST("/accounts/:id/list-bound", h.Admin.ModelCatalog.ListBoundEntries)
 		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
 		catalog.POST("/official-lookup", h.Admin.ModelCatalog.OfficialLookup)
 	}

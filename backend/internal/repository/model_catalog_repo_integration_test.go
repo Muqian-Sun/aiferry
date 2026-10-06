@@ -772,3 +772,36 @@ func TestModelCatalogRepository_SeedWritesTimePricing(t *testing.T) {
 	seed(changed)
 	require.Equal(t, changed, load().TimePricing, "refresh follows the price file")
 }
+
+// 一键上架只改上架状态（muqian 2026-10-07）：归属不变；播种刷新官方价时保留上架状态，不把它冲回未上架。
+func TestModelCatalogRepository_SetEntriesStatusSurvivesSeedRefresh(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-status")
+
+	seedEntry := func(input float64) service.ModelCatalogEntry {
+		return service.ModelCatalogEntry{
+			ModelID: unique("gpt"), Vendor: "openai", BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(input), OutputPrice: float64Value(3e-5),
+		}
+	}
+	inserted, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seedEntry(5e-6)})
+	require.NoError(t, err)
+	require.Equal(t, 1, inserted.Inserted)
+	created, err := repo.GetEntryByModelID(ctx, unique("gpt"))
+	require.NoError(t, err)
+
+	require.NoError(t, repo.SetEntriesStatus(ctx, []int64{created.ID}, service.ModelCatalogStatusListed))
+	listed, err := repo.GetEntryByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, service.ModelCatalogStatusListed, listed.Status)
+	require.Equal(t, service.ModelCatalogManagedBySeed, listed.ManagedBy, "只改上架状态，不改归属")
+
+	refreshed, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seedEntry(6e-6)})
+	require.NoError(t, err)
+	require.Equal(t, 1, refreshed.Refreshed)
+	got, err := repo.GetEntryByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 6e-6, *got.InputPrice, 1e-15, "官方价跟着价格文件刷新")
+	require.Equal(t, service.ModelCatalogStatusListed, got.Status, "刷新不把上架冲回未上架")
+}

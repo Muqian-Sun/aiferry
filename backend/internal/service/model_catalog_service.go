@@ -32,6 +32,8 @@ type ModelCatalogRepository interface {
 	// ReplaceAccountBindings 价格页按渠道保存：整份覆盖渠道的承接关系（带上游价），同一事务；
 	// 提交后按受影响的条目（原有 ∪ 新）投递 catalog_bindings_changed。
 	ReplaceAccountBindings(ctx context.Context, accountID int64, bindings []ModelCatalogBinding) error
+	// SetEntriesStatus 只改这些条目的上架状态，不碰归属与价格。
+	SetEntriesStatus(ctx context.Context, ids []int64, status string) error
 }
 
 // ModelCatalogCachePubSub 在多实例之间广播目录缓存失效。
@@ -354,6 +356,56 @@ func (s *ModelCatalogService) UpdateEntry(ctx context.Context, entry *ModelCatal
 	}
 	s.invalidate(ctx)
 	return nil
+}
+
+// ListBoundEntriesResult 一键上架的结果：上架了哪些模型；没能上架的及原因。
+type ListBoundEntriesResult struct {
+	Listed  []string             `json:"listed"`
+	Skipped []ListBoundEntrySkip `json:"skipped"`
+}
+
+// ListBoundEntrySkip 没能上架的一个模型。
+type ListBoundEntrySkip struct {
+	ModelID string `json:"model_id"`
+	Reason  string `json:"reason"`
+}
+
+// ListEntriesBoundToAccount 一键上架这个渠道已承接、还没上架的模型（muqian 2026-10-07：「渠道里面要支持一键上架
+// 已经配置了渠道未上架的模型」）。只改上架状态、不改归属：播种来的条目照旧跟着价格文件刷新官方价。
+// 上架校验不过的（如没有价）跳过并带回原因。
+func (s *ModelCatalogService) ListEntriesBoundToAccount(ctx context.Context, accountID int64) (ListBoundEntriesResult, error) {
+	result := ListBoundEntriesResult{Listed: []string{}, Skipped: []ListBoundEntrySkip{}}
+	if s == nil || s.repo == nil {
+		return result, ErrModelCatalogEntryNotFound
+	}
+	entries, err := s.repo.ListEntries(ctx)
+	if err != nil {
+		return result, err
+	}
+	ids := make([]int64, 0)
+	for i := range entries {
+		entry := &entries[i]
+		if entry.Status != ModelCatalogStatusUnlisted || entry.BindingFor(accountID) == nil {
+			continue
+		}
+		candidate := entry.Clone()
+		candidate.Status = ModelCatalogStatusListed
+		candidate.Normalize()
+		if err := candidate.Validate(); err != nil {
+			result.Skipped = append(result.Skipped, ListBoundEntrySkip{ModelID: entry.ModelID, Reason: err.Error()})
+			continue
+		}
+		ids = append(ids, entry.ID)
+		result.Listed = append(result.Listed, entry.ModelID)
+	}
+	if len(ids) == 0 {
+		return result, nil
+	}
+	if err := s.repo.SetEntriesStatus(ctx, ids, ModelCatalogStatusListed); err != nil {
+		return ListBoundEntriesResult{}, err
+	}
+	s.invalidate(ctx)
+	return result, nil
 }
 
 // DeleteEntry 删除条目（分档、分时由外键级联删除）。
