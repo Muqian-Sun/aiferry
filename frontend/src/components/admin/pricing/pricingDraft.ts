@@ -588,7 +588,10 @@ export function peakErrors(form: PeakForm | null): Array<PeakPeriodError | null>
     if (start == null || end == null) return 'time'
     if (start >= end) return 'order'
     if (parsePeakMultiplier(period.multiplier) == null) return 'multiplier'
-    const overlaps = spans.some((other, j) => j !== index && other.start != null && other.end != null && other.start < end && start < other.end)
+    // 只和自身有效（开始早于结束）的时段比：无效的时段已经单独报错
+    const overlaps = spans.some(
+      (other, j) => j !== index && other.start != null && other.end != null && other.start < other.end && other.start < end && start < other.end
+    )
     return overlaps ? 'overlap' : null
   })
 }
