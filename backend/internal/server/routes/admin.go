@@ -600,6 +600,7 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
+		catalog.POST("/official-lookup", h.Admin.ModelCatalog.OfficialLookup)
 	}
 
 	// 价格页：官方价与上游价，按模型 / 按渠道整块保存。
