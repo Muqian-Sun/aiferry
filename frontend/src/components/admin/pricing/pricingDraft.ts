@@ -7,9 +7,10 @@
  * 与官方价显式设了的搜索价，上游价也必填。
  */
 
-import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSearchDefaults } from '@/api/admin/pricing'
+import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSalePrices, PricingSearchDefaults } from '@/api/admin/pricing'
 import {
   numberOrNull,
+  parseTokenThreshold,
   tokenSegmentErrors,
   tokenSegmentsFromIntervals,
   tokenSegmentsToIntervals,
@@ -204,10 +205,10 @@ export function keyedRowUnchanged(row: KeyedRow, initial: KeyedRow[]): boolean {
   return original != null && priceRowChanges(row.prices, original.prices) === 0
 }
 
-/** 毛利 = 1 − 上游成本比 ÷ 默认售价倍率；算不出时为 null */
-export function marginOf(costRatio: number | null | undefined, defaultUserRate: number): number | null {
-  if (costRatio == null || !(defaultUserRate > 0)) return null
-  return 1 - costRatio / defaultUserRate
+/** 毛利 = 1 − 上游成本比 ÷ 默认售价比例（上游成本比由后端按售价口径算）；算不出时为 null */
+export function marginOf(costRatio: number | null | undefined, defaultSaleRatio: number): number | null {
+  if (costRatio == null || !(defaultSaleRatio > 0)) return null
+  return 1 - costRatio / defaultSaleRatio
 }
 
 /** 利润门会跳过这条承接：最低毛利率 > 0 且毛利低于它 */
@@ -216,10 +217,10 @@ export function belowMinMargin(margin: number | null, minMargin: number): boolea
 }
 
 /** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利低于门槛 */
-export function entryHasProblem(entry: PricingEntry, defaultUserRate: number, minMargin: number): boolean {
+export function entryHasProblem(entry: PricingEntry, defaultSaleRatio: number, minMargin: number): boolean {
   if (entry.input_price == null || entry.output_price == null) return true
   if (entry.status === 'listed' && entry.bindings.length === 0) return true
-  return entry.bindings.some((binding) => belowMinMargin(marginOf(binding.cost_ratio, defaultUserRate), minMargin))
+  return entry.bindings.some((binding) => belowMinMargin(marginOf(binding.cost_ratio, defaultSaleRatio), minMargin))
 }
 
 // ---- 块的草稿：由页面统一保管（筛选、翻页、切视图不丢），块组件只读写它
@@ -230,9 +231,10 @@ export interface BlockState<D> {
   draft: D
 }
 
-/** 按模型的一块：官方价 + 每个承接渠道一行（id = 渠道 ID），按渠道优先级排 */
+/** 按模型的一块：官方价、售价 + 每个承接渠道一行（id = 渠道 ID），按渠道优先级排 */
 export interface ModelDraft {
   official: PriceRow
+  sale: SaleRow
   rows: KeyedRow[]
 }
 
@@ -248,6 +250,7 @@ export function cloneKeyedRows(rows: KeyedRow[]): KeyedRow[] {
 export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: number) => number): ModelDraft {
   return {
     official: priceRowFrom(entry),
+    sale: saleRowFrom(entry.sale_prices),
     rows: [...entry.bindings]
       .sort((a, b) => accountOrder(a.account_id) - accountOrder(b.account_id))
       .map((binding) => ({ id: binding.account_id, upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding) }))
@@ -255,11 +258,15 @@ export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: nu
 }
 
 export function cloneModelDraft(draft: ModelDraft): ModelDraft {
-  return { official: clonePriceRow(draft.official), rows: cloneKeyedRows(draft.rows) }
+  return { official: clonePriceRow(draft.official), sale: cloneSaleRow(draft.sale), rows: cloneKeyedRows(draft.rows) }
 }
 
 export function modelDraftChanges(state: BlockState<ModelDraft>): number {
-  return priceRowChanges(state.draft.official, state.initial.official) + keyedRowsChanges(state.draft.rows, state.initial.rows)
+  return (
+    priceRowChanges(state.draft.official, state.initial.official) +
+    saleRowChanges(state.draft.sale, state.initial.sale) +
+    keyedRowsChanges(state.draft.rows, state.initial.rows)
+  )
 }
 
 export function channelDraftFrom(accountId: number, entries: PricingEntry[]): ChannelDraft {
@@ -330,4 +337,145 @@ export function siblingBindingOf(entry: PricingEntry, account: PricingAccount, a
       (binding) => binding.account_id !== account.id && accounts.find((other) => other.id === binding.account_id)?.upstream_host === host
     ) ?? null
   )
+}
+
+// ---- 售价（muqian 2026-10-06：每项单独填，没填的按官方价 × 默认售价比例；用户倍率 = 在售价上再打折）
+
+type SalePrices = Record<PriceKey, number | null>
+
+/** 售价草稿：五项 + 各段（键 = 官方价分段的下界，分段跟着官方价走，不能单独加删）；null = 没单独定 */
+export interface SaleRow {
+  base: SalePrices
+  segments: Record<number, SalePrices>
+}
+
+function emptySalePrices(): SalePrices {
+  return { input_price: null, output_price: null, cache_read_price: null, cache_write_price: null, cache_write_1h_price: null }
+}
+
+function salePricesOf(source: Partial<Record<PriceKey, number | null>> | undefined): SalePrices {
+  const out = emptySalePrices()
+  for (const key of PRICE_KEYS) out[key] = source?.[key] ?? null
+  return out
+}
+
+export function saleRowFrom(prices: PricingSalePrices | null | undefined): SaleRow {
+  const segments: Record<number, SalePrices> = {}
+  for (const segment of prices?.segments ?? []) segments[segment.min_tokens] = salePricesOf(segment)
+  return { base: salePricesOf(prices ?? undefined), segments }
+}
+
+export function cloneSaleRow(row: SaleRow): SaleRow {
+  const segments: Record<number, SalePrices> = {}
+  for (const [min, prices] of Object.entries(row.segments)) segments[Number(min)] = { ...prices }
+  return { base: { ...row.base }, segments }
+}
+
+/** 官方价这一行当前有效的分段下界（输入框里填对了的） */
+export function officialSegmentMins(official: PriceRow): number[] {
+  return official.segments.map((segment) => parseTokenThreshold(segment.above)).filter((min): min is number => min != null)
+}
+
+/** 售价改了几处：每格算一处（只数官方价现在还有的分段） */
+export function saleRowChanges(current: SaleRow, initial: SaleRow): number {
+  let changed = PRICE_KEYS.filter((key) => !sameNumber(current.base[key], initial.base[key])).length
+  const mins = new Set([...Object.keys(current.segments), ...Object.keys(initial.segments)].map(Number))
+  for (const min of mins) {
+    const a = current.segments[min] ?? emptySalePrices()
+    const b = initial.segments[min] ?? emptySalePrices()
+    changed += PRICE_KEYS.filter((key) => !sameNumber(a[key], b[key])).length
+  }
+  return changed
+}
+
+/** 提交用：只带官方价现在还有的分段，一项都没填的段不带 */
+export function saleRowToRequest(row: SaleRow, official: PriceRow): PricingSalePrices {
+  const segments = officialSegmentMins(official)
+    .map((min) => ({ min, prices: row.segments[min] }))
+    .filter(({ prices }) => prices != null && PRICE_KEYS.some((key) => prices[key] != null))
+    .map(({ min, prices }) => ({
+      min_tokens: min,
+      input_price: numberOrNull(prices.input_price),
+      output_price: numberOrNull(prices.output_price),
+      cache_write_price: numberOrNull(prices.cache_write_price),
+      cache_write_1h_price: numberOrNull(prices.cache_write_1h_price),
+      cache_read_price: numberOrNull(prices.cache_read_price)
+    }))
+  return {
+    input_price: numberOrNull(row.base.input_price),
+    output_price: numberOrNull(row.base.output_price),
+    cache_write_price: numberOrNull(row.base.cache_write_price),
+    cache_write_1h_price: numberOrNull(row.base.cache_write_1h_price),
+    cache_read_price: numberOrNull(row.base.cache_read_price),
+    segments
+  }
+}
+
+/** 填了但格式不对的售价（负数、不是数字） */
+export function saleRowInvalid(row: SaleRow, official: PriceRow): boolean {
+  const cells = [row.base, ...officialSegmentMins(official).map((min) => row.segments[min]).filter((prices) => prices != null)]
+  return cells.some((prices) => PRICE_KEYS.some((key) => Number.isNaN(prices[key])))
+}
+
+/** 官方价某一段五项的实际值：段内没填的输入 / 输出沿用基础价，缓存价按「本段输入价 ÷ 基础输入价」折算（与计费一致） */
+function officialSegmentPrices(official: PriceRow, min: number): SalePrices {
+  const segment = official.segments.find((item) => parseTokenThreshold(item.above) === min)
+  const out = emptySalePrices()
+  if (!segment) return out
+  const input = segment.input_price ?? official.input_price
+  const inputRatio = input != null && official.input_price ? input / official.input_price : 1
+  out.input_price = input
+  out.output_price = segment.output_price ?? official.output_price
+  for (const key of ['cache_read_price', 'cache_write_price', 'cache_write_1h_price'] as const) {
+    const base = official[key]
+    out[key] = segment[key] ?? (base == null ? null : base * inputRatio)
+  }
+  return out
+}
+
+/**
+ * 没单独定售价时实际按什么收（输入框的灰字）：基础价 = 官方价 × 默认售价比例；
+ * 分段 = 基础售价定了的项按「基础售价 × 本段官方价 ÷ 基础官方价」，没定的按本段官方价 × 默认售价比例（与后端计费同一规则）。
+ */
+export function saleDefaults(official: PriceRow, sale: SaleRow, ratio: number): { base: SalePrices; segments: Record<number, SalePrices> } {
+  const base = emptySalePrices()
+  for (const key of PRICE_KEYS) base[key] = official[key] == null ? null : scaled(official[key] as number, ratio)
+  const segments: Record<number, SalePrices> = {}
+  for (const min of officialSegmentMins(official)) {
+    const seg = officialSegmentPrices(official, min)
+    const out = emptySalePrices()
+    for (const key of PRICE_KEYS) {
+      const officialSeg = seg[key]
+      const officialBase = official[key]
+      const saleBase = sale.base[key]
+      if (officialSeg == null) continue
+      out[key] = saleBase != null && officialBase ? scaled(saleBase, officialSeg / officialBase) : scaled(officialSeg, ratio)
+    }
+    segments[min] = out
+  }
+  return { base, segments }
+}
+
+/** 按官方价 × ratio 填售价：只填空着的格子（含分段），填过的不动；返回填了几格 */
+export function fillSaleByRatio(sale: SaleRow, official: PriceRow, ratio: number): number {
+  let filled = 0
+  for (const key of PRICE_KEYS) {
+    const base = official[key]
+    if (sale.base[key] == null && base != null) {
+      sale.base[key] = scaled(base, ratio)
+      filled += 1
+    }
+  }
+  for (const min of officialSegmentMins(official)) {
+    const seg = officialSegmentPrices(official, min)
+    const target = sale.segments[min] ?? (sale.segments[min] = emptySalePrices())
+    for (const key of PRICE_KEYS) {
+      const value = seg[key]
+      if (target[key] == null && value != null) {
+        target[key] = scaled(value, ratio)
+        filled += 1
+      }
+    }
+  }
+  return filled
 }

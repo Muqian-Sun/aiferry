@@ -57,7 +57,7 @@
               :state="modelStates.get(entry.id)!"
               :accounts="accountsById"
               :account-order="accountOrder"
-              :default-user-rate="overview.default_user_rate"
+              :default-sale-ratio="overview.default_sale_ratio"
               :min-margin="overview.min_margin"
               @saved="load(false)"
             />
@@ -70,7 +70,7 @@
               :state="channelStates.get(account.id)!"
               :accounts="overview.accounts"
               :entries="overview.entries"
-              :default-user-rate="overview.default_user_rate"
+              :default-sale-ratio="overview.default_sale_ratio"
               :min-margin="overview.min_margin"
               @saved="load(false)"
             />
@@ -236,7 +236,7 @@ const focusOptions = computed<FilterOption[]>(() => [
 
 const basisText = computed(() => {
   if (!overview.value) return ''
-  const rate = overview.value.default_user_rate
+  const rate = overview.value.default_sale_ratio
   const inverse = 1 / rate
   const rateText = Math.abs(inverse - Math.round(inverse)) < 1e-6 ? `1/${Math.round(inverse)}` : String(rate)
   const minMargin = overview.value.min_margin
@@ -257,7 +257,7 @@ const filteredEntries = computed<PricingEntry[]>(() => {
     .filter((entry) => {
       if (vendorFilter.value && entry.vendor !== vendorFilter.value) return false
       if (statusFilter.value && entry.status !== statusFilter.value) return false
-      if (focusFilter.value === 'problems' && !entryHasProblem(entry, data.default_user_rate, data.min_margin)) return false
+      if (focusFilter.value === 'problems' && !entryHasProblem(entry, data.default_sale_ratio, data.min_margin)) return false
       if (focusFilter.value === 'unsaved') {
         const state = modelStates.get(entry.id)
         if (!state || modelDraftChanges(state) === 0) return false
@@ -275,7 +275,7 @@ const filteredEntries = computed<PricingEntry[]>(() => {
 function channelHasProblem(account: PricingAccount, data: PricingOverview): boolean {
   return data.entries.some((entry) =>
     entry.bindings.some(
-      (binding) => binding.account_id === account.id && belowMinMargin(marginOf(binding.cost_ratio, data.default_user_rate), data.min_margin)
+      (binding) => binding.account_id === account.id && belowMinMargin(marginOf(binding.cost_ratio, data.default_sale_ratio), data.min_margin)
     )
   )
 }

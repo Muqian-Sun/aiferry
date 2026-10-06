@@ -14,8 +14,8 @@ export default {
       problems: '有问题的',
       unsaved: '未保存的'
     },
-    basis: '$ / 百万 Token · 毛利按默认售价（官方价 × {rate}）算，低于 {margin} 的承接利润门会跳过',
-    basisGateOff: '$ / 百万 Token · 毛利按默认售价（官方价 × {rate}）算 · 利润门已关闭',
+    basis: '$ / 百万 Token · 毛利按售价算（没单独定售价的项按官方价 × {rate}），低于 {margin} 的承接利润门会跳过',
+    basisGateOff: '$ / 百万 Token · 毛利按售价算（没单独定售价的项按官方价 × {rate}）· 利润门已关闭',
     unsavedBlocks: '{count} 块未保存',
     empty: '没有符合条件的模型或渠道',
     loadFailed: '价格加载失败',
@@ -86,6 +86,20 @@ export default {
     noMatch: '没有可加的',
     copyFromSibling: '从同上游的渠道复制价格',
     fillFromPriceFile: '按价格文件带官方价',
+    sale: {
+      label: '售价',
+      hint: '没填 = 官方价 × {ratio}',
+      scope: '实付 = 售价 × 用户折扣',
+      cell: '售价 · {item}',
+      clear: '全部清空',
+      segmentAbove: '超过 {tokens} Token',
+      invalid: '售价：有格式不对的价'
+    },
+    saleFill: {
+      trigger: '按比例填售价',
+      hint: '空着的售价按「官方价 × 比例」填上（分段一起），已填的不动；填完记得保存这一块。',
+      ratio: '比例'
+    },
     discountFill: {
       trigger: '按折扣填上游价',
       hint: '空着的上游价按「官方价 × 折扣」填上（分段一起折），已填的不动；填完记得保存这一块。',

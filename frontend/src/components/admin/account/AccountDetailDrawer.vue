@@ -270,7 +270,7 @@ function upstreamPriceText(entryId: number): string {
 }
 
 function marginOfEntry(entryId: number): number | null {
-  return marginOf(bindingOf(entryId)?.cost_ratio, pricing.value?.default_user_rate ?? 0)
+  return marginOf(bindingOf(entryId)?.cost_ratio, pricing.value?.default_sale_ratio ?? 0)
 }
 
 const tabs = computed<SectionTab[]>(() => [

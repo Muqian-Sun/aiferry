@@ -732,7 +732,7 @@
           :state="channelState"
           :accounts="overview.accounts"
           :entries="overview.entries"
-          :default-user-rate="overview.default_user_rate"
+          :default-sale-ratio="overview.default_sale_ratio"
           :min-margin="overview.min_margin"
           @saved="onBindSaved"
         />

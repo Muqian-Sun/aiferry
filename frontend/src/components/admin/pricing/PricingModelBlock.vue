@@ -23,6 +23,7 @@
         <button type="button" class="btn btn-ghost btn-sm" :disabled="lookingUp" data-testid="pricing-model-lookup" @click="fillFromPriceFile">
           {{ t('admin.pricing.fillFromPriceFile') }}
         </button>
+        <DiscountFillMenu kind="sale" @apply="fillSale" />
         <DiscountFillMenu :disabled="draft.rows.length === 0" @apply="fillDiscount" />
         <PopoverMenu width-class="w-64">
           <template #trigger>
@@ -67,6 +68,7 @@
             <template #upstream><span class="text-xs text-af-ink-3">{{ t('admin.pricing.catalogName') }}</span></template>
             <template #margin><span class="text-af-ink-3">—</span></template>
           </PricingPriceRows>
+          <PricingSaleRows v-model:sale="draft.sale" :official="draft.official" :ratio="defaultSaleRatio" test-id="pricing-sale" />
           <PricingPriceRows
             v-for="row in draft.rows"
             :key="row.id"
@@ -151,6 +153,7 @@ import PricingPriceRows from './PricingPriceRows.vue'
 import MarginCell from './MarginCell.vue'
 import ChannelStatusCell from './ChannelStatusCell.vue'
 import DiscountFillMenu from './DiscountFillMenu.vue'
+import PricingSaleRows from './PricingSaleRows.vue'
 import {
   PRICE_KEYS,
   bindingRowIssues,
@@ -158,6 +161,7 @@ import {
   clonePriceRow,
   emptyPriceRow,
   fillByDiscount,
+  fillSaleByRatio,
   hasRowIssues,
   keyedRowUnchanged,
   marginOf,
@@ -166,6 +170,9 @@ import {
   priceRowChanges,
   priceRowFrom,
   priceRowToRequest,
+  saleRowChanges,
+  saleRowInvalid,
+  saleRowToRequest,
   searchKeysOf,
   upstreamModelInvalid,
   type BlockState,
@@ -183,7 +190,7 @@ const props = defineProps<{
   accounts: Map<number, PricingAccount>
   /** 渠道排序键（渠道优先级、再按 ID） */
   accountOrder: (accountId: number) => number
-  defaultUserRate: number
+  defaultSaleRatio: number
   minMargin: number
 }>()
 
@@ -196,7 +203,12 @@ const blockState = computed(() => props.state)
 const draft = computed(() => props.state.draft)
 
 const changes = computed(() => modelDraftChanges(props.state))
-const officialChanged = computed(() => priceRowChanges(props.state.draft.official, props.state.initial.official) > 0)
+// 毛利按售价算（上游成本比由后端按售价口径算）：官方价或售价改了都要保存后重算
+const officialChanged = computed(
+  () =>
+    priceRowChanges(props.state.draft.official, props.state.initial.official) > 0 ||
+    saleRowChanges(props.state.draft.sale, props.state.initial.sale) > 0
+)
 
 const officialRowIssues = computed(() => officialIssues(props.state.draft.official))
 
@@ -215,11 +227,11 @@ function accountName(id: number): string {
   return props.accounts.get(id)?.name ?? `#${id}`
 }
 
-/** 毛利只对保存过、没改过的行显示（后端按上游价 ÷ 官方价逐项逐段算，改了价要保存后重算） */
+/** 毛利只对保存过、没改过的行显示（后端按上游价 ÷ 售价口径逐项逐段算，改了价要保存后重算） */
 function savedMargin(row: KeyedRow): number | null | undefined {
   if (officialChanged.value || !keyedRowUnchanged(row, props.state.initial.rows)) return undefined
   const binding = props.entry.bindings.find((item) => item.account_id === row.id)
-  return marginOf(binding?.cost_ratio, props.defaultUserRate)
+  return marginOf(binding?.cost_ratio, props.defaultSaleRatio)
 }
 
 const headerMeta = computed(() =>
@@ -260,9 +272,15 @@ function fillDiscount(ratio: number) {
   for (const row of draft.value.rows) fillByDiscount(row.prices, draft.value.official, ratio)
 }
 
+/** 空着的售价 = 这一块（可能还没保存的）官方价 × ratio */
+function fillSale(ratio: number) {
+  fillSaleByRatio(draft.value.sale, draft.value.official, ratio)
+}
+
 const issueMessages = computed(() => {
   const messages: string[] = []
   if (hasRowIssues(officialRowIssues.value)) messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value))
+  if (saleRowInvalid(props.state.draft.sale, props.state.draft.official)) messages.push(t('admin.pricing.sale.invalid'))
   for (const row of props.state.draft.rows) {
     const issues = rowIssues(row)
     if (hasRowIssues(issues)) messages.push(issueSummary(t, accountName(row.id), issues))
@@ -285,6 +303,7 @@ async function save() {
   try {
     await adminAPI.pricing.saveModel(props.entry.id, {
       ...priceRowToRequest(props.state.draft.official),
+      sale_prices: saleRowToRequest(props.state.draft.sale, props.state.draft.official),
       bindings: props.state.draft.rows.map((row) => ({
         account_id: row.id,
         upstream_model: row.upstreamModel.trim(),
