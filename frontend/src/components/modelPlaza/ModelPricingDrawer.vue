@@ -105,15 +105,15 @@
         </dl>
       </section>
 
-      <!-- 联网搜索按次收费；非 Anthropic 模型另列 Claude Code 联网搜索的计费项 -->
-      <section v-if="searchPerThousand != null || claudeCodeSearch" class="py-6 first:pt-0" data-testid="pricing-block-tools">
+      <!-- 联网搜索分两种情况、二选一不叠加（muqian 2026-10-07：「容易误导，会以为用 Claude Code 的搜索时前面的价格都要叠加」）：
+           直接调用时按模型自己的搜索价；在 Claude Code 里用非 Anthropic 模型搜索时只收 Claude Code 那一组 -->
+      <section v-if="hasDirectSearch" class="py-6 first:pt-0" data-testid="pricing-block-tools">
         <div class="mb-3 flex items-baseline justify-between gap-4">
-          <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.tools') }}</h3>
+          <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.search') }}</h3>
         </div>
         <dl class="divide-y divide-af-hairline">
-          <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.search')">
+          <DetailField v-if="searchPerThousand != null" :label="t('userUi.models.detail.webSearch')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(searchPerThousand) }) }}</span>
-            <span class="block text-xs text-af-ink-3">{{ t('userUi.models.detail.searchOfficialPrice') }}</span>
           </DetailField>
           <DetailField v-if="entry?.xPostPerThousand != null" :label="t('userUi.models.detail.xPosts')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandPosts', { price: formatPrice(entry.xPostPerThousand) }) }}</span>
@@ -121,15 +121,25 @@
           <DetailField v-if="entry?.xUserPerThousand != null" :label="t('userUi.models.detail.xUsers')">
             <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandUsers', { price: formatPrice(entry.xUserPerThousand) }) }}</span>
           </DetailField>
-          <DetailField v-if="claudeCodeSearch" :label="t('userUi.models.detail.claudeCodeSearch')" data-testid="pricing-claude-code-search">
+        </dl>
+      </section>
+
+      <section v-if="claudeCodeSearch" class="py-6 first:pt-0" data-testid="pricing-claude-code-search">
+        <div class="mb-3">
+          <h3 class="text-13 font-semibold text-af-ink">{{ t('userUi.models.detail.claudeCodeSearch') }}</h3>
+          <p class="mt-0.5 text-xs text-af-ink-3">{{ t('userUi.models.detail.claudeCodeSearchNote') }}</p>
+        </div>
+        <dl class="divide-y divide-af-hairline">
+          <DetailField :label="t('userUi.models.detail.claudeCodeSearchCalls')">
+            <span class="font-medium tabular-nums">{{ t('userUi.models.detail.perThousandCalls', { price: formatPrice(claudeCodeSearch.perThousand) }) }}</span>
+          </DetailField>
+          <DetailField :label="t('userUi.models.detail.claudeCodeSearchTokens')">
             <span class="font-medium tabular-nums">{{
-              t('userUi.models.detail.claudeCodeSearchPrice', {
+              t('userUi.models.detail.claudeCodeSearchTokenPrice', {
                 input: formatPrice(claudeCodeSearch.input),
-                output: formatPrice(claudeCodeSearch.output),
-                search: formatPrice(claudeCodeSearch.perThousand)
+                output: formatPrice(claudeCodeSearch.output)
               })
             }}</span>
-            <span class="block text-xs text-af-ink-3">{{ t('userUi.models.detail.claudeCodeSearchNote') }}</span>
           </DetailField>
         </dl>
       </section>
@@ -260,6 +270,10 @@ const unitBlock = computed<{ label: string; unit: string; price: number | null; 
 
 /** 联网搜索按次收费 */
 const searchPerThousand = computed(() => props.entry?.searchPerThousand ?? null)
+/** 直接调用时这个模型自己的搜索价（网页搜索、X 搜索） */
+const hasDirectSearch = computed(
+  () => searchPerThousand.value != null || props.entry?.xPostPerThousand != null || props.entry?.xUserPerThousand != null
+)
 
 /** Claude Code 联网搜索（只给非 Anthropic 模型）：token 价按每百万 Token；每次搜索按每千次 */
 const claudeCodeSearch = computed(() => {
