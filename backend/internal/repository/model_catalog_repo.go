@@ -202,6 +202,18 @@ func (r *modelCatalogRepository) SaveEntryPricing(ctx context.Context, entry *se
 
 // ReplaceAccountBindings 价格页按渠道保存：整份覆盖渠道的承接关系（删掉不在列表里的、改价、新增），
 // 同一事务；提交后按受影响的条目（原有 ∪ 新）通知调度。
+// SetEntriesStatus 只改这些条目的上架状态，不碰归属与价格。
+func (r *modelCatalogRepository) SetEntriesStatus(ctx context.Context, ids []int64, status string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := clientFromContext(ctx, r.client).ModelCatalogEntry.Update().
+		Where(modelcatalogentry.IDIn(ids...)).
+		SetStatus(status).
+		Save(ctx)
+	return err
+}
+
 func (r *modelCatalogRepository) ReplaceAccountBindings(ctx context.Context, accountID int64, bindings []service.ModelCatalogBinding) error {
 	affected := make(map[int64]struct{})
 	err := r.withTx(ctx, func(tx *dbent.Tx) error {
@@ -338,7 +350,7 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	client := clientFromContext(ctx, r.client)
 
 	existing, err := client.ModelCatalogEntry.Query().
-		Select(modelcatalogentry.FieldID, modelcatalogentry.FieldModelID, modelcatalogentry.FieldManagedBy).
+		Select(modelcatalogentry.FieldID, modelcatalogentry.FieldModelID, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldStatus).
 		All(ctx)
 	if err != nil {
 		return result, err
@@ -346,10 +358,11 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	type existingEntry struct {
 		id        int64
 		managedBy string
+		status    string
 	}
 	byKey := make(map[string]existingEntry, len(existing))
 	for _, row := range existing {
-		byKey[service.NormalizeModelCatalogKey(row.ModelID)] = existingEntry{id: row.ID, managedBy: row.ManagedBy}
+		byKey[service.NormalizeModelCatalogKey(row.ModelID)] = existingEntry{id: row.ID, managedBy: row.ManagedBy, status: row.Status}
 	}
 
 	// 单条写失败只跳过这一条：一条坏数据不该让后面几百条都播不进去。
@@ -382,6 +395,8 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 			result.SkippedAdmin++
 			continue
 		}
+		// 上架是运营的决定，不是价格数据：刷新官方价时保留当前的上架状态（种子条目一律是未上架）。
+		entry.Status = current.status
 		if _, updateErr := applyCatalogEntryUpdate(client.ModelCatalogEntry.UpdateOneID(current.id), &entry).Save(ctx); updateErr != nil {
 			if abort := seedRowFailed(ctx, &result, "refresh", entry.ModelID, updateErr); abort != nil {
 				return result, abort

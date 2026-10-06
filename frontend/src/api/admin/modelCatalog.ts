@@ -134,6 +134,12 @@ export interface OfficialModelLookupResult {
   models: OfficialModelMatch[]
 }
 
+/** 一键上架的结果：上架了哪些；没能上架的及原因 */
+export interface ListBoundEntriesResult {
+  listed: string[]
+  skipped: Array<{ model_id: string; reason: string }>
+}
+
 export interface ModelCatalogSeedResult {
   inserted: number
   refreshed: number
@@ -163,6 +169,11 @@ const modelCatalogAPI = {
   },
   deleteEntry: async (id: number): Promise<void> => {
     await apiClient.delete(`/admin/model-catalog/entries/${id}`)
+  },
+  /** 一键上架这个渠道已承接、还没上架的模型（只改上架状态） */
+  listBound: async (accountId: number): Promise<ListBoundEntriesResult> => {
+    const { data } = await apiClient.post<ListBoundEntriesResult>(`/admin/model-catalog/accounts/${accountId}/list-bound`)
+    return data
   },
   seed: async (): Promise<ModelCatalogSeedResult> => {
     const { data } = await apiClient.post<ModelCatalogSeedResult>('/admin/model-catalog/seed')

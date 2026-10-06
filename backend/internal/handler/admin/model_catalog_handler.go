@@ -382,6 +382,20 @@ func (h *ModelCatalogHandler) Seed(c *gin.Context) {
 	response.Success(c, result)
 }
 
+// ListBoundEntries 一键上架这个渠道已承接、还没上架的模型。
+func (h *ModelCatalogHandler) ListBoundEntries(c *gin.Context) {
+	accountID, ok := parseModelCatalogID(c, "invalid account id")
+	if !ok {
+		return
+	}
+	result, err := h.service.ListEntriesBoundToAccount(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func parseModelCatalogID(c *gin.Context, message string) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {

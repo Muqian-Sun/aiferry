@@ -120,6 +120,20 @@
       <div v-else-if="tab === 'models'" data-testid="account-detail-models">
         <template v-if="catalogEntries.length">
           <p class="mb-3 text-13 text-af-ink-3">{{ t('admin.accounts.detail.modelsHint') }}</p>
+          <div v-if="unlistedCount > 0 || listBoundMessage || listBoundError" class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button
+              v-if="unlistedCount > 0"
+              type="button"
+              class="btn btn-secondary btn-sm"
+              :disabled="listingBound"
+              data-testid="account-detail-list-bound"
+              @click="listBound"
+            >
+              {{ listingBound ? t('admin.accounts.detail.listingBound') : t('admin.accounts.detail.listBound', { count: unlistedCount }) }}
+            </button>
+            <span v-if="listBoundMessage" class="text-13 text-af-ink-3">{{ listBoundMessage }}</span>
+            <span v-if="listBoundError" class="text-13 text-af-danger">{{ listBoundError }}</span>
+          </div>
           <ul class="divide-y divide-af-hairline border-y border-af-hairline">
             <li v-for="entry in catalogEntries" :key="entry.id" class="flex items-center justify-between gap-4 py-2.5">
               <div class="min-w-0">
@@ -229,9 +243,47 @@ const emit = defineEmits<{
   (e: 'diagnose', entry: ModelCatalogEntry): void
   (e: 'show-temp-unsched', account: Account): void
   (e: 'account-updated', account: Account): void
+  /** 目录条目变了（一键上架之后），父组件重拉 */
+  (e: 'catalog-changed'): void
 }>()
 
 const { t } = useI18n()
+
+// ---- 一键上架：这个渠道已承接、还没上架的模型（muqian 2026-10-07），只改上架状态
+const unlistedCount = computed(() => props.catalogEntries.filter((entry) => entry.status !== 'listed').length)
+const listingBound = ref(false)
+const listBoundMessage = ref('')
+const listBoundError = ref('')
+watch(
+  () => props.account?.id,
+  () => {
+    listBoundMessage.value = ''
+    listBoundError.value = ''
+  }
+)
+async function listBound() {
+  const id = props.account?.id
+  if (id == null) return
+  listingBound.value = true
+  listBoundMessage.value = ''
+  listBoundError.value = ''
+  try {
+    const result = await adminAPI.modelCatalog.listBound(id)
+    if (props.account?.id !== id) return
+    listBoundMessage.value = result.skipped.length
+      ? t('admin.accounts.detail.listBoundPartial', {
+          count: result.listed.length,
+          models: result.skipped.map((item) => item.model_id).join(t('admin.pricing.listSeparator'))
+        })
+      : t('admin.accounts.detail.listBoundDone', { count: result.listed.length })
+    emit('catalog-changed')
+  } catch (error) {
+    if (props.account?.id !== id) return
+    listBoundError.value = extractApiErrorMessage(error, t('common.unknownError'))
+  } finally {
+    if (props.account?.id === id) listingBound.value = false
+  }
+}
 
 // ---- 上架模型页签：上游价与毛利取价格页同一份数据（毛利由后端按上游价 ÷ 官方价逐项逐段算）
 const pricing = ref<PricingOverview | null>(null)

@@ -144,6 +144,19 @@ func (r *stubModelCatalogRepo) UpdateEntry(_ context.Context, entry *ModelCatalo
 	return ErrModelCatalogEntryNotFound
 }
 
+func (r *stubModelCatalogRepo) SetEntriesStatus(_ context.Context, ids []int64, status string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, id := range ids {
+		for i := range r.entries {
+			if r.entries[i].ID == id {
+				r.entries[i].Status = status
+			}
+		}
+	}
+	return nil
+}
+
 func (r *stubModelCatalogRepo) DeleteEntry(_ context.Context, id int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
