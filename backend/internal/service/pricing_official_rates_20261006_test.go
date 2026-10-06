@@ -30,8 +30,9 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 		"gpt-6-sol":       {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, threshold: 272000, inMul: 2, outMul: 1.5},
 		"grok-4.7":        {input: 2e-6, output: 6e-6, cacheRead: 0.5e-6, threshold: 200000, inMul: 2, outMul: 2},
 		"kimi-k2.7-code":  {input: 0.95e-6, output: 4e-6, cacheRead: 0.19e-6},
-		"qwen3.5-flash":   {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.02e-6}, // 隐式缓存命中 = 输入价 20%
-		"qwen3.8-max":     {input: 2e-6, output: 6e-6, cacheRead: 2e-6},        // 命中价官网未给：按输入原价
+		// 通义缓存价按单模型页（新加坡 / 国际）：有隐式缓存的命中按隐式价，只有显式缓存的按显式读价；缓存写 = 显式创建价
+		"qwen3.5-flash": {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.01e-6, cacheWrite: 0.125e-6}, // 只有显式缓存
+		"qwen3.8-max":   {input: 2e-6, output: 6e-6, cacheRead: 0.25e-6, cacheWrite: 2.5e-6},       // 隐式 0.25、显式创建 2.5
 		// 修正
 		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 12e-6}, // 官网只有音频输出价 $12
 		"gpt-realtime-2":             {input: 4e-6, output: 24e-6, cacheRead: 0.4e-6},

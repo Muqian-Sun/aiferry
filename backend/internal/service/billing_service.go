@@ -405,6 +405,7 @@ func (s *BillingService) initFallbackPricing() {
 	// GLM-4.6 与 GLM-4.5 在 z.ai 国际版上定价一致；GLM-4.5 国内按 ¥0.8/¥2，汇率换算后约 $0.112/$0.28，与国际版 $0.6/$2.2 不同，本分支采用国际版 USD 口径与现有 Claude/GPT 一致。
 	// GLM-5.3 / GLM-5.2 与 GLM-5.1 在 z.ai 上同价。
 	// GLM-5.3-Flash 列表价 $0.15/$0.50（2026-09-09 前五折促销，此处按列表价，与其它模型口径一致）。
+	// 国际站没有、只在国内站 docs.bigmodel.cn 上架的（GLM-5-Turbo、GLM-5V-Turbo 等）在价格文件里按人民币价 ÷ 6.8 存，含分段。
 	s.fallbackPrices["glm-5.3-flash"] = &ModelPricing{
 		InputPricePerToken:     0.15e-6, // $0.15 per MTok
 		OutputPricePerToken:    0.5e-6,  // $0.50 per MTok
@@ -433,12 +434,6 @@ func (s *BillingService) initFallbackPricing() {
 		InputPricePerToken:     1e-6, // $1.00 per MTok
 		OutputPricePerToken:    3.2e-6,
 		CacheReadPricePerToken: 0.2e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-5-turbo"] = &ModelPricing{
-		InputPricePerToken:     1.2e-6,
-		OutputPricePerToken:    4e-6,
-		CacheReadPricePerToken: 0.24e-6,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7"] = &ModelPricing{
@@ -508,16 +503,20 @@ func (s *BillingService) initFallbackPricing() {
 	// Kimi K3 国际站 USD 价目：https://platform.kimi.ai/docs/pricing/chat-k3.md
 	// Kimi Code bare aliases（k3 / k3-256k）官方无按 token 价目；复用 API Platform
 	// kimi-k3 档位作代理计费 fallback（同 kimi-for-coding 对 K2.6 的处理口径）。
+	// K3 缓存写：platform.kimi.ai/docs/guide/context-caching「Cache Write (5m) $3.00 / Cache Write (1h) $6.00」。
 	s.fallbackPrices["kimi-k3"] = &ModelPricing{
-		InputPricePerToken:     3e-6,    // $3.00 per MTok (cache miss)
-		OutputPricePerToken:    15e-6,   // $15.00 per MTok
-		CacheReadPricePerToken: 0.30e-6, // $0.30 per MTok (cache hit)
-		SupportsCacheBreakdown: false,
+		InputPricePerToken:         3e-6,    // $3.00 per MTok (cache miss)
+		OutputPricePerToken:        15e-6,   // $15.00 per MTok
+		CacheReadPricePerToken:     0.30e-6, // $0.30 per MTok (cache hit)
+		CacheCreationPricePerToken: 3e-6,    // $3.00 per MTok (5m)
+		CacheCreation5mPrice:       3e-6,
+		CacheCreation1hPrice:       6e-6, // $6.00 per MTok (1h)
+		SupportsCacheBreakdown:     true,
 	}
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{
 		InputPricePerToken:     0.95e-6, // $0.95 per MTok (cache miss)
 		OutputPricePerToken:    4e-6,    // $4.00 per MTok
-		CacheReadPricePerToken: 0.15e-6, // $0.15 per MTok (cache hit, ¥1.10)
+		CacheReadPricePerToken: 0.16e-6, // $0.16 per MTok (cache hit；国际站 platform.kimi.ai 美元价)
 		SupportsCacheBreakdown: false,
 	}
 	// kimi-for-coding 走 Kimi Coding endpoint，按当前 K2.6 coding 档位兜底计费。
