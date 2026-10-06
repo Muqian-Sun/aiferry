@@ -50,7 +50,7 @@
           :state="modelState"
           :accounts="accountsById"
           :account-order="accountOrder"
-          :default-user-rate="overview?.default_user_rate ?? 1"
+          :default-sale-ratio="overview?.default_sale_ratio ?? 1"
           :min-margin="overview?.min_margin ?? 0"
           @saved="loadPricing"
         />

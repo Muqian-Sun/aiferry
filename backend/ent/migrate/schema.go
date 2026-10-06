@@ -950,6 +950,7 @@ var (
 		{Name: "x_post_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "x_user_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "max_reasoning_effort_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "sale_prices", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
 	}
 	// ModelCatalogEntriesTable holds the schema information for the "model_catalog_entries" table.

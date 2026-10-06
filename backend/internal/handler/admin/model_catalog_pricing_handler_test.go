@@ -76,7 +76,7 @@ func TestModelCatalogHandler_PricingOverview(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	got := decodePricingData[PricingOverviewResponse](t, rec)
 
-	require.InDelta(t, 1.0/15, got.DefaultUserRate, 1e-12)
+	require.InDelta(t, 1.0/15, got.DefaultSaleRatio, 1e-12)
 	require.InDelta(t, 0.3, got.MinMargin, 1e-12)
 
 	require.Len(t, got.Entries, 1, "only token models are on the pricing page")

@@ -32,7 +32,7 @@ func (r *keyBillingRouteAPIKeyRepo) GetByKeyForAuth(_ context.Context, key strin
 
 func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, string) {
 	gin.SetMode(gin.TestMode)
-	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: customRate(0.75)}
+	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: officialRate(0.75)}
 	apiKey := &service.APIKey{
 		ID:     100,
 		UserID: user.ID,

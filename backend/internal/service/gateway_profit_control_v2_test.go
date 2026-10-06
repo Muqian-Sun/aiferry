@@ -29,7 +29,7 @@ func profitControlTestSettingService(t *testing.T, minMargin float64) *SettingSe
 // gatewayProfitTestContext 模拟认证后的 token 请求上下文：D 取用户倍率；带利润门用例条目的目录路由，
 // 各渠道的上游成本比取自 prices（token 请求一律经目录路由，选号从条目的承接渠道里挑）。
 func gatewayProfitTestContext(prices profitTestPrices) context.Context {
-	ctx := WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: customRate(gatewayProfitTestUserRate)})
+	ctx := WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: officialRate(gatewayProfitTestUserRate)})
 	ctx, _ = WithGatewayTokenRequestPricing(ctx)
 	// 目录路由下选渠道要看能否承接入站协议；夹具渠道四种协议都配了，这里取 Messages。
 	ctx = WithInboundProtocol(ctx, APIProtocolAnthropic)

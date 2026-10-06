@@ -102,8 +102,8 @@ export interface AdminUser extends User {
   // 管理员备注（普通用户接口不返回）
   notes: string
   // 倍率只给管理站：用户站接口只给售价与实付（2026-10-04 D1）
-  rate_multiplier: number // 生效的计费倍率（相对官方价）：用户价 = 官方价 × 它；0 = 免费
-  custom_rate_multiplier?: number | null // 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）
+  rate_multiplier: number // 生效的售价折扣：实付 = 售价 × 它；1 = 不打折，0 = 免费
+  custom_rate_multiplier?: number | null // 管理员单独设的售价折扣；null = 不打折（按售价收）
   last_used_at?: string | null
   // 管理侧权限开关，普通用户接口不返回。
   // 当前并发数（仅管理员列表接口返回）

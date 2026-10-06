@@ -1315,6 +1315,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	if pricing == nil {
 		return nil, fmt.Errorf("no pricing available for model: %s: %w", input.Model, ErrModelPricingUnavailable)
 	}
+	officialSegment := pricing // 套厂商政策之前的本段官方价：推分段售价用
 
 	// 计费时点：优先请求级 PricingAt（历史补账与 DeepSeek pro→Flash 切换判定
 	// 同源），零值回退当前时刻。
@@ -1334,8 +1335,10 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	// 06:00–10:00 UTC，仅工作日；北京时间周末全天低谷）按 2× 低谷价计费。
 	// 仅作用于平台默认价卡——运营者定价保持运营者语义，不叠加。
 	// 先克隆再乘，避免污染共享 fallbackPrices 指针。
+	peak := 1.0
 	if !resolved.operatorPricing && isDeepSeekModel(resolved.CanonicalModel) {
 		if mult := deepseekPeakMultiplierAt(pricingAt); mult > 1 {
+			peak = mult
 			cloned := *pricing
 			cloned.InputPricePerToken *= mult
 			cloned.OutputPricePerToken *= mult
@@ -1345,6 +1348,11 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	}
 
 	breakdown := s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier)
+	// 单独定了售价的项：实付按售价换算成的官方口径算（× 计费倍率 = 售价 × 折扣）；TotalCost 仍是官方价合计。
+	segment := FindMatchingInterval(resolved.Intervals, totalContext)
+	if sale := saleEquivalentPricing(resolved.sale, segment, resolved.BasePricing, officialSegment, pricing, peak); sale != nil {
+		breakdown.ActualCost = s.computeTokenBreakdown(sale, input.Tokens, input.RateMultiplier).ActualCost
+	}
 	applyCostBreakdownMultiplier(breakdown, resolvedTimePricingMultiplier(resolved, input.PricingAt))
 	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(resolved.CanonicalModel, input.ReasoningEffort, pricing))
 	return breakdown, nil

@@ -45,6 +45,9 @@ type ResolvedPricing struct {
 	// 被显式配置、以及分时倍率。
 	configuredPricing *PricingCard
 
+	// sale 目录条目上单独定的售价（没定的项按官方价 × 默认售价比例）；实付按它换算后的官方口径算。
+	sale CatalogSalePrices
+
 	// operatorPricing 表示胜出的价格是运营者写的（被管理员改过的目录条目），而不是
 	// 平台默认价卡（播种出来的目录条目 / 价格文件 / 硬编码兜底价）。运营者定价保留
 	// 运营者语义（不强制官方价、不叠加官方峰谷），平台默认价卡则继续套用官方价政策。
@@ -117,6 +120,7 @@ func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry) *
 		CanonicalModel:    entry.ModelID,
 		configuredPricing: card,
 		operatorPricing:   entry.IsOperatorAuthored(),
+		sale:              entry.SalePrices,
 	}
 
 	switch resolved.Mode {

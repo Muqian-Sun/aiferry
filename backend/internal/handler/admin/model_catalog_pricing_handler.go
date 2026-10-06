@@ -30,8 +30,8 @@ var pricingAccountPageSize = 500
 
 // PricingOverviewResponse 价格页的全部数据。
 type PricingOverviewResponse struct {
-	// DefaultUserRate 默认售价倍率（官方价 × 它 = 售价），毛利按它算。
-	DefaultUserRate float64 `json:"default_user_rate"`
+	// DefaultSaleRatio 默认售价比例：没单独填售价的项按官方价 × 它收；毛利 = 1 − 上游成本比 ÷ 它。
+	DefaultSaleRatio float64 `json:"default_sale_ratio"`
 	// MinMargin 利润门的最低毛利率，0 = 利润门关闭。
 	MinMargin float64                  `json:"min_margin"`
 	Entries   []PricingEntryResponse   `json:"entries"`
@@ -51,6 +51,8 @@ type PricingEntryResponse struct {
 	CacheWrite1hPrice *float64                  `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64                  `json:"cache_read_price"`
 	Intervals         []service.PricingInterval `json:"intervals"`
+	// SalePrices 我们自己定的售价（五项 + 各段，按下界对上官方价的分段）；没填的项按官方价 × 默认售价比例。
+	SalePrices service.CatalogSalePrices `json:"sale_prices"`
 	// 联网搜索官方价（USD / 次、/ 条）；null = 没设，按 SearchDefaults 收。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 	XPostPrice         *float64 `json:"x_post_price"`
@@ -87,7 +89,8 @@ type PricingBindingResponse struct {
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
-	// CostRatio 上游成本比（上游价 ÷ 官方价，逐项、逐段取最高），与利润门同一个数；官方价没有可比项时为 null。
+	// CostRatio 上游成本比（上游价 ÷ 售价口径，逐项、逐段取最高；售价口径 = 定了售价的项按售价 ÷ 默认售价比例，
+	// 没定的按官方价），与利润门同一个数；毛利 = 1 − 它 ÷ 默认售价比例。没有可比项时为 null。
 	CostRatio *float64 `json:"cost_ratio"`
 }
 
@@ -127,10 +130,11 @@ type PricingModelBindingRequest struct {
 	PricingPricesRequest
 }
 
-// PricingModelSaveRequest 按模型保存一块：官方价 + 这个模型的全部承接关系（整份覆盖）。
+// PricingModelSaveRequest 按模型保存一块：官方价、售价 + 这个模型的全部承接关系（整份覆盖）。
 type PricingModelSaveRequest struct {
 	PricingPricesRequest
-	Bindings []PricingModelBindingRequest `json:"bindings"`
+	SalePrices service.CatalogSalePrices    `json:"sale_prices"`
+	Bindings   []PricingModelBindingRequest `json:"bindings"`
 }
 
 // PricingChannelBindingRequest 按渠道保存时的一条承接关系。
@@ -181,10 +185,10 @@ func (h *ModelCatalogHandler) PricingOverview(c *gin.Context) {
 		return
 	}
 	out := PricingOverviewResponse{
-		DefaultUserRate: service.NewUserRateMultiplier,
-		MinMargin:       h.settings.GetProfitControlSettings(ctx).MinMargin,
-		Entries:         make([]PricingEntryResponse, 0, len(entries)),
-		Accounts:        make([]PricingAccountResponse, 0, len(accounts)),
+		DefaultSaleRatio: service.DefaultSalePriceRatio,
+		MinMargin:        h.settings.GetProfitControlSettings(ctx).MinMargin,
+		Entries:          make([]PricingEntryResponse, 0, len(entries)),
+		Accounts:         make([]PricingAccountResponse, 0, len(accounts)),
 	}
 	for i := range entries {
 		out.Entries = append(out.Entries, h.pricingEntryResponse(&entries[i], accounts))
@@ -228,7 +232,7 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		XUserPrice:         req.XUserPrice,
 	}
 	ctx := c.Request.Context()
-	entry, err := h.service.SaveEntryPricing(ctx, id, official, bindings, h.accounts)
+	entry, err := h.service.SaveEntryPricing(ctx, id, official, req.SalePrices, bindings, h.accounts)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -309,6 +313,7 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 		CacheWrite1hPrice:  entry.CacheWrite1hPrice,
 		CacheReadPrice:     entry.CacheReadPrice,
 		Intervals:          nonNilIntervals(entry.Intervals),
+		SalePrices:         nonNilSaleSegments(entry.SalePrices),
 		SearchPricePerCall: entry.SearchPricePerCall,
 		XPostPrice:         entry.XPostPrice,
 		XUserPrice:         entry.XUserPrice,
@@ -387,4 +392,12 @@ func nonNilIntervals(intervals []service.PricingInterval) []service.PricingInter
 		return []service.PricingInterval{}
 	}
 	return intervals
+}
+
+// nonNilSaleSegments 售价的 segments 固定输出数组（没定为 []）。
+func nonNilSaleSegments(p service.CatalogSalePrices) service.CatalogSalePrices {
+	if p.Segments == nil {
+		p.Segments = []service.CatalogSaleSegment{}
+	}
+	return p
 }

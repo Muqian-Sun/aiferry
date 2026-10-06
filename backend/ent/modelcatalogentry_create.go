@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogEntryCreate is the builder for creating a ModelCatalogEntry entity.
@@ -344,6 +345,20 @@ func (_c *ModelCatalogEntryCreate) SetNillableMaxReasoningEffortMultiplier(v *fl
 	return _c
 }
 
+// SetSalePrices sets the "sale_prices" field.
+func (_c *ModelCatalogEntryCreate) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryCreate {
+	_c.mutation.SetSalePrices(v)
+	return _c
+}
+
+// SetNillableSalePrices sets the "sale_prices" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableSalePrices(v *domain.CatalogSalePrices) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetSalePrices(*v)
+	}
+	return _c
+}
+
 // SetNotes sets the "notes" field.
 func (_c *ModelCatalogEntryCreate) SetNotes(v string) *ModelCatalogEntryCreate {
 	_c.mutation.SetNotes(v)
@@ -631,6 +646,10 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
 		_node.MaxReasoningEffortMultiplier = &value
+	}
+	if value, ok := _c.mutation.SalePrices(); ok {
+		_spec.SetField(modelcatalogentry.FieldSalePrices, field.TypeJSON, value)
+		_node.SalePrices = value
 	}
 	if value, ok := _c.mutation.Notes(); ok {
 		_spec.SetField(modelcatalogentry.FieldNotes, field.TypeString, value)
@@ -1183,6 +1202,24 @@ func (u *ModelCatalogEntryUpsert) AddMaxReasoningEffortMultiplier(v float64) *Mo
 // ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
 func (u *ModelCatalogEntryUpsert) ClearMaxReasoningEffortMultiplier() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldMaxReasoningEffortMultiplier)
+	return u
+}
+
+// SetSalePrices sets the "sale_prices" field.
+func (u *ModelCatalogEntryUpsert) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldSalePrices, v)
+	return u
+}
+
+// UpdateSalePrices sets the "sale_prices" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateSalePrices() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldSalePrices)
+	return u
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (u *ModelCatalogEntryUpsert) ClearSalePrices() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldSalePrices)
 	return u
 }
 
@@ -1785,6 +1822,27 @@ func (u *ModelCatalogEntryUpsertOne) UpdateMaxReasoningEffortMultiplier() *Model
 func (u *ModelCatalogEntryUpsertOne) ClearMaxReasoningEffortMultiplier() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearMaxReasoningEffortMultiplier()
+	})
+}
+
+// SetSalePrices sets the "sale_prices" field.
+func (u *ModelCatalogEntryUpsertOne) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetSalePrices(v)
+	})
+}
+
+// UpdateSalePrices sets the "sale_prices" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateSalePrices() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateSalePrices()
+	})
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (u *ModelCatalogEntryUpsertOne) ClearSalePrices() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearSalePrices()
 	})
 }
 
@@ -2556,6 +2614,27 @@ func (u *ModelCatalogEntryUpsertBulk) UpdateMaxReasoningEffortMultiplier() *Mode
 func (u *ModelCatalogEntryUpsertBulk) ClearMaxReasoningEffortMultiplier() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearMaxReasoningEffortMultiplier()
+	})
+}
+
+// SetSalePrices sets the "sale_prices" field.
+func (u *ModelCatalogEntryUpsertBulk) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetSalePrices(v)
+	})
+}
+
+// UpdateSalePrices sets the "sale_prices" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateSalePrices() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateSalePrices()
+	})
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearSalePrices() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearSalePrices()
 	})
 }
 

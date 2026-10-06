@@ -90,11 +90,31 @@ export interface PricingBinding extends PricingPrices {
   upstream_model: string
   input_price: number
   output_price: number
-  /** 上游成本比（上游价 ÷ 官方价，逐项、逐段取最高），与利润门同一个数；官方价没有可比项时为 null */
+  /** 上游成本比（上游价 ÷ 售价口径，逐项、逐段取最高；售价口径 = 定了售价的项按售价 ÷ 默认售价比例，没定的按官方价），与利润门同一个数；没有可比项时为 null */
   cost_ratio: number | null
 }
 
 /** 价格页上的一个模型（只有按 Token 计费的模型） */
+/** 售价的一段：输入侧 Token 落在官方价那一段（下界 min_tokens）时用 */
+export interface PricingSaleSegment {
+  min_tokens: number
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_write_1h_price: number | null
+  cache_read_price: number | null
+}
+
+/** 我们自己定的售价（$/token）：五项 + 各段；null = 没单独定，按官方价 × 默认售价比例收 */
+export interface PricingSalePrices {
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_write_1h_price: number | null
+  cache_read_price: number | null
+  segments: PricingSaleSegment[]
+}
+
 export interface PricingEntry extends PricingPrices {
   id: number
   model_id: string
@@ -105,6 +125,8 @@ export interface PricingEntry extends PricingPrices {
   search_defaults: PricingSearchDefaults | null
   /** 「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项） */
   web_search_delegate?: boolean
+  /** 售价（muqian 2026-10-06：每项单独填，没填的按官方价 × default_sale_ratio） */
+  sale_prices: PricingSalePrices
   bindings: PricingBinding[]
   /** 能承接这个模型的渠道 */
   bindable_account_ids: number[]
@@ -127,16 +149,17 @@ export interface PricingAccount {
 }
 
 export interface PricingOverview {
-  /** 默认售价倍率：售价 = 官方价 × 它；毛利按它算 */
-  default_user_rate: number
+  /** 默认售价比例：没单独定售价的项 = 官方价 × 它；毛利 = 1 − 上游成本比 ÷ 它 */
+  default_sale_ratio: number
   /** 利润门的最低毛利率，0 = 关闭 */
   min_margin: number
   entries: PricingEntry[]
   accounts: PricingAccount[]
 }
 
-/** 按模型保存一块：官方价 + 这个模型的全部承接关系（整份覆盖） */
+/** 按模型保存一块：官方价、售价 + 这个模型的全部承接关系（整份覆盖） */
 export interface PricingModelSaveRequest extends PricingPrices {
+  sale_prices: PricingSalePrices
   bindings: Array<PricingPrices & { account_id: number; upstream_model: string }>
 }
 

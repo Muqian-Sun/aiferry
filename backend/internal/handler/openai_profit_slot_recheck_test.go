@@ -71,7 +71,7 @@ func profitSlotTestSettings(t *testing.T) *service.SettingService {
 
 func profitSlotTestContext(t *testing.T, gw *service.OpenAIGatewayService, suppress bool) context.Context {
 	t.Helper()
-	base := service.WithUserRateMultiplier(context.Background(), &service.User{ID: 1, RateMultiplier: customRate(1.0)})
+	base := service.WithUserRateMultiplier(context.Background(), &service.User{ID: 1, RateMultiplier: officialRate(1.0)})
 	base = service.WithCatalogRoute(base, profitSlotTestRoute())
 	if suppress {
 		base = service.WithOpenAIProfitControlSuppressed(base)

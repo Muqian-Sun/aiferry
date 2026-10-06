@@ -38,5 +38,5 @@ func TestGetNewUserDefaultsReturnsSiteFeatureConstants(t *testing.T) {
 	require.Equal(t, service.NewUserBalance, body.Data.Balance)
 	require.Equal(t, service.NewUserConcurrency, body.Data.Concurrency)
 	require.Equal(t, service.NewUserRPMLimit, body.Data.RPMLimit)
-	require.InDelta(t, service.NewUserRateMultiplier, body.Data.RateMultiplier, 1e-12)
+	require.InDelta(t, 1.0, body.Data.RateMultiplier, 1e-12, "新用户默认不打折：按售价收")
 }

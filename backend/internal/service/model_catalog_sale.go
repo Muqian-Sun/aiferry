@@ -1,0 +1,238 @@
+package service
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+)
+
+// 售价（muqian 2026-10-06：每项单独填售价，没填的按官方价 × 默认售价比例；用户倍率 = 在售价上再打折）。
+//
+// 计费、利润门、模型广场内部一律用「官方价口径」：用户的计费倍率 = 售价折扣 × DefaultSalePriceRatio。
+// 填了售价的项先换算成官方口径（售价 ÷ DefaultSalePriceRatio），再乘计费倍率，正好是「售价 × 折扣」；
+// 没填的项就是官方价本身，乘计费倍率是「官方价 × 默认售价比例 × 折扣」。所以一项售价都没填的模型
+// 与以前（统一 1/15）完全一样。
+
+// CatalogSalePrices / CatalogSaleSegment 见 domain：整份存成 model_catalog_entries.sale_prices。
+type (
+	CatalogSalePrices  = domain.CatalogSalePrices
+	CatalogSaleSegment = domain.CatalogSaleSegment
+)
+
+// saleItems 五项售价，顺序与 segmentPriceBase.pricesAt 相同：输入、输出、缓存写 5 分钟、缓存写 1 小时、缓存读。
+func saleBaseItems(p CatalogSalePrices) [5]*float64 {
+	return [5]*float64{p.InputPrice, p.OutputPrice, p.CacheWritePrice, p.CacheWrite1hPrice, p.CacheReadPrice}
+}
+
+func saleSegmentFor(p CatalogSalePrices, minTokens int) *CatalogSaleSegment {
+	for i := range p.Segments {
+		if p.Segments[i].MinTokens == minTokens {
+			return &p.Segments[i]
+		}
+	}
+	return nil
+}
+
+// saleExplicitAt 这一段五项里单独定了售价的项（售价本身，USD / token）；没定的为 nil。
+// segmentMin 为 nil 表示落在基础价。段内没定、基础价定了的项按「基础售价 × 本段官方价 ÷ 基础官方价」推
+// （与缓存价随段折算同一个思路，各段与官方价同比例）；基础官方价没有或为 0 时推不出，留空。
+func saleExplicitAt(p CatalogSalePrices, segmentMin *int, officialBase, officialSeg [5]*float64) [5]*float64 {
+	base := saleBaseItems(p)
+	if segmentMin == nil {
+		return base
+	}
+	var out [5]*float64
+	var seg [5]*float64
+	if s := saleSegmentFor(p, *segmentMin); s != nil {
+		seg = [5]*float64{s.InputPrice, s.OutputPrice, s.CacheWritePrice, s.CacheWrite1hPrice, s.CacheReadPrice}
+	}
+	for i := range out {
+		switch {
+		case seg[i] != nil:
+			out[i] = seg[i]
+		case base[i] != nil && officialBase[i] != nil && *officialBase[i] > 0 && officialSeg[i] != nil:
+			v := *base[i] * *officialSeg[i] / *officialBase[i]
+			out[i] = &v
+		}
+	}
+	return out
+}
+
+// toOfficialBasis 售价换算成官方口径：售价 ÷ 默认售价比例。
+func toOfficialBasis(sale float64) float64 {
+	return sale / DefaultSalePriceRatio
+}
+
+// modelPricingItems 价卡的五项（0 视为没有）。
+func modelPricingItems(p *ModelPricing) [5]*float64 {
+	if p == nil {
+		return [5]*float64{}
+	}
+	pos := func(v float64) *float64 {
+		if v <= 0 {
+			return nil
+		}
+		return &v
+	}
+	cacheWrite := p.CacheCreation5mPrice
+	if cacheWrite <= 0 {
+		cacheWrite = p.CacheCreationPricePerToken
+	}
+	return [5]*float64{pos(p.InputPricePerToken), pos(p.OutputPricePerToken), pos(cacheWrite), pos(p.CacheCreation1hPrice), pos(p.CacheReadPricePerToken)}
+}
+
+// saleEquivalentPricing 计费用：把这次请求落到的那一段里单独定了售价的项换成官方口径，放进 adjusted 的副本。
+// officialBase / officialSeg 是没套厂商政策的官方价（基础价、本段）；adjusted 是套过厂商政策与 DeepSeek 高峰的
+// 官方价——没定售价的项沿用它。peak 是 DeepSeek 高峰倍率（≤ 1 = 不加价），与官方价一样只乘输入 / 输出 / 缓存读：
+// DeepSeek 的售价也按闲时价填，高峰同样加倍。一项都没定时返回 nil（实付就按 adjusted 算）。
+func saleEquivalentPricing(sale CatalogSalePrices, segment *PricingInterval, officialBase, officialSeg, adjusted *ModelPricing, peak float64) *ModelPricing {
+	if sale.IsZero() || adjusted == nil {
+		return nil
+	}
+	var segmentMin *int
+	if segment != nil {
+		segmentMin = &segment.MinTokens
+	}
+	explicit := saleExplicitAt(sale, segmentMin, modelPricingItems(officialBase), modelPricingItems(officialSeg))
+	if explicit == [5]*float64{} {
+		return nil
+	}
+	if peak < 1 {
+		peak = 1
+	}
+	out := *adjusted
+	if v := explicit[0]; v != nil {
+		out.InputPricePerToken = toOfficialBasis(*v) * peak
+	}
+	if v := explicit[1]; v != nil {
+		out.OutputPricePerToken = toOfficialBasis(*v) * peak
+	}
+	if v := explicit[2]; v != nil {
+		out.CacheCreationPricePerToken = toOfficialBasis(*v)
+		out.CacheCreation5mPrice = toOfficialBasis(*v)
+		out.CacheCreationPriceExplicit = true
+	}
+	if v := explicit[3]; v != nil {
+		out.CacheCreation1hPrice = toOfficialBasis(*v)
+	}
+	if v := explicit[4]; v != nil {
+		out.CacheReadPricePerToken = toOfficialBasis(*v) * peak
+	}
+	return &out
+}
+
+// saleEquivalentPriceBase 售价口径的五项价与分段（官方口径：定了售价的项 = 售价 ÷ 默认售价比例，没定的 = 官方价），
+// 给利润门、上架提示与价格页拿来和上游价比。一项售价都没定时就是官方价本身。分段一律写成绝对价。
+func (e *ModelCatalogEntry) saleEquivalentPriceBase() segmentPriceBase {
+	official := segmentPriceBase{
+		input: e.InputPrice, output: e.OutputPrice,
+		cacheWrite: e.CacheWritePrice, cacheWrite1h: e.CacheWrite1hPrice, cacheRead: e.CacheReadPrice,
+		intervals: e.Intervals,
+	}
+	if e.SalePrices.IsZero() {
+		return official
+	}
+	officialBase := [5]*float64{official.input, official.output, official.cacheWrite, official.cacheWrite1h, official.cacheRead}
+	pick := func(explicit, fallback *float64) *float64 {
+		if explicit != nil {
+			v := toOfficialBasis(*explicit)
+			return &v
+		}
+		return fallback
+	}
+	baseExplicit := saleExplicitAt(e.SalePrices, nil, officialBase, officialBase)
+	out := segmentPriceBase{
+		input: pick(baseExplicit[0], official.input), output: pick(baseExplicit[1], official.output),
+		cacheWrite: pick(baseExplicit[2], official.cacheWrite), cacheWrite1h: pick(baseExplicit[3], official.cacheWrite1h),
+		cacheRead: pick(baseExplicit[4], official.cacheRead),
+	}
+	for _, iv := range e.Intervals {
+		officialSeg := official.pricesAt(iv.MinTokens + 1)
+		min := iv.MinTokens
+		explicit := saleExplicitAt(e.SalePrices, &min, officialBase, officialSeg)
+		seg := iv
+		seg.InputPrice, seg.OutputPrice = pick(explicit[0], officialSeg[0]), pick(explicit[1], officialSeg[1])
+		seg.CacheWritePrice, seg.CacheWrite1hPrice = pick(explicit[2], officialSeg[2]), pick(explicit[3], officialSeg[3])
+		seg.CacheReadPrice = pick(explicit[4], officialSeg[4])
+		seg.InputMultiplier, seg.OutputMultiplier, seg.CacheWriteMultiplier, seg.CacheReadMultiplier = nil, nil, nil, nil
+		out.intervals = append(out.intervals, seg)
+	}
+	return out
+}
+
+// SaleEquivalentPricingCard 模型广场用的价卡：五项与分段换成售价口径（官方口径，展示时 × 访问者的计费倍率 = 售价 × 折扣）；
+// 一项售价都没定时就是 PricingCard 本身。图片 / 音频 / 按次价不在这次售价范围里，照旧是官方价。
+func (e *ModelCatalogEntry) SaleEquivalentPricingCard() *PricingCard {
+	card := e.PricingCard()
+	if card == nil || e.SalePrices.IsZero() || e.EffectiveBillingMode() != BillingModeToken {
+		return card
+	}
+	base := e.saleEquivalentPriceBase()
+	card.InputPrice, card.OutputPrice = base.input, base.output
+	card.CacheWritePrice, card.CacheWrite1hPrice, card.CacheReadPrice = base.cacheWrite, base.cacheWrite1h, base.cacheRead
+	card.Intervals = base.intervals
+	return card
+}
+
+// validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次。
+func validateSalePrices(e *ModelCatalogEntry) error {
+	p := e.SalePrices
+	if p.IsZero() {
+		return nil
+	}
+	if e.EffectiveBillingMode() != BillingModeToken {
+		return catalogValidationError("sale prices are only for token-billed models")
+	}
+	check := func(where string, items [5]*float64) error {
+		names := [5]string{"input_price", "output_price", "cache_write_price", "cache_write_1h_price", "cache_read_price"}
+		for i, v := range items {
+			if v != nil && *v < 0 {
+				return catalogValidationError(fmt.Sprintf("sale %s%s must be >= 0", where, names[i]))
+			}
+		}
+		return nil
+	}
+	if err := check("", saleBaseItems(p)); err != nil {
+		return err
+	}
+	officialMins := make(map[int]struct{}, len(e.Intervals))
+	for _, iv := range e.Intervals {
+		officialMins[iv.MinTokens] = struct{}{}
+	}
+	seen := make(map[int]struct{}, len(p.Segments))
+	for _, s := range p.Segments {
+		if _, ok := officialMins[s.MinTokens]; !ok {
+			return catalogValidationError(fmt.Sprintf("sale segment above %d tokens has no matching official segment", s.MinTokens))
+		}
+		if _, dup := seen[s.MinTokens]; dup {
+			return catalogValidationError(fmt.Sprintf("sale segment above %d tokens is set twice", s.MinTokens))
+		}
+		seen[s.MinTokens] = struct{}{}
+		if err := check(fmt.Sprintf("segment %d ", s.MinTokens), [5]*float64{s.InputPrice, s.OutputPrice, s.CacheWritePrice, s.CacheWrite1hPrice, s.CacheReadPrice}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// normalizeSalePrices 去掉一项都没填的段，各段按下界排好；一项都没填时是零值（存成 {}）。
+func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
+	out := CatalogSalePrices{
+		InputPrice: clonePricePtr(p.InputPrice), OutputPrice: clonePricePtr(p.OutputPrice),
+		CacheWritePrice: clonePricePtr(p.CacheWritePrice), CacheWrite1hPrice: clonePricePtr(p.CacheWrite1hPrice),
+		CacheReadPrice: clonePricePtr(p.CacheReadPrice),
+	}
+	for _, s := range p.Segments {
+		if s.InputPrice == nil && s.OutputPrice == nil && s.CacheWritePrice == nil && s.CacheWrite1hPrice == nil && s.CacheReadPrice == nil {
+			continue
+		}
+		out.Segments = append(out.Segments, CatalogSaleSegment{
+			MinTokens: s.MinTokens, InputPrice: clonePricePtr(s.InputPrice), OutputPrice: clonePricePtr(s.OutputPrice),
+			CacheWritePrice: clonePricePtr(s.CacheWritePrice), CacheWrite1hPrice: clonePricePtr(s.CacheWrite1hPrice),
+			CacheReadPrice: clonePricePtr(s.CacheReadPrice),
+		})
+	}
+	sort.Slice(out.Segments, func(i, j int) bool { return out.Segments[i].MinTokens < out.Segments[j].MinTokens })
+	return out
+}

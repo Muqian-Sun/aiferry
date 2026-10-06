@@ -61,11 +61,12 @@ func (s *ModelPlazaService) ClaudeCodeWebSearchBilling(ctx context.Context) *Pla
 	if entry == nil {
 		return nil
 	}
+	card := entry.SaleEquivalentPricingCard() // token 价按售价口径，与计费同源
 	return &PlazaWebSearchBilling{
-		InputPrice:         entry.InputPrice,
-		OutputPrice:        entry.OutputPrice,
-		CacheReadPrice:     entry.CacheReadPrice,
-		CacheWritePrice:    entry.CacheWritePrice,
+		InputPrice:         card.InputPrice,
+		OutputPrice:        card.OutputPrice,
+		CacheReadPrice:     card.CacheReadPrice,
+		CacheWritePrice:    card.CacheWritePrice,
 		SearchPricePerCall: officialWebSearchPrices(entry).PerCall,
 	}
 }
@@ -83,7 +84,8 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 			DisplayName: entry.DisplayName,
 			Vendor:      entry.Vendor,
 			BillingMode: entry.EffectiveBillingMode(),
-			Pricing:     withDefaultMaxReasoningEffortMultiplier(entry.PricingCard(), entry.ModelID),
+			// 售价口径（官方口径，定了售价的项 = 售价 ÷ 默认售价比例）：展示时 × 访问者的计费倍率 = 售价 × 折扣。
+			Pricing: withDefaultMaxReasoningEffortMultiplier(entry.SaleEquivalentPricingCard(), entry.ModelID),
 			TokenExtras: PlazaTokenExtras{
 				ImageCacheReadPrice:   entry.ImageCacheReadPrice,
 				AudioInputPrice:       entry.AudioInputPrice,

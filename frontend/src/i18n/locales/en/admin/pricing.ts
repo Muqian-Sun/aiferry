@@ -14,8 +14,8 @@ export default {
       problems: 'With problems',
       unsaved: 'Unsaved'
     },
-    basis: '$ / 1M tokens · margin uses the default sale price (official × {rate}); the profit gate skips bindings below {margin}',
-    basisGateOff: '$ / 1M tokens · margin uses the default sale price (official × {rate}) · profit gate off',
+    basis: '$ / 1M tokens · margin uses the sale price (items without one use official × {rate}); the profit gate skips bindings below {margin}',
+    basisGateOff: '$ / 1M tokens · margin uses the sale price (items without one use official × {rate}) · profit gate off',
     unsavedBlocks: '{count} unsaved',
     empty: 'No models or channels match',
     loadFailed: 'Failed to load prices',
@@ -86,6 +86,20 @@ export default {
     noMatch: 'Nothing to add',
     copyFromSibling: 'Copy prices from same upstream',
     fillFromPriceFile: 'Fill official price from price file',
+    sale: {
+      label: 'Sale price',
+      hint: 'Empty = official × {ratio}',
+      scope: 'Charged = sale price × user discount',
+      cell: 'Sale price · {item}',
+      clear: 'Clear all',
+      segmentAbove: 'Above {tokens} tokens',
+      invalid: 'Sale price: some prices are not valid numbers'
+    },
+    saleFill: {
+      trigger: 'Fill sale prices by ratio',
+      hint: 'Fills empty sale prices with official price × ratio (segments included); filled cells stay as they are. Save the block afterwards.',
+      ratio: 'Ratio'
+    },
     discountFill: {
       trigger: 'Fill by discount',
       hint: 'Fills empty upstream prices with official price × discount (segments included); filled cells stay as they are. Save the block afterwards.',

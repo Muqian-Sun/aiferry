@@ -175,7 +175,7 @@ const props = defineProps<{
   accounts: PricingAccount[]
   /** 价格页的全部模型（按 Token 计费） */
   entries: PricingEntry[]
-  defaultUserRate: number
+  defaultSaleRatio: number
   minMargin: number
 }>()
 
@@ -221,7 +221,7 @@ function isNewRow(row: KeyedRow): boolean {
 function savedMargin(row: KeyedRow): number | null | undefined {
   if (!keyedRowUnchanged(row, props.state.initial.rows)) return undefined
   const binding = entriesById.value.get(row.id)?.bindings.find((item) => item.account_id === props.account.id)
-  return marginOf(binding?.cost_ratio, props.defaultUserRate)
+  return marginOf(binding?.cost_ratio, props.defaultSaleRatio)
 }
 
 const headerMeta = computed(() => {

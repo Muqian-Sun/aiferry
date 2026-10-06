@@ -23456,6 +23456,7 @@ type ModelCatalogEntryMutation struct {
 	addx_user_price                    *float64
 	max_reasoning_effort_multiplier    *float64
 	addmax_reasoning_effort_multiplier *float64
+	sale_prices                        *domain.CatalogSalePrices
 	notes                              *string
 	clearedFields                      map[string]struct{}
 	accounts                           map[int64]struct{}
@@ -24970,6 +24971,55 @@ func (m *ModelCatalogEntryMutation) ResetMaxReasoningEffortMultiplier() {
 	delete(m.clearedFields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
 }
 
+// SetSalePrices sets the "sale_prices" field.
+func (m *ModelCatalogEntryMutation) SetSalePrices(dsp domain.CatalogSalePrices) {
+	m.sale_prices = &dsp
+}
+
+// SalePrices returns the value of the "sale_prices" field in the mutation.
+func (m *ModelCatalogEntryMutation) SalePrices() (r domain.CatalogSalePrices, exists bool) {
+	v := m.sale_prices
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSalePrices returns the old "sale_prices" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldSalePrices(ctx context.Context) (v domain.CatalogSalePrices, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSalePrices is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSalePrices requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSalePrices: %w", err)
+	}
+	return oldValue.SalePrices, nil
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (m *ModelCatalogEntryMutation) ClearSalePrices() {
+	m.sale_prices = nil
+	m.clearedFields[modelcatalogentry.FieldSalePrices] = struct{}{}
+}
+
+// SalePricesCleared returns if the "sale_prices" field was cleared in this mutation.
+func (m *ModelCatalogEntryMutation) SalePricesCleared() bool {
+	_, ok := m.clearedFields[modelcatalogentry.FieldSalePrices]
+	return ok
+}
+
+// ResetSalePrices resets all changes to the "sale_prices" field.
+func (m *ModelCatalogEntryMutation) ResetSalePrices() {
+	m.sale_prices = nil
+	delete(m.clearedFields, modelcatalogentry.FieldSalePrices)
+}
+
 // SetNotes sets the "notes" field.
 func (m *ModelCatalogEntryMutation) SetNotes(s string) {
 	m.notes = &s
@@ -25161,7 +25211,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -25234,6 +25284,9 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	if m.max_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
 	}
+	if m.sale_prices != nil {
+		fields = append(fields, modelcatalogentry.FieldSalePrices)
+	}
 	if m.notes != nil {
 		fields = append(fields, modelcatalogentry.FieldNotes)
 	}
@@ -25293,6 +25346,8 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.XUserPrice()
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.MaxReasoningEffortMultiplier()
+	case modelcatalogentry.FieldSalePrices:
+		return m.SalePrices()
 	case modelcatalogentry.FieldNotes:
 		return m.Notes()
 	}
@@ -25352,6 +25407,8 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldXUserPrice(ctx)
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		return m.OldMaxReasoningEffortMultiplier(ctx)
+	case modelcatalogentry.FieldSalePrices:
+		return m.OldSalePrices(ctx)
 	case modelcatalogentry.FieldNotes:
 		return m.OldNotes(ctx)
 	}
@@ -25530,6 +25587,13 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetMaxReasoningEffortMultiplier(v)
+		return nil
+	case modelcatalogentry.FieldSalePrices:
+		v, ok := value.(domain.CatalogSalePrices)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSalePrices(v)
 		return nil
 	case modelcatalogentry.FieldNotes:
 		v, ok := value.(string)
@@ -25799,6 +25863,9 @@ func (m *ModelCatalogEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogentry.FieldMaxReasoningEffortMultiplier) {
 		fields = append(fields, modelcatalogentry.FieldMaxReasoningEffortMultiplier)
 	}
+	if m.FieldCleared(modelcatalogentry.FieldSalePrices) {
+		fields = append(fields, modelcatalogentry.FieldSalePrices)
+	}
 	if m.FieldCleared(modelcatalogentry.FieldNotes) {
 		fields = append(fields, modelcatalogentry.FieldNotes)
 	}
@@ -25863,6 +25930,9 @@ func (m *ModelCatalogEntryMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ClearMaxReasoningEffortMultiplier()
+		return nil
+	case modelcatalogentry.FieldSalePrices:
+		m.ClearSalePrices()
 		return nil
 	case modelcatalogentry.FieldNotes:
 		m.ClearNotes()
@@ -25946,6 +26016,9 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 		m.ResetMaxReasoningEffortMultiplier()
+		return nil
+	case modelcatalogentry.FieldSalePrices:
+		m.ResetSalePrices()
 		return nil
 	case modelcatalogentry.FieldNotes:
 		m.ResetNotes()

@@ -172,7 +172,10 @@ func (r *modelCatalogRepository) SaveEntryPricing(ctx context.Context, entry *se
 		return service.ErrModelCatalogEntryNotFound
 	}
 	err := r.withTx(ctx, func(tx *dbent.Tx) error {
-		updated, err := applyCatalogEntryUpdate(tx.ModelCatalogEntry.UpdateOneID(entry.ID), entry).Save(ctx)
+		// 售价只在这里写（价格页保存）：播种刷新、编辑模型走的 applyCatalogEntryUpdate 不碰 sale_prices。
+		updated, err := applyCatalogEntryUpdate(tx.ModelCatalogEntry.UpdateOneID(entry.ID), entry).
+			SetSalePrices(entry.SalePrices).
+			Save(ctx)
 		if err != nil {
 			return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, service.ErrModelCatalogEntryExists)
 		}
@@ -594,6 +597,7 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		XUserPrice:         row.XUserPrice,
 
 		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
+		SalePrices:                   row.SalePrices,
 
 		Notes:     row.Notes,
 		CreatedAt: row.CreatedAt,

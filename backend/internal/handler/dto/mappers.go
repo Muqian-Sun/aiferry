@@ -71,7 +71,7 @@ func UserFromServiceAdmin(u *service.User) *AdminUser {
 		User:                 *base,
 		Notes:                u.Notes,
 		LastUsedAt:           u.LastUsedAt,
-		RateMultiplier:       service.UserRateMultiplier(u),
+		RateMultiplier:       service.UserSaleDiscount(u),
 		CustomRateMultiplier: u.RateMultiplier,
 	}
 }

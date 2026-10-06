@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogEntry is the model entity for the ModelCatalogEntry schema.
@@ -66,6 +67,8 @@ type ModelCatalogEntry struct {
 	XUserPrice *float64 `json:"x_user_price,omitempty"`
 	// MaxReasoningEffortMultiplier holds the value of the "max_reasoning_effort_multiplier" field.
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
+	// SalePrices holds the value of the "sale_prices" field.
+	SalePrices domain.CatalogSalePrices `json:"sale_prices,omitempty"`
 	// Notes holds the value of the "notes" field.
 	Notes *string `json:"notes,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -130,7 +133,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case modelcatalogentry.FieldProtocols:
+		case modelcatalogentry.FieldProtocols, modelcatalogentry.FieldSalePrices:
 			values[i] = new([]byte)
 		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldXPostPrice, modelcatalogentry.FieldXUserPrice, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
@@ -322,6 +325,14 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				_m.MaxReasoningEffortMultiplier = new(float64)
 				*_m.MaxReasoningEffortMultiplier = value.Float64
 			}
+		case modelcatalogentry.FieldSalePrices:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field sale_prices", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.SalePrices); err != nil {
+					return fmt.Errorf("unmarshal field sale_prices: %w", err)
+				}
+			}
 		case modelcatalogentry.FieldNotes:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field notes", values[i])
@@ -486,6 +497,9 @@ func (_m *ModelCatalogEntry) String() string {
 		builder.WriteString("max_reasoning_effort_multiplier=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("sale_prices=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SalePrices))
 	builder.WriteString(", ")
 	if v := _m.Notes; v != nil {
 		builder.WriteString("notes=")

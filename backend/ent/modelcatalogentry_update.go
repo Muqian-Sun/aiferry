@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ModelCatalogEntryUpdate is the builder for updating ModelCatalogEntry entities.
@@ -544,6 +545,26 @@ func (_u *ModelCatalogEntryUpdate) ClearMaxReasoningEffortMultiplier() *ModelCat
 	return _u
 }
 
+// SetSalePrices sets the "sale_prices" field.
+func (_u *ModelCatalogEntryUpdate) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryUpdate {
+	_u.mutation.SetSalePrices(v)
+	return _u
+}
+
+// SetNillableSalePrices sets the "sale_prices" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableSalePrices(v *domain.CatalogSalePrices) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetSalePrices(*v)
+	}
+	return _u
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (_u *ModelCatalogEntryUpdate) ClearSalePrices() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearSalePrices()
+	return _u
+}
+
 // SetNotes sets the "notes" field.
 func (_u *ModelCatalogEntryUpdate) SetNotes(v string) *ModelCatalogEntryUpdate {
 	_u.mutation.SetNotes(v)
@@ -890,6 +911,12 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
 		_spec.ClearField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SalePrices(); ok {
+		_spec.SetField(modelcatalogentry.FieldSalePrices, field.TypeJSON, value)
+	}
+	if _u.mutation.SalePricesCleared() {
+		_spec.ClearField(modelcatalogentry.FieldSalePrices, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Notes(); ok {
 		_spec.SetField(modelcatalogentry.FieldNotes, field.TypeString, value)
@@ -1532,6 +1559,26 @@ func (_u *ModelCatalogEntryUpdateOne) ClearMaxReasoningEffortMultiplier() *Model
 	return _u
 }
 
+// SetSalePrices sets the "sale_prices" field.
+func (_u *ModelCatalogEntryUpdateOne) SetSalePrices(v domain.CatalogSalePrices) *ModelCatalogEntryUpdateOne {
+	_u.mutation.SetSalePrices(v)
+	return _u
+}
+
+// SetNillableSalePrices sets the "sale_prices" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableSalePrices(v *domain.CatalogSalePrices) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetSalePrices(*v)
+	}
+	return _u
+}
+
+// ClearSalePrices clears the value of the "sale_prices" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearSalePrices() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearSalePrices()
+	return _u
+}
+
 // SetNotes sets the "notes" field.
 func (_u *ModelCatalogEntryUpdateOne) SetNotes(v string) *ModelCatalogEntryUpdateOne {
 	_u.mutation.SetNotes(v)
@@ -1908,6 +1955,12 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
 		_spec.ClearField(modelcatalogentry.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SalePrices(); ok {
+		_spec.SetField(modelcatalogentry.FieldSalePrices, field.TypeJSON, value)
+	}
+	if _u.mutation.SalePricesCleared() {
+		_spec.ClearField(modelcatalogentry.FieldSalePrices, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Notes(); ok {
 		_spec.SetField(modelcatalogentry.FieldNotes, field.TypeString, value)

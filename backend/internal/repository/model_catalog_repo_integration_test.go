@@ -609,3 +609,60 @@ func TestModelCatalogRepository_SavePricing(t *testing.T) {
 	require.Equal(t, float64Value(4e-6), got.InputPrice, "rolled back: official price unchanged")
 	require.Len(t, got.Bindings, 1, "rolled back: bindings unchanged")
 }
+
+// 售价（muqian 2026-10-06）只在价格页保存时写：播种刷新官方价、编辑模型都不碰它；新建条目默认一项都没定。
+func TestModelCatalogRepository_SalePricesSurviveSeedRefreshAndEdits(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-sale")
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("gpt"), Vendor: "openai", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+		InputPrice: float64Value(5e-6), OutputPrice: float64Value(3e-5),
+		Intervals: []service.PricingInterval{{MinTokens: 272000, InputPrice: float64Value(1e-5)}},
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	created, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.True(t, created.SalePrices.IsZero(), "新建条目一项售价都没定")
+
+	sale := service.CatalogSalePrices{
+		InputPrice: float64Value(0.5e-6),
+		Segments:   []service.CatalogSaleSegment{{MinTokens: 272000, OutputPrice: float64Value(4e-6)}},
+	}
+	created.SalePrices = sale
+	require.NoError(t, repo.SaveEntryPricing(ctx, created, nil))
+
+	// 播种刷新：官方价跟着价格文件变，售价不动
+	refreshed, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{{
+		ModelID: unique("gpt"), Vendor: "openai", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+		InputPrice: float64Value(6e-6), OutputPrice: float64Value(3e-5),
+	}})
+	require.NoError(t, err)
+	require.Equal(t, 1, refreshed.Refreshed)
+	got, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 6e-6, *got.InputPrice, 1e-15)
+	require.Equal(t, sale, got.SalePrices)
+
+	// 编辑模型（名称等整条写回）：售价不动
+	got.DisplayName = "GPT"
+	got.SalePrices = service.CatalogSalePrices{}
+	require.NoError(t, repo.UpdateEntry(ctx, got))
+	edited, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Equal(t, "GPT", edited.DisplayName)
+	require.Equal(t, sale, edited.SalePrices)
+
+	// 列表快照也带上售价（计费从快照读）
+	all, err := repo.ListEntries(ctx)
+	require.NoError(t, err)
+	for i := range all {
+		if all[i].ID == entry.ID {
+			require.Equal(t, sale, all[i].SalePrices)
+			return
+		}
+	}
+	t.Fatal("entry missing from ListEntries")
+}

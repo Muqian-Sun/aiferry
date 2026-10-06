@@ -46,11 +46,11 @@ func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCata
 	}
 }
 
-// plazaUserStub 登录访问者：7 号单独设了倍率 0.1，8 号跟全站默认；别的 id 查不到
+// plazaUserStub 登录访问者：7 号单独设了售价折扣 0.5，8 号不打折；别的 id 查不到
 type plazaUserStub struct{}
 
 func (plazaUserStub) GetByID(_ context.Context, id int64) (*service.User, error) {
-	custom := 0.1
+	custom := 0.5
 	switch id {
 	case 7:
 		return &service.User{ID: 7, RateMultiplier: &custom}, nil
@@ -170,9 +170,10 @@ func TestModelPlazaHandler_PricesAreTheViewersSalePrice(t *testing.T) {
 	require.Contains(t, anonymous.Body.String(), `"model_id":"gpt-5.6"`)
 	require.InDelta(t, 1e-6/15, firstInputPrice(t, anonymous.Body.Bytes()), 1e-18)
 
+	// 售价（没单独定 = 官方价 × 1/15）× 折扣 0.5
 	custom := getPlaza(t, h, 7)
 	require.Equal(t, http.StatusOK, custom.Code, custom.Body.String())
-	require.InDelta(t, 1e-7, firstInputPrice(t, custom.Body.Bytes()), 1e-18)
+	require.InDelta(t, 1e-6/15*0.5, firstInputPrice(t, custom.Body.Bytes()), 1e-18)
 
 	byDefault := getPlaza(t, h, 8)
 	require.Equal(t, http.StatusOK, byDefault.Code, byDefault.Body.String())

@@ -2,6 +2,7 @@ package schema
 
 import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -89,6 +90,11 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		modelCatalogPriceField("x_user_price"),
 
 		modelCatalogMultiplierField("max_reasoning_effort_multiplier"),
+
+		// 我们自己定的售价（基础价五项 + 各段），没填的项按官方价 × 默认售价比例收；只有价格页保存售价时写。
+		field.JSON("sale_prices", domain.CatalogSalePrices{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 
 		field.Text("notes").
 			Optional().

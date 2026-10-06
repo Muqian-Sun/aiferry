@@ -1405,6 +1405,16 @@ func MaxReasoningEffortMultiplierNotNil() predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldMaxReasoningEffortMultiplier))
 }
 
+// SalePricesIsNil applies the IsNil predicate on the "sale_prices" field.
+func SalePricesIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldSalePrices))
+}
+
+// SalePricesNotNil applies the NotNil predicate on the "sale_prices" field.
+func SalePricesNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldSalePrices))
+}
+
 // NotesEQ applies the EQ predicate on the "notes" field.
 func NotesEQ(v string) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldNotes, v))
