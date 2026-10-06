@@ -11,6 +11,9 @@ type CatalogSalePrices struct {
 	CacheWrite1hPrice *float64             `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64             `json:"cache_read_price"`
 	Segments          []CatalogSaleSegment `json:"segments"`
+	// TimePricing 售价忙闲时（muqian 2026-10-06：售价单独一套）：nil = 跟官方忙闲时；没有时段 = 全天一个价
+	// （官方分时也不加）；有时段 = 向用户收钱时按这里整单乘倍数。
+	TimePricing *TimePricingSpec `json:"time_pricing,omitempty"`
 }
 
 // CatalogSaleSegment 是一段的售价：输入侧 Token 落在官方价那一段（下界 MinTokens）时用。
@@ -23,8 +26,11 @@ type CatalogSaleSegment struct {
 	CacheReadPrice    *float64 `json:"cache_read_price"`
 }
 
-// IsZero 报告一项售价都没填。
+// IsZero 报告一项售价都没填（忙闲时也跟官方）。
 func (p CatalogSalePrices) IsZero() bool {
+	if p.TimePricing != nil {
+		return false
+	}
 	if p.InputPrice != nil || p.OutputPrice != nil || p.CacheWritePrice != nil || p.CacheWrite1hPrice != nil || p.CacheReadPrice != nil {
 		return false
 	}

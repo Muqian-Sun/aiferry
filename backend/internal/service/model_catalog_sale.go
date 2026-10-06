@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
@@ -16,8 +17,11 @@ import (
 
 // CatalogSalePrices / CatalogSaleSegment 见 domain：整份存成 model_catalog_entries.sale_prices。
 type (
-	CatalogSalePrices  = domain.CatalogSalePrices
-	CatalogSaleSegment = domain.CatalogSaleSegment
+	CatalogSalePrices = domain.CatalogSalePrices
+	// TimePricingSpec 售价忙闲时的存储形状（与 TimePricing 同字段）
+	TimePricingSpec       = domain.TimePricingSpec
+	TimePricingSpecPeriod = domain.TimePricingSpecPeriod
+	CatalogSaleSegment    = domain.CatalogSaleSegment
 )
 
 // saleItems 五项售价，顺序与 segmentPriceBase.pricesAt 相同：输入、输出、缓存写 5 分钟、缓存写 1 小时、缓存读。
@@ -171,7 +175,28 @@ func (e *ModelCatalogEntry) SaleEquivalentPricingCard() *PricingCard {
 	return card
 }
 
-// validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次。
+// SaleTimePricing 向用户收钱时整单乘的忙闲时：售价单独定了按售价的（没有时段 = 全天一个价），没定跟官方忙闲时。
+// 计费、利润门、模型广场都按它。
+func (e *ModelCatalogEntry) SaleTimePricing() *TimePricing {
+	if e == nil {
+		return nil
+	}
+	spec := e.SalePrices.TimePricing
+	if spec == nil {
+		return e.TimePricing
+	}
+	if len(spec.Periods) == 0 {
+		return nil
+	}
+	tp := &TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly, ExcludeDates: append([]string(nil), spec.ExcludeDates...)}
+	for _, period := range spec.Periods {
+		tp.Periods = append(tp.Periods, TimePricingPeriod{StartTime: period.StartTime, EndTime: period.EndTime, Multiplier: period.Multiplier})
+	}
+	return tp
+}
+
+// validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次；
+// 售价忙闲时与官方忙闲时同一套校验。
 func validateSalePrices(e *ModelCatalogEntry) error {
 	p := e.SalePrices
 	if p.IsZero() {
@@ -179,6 +204,14 @@ func validateSalePrices(e *ModelCatalogEntry) error {
 	}
 	if e.EffectiveBillingMode() != BillingModeToken {
 		return catalogValidationError("sale prices are only for token-billed models")
+	}
+	if p.TimePricing != nil && len(p.TimePricing.Periods) > 0 {
+		if err := validateCatalogLength("sale_prices.time_pricing.timezone", p.TimePricing.Timezone, 64); err != nil {
+			return err
+		}
+		if err := validateTimePricing(e.SaleTimePricing()); err != nil {
+			return catalogValidationError(fmt.Sprintf("sale_prices.time_pricing: %s", err.Error()))
+		}
 	}
 	check := func(where string, items [5]*float64) error {
 		names := [5]string{"input_price", "output_price", "cache_write_price", "cache_write_1h_price", "cache_read_price"}
@@ -230,5 +263,22 @@ func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
 		})
 	}
 	sort.Slice(out.Segments, func(i, j int) bool { return out.Segments[i].MinTokens < out.Segments[j].MinTokens })
+	out.TimePricing = normalizeSaleTimePricing(p.TimePricing)
 	return out
+}
+
+// normalizeSaleTimePricing nil = 跟官方；没有时段 = 全天一个价（只留空时段，其余字段清掉）。
+func normalizeSaleTimePricing(spec *TimePricingSpec) *TimePricingSpec {
+	if spec == nil {
+		return nil
+	}
+	if len(spec.Periods) == 0 {
+		return &TimePricingSpec{Periods: []TimePricingSpecPeriod{}}
+	}
+	return &TimePricingSpec{
+		Timezone:     strings.TrimSpace(spec.Timezone),
+		WeekdaysOnly: spec.WeekdaysOnly,
+		Periods:      append([]TimePricingSpecPeriod(nil), spec.Periods...),
+		ExcludeDates: normalizeExcludeDates(spec.ExcludeDates),
+	}
 }

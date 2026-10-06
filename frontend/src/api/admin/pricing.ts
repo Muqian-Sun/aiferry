@@ -119,6 +119,8 @@ export interface PricingSalePrices {
   cache_write_1h_price: number | null
   cache_read_price: number | null
   segments: PricingSaleSegment[]
+  /** 售价忙闲时：不带 / null = 跟官方忙闲时；periods 为空 = 全天一个价；有时段 = 向用户收钱按它整单乘倍数 */
+  time_pricing?: TimePricing | null
 }
 
 export interface PricingEntry extends PricingPrices {

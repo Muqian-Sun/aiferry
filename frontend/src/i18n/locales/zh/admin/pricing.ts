@@ -93,7 +93,8 @@ export default {
       cell: '售价 · {item}',
       clear: '全部清空',
       segmentAbove: '超过 {tokens} Token',
-      invalid: '售价：有格式不对的价'
+      invalid: '售价：有格式不对的价',
+      peakInvalid: '售价忙闲时：有没填对的时段或日期'
     },
     saleFill: {
       trigger: '按比例填售价',
@@ -116,8 +117,17 @@ export default {
       summary: '忙时 ×{multiplier}',
       official: {
         title: '官方忙闲时',
-        note: '向用户收钱时这些时段整单按倍数收（售价一起加）。',
+        note: '官网的忙闲时；售价忙闲时没单独设时，向用户收钱按它整单乘倍数。',
         noneHint: '全天一个价'
+      },
+      sale: {
+        title: '售价忙闲时',
+        note: '向用户收钱时这些时段整单按倍数收；默认跟官方忙闲时。',
+        noneHint: '全天一个价（官方忙时也不加价）',
+        follow: '跟官方忙闲时（{summary}）',
+        followShort: '跟官方 · {summary}',
+        custom: '单独设',
+        noneShort: '全天一个价'
       },
       upstream: {
         title: '上游忙闲时',

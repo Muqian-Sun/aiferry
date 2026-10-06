@@ -70,7 +70,13 @@
             <template #upstream><span class="text-xs text-af-ink-3">{{ t('admin.pricing.catalogName') }}</span></template>
             <template #margin><span class="text-af-ink-3">—</span></template>
           </PricingPriceRows>
-          <PricingSaleRows v-model:sale="draft.sale" :official="draft.official" :ratio="defaultSaleRatio" test-id="pricing-sale" />
+          <PricingSaleRows
+            v-model:sale="draft.sale"
+            :official="draft.official"
+            :ratio="defaultSaleRatio"
+            :official-peak="draft.officialPeak"
+            test-id="pricing-sale"
+          />
           <PricingPriceRows
             v-for="row in draft.rows"
             :key="row.id"
@@ -185,6 +191,7 @@ import {
   saleRowChanges,
   samePeak,
   saleRowInvalid,
+  salePeakInvalid,
   saleRowToRequest,
   searchKeysOf,
   upstreamModelInvalid,
@@ -308,6 +315,7 @@ const issueMessages = computed(() => {
   const messages: string[] = []
   if (hasRowIssues(officialRowIssues.value)) messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value))
   if (saleRowInvalid(props.state.draft.sale, props.state.draft.official)) messages.push(t('admin.pricing.sale.invalid'))
+  if (salePeakInvalid(props.state.draft.sale)) messages.push(t('admin.pricing.sale.peakInvalid'))
   for (const row of props.state.draft.rows) {
     const issues = rowIssues(row)
     if (hasRowIssues(issues)) messages.push(issueSummary(t, accountName(row.id), issues))

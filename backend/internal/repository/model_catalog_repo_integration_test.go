@@ -629,6 +629,10 @@ func TestModelCatalogRepository_SalePricesSurviveSeedRefreshAndEdits(t *testing.
 	sale := service.CatalogSalePrices{
 		InputPrice: float64Value(0.5e-6),
 		Segments:   []service.CatalogSaleSegment{{MinTokens: 272000, OutputPrice: float64Value(4e-6)}},
+		// 售价忙闲时存在同一个 JSONB 里
+		TimePricing: &service.TimePricingSpec{Timezone: "Asia/Shanghai", WeekdaysOnly: true,
+			Periods:      []service.TimePricingSpecPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}},
+			ExcludeDates: []string{"2026-10-01"}},
 	}
 	created.SalePrices = sale
 	require.NoError(t, repo.SaveEntryPricing(ctx, created, nil))

@@ -93,7 +93,8 @@ export default {
       cell: 'Sale price · {item}',
       clear: 'Clear all',
       segmentAbove: 'Above {tokens} tokens',
-      invalid: 'Sale price: some prices are not valid numbers'
+      invalid: 'Sale price: some prices are not valid numbers',
+      peakInvalid: 'Sale peak hours: a period or date is not filled in correctly'
     },
     saleFill: {
       trigger: 'Fill sale prices by ratio',
@@ -116,8 +117,17 @@ export default {
       summary: 'Peak ×{multiplier}',
       official: {
         title: 'Official peak hours',
-        note: 'Users are charged the whole request × multiplier in these periods (sale prices included).',
+        note: "The vendor's peak hours. Unless sale peak hours are set separately, users are charged the whole request × multiplier in these periods.",
         noneHint: 'One price all day'
+      },
+      sale: {
+        title: 'Sale peak hours',
+        note: 'Users are charged the whole request × multiplier in these periods. Follows the official peak hours by default.',
+        noneHint: 'One price all day (no surcharge even at official peak)',
+        follow: 'Follow official peak hours ({summary})',
+        followShort: 'Official · {summary}',
+        custom: 'Set separately',
+        noneShort: 'One price all day'
       },
       upstream: {
         title: 'Upstream peak hours',
