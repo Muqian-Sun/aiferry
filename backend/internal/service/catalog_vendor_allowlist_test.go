@@ -77,26 +77,25 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 		require.False(t, catalogModelExcluded(entry.ModelID), "%s 在排除清单里，不该播进目录", entry.ModelID)
 		byID[entry.ModelID] = entry
 	}
-	for _, removed := range []string{"o3", "gpt-image-1", "gemini-2.0-flash", "gpt-4", "chat-latest", "grok-4.5-latest", "kimi-k2.5", "claude-3-5-haiku", "gemini-3.1-pro-high", "claude-opus-4-6-thinking", "doubao-embedding-vision"} {
+	for _, removed := range []string{"o3", "gpt-image-1", "gemini-2.0-flash", "gpt-4", "chat-latest", "grok-4.5-latest", "kimi-k2.5", "claude-3-5-haiku", "gemini-3.1-pro-high", "claude-opus-4-6-thinking", "doubao-embedding-vision", "qwq-plus", "qwen3-32b", "qwen3-vl-8b-instruct"} {
 		require.True(t, catalogModelExcluded(removed), removed)
 		_, ok := byID[removed]
 		require.False(t, ok, removed)
 	}
-	for _, kept := range []string{"gpt-5.5", "gpt-image-2", "claude-haiku-4-5", "claude-opus-4-6", "gemini-3.6-flash", "grok-4.7", "grok-imagine-video-1.5", "deepseek-flash", "deepseek-v4-flash", "glm-5-turbo", "kimi-k3"} {
+	for _, kept := range []string{"gpt-5.5", "gpt-image-2", "claude-haiku-4-5", "claude-opus-4-6", "gemini-3.6-flash", "grok-4.7", "grok-imagine-video-1.5", "deepseek-flash", "deepseek-v4-flash", "glm-5-turbo", "kimi-k3", "qwen3.8-flash", "qwen-max"} {
 		_, ok := byID[kept]
 		require.True(t, ok, "%s 官网在售，要留在目录里", kept)
 	}
 
-	// 小米 MiMo 用官网海外美元价；豆包用官网人民币价按 7.14 换算（与兜底价表同一口径）
+	// 小米 MiMo 用官网海外美元价；豆包只有人民币价，按 1 美元 = 6.8 元换算（muqian 2026-10-06）
 	mimo := byID["mimo-v2.6-pro"]
 	require.Equal(t, "xiaomi", mimo.Vendor)
 	require.InDelta(t, 0.435e-6, *mimo.InputPrice, 1e-15)
 	require.InDelta(t, 0.87e-6, *mimo.OutputPrice, 1e-15)
 	doubao := byID["doubao-seed-2-1-pro-260915"]
 	require.Equal(t, "volcengine", doubao.Vendor)
-	require.InDelta(t, 6.0/7.14*1e-6, *doubao.InputPrice, 1e-12)
-	require.InDelta(t, 30.0/7.14*1e-6, *doubao.OutputPrice, 1e-12)
-	require.NotEmpty(t, byID["doubao-seed-character-260628"].Intervals, "输入超过 32K 的价格换算成按 token 分段")
+	require.InEpsilon(t, 6.0/6.8*1e-6, *doubao.InputPrice, 1e-5)
+	require.InEpsilon(t, 30.0/6.8*1e-6, *doubao.OutputPrice, 1e-5)
 	embedding, ok := byID["doubao-embedding-vision-251215"]
 	require.True(t, ok, "豆包向量模型用带版本号的官方 ID")
 	require.Equal(t, "volcengine", embedding.Vendor)

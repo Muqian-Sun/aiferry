@@ -88,7 +88,11 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 			if pricing == nil {
 				continue
 			}
-			entry := seedEntryFromLiteLLM(name, pricing)
+			modelID := name
+			if pricing.ModelID != "" {
+				modelID = pricing.ModelID
+			}
+			entry := seedEntryFromLiteLLM(modelID, pricing)
 			// token 模式却没有 token 价（理论不可达：解析期已丢掉无价条目）——播进去会让
 			// token 流量按 $0 计费，跳过并打出来。
 			if entry.BillingMode == BillingModeToken && pricing.TokenPricingAbsent {
@@ -175,9 +179,30 @@ var catalogVendorAllowlist = map[string]bool{
 // ID 固定的）。价格文件与兜底价表里还留着它们（计费、成品号映射、测试连接仍会用到），只是不播进目录。
 // 依据：OpenAI developers.openai.com/api/docs/deprecations、Anthropic platform.claude.com/docs/en/about-claude/model-deprecations、
 // Google ai.google.dev/gemini-api/docs/deprecations 与 changelog、xAI docs.x.ai/developers、Kimi platform.kimi.ai/docs/models、
-// 火山方舟 volcengine.com/docs/82379/1330310。官网后续恢复或改名时从这里删掉即可。
+// 火山方舟 volcengine.com/docs/82379/1330310、阿里云百炼 alibabacloud.com/help/en/model-studio/model-depreciation。
+// 官网后续恢复或改名时从这里删掉即可。
 var catalogExcludedModels = map[string]string{
 	// 官网已宣布停服（现在还能调，muqian 定现在就从目录删）
+	// 通义：阿里云百炼 2026-10-10 下线（公告 alibabacloud.com/notice/detail?id=1841 主线、1949 快照）
+	"qvq-max":                                 "deprecated",
+	"qwen-vl-max":                             "deprecated",
+	"qwen-vl-plus":                            "deprecated",
+	"qwq-plus":                                "deprecated",
+	"qwen3-235b-a22b-instruct-2507":           "deprecated",
+	"qwen3-235b-a22b-thinking-2507":           "deprecated",
+	"qwen3-30b-a3b-instruct-2507":             "deprecated",
+	"qwen3-30b-a3b-thinking-2507":             "deprecated",
+	"qwen3-32b":                               "deprecated",
+	"qwen3-next-80b-a3b-instruct":             "deprecated",
+	"qwen3-next-80b-a3b-thinking":             "deprecated",
+	"qwen3-vl-235b-a22b-instruct":             "deprecated",
+	"qwen3-vl-235b-a22b-thinking":             "deprecated",
+	"qwen3-vl-30b-a3b-instruct":               "deprecated",
+	"qwen3-vl-30b-a3b-thinking":               "deprecated",
+	"qwen3-vl-32b-instruct":                   "deprecated",
+	"qwen3-vl-32b-thinking":                   "deprecated",
+	"qwen3-vl-8b-instruct":                    "deprecated",
+	"qwen3-vl-8b-thinking":                    "deprecated",
 	"claude-sonnet-4-5":                       "deprecated",
 	"claude-sonnet-4-5-20250929":              "deprecated",
 	"gemini-3.1-flash-lite":                   "deprecated",
@@ -428,7 +453,14 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 	// 模型内置搜索价只存 medium 档（拍的：OpenAI 按请求的 search_context_size 三档计，
 	// 我们只存一档；对账发现偏差再决定是否三档都存）。
 	entry.SearchPricePerCall = positivePrice(pricing.SearchContextCostPerQuery["search_context_size_medium"])
-	// 价格文件的长上下文阶梯换算成按 token 分段；xAI 的阈值是「达到即进高段」，其余提供商严格大于。
+	// 官网逐段写明的多段价直接换算成按 token 分段；没有多段价时，价格文件的长上下文阶梯
+	// 换算成按 token 分段（xAI 的阈值是「达到即进高段」，其余提供商严格大于）。
+	if len(pricing.InputTokenTiers) > 0 {
+		if entry.BillingMode == BillingModeToken {
+			entry.Intervals = inputTokenTierIntervals(pricing.InputTokenTiers)
+		}
+		return entry
+	}
 	tokenLadder{
 		threshold:        pricing.LongContextInputTokenThreshold,
 		inclusive:        strings.EqualFold(pricing.LiteLLMProvider, "xai"),
@@ -436,6 +468,30 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		outputMultiplier: pricing.LongContextOutputCostMultiplier,
 	}.applyTo(&entry)
 	return entry
+}
+
+// inputTokenTierIntervals 把多段价换算成目录分段：第一段就是基础价，不另建分段；其余每段是
+// (上一段上限, 本段上限]，最后一段不封顶（超出官方上下文长度的请求上游本来就会拒）。各段的价都是
+// 官网逐段写明的绝对价；某段没写缓存价时，计费按基础缓存价 × 本段输入价 / 基础输入价推算。
+func inputTokenTierIntervals(tiers []LiteLLMInputTokenTier) []PricingInterval {
+	intervals := make([]PricingInterval, 0, len(tiers)-1)
+	for i := 1; i < len(tiers); i++ {
+		tier := tiers[i]
+		interval := PricingInterval{
+			MinTokens:       tiers[i-1].MaxInputTokens,
+			InputPrice:      positivePrice(tier.InputCostPerToken),
+			OutputPrice:     positivePrice(tier.OutputCostPerToken),
+			CacheReadPrice:  positivePrice(tier.CacheReadInputTokenCost),
+			CacheWritePrice: positivePrice(tier.CacheCreationInputTokenCost),
+			SortOrder:       i - 1,
+		}
+		if i < len(tiers)-1 {
+			upper := tier.MaxInputTokens
+			interval.MaxTokens = &upper
+		}
+		intervals = append(intervals, interval)
+	}
+	return intervals
 }
 
 // liteLLMModeImageGeneration 是价格文件里生图模型的 mode 值。

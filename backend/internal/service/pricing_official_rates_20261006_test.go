@@ -33,7 +33,7 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 		"qwen3.5-flash":   {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.02e-6}, // 隐式缓存命中 = 输入价 20%
 		"qwen3.8-max":     {input: 2e-6, output: 6e-6, cacheRead: 2e-6},        // 命中价官网未给：按输入原价
 		// 修正
-		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 10e-6},
+		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 12e-6}, // 官网只有音频输出价 $12
 		"gpt-realtime-2":             {input: 4e-6, output: 24e-6, cacheRead: 0.4e-6},
 		"gemini-2.5-pro-preview-tts": {input: 1e-6, output: 20e-6},
 		// 优惠价（存官网现价）
@@ -78,7 +78,7 @@ func TestPricingFileOfficialAdditionsSeedIntoCatalog(t *testing.T) {
 		require.NoError(t, entry.Validate(), entry.ModelID)
 		byID[entry.ModelID] = entry
 	}
-	for _, model := range []string{"claude-opus-5-5", "gpt-6-astra", "grok-4.20-0309-reasoning", "glm-4.6v", "minimax-m2.5-highspeed", "qwen3-vl-8b-instruct"} {
+	for _, model := range []string{"claude-opus-5-5", "gpt-6-astra", "grok-4.20-0309-reasoning", "glm-4.6v", "MiniMax-M2.5-highspeed", "qwen3.8-flash"} {
 		entry, ok := byID[model]
 		require.True(t, ok, model)
 		require.NotNil(t, entry.InputPrice, model)
