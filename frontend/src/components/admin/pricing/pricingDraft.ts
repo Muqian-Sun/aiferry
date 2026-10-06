@@ -308,10 +308,14 @@ export function channelDraftChanges(state: BlockState<ChannelDraft>): number {
 
 // ---- 按官方价 × 折扣快填上游价（muqian 2026-10-03：中转多按官方价打折标价，填一个数把空格一次填上）
 
-/** 折扣输入框的值 → 折扣；只认大于 0 的数，其余为 null */
-export function parseDiscount(text: string): number | null {
+/**
+ * 折扣输入框的值 → 折扣；不是数字、负数为 null。allowZero 时 0 也认（上游价可以是 0：免费的上游，
+ * muqian 2026-10-06），售价比例仍只认大于 0 的数。
+ */
+export function parseDiscount(text: string, allowZero = false): number | null {
   const value = Number(text.trim())
-  return text.trim() !== '' && Number.isFinite(value) && value > 0 ? value : null
+  if (text.trim() === '' || !Number.isFinite(value)) return null
+  return value > 0 || (allowZero && value === 0) ? value : null
 }
 
 // 只为去掉浮点乘法尾巴（0.000005 × 0.03 = 1.4999999999999999e-7）：12 位有效数字远超 $/token 价格的精度

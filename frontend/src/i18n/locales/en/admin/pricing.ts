@@ -102,7 +102,7 @@ export default {
     },
     discountFill: {
       trigger: 'Fill by discount',
-      hint: 'Fills empty upstream prices with official price × discount (segments included); filled cells stay as they are. Save the block afterwards.',
+      hint: 'Fills empty upstream prices with official price × discount (segments included); filled cells stay. Enter 0 for a free upstream. Remember to save this block.',
       prefix: 'Official ×',
       ratio: 'Discount',
       apply: 'Fill'
