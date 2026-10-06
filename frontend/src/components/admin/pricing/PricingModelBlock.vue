@@ -45,7 +45,8 @@
       <table class="w-full min-w-[980px] text-13">
         <thead>
           <tr class="border-b border-af-hairline text-left text-xs text-af-ink-3">
-            <th class="py-2 pl-0 pr-3 font-medium">{{ t('admin.pricing.columns.channel') }}</th>
+            <!-- 第一列是「官方价 / 售价 / 成本价」三组的名字，不写表头 -->
+            <th class="py-2 pl-0 pr-3"><span class="sr-only">{{ t('admin.pricing.columns.channel') }}</span></th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
             <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
