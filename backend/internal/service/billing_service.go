@@ -365,14 +365,16 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown:     false,
 	}
 
-	// Gemini 3.6 Flash (Google AI pricing: $1.50 input / $7.50 output /
-	// $0.15 cached input per MTok). Antigravity's -high/-low/-medium/-tiered
+	// Gemini 3.6 Flash (Google AI pricing: $0.75 input / $3.75 output /
+	// $0.075 cached input per MTok, promotional through 2026-12-31; official
+	// rates double to $1.50/$7.50/$0.15 from 2027-01-01 — muqian 2026-10-06:
+	// store the current official price). Antigravity's -high/-low/-medium/-tiered
 	// aliases are matched below so unavailable remote pricing never records
 	// token-bearing requests at $0.
 	s.fallbackPrices["gemini-3.6-flash"] = &ModelPricing{
-		InputPricePerToken:     1.5e-6,
-		OutputPricePerToken:    7.5e-6,
-		CacheReadPricePerToken: 0.15e-6,
+		InputPricePerToken:     0.75e-6,
+		OutputPricePerToken:    3.75e-6,
+		CacheReadPricePerToken: 0.075e-6,
 		SupportsCacheBreakdown: false,
 	}
 
@@ -436,11 +438,13 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
+	// gpt-5.6-sol 是官网优惠价（2026-08-21 起，「至少到 2026-11-21」，之后价格官网未公布；原价 $5 / $30）；
+	// muqian 2026-10-06 定存官网现价，到期要回来改。
 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{
-		InputPricePerToken:         5e-6,
-		OutputPricePerToken:        30e-6,
-		CacheCreationPricePerToken: 6.25e-6,
-		CacheReadPricePerToken:     0.5e-6,
+		InputPricePerToken:         4e-6,
+		OutputPricePerToken:        20e-6,
+		CacheCreationPricePerToken: 5e-6,
+		CacheReadPricePerToken:     0.4e-6,
 	}
 	s.fallbackPrices["gpt-5.6-terra"] = &ModelPricing{
 		InputPricePerToken:         2e-6,
@@ -669,10 +673,11 @@ func (s *BillingService) initFallbackPricing() {
 	// Source: https://platform.minimax.io/docs/guides/pricing-paygo
 	// 注意：MiniMax M3 在 >512K context 时价格翻倍，本兜底采用 ≤512K 标准 tier（保守口径，对用户有利）；
 	// 需要时在模型目录给它配 >512K 的按 token 分段价。
+	// 2026-10-06 按官网核对：现价是「永久五折」后的 $0.30 / $1.20 / 缓存 $0.06（划线原价 $0.60 / $2.40）。
 	s.fallbackPrices["minimax-m3"] = &ModelPricing{
-		InputPricePerToken:     0.60e-6, // $0.60 per MTok (≤512K standard tier, 含 50% 永久折扣前原价 $1.20)
-		OutputPricePerToken:    2.40e-6,
-		CacheReadPricePerToken: 0.12e-6,
+		InputPricePerToken:     0.30e-6, // $0.30 per MTok (≤512K, Permanent 50% off)
+		OutputPricePerToken:    1.20e-6,
+		CacheReadPricePerToken: 0.06e-6,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["minimax-m2.7"] = &ModelPricing{

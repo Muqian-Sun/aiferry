@@ -66,11 +66,12 @@ var (
 		Mode:                            "chat",
 		SupportsPromptCaching:           true,
 	}
+	// gpt-5.6-sol 官网优惠价（至少到 2026-11-21，之后价格未公布；原价 $5 / $30），与 billing_service 的兜底同步
 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
-		InputCostPerToken:           5e-06,
-		OutputCostPerToken:          3e-05,
-		CacheCreationInputTokenCost: 6.25e-06,
-		CacheReadInputTokenCost:     5e-07,
+		InputCostPerToken:           4e-06,
+		OutputCostPerToken:          2e-05,
+		CacheCreationInputTokenCost: 5e-06,
+		CacheReadInputTokenCost:     4e-07,
 		SupportsServiceTier:         true,
 		LiteLLMProvider:             "openai",
 		Mode:                        "chat",
