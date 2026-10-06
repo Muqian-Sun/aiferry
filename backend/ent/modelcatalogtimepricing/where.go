@@ -284,6 +284,16 @@ func PeriodsNotNil() predicate.ModelCatalogTimePricing {
 	return predicate.ModelCatalogTimePricing(sql.FieldNotNull(FieldPeriods))
 }
 
+// ExcludeDatesIsNil applies the IsNil predicate on the "exclude_dates" field.
+func ExcludeDatesIsNil() predicate.ModelCatalogTimePricing {
+	return predicate.ModelCatalogTimePricing(sql.FieldIsNull(FieldExcludeDates))
+}
+
+// ExcludeDatesNotNil applies the NotNil predicate on the "exclude_dates" field.
+func ExcludeDatesNotNil() predicate.ModelCatalogTimePricing {
+	return predicate.ModelCatalogTimePricing(sql.FieldNotNull(FieldExcludeDates))
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.ModelCatalogTimePricing) predicate.ModelCatalogTimePricing {
 	return predicate.ModelCatalogTimePricing(sql.AndPredicates(predicates...))

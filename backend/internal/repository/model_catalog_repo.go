@@ -255,7 +255,7 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 	}
 	builder := tx.ModelCatalogBinding.Create()
 	if tp := binding.TimePricing; tp != nil {
-		spec := &domain.TimePricingSpec{Timezone: tp.Timezone, WeekdaysOnly: tp.WeekdaysOnly}
+		spec := &domain.TimePricingSpec{Timezone: tp.Timezone, WeekdaysOnly: tp.WeekdaysOnly, ExcludeDates: tp.ExcludeDates}
 		for _, period := range tp.Periods {
 			spec.Periods = append(spec.Periods, domain.TimePricingSpecPeriod{StartTime: period.StartTime, EndTime: period.EndTime, Multiplier: period.Multiplier})
 		}
@@ -493,6 +493,7 @@ func replaceCatalogChildren(ctx context.Context, tx *dbent.Tx, entry *service.Mo
 		SetTimezone(entry.TimePricing.Timezone).
 		SetWeekdaysOnly(entry.TimePricing.WeekdaysOnly).
 		SetPeriods(periods).
+		SetExcludeDates(entry.TimePricing.ExcludeDates).
 		Save(ctx)
 	return err
 }
@@ -634,7 +635,7 @@ func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelC
 		UpdatedAt:          row.UpdatedAt,
 	}
 	if spec := row.TimePricing; spec != nil && len(spec.Periods) > 0 {
-		tp := &service.TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly}
+		tp := &service.TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly, ExcludeDates: spec.ExcludeDates}
 		for _, period := range spec.Periods {
 			tp.Periods = append(tp.Periods, service.TimePricingPeriod{StartTime: period.StartTime, EndTime: period.EndTime, Multiplier: period.Multiplier})
 		}
@@ -687,6 +688,9 @@ func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *servi
 	cfg := &service.TimePricing{
 		Timezone:     row.Timezone,
 		WeekdaysOnly: row.WeekdaysOnly,
+	}
+	if len(row.ExcludeDates) > 0 {
+		cfg.ExcludeDates = append([]string(nil), row.ExcludeDates...)
 	}
 	for _, raw := range row.Periods {
 		period := service.TimePricingPeriod{}

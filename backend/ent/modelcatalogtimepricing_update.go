@@ -102,6 +102,24 @@ func (_u *ModelCatalogTimePricingUpdate) ClearPeriods() *ModelCatalogTimePricing
 	return _u
 }
 
+// SetExcludeDates sets the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdate) SetExcludeDates(v []string) *ModelCatalogTimePricingUpdate {
+	_u.mutation.SetExcludeDates(v)
+	return _u
+}
+
+// AppendExcludeDates appends value to the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdate) AppendExcludeDates(v []string) *ModelCatalogTimePricingUpdate {
+	_u.mutation.AppendExcludeDates(v)
+	return _u
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdate) ClearExcludeDates() *ModelCatalogTimePricingUpdate {
+	_u.mutation.ClearExcludeDates()
+	return _u
+}
+
 // Mutation returns the ModelCatalogTimePricingMutation object of the builder.
 func (_u *ModelCatalogTimePricingUpdate) Mutation() *ModelCatalogTimePricingMutation {
 	return _u.mutation
@@ -190,6 +208,17 @@ func (_u *ModelCatalogTimePricingUpdate) sqlSave(ctx context.Context) (_node int
 	}
 	if _u.mutation.PeriodsCleared() {
 		_spec.ClearField(modelcatalogtimepricing.FieldPeriods, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ExcludeDates(); ok {
+		_spec.SetField(modelcatalogtimepricing.FieldExcludeDates, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedExcludeDates(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, modelcatalogtimepricing.FieldExcludeDates, value)
+		})
+	}
+	if _u.mutation.ExcludeDatesCleared() {
+		_spec.ClearField(modelcatalogtimepricing.FieldExcludeDates, field.TypeJSON)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -281,6 +310,24 @@ func (_u *ModelCatalogTimePricingUpdateOne) AppendPeriods(v []map[string]interfa
 // ClearPeriods clears the value of the "periods" field.
 func (_u *ModelCatalogTimePricingUpdateOne) ClearPeriods() *ModelCatalogTimePricingUpdateOne {
 	_u.mutation.ClearPeriods()
+	return _u
+}
+
+// SetExcludeDates sets the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdateOne) SetExcludeDates(v []string) *ModelCatalogTimePricingUpdateOne {
+	_u.mutation.SetExcludeDates(v)
+	return _u
+}
+
+// AppendExcludeDates appends value to the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdateOne) AppendExcludeDates(v []string) *ModelCatalogTimePricingUpdateOne {
+	_u.mutation.AppendExcludeDates(v)
+	return _u
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (_u *ModelCatalogTimePricingUpdateOne) ClearExcludeDates() *ModelCatalogTimePricingUpdateOne {
+	_u.mutation.ClearExcludeDates()
 	return _u
 }
 
@@ -402,6 +449,17 @@ func (_u *ModelCatalogTimePricingUpdateOne) sqlSave(ctx context.Context) (_node 
 	}
 	if _u.mutation.PeriodsCleared() {
 		_spec.ClearField(modelcatalogtimepricing.FieldPeriods, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ExcludeDates(); ok {
+		_spec.SetField(modelcatalogtimepricing.FieldExcludeDates, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedExcludeDates(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, modelcatalogtimepricing.FieldExcludeDates, value)
+		})
+	}
+	if _u.mutation.ExcludeDatesCleared() {
+		_spec.ClearField(modelcatalogtimepricing.FieldExcludeDates, field.TypeJSON)
 	}
 	_node = &ModelCatalogTimePricing{config: _u.config}
 	_spec.Assign = _node.assignValues

@@ -25,8 +25,15 @@ func validateTimePricing(config *TimePricing) error {
 	if _, err := loadChannelTimePricingLocation(config.Timezone); err != nil {
 		return fmt.Errorf("timezone: %w", err)
 	}
-	_, err := parseChannelTimePeriods(config.Periods)
-	return err
+	if _, err := parseChannelTimePeriods(config.Periods); err != nil {
+		return err
+	}
+	for _, date := range config.ExcludeDates {
+		if parsed, err := time.Parse(time.DateOnly, date); err != nil || parsed.Format(time.DateOnly) != date {
+			return fmt.Errorf("exclude date %q must use YYYY-MM-DD format", date)
+		}
+	}
+	return nil
 }
 
 // MultiplierAt 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
@@ -49,6 +56,14 @@ func (config *TimePricing) MultiplierAt(at time.Time) float64 {
 	local := at.In(location)
 	if config.WeekdaysOnly && (local.Weekday() == time.Saturday || local.Weekday() == time.Sunday) {
 		return 1.0
+	}
+	if len(config.ExcludeDates) > 0 {
+		today := local.Format(time.DateOnly)
+		for _, date := range config.ExcludeDates {
+			if date == today {
+				return 1.0
+			}
+		}
 	}
 	second := local.Hour()*60*60 + local.Minute()*60 + local.Second()
 	for _, period := range periods {

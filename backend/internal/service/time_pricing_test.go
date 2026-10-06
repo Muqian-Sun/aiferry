@@ -188,3 +188,24 @@ func TestChannelTimePricingRejectsLocalTimezone(t *testing.T) {
 	require.Contains(t, err.Error(), "timezone")
 	require.Equal(t, 1.0, config.MultiplierAt(time.Date(2026, 6, 29, 1, 0, 0, 0, time.UTC)))
 }
+
+// 节假日（exclude_dates）：这些日期全天按平时；按时区的本地日期判断；写错的日期校验报错。
+func TestTimePricing_ExcludeDates(t *testing.T) {
+	tp := &TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true,
+		Periods:      []TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 2}},
+		ExcludeDates: []string{"2026-10-06"}}
+	require.NoError(t, validateTimePricing(tp))
+	holiday := time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC) // 北京 10-06 10:00
+	workday := time.Date(2026, 10, 9, 2, 0, 0, 0, time.UTC) // 北京 10-09 10:00
+	require.Equal(t, 1.0, tp.MultiplierAt(holiday))
+	require.Equal(t, 2.0, tp.MultiplierAt(workday))
+	// UTC 10-05 17:00 已是北京 10-06 01:00：按本地日期算节假日；UTC 10-06 16:30 = 北京 10-07 00:30 不在表里
+	tp.Periods = []TimePricingPeriod{{StartTime: "00:00", EndTime: "00:00:00", Multiplier: 2}}
+	require.Equal(t, 1.0, tp.MultiplierAt(time.Date(2026, 10, 5, 17, 0, 0, 0, time.UTC)))
+	require.Equal(t, 2.0, tp.MultiplierAt(time.Date(2026, 10, 6, 16, 30, 0, 0, time.UTC)))
+
+	for _, bad := range []string{"2026-10-32", "2026/10/06", "26-10-06", " 2026-10-06"} {
+		tp.ExcludeDates = []string{bad}
+		require.Error(t, validateTimePricing(tp), bad)
+	}
+}

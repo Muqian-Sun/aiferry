@@ -142,6 +142,9 @@ type LiteLLMModelPricing struct {
 	// ModelID 是官网写法的模型 ID（价格文件条目的 model_id，如 MiniMax-M3）：价格文件的键一律小写、用来查价，
 	// 播种时目录条目用这个写法（用户请求的模型名要与目录逐字一致）。空 = 与键相同。
 	ModelID string `json:"-"`
+	// DisplayName 官网的版本名（价格文件的 display_name，如 deepseek-flash 的 DeepSeek-V4.1-Flash）：播种成目录条目的
+	// 显示名；中转常用版本名当模型名（deepseek-v4.1-flash），建渠道时也按它对上目录（muqian 2026-10-06）。
+	DisplayName string `json:"-"`
 	// InputTokenTiers 官网按「整次请求的输入侧 token 数」分段的价（价格文件的 input_token_tiers）：
 	// 第一段就是基础价，其余各段播种时换算成目录的按 token 分段。
 	InputTokenTiers []LiteLLMInputTokenTier `json:"-"`
@@ -177,6 +180,7 @@ type rawInputTokenTier struct {
 // LiteLLMRawEntry 用于解析原始JSON数据
 type LiteLLMRawEntry struct {
 	ModelID                             string              `json:"model_id"`
+	DisplayName                         string              `json:"display_name"`
 	InputTokenTiers                     []rawInputTokenTier `json:"input_token_tiers"`
 	TimePricing                         *TimePricing        `json:"time_pricing"`
 	InputCostPerToken                   *float64            `json:"input_cost_per_token"`
@@ -538,6 +542,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			}
 			pricing.ModelID = strings.TrimSpace(entry.ModelID)
 		}
+		pricing.DisplayName = strings.TrimSpace(entry.DisplayName)
 		if len(entry.InputTokenTiers) > 0 {
 			tiers, err := parseInputTokenTiers(entry.InputTokenTiers, pricing)
 			if err != nil {

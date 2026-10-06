@@ -28072,21 +28072,23 @@ func (m *ModelCatalogPriceIntervalMutation) ResetEdge(name string) error {
 // ModelCatalogTimePricingMutation represents an operation that mutates the ModelCatalogTimePricing nodes in the graph.
 type ModelCatalogTimePricingMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int64
-	created_at    *time.Time
-	updated_at    *time.Time
-	entry_id      *int64
-	addentry_id   *int64
-	timezone      *string
-	weekdays_only *bool
-	periods       *[]map[string]interface{}
-	appendperiods []map[string]interface{}
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*ModelCatalogTimePricing, error)
-	predicates    []predicate.ModelCatalogTimePricing
+	op                  Op
+	typ                 string
+	id                  *int64
+	created_at          *time.Time
+	updated_at          *time.Time
+	entry_id            *int64
+	addentry_id         *int64
+	timezone            *string
+	weekdays_only       *bool
+	periods             *[]map[string]interface{}
+	appendperiods       []map[string]interface{}
+	exclude_dates       *[]string
+	appendexclude_dates []string
+	clearedFields       map[string]struct{}
+	done                bool
+	oldValue            func(context.Context) (*ModelCatalogTimePricing, error)
+	predicates          []predicate.ModelCatalogTimePricing
 }
 
 var _ ent.Mutation = (*ModelCatalogTimePricingMutation)(nil)
@@ -28452,6 +28454,71 @@ func (m *ModelCatalogTimePricingMutation) ResetPeriods() {
 	delete(m.clearedFields, modelcatalogtimepricing.FieldPeriods)
 }
 
+// SetExcludeDates sets the "exclude_dates" field.
+func (m *ModelCatalogTimePricingMutation) SetExcludeDates(s []string) {
+	m.exclude_dates = &s
+	m.appendexclude_dates = nil
+}
+
+// ExcludeDates returns the value of the "exclude_dates" field in the mutation.
+func (m *ModelCatalogTimePricingMutation) ExcludeDates() (r []string, exists bool) {
+	v := m.exclude_dates
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExcludeDates returns the old "exclude_dates" field's value of the ModelCatalogTimePricing entity.
+// If the ModelCatalogTimePricing object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogTimePricingMutation) OldExcludeDates(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExcludeDates is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExcludeDates requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExcludeDates: %w", err)
+	}
+	return oldValue.ExcludeDates, nil
+}
+
+// AppendExcludeDates adds s to the "exclude_dates" field.
+func (m *ModelCatalogTimePricingMutation) AppendExcludeDates(s []string) {
+	m.appendexclude_dates = append(m.appendexclude_dates, s...)
+}
+
+// AppendedExcludeDates returns the list of values that were appended to the "exclude_dates" field in this mutation.
+func (m *ModelCatalogTimePricingMutation) AppendedExcludeDates() ([]string, bool) {
+	if len(m.appendexclude_dates) == 0 {
+		return nil, false
+	}
+	return m.appendexclude_dates, true
+}
+
+// ClearExcludeDates clears the value of the "exclude_dates" field.
+func (m *ModelCatalogTimePricingMutation) ClearExcludeDates() {
+	m.exclude_dates = nil
+	m.appendexclude_dates = nil
+	m.clearedFields[modelcatalogtimepricing.FieldExcludeDates] = struct{}{}
+}
+
+// ExcludeDatesCleared returns if the "exclude_dates" field was cleared in this mutation.
+func (m *ModelCatalogTimePricingMutation) ExcludeDatesCleared() bool {
+	_, ok := m.clearedFields[modelcatalogtimepricing.FieldExcludeDates]
+	return ok
+}
+
+// ResetExcludeDates resets all changes to the "exclude_dates" field.
+func (m *ModelCatalogTimePricingMutation) ResetExcludeDates() {
+	m.exclude_dates = nil
+	m.appendexclude_dates = nil
+	delete(m.clearedFields, modelcatalogtimepricing.FieldExcludeDates)
+}
+
 // Where appends a list predicates to the ModelCatalogTimePricingMutation builder.
 func (m *ModelCatalogTimePricingMutation) Where(ps ...predicate.ModelCatalogTimePricing) {
 	m.predicates = append(m.predicates, ps...)
@@ -28486,7 +28553,7 @@ func (m *ModelCatalogTimePricingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogTimePricingMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogtimepricing.FieldCreatedAt)
 	}
@@ -28504,6 +28571,9 @@ func (m *ModelCatalogTimePricingMutation) Fields() []string {
 	}
 	if m.periods != nil {
 		fields = append(fields, modelcatalogtimepricing.FieldPeriods)
+	}
+	if m.exclude_dates != nil {
+		fields = append(fields, modelcatalogtimepricing.FieldExcludeDates)
 	}
 	return fields
 }
@@ -28525,6 +28595,8 @@ func (m *ModelCatalogTimePricingMutation) Field(name string) (ent.Value, bool) {
 		return m.WeekdaysOnly()
 	case modelcatalogtimepricing.FieldPeriods:
 		return m.Periods()
+	case modelcatalogtimepricing.FieldExcludeDates:
+		return m.ExcludeDates()
 	}
 	return nil, false
 }
@@ -28546,6 +28618,8 @@ func (m *ModelCatalogTimePricingMutation) OldField(ctx context.Context, name str
 		return m.OldWeekdaysOnly(ctx)
 	case modelcatalogtimepricing.FieldPeriods:
 		return m.OldPeriods(ctx)
+	case modelcatalogtimepricing.FieldExcludeDates:
+		return m.OldExcludeDates(ctx)
 	}
 	return nil, fmt.Errorf("unknown ModelCatalogTimePricing field %s", name)
 }
@@ -28597,6 +28671,13 @@ func (m *ModelCatalogTimePricingMutation) SetField(name string, value ent.Value)
 		}
 		m.SetPeriods(v)
 		return nil
+	case modelcatalogtimepricing.FieldExcludeDates:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExcludeDates(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogTimePricing field %s", name)
 }
@@ -28645,6 +28726,9 @@ func (m *ModelCatalogTimePricingMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogtimepricing.FieldPeriods) {
 		fields = append(fields, modelcatalogtimepricing.FieldPeriods)
 	}
+	if m.FieldCleared(modelcatalogtimepricing.FieldExcludeDates) {
+		fields = append(fields, modelcatalogtimepricing.FieldExcludeDates)
+	}
 	return fields
 }
 
@@ -28661,6 +28745,9 @@ func (m *ModelCatalogTimePricingMutation) ClearField(name string) error {
 	switch name {
 	case modelcatalogtimepricing.FieldPeriods:
 		m.ClearPeriods()
+		return nil
+	case modelcatalogtimepricing.FieldExcludeDates:
+		m.ClearExcludeDates()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogTimePricing nullable field %s", name)
@@ -28687,6 +28774,9 @@ func (m *ModelCatalogTimePricingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogtimepricing.FieldPeriods:
 		m.ResetPeriods()
+		return nil
+	case modelcatalogtimepricing.FieldExcludeDates:
+		m.ResetExcludeDates()
 		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogTimePricing field %s", name)

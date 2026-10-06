@@ -420,8 +420,9 @@ func positivePrice(value float64) *float64 {
 
 func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalogEntry {
 	entry := ModelCatalogEntry{
-		ModelID: name,
-		Vendor:  strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
+		ModelID:     name,
+		DisplayName: pricing.DisplayName,
+		Vendor:      strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
 		// 默认 token；按张计价的生图模型下面改成 image。
 		BillingMode: BillingModeToken,
 		// 播种条目没有绑定资源，默认下架；管理员绑好资源再上架。
@@ -608,5 +609,6 @@ func cloneTimePricing(tp *TimePricing) *TimePricing {
 	}
 	cp := *tp
 	cp.Periods = append([]TimePricingPeriod(nil), tp.Periods...)
+	cp.ExcludeDates = append([]string(nil), tp.ExcludeDates...)
 	return &cp
 }

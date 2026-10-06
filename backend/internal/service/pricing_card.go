@@ -65,6 +65,9 @@ type TimePricing struct {
 	Timezone     string              `json:"timezone"`
 	WeekdaysOnly bool                `json:"weekdays_only,omitempty"`
 	Periods      []TimePricingPeriod `json:"periods"`
+	// ExcludeDates 这些日期（YYYY-MM-DD，按 Timezone 的本地日期）全天按平时：法定节假日（muqian 2026-10-06：
+	// DeepSeek 官方高峰「excluding Chinese public holidays」）。
+	ExcludeDates []string `json:"exclude_dates,omitempty"`
 }
 
 // TimePricingPeriod 是秒级的左闭右开分时倍率区间，并兼容历史 HH:mm 数据。
@@ -143,6 +146,9 @@ func (p PricingCard) Clone() PricingCard {
 		}
 		if p.TimePricing.Periods != nil {
 			cp.TimePricing.Periods = append([]TimePricingPeriod(nil), p.TimePricing.Periods...)
+		}
+		if p.TimePricing.ExcludeDates != nil {
+			cp.TimePricing.ExcludeDates = append([]string(nil), p.TimePricing.ExcludeDates...)
 		}
 	}
 	return cp

@@ -694,7 +694,7 @@ func TestModelCatalogRepository_BindingTimePricingRoundTrips(t *testing.T) {
 	peak := service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{
 		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
 		{StartTime: "14:00", EndTime: "18:00", Multiplier: 2},
-	}}
+	}, ExcludeDates: []string{"2026-10-01"}}
 	require.NoError(t, repo.SaveEntryPricing(ctx, entry, []service.ModelCatalogBinding{
 		{AccountID: accountA.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6, TimePricing: &peak},
 		{AccountID: accountB.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
@@ -744,7 +744,7 @@ func TestModelCatalogRepository_SeedWritesTimePricing(t *testing.T) {
 	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-peak")
 	peak := &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{
 		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
-	}}
+	}, ExcludeDates: []string{"2026-10-01", "2026-10-02"}}
 	seed := func(tp *service.TimePricing) {
 		_, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{{
 			ModelID: unique("deepseek"), BillingMode: service.BillingModeToken,

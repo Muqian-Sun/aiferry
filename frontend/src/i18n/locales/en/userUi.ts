@@ -224,6 +224,7 @@ export default {
       vendorTabsLabel: 'Vendor',
       priceUnit: 'Prices in USD per 1M tokens',
       weekdaysOnly: 'weekdays only',
+      holidaysOffPeak: 'public holidays at standard price',
       openDetail: 'See every billed item',
       prices: {
         input: 'Input',

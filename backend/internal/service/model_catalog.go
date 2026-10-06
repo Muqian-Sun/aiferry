@@ -152,6 +152,9 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 		if e.TimePricing.Periods != nil {
 			tp.Periods = append([]TimePricingPeriod(nil), e.TimePricing.Periods...)
 		}
+		if e.TimePricing.ExcludeDates != nil {
+			tp.ExcludeDates = append([]string(nil), e.TimePricing.ExcludeDates...)
+		}
 		cp.TimePricing = &tp
 	}
 	return &cp

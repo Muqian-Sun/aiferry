@@ -108,7 +108,30 @@ func normalizeTimePricing(tp *TimePricing) *TimePricing {
 	cp := *tp
 	cp.Timezone = strings.TrimSpace(cp.Timezone)
 	cp.Periods = append([]TimePricingPeriod(nil), tp.Periods...)
+	cp.ExcludeDates = normalizeExcludeDates(tp.ExcludeDates)
 	return &cp
+}
+
+// normalizeExcludeDates 去空白、去重、按日期排好；一个都没有存 nil。
+func normalizeExcludeDates(dates []string) []string {
+	seen := make(map[string]struct{}, len(dates))
+	out := make([]string, 0, len(dates))
+	for _, raw := range dates {
+		date := strings.TrimSpace(raw)
+		if date == "" {
+			continue
+		}
+		if _, dup := seen[date]; dup {
+			continue
+		}
+		seen[date] = struct{}{}
+		out = append(out, date)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
 }
 
 // maxBindingUpstreamModelLength 与 262 号迁移的 VARCHAR(255) 一致。
@@ -366,7 +389,8 @@ func sameTimePricing(a, b *TimePricing) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	if a.Timezone != b.Timezone || a.WeekdaysOnly != b.WeekdaysOnly || len(a.Periods) != len(b.Periods) {
+	if a.Timezone != b.Timezone || a.WeekdaysOnly != b.WeekdaysOnly || len(a.Periods) != len(b.Periods) ||
+		strings.Join(a.ExcludeDates, ",") != strings.Join(b.ExcludeDates, ",") {
 		return false
 	}
 	for i := range a.Periods {

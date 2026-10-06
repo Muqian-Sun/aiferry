@@ -1020,6 +1020,7 @@ var (
 		{Name: "timezone", Type: field.TypeString, Size: 64, Default: ""},
 		{Name: "weekdays_only", Type: field.TypeBool, Default: false},
 		{Name: "periods", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "exclude_dates", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 	}
 	// ModelCatalogTimePricingTable holds the schema information for the "model_catalog_time_pricing" table.
 	ModelCatalogTimePricingTable = &schema.Table{
