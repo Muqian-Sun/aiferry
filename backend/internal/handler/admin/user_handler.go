@@ -566,7 +566,7 @@ func (h *UserHandler) GetNewUserDefaults(c *gin.Context) {
 		"balance":         service.NewUserBalance,
 		"concurrency":     service.NewUserConcurrency,
 		"rpm_limit":       service.NewUserRPMLimit,
-		"rate_multiplier": service.NewUserRateMultiplier,
+		"rate_multiplier": 1.0, // 售价折扣：1 = 按售价收
 	})
 }
 

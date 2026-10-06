@@ -28,9 +28,9 @@ func TestUserDTOHidesRateMultiplierAdminKeepsIt(t *testing.T) {
 	require.Contains(t, string(adminJSON), `"rate_multiplier":0.1`)
 	require.Contains(t, string(adminJSON), `"custom_rate_multiplier":0.1`)
 
-	// 跟全站默认的用户：管理站看到生效倍率 1/15、单独倍率为 null
+	// 没单独设的用户：管理站看到售价折扣 1（按售价收）、单独设的为 null（muqian 2026-10-06：倍率 = 在售价上再打折）
 	def := UserFromServiceAdmin(&service.User{ID: 2})
-	require.InDelta(t, 1.0/15, def.RateMultiplier, 1e-12)
+	require.InDelta(t, 1.0, def.RateMultiplier, 1e-12)
 	require.Nil(t, def.CustomRateMultiplier)
 }
 

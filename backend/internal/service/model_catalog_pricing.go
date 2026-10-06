@@ -227,7 +227,7 @@ func (s *ModelCatalogService) ListPricingEntries(ctx context.Context) ([]ModelCa
 
 // SaveEntryPricing 价格页按模型保存一块：官方价（输入 / 输出必填）+ 这个模型的全部承接关系（整份覆盖），
 // 同一事务；全部校验通过才写库，然后失效目录快照。返回保存后的条目（带承接关系）。
-func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int64, official OfficialPrices, bindings []ModelCatalogBinding, accounts CatalogBindingAccountSource) (*ModelCatalogEntry, error) {
+func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int64, official OfficialPrices, sale CatalogSalePrices, bindings []ModelCatalogBinding, accounts CatalogBindingAccountSource) (*ModelCatalogEntry, error) {
 	if s == nil || s.repo == nil {
 		return nil, ErrModelCatalogEntryNotFound
 	}
@@ -254,6 +254,8 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 	entry.SearchPricePerCall = clonePricePtr(official.SearchPricePerCall)
 	entry.XPostPrice = clonePricePtr(official.XPostPrice)
 	entry.XUserPrice = clonePricePtr(official.XUserPrice)
+	// 售价整份覆盖（同一块一起保存）；改售价不改条目归属：官方价照旧跟着价格文件刷新，售价播种不碰。
+	entry.SalePrices = normalizeSalePrices(sale)
 	// 官方价真改了才算运营者定价：运营者定价不再套 DeepSeek 强制官方价与高峰加价，种子也不再刷新它；
 	// 只加 / 改承接渠道时保持原来的归属。
 	if !sameOfficialPrices(current, entry) {

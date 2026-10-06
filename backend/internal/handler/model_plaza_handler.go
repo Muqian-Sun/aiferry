@@ -117,7 +117,7 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
 func (h *ModelPlazaHandler) viewerMultiplier(c *gin.Context) (float64, error) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
-		return service.NewUserRateMultiplier, nil
+		return service.DefaultSalePriceRatio, nil // 未登录 = 不打折：官方口径倍率就是默认售价比例
 	}
 	user, err := h.users.GetByID(c.Request.Context(), subject.UserID)
 	if err != nil {

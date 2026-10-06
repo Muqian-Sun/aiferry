@@ -111,19 +111,17 @@ func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolv
 	return 0
 }
 
-// bindingCostRatio 上游价相对官方价的最高比值：逐项（输入、输出、缓存写 5 分钟 / 1 小时、缓存读）、
-// 逐段比，取最大的一个。两边分段切点不一样时，先把两边的切点合在一起，再在每个切点之后比。
-// 官方价没配（或为 0）的项不参与比较；一项都比不了时 ok=false。
-// 利润门拿它和「用户倍率 × (1 − 最低毛利率)」比（D3）；价格页的毛利也按它算。
+// bindingCostRatio 上游价相对售价口径（官方口径：定了售价的项 = 售价 ÷ 默认售价比例，没定的 = 官方价）的最高比值：
+// 逐项（输入、输出、缓存写 5 分钟 / 1 小时、缓存读）、逐段比，取最大的一个。两边分段切点不一样时，先把两边的切点
+// 合在一起，再在每个切点之后比。售价口径没有（或为 0）的项不参与比较；一项都比不了时 ok=false。
+// 利润门拿它和「计费倍率 × (1 − 最低毛利率)」比（D3）；价格页的毛利（1 − 它 ÷ 默认售价比例）也按它算。
 func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio float64, ok bool) {
 	if entry == nil || b == nil {
 		return 0, false
 	}
-	official := segmentPriceBase{
-		input: entry.InputPrice, output: entry.OutputPrice,
-		cacheWrite: entry.CacheWritePrice, cacheWrite1h: entry.CacheWrite1hPrice, cacheRead: entry.CacheReadPrice,
-		intervals: entry.Intervals,
-	}
+	// 和售价比（muqian 2026-10-06：单独定了售价的项按售价，没定的按官方价 × 默认售价比例）；都在官方口径上比，
+	// 利润门的阈值 = 计费倍率 × (1 − 最低毛利率)，正好是「上游价 ≤ 售价 × 折扣 × (1 − 最低毛利率)」。
+	official := entry.saleEquivalentPriceBase()
 	in, out := b.InputPrice, b.OutputPrice
 	upstream := segmentPriceBase{
 		input: &in, output: &out,

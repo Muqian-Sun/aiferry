@@ -89,4 +89,3 @@ func TestDuplicateThirdPartyKeyCarriesProtocolEndpoints(t *testing.T) {
 	require.Equal(t, "dup-source (Copy)", persisted.Name)
 	require.False(t, persisted.Schedulable, "复制出来的渠道先暂停，确认后再接流量")
 }
-

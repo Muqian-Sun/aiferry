@@ -99,7 +99,7 @@ func TestGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T) {
 			ID:    501,
 			Quota: 100,
 		},
-		User:          &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:          &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account:       &Account{ID: 701},
 		APIKeyService: quotaSvc,
 	})
@@ -129,7 +129,7 @@ func TestGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(
 			Duration: time.Second,
 		},
 		APIKey:             &APIKey{ID: 501, Quota: 100},
-		User:               &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:               &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account:            &Account{ID: 701},
 		RequestPayloadHash: payloadHash,
 	})
@@ -155,7 +155,7 @@ func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToContextRequestID
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 701},
 	})
 	require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 701},
 	})
 
@@ -210,7 +210,7 @@ func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *te
 					Duration:      time.Second,
 				},
 				APIKey:  &APIKey{ID: 501},
-				User:    &User{ID: 601, RateMultiplier: customRate(0.15)},
+				User:    &User{ID: 601, RateMultiplier: officialRate(0.15)},
 				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			})
 
@@ -237,7 +237,7 @@ func TestGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *testin
 			Duration:      time.Second,
 		},
 		APIKey:         &APIKey{ID: 501, Quota: 100},
-		User:           &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:           &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account:        &Account{ID: 701},
 		RequestedModel: "gpt-5.6-sol",
 	})
@@ -263,7 +263,7 @@ func TestGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstreamModel
 			Duration:      time.Second,
 		},
 		APIKey:         &APIKey{ID: 501, Quota: 100},
-		User:           &User{ID: 601, RateMultiplier: customRate(1.1)},
+		User:           &User{ID: 601, RateMultiplier: officialRate(1.1)},
 		Account:        &Account{ID: 701},
 		RequestedModel: "gpt-5.6-sol",
 	})
@@ -300,7 +300,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			Duration:       time.Second,
 		},
 		APIKey:  &APIKey{ID: 801},
-		User:    &User{ID: 601, RateMultiplier: customRate(1)},
+		User:    &User{ID: 601, RateMultiplier: officialRate(1)},
 		Account: &Account{ID: 701},
 	})
 
@@ -334,7 +334,7 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 			Usage:     ClaudeUsage{InputTokens: 1000, OutputTokens: 500},
 		},
 		APIKey:    &APIKey{ID: 804},
-		User:      &User{ID: 604, RateMultiplier: customRate(0.8)},
+		User:      &User{ID: 604, RateMultiplier: officialRate(0.8)},
 		Account:   &Account{ID: 704},
 		PricingAt: requestStart,
 	})
@@ -368,7 +368,7 @@ func TestGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t *testi
 			ID:    503,
 			Quota: 100,
 		},
-		User:          &User{ID: 603, RateMultiplier: customRate(1.1)},
+		User:          &User{ID: 603, RateMultiplier: officialRate(1.1)},
 		Account:       &Account{ID: 703},
 		APIKeyService: quotaSvc,
 	})
@@ -397,7 +397,7 @@ func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 504},
-		User:    &User{ID: 604, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 604, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 704},
 	})
 
@@ -424,7 +424,7 @@ func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 506},
-		User:    &User{ID: 606, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 606, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 706},
 	})
 
@@ -451,7 +451,7 @@ func TestGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing(t *te
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 507},
-		User:    &User{ID: 607, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 607, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 707},
 	})
 
@@ -482,7 +482,7 @@ func TestGatewayServiceRecordUsage_DroppedUsageLogFallsBackToSyncCreate(t *testi
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 508},
-		User:    &User{ID: 608, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 608, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 708},
 	})
 
@@ -512,7 +512,7 @@ func TestGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 505},
-		User:    &User{ID: 605, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 605, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 705},
 	})
 
@@ -545,7 +545,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortPersisted(t *testing.T) {
 			ReasoningEffort: &effort,
 		},
 		APIKey:  &APIKey{ID: 1},
-		User:    &User{ID: 1, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 1, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 1},
 	})
 
@@ -570,7 +570,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1},
-		User:    &User{ID: 1, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 1, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 1},
 	})
 
@@ -602,7 +602,7 @@ func TestGatewayServiceRecordUsage_FastSpeedDowngradedByUpstreamResponse(t *test
 			UpstreamResponseServiceTier: "standard",
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 1, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 1, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 1, Platform: PlatformAnthropic},
 	})
 
@@ -633,7 +633,7 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredRecordedAtStandardPrice(t *t
 			UpstreamResponseServiceTier: "fast",
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 1, RateMultiplier: customRate(1.1)},
+		User:    &User{ID: 1, RateMultiplier: officialRate(1.1)},
 		Account: &Account{ID: 1, Platform: PlatformAnthropic},
 	})
 

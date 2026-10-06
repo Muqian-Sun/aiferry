@@ -170,7 +170,7 @@ func TestGatewayServiceRecordUsage_AccountCostFromUpstreamPrice(t *testing.T) {
 				Duration:  time.Second,
 			},
 			APIKey:  apiKey,
-			User:    &User{ID: 1, RateMultiplier: customRate(0.1)},
+			User:    &User{ID: 1, RateMultiplier: officialRate(0.1)},
 			Account: &Account{ID: accountID, Platform: PlatformAnthropic},
 		})
 		require.NoError(t, err)

@@ -130,7 +130,7 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 			{MinTokens: 272000, InputPrice: upstreamCostPtr(0.3e-6)},
 			{MinTokens: 100000, MaxTokens: intPtr(272000), InputPrice: upstreamCostPtr(0.2e-6)},
 		}
-		got, err := svc.SaveEntryPricing(ctx, 1, official(), []ModelCatalogBinding{b}, accounts)
+		got, err := svc.SaveEntryPricing(ctx, 1, official(), CatalogSalePrices{}, []ModelCatalogBinding{b}, accounts)
 		require.NoError(t, err)
 		require.Equal(t, 4e-6, *got.InputPrice)
 		require.Equal(t, 24e-6, *got.OutputPrice)
@@ -195,7 +195,7 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 			svc, repo := newTestModelCatalogService(upstreamCostTestEntry())
 			before := []ModelCatalogBinding{upstreamCostTestBinding(3)}
 			repo.bindings = map[int64][]ModelCatalogBinding{1: before}
-			_, err := svc.SaveEntryPricing(ctx, 1, tc.official(), tc.bindings(), accounts)
+			_, err := svc.SaveEntryPricing(ctx, 1, tc.official(), CatalogSalePrices{}, tc.bindings(), accounts)
 			require.ErrorContains(t, err, tc.wantErr)
 			stored, _ := repo.GetEntryByID(ctx, 1)
 			require.Equal(t, 5e-6, *stored.InputPrice, "nothing written")
@@ -210,7 +210,7 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 		renamed.UpstreamModel = "  auto-review  "
 		same := upstreamCostTestBinding(3)
 		same.UpstreamModel = "upstream-test-model"
-		_, err := svc.SaveEntryPricing(ctx, 1, official(), []ModelCatalogBinding{renamed, same}, accounts)
+		_, err := svc.SaveEntryPricing(ctx, 1, official(), CatalogSalePrices{}, []ModelCatalogBinding{renamed, same}, accounts)
 		require.NoError(t, err)
 		require.Equal(t, "auto-review", repo.bindings[1][0].UpstreamModel)
 		require.Empty(t, repo.bindings[1][1].UpstreamModel)
@@ -236,13 +236,13 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 			// 请求里带回来的分段有 ID / 排序号，与库里的不同，不算改价
 			Intervals: []PricingInterval{{ID: 9, SortOrder: 3, MinTokens: 272000, InputPrice: upstreamCostPtr(10e-6), OutputPrice: upstreamCostPtr(45e-6)}},
 		}
-		got, err := svc.SaveEntryPricing(ctx, 1, same, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
+		got, err := svc.SaveEntryPricing(ctx, 1, same, CatalogSalePrices{}, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
 		require.NoError(t, err)
 		require.Equal(t, ModelCatalogManagedBySeed, got.ManagedBy)
 
 		changedSegment := same
 		changedSegment.Intervals = []PricingInterval{{MinTokens: 272000, InputPrice: upstreamCostPtr(10e-6), OutputPrice: upstreamCostPtr(40e-6)}}
-		got, err = svc.SaveEntryPricing(ctx, 1, changedSegment, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
+		got, err = svc.SaveEntryPricing(ctx, 1, changedSegment, CatalogSalePrices{}, []ModelCatalogBinding{upstreamCostTestBinding(3)}, accounts)
 		require.NoError(t, err)
 		require.Equal(t, ModelCatalogManagedByAdmin, got.ManagedBy, "a changed segment price is operator pricing")
 	})
@@ -251,7 +251,7 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 		image := upstreamCostTestEntry()
 		image.BillingMode = BillingModeImage
 		svc, _ := newTestModelCatalogService(image)
-		_, err := svc.SaveEntryPricing(ctx, 1, official(), nil, accounts)
+		_, err := svc.SaveEntryPricing(ctx, 1, official(), CatalogSalePrices{}, nil, accounts)
 		require.ErrorContains(t, err, "only token models are priced")
 	})
 }

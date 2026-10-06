@@ -79,6 +79,10 @@ type ModelCatalogEntry struct {
 
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 
+	// SalePrices 我们自己定的售价（基础价五项 + 各段，USD / token）；没填的项按官方价 × DefaultSalePriceRatio 收。
+	// 只有价格页保存售价时写（SaveEntryPricing），播种刷新、编辑模型都不碰它。
+	SalePrices CatalogSalePrices `json:"sale_prices"`
+
 	Notes *string `json:"notes,omitempty"`
 
 	Intervals   []PricingInterval     `json:"intervals"`
@@ -130,6 +134,9 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 	}
 	if e.Intervals != nil {
 		cp.Intervals = append([]PricingInterval(nil), e.Intervals...)
+	}
+	if e.SalePrices.Segments != nil {
+		cp.SalePrices.Segments = append([]CatalogSaleSegment(nil), e.SalePrices.Segments...)
 	}
 	if e.Bindings != nil {
 		cp.Bindings = append([]ModelCatalogBinding(nil), e.Bindings...)
@@ -405,6 +412,9 @@ func (e *ModelCatalogEntry) Validate() error {
 	}
 	if err := ValidateIntervals(e.Intervals, e.EffectiveBillingMode()); err != nil {
 		return catalogValidationError(err.Error())
+	}
+	if err := validateSalePrices(e); err != nil {
+		return err
 	}
 	// 分时倍率复用渠道那一套校验（时区、HH:mm(:ss) 解析、倍率精度、时段不重叠），
 	// 保证目录与渠道的分时语义一致。

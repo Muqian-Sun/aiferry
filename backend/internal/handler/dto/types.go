@@ -42,10 +42,10 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
-	// RateMultiplier 生效的计费倍率（相对官方价）：用户价 = 目录官方价 × 它；0 = 免费。
+	// RateMultiplier 生效的售价折扣（在售价上再打折，1 = 按售价收，0 = 免费；muqian 2026-10-06）。
 	// 倍率与官方价只给管理站：用户站接口只给售价与实付（2026-10-04 D1）。
 	RateMultiplier float64 `json:"rate_multiplier"`
-	// CustomRateMultiplier 管理员单独设的倍率；null = 跟全站默认（官方价的 1/15）。
+	// CustomRateMultiplier 管理员单独设的折扣；null = 不打折（按售价收）。
 	CustomRateMultiplier *float64 `json:"custom_rate_multiplier"`
 }
 

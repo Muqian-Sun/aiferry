@@ -18,7 +18,7 @@ func SchedulableBindings(entry *ModelCatalogEntry, accounts map[int64]*Account, 
 	if entry == nil || len(entry.Bindings) == 0 {
 		return 0, UnschedulableNoBindings
 	}
-	threshold := clampProfitControlThreshold(NewUserRateMultiplier * (1 - profit.MinMargin))
+	threshold := clampProfitControlThreshold(DefaultSalePriceRatio * (1 - profit.MinMargin))
 	enabled, schedulable := 0, 0
 	for i := range entry.Bindings {
 		b := &entry.Bindings[i]

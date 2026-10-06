@@ -18,7 +18,7 @@ func profitControlTestService(t *testing.T, minMargin float64) *OpenAIGatewaySer
 
 // profitControlTestCtx 模拟认证后的请求上下文：D = 用户倍率。
 func profitControlTestCtx(userRate float64) context.Context {
-	return WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: customRate(userRate)})
+	return WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: officialRate(userRate)})
 }
 
 // upstreamCostTestAccount / upstreamCostTestOAuthAccount 只有 unit 标签的用例（本文件与

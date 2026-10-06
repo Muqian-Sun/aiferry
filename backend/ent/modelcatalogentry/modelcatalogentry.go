@@ -62,6 +62,8 @@ const (
 	FieldXUserPrice = "x_user_price"
 	// FieldMaxReasoningEffortMultiplier holds the string denoting the max_reasoning_effort_multiplier field in the database.
 	FieldMaxReasoningEffortMultiplier = "max_reasoning_effort_multiplier"
+	// FieldSalePrices holds the string denoting the sale_prices field in the database.
+	FieldSalePrices = "sale_prices"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
@@ -127,6 +129,7 @@ var Columns = []string{
 	FieldXPostPrice,
 	FieldXUserPrice,
 	FieldMaxReasoningEffortMultiplier,
+	FieldSalePrices,
 	FieldNotes,
 }
 
