@@ -344,3 +344,23 @@ func TestModelCatalogService_ListPricingEntriesOnlyTokenModels(t *testing.T) {
 	require.True(t, svc.CanBindAccount(&entries[0], accounts[1]))
 	require.False(t, svc.CanBindAccount(&entries[0], accounts[2]))
 }
+
+// 价格页只改官方忙闲时也算改了官方价：条目归属改成运营者（播种不再刷新它）；忙闲时没变则归属不变。
+func TestModelCatalogService_SaveEntryPricingOfficialTimePricingCountsAsOfficialChange(t *testing.T) {
+	ctx := context.Background()
+	seed := upstreamCostTestEntry()
+	seed.ManagedBy = ModelCatalogManagedBySeed
+	official := OfficialPrices{InputPrice: seed.InputPrice, OutputPrice: seed.OutputPrice, CacheReadPrice: seed.CacheReadPrice, Intervals: seed.Intervals}
+
+	svc, _ := newTestModelCatalogService(seed)
+	got, err := svc.SaveEntryPricing(ctx, 1, official, CatalogSalePrices{}, nil, newPricingTestAccounts())
+	require.NoError(t, err)
+	require.Equal(t, ModelCatalogManagedBySeed, got.ManagedBy, "nothing official changed")
+
+	official.TimePricing = &TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true,
+		Periods: []TimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}}}
+	got, err = svc.SaveEntryPricing(ctx, 1, official, CatalogSalePrices{}, nil, newPricingTestAccounts())
+	require.NoError(t, err)
+	require.Equal(t, ModelCatalogManagedByAdmin, got.ManagedBy, "official peak hours changed")
+	require.NotNil(t, got.TimePricing)
+}

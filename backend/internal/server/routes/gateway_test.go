@@ -223,6 +223,27 @@ func TestGatewayRoutesGrokCustomVoiceCRUDPathsAreRegistered(t *testing.T) {
 	}
 }
 
+// 语音接口已关（muqian 2026-10-06：计费只认模型目录，语音不在目录里、没有价）：/v1 与根路径都回 404，不转发。
+func TestGatewayRoutesVoiceAPIsAreClosed(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGrok)
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "/v1/tts"},
+		{http.MethodPost, "/v1/stt"},
+		{http.MethodGet, "/v1/realtime"},
+		{http.MethodPost, "/v1/custom-voices"},
+		{http.MethodGet, "/v1/custom-voices/v1/audio"},
+		{http.MethodPost, "/tts"},
+		{http.MethodPost, "/stt"},
+		{http.MethodGet, "/realtime"},
+		{http.MethodDelete, "/custom-voices/v1"},
+	} {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{"text":"hi"}`)))
+		require.Equal(t, http.StatusNotFound, w.Code, "%s %s", tc.method, tc.path)
+		require.Contains(t, w.Body.String(), "Voice API is not available", "%s %s", tc.method, tc.path)
+	}
+}
+
 func TestGrokCustomVoiceEndpointUsesRouteTemplateNotRawPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
