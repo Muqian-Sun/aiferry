@@ -106,6 +106,8 @@ type ModelCatalogService struct {
 	repo      ModelCatalogRepository
 	cachePub  ModelCatalogCachePubSub
 	seedInput ModelCatalogSeedInput
+	// officialModels 联网的官方模型名单（LiteLLM 公开价格表），判断上游模型 ID 是不是官方 ID；为 nil 时只用内置资料。
+	officialModels *officialModelList
 
 	mu       sync.RWMutex
 	snapshot *modelCatalogSnapshot
@@ -123,7 +125,7 @@ func NewModelCatalogService(
 	cachePub ModelCatalogCachePubSub,
 	seedInput ModelCatalogSeedInput,
 ) *ModelCatalogService {
-	svc := &ModelCatalogService{repo: repo, cachePub: cachePub, seedInput: seedInput}
+	svc := &ModelCatalogService{repo: repo, cachePub: cachePub, seedInput: seedInput, officialModels: newOfficialModelList()}
 	if cachePub != nil {
 		cachePub.SubscribeUpdates(context.Background(), func() {
 			svc.invalidateLocal()

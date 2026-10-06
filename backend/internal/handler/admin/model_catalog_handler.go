@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -299,7 +300,8 @@ func (h *ModelCatalogHandler) ListBindings(c *gin.Context) {
 	response.Success(c, out)
 }
 
-// PriceLookup 按模型 ID 从价格文件带出建议条目（厂商、计费方式、价格），给「添加模型」自动填。
+// PriceLookup 按模型 ID 带出建议条目（厂商、计费方式、价格），给「添加模型」自动填：先查内置价格资料，
+// 查不到再查联网的官方模型名单。
 // GET /api/v1/admin/model-catalog/price-lookup?model_id=
 func (h *ModelCatalogHandler) PriceLookup(c *gin.Context) {
 	modelID := strings.TrimSpace(c.Query("model_id"))
@@ -307,12 +309,36 @@ func (h *ModelCatalogHandler) PriceLookup(c *gin.Context) {
 		response.BadRequest(c, "model_id is required")
 		return
 	}
-	entry, ok := h.service.LookupPriceFileEntry(modelID)
+	entry, ok := h.service.LookupPriceEntry(c.Request.Context(), modelID)
 	if !ok {
 		response.Success(c, gin.H{"found": false})
 		return
 	}
 	response.Success(c, gin.H{"found": true, "entry": entry})
+}
+
+// officialLookupMaxModels 一次最多查多少个模型 ID（拍的：上游名单常见几十到一两百个）。
+const officialLookupMaxModels = 500
+
+// OfficialLookupRequest 批量判断上游模型 ID 是不是官方 ID。
+type OfficialLookupRequest struct {
+	ModelIDs []string `json:"model_ids" binding:"required"`
+}
+
+// OfficialLookup 逐个判断是不是官方模型 ID（联网的 LiteLLM 公开价格表，只认官方厂商、精确 ID），是的带官方价。
+// 建渠道「承接模型」那一步对目录里没有的上游模型用：官方的加进目录，不是的在承接关系上做别名映射。
+// POST /api/v1/admin/model-catalog/official-lookup
+func (h *ModelCatalogHandler) OfficialLookup(c *gin.Context) {
+	var req OfficialLookupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if len(req.ModelIDs) > officialLookupMaxModels {
+		response.BadRequest(c, fmt.Sprintf("model_ids accepts at most %d items", officialLookupMaxModels))
+		return
+	}
+	response.Success(c, h.service.LookupOfficialModels(c.Request.Context(), req.ModelIDs))
 }
 
 // Diagnose 逐个说明条目绑定的资源此刻能不能承接请求：可调度与否、原因、能承接哪些入站协议。
