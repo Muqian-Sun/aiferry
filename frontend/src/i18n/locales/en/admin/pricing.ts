@@ -125,7 +125,7 @@ export default {
         note: 'Users are charged the whole request × multiplier in these periods. Follows the official peak hours by default.',
         noneHint: 'One price all day (no surcharge even at official peak)',
         follow: 'Follow official peak hours ({summary})',
-        followShort: 'Official · {summary}',
+        followShort: 'Follow official',
         custom: 'Set separately',
         noneShort: 'One price all day'
       },

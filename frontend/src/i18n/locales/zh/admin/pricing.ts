@@ -125,7 +125,7 @@ export default {
         note: '向用户收钱时这些时段整单按倍数收；默认跟官方忙闲时。',
         noneHint: '全天一个价（官方忙时也不加价）',
         follow: '跟官方忙闲时（{summary}）',
-        followShort: '跟官方 · {summary}',
+        followShort: '跟官方忙闲时',
         custom: '单独设',
         noneShort: '全天一个价'
       },

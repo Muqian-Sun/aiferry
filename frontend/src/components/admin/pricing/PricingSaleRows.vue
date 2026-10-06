@@ -195,7 +195,8 @@ function peakSummary(form: PeakForm | null): string {
 }
 const officialSummary = computed(() => peakSummary(props.officialPeak))
 const peakLabel = computed(() => {
-  if (sale.value.peakFollowsOfficial) return t('admin.pricing.peak.sale.followShort', { summary: officialSummary.value })
+  // 收起时只写「跟官方忙闲时」（官方价那一行就在上面）：表格列宽不被撑开
+  if (sale.value.peakFollowsOfficial) return t('admin.pricing.peak.sale.followShort')
   return sale.value.peak ? peakSummary(sale.value.peak) : t('admin.pricing.peak.sale.noneShort')
 })
 
