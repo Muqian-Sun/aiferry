@@ -790,16 +790,16 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "minimax m3",
 			model:             "minimax-m3",
-			expectedInput:     0.60e-6,
-			expectedOutput:    floatPtr(2.40e-6),
-			expectedCacheRead: floatPtr(0.12e-6),
+			expectedInput:     0.30e-6, // 2026-10-06 官网现价（永久五折后）
+			expectedOutput:    floatPtr(1.20e-6),
+			expectedCacheRead: floatPtr(0.06e-6),
 		},
 		{
 			name:              "minimax m3 long ctx boundary keep standard tier",
 			model:             "minimax-m3-long", // 仍按 standard tier (≤512K)
-			expectedInput:     0.60e-6,
-			expectedOutput:    floatPtr(2.40e-6),
-			expectedCacheRead: floatPtr(0.12e-6),
+			expectedInput:     0.30e-6,           // 2026-10-06 官网现价（永久五折后）
+			expectedOutput:    floatPtr(1.20e-6),
+			expectedCacheRead: floatPtr(0.06e-6),
 		},
 		{
 			name:              "minimax m2.7",

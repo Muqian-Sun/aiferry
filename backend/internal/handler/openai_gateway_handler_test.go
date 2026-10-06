@@ -1215,7 +1215,7 @@ func TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn(t *testing.T) {
 	require.Equal(t, "gpt-5.6-sol", got.logs[0].RequestedModel)
 	require.Equal(t, "gpt-5.6-terra", got.logs[1].Model)
 	require.Equal(t, "gpt-5.6-terra", got.logs[1].RequestedModel)
-	require.InDelta(t, 40e-6, got.logs[0].TotalCost, 1e-12)
+	require.InDelta(t, 28e-6, got.logs[0].TotalCost, 1e-12) // gpt-5.6-sol 官网优惠价：2×$4/M + 1×$20/M
 	require.InDelta(t, 16e-6, got.logs[1].TotalCost, 1e-12,
 		"each turn must be billed with its own request model")
 }
@@ -1241,7 +1241,7 @@ func TestOpenAIResponsesWebSocket_CtxPoolAppliesAccountMappingAndPreservesReques
 
 	require.Len(t, got.logs, 2)
 	require.Equal(t, "gpt-5.6-sol", got.logs[0].RequestedModel)
-	require.InDelta(t, 40e-6, got.logs[0].TotalCost, 1e-12)
+	require.InDelta(t, 28e-6, got.logs[0].TotalCost, 1e-12) // gpt-5.6-sol 官网优惠价：2×$4/M + 1×$20/M
 	require.Equal(t, "gpt-5.6-terra", got.logs[1].RequestedModel)
 	require.NotNil(t, got.logs[1].UpstreamModel)
 	require.Equal(t, "gpt-5.6-sol", *got.logs[1].UpstreamModel)
