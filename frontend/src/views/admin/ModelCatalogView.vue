@@ -4,7 +4,7 @@
     标题右侧「⋯」（从价格文件导入）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
     工具行 = 搜索 + 状态（默认只看已上架：价格文件带进来的几百个模型大多没上架）/ 厂商 / 计费 / 渠道筛选标签 + 刷新；
     列 = 模型、厂商、标价（输入 / 输出，每百万 Token；整列同一个小数位数）、承接渠道数、状态；行尾「编辑」图标 +「⋯」（删除）；选中行时批量上下架。
-    点行打开详情抽屉（A5）：概况（全部标价、别名…）/ 渠道（承接的渠道此刻能否调度 + 诊断）；点承接渠道数直接打开渠道页签。
+    点行打开详情抽屉（A5）：概况（全部标价…）/ 渠道（承接的渠道此刻能否调度 + 诊断）；点承接渠道数直接打开渠道页签。
     新建 / 编辑是弹窗（2026-10-03）：新建两步（模型 → 定价与渠道），编辑一步；改价去价格页。
   -->
   <AppLayout>
@@ -102,13 +102,7 @@
           <template #cell-model_id="{ row }">
             <div class="min-w-0">
               <div class="truncate font-mono font-medium text-af-ink">{{ row.model_id }}</div>
-              <div v-if="row.display_name || row.aliases?.length" class="mt-0.5 truncate text-xs text-af-ink-3">
-                <span v-if="row.display_name">{{ row.display_name }}</span>
-                <span v-if="row.display_name && row.aliases?.length" class="text-af-ink-3"> · </span>
-                <span v-if="row.aliases?.length" :title="row.aliases.map((a: ModelCatalogAlias) => a.alias).join(', ')">
-                  {{ t('admin.modelCatalog.aliasCount', { count: row.aliases.length }) }}
-                </span>
-              </div>
+              <div v-if="row.display_name" class="mt-0.5 truncate text-xs text-af-ink-3">{{ row.display_name }}</div>
             </div>
           </template>
           <template #cell-vendor="{ row }">
@@ -223,7 +217,6 @@
       :vendor-options="catalogVendors"
       @close="editingEntry = null"
       @saved="loadEntries"
-      @aliases-changed="loadEntries"
     />
 
     <CatalogEntryDiagnosisModal
@@ -261,7 +254,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import type { ModelCatalogAlias, ModelCatalogEntry } from '@/api/admin/modelCatalog'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -396,7 +389,7 @@ const filteredEntries = computed(() => {
     if (resourceFilter.value === 'bound' && hasNoSchedulableChannel(entry)) return false
     if (resourceFilter.value === 'unbound' && !hasNoSchedulableChannel(entry)) return false
     if (!q) return true
-    return [entry.model_id, entry.display_name, entry.vendor, vendor, ...(entry.aliases ?? []).map((alias) => alias.alias)].some((value) =>
+    return [entry.model_id, entry.display_name, entry.vendor, vendor].some((value) =>
       (value || '').toLowerCase().includes(q)
     )
   })

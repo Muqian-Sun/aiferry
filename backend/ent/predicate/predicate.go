@@ -54,9 +54,6 @@ type IdempotencyRecord func(*sql.Selector)
 // IdentityAdoptionDecision is the predicate function for identityadoptiondecision builders.
 type IdentityAdoptionDecision func(*sql.Selector)
 
-// ModelCatalogAlias is the predicate function for modelcatalogalias builders.
-type ModelCatalogAlias func(*sql.Selector)
-
 // ModelCatalogBinding is the predicate function for modelcatalogbinding builders.
 type ModelCatalogBinding func(*sql.Selector)
 

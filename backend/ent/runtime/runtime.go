@@ -21,7 +21,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
-	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
@@ -961,45 +960,6 @@ func init() {
 	identityadoptiondecisionDescDecidedAt := identityadoptiondecisionFields[4].Descriptor()
 	// identityadoptiondecision.DefaultDecidedAt holds the default value on creation for the decided_at field.
 	identityadoptiondecision.DefaultDecidedAt = identityadoptiondecisionDescDecidedAt.Default.(func() time.Time)
-	modelcatalogaliasMixin := schema.ModelCatalogAlias{}.Mixin()
-	modelcatalogaliasMixinFields0 := modelcatalogaliasMixin[0].Fields()
-	_ = modelcatalogaliasMixinFields0
-	modelcatalogaliasFields := schema.ModelCatalogAlias{}.Fields()
-	_ = modelcatalogaliasFields
-	// modelcatalogaliasDescCreatedAt is the schema descriptor for created_at field.
-	modelcatalogaliasDescCreatedAt := modelcatalogaliasMixinFields0[0].Descriptor()
-	// modelcatalogalias.DefaultCreatedAt holds the default value on creation for the created_at field.
-	modelcatalogalias.DefaultCreatedAt = modelcatalogaliasDescCreatedAt.Default.(func() time.Time)
-	// modelcatalogaliasDescUpdatedAt is the schema descriptor for updated_at field.
-	modelcatalogaliasDescUpdatedAt := modelcatalogaliasMixinFields0[1].Descriptor()
-	// modelcatalogalias.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	modelcatalogalias.DefaultUpdatedAt = modelcatalogaliasDescUpdatedAt.Default.(func() time.Time)
-	// modelcatalogalias.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	modelcatalogalias.UpdateDefaultUpdatedAt = modelcatalogaliasDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// modelcatalogaliasDescAlias is the schema descriptor for alias field.
-	modelcatalogaliasDescAlias := modelcatalogaliasFields[0].Descriptor()
-	// modelcatalogalias.AliasValidator is a validator for the "alias" field. It is called by the builders before save.
-	modelcatalogalias.AliasValidator = func() func(string) error {
-		validators := modelcatalogaliasDescAlias.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-		}
-		return func(alias string) error {
-			for _, fn := range fns {
-				if err := fn(alias); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// modelcatalogaliasDescSource is the schema descriptor for source field.
-	modelcatalogaliasDescSource := modelcatalogaliasFields[2].Descriptor()
-	// modelcatalogalias.DefaultSource holds the default value on creation for the source field.
-	modelcatalogalias.DefaultSource = modelcatalogaliasDescSource.Default.(string)
-	// modelcatalogalias.SourceValidator is a validator for the "source" field. It is called by the builders before save.
-	modelcatalogalias.SourceValidator = modelcatalogaliasDescSource.Validators[0].(func(string) error)
 	modelcatalogbindingFields := schema.ModelCatalogBinding{}.Fields()
 	_ = modelcatalogbindingFields
 	// modelcatalogbindingDescUpstreamModel is the schema descriptor for upstream_model field.

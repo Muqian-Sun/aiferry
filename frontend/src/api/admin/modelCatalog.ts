@@ -8,16 +8,6 @@ import type { TimePricing, PricingInterval } from './pricing'
 
 export type { TimePricing, PricingInterval }
 
-export interface ModelCatalogAlias {
-  id: number
-  entry_id: number
-  alias: string
-  source: 'manual' | 'seed' | string
-  notes?: string
-  created_at: string
-  updated_at: string
-}
-
 export interface ModelCatalogEntry {
   id: number
   model_id: string
@@ -47,7 +37,6 @@ export interface ModelCatalogEntry {
   notes?: string
   intervals: PricingInterval[]
   time_pricing?: TimePricing | null
-  aliases: ModelCatalogAlias[]
   /** 绑定的资源（账号）；上架条目由这些账号承接请求。 */
   bindings: ModelCatalogBinding[]
   /** 厂商族（与渠道平台同一套标识，认不出为空串）：只有列表接口带。 */
@@ -155,12 +144,6 @@ export interface ModelCatalogSeedResult {
   errors?: string[]
 }
 
-export interface ModelCatalogAliasRequest {
-  alias: string
-  entry_id: number
-  notes?: string | null
-}
-
 const modelCatalogAPI = {
   listEntries: async (): Promise<ModelCatalogEntry[]> => {
     const { data } = await apiClient.get<ModelCatalogEntry[]>('/admin/model-catalog/entries')
@@ -180,13 +163,6 @@ const modelCatalogAPI = {
   },
   deleteEntry: async (id: number): Promise<void> => {
     await apiClient.delete(`/admin/model-catalog/entries/${id}`)
-  },
-  createAlias: async (body: ModelCatalogAliasRequest): Promise<ModelCatalogAlias> => {
-    const { data } = await apiClient.post<ModelCatalogAlias>('/admin/model-catalog/aliases', body)
-    return data
-  },
-  deleteAlias: async (id: number): Promise<void> => {
-    await apiClient.delete(`/admin/model-catalog/aliases/${id}`)
   },
   seed: async (): Promise<ModelCatalogSeedResult> => {
     const { data } = await apiClient.post<ModelCatalogSeedResult>('/admin/model-catalog/seed')

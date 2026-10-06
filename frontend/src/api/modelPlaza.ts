@@ -1,7 +1,7 @@
 /**
  * Model Plaza API（公开端点，对所有人开放，没有开关）。
  * 平铺的上架模型目录：每个条目带访问者的售价（USD / token，后端按登录用户的倍率算好，未登录按新用户价）、
- * 计费模式、分时倍率与别名。官方价与倍率不出接口（2026-10-04 D1）。
+ * 计费模式与分时倍率。官方价与倍率不出接口（2026-10-04 D1）。
  */
 
 import { apiClient } from './client'
@@ -79,8 +79,6 @@ export interface PlazaModel {
   pricing: UserSupportedModelPricing | null
   /** 仅配置了分时倍率的模型返回。 */
   time_pricing?: PlazaTimePricing
-  /** 别名（可用别名调用，计费按主 model_id）。 */
-  aliases: string[]
 }
 
 export interface ModelPlazaResponse {

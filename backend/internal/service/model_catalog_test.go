@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func catalogEntryForTest(id int64, modelID string, aliases ...string) ModelCatalogEntry {
-	entry := ModelCatalogEntry{
+func catalogEntryForTest(id int64, modelID string) ModelCatalogEntry {
+	return ModelCatalogEntry{
 		ID:          id,
 		ModelID:     modelID,
 		BillingMode: BillingModeToken,
@@ -19,15 +19,6 @@ func catalogEntryForTest(id int64, modelID string, aliases ...string) ModelCatal
 		ManagedBy:   ModelCatalogManagedBySeed,
 		InputPrice:  testPtrFloat64(1e-6),
 	}
-	for i, alias := range aliases {
-		entry.Aliases = append(entry.Aliases, ModelCatalogAlias{
-			ID:      int64(i + 1),
-			EntryID: id,
-			Alias:   alias,
-			Source:  ModelCatalogAliasSourceManual,
-		})
-	}
-	return entry
 }
 
 func TestModelCatalogLookup_ExactModelIDIsCaseInsensitive(t *testing.T) {
@@ -45,38 +36,6 @@ func TestModelCatalogLookup_NormalizesClaudeDotSpelling(t *testing.T) {
 	entry := svc.LookupPricingEntry(context.Background(), "claude-opus-4.5")
 	require.NotNil(t, entry)
 	require.Equal(t, "claude-opus-4-5", entry.ModelID)
-}
-
-func TestModelCatalogLookup_ExactAlias(t *testing.T) {
-	svc, _ := newTestModelCatalogService(catalogEntryForTest(1, "claude-sonnet-4", "sonnet"))
-
-	entry := svc.LookupPricingEntry(context.Background(), "SONNET")
-	require.NotNil(t, entry)
-	require.Equal(t, "claude-sonnet-4", entry.ModelID)
-}
-
-// 前缀别名按最长前缀胜出，结果不依赖行序。
-func TestModelCatalogLookup_LongestPrefixAliasWins(t *testing.T) {
-	broad := catalogEntryForTest(1, "broad-model", "claude-*")
-	narrow := catalogEntryForTest(2, "narrow-model", "claude-sonnet-*")
-
-	for _, order := range [][]ModelCatalogEntry{{broad, narrow}, {narrow, broad}} {
-		svc, _ := newTestModelCatalogService(order...)
-		entry := svc.LookupPricingEntry(context.Background(), "claude-sonnet-4")
-		require.NotNil(t, entry)
-		require.Equal(t, "narrow-model", entry.ModelID)
-	}
-}
-
-// 精确模型标识优先于别名：别名不能盖掉一个真实存在的模型。
-func TestModelCatalogLookup_ExactModelIDBeatsAlias(t *testing.T) {
-	aliasHolder := catalogEntryForTest(1, "alias-holder", "claude-sonnet-4")
-	exact := catalogEntryForTest(2, "claude-sonnet-4")
-
-	svc, _ := newTestModelCatalogService(aliasHolder, exact)
-	entry := svc.LookupPricingEntry(context.Background(), "claude-sonnet-4")
-	require.NotNil(t, entry)
-	require.Equal(t, "claude-sonnet-4", entry.ModelID)
 }
 
 func TestModelCatalogLookup_MissReturnsNil(t *testing.T) {
@@ -251,18 +210,6 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 			require.ErrorContains(t, entry.Validate(), name+" must be at most", name)
 		}
 	})
-}
-
-func TestValidateModelCatalogAlias(t *testing.T) {
-	require.NoError(t, ValidateModelCatalogAlias("claude-sonnet-4", ModelCatalogAliasSourceManual))
-	require.NoError(t, ValidateModelCatalogAlias("claude-sonnet-*", ModelCatalogAliasSourceManual))
-	require.Error(t, ValidateModelCatalogAlias("", ModelCatalogAliasSourceManual))
-	// 全量通配会让任意模型名都拿到同一份价卡，等于关掉"查不到价"这个信号。
-	require.Error(t, ValidateModelCatalogAlias("*", ModelCatalogAliasSourceManual))
-	require.Error(t, ValidateModelCatalogAlias("claude-*-4", ModelCatalogAliasSourceManual))
-	require.Error(t, ValidateModelCatalogAlias("claude", "importer"))
-	require.NoError(t, ValidateModelCatalogAlias(strings.Repeat("别", 200), ModelCatalogAliasSourceManual))
-	require.ErrorContains(t, ValidateModelCatalogAlias(strings.Repeat("a", 201), ModelCatalogAliasSourceManual), "alias must be at most")
 }
 
 // 管理端任何一次写入都把 managed_by 翻成 admin，之后播种器不再覆盖。

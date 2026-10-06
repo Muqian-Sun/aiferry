@@ -107,57 +107,6 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestModelCatalogRepository_AliasCRUDAndUniqueness(t *testing.T) {
-	ctx := context.Background()
-	repo, unique := newModelCatalogRepoForTest(t, "repo-alias")
-
-	first := &service.ModelCatalogEntry{
-		ModelID: unique("a"), BillingMode: service.BillingModeToken,
-		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
-		InputPrice: float64Value(1e-6),
-	}
-	second := &service.ModelCatalogEntry{
-		ModelID: unique("b"), BillingMode: service.BillingModeToken,
-		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
-		InputPrice: float64Value(1e-6),
-	}
-	require.NoError(t, repo.CreateEntry(ctx, first))
-	require.NoError(t, repo.CreateEntry(ctx, second))
-
-	alias := &service.ModelCatalogAlias{
-		Alias: unique("Nick"), EntryID: first.ID, Source: service.ModelCatalogAliasSourceManual,
-	}
-	require.NoError(t, repo.CreateAlias(ctx, alias))
-	require.NotZero(t, alias.ID)
-
-	// 同一个别名（大小写不敏感）不能再指向另一个模型。
-	dup := &service.ModelCatalogAlias{
-		Alias: unique("nick"), EntryID: second.ID, Source: service.ModelCatalogAliasSourceManual,
-	}
-	require.ErrorIs(t, repo.CreateAlias(ctx, dup), service.ErrModelCatalogAliasExists)
-
-	// entry_id 指向不存在的条目：外键冲突要映射成 404，不能漏成 500。
-	orphan := &service.ModelCatalogAlias{
-		Alias: unique("orphan"), EntryID: second.ID + 1_000_000, Source: service.ModelCatalogAliasSourceManual,
-	}
-	require.ErrorIs(t, repo.CreateAlias(ctx, orphan), service.ErrModelCatalogEntryNotFound)
-	alias.EntryID = second.ID + 1_000_000
-	require.ErrorIs(t, repo.UpdateAlias(ctx, alias), service.ErrModelCatalogEntryNotFound)
-
-	alias.EntryID = second.ID
-	require.NoError(t, repo.UpdateAlias(ctx, alias))
-
-	loaded, err := repo.GetEntryByID(ctx, second.ID)
-	require.NoError(t, err)
-	require.Len(t, loaded.Aliases, 1)
-	require.Equal(t, unique("Nick"), loaded.Aliases[0].Alias)
-
-	require.NoError(t, repo.DeleteAlias(ctx, alias.ID))
-	loaded, err = repo.GetEntryByID(ctx, second.ID)
-	require.NoError(t, err)
-	require.Empty(t, loaded.Aliases)
-}
-
 func TestModelCatalogRepository_CreateEntryRejectsDuplicateModelID(t *testing.T) {
 	ctx := context.Background()
 	repo, unique := newModelCatalogRepoForTest(t, "repo-dup")
@@ -298,9 +247,6 @@ func TestModelCatalogRepository_SeedRefreshKeepsChildren(t *testing.T) {
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
-	require.NoError(t, repo.CreateAlias(ctx, &service.ModelCatalogAlias{
-		Alias: unique("nick"), EntryID: entry.ID, Source: service.ModelCatalogAliasSourceManual,
-	}))
 
 	result, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{{
 		ModelID: unique("m"), BillingMode: service.BillingModeToken,
@@ -313,12 +259,11 @@ func TestModelCatalogRepository_SeedRefreshKeepsChildren(t *testing.T) {
 	loaded, err := repo.GetEntryByID(ctx, entry.ID)
 	require.NoError(t, err)
 	require.InDelta(t, 5e-6, *loaded.InputPrice, 1e-15)
-	require.Len(t, loaded.Aliases, 1, "seed refresh must not drop aliases")
 	require.Len(t, loaded.Intervals, 1, "seed refresh must not drop price intervals")
 	require.NotNil(t, loaded.TimePricing, "seed refresh must not drop time pricing")
 }
 
-// ListEntries 必须把别名 / 分档 / 分时挂回对应条目：快照少挂一项，
+// ListEntries 必须把分档 / 分时挂回对应条目：快照少挂一项，
 // 计费就会漏掉分档或分时。
 func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 	ctx := context.Background()
@@ -337,9 +282,6 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
-	require.NoError(t, repo.CreateAlias(ctx, &service.ModelCatalogAlias{
-		Alias: unique("nick"), EntryID: entry.ID, Source: service.ModelCatalogAliasSourceSeed,
-	}))
 
 	entries, err := repo.ListEntries(ctx)
 	require.NoError(t, err)
@@ -352,7 +294,6 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 		}
 	}
 	require.NotNil(t, found)
-	require.Len(t, found.Aliases, 1)
 	require.Len(t, found.Intervals, 1)
 	require.NotNil(t, found.TimePricing)
 	require.InDelta(t, 3, found.TimePricing.Periods[0].Multiplier, 1e-9)
@@ -480,21 +421,10 @@ func TestModelCatalogRepository_BindingsCarryUpstreamPrices(t *testing.T) {
 	require.Empty(t, bindings, "deleting the entry cascades its bindings")
 }
 
-// 种子自带分档与别名时随条目落库：插入写、刷新整份覆盖分档、别名只补不删；
-// 别名已被管理员占用（指向别的条目）时跳过且不报错。
-func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
+// 种子自带分档时随条目落库：插入写、刷新整份覆盖分档。
+func TestModelCatalogRepository_SeedWritesIntervals(t *testing.T) {
 	ctx := context.Background()
 	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-children")
-
-	other := &service.ModelCatalogEntry{
-		ModelID: unique("other"), BillingMode: service.BillingModeImage,
-		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
-		PerRequestPrice: float64Value(0.5),
-	}
-	require.NoError(t, repo.CreateEntry(ctx, other))
-	require.NoError(t, repo.CreateAlias(ctx, &service.ModelCatalogAlias{
-		EntryID: other.ID, Alias: unique("taken-alias"), Source: service.ModelCatalogAliasSourceManual,
-	}))
 
 	seed := service.ModelCatalogEntry{
 		ModelID: unique("imagine"), Vendor: "xai", BillingMode: service.BillingModeImage,
@@ -504,7 +434,6 @@ func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
 			{TierLabel: service.ImageBillingSize1K, PerRequestPrice: float64Value(0.05), SortOrder: 0},
 			{TierLabel: service.ImageBillingSize2K, PerRequestPrice: float64Value(0.07), SortOrder: 1},
 		},
-		SeedAliases: []string{unique("free-alias"), unique("taken-alias")},
 	}
 
 	first, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seed})
@@ -517,19 +446,8 @@ func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
 	require.Len(t, got.Intervals, 2)
 	require.Equal(t, service.ImageBillingSize1K, got.Intervals[0].TierLabel)
 	require.InDelta(t, 0.07, *got.Intervals[1].PerRequestPrice, 1e-12)
-	aliases := make([]string, 0, len(got.Aliases))
-	for _, alias := range got.Aliases {
-		require.Equal(t, service.ModelCatalogAliasSourceSeed, alias.Source)
-		aliases = append(aliases, alias.Alias)
-	}
-	require.Equal(t, []string{unique("free-alias")}, aliases, "被占用的别名跳过")
 
-	otherGot, err := repo.GetEntryByModelID(ctx, unique("other"))
-	require.NoError(t, err)
-	require.Len(t, otherGot.Aliases, 1)
-	require.Equal(t, unique("taken-alias"), otherGot.Aliases[0].Alias, "管理员别名不动")
-
-	// 重播：分档随种子整份覆盖（改成三档），别名不重复写
+	// 重播：分档随种子整份覆盖（改成三档）
 	seed.Intervals = append(seed.Intervals, service.PricingInterval{TierLabel: service.ImageBillingSize4K, PerRequestPrice: float64Value(0.10), SortOrder: 2})
 	second, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seed})
 	require.NoError(t, err)
@@ -539,7 +457,6 @@ func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
 	again, err := repo.GetEntryByModelID(ctx, unique("imagine"))
 	require.NoError(t, err)
 	require.Len(t, again.Intervals, 3)
-	require.Len(t, again.Aliases, 1)
 }
 
 // 价格页的两种整块保存：

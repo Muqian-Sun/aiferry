@@ -594,10 +594,6 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.GET("/entries/:id/bindings", h.Admin.ModelCatalog.ListBindings)
 		catalog.GET("/entries/:id/diagnosis", h.Admin.ModelCatalog.Diagnose)
 
-		catalog.POST("/aliases", h.Admin.ModelCatalog.CreateAlias)
-		catalog.PUT("/aliases/:id", h.Admin.ModelCatalog.UpdateAlias)
-		catalog.DELETE("/aliases/:id", h.Admin.ModelCatalog.DeleteAlias)
-
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
 		catalog.POST("/official-lookup", h.Admin.ModelCatalog.OfficialLookup)

@@ -50,7 +50,6 @@ func TestMigration243CreatesCatalogTablesAndIsRepeatable(t *testing.T) {
 
 	for _, table := range []string{
 		"model_catalog_entries",
-		"model_catalog_aliases",
 		"model_catalog_price_intervals",
 		"model_catalog_time_pricing",
 	} {
@@ -77,21 +76,18 @@ func TestMigration243ModelIDIsUniqueCaseInsensitively(t *testing.T) {
 	require.Error(t, err, "lower(model_id) must be unique")
 }
 
-// TestMigration243AliasIsUniqueCaseInsensitively 钉住「同一个别名不能指向两个模型」。
-func TestMigration243AliasIsUniqueCaseInsensitively(t *testing.T) {
+// TestMigration268DropsModelCatalogAliases 钉住目录不存别名（2026-10-06）：迁移跑完别名表不在了。
+func TestMigration268DropsModelCatalogAliases(t *testing.T) {
 	tx := testTx(t)
 	ctx := context.Background()
 
-	first := insertCatalogEntry(ctx, t, tx, "migration-243-alias-a")
-	second := insertCatalogEntry(ctx, t, tx, "migration-243-alias-b")
-
-	_, err := tx.ExecContext(ctx,
-		"INSERT INTO model_catalog_aliases (alias, entry_id) VALUES ($1, $2)", "Migration-243-Alias", first)
-	require.NoError(t, err)
-
-	_, err = tx.ExecContext(ctx,
-		"INSERT INTO model_catalog_aliases (alias, entry_id) VALUES ($1, $2)", "migration-243-alias", second)
-	require.Error(t, err, "lower(alias) must be unique across entries")
+	var exists bool
+	require.NoError(t, tx.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'model_catalog_aliases'
+)`).Scan(&exists))
+	require.False(t, exists, "model_catalog_aliases must be dropped by migration 268")
 }
 
 // TestMigration243RejectsInvalidEnums 钉住三个 CHECK 约束。
@@ -119,8 +115,8 @@ func TestMigration243RejectsInvalidEnums(t *testing.T) {
 	}
 }
 
-// TestMigration243CascadesChildRowsOnEntryDelete 钉住三张子表的 ON DELETE CASCADE：
-// 删条目必须把别名、分档、分时一起带走，否则孤儿行会让下次播种撞唯一约束。
+// TestMigration243CascadesChildRowsOnEntryDelete 钉住子表的 ON DELETE CASCADE：
+// 删条目必须把分档、分时一起带走，否则孤儿行会让下次播种撞唯一约束。
 func TestMigration243CascadesChildRowsOnEntryDelete(t *testing.T) {
 	tx := testTx(t)
 	ctx := context.Background()
@@ -128,9 +124,6 @@ func TestMigration243CascadesChildRowsOnEntryDelete(t *testing.T) {
 	entryID := insertCatalogEntry(ctx, t, tx, "migration-243-cascade")
 
 	_, err := tx.ExecContext(ctx,
-		"INSERT INTO model_catalog_aliases (alias, entry_id) VALUES ($1, $2)", "migration-243-cascade-alias", entryID)
-	require.NoError(t, err)
-	_, err = tx.ExecContext(ctx,
 		"INSERT INTO model_catalog_price_intervals (entry_id, min_tokens, max_tokens) VALUES ($1, 0, 100)", entryID)
 	require.NoError(t, err)
 	_, err = tx.ExecContext(ctx,
@@ -141,7 +134,6 @@ func TestMigration243CascadesChildRowsOnEntryDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, table := range []string{
-		"model_catalog_aliases",
 		"model_catalog_price_intervals",
 		"model_catalog_time_pricing",
 	} {

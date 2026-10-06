@@ -46,8 +46,6 @@ type Tx struct {
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
-	// ModelCatalogAlias is the client for interacting with the ModelCatalogAlias builders.
-	ModelCatalogAlias *ModelCatalogAliasClient
 	// ModelCatalogBinding is the client for interacting with the ModelCatalogBinding builders.
 	ModelCatalogBinding *ModelCatalogBindingClient
 	// ModelCatalogEntry is the client for interacting with the ModelCatalogEntry builders.
@@ -237,7 +235,6 @@ func (tx *Tx) init() {
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
-	tx.ModelCatalogAlias = NewModelCatalogAliasClient(tx.config)
 	tx.ModelCatalogBinding = NewModelCatalogBindingClient(tx.config)
 	tx.ModelCatalogEntry = NewModelCatalogEntryClient(tx.config)
 	tx.ModelCatalogPriceInterval = NewModelCatalogPriceIntervalClient(tx.config)

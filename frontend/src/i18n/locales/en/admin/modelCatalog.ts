@@ -1,6 +1,6 @@
 export default {
   modelCatalog: {
-    search: 'Model, vendor or alias',
+    search: 'Model or vendor',
     create: 'New model',
     noMatch: 'No entries match',
     noneListed: 'No models are listed yet',
@@ -11,7 +11,6 @@ export default {
       listedWithoutResources: 'Listed without a schedulable channel',
       showThem: 'Filter'
     },
-    aliasCount: '{count} aliases',
     filters: {
       noVendor: '(no vendor)',
       withResources: 'With a schedulable channel',
@@ -88,18 +87,6 @@ export default {
       unsavedPricing: 'The pricing block has unsaved changes: save it or undo them first.',
       pricingElsewhere: 'Official prices, segments and serving channels are edited on the pricing page.',
       openPricing: 'Open pricing →',
-      aliases: {
-        label: 'Aliases',
-        placeholder: 'e.g. gpt-5.5-2026-08-01; may end with *',
-        add: 'Add',
-        hint: 'Press Enter to add. Adding or removing an alias takes effect right away, no need to click Save.',
-        seed: 'Built-in',
-        seedTitle: 'Built-in aliases follow the price file: a removed one comes back the next time the catalog refreshes, so it cannot be removed here.',
-        remove: 'Remove alias {alias}',
-        exists: 'This alias is already taken (possibly by another model).',
-        addFailed: 'Failed to add the alias',
-        removeFailed: 'Failed to remove the alias'
-      },
       notes: 'Notes',
       notesPlaceholder: 'Optional, shown only on the admin site'
     },
@@ -111,7 +98,6 @@ export default {
       },
       unpricedBanner: 'Listed without a price: users cannot see this model.',
       unboundBanner: 'Listed without channels: user calls to this model will fail.',
-      aliases: 'Aliases',
       notes: 'Notes',
       updatedAt: 'Updated',
       prices: 'List price',
@@ -185,7 +171,7 @@ export default {
     seedDone: 'Import finished: {inserted} added, {refreshed} updated, {skipped} skipped (edited by hand)',
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
-    deleteConfirm: 'Deleting {model} also deletes its aliases, {intervals}, and time pricing. Continue?',
+    deleteConfirm: 'Deleting {model} also deletes its {intervals} and time pricing. Continue?',
     deleteIntervals: { segments: 'token segments', tiers: 'tiers' },
     // No channel can serve the model (D6): flagged in the list, confirmed before listing (not blocked)
     unschedulable: {

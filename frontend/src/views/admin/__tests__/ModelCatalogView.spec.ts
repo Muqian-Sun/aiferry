@@ -56,7 +56,6 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     search_price_per_call: null,
     max_reasoning_effort_multiplier: null,
     intervals: [],
-    aliases: [],
     bindings: [],
     created_at: '2026-09-18T00:00:00Z',
     updated_at: '2026-09-18T00:00:00Z',

@@ -2094,15 +2094,12 @@ func mediaCatalogResolverForTest(bs *BillingService, model string, mode BillingM
 	return newResolverWithCatalogCards(bs, card)
 }
 
-// seededImagineResolverForTest 用 xAI Imagine 种子条目（含分档与别名）搭目录解析器。
+// seededImagineResolverForTest 用 xAI Imagine 种子条目（含分档）搭目录解析器。
 func seededImagineResolverForTest(bs *BillingService) *ModelPricingResolver {
 	entries := xaiImagineSeeds()
 	for i := range entries {
 		entries[i].ID = int64(i + 1)
 		entries[i].Status = ModelCatalogStatusListed
-		for _, alias := range entries[i].SeedAliases {
-			entries[i].Aliases = append(entries[i].Aliases, ModelCatalogAlias{Alias: alias, Source: ModelCatalogAliasSourceSeed})
-		}
 	}
 	catalog, _ := newTestModelCatalogService(entries...)
 	return NewModelPricingResolver(catalog, bs)

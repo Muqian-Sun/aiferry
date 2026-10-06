@@ -87,7 +87,6 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 		entry.ID = 0
 		entry.ModelID = id
 		entry.Status = ModelCatalogStatusUnlisted
-		entry.SeedAliases = nil
 		if err := s.CreateEntry(ctx, &entry); err != nil {
 			return nil, fmt.Errorf("import upstream model %q: %w", id, err)
 		}
@@ -98,17 +97,10 @@ func (s *ModelCatalogService) ImportUpstreamModels(ctx context.Context, ids []st
 }
 
 func catalogEntriesByKey(entries []ModelCatalogEntry) map[string]*ModelCatalogEntry {
-	byKey := make(map[string]*ModelCatalogEntry, len(entries)*2)
+	byKey := make(map[string]*ModelCatalogEntry, len(entries))
 	for i := range entries {
 		entry := &entries[i]
 		byKey[NormalizeModelCatalogKey(entry.ModelID)] = entry
-		for _, alias := range entry.Aliases {
-			if key := NormalizeModelCatalogKey(alias.Alias); key != "" {
-				if _, taken := byKey[key]; !taken {
-					byKey[key] = entry
-				}
-			}
-		}
 	}
 	return byKey
 }

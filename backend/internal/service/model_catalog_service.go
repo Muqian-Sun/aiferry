@@ -4,14 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
 // ModelCatalogRepository 是模型目录的数据访问接口。
-// 条目自带别名、分档与分时配置：目录是计费热路径的价格来源，一次读全比分开读
+// 条目自带分档与分时配置：目录是计费热路径的价格来源，一次读全比分开读
 // 更容易保证快照内部一致。
 type ModelCatalogRepository interface {
 	ListEntries(ctx context.Context) ([]ModelCatalogEntry, error)
@@ -20,10 +19,6 @@ type ModelCatalogRepository interface {
 	CreateEntry(ctx context.Context, entry *ModelCatalogEntry) error
 	UpdateEntry(ctx context.Context, entry *ModelCatalogEntry) error
 	DeleteEntry(ctx context.Context, id int64) error
-
-	CreateAlias(ctx context.Context, alias *ModelCatalogAlias) error
-	UpdateAlias(ctx context.Context, alias *ModelCatalogAlias) error
-	DeleteAlias(ctx context.Context, id int64) error
 
 	// InsertOrRefreshSeedEntries 写入播种条目：模型标识不存在则插入，
 	// 已存在且 managed_by = 'seed' 则刷新价格，managed_by = 'admin' 则整条跳过。
@@ -81,18 +76,10 @@ const modelCatalogReloadTimeout = 10 * time.Second
 // 5s 是拍的：比 TTL 短一个量级，库恢复后很快跟上；比单次请求长，能压住失败风暴。
 const modelCatalogReloadBackoff = 5 * time.Second
 
-type wildcardCatalogAlias struct {
-	prefix string
-	entry  *ModelCatalogEntry
-}
-
 // modelCatalogSnapshot 是目录的只读查表快照。
 type modelCatalogSnapshot struct {
 	entries   []ModelCatalogEntry
 	byModelID map[string]*ModelCatalogEntry
-	byAlias   map[string]*ModelCatalogEntry
-	// wildcards 按前缀长度降序：最长前缀胜出，结果不依赖行序。
-	wildcards []wildcardCatalogAlias
 	loadedAt  time.Time
 }
 
@@ -245,24 +232,12 @@ func buildModelCatalogSnapshot(entries []ModelCatalogEntry) *modelCatalogSnapsho
 	snapshot := &modelCatalogSnapshot{
 		entries:   entries,
 		byModelID: make(map[string]*ModelCatalogEntry, len(entries)),
-		byAlias:   make(map[string]*ModelCatalogEntry),
 		loadedAt:  time.Now(),
 	}
 	for i := range entries {
 		entry := &snapshot.entries[i]
 		snapshot.byModelID[NormalizeModelCatalogKey(entry.ModelID)] = entry
-		for _, alias := range entry.Aliases {
-			key := NormalizeModelCatalogKey(alias.Alias)
-			if prefix, wild := splitWildcardSuffix(key); wild {
-				snapshot.wildcards = append(snapshot.wildcards, wildcardCatalogAlias{prefix: prefix, entry: entry})
-				continue
-			}
-			snapshot.byAlias[key] = entry
-		}
 	}
-	sort.SliceStable(snapshot.wildcards, func(i, j int) bool {
-		return len(snapshot.wildcards[i].prefix) > len(snapshot.wildcards[j].prefix)
-	})
 	return snapshot
 }
 
@@ -270,21 +245,10 @@ func (snapshot *modelCatalogSnapshot) lookupNormalized(key string) *ModelCatalog
 	if snapshot == nil || key == "" {
 		return nil
 	}
-	if entry, ok := snapshot.byModelID[key]; ok {
-		return entry
-	}
-	if entry, ok := snapshot.byAlias[key]; ok {
-		return entry
-	}
-	for _, wildcard := range snapshot.wildcards {
-		if strings.HasPrefix(key, wildcard.prefix) {
-			return wildcard.entry
-		}
-	}
-	return nil
+	return snapshot.byModelID[key]
 }
 
-// lookupExactModelID 按模型标识逐字查条目（只去首尾空白），不认别名与大小写变体。
+// lookupExactModelID 按模型标识逐字查条目（只去首尾空白），不认大小写变体。
 func (s *ModelCatalogService) lookupExactModelID(ctx context.Context, model string) *ModelCatalogEntry {
 	if s == nil {
 		return nil
@@ -301,8 +265,8 @@ func (s *ModelCatalogService) lookupExactModelID(ctx context.Context, model stri
 	return entry
 }
 
-// LookupPricingEntry 按模型名查目录条目：先精确模型标识，再精确别名，
-// 最后按最长前缀匹配通配别名。全部未命中时再用 OpenAI/Codex 的归一化基名重试一次
+// LookupPricingEntry 按模型名查目录条目：按模型标识查（不分大小写）。目录只存官网模型 ID、不存别名
+// （muqian 2026-10-06：上游名字不同在渠道承接行的上游模型名里配）。未命中时再用 OpenAI/Codex 的归一化基名重试一次
 // （与渠道定价此前的 lookupChannelPricingNormalized 同口径，见 issue #5256）。
 //
 // 上架状态（listed/unlisted）不参与查表：本阶段目录只换价格来源，不改准入。
@@ -392,62 +356,12 @@ func (s *ModelCatalogService) UpdateEntry(ctx context.Context, entry *ModelCatal
 	return nil
 }
 
-// DeleteEntry 删除条目（别名、分档、分时由外键级联删除）。
+// DeleteEntry 删除条目（分档、分时由外键级联删除）。
 func (s *ModelCatalogService) DeleteEntry(ctx context.Context, id int64) error {
 	if s == nil || s.repo == nil {
 		return ErrModelCatalogEntryNotFound
 	}
 	if err := s.repo.DeleteEntry(ctx, id); err != nil {
-		return err
-	}
-	s.invalidate(ctx)
-	return nil
-}
-
-// CreateAlias 新增别名。
-func (s *ModelCatalogService) CreateAlias(ctx context.Context, alias *ModelCatalogAlias) error {
-	if s == nil || s.repo == nil {
-		return ErrModelCatalogAliasNotFound
-	}
-	alias.Alias = NormalizeModelCatalogAlias(alias.Alias)
-	if alias.Source == "" {
-		alias.Source = ModelCatalogAliasSourceManual
-	}
-	if err := ValidateModelCatalogAlias(alias.Alias, alias.Source); err != nil {
-		return err
-	}
-	if err := s.repo.CreateAlias(ctx, alias); err != nil {
-		return err
-	}
-	s.invalidate(ctx)
-	return nil
-}
-
-// UpdateAlias 更新别名。
-func (s *ModelCatalogService) UpdateAlias(ctx context.Context, alias *ModelCatalogAlias) error {
-	if s == nil || s.repo == nil {
-		return ErrModelCatalogAliasNotFound
-	}
-	alias.Alias = NormalizeModelCatalogAlias(alias.Alias)
-	if alias.Source == "" {
-		alias.Source = ModelCatalogAliasSourceManual
-	}
-	if err := ValidateModelCatalogAlias(alias.Alias, alias.Source); err != nil {
-		return err
-	}
-	if err := s.repo.UpdateAlias(ctx, alias); err != nil {
-		return err
-	}
-	s.invalidate(ctx)
-	return nil
-}
-
-// DeleteAlias 删除别名。
-func (s *ModelCatalogService) DeleteAlias(ctx context.Context, id int64) error {
-	if s == nil || s.repo == nil {
-		return ErrModelCatalogAliasNotFound
-	}
-	if err := s.repo.DeleteAlias(ctx, id); err != nil {
 		return err
 	}
 	s.invalidate(ctx)

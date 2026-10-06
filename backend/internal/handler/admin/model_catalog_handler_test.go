@@ -104,55 +104,6 @@ func (r *catalogRepoStub) DeleteEntry(_ context.Context, id int64) error {
 	return service.ErrModelCatalogEntryNotFound
 }
 
-func (r *catalogRepoStub) CreateAlias(_ context.Context, alias *service.ModelCatalogAlias) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	key := service.NormalizeModelCatalogKey(alias.Alias)
-	for i := range r.entries {
-		for _, existing := range r.entries[i].Aliases {
-			if service.NormalizeModelCatalogKey(existing.Alias) == key {
-				return service.ErrModelCatalogAliasExists
-			}
-		}
-	}
-	for i := range r.entries {
-		if r.entries[i].ID == alias.EntryID {
-			alias.ID = int64(len(r.entries[i].Aliases) + 1)
-			r.entries[i].Aliases = append(r.entries[i].Aliases, *alias)
-			return nil
-		}
-	}
-	return service.ErrModelCatalogEntryNotFound
-}
-
-func (r *catalogRepoStub) UpdateAlias(_ context.Context, alias *service.ModelCatalogAlias) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.entries {
-		for j := range r.entries[i].Aliases {
-			if r.entries[i].Aliases[j].ID == alias.ID {
-				r.entries[i].Aliases[j] = *alias
-				return nil
-			}
-		}
-	}
-	return service.ErrModelCatalogAliasNotFound
-}
-
-func (r *catalogRepoStub) DeleteAlias(_ context.Context, id int64) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.entries {
-		for j := range r.entries[i].Aliases {
-			if r.entries[i].Aliases[j].ID == id {
-				r.entries[i].Aliases = append(r.entries[i].Aliases[:j], r.entries[i].Aliases[j+1:]...)
-				return nil
-			}
-		}
-	}
-	return service.ErrModelCatalogAliasNotFound
-}
-
 func (r *catalogRepoStub) InsertOrRefreshSeedEntries(context.Context, []service.ModelCatalogEntry) (service.ModelCatalogSeedResult, error) {
 	if r.seedErr != nil {
 		return service.ModelCatalogSeedResult{}, r.seedErr
@@ -253,9 +204,6 @@ func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
 	r.DELETE("/entries/:id", h.DeleteEntry)
 	r.GET("/entries/:id/bindings", h.ListBindings)
 	r.GET("/entries/:id/diagnosis", h.Diagnose)
-	r.POST("/aliases", h.CreateAlias)
-	r.PUT("/aliases/:id", h.UpdateAlias)
-	r.DELETE("/aliases/:id", h.DeleteAlias)
 	r.POST("/seed", h.Seed)
 	r.GET("/price-lookup", h.PriceLookup)
 	return r
@@ -431,48 +379,6 @@ func TestModelCatalogHandler_DeleteEntry(t *testing.T) {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/entries/5", nil))
 		require.Equal(t, http.StatusNotFound, rec.Code)
-	})
-}
-
-func TestModelCatalogHandler_AliasCRUD(t *testing.T) {
-	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
-		ID: 1, ModelID: "m", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed,
-	}}}
-	h := newCatalogHandler(repo)
-	router := newCatalogRouter(h)
-
-	t.Run("create", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/aliases", bytes.NewBufferString(`{"alias":"nick","entry_id":1}`)))
-		require.Equal(t, http.StatusOK, rec.Code)
-		require.Len(t, repo.entries[0].Aliases, 1)
-		require.Equal(t, service.ModelCatalogAliasSourceManual, repo.entries[0].Aliases[0].Source)
-	})
-
-	t.Run("duplicate", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/aliases", bytes.NewBufferString(`{"alias":"NICK","entry_id":1}`)))
-		require.Equal(t, http.StatusConflict, rec.Code)
-	})
-
-	t.Run("update", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/aliases/1", bytes.NewBufferString(`{"alias":"renamed","entry_id":1}`)))
-		require.Equal(t, http.StatusOK, rec.Code)
-		require.Equal(t, "renamed", repo.entries[0].Aliases[0].Alias)
-	})
-
-	t.Run("delete", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/aliases/1", nil))
-		require.Equal(t, http.StatusOK, rec.Code)
-		require.Empty(t, repo.entries[0].Aliases)
-	})
-
-	t.Run("bare wildcard rejected", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/aliases", bytes.NewBufferString(`{"alias":"*","entry_id":1}`)))
-		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }
 

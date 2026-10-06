@@ -28,7 +28,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
-	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
@@ -126,7 +125,6 @@ func checkColumn(t, c string) error {
 			errorpassthroughrule.Table:          errorpassthroughrule.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,
 			identityadoptiondecision.Table:      identityadoptiondecision.ValidColumn,
-			modelcatalogalias.Table:             modelcatalogalias.ValidColumn,
 			modelcatalogbinding.Table:           modelcatalogbinding.ValidColumn,
 			modelcatalogentry.Table:             modelcatalogentry.ValidColumn,
 			modelcatalogpriceinterval.Table:     modelcatalogpriceinterval.ValidColumn,

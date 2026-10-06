@@ -61,7 +61,6 @@ type modelPlazaModel struct {
 	Pricing     *userSupportedModelPricing `json:"pricing"`
 	// TimePricing 分时倍率时段，落在时段内的请求整单乘倍率；无分时省略。
 	TimePricing *modelPlazaTimePricing `json:"time_pricing,omitempty"`
-	Aliases     []string               `json:"aliases"`
 }
 
 // modelPlazaResponse 广场页响应：平铺的上架模型列表。
@@ -138,10 +137,6 @@ func scalePlazaPrice(p *float64, multiplier float64) *float64 {
 
 // toModelPlazaModelDTO 将 service 层广场模型映射为白名单 DTO，价格乘访问者倍率成售价。
 func toModelPlazaModelDTO(m *service.PlazaCatalogModel, multiplier float64) modelPlazaModel {
-	aliases := m.Aliases
-	if aliases == nil {
-		aliases = []string{}
-	}
 	return modelPlazaModel{
 		ModelID:     m.ModelID,
 		DisplayName: m.DisplayName,
@@ -149,7 +144,6 @@ func toModelPlazaModelDTO(m *service.PlazaCatalogModel, multiplier float64) mode
 		BillingMode: string(m.BillingMode),
 		Pricing:     toUserPricing(m.Pricing, m.TokenExtras, multiplier),
 		TimePricing: toModelPlazaTimePricing(m.TimePricing),
-		Aliases:     aliases,
 	}
 }
 

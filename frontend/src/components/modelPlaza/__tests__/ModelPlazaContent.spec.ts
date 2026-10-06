@@ -38,12 +38,12 @@ const response: ModelPlazaResponse = {
   description: '**Prices** update weekly',
   models: [
     {
-      model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', aliases: ['gpt-5.5-sol'],
+      model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token',
       pricing: tokenPricing(0.00001, 0.00003, 0.0000025),
       time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: true, periods: [{ start_time: '09:00', end_time: '18:00', multiplier: 1.5 }] }
     },
-    { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
-    { model_id: 'gpt-image-2', display_name: '', vendor: 'openai', billing_mode: 'image', pricing: null, aliases: [] }
+    { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null },
+    { model_id: 'gpt-image-2', display_name: '', vendor: 'openai', billing_mode: 'image', pricing: null }
   ]
 }
 
@@ -73,11 +73,10 @@ describe('ModelPlazaContent', () => {
     expect(gpt.text()).toContain('OpenAI')
     expect(gpt.text()).toContain('$10.00')
     expect(gpt.text()).toContain('$30.00')
-    // 缓存读与别名在详情抽屉里
+    // 缓存读在详情抽屉里
     await gpt.trigger('click')
     const detail = document.body.querySelector('[data-testid="model-pricing-detail"]')
     expect(detail?.textContent).toContain('$2.5')
-    expect(detail?.textContent).toContain('gpt-5.5-sol')
     expect(wrapper.get('[data-testid="price-unit"]').text()).toContain('userUi.models.priceUnit')
     // 倍率与官方价只用来算，不给用户看
     expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)

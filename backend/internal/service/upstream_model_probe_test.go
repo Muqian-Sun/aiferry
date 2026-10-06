@@ -9,25 +9,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 探测到的上游模型对到目录：规范化模型名、别名、去掉厂商前缀；目录里没有的一键导入为未上架条目（2026-09-29）。
+// 探测到的上游模型对到目录：规范化模型名、去掉厂商前缀；目录里没有的一键导入为未上架条目（2026-09-29）。
+// 目录不存别名（2026-10-06）：上游的别名对不上目录，要在承接行配上游模型名。
 
 func TestMatchUpstreamModels(t *testing.T) {
 	svc, _ := newTestModelCatalogService(
 		ModelCatalogEntry{ID: 1, ModelID: "claude-sonnet-4-6", Status: ModelCatalogStatusListed},
-		ModelCatalogEntry{ID: 2, ModelID: "gpt-5.4", Status: ModelCatalogStatusUnlisted,
-			Aliases: []ModelCatalogAlias{{EntryID: 2, Alias: "gpt-5.4-2026-03-01"}}},
+		ModelCatalogEntry{ID: 2, ModelID: "gpt-5.4", Status: ModelCatalogStatusUnlisted},
 	)
 
 	got, err := svc.MatchUpstreamModels(context.Background(), []string{
 		"claude-sonnet-4.6",           // 规范化：claude 的 "." → "-"
-		"GPT-5.4-2026-03-01",          // 别名，大小写不敏感
+		"GPT-5.4",                     // 大小写不敏感
+		"gpt-5.4-2026-03-01",          // 目录里没有这个 ID（别名不算）
 		"anthropic/claude-sonnet-4-6", // 聚合平台的厂商前缀
 		"brand-new-model",             // 目录里没有
 	})
 	require.NoError(t, err)
 	require.Equal(t, []ProbedUpstreamModel{
 		{ID: "claude-sonnet-4.6", EntryID: 1, EntryModelID: "claude-sonnet-4-6", Listed: true},
-		{ID: "GPT-5.4-2026-03-01", EntryID: 2, EntryModelID: "gpt-5.4"},
+		{ID: "GPT-5.4", EntryID: 2, EntryModelID: "gpt-5.4"},
+		{ID: "gpt-5.4-2026-03-01"},
 		{ID: "anthropic/claude-sonnet-4-6", EntryID: 1, EntryModelID: "claude-sonnet-4-6", Listed: true},
 		{ID: "brand-new-model"},
 	}, got)

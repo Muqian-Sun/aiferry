@@ -1,6 +1,6 @@
 export default {
   modelCatalog: {
-    search: '搜索模型、厂商或别名',
+    search: '搜索模型或厂商',
     create: '新建模型',
     edit: '编辑模型',
     empty: '目录还是空的，先从价格文件导入或手动新建。',
@@ -13,7 +13,6 @@ export default {
       listedWithoutResources: '上架但没有能调度的渠道',
       showThem: '筛选'
     },
-    aliasCount: '{count} 个别名',
     filters: {
       noVendor: '（无厂商）',
       withResources: '有能调度的渠道',
@@ -88,18 +87,6 @@ export default {
       unsavedPricing: '定价这一块还有没保存的改动：先保存，或点那一块的「撤销」。',
       pricingElsewhere: '官方价、分段和承接的渠道在价格页改。',
       openPricing: '去价格页 →',
-      aliases: {
-        label: '别名',
-        placeholder: '如 gpt-5.5-2026-08-01，末尾可以加 *',
-        add: '添加',
-        hint: '回车添加。别名的增删立即生效，不用点「保存」。',
-        seed: '内置',
-        seedTitle: '内置别名跟着价格文件走：删掉后下次刷新目录会补回来，所以这里不能删。',
-        remove: '删除别名 {alias}',
-        exists: '这个别名已经被占用了（可能在别的模型上）。',
-        addFailed: '别名添加失败',
-        removeFailed: '别名删除失败'
-      },
       notes: '备注',
       notesPlaceholder: '选填，只在管理站显示'
     },
@@ -111,7 +98,6 @@ export default {
       },
       unpricedBanner: '已上架但没有配价：用户看不到这个模型。',
       unboundBanner: '已上架但没有绑定渠道：用户调用这个模型会失败。',
-      aliases: '别名',
       notes: '备注',
       updatedAt: '更新时间',
       prices: '标价',
@@ -185,7 +171,7 @@ export default {
     seedDone: '导入完成：新增 {inserted}，更新 {refreshed}，跳过手动改过的 {skipped}',
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
-    deleteConfirm: '删除 {model} 后，它的别名、{intervals} 和分时定价会一起删掉。确定删除？',
+    deleteConfirm: '删除 {model} 后，它的{intervals}和分时定价会一起删掉。确定删除？',
     deleteIntervals: { segments: '分段', tiers: '分档' },
     // 模型没有能派到请求的渠道（D6）：列表标出来，上架前确认（不拦）
     unschedulable: {

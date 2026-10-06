@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
@@ -49,18 +48,6 @@ func (r *modelCatalogRepository) ListEntries(ctx context.Context) ([]service.Mod
 	}
 	if len(entries) == 0 {
 		return entries, nil
-	}
-
-	aliases, err := client.ModelCatalogAlias.Query().
-		Order(dbent.Asc(modelcatalogalias.FieldAlias)).
-		All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range aliases {
-		if entry, ok := byID[row.EntryID]; ok {
-			entry.Aliases = append(entry.Aliases, *modelCatalogAliasToService(row))
-		}
 	}
 
 	intervals, err := client.ModelCatalogPriceInterval.Query().
@@ -128,17 +115,6 @@ func (r *modelCatalogRepository) GetEntryByModelID(ctx context.Context, modelID 
 
 func (r *modelCatalogRepository) hydrateEntry(ctx context.Context, entry *service.ModelCatalogEntry) (*service.ModelCatalogEntry, error) {
 	client := clientFromContext(ctx, r.client)
-
-	aliases, err := client.ModelCatalogAlias.Query().
-		Where(modelcatalogalias.EntryIDEQ(entry.ID)).
-		Order(dbent.Asc(modelcatalogalias.FieldAlias)).
-		All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range aliases {
-		entry.Aliases = append(entry.Aliases, *modelCatalogAliasToService(row))
-	}
 
 	intervals, err := client.ModelCatalogPriceInterval.Query().
 		Where(modelcatalogpriceinterval.EntryIDEQ(entry.ID)).
@@ -336,70 +312,10 @@ func (r *modelCatalogRepository) DeleteEntry(ctx context.Context, id int64) erro
 	return r.enqueueCatalogBindingsChanged(ctx, id)
 }
 
-func (r *modelCatalogRepository) CreateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
-	if alias == nil {
-		return service.ErrModelCatalogAliasNotFound
-	}
-	client := clientFromContext(ctx, r.client)
-	builder := client.ModelCatalogAlias.Create().
-		SetAlias(alias.Alias).
-		SetEntryID(alias.EntryID).
-		SetSource(alias.Source)
-	if alias.Notes != nil {
-		builder = builder.SetNotes(*alias.Notes)
-	}
-	created, err := builder.Save(ctx)
-	if err != nil {
-		return translateModelCatalogAliasError(err)
-	}
-	*alias = *modelCatalogAliasToService(created)
-	return nil
-}
-
-// translateModelCatalogAliasError 把别名写入的库错误映射成业务错误：
-// 别名重名 → 409；entry_id 指向不存在的条目（外键冲突）→ 404，而不是 500。
-func translateModelCatalogAliasError(err error) error {
-	if isForeignKeyViolation(err) {
-		return service.ErrModelCatalogEntryNotFound.WithCause(err)
-	}
-	return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, service.ErrModelCatalogAliasExists)
-}
-
-func (r *modelCatalogRepository) UpdateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
-	if alias == nil {
-		return service.ErrModelCatalogAliasNotFound
-	}
-	client := clientFromContext(ctx, r.client)
-	builder := client.ModelCatalogAlias.UpdateOneID(alias.ID).
-		SetAlias(alias.Alias).
-		SetEntryID(alias.EntryID).
-		SetSource(alias.Source)
-	if alias.Notes != nil {
-		builder = builder.SetNotes(*alias.Notes)
-	} else {
-		builder = builder.ClearNotes()
-	}
-	updated, err := builder.Save(ctx)
-	if err != nil {
-		return translateModelCatalogAliasError(err)
-	}
-	*alias = *modelCatalogAliasToService(updated)
-	return nil
-}
-
-func (r *modelCatalogRepository) DeleteAlias(ctx context.Context, id int64) error {
-	client := clientFromContext(ctx, r.client)
-	if err := client.ModelCatalogAlias.DeleteOneID(id).Exec(ctx); err != nil {
-		return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, nil)
-	}
-	return nil
-}
-
 // InsertOrRefreshSeedEntries 按「不存在则插入 / seed 则刷新 / admin 则跳过」写入播种条目。
 //
 // 种子自带分档（Intervals）时随条目一起整份覆盖（seed 条目的分档跟着种子走）；
-// 种子自带别名（SeedAliases）时逐个补齐，已被占用的别名跳过并打 warn。
-// 其它条目（价格文件 / 兜底表）不带这两样，播种既不写也不清空它们。
+// 不带分档的条目播种既不写也不清空它的分档。
 func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	ctx context.Context,
 	entries []service.ModelCatalogEntry,
@@ -469,7 +385,7 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	return result, nil
 }
 
-// writeSeedChildren 写种子条目自带的分档与别名；失败按单条播种失败处理（ctx 到期才整体中止）。
+// writeSeedChildren 写种子条目自带的分档；失败按单条播种失败处理（ctx 到期才整体中止）。
 func (r *modelCatalogRepository) writeSeedChildren(ctx context.Context, result *service.ModelCatalogSeedResult, entryID int64, entry *service.ModelCatalogEntry) error {
 	if len(entry.Intervals) > 0 {
 		entry.ID = entryID
@@ -480,32 +396,6 @@ func (r *modelCatalogRepository) writeSeedChildren(ctx context.Context, result *
 			if abort := seedRowFailed(ctx, result, "intervals", entry.ModelID, err); abort != nil {
 				return abort
 			}
-		}
-	}
-	for _, alias := range entry.SeedAliases {
-		record := &service.ModelCatalogAlias{EntryID: entryID, Alias: alias, Source: service.ModelCatalogAliasSourceSeed}
-		err := r.CreateAlias(ctx, record)
-		if err == nil {
-			continue
-		}
-		if errors.Is(err, service.ErrModelCatalogAliasExists) {
-			// 管理员已手建同名别名（可能指向别的条目）：不覆盖，但要有声音。
-			existing, lookupErr := r.client.ModelCatalogAlias.Query().
-				Where(modelcatalogalias.AliasEqualFold(alias)).
-				Only(ctx)
-			existingEntryID := int64(0)
-			if lookupErr == nil && existing != nil {
-				existingEntryID = existing.EntryID
-			}
-			if existingEntryID == entryID {
-				continue // 上次播种已写过，同一条目
-			}
-			slog.Warn("model catalog seed: alias already taken, skipped",
-				"alias", alias, "wanted_entry_id", entryID, "existing_entry_id", existingEntryID, "model_id", entry.ModelID)
-			continue
-		}
-		if abort := seedRowFailed(ctx, result, "alias", entry.ModelID, err); abort != nil {
-			return abort
 		}
 	}
 	return nil
@@ -745,21 +635,6 @@ func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelC
 		}
 	}
 	return binding
-}
-
-func modelCatalogAliasToService(row *dbent.ModelCatalogAlias) *service.ModelCatalogAlias {
-	if row == nil {
-		return nil
-	}
-	return &service.ModelCatalogAlias{
-		ID:        row.ID,
-		EntryID:   row.EntryID,
-		Alias:     row.Alias,
-		Source:    row.Source,
-		Notes:     row.Notes,
-		CreatedAt: row.CreatedAt,
-		UpdatedAt: row.UpdatedAt,
-	}
 }
 
 func modelCatalogIntervalToService(row *dbent.ModelCatalogPriceInterval) service.PricingInterval {

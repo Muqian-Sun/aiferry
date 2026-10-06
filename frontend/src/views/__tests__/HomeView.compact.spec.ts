@@ -155,13 +155,13 @@ describe('HomeView compact mode', () => {
       description: '',
       models: [
         {
-          model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', aliases: [],
+          model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token',
           pricing: {
             billing_mode: 'token', input_price: 0.00001, output_price: 0.00003, cache_write_price: null, cache_read_price: null,
             image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
           }
         },
-        { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }
+        { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null }
       ]
     })
     const wrapper = mountHome({})
@@ -183,9 +183,9 @@ describe('HomeView compact mode', () => {
     getModelPlaza.mockResolvedValue({
       description: '',
       models: [
-        { model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
-        { model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] },
-        { model_id: 'claude-sonnet-4-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }
+        { model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null },
+        { model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null },
+        { model_id: 'claude-sonnet-4-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null }
       ]
     })
     const wrapper = mountHome({})
@@ -249,7 +249,7 @@ describe('HomeView compact mode', () => {
     // 有目录：正文恰好三块，顺序 首屏 → 数字 → 特色
     getModelPlaza.mockResolvedValue({
       description: '',
-      models: [{ model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }]
+      models: [{ model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null }]
     })
     const full = mountHome({})
     await flushPromises()

@@ -448,8 +448,8 @@ func TestSeed_ImagineSeedsSkippedWhenPricingFileHasModel(t *testing.T) {
 	require.Len(t, entries, seededImagineCount)
 }
 
-// Imagine 种子带分档与别名一起落库；再次播种时分档随种子刷新、别名只补不删。
-func TestSeed_ImagineSeedsCarryIntervalsAndAliases(t *testing.T) {
+// Imagine 种子带分档一起落库；再次播种时分档随种子刷新。目录不存别名：种子的旧别名一个都查不到。
+func TestSeed_ImagineSeedsCarryIntervals(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(map[string]*LiteLLMModelPricing{
 		"claude-sonnet-4": {LiteLLMProvider: "anthropic", InputCostPerToken: 3e-6},
@@ -468,59 +468,27 @@ func TestSeed_ImagineSeedsCarryIntervalsAndAliases(t *testing.T) {
 	require.Equal(t, ImageBillingSize2K, image20.Intervals[1].TierLabel)
 	require.InDelta(t, 0.08, *image20.Intervals[1].PerRequestPrice, 1e-12)
 
-	video := entries["grok-imagine-video"]
-	aliases := make([]string, 0, len(video.Aliases))
-	for _, alias := range video.Aliases {
-		require.Equal(t, ModelCatalogAliasSourceSeed, alias.Source)
-		aliases = append(aliases, alias.Alias)
-	}
-	require.ElementsMatch(t, []string{"grok-video", "grok-video-latest", "grok-imagine-video-preview"}, aliases)
-
 	video15 := entries["grok-imagine-video-1.5"]
 	require.Equal(t, BillingModeVideo, video15.BillingMode)
 	require.Len(t, video15.Intervals, 3)
 	require.Equal(t, VideoBillingResolution1080P, video15.Intervals[2].TierLabel)
 	require.InDelta(t, 0.25, *video15.Intervals[2].PerRequestPrice, 1e-12)
 
-	// 别名解析：经目录快照 grok-video → grok-imagine-video 条目
 	catalog, _ := newTestModelCatalogService(repo.entries...)
-	resolved := catalog.LookupPricingEntry(context.Background(), "grok-video")
-	require.NotNil(t, resolved)
-	require.Equal(t, "grok-imagine-video", resolved.ModelID)
-
-	// 已弃用的 quality 不播，它的三个别名也就不在目录里
+	require.Equal(t, "grok-imagine-video", catalog.LookupPricingEntry(context.Background(), "grok-imagine-video").ModelID)
+	for _, oldAlias := range []string{"grok-video", "grok-video-latest", "grok-imagine-video-preview", "grok-video-1.5", "grok-imagine"} {
+		require.Nil(t, catalog.LookupPricingEntry(context.Background(), oldAlias), oldAlias)
+	}
+	// 已弃用的 quality 不播
 	require.NotContains(t, entries, "grok-imagine-image-quality")
-	require.Nil(t, catalog.LookupPricingEntry(context.Background(), "grok-imagine"))
 
-	// 重播：条目刷新而不是重复插入，分档与别名保持
+	// 重播：条目刷新而不是重复插入，分档保持
 	second, err := svc.Seed(context.Background())
 	require.NoError(t, err)
 	require.Zero(t, second.Inserted)
 	reseeded := seedEntriesByModelID(repo.entries)
 	require.Len(t, reseeded["grok-imagine-image-2.0"].Intervals, 2)
-	require.Len(t, reseeded["grok-imagine-video"].Aliases, 3)
-}
-
-// 管理员已手建同名别名指向别的条目时，种子别名跳过、不覆盖。
-func TestSeed_AliasConflictKeepsAdminAlias(t *testing.T) {
-	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
-		{ID: 1, ModelID: "my-image", BillingMode: BillingModeImage, Status: ModelCatalogStatusListed,
-			ManagedBy: ModelCatalogManagedByAdmin, PerRequestPrice: testPtrFloat64(0.5),
-			Aliases: []ModelCatalogAlias{{EntryID: 1, Alias: "grok-video", Source: ModelCatalogAliasSourceManual}}},
-	}}
-	svc := NewModelCatalogService(repo, nil, seedInputForTest(nil, nil))
-
-	_, err := svc.Seed(context.Background())
-	require.NoError(t, err)
-
-	entries := seedEntriesByModelID(repo.entries)
-	video := entries["grok-imagine-video"]
-	aliases := make([]string, 0, len(video.Aliases))
-	for _, alias := range video.Aliases {
-		aliases = append(aliases, alias.Alias)
-	}
-	require.ElementsMatch(t, []string{"grok-video-latest", "grok-imagine-video-preview"}, aliases, "被占用的 grok-video 不写")
-	require.Equal(t, "grok-video", entries["my-image"].Aliases[0].Alias, "管理员别名不动")
+	require.Len(t, reseeded["grok-imagine-video-1.5"].Intervals, 3)
 }
 
 func TestValidateIntervals_ImageVideoTiersRequireLabelAndPrice(t *testing.T) {

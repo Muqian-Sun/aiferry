@@ -28,12 +28,12 @@ vi.mock('@/api/modelPlaza', () => ({
   getModelPlaza: vi.fn().mockResolvedValue({
     description: '',
     models: [
-      { model_id: 'claude-opus-4-6', display_name: 'Opus 4.6', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
-      { model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', pricing: null, aliases: [] },
-      { model_id: 'gpt-5.4', display_name: 'GPT-5.4', vendor: 'openai', billing_mode: 'token', pricing: null, aliases: [] },
-      { model_id: 'gemini-3.1-pro-preview', display_name: 'Gemini 3.1 Pro', vendor: 'gemini', billing_mode: 'token', pricing: null, aliases: [] },
-      { model_id: 'grok-4.5', display_name: 'Grok 4.5', vendor: 'xai', billing_mode: 'token', pricing: null, aliases: [] },
-      { model_id: 'grok-imagine-image', display_name: 'Grok Imagine', vendor: 'xai', billing_mode: 'image', pricing: null, aliases: [] }
+      { model_id: 'claude-opus-4-6', display_name: 'Opus 4.6', vendor: 'anthropic', billing_mode: 'token', pricing: null },
+      { model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', pricing: null },
+      { model_id: 'gpt-5.4', display_name: 'GPT-5.4', vendor: 'openai', billing_mode: 'token', pricing: null },
+      { model_id: 'gemini-3.1-pro-preview', display_name: 'Gemini 3.1 Pro', vendor: 'gemini', billing_mode: 'token', pricing: null },
+      { model_id: 'grok-4.5', display_name: 'Grok 4.5', vendor: 'xai', billing_mode: 'token', pricing: null },
+      { model_id: 'grok-imagine-image', display_name: 'Grok Imagine', vendor: 'xai', billing_mode: 'image', pricing: null }
     ]
   })
 }))

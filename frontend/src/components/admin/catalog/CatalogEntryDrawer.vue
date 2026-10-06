@@ -1,7 +1,7 @@
 <template>
   <!--
     模型详情抽屉（A5）：模型目录点行打开，看完即关。两个页签：
-    概况（标识、厂商、计费、上架、别名、全部标价与 Token 分段 / 分档 / 分时）、渠道（承接的渠道此刻能否调度；「诊断」看各入口协议能否承接）。
+    概况（标识、厂商、计费、上架、全部标价与 Token 分段 / 分档 / 分时）、渠道（承接的渠道此刻能否调度；「诊断」看各入口协议能否承接）。
     改配置点「编辑」，上下架 / 删除在「⋯」里；动作都 emit 给目录页，由目录页弹原有的对话框。
     抽屉里所有 $ 价共用一个小数位数（priceFormat），不会一行 $3.00、一行 $0.3。
   -->
@@ -78,12 +78,6 @@
               <span :class="['inline-block h-2 w-2 rounded-full', entry.status === 'listed' ? 'bg-af-ink-3' : 'bg-af-hairline-strong']"></span>
               <span :class="entry.status === 'listed' ? 'text-af-ink' : 'text-af-ink-3'">{{ t(`admin.modelCatalog.status.${entry.status}`) }}</span>
             </span>
-          </DetailField>
-          <DetailField :label="t('admin.modelCatalog.drawer.aliases')">
-            <span v-if="entry.aliases?.length" class="font-mono text-13" data-testid="model-catalog-drawer-aliases">
-              {{ entry.aliases.map((alias) => alias.alias).join(', ') }}
-            </span>
-            <template v-else>—</template>
           </DetailField>
           <DetailField :label="t('admin.modelCatalog.drawer.notes')">
             <span v-if="entry.notes" class="whitespace-pre-wrap">{{ entry.notes }}</span>

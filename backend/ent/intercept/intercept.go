@@ -24,7 +24,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
-	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
@@ -535,33 +534,6 @@ func (f TraverseIdentityAdoptionDecision) Traverse(ctx context.Context, q ent.Qu
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.IdentityAdoptionDecisionQuery", q)
-}
-
-// The ModelCatalogAliasFunc type is an adapter to allow the use of ordinary function as a Querier.
-type ModelCatalogAliasFunc func(context.Context, *ent.ModelCatalogAliasQuery) (ent.Value, error)
-
-// Query calls f(ctx, q).
-func (f ModelCatalogAliasFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
-	if q, ok := q.(*ent.ModelCatalogAliasQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogAliasQuery", q)
-}
-
-// The TraverseModelCatalogAlias type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseModelCatalogAlias func(context.Context, *ent.ModelCatalogAliasQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseModelCatalogAlias) Intercept(next ent.Querier) ent.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseModelCatalogAlias) Traverse(ctx context.Context, q ent.Query) error {
-	if q, ok := q.(*ent.ModelCatalogAliasQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogAliasQuery", q)
 }
 
 // The ModelCatalogBindingFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1166,8 +1138,6 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:
 		return &query[*ent.IdentityAdoptionDecisionQuery, predicate.IdentityAdoptionDecision, identityadoptiondecision.OrderOption]{typ: ent.TypeIdentityAdoptionDecision, tq: q}, nil
-	case *ent.ModelCatalogAliasQuery:
-		return &query[*ent.ModelCatalogAliasQuery, predicate.ModelCatalogAlias, modelcatalogalias.OrderOption]{typ: ent.TypeModelCatalogAlias, tq: q}, nil
 	case *ent.ModelCatalogBindingQuery:
 		return &query[*ent.ModelCatalogBindingQuery, predicate.ModelCatalogBinding, modelcatalogbinding.OrderOption]{typ: ent.TypeModelCatalogBinding, tq: q}, nil
 	case *ent.ModelCatalogEntryQuery:
