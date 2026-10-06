@@ -512,28 +512,26 @@ export function saleDefaults(official: PriceRow, sale: SaleRow, ratio: number): 
   return { base, segments }
 }
 
-/** 按官方价 × ratio 填售价：只填空着的格子（含分段），填过的不动；返回填了几格 */
+/**
+ * 按官方价 × ratio 重填售价（含分段）：已填的也按新比例改（muqian 2026-10-07：只填空格时，填过一次以后再按比例填没有反应）；
+ * 官方没有的项不动。返回改了几格（与原来一样的不算，按同一个比例再填不产生改动）。
+ */
 export function fillSaleByRatio(sale: SaleRow, official: PriceRow, ratio: number): number {
-  let filled = 0
-  for (const key of PRICE_KEYS) {
-    const base = official[key]
-    if (sale.base[key] == null && base != null) {
-      sale.base[key] = scaled(base, ratio)
-      filled += 1
-    }
+  let changed = 0
+  const fill = (target: SalePrices, key: PriceKey, value: number | null) => {
+    if (value == null) return
+    const next = scaled(value, ratio)
+    if (sameNumber(target[key], next)) return
+    target[key] = next
+    changed += 1
   }
+  for (const key of PRICE_KEYS) fill(sale.base, key, official[key])
   for (const min of officialSegmentMins(official)) {
     const seg = officialSegmentPrices(official, min)
     const target = sale.segments[min] ?? (sale.segments[min] = emptySalePrices())
-    for (const key of PRICE_KEYS) {
-      const value = seg[key]
-      if (target[key] == null && value != null) {
-        target[key] = scaled(value, ratio)
-        filled += 1
-      }
-    }
+    for (const key of PRICE_KEYS) fill(target, key, seg[key])
   }
-  return filled
+  return changed
 }
 
 // ---- 忙闲时：官方的（目录条目的分时，向用户收钱整单乘倍数）与上游的（承接上的，渠道成本整单乘倍数）同一份表单
