@@ -12,7 +12,7 @@ import {
 } from '../catalog'
 
 function model(id: string, vendor: string, extra: Partial<PlazaModel> = {}): PlazaModel {
-  return { model_id: id, display_name: id, vendor, billing_mode: 'token', pricing: null, aliases: [], ...extra }
+  return { model_id: id, display_name: id, vendor, billing_mode: 'token', pricing: null, ...extra }
 }
 
 function pricing(input: number | null, output: number | null, cacheRead: number | null = null): PlazaModel['pricing'] {
@@ -46,18 +46,16 @@ describe('buildCatalog', () => {
     expect(buildCatalog([model('x', 'openai')])[0].price).toBeNull()
   })
 
-  it('carries billing mode, display name, aliases and time-pricing presence', () => {
+  it('carries billing mode, display name and time-pricing presence', () => {
     const [entry] = buildCatalog([
       model('gpt-5.6', 'openai', {
         display_name: 'GPT-5.6',
         billing_mode: 'image',
-        aliases: ['gpt-5.6-sol'],
         time_pricing: { timezone: 'Asia/Shanghai', periods: [{ start_time: '09:00', end_time: '18:00', multiplier: 1.5 }] }
       })
     ])
     expect(entry.displayName).toBe('GPT-5.6')
     expect(entry.billingMode).toBe('image')
-    expect(entry.aliases).toEqual(['gpt-5.6-sol'])
     expect(entry.timePricing?.periods).toHaveLength(1)
     expect(buildCatalog([model('plain', 'openai', { display_name: '' })])[0]).toMatchObject({ displayName: 'plain', timePricing: null })
   })
@@ -67,13 +65,12 @@ describe('filterCatalog / catalogVendors', () => {
   const catalog = buildCatalog([
     model('gpt-5.5', 'openai'),
     model('Claude-Opus-5', 'anthropic', { display_name: 'Opus 5' }),
-    model('gemini-3-pro', 'gemini', { aliases: ['g3p'] })
+    model('gemini-3-pro', 'gemini')
   ])
 
-  it('matches id, display name and aliases case-insensitively, and vendor exactly', () => {
+  it('matches id and display name case-insensitively, and vendor exactly', () => {
     expect(filterCatalog(catalog, 'CLAUDE', 'all').map((c) => c.id)).toEqual(['Claude-Opus-5'])
     expect(filterCatalog(catalog, 'opus 5', 'all').map((c) => c.id)).toEqual(['Claude-Opus-5'])
-    expect(filterCatalog(catalog, 'G3P', 'all').map((c) => c.id)).toEqual(['gemini-3-pro'])
     expect(filterCatalog(catalog, '', 'gemini').map((c) => c.id)).toEqual(['gemini-3-pro'])
     expect(filterCatalog(catalog, 'gpt', 'gemini')).toEqual([])
   })

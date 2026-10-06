@@ -62,7 +62,6 @@ export interface CatalogModel {
   xUserPerThousand: number | null
   /** reasoning_effort=max 时整单倍率；没配为 null */
   maxReasoningMultiplier: number | null
-  aliases: string[]
   /** 分时倍率（有时段才带） */
   timePricing: PlazaTimePricing | null
 }
@@ -145,7 +144,6 @@ function catalogModel(model: PlazaModel): CatalogModel {
     xPostPerThousand: p?.x_post_price == null ? null : p.x_post_price * PER_THOUSAND,
     xUserPerThousand: p?.x_user_price == null ? null : p.x_user_price * PER_THOUSAND,
     maxReasoningMultiplier: p?.max_reasoning_effort_multiplier ?? null,
-    aliases: model.aliases ?? [],
     timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
   }
 }
@@ -154,18 +152,14 @@ export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
   return models.map(catalogModel).sort((a, b) => a.vendor.localeCompare(b.vendor) || a.id.localeCompare(b.id))
 }
 
-/** 搜索匹配模型 id、展示名和别名；厂商 / 计费模式筛选精确匹配（'all' = 不筛） */
+/** 搜索匹配模型 id 和展示名；厂商 / 计费模式筛选精确匹配（'all' = 不筛） */
 export function filterCatalog(entries: CatalogModel[], search: string, vendor: string, billingMode = 'all'): CatalogModel[] {
   const query = search.trim().toLowerCase()
   return entries.filter((entry) => {
     if (vendor !== 'all' && entry.vendor !== vendor) return false
     if (billingMode !== 'all' && entry.billingMode !== billingMode) return false
     if (!query) return true
-    return (
-      entry.id.toLowerCase().includes(query) ||
-      entry.displayName.toLowerCase().includes(query) ||
-      entry.aliases.some((alias) => alias.toLowerCase().includes(query))
-    )
+    return entry.id.toLowerCase().includes(query) || entry.displayName.toLowerCase().includes(query)
   })
 }
 

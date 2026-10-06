@@ -54,8 +54,7 @@ func TestRequestVendorPlatform(t *testing.T) {
 
 func TestModelCatalogService_ResolveRoute(t *testing.T) {
 	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed,
-			Aliases: []ModelCatalogAlias{{ID: 10, EntryID: 1, Alias: "sonnet-latest"}}},
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed},
 		{ID: 2, ModelID: "gpt-5.6", Vendor: "openai", Status: ModelCatalogStatusUnlisted},
 	}}
 	svc := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
@@ -69,7 +68,7 @@ func TestModelCatalogService_ResolveRoute(t *testing.T) {
 	require.NotNil(t, route.Entry)
 	require.Equal(t, "anthropic", route.Entry.Vendor)
 
-	// 用户只能请求目录模型标识（D4）：别名、大小写变体、claude 的点号写法都不认
+	// 用户只能请求目录模型标识（D4）：别的名字、大小写变体、claude 的点号写法都不认
 	for _, name := range []string{"sonnet-latest", "Claude-Sonnet-4", "claude.sonnet.4"} {
 		_, ok = svc.ResolveRoute(ctx, name)
 		require.False(t, ok, name)
@@ -230,8 +229,7 @@ func TestAccountInSchedulingScope(t *testing.T) {
 
 func TestResolveCatalogRouteForCandidates(t *testing.T) {
 	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed,
-			Aliases: []ModelCatalogAlias{{ID: 10, EntryID: 1, Alias: "sonnet-latest"}}},
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed},
 		{ID: 2, ModelID: "gpt-5.6", Vendor: "openai", Status: ModelCatalogStatusListed},
 		{ID: 3, ModelID: "hidden", Vendor: "openai", Status: ModelCatalogStatusUnlisted},
 	}}
@@ -244,7 +242,7 @@ func TestResolveCatalogRouteForCandidates(t *testing.T) {
 	require.Equal(t, int64(1), route.EntryID)
 
 	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "sonnet-latest"})
-	require.False(t, ok, "an alias is not a catalog model ID (D4)")
+	require.False(t, ok, "a name outside the catalog is not a catalog model ID (D4)")
 	require.Equal(t, "sonnet-latest", blocked)
 
 	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "gpt-5.6"})

@@ -171,8 +171,6 @@ export default {
   INVITATION_CODE_INVALID: 'The invitation code is invalid or already used',
   INVITATION_CODE_REQUIRED: 'Invitation code is required',
   MISSING_PROTOCOL_ENDPOINT: '"account has no upstream address configured',
-  MODEL_CATALOG_ALIAS_EXISTS: 'Model catalog alias already exists',
-  MODEL_CATALOG_ALIAS_NOT_FOUND: 'Model catalog alias not found',
   MODEL_CATALOG_BINDING_ACCOUNT_NOT_FOUND: 'Binding account not found',
   MODEL_CATALOG_ENTRY_EXISTS: 'Model catalog entry already exists',
   MODEL_CATALOG_ENTRY_NOT_FOUND: 'Model catalog entry not found',

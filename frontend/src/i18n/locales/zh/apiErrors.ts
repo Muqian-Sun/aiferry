@@ -172,8 +172,6 @@ export default {
   INVITATION_CODE_INVALID: '邀请码无效或已被使用',
   INVITATION_CODE_REQUIRED: '请输入邀请码',
   MISSING_PROTOCOL_ENDPOINT: '渠道没有填写这个协议的接口地址',
-  MODEL_CATALOG_ALIAS_EXISTS: '这个别名已经被别的模型用了',
-  MODEL_CATALOG_ALIAS_NOT_FOUND: '别名不存在',
   MODEL_CATALOG_BINDING_ACCOUNT_NOT_FOUND: '承接的渠道不存在或已被删除',
   MODEL_CATALOG_ENTRY_EXISTS: '这个模型标识已经存在',
   MODEL_CATALOG_ENTRY_NOT_FOUND: '模型不存在或已被删除',

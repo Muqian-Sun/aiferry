@@ -15,7 +15,6 @@ type PlazaCatalogModel struct {
 	// TokenExtras 价卡（PricingCard）不带、但 token 计费会收的项。
 	TokenExtras PlazaTokenExtras
 	TimePricing *TimePricing
-	Aliases     []string
 }
 
 // PlazaTokenExtras 目录条目上价卡没投影的 token 计费项（官方价，USD / token）：
@@ -79,10 +78,6 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 	for i := range entries {
 		entry := &entries[i]
 		webSearch, xPost, xUser := plazaWebSearchPrices(entry)
-		aliases := make([]string, 0, len(entry.Aliases))
-		for _, alias := range entry.Aliases {
-			aliases = append(aliases, alias.Alias)
-		}
 		models = append(models, PlazaCatalogModel{
 			ModelID:     entry.ModelID,
 			DisplayName: entry.DisplayName,
@@ -98,7 +93,6 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 				XUserPrice:            xUser,
 			},
 			TimePricing: entry.TimePricing,
-			Aliases:     aliases,
 		})
 	}
 	return models

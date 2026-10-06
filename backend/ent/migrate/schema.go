@@ -879,34 +879,6 @@ var (
 			},
 		},
 	}
-	// ModelCatalogAliasesColumns holds the columns for the "model_catalog_aliases" table.
-	ModelCatalogAliasesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt64, Increment: true},
-		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
-		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
-		{Name: "alias", Type: field.TypeString, Size: 200},
-		{Name: "entry_id", Type: field.TypeInt64},
-		{Name: "source", Type: field.TypeString, Size: 30, Default: "manual"},
-		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
-	}
-	// ModelCatalogAliasesTable holds the schema information for the "model_catalog_aliases" table.
-	ModelCatalogAliasesTable = &schema.Table{
-		Name:       "model_catalog_aliases",
-		Columns:    ModelCatalogAliasesColumns,
-		PrimaryKey: []*schema.Column{ModelCatalogAliasesColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "modelcatalogalias_entry_id",
-				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogAliasesColumns[4]},
-			},
-			{
-				Name:    "modelcatalogalias_source",
-				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogAliasesColumns[5]},
-			},
-		},
-	}
 	// ModelCatalogBindingsColumns holds the columns for the "model_catalog_bindings" table.
 	ModelCatalogBindingsColumns = []*schema.Column{
 		{Name: "input_price", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
@@ -1920,7 +1892,6 @@ var (
 		ErrorPassthroughRulesTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
-		ModelCatalogAliasesTable,
 		ModelCatalogBindingsTable,
 		ModelCatalogEntriesTable,
 		ModelCatalogPriceIntervalsTable,
@@ -2006,9 +1977,6 @@ func init() {
 	IdentityAdoptionDecisionsTable.ForeignKeys[1].RefTable = PendingAuthSessionsTable
 	IdentityAdoptionDecisionsTable.Annotation = &entsql.Annotation{
 		Table: "identity_adoption_decisions",
-	}
-	ModelCatalogAliasesTable.Annotation = &entsql.Annotation{
-		Table: "model_catalog_aliases",
 	}
 	ModelCatalogBindingsTable.ForeignKeys[0].RefTable = ModelCatalogEntriesTable
 	ModelCatalogBindingsTable.ForeignKeys[1].RefTable = AccountsTable

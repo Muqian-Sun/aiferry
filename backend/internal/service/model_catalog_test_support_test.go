@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -159,45 +158,6 @@ func (r *stubModelCatalogRepo) DeleteEntry(_ context.Context, id int64) error {
 	return ErrModelCatalogEntryNotFound
 }
 
-func (r *stubModelCatalogRepo) CreateAlias(_ context.Context, alias *ModelCatalogAlias) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	key := NormalizeModelCatalogKey(alias.Alias)
-	for i := range r.entries {
-		for _, existing := range r.entries[i].Aliases {
-			if NormalizeModelCatalogKey(existing.Alias) == key {
-				return ErrModelCatalogAliasExists
-			}
-		}
-	}
-	for i := range r.entries {
-		if r.entries[i].ID == alias.EntryID {
-			alias.ID = int64(len(r.entries[i].Aliases) + 1)
-			r.entries[i].Aliases = append(r.entries[i].Aliases, *alias)
-			return nil
-		}
-	}
-	return ErrModelCatalogEntryNotFound
-}
-
-func (r *stubModelCatalogRepo) UpdateAlias(context.Context, *ModelCatalogAlias) error {
-	return errors.New("not implemented in stub")
-}
-
-func (r *stubModelCatalogRepo) DeleteAlias(_ context.Context, id int64) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.entries {
-		for j := range r.entries[i].Aliases {
-			if r.entries[i].Aliases[j].ID == id {
-				r.entries[i].Aliases = append(r.entries[i].Aliases[:j], r.entries[i].Aliases[j+1:]...)
-				return nil
-			}
-		}
-	}
-	return ErrModelCatalogAliasNotFound
-}
-
 // InsertOrRefreshSeedEntries 复刻真实实现的三分支：不存在插入 / seed 刷新 / admin 跳过。
 func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 	_ context.Context,
@@ -219,7 +179,6 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 		pos, ok := index[key]
 		if !ok {
 			entry.ID = int64(len(r.entries) + 1)
-			entry.Aliases = r.seedAliases(entry.ID, nil, entry.SeedAliases)
 			r.entries = append(r.entries, entry)
 			index[key] = len(r.entries) - 1
 			result.Inserted++
@@ -230,8 +189,7 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 			continue
 		}
 		entry.ID = r.entries[pos].ID
-		// 与真仓储同口径：种子带分档时整份覆盖，否则保留；别名只补不删；分时不动。
-		entry.Aliases = r.seedAliases(entry.ID, r.entries[pos].Aliases, entry.SeedAliases)
+		// 与真仓储同口径：种子带分档时整份覆盖，否则保留；分时不动。
 		if len(entry.Intervals) == 0 {
 			entry.Intervals = r.entries[pos].Intervals
 		}
@@ -240,28 +198,6 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 		result.Refreshed++
 	}
 	return result, nil
-}
-
-// seedAliases 模拟仓储写种子别名：全局（跨条目）已被占用的别名跳过。
-func (r *stubModelCatalogRepo) seedAliases(entryID int64, existing []ModelCatalogAlias, seeds []string) []ModelCatalogAlias {
-	out := append([]ModelCatalogAlias(nil), existing...)
-	taken := make(map[string]bool)
-	for i := range r.entries {
-		for _, alias := range r.entries[i].Aliases {
-			taken[strings.ToLower(alias.Alias)] = true
-		}
-	}
-	for _, alias := range existing {
-		taken[strings.ToLower(alias.Alias)] = true
-	}
-	for _, alias := range seeds {
-		if taken[strings.ToLower(alias)] {
-			continue
-		}
-		taken[strings.ToLower(alias)] = true
-		out = append(out, ModelCatalogAlias{EntryID: entryID, Alias: alias, Source: ModelCatalogAliasSourceSeed})
-	}
-	return out
 }
 
 // newTestModelCatalogService 用给定条目构造一个不接 Redis 的目录服务。
@@ -302,28 +238,13 @@ func newResolverWithCatalogCards(bs *BillingService, cards ...PricingCard) *Mode
 		if len(card.Models) == 0 {
 			continue
 		}
-		// 第一个非通配名做模型标识，其余（含 "foo-*" 这类模式）落成别名。
-		primary := ""
+		// 目录不存别名、没有通配：价卡里的每个模型名各建一条同价条目。
 		for _, model := range card.Models {
-			if !strings.Contains(model, "*") {
-				primary = model
-				break
+			if strings.Contains(model, "*") {
+				panic("catalog has no wildcard model IDs: " + model)
 			}
+			entries = append(entries, catalogEntryFromCard(model, ModelCatalogManagedByAdmin, card))
 		}
-		if primary == "" {
-			primary = strings.TrimSuffix(card.Models[0], "*")
-		}
-		entry := catalogEntryFromCard(primary, ModelCatalogManagedByAdmin, card)
-		for _, model := range card.Models {
-			if model == primary {
-				continue
-			}
-			entry.Aliases = append(entry.Aliases, ModelCatalogAlias{
-				Alias:  model,
-				Source: ModelCatalogAliasSourceManual,
-			})
-		}
-		entries = append(entries, entry)
 	}
 	for i := range entries {
 		entries[i].ID = int64(i + 1)

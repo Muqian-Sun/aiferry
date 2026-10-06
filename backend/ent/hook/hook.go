@@ -201,18 +201,6 @@ func (f IdentityAdoptionDecisionFunc) Mutate(ctx context.Context, m ent.Mutation
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IdentityAdoptionDecisionMutation", m)
 }
 
-// The ModelCatalogAliasFunc type is an adapter to allow the use of ordinary
-// function as ModelCatalogAlias mutator.
-type ModelCatalogAliasFunc func(context.Context, *ent.ModelCatalogAliasMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ModelCatalogAliasFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ModelCatalogAliasMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelCatalogAliasMutation", m)
-}
-
 // The ModelCatalogBindingFunc type is an adapter to allow the use of ordinary
 // function as ModelCatalogBinding mutator.
 type ModelCatalogBindingFunc func(context.Context, *ent.ModelCatalogBindingMutation) (ent.Value, error)

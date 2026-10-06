@@ -1,7 +1,7 @@
 <template>
   <!--
     模型计费详情（muqian 2026-09-30 方案 A）：网格格子只放摘要，点格子在这里按块列全部计费项。
-    token 模式：标准价（分段 × 项的表）→ 图片与音频 → 工具 → 其他（最高推理档 / 分时 / 别名）；
+    token 模式：标准价（分段 × 项的表）→ 图片与音频 → 工具 → 其他（最高推理档 / 分时）；
     按次 / 图片 / 视频模式：单价（有档位列档位表）→ 工具 → 其他。
     只渲染有数据的块，块之间 hairline 分隔，块标题右侧写单位；价格是接口给的访问者售价（后端已按倍率算好）。
   -->
@@ -152,11 +152,6 @@
             </ul>
             <p class="mt-1 text-xs text-af-ink-3">{{ timePricingScope }}</p>
           </DetailField>
-          <DetailField v-if="entry.aliases.length" :label="t('userUi.models.detail.aliases')">
-            <span class="flex flex-wrap gap-1.5">
-              <span v-for="alias in entry.aliases" :key="alias" class="badge badge-gray font-mono">{{ alias }}</span>
-            </span>
-          </DetailField>
         </dl>
       </section>
 
@@ -277,7 +272,7 @@ const claudeCodeSearch = computed(() => {
 
 const hasOther = computed(() => {
   const entry = props.entry
-  return !!entry && (entry.maxReasoningMultiplier != null || entry.timePricing != null || entry.aliases.length > 0)
+  return !!entry && (entry.maxReasoningMultiplier != null || entry.timePricing != null)
 })
 
 const hasPricing = computed(

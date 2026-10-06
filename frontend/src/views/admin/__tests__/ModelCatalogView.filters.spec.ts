@@ -47,7 +47,6 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     search_price_per_call: null,
     max_reasoning_effort_multiplier: null,
     intervals: [],
-    aliases: [],
     bindings: [],
     created_at: '2026-09-18T00:00:00Z',
     updated_at: '2026-09-18T00:00:00Z',
@@ -61,7 +60,7 @@ const binding = { entry_id: 0, account_id: 9 }
 
 const fixtures = [
   entry({ id: 1, model_id: 'claude-opus-4-6', vendor: 'anthropic', status: 'listed', bindings: [binding] }),
-  entry({ id: 2, model_id: 'gpt-5.6', vendor: 'openai', status: 'listed', bindings: [], aliases: [{ id: 1, entry_id: 2, alias: 'gpt-5.6-sol', source: 'seed', created_at: '', updated_at: '' }] }),
+  entry({ id: 2, model_id: 'gpt-5.6', vendor: 'openai', status: 'listed', bindings: [] }),
   entry({ id: 3, model_id: 'gpt-image-2', vendor: 'openai', status: 'unlisted', billing_mode: 'image', input_price: null, output_price: null, per_request_price: 0.04, intervals: [] }),
   entry({ id: 4, model_id: 'nameless', vendor: '', status: 'unlisted', input_price: null, output_price: null }),
   entry({ id: 5, model_id: 'veo-x', vendor: 'google', status: 'unlisted', billing_mode: 'video', input_price: null, output_price: null, per_request_price: null, intervals: [] })
@@ -160,15 +159,6 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
 
     await pickFilter(wrapper, 'model-catalog-filter-resources', 'bound')
     expect(rowIds(wrapper)).toEqual(['claude-opus-4-6'])
-  })
-
-  it('searches aliases too', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.findComponent({ name: 'SearchInput' }).vm.$emit('update:modelValue', 'sol')
-    await flushPromises()
-    expect(rowIds(wrapper)).toEqual(['gpt-5.6'])
-    expect(wrapper.text()).toContain('admin.modelCatalog.aliasCount:{"count":1}')
   })
 
   it('shows list prices per million tokens, per-unit prices for media, and flags unpriced entries', async () => {

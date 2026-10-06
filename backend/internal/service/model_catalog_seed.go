@@ -23,8 +23,7 @@ type ModelCatalogSeedInput struct {
 //   - 已存在且 managed_by = seed → 用当前价格文件刷新，保证价格文件更新后目录不会冻在播种时刻；
 //   - 已存在且 managed_by = admin → 整条跳过，管理员改动永不被覆盖。
 //
-// 播种写条目本身；种子自带的分档（Intervals）与别名（SeedAliases）也随之写入 / 刷新
-// （目前只有 xAI Imagine 种子带），分时没有默认数据来源。
+// 播种写条目本身；条目带的分档（Intervals）也随之写入 / 刷新，分时没有默认数据来源。
 func (s *ModelCatalogService) Seed(ctx context.Context) (ModelCatalogSeedResult, error) {
 	if s == nil || s.repo == nil {
 		return ModelCatalogSeedResult{}, nil

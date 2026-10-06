@@ -42,7 +42,6 @@ func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCata
 		{ID: 1, ModelID: "claude-sonnet-4", DisplayName: "Sonnet 4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed, InputPrice: &price},
 		{ID: 2, ModelID: "gpt-5.6", DisplayName: "GPT-5.6", Vendor: "openai", Status: service.ModelCatalogStatusListed, InputPrice: &price,
 			AudioInputPrice: &audio,
-			Aliases:         []service.ModelCatalogAlias{{ID: 10, EntryID: 2, Alias: "gpt-5.6-sol"}},
 			TimePricing:     &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
 	}
 }
@@ -132,7 +131,8 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.JSONEq(t, `"GPT-5.6"`, string(gpt["display_name"]))
 	require.JSONEq(t, `"openai"`, string(gpt["vendor"]))
 	require.JSONEq(t, `"token"`, string(gpt["billing_mode"]))
-	require.JSONEq(t, `["gpt-5.6-sol"]`, string(gpt["aliases"]))
+	_, hasAliases := gpt["aliases"]
+	require.False(t, hasAliases, "目录不存别名，广场不出别名字段")
 	var pricing struct {
 		InputPrice      *float64 `json:"input_price"`
 		AudioInputPrice *float64 `json:"audio_input_price"`
@@ -155,7 +155,6 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 
 	var sonnet map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(envelope.Data.Models[0], &sonnet))
-	require.JSONEq(t, `[]`, string(sonnet["aliases"]), "no aliases is an empty array, not null")
 	_, hasTimePricing := sonnet["time_pricing"]
 	require.False(t, hasTimePricing)
 }

@@ -136,13 +136,6 @@ type ModelCatalogDiagnosisResponse struct {
 	Accounts []ModelCatalogDiagnosisItem `json:"accounts"`
 }
 
-// ModelCatalogAliasRequest 是别名的创建 / 更新请求体。
-type ModelCatalogAliasRequest struct {
-	Alias   string  `json:"alias" binding:"required"`
-	EntryID int64   `json:"entry_id" binding:"required"`
-	Notes   *string `json:"notes"`
-}
-
 // ModelCatalogEntryView 是列表里的条目，附带厂商族：渠道表单按厂商族（与渠道平台同一套标识）
 // 分组展示目录模型；厂商 → 平台的对照只在后端维护（CatalogVendorPlatform），前端不留副本。
 type ModelCatalogEntryView struct {
@@ -375,67 +368,6 @@ func (h *ModelCatalogHandler) Diagnose(c *gin.Context) {
 		EntryID:  entry.ID,
 		Accounts: items,
 	})
-}
-
-// CreateAlias 新增别名。
-// POST /api/v1/admin/model-catalog/aliases
-func (h *ModelCatalogHandler) CreateAlias(c *gin.Context) {
-	var req ModelCatalogAliasRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	alias := &service.ModelCatalogAlias{
-		Alias:   req.Alias,
-		EntryID: req.EntryID,
-		Source:  service.ModelCatalogAliasSourceManual,
-		Notes:   req.Notes,
-	}
-	if err := h.service.CreateAlias(c.Request.Context(), alias); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, alias)
-}
-
-// UpdateAlias 更新别名。
-// PUT /api/v1/admin/model-catalog/aliases/:id
-func (h *ModelCatalogHandler) UpdateAlias(c *gin.Context) {
-	id, ok := parseModelCatalogID(c, "Invalid model catalog alias ID")
-	if !ok {
-		return
-	}
-	var req ModelCatalogAliasRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	alias := &service.ModelCatalogAlias{
-		ID:      id,
-		Alias:   req.Alias,
-		EntryID: req.EntryID,
-		Source:  service.ModelCatalogAliasSourceManual,
-		Notes:   req.Notes,
-	}
-	if err := h.service.UpdateAlias(c.Request.Context(), alias); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, alias)
-}
-
-// DeleteAlias 删除别名。
-// DELETE /api/v1/admin/model-catalog/aliases/:id
-func (h *ModelCatalogHandler) DeleteAlias(c *gin.Context) {
-	id, ok := parseModelCatalogID(c, "Invalid model catalog alias ID")
-	if !ok {
-		return
-	}
-	if err := h.service.DeleteAlias(c.Request.Context(), id); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, gin.H{"message": "Model catalog alias deleted successfully"})
 }
 
 // Seed 重新播种：按价格文件 + 硬编码兜底价补齐目录。
