@@ -89,9 +89,10 @@ const updatePosition = () => {
 watch([menuRef, () => props.anchorRect, viewportWidth, viewportHeight], updatePosition, { flush: 'post' })
 useResizeObserver(menuRef, updatePosition)
 
+// 复制渠道只复制 key 和端点、其余走新建流程（muqian 2026-10-07），所以只有第三方 key 渠道能复制
 const canDuplicate = computed(() => {
   if (!props.account || props.account.parent_account_id != null) return false
-  return ['apikey', 'bedrock', 'service_account'].includes(props.account.type)
+  return props.account.type === 'apikey'
 })
 const isRateLimited = computed(() => {
   if (props.account?.rate_limit_reset_at && new Date(props.account.rate_limit_reset_at) > new Date()) {
