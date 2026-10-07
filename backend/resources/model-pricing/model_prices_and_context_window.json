@@ -720,16 +720,15 @@
     "supports_xhigh_reasoning_effort": true
   },
   "deepseek-flash": {
-    "cache_read_input_token_cost": 3e-09,
-    "input_cost_per_token": 1.5e-07,
+    "input_cost_per_token": 1.47059e-07,
     "display_name": "DeepSeek-V4.1-Flash",
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
     "max_tokens": 393216,
     "mode": "chat",
-    "output_cost_per_token": 6e-07,
-    "source": "https://api-docs.deepseek.com/quick_start/pricing",
+    "output_cost_per_token": 5.88235e-07,
+    "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "supported_endpoints": [
       "/v1/chat/completions"
     ],
@@ -746,8 +745,16 @@
       "timezone": "Asia/Shanghai",
       "weekdays_only": true,
       "periods": [
-        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
-        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+        {
+          "start_time": "09:00",
+          "end_time": "12:00",
+          "multiplier": 2
+        },
+        {
+          "start_time": "14:00",
+          "end_time": "18:00",
+          "multiplier": 2
+        }
       ],
       "exclude_dates": [
         "2026-01-01",
@@ -784,18 +791,18 @@
         "2026-10-06",
         "2026-10-07"
       ]
-    }
+    },
+    "cache_read_input_token_cost": 2.94118e-09
   },
   "deepseek-v4-flash": {
-    "cache_read_input_token_cost": 3e-09,
-    "input_cost_per_token": 1.5e-07,
+    "input_cost_per_token": 1.47059e-07,
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
     "max_tokens": 393216,
     "mode": "chat",
-    "output_cost_per_token": 6e-07,
-    "source": "https://api-docs.deepseek.com/quick_start/pricing",
+    "output_cost_per_token": 5.88235e-07,
+    "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "supported_endpoints": [
       "/v1/chat/completions"
     ],
@@ -811,8 +818,16 @@
       "timezone": "Asia/Shanghai",
       "weekdays_only": true,
       "periods": [
-        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
-        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+        {
+          "start_time": "09:00",
+          "end_time": "12:00",
+          "multiplier": 2
+        },
+        {
+          "start_time": "14:00",
+          "end_time": "18:00",
+          "multiplier": 2
+        }
       ],
       "exclude_dates": [
         "2026-01-01",
@@ -849,18 +864,18 @@
         "2026-10-06",
         "2026-10-07"
       ]
-    }
+    },
+    "cache_read_input_token_cost": 2.94118e-09
   },
   "deepseek-v4-flash-vision-exp": {
-    "cache_read_input_token_cost": 3e-09,
-    "input_cost_per_token": 1.5e-07,
+    "input_cost_per_token": 1.47059e-07,
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
     "max_tokens": 393216,
     "mode": "chat",
-    "output_cost_per_token": 6e-07,
-    "source": "https://api-docs.deepseek.com/quick_start/pricing",
+    "output_cost_per_token": 5.88235e-07,
+    "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "supported_endpoints": [
       "/v1/chat/completions"
     ],
@@ -877,8 +892,16 @@
       "timezone": "Asia/Shanghai",
       "weekdays_only": true,
       "periods": [
-        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
-        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+        {
+          "start_time": "09:00",
+          "end_time": "12:00",
+          "multiplier": 2
+        },
+        {
+          "start_time": "14:00",
+          "end_time": "18:00",
+          "multiplier": 2
+        }
       ],
       "exclude_dates": [
         "2026-01-01",
@@ -915,19 +938,19 @@
         "2026-10-06",
         "2026-10-07"
       ]
-    }
+    },
+    "cache_read_input_token_cost": 2.94118e-09
   },
   "deepseek-v4-pro": {
-    "cache_read_input_token_cost": 2.2e-08,
-    "input_cost_per_token": 6.6e-07,
+    "input_cost_per_token": 6.61765e-07,
     "display_name": "DeepSeek-V4-Pro-0813",
     "litellm_provider": "deepseek",
     "max_input_tokens": 1048576,
     "max_output_tokens": 393216,
     "max_tokens": 393216,
     "mode": "chat",
-    "output_cost_per_token": 1.98e-06,
-    "source": "https://api-docs.deepseek.com/quick_start/pricing",
+    "output_cost_per_token": 1.98529e-06,
+    "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "supported_endpoints": [
       "/v1/chat/completions"
     ],
@@ -943,8 +966,16 @@
       "timezone": "Asia/Shanghai",
       "weekdays_only": true,
       "periods": [
-        {"start_time": "09:00", "end_time": "12:00", "multiplier": 2},
-        {"start_time": "14:00", "end_time": "18:00", "multiplier": 2}
+        {
+          "start_time": "09:00",
+          "end_time": "12:00",
+          "multiplier": 2
+        },
+        {
+          "start_time": "14:00",
+          "end_time": "18:00",
+          "multiplier": 2
+        }
       ],
       "exclude_dates": [
         "2026-01-01",
@@ -981,7 +1012,8 @@
         "2026-10-06",
         "2026-10-07"
       ]
-    }
+    },
+    "cache_read_input_token_cost": 2.20588e-08
   },
   "gemini-2.0-flash": {
     "cache_read_input_token_cost": 2.5e-08,
@@ -6784,33 +6816,105 @@
     "source": "https://developers.openai.com/api/docs/pricing"
   },
   "glm-5.3-flashx": {
-    "cache_read_input_token_cost": 7.5e-08,
-    "input_cost_per_token": 3.7e-07,
+    "input_cost_per_token": 2.94118e-07,
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "output_cost_per_token": 1.25e-06,
-    "source": "https://docs.z.ai/guides/overview/pricing"
+    "output_cost_per_token": 1.02941e-06,
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 8.38235e-08
   },
   "glm-4.6v": {
-    "cache_read_input_token_cost": 5e-08,
-    "input_cost_per_token": 3e-07,
+    "input_cost_per_token": 1.47059e-07,
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "output_cost_per_token": 9e-07,
-    "source": "https://docs.z.ai/guides/overview/pricing"
+    "output_cost_per_token": 4.41176e-07,
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.94118e-08,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 1.47059e-07,
+        "output_cost_per_token": 4.41176e-07,
+        "cache_read_input_token_cost": 2.94118e-08
+      },
+      {
+        "max_input_tokens": 127999,
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 8.82353e-07,
+        "cache_read_input_token_cost": 5.88235e-08
+      }
+    ]
   },
   "glm-4.6v-flashx": {
-    "cache_read_input_token_cost": 4e-09,
-    "input_cost_per_token": 4e-08,
+    "input_cost_per_token": 2.20588e-08,
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "output_cost_per_token": 4e-07,
-    "source": "https://docs.z.ai/guides/overview/pricing"
+    "output_cost_per_token": 2.20588e-07,
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 4.41176e-09,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 2.20588e-08,
+        "output_cost_per_token": 2.20588e-07,
+        "cache_read_input_token_cost": 4.41176e-09
+      },
+      {
+        "max_input_tokens": 127999,
+        "input_cost_per_token": 4.41176e-08,
+        "output_cost_per_token": 4.41176e-07,
+        "cache_read_input_token_cost": 4.41176e-09
+      }
+    ]
+  },
+  "glm-5": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "input_cost_per_token": 5.88235e-07,
+    "output_cost_per_token": 2.64706e-06,
+    "cache_read_input_token_cost": 1.47059e-07,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 5.88235e-07,
+        "output_cost_per_token": 2.64706e-06,
+        "cache_read_input_token_cost": 1.47059e-07
+      },
+      {
+        "max_input_tokens": 1000000,
+        "input_cost_per_token": 8.82353e-07,
+        "output_cost_per_token": 3.23529e-06,
+        "cache_read_input_token_cost": 2.20588e-07
+      }
+    ],
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）"
+  },
+  "glm-5.1": {
+    "litellm_provider": "zhipu",
+    "mode": "chat",
+    "input_cost_per_token": 8.82353e-07,
+    "output_cost_per_token": 3.52941e-06,
+    "cache_read_input_token_cost": 1.91176e-07,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 8.82353e-07,
+        "output_cost_per_token": 3.52941e-06,
+        "cache_read_input_token_cost": 1.91176e-07
+      },
+      {
+        "max_input_tokens": 1000000,
+        "input_cost_per_token": 1.17647e-06,
+        "output_cost_per_token": 4.11765e-06,
+        "cache_read_input_token_cost": 2.94118e-07
+      }
+    ],
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "glm-5-turbo": {
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "input_cost_per_token": 7.35294e-07,
     "output_cost_per_token": 3.23529e-06,
     "cache_read_input_token_cost": 1.76471e-07,
@@ -6822,7 +6926,7 @@
         "cache_read_input_token_cost": 1.76471e-07
       },
       {
-        "max_input_tokens": 200000,
+        "max_input_tokens": 1000000,
         "input_cost_per_token": 1.02941e-06,
         "output_cost_per_token": 3.82353e-06,
         "cache_read_input_token_cost": 2.64706e-07
@@ -6832,7 +6936,7 @@
   "glm-5v-turbo": {
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "input_cost_per_token": 7.35294e-07,
     "output_cost_per_token": 3.23529e-06,
     "cache_read_input_token_cost": 1.76471e-07,
@@ -6844,7 +6948,7 @@
         "cache_read_input_token_cost": 1.76471e-07
       },
       {
-        "max_input_tokens": 200000,
+        "max_input_tokens": 1000000,
         "input_cost_per_token": 1.02941e-06,
         "output_cost_per_token": 3.82353e-06,
         "cache_read_input_token_cost": 2.64706e-07
@@ -6854,7 +6958,7 @@
   "glm-4-long": {
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "input_cost_per_token": 1.47059e-07,
     "output_cost_per_token": 1.47059e-07,
     "cache_read_input_token_cost": 7.35294e-08
@@ -6862,7 +6966,7 @@
   "glm-4-flashx-250414": {
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "input_cost_per_token": 1.47059e-08,
     "output_cost_per_token": 1.47059e-08,
     "cache_read_input_token_cost": 7.35294e-09
@@ -6870,136 +6974,150 @@
   "glm-4.1v-thinking-flashx": {
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国际站 docs.z.ai 没有，按国内站人民币价、1 美元 = 6.8 元换算）",
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
     "input_cost_per_token": 2.94118e-07,
     "output_cost_per_token": 2.94118e-07
   },
   "glm-4.5v": {
-    "cache_read_input_token_cost": 1.1e-07,
-    "input_cost_per_token": 6e-07,
+    "input_cost_per_token": 2.94118e-07,
     "litellm_provider": "zhipu",
     "mode": "chat",
-    "output_cost_per_token": 1.8e-06,
-    "source": "https://docs.z.ai/guides/overview/pricing"
+    "output_cost_per_token": 8.82353e-07,
+    "source": "https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 5.88235e-08,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 31999,
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 8.82353e-07,
+        "cache_read_input_token_cost": 5.88235e-08
+      },
+      {
+        "max_input_tokens": 63999,
+        "input_cost_per_token": 5.88235e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 1.17647e-07
+      }
+    ]
   },
   "kimi-k2.7-code": {
-    "cache_read_input_token_cost": 1.9e-07,
-    "input_cost_per_token": 9.5e-07,
+    "input_cost_per_token": 9.55882e-07,
     "litellm_provider": "moonshot",
     "mode": "chat",
-    "output_cost_per_token": 4e-06,
-    "source": "https://platform.kimi.ai/docs/pricing/chat"
+    "output_cost_per_token": 3.97059e-06,
+    "source": "https://platform.kimi.com/docs/pricing/chat（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 1.91176e-07
   },
   "kimi-k2.7-code-highspeed": {
-    "cache_read_input_token_cost": 3.8e-07,
-    "input_cost_per_token": 1.9e-06,
+    "input_cost_per_token": 1.91176e-06,
     "litellm_provider": "moonshot",
     "mode": "chat",
-    "output_cost_per_token": 8e-06,
-    "source": "https://platform.kimi.ai/docs/pricing/chat"
+    "output_cost_per_token": 7.94118e-06,
+    "source": "https://platform.kimi.com/docs/pricing/chat（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.82353e-07
   },
   "minimax-m2.5-highspeed": {
     "model_id": "MiniMax-M2.5-highspeed",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 6e-07,
-    "output_cost_per_token": 2.4e-06,
-    "cache_read_input_token_cost": 3e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 6.17647e-07,
+    "output_cost_per_token": 2.47059e-06,
+    "cache_read_input_token_cost": 3.08824e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m2.1-highspeed": {
     "model_id": "MiniMax-M2.1-highspeed",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 6e-07,
-    "output_cost_per_token": 2.4e-06,
-    "cache_read_input_token_cost": 3e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 6.17647e-07,
+    "output_cost_per_token": 2.47059e-06,
+    "cache_read_input_token_cost": 3.08824e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "qwen3.8-max": {
-    "cache_read_input_token_cost": 2.5e-07,
-    "input_cost_per_token": 2e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 2.5e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.20588e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.8-max-0902": {
-    "cache_read_input_token_cost": 2.5e-07,
-    "input_cost_per_token": 2e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 2.5e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.20588e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.7-max": {
-    "cache_read_input_token_cost": 5e-07,
-    "input_cost_per_token": 2.5e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 3.125e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.52941e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.7-max-2026-06-08": {
-    "cache_read_input_token_cost": 5e-07,
-    "input_cost_per_token": 2.5e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 3.125e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.52941e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.7-max-2026-05-20": {
-    "cache_read_input_token_cost": 5e-07,
-    "input_cost_per_token": 2.5e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 3.125e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.52941e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.7-max-preview": {
-    "input_cost_per_token": 2.5e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "qwen3.7-max-2026-05-17": {
-    "input_cost_per_token": 2.5e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 7.5e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "qwen-max": {
-    "cache_read_input_token_cost": 3.2e-07,
-    "input_cost_per_token": 1.6e-06,
+    "input_cost_per_token": 3.52941e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 6.4e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 1.41176e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 7.05882e-08
   },
   "qwen-plus-character": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-07,
-    "output_cost_per_token": 1.4e-06,
-    "cache_read_input_token_cost": 1e-07
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.17647e-07,
+    "output_cost_per_token": 2.94118e-07,
+    "cache_read_input_token_cost": 2.35294e-08
   },
   "qwen-flash-character": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-08,
-    "output_cost_per_token": 4e-07,
-    "cache_read_input_token_cost": 1e-08
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.67647e-08,
+    "output_cost_per_token": 2.20588e-07,
+    "cache_read_input_token_cost": 7.35294e-09
   },
   "qwen-plus-character-ja": {
     "litellm_provider": "dashscope",
@@ -7010,36 +7128,76 @@
     "cache_read_input_token_cost": 1e-07
   },
   "qwen-plus-2025-01-25": {
-    "input_cost_per_token": 4e-07,
+    "input_cost_per_token": 1.17647e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 1.2e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 2.94118e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "qwen3.8-flash": {
-    "cache_read_input_token_cost": 1.6e-08,
-    "input_cost_per_token": 1.5e-07,
+    "input_cost_per_token": 1.17647e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 4.7e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 2e-07
+    "output_cost_per_token": 3.97059e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 1.47059e-08,
+    "cache_creation_input_token_cost": 1.83824e-07
   },
   "qwen3.5-flash": {
-    "cache_read_input_token_cost": 1e-08,
-    "input_cost_per_token": 1e-07,
+    "input_cost_per_token": 2.94118e-08,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 4e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 1.25e-07
+    "output_cost_per_token": 2.94118e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.94118e-09,
+    "cache_creation_input_token_cost": 3.67647e-08,
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 2.94118e-08,
+        "output_cost_per_token": 2.94118e-07,
+        "cache_read_input_token_cost": 2.94118e-09,
+        "cache_creation_input_token_cost": 3.67647e-08
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 1.17647e-06,
+        "cache_read_input_token_cost": 1.17647e-08,
+        "cache_creation_input_token_cost": 1.47059e-07
+      },
+      {
+        "max_input_tokens": 1000000,
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 1.76471e-08,
+        "cache_creation_input_token_cost": 2.20588e-07
+      }
+    ]
   },
   "qwen3.5-flash-2026-02-23": {
-    "input_cost_per_token": 1e-07,
+    "input_cost_per_token": 2.94118e-08,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 4e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 2.94118e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 2.94118e-08,
+        "output_cost_per_token": 2.94118e-07
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 1.17647e-06
+      },
+      {
+        "max_input_tokens": 1000000,
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.76471e-06
+      }
+    ]
   },
   "qwq-plus": {
     "cache_read_input_token_cost": 1.6e-07,
@@ -7074,64 +7232,112 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.8-2.4t-a95b": {
-    "cache_read_input_token_cost": 2.5e-07,
-    "input_cost_per_token": 2e-06,
+    "input_cost_per_token": 1.76471e-06,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 2.5e-06
+    "output_cost_per_token": 5.29412e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.20588e-07,
+    "cache_creation_input_token_cost": 2.20588e-06
   },
   "qwen3.8-27b": {
-    "cache_read_input_token_cost": 1e-07,
-    "input_cost_per_token": 5e-07,
+    "input_cost_per_token": 4.41176e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 3e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
-    "cache_creation_input_token_cost": 6.25e-07
+    "output_cost_per_token": 1.76471e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 8.82353e-08,
+    "cache_creation_input_token_cost": 5.51471e-07
   },
   "qwen3.6-35b-a3b": {
-    "input_cost_per_token": 3.75e-07,
+    "input_cost_per_token": 2.64706e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 2.25e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 1.58824e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "qwen3.6-27b": {
-    "input_cost_per_token": 6e-07,
+    "input_cost_per_token": 4.41176e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 3.6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 2.64706e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）"
   },
   "qwen3.5-397b-a17b": {
-    "input_cost_per_token": 6e-07,
+    "input_cost_per_token": 1.76471e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 3.6e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 1.05882e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.05882e-06
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 4.41176e-07,
+        "output_cost_per_token": 2.64706e-06
+      }
+    ]
   },
   "qwen3.5-122b-a10b": {
-    "input_cost_per_token": 4e-07,
+    "input_cost_per_token": 1.17647e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 3.2e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 9.41176e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 9.41176e-07
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 2.35294e-06
+      }
+    ]
   },
   "qwen3.5-27b": {
-    "input_cost_per_token": 3e-07,
+    "input_cost_per_token": 8.82353e-08,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 2.4e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 7.05882e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 8.82353e-08,
+        "output_cost_per_token": 7.05882e-07
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 2.64706e-07,
+        "output_cost_per_token": 2.11765e-06
+      }
+    ]
   },
   "qwen3.5-35b-a3b": {
-    "input_cost_per_token": 2.5e-07,
+    "input_cost_per_token": 5.88235e-08,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 2e-06,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 4.70588e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 5.88235e-08,
+        "output_cost_per_token": 4.70588e-07
+      },
+      {
+        "max_input_tokens": 256000,
+        "input_cost_per_token": 2.35294e-07,
+        "output_cost_per_token": 1.88235e-06
+      }
+    ]
   },
   "qwen3-next-80b-a3b-thinking": {
     "cache_read_input_token_cost": 3e-08,
@@ -7254,36 +7460,36 @@
     "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
   },
   "qwen3.8-omni-flash": {
-    "cache_read_input_token_cost": 1.6e-08,
-    "input_cost_per_token": 1.5e-07,
+    "input_cost_per_token": 1.17647e-07,
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "output_cost_per_token": 4.7e-07,
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+    "output_cost_per_token": 3.97059e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 1.47059e-08
   },
   "mimo-v2.6-pro": {
-    "cache_read_input_token_cost": 3.6e-09,
-    "input_cost_per_token": 4.35e-07,
+    "input_cost_per_token": 4.41176e-07,
     "litellm_provider": "xiaomi",
     "mode": "chat",
-    "output_cost_per_token": 8.7e-07,
-    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+    "output_cost_per_token": 8.82353e-07,
+    "source": "https://mimo.mi.com/docs/zh-CN/price/pay-as-you-go（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.67647e-09
   },
   "mimo-v2.6-flash": {
-    "cache_read_input_token_cost": 2.8e-09,
-    "input_cost_per_token": 1.4e-07,
+    "input_cost_per_token": 1.47059e-07,
     "litellm_provider": "xiaomi",
     "mode": "chat",
-    "output_cost_per_token": 2.8e-07,
-    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+    "output_cost_per_token": 2.94118e-07,
+    "source": "https://mimo.mi.com/docs/zh-CN/price/pay-as-you-go（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 2.94118e-09
   },
   "mimo-v2.6-pro-ultraspeed": {
-    "cache_read_input_token_cost": 3.6e-08,
-    "input_cost_per_token": 4.35e-06,
+    "input_cost_per_token": 4.41176e-06,
     "litellm_provider": "xiaomi",
     "mode": "chat",
-    "output_cost_per_token": 8.7e-06,
-    "source": "https://mimo.mi.com/docs/en-US/price/pay-as-you-go（海外美元价）"
+    "output_cost_per_token": 8.82353e-06,
+    "source": "https://mimo.mi.com/docs/zh-CN/price/pay-as-you-go（国内站人民币价，1 美元 = 6.8 元）",
+    "cache_read_input_token_cost": 3.67647e-08
   },
   "doubao-seed-2-1-pro-260915": {
     "cache_read_input_token_cost": 1.76471e-07,
@@ -7424,487 +7630,518 @@
     "model_id": "MiniMax-M2.7",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.2e-06,
-    "cache_read_input_token_cost": 6e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.08824e-07,
+    "output_cost_per_token": 1.23529e-06,
+    "cache_read_input_token_cost": 6.17647e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m2.7-highspeed": {
     "model_id": "MiniMax-M2.7-highspeed",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 6e-07,
-    "output_cost_per_token": 2.4e-06,
-    "cache_read_input_token_cost": 6e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 6.17647e-07,
+    "output_cost_per_token": 2.47059e-06,
+    "cache_read_input_token_cost": 6.17647e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m2.5": {
     "model_id": "MiniMax-M2.5",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.2e-06,
-    "cache_read_input_token_cost": 3e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.08824e-07,
+    "output_cost_per_token": 1.23529e-06,
+    "cache_read_input_token_cost": 3.08824e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m2.1": {
     "model_id": "MiniMax-M2.1",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.2e-06,
-    "cache_read_input_token_cost": 3e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.08824e-07,
+    "output_cost_per_token": 1.23529e-06,
+    "cache_read_input_token_cost": 3.08824e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m2": {
     "model_id": "MiniMax-M2",
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.2e-06,
-    "cache_read_input_token_cost": 3e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.08824e-07,
+    "output_cost_per_token": 1.23529e-06,
+    "cache_read_input_token_cost": 3.08824e-08,
+    "cache_creation_input_token_cost": 3.86029e-07
   },
   "minimax-m3": {
     "litellm_provider": "minimax",
     "mode": "chat",
-    "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.2e-06,
+    "source": "https://platform.minimax.cn/docs/guides/pricing-paygo（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 3.08824e-07,
+    "output_cost_per_token": 1.23529e-06,
+    "model_id": "MiniMax-M3",
+    "cache_read_input_token_cost": 6.17647e-08,
     "input_token_tiers": [
       {
         "max_input_tokens": 512000,
-        "input_cost_per_token": 3e-07,
-        "output_cost_per_token": 1.2e-06,
-        "cache_read_input_token_cost": 6e-08
+        "input_cost_per_token": 3.08824e-07,
+        "output_cost_per_token": 1.23529e-06,
+        "cache_read_input_token_cost": 6.17647e-08
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 6e-07,
-        "output_cost_per_token": 2.4e-06,
-        "cache_read_input_token_cost": 1.2e-07
+        "input_cost_per_token": 6.17647e-07,
+        "output_cost_per_token": 2.47059e-06,
+        "cache_read_input_token_cost": 1.23529e-07
       }
-    ],
-    "cache_read_input_token_cost": 6e-08,
-    "model_id": "MiniMax-M3"
+    ]
   },
   "qwen3.7-plus": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 4e-07,
-    "output_cost_per_token": 1.6e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-07,
+    "output_cost_per_token": 1.17647e-06,
+    "cache_read_input_token_cost": 5.88235e-08,
+    "cache_creation_input_token_cost": 3.67647e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 1.6e-06,
-        "cache_read_input_token_cost": 8e-08,
-        "cache_creation_input_token_cost": 5e-07
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.17647e-06,
+        "cache_read_input_token_cost": 5.88235e-08,
+        "cache_creation_input_token_cost": 3.67647e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1.2e-06,
-        "output_cost_per_token": 4.8e-06,
-        "cache_read_input_token_cost": 2.4e-07,
-        "cache_creation_input_token_cost": 1.5e-06
+        "input_cost_per_token": 8.82353e-07,
+        "output_cost_per_token": 3.52941e-06,
+        "cache_read_input_token_cost": 1.76471e-07,
+        "cache_creation_input_token_cost": 1.10294e-06
       }
-    ],
-    "cache_read_input_token_cost": 8e-08,
-    "cache_creation_input_token_cost": 5e-07
+    ]
   },
   "qwen3.7-plus-2026-05-26": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 4e-07,
-    "output_cost_per_token": 1.6e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-07,
+    "output_cost_per_token": 1.17647e-06,
+    "cache_read_input_token_cost": 5.88235e-08,
+    "cache_creation_input_token_cost": 3.67647e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 1.6e-06,
-        "cache_read_input_token_cost": 8e-08,
-        "cache_creation_input_token_cost": 5e-07
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.17647e-06,
+        "cache_read_input_token_cost": 5.88235e-08,
+        "cache_creation_input_token_cost": 3.67647e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1.2e-06,
-        "output_cost_per_token": 4.8e-06,
-        "cache_read_input_token_cost": 2.4e-07,
-        "cache_creation_input_token_cost": 1.5e-06
+        "input_cost_per_token": 8.82353e-07,
+        "output_cost_per_token": 3.52941e-06,
+        "cache_read_input_token_cost": 1.76471e-07,
+        "cache_creation_input_token_cost": 1.10294e-06
       }
-    ],
-    "cache_read_input_token_cost": 8e-08,
-    "cache_creation_input_token_cost": 5e-07
+    ]
   },
   "qwen3.6-plus": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-07,
-    "output_cost_per_token": 3e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-07,
+    "output_cost_per_token": 1.76471e-06,
+    "cache_read_input_token_cost": 2.94118e-08,
+    "cache_creation_input_token_cost": 3.67647e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06,
-        "cache_read_input_token_cost": 5e-08,
-        "cache_creation_input_token_cost": 6.25e-07
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 2.94118e-08,
+        "cache_creation_input_token_cost": 3.67647e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2e-06,
-        "output_cost_per_token": 6e-06,
-        "cache_read_input_token_cost": 2e-07,
-        "cache_creation_input_token_cost": 2.5e-06
+        "input_cost_per_token": 1.17647e-06,
+        "output_cost_per_token": 7.05882e-06,
+        "cache_read_input_token_cost": 1.17647e-07,
+        "cache_creation_input_token_cost": 1.47059e-06
       }
-    ],
-    "cache_read_input_token_cost": 5e-08,
-    "cache_creation_input_token_cost": 6.25e-07
+    ]
   },
   "qwen3.6-plus-2026-04-02": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-07,
-    "output_cost_per_token": 3e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-07,
+    "output_cost_per_token": 1.76471e-06,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.76471e-06
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2e-06,
-        "output_cost_per_token": 6e-06
+        "input_cost_per_token": 1.17647e-06,
+        "output_cost_per_token": 7.05882e-06
       }
     ]
   },
   "qwen3.5-plus": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 4e-07,
-    "output_cost_per_token": 2.4e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.17647e-07,
+    "output_cost_per_token": 7.05882e-07,
+    "cache_read_input_token_cost": 1.17647e-08,
+    "cache_creation_input_token_cost": 1.47059e-07,
     "input_token_tiers": [
       {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 7.05882e-07,
+        "cache_read_input_token_cost": 1.17647e-08,
+        "cache_creation_input_token_cost": 1.47059e-07
+      },
+      {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 2.4e-06,
-        "cache_read_input_token_cost": 4e-08,
-        "cache_creation_input_token_cost": 5e-07
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 2.94118e-08,
+        "cache_creation_input_token_cost": 3.67647e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06,
-        "cache_read_input_token_cost": 5e-08,
-        "cache_creation_input_token_cost": 6.25e-07
+        "input_cost_per_token": 5.88235e-07,
+        "output_cost_per_token": 3.52941e-06,
+        "cache_read_input_token_cost": 5.88235e-08,
+        "cache_creation_input_token_cost": 7.35294e-07
       }
-    ],
-    "cache_read_input_token_cost": 4e-08,
-    "cache_creation_input_token_cost": 5e-07
+    ]
   },
   "qwen3.5-plus-2026-04-20": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 4e-07,
-    "output_cost_per_token": 2.4e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.17647e-07,
+    "output_cost_per_token": 7.05882e-07,
+    "cache_read_input_token_cost": 1.17647e-08,
+    "cache_creation_input_token_cost": 1.47059e-07,
     "input_token_tiers": [
       {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 7.05882e-07,
+        "cache_read_input_token_cost": 1.17647e-08,
+        "cache_creation_input_token_cost": 1.47059e-07
+      },
+      {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 2.4e-06,
-        "cache_read_input_token_cost": 4e-08,
-        "cache_creation_input_token_cost": 5e-07
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 2.94118e-08,
+        "cache_creation_input_token_cost": 3.67647e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06,
-        "cache_read_input_token_cost": 5e-08,
-        "cache_creation_input_token_cost": 6.25e-07
+        "input_cost_per_token": 5.88235e-07,
+        "output_cost_per_token": 3.52941e-06,
+        "cache_read_input_token_cost": 5.88235e-08,
+        "cache_creation_input_token_cost": 7.35294e-07
       }
-    ],
-    "cache_read_input_token_cost": 4e-08,
-    "cache_creation_input_token_cost": 5e-07
+    ]
   },
   "qwen3.5-plus-2026-02-15": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 4e-07,
-    "output_cost_per_token": 2.4e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.17647e-07,
+    "output_cost_per_token": 7.05882e-07,
     "input_token_tiers": [
       {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 1.17647e-07,
+        "output_cost_per_token": 7.05882e-07
+      },
+      {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 4e-07,
-        "output_cost_per_token": 2.4e-06
+        "input_cost_per_token": 2.94118e-07,
+        "output_cost_per_token": 1.76471e-06
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 3e-06
+        "input_cost_per_token": 5.88235e-07,
+        "output_cost_per_token": 3.52941e-06
       }
     ]
   },
   "qwen3.7-flash": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 3e-08,
-    "output_cost_per_token": 1.3e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-08,
+    "output_cost_per_token": 1.17647e-07,
+    "cache_read_input_token_cost": 5.88235e-09,
+    "cache_creation_input_token_cost": 3.67647e-08,
     "input_token_tiers": [
       {
         "max_input_tokens": 32000,
-        "input_cost_per_token": 3e-08,
-        "output_cost_per_token": 1.3e-07,
-        "cache_read_input_token_cost": 6e-09,
-        "cache_creation_input_token_cost": 3.8e-08
+        "input_cost_per_token": 2.94118e-08,
+        "output_cost_per_token": 1.17647e-07,
+        "cache_read_input_token_cost": 5.88235e-09,
+        "cache_creation_input_token_cost": 3.67647e-08
       },
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 1e-07,
-        "output_cost_per_token": 4e-07,
-        "cache_read_input_token_cost": 2e-08,
-        "cache_creation_input_token_cost": 1.25e-07
+        "input_cost_per_token": 8.82353e-08,
+        "output_cost_per_token": 3.52941e-07,
+        "cache_read_input_token_cost": 1.76471e-08,
+        "cache_creation_input_token_cost": 1.10294e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2e-07,
-        "output_cost_per_token": 8e-07,
-        "cache_read_input_token_cost": 4e-08,
-        "cache_creation_input_token_cost": 2.5e-07
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 7.05882e-07,
+        "cache_read_input_token_cost": 3.52941e-08,
+        "cache_creation_input_token_cost": 2.20588e-07
       }
-    ],
-    "cache_read_input_token_cost": 6e-09,
-    "cache_creation_input_token_cost": 3.8e-08
+    ]
   },
   "qwen3.7-flash-2026-07-15": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 3e-08,
-    "output_cost_per_token": 1.3e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.94118e-08,
+    "output_cost_per_token": 1.17647e-07,
+    "cache_read_input_token_cost": 5.88235e-09,
+    "cache_creation_input_token_cost": 3.67647e-08,
     "input_token_tiers": [
       {
         "max_input_tokens": 32000,
-        "input_cost_per_token": 3e-08,
-        "output_cost_per_token": 1.3e-07,
-        "cache_read_input_token_cost": 6e-09,
-        "cache_creation_input_token_cost": 3.8e-08
+        "input_cost_per_token": 2.94118e-08,
+        "output_cost_per_token": 1.17647e-07,
+        "cache_read_input_token_cost": 5.88235e-09,
+        "cache_creation_input_token_cost": 3.67647e-08
       },
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 1e-07,
-        "output_cost_per_token": 4e-07,
-        "cache_read_input_token_cost": 2e-08,
-        "cache_creation_input_token_cost": 1.25e-07
+        "input_cost_per_token": 8.82353e-08,
+        "output_cost_per_token": 3.52941e-07,
+        "cache_read_input_token_cost": 1.76471e-08,
+        "cache_creation_input_token_cost": 1.10294e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2e-07,
-        "output_cost_per_token": 8e-07,
-        "cache_read_input_token_cost": 4e-08,
-        "cache_creation_input_token_cost": 2.5e-07
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 7.05882e-07,
+        "cache_read_input_token_cost": 3.52941e-08,
+        "cache_creation_input_token_cost": 2.20588e-07
       }
-    ],
-    "cache_read_input_token_cost": 6e-09,
-    "cache_creation_input_token_cost": 3.8e-08
+    ]
   },
   "qwen3.6-flash": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 2.5e-07,
-    "output_cost_per_token": 1.5e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.76471e-07,
+    "output_cost_per_token": 1.05882e-06,
+    "cache_read_input_token_cost": 1.76471e-08,
+    "cache_creation_input_token_cost": 2.20588e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 2.5e-07,
-        "output_cost_per_token": 1.5e-06,
-        "cache_read_input_token_cost": 2.5e-08,
-        "cache_creation_input_token_cost": 3.125e-07
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.05882e-06,
+        "cache_read_input_token_cost": 1.76471e-08,
+        "cache_creation_input_token_cost": 2.20588e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1e-06,
-        "output_cost_per_token": 4e-06,
-        "cache_read_input_token_cost": 1e-07,
-        "cache_creation_input_token_cost": 1.25e-06
+        "input_cost_per_token": 7.05882e-07,
+        "output_cost_per_token": 4.23529e-06,
+        "cache_read_input_token_cost": 7.05882e-08,
+        "cache_creation_input_token_cost": 8.82353e-07
       }
-    ],
-    "cache_read_input_token_cost": 2.5e-08,
-    "cache_creation_input_token_cost": 3.125e-07
+    ]
   },
   "qwen3.6-flash-2026-04-16": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 2.5e-07,
-    "output_cost_per_token": 1.5e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.76471e-07,
+    "output_cost_per_token": 1.05882e-06,
     "input_token_tiers": [
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 2.5e-07,
-        "output_cost_per_token": 1.5e-06
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.05882e-06
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1e-06,
-        "output_cost_per_token": 4e-06
+        "input_cost_per_token": 7.05882e-07,
+        "output_cost_per_token": 4.23529e-06
       }
     ]
   },
   "qwen-flash": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-08,
-    "output_cost_per_token": 4e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.20588e-08,
+    "output_cost_per_token": 2.20588e-07,
+    "cache_read_input_token_cost": 4.41176e-09,
+    "cache_creation_input_token_cost": 2.76471e-08,
     "input_token_tiers": [
       {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 2.20588e-08,
+        "output_cost_per_token": 2.20588e-07,
+        "cache_read_input_token_cost": 4.41176e-09,
+        "cache_creation_input_token_cost": 2.76471e-08
+      },
+      {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 5e-08,
-        "output_cost_per_token": 4e-07,
-        "cache_read_input_token_cost": 1e-08,
-        "cache_creation_input_token_cost": 6.3e-08
+        "input_cost_per_token": 8.82353e-08,
+        "output_cost_per_token": 8.82353e-07,
+        "cache_read_input_token_cost": 1.76471e-08,
+        "cache_creation_input_token_cost": 1.10294e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2.5e-07,
-        "output_cost_per_token": 2e-06,
-        "cache_read_input_token_cost": 5e-08,
-        "cache_creation_input_token_cost": 3.13e-07
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.76471e-06,
+        "cache_read_input_token_cost": 3.52941e-08,
+        "cache_creation_input_token_cost": 2.20588e-07
       }
-    ],
-    "cache_read_input_token_cost": 1e-08,
-    "cache_creation_input_token_cost": 6.3e-08
+    ]
   },
   "qwen-flash-2025-07-28": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 5e-08,
-    "output_cost_per_token": 4e-07,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 2.20588e-08,
+    "output_cost_per_token": 2.20588e-07,
     "input_token_tiers": [
       {
+        "max_input_tokens": 128000,
+        "input_cost_per_token": 2.20588e-08,
+        "output_cost_per_token": 2.20588e-07
+      },
+      {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 5e-08,
-        "output_cost_per_token": 4e-07
+        "input_cost_per_token": 8.82353e-08,
+        "output_cost_per_token": 8.82353e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 2.5e-07,
-        "output_cost_per_token": 2e-06
+        "input_cost_per_token": 1.76471e-07,
+        "output_cost_per_token": 1.76471e-06
       }
     ]
   },
   "qwen3-vl-plus": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 2e-07,
-    "output_cost_per_token": 1.6e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.47059e-07,
+    "output_cost_per_token": 1.47059e-06,
+    "cache_read_input_token_cost": 2.94118e-08,
+    "cache_creation_input_token_cost": 1.83824e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 32000,
-        "input_cost_per_token": 2e-07,
-        "output_cost_per_token": 1.6e-06,
-        "cache_read_input_token_cost": 4e-08,
-        "cache_creation_input_token_cost": 2.5e-07
+        "input_cost_per_token": 1.47059e-07,
+        "output_cost_per_token": 1.47059e-06,
+        "cache_read_input_token_cost": 2.94118e-08,
+        "cache_creation_input_token_cost": 1.83824e-07
       },
       {
         "max_input_tokens": 128000,
-        "input_cost_per_token": 3e-07,
-        "output_cost_per_token": 2.4e-06,
-        "cache_read_input_token_cost": 6e-08,
-        "cache_creation_input_token_cost": 3.75e-07
+        "input_cost_per_token": 2.20588e-07,
+        "output_cost_per_token": 2.20588e-06,
+        "cache_read_input_token_cost": 4.41176e-08,
+        "cache_creation_input_token_cost": 2.75735e-07
       },
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 6e-07,
-        "output_cost_per_token": 4.8e-06,
-        "cache_read_input_token_cost": 1.2e-07,
-        "cache_creation_input_token_cost": 7.5e-07
+        "input_cost_per_token": 4.41176e-07,
+        "output_cost_per_token": 4.41176e-06,
+        "cache_read_input_token_cost": 8.82353e-08,
+        "cache_creation_input_token_cost": 5.51471e-07
       }
-    ],
-    "cache_read_input_token_cost": 4e-08,
-    "cache_creation_input_token_cost": 2.5e-07
+    ]
   },
   "qwen3-coder-flash": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.5e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.47059e-07,
+    "output_cost_per_token": 5.88235e-07,
+    "cache_read_input_token_cost": 2.94118e-08,
+    "cache_creation_input_token_cost": 1.83824e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 32000,
-        "input_cost_per_token": 3e-07,
-        "output_cost_per_token": 1.5e-06,
-        "cache_read_input_token_cost": 6e-08,
-        "cache_creation_input_token_cost": 3.75e-07
+        "input_cost_per_token": 1.47059e-07,
+        "output_cost_per_token": 5.88235e-07,
+        "cache_read_input_token_cost": 2.94118e-08,
+        "cache_creation_input_token_cost": 1.83824e-07
       },
       {
         "max_input_tokens": 128000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 2.5e-06,
-        "cache_read_input_token_cost": 1e-07,
-        "cache_creation_input_token_cost": 6.25e-07
+        "input_cost_per_token": 2.20588e-07,
+        "output_cost_per_token": 8.82353e-07,
+        "cache_read_input_token_cost": 4.41176e-08,
+        "cache_creation_input_token_cost": 2.75735e-07
       },
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 8e-07,
-        "output_cost_per_token": 4e-06,
-        "cache_read_input_token_cost": 1.6e-07,
-        "cache_creation_input_token_cost": 1e-06
+        "input_cost_per_token": 3.67647e-07,
+        "output_cost_per_token": 1.47059e-06,
+        "cache_read_input_token_cost": 7.35294e-08,
+        "cache_creation_input_token_cost": 4.59559e-07
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1.6e-06,
-        "output_cost_per_token": 9.6e-06,
-        "cache_read_input_token_cost": 3.2e-07,
-        "cache_creation_input_token_cost": 2e-06
+        "input_cost_per_token": 7.35294e-07,
+        "output_cost_per_token": 3.67647e-06,
+        "cache_read_input_token_cost": 1.47059e-07,
+        "cache_creation_input_token_cost": 9.19118e-07
       }
-    ],
-    "cache_read_input_token_cost": 6e-08,
-    "cache_creation_input_token_cost": 3.75e-07
+    ]
   },
   "qwen3-coder-flash-2025-07-28": {
     "litellm_provider": "dashscope",
     "mode": "chat",
-    "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing（新加坡 / 国际部署）",
-    "input_cost_per_token": 3e-07,
-    "output_cost_per_token": 1.5e-06,
+    "source": "https://help.aliyun.com/zh/model-studio/model-pricing（国内站人民币价，1 美元 = 6.8 元）",
+    "input_cost_per_token": 1.47059e-07,
+    "output_cost_per_token": 5.88235e-07,
     "input_token_tiers": [
       {
         "max_input_tokens": 32000,
-        "input_cost_per_token": 3e-07,
-        "output_cost_per_token": 1.5e-06
+        "input_cost_per_token": 1.47059e-07,
+        "output_cost_per_token": 5.88235e-07
       },
       {
         "max_input_tokens": 128000,
-        "input_cost_per_token": 5e-07,
-        "output_cost_per_token": 2.5e-06
+        "input_cost_per_token": 2.20588e-07,
+        "output_cost_per_token": 8.82353e-07
       },
       {
         "max_input_tokens": 256000,
-        "input_cost_per_token": 8e-07,
-        "output_cost_per_token": 4e-06
+        "input_cost_per_token": 3.67647e-07,
+        "output_cost_per_token": 1.47059e-06
       },
       {
         "max_input_tokens": 1000000,
-        "input_cost_per_token": 1.6e-06,
-        "output_cost_per_token": 9.6e-06
+        "input_cost_per_token": 7.35294e-07,
+        "output_cost_per_token": 3.67647e-06
       }
     ]
   }

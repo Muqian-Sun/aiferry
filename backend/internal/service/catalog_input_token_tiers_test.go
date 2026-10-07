@@ -49,66 +49,42 @@ func seededBuiltinCatalog(t *testing.T) map[string]ModelCatalogEntry {
 func TestCatalogSeedInputTokenTiersFollowOfficialPrices(t *testing.T) {
 	byID := seededBuiltinCatalog(t)
 
-	// 豆包角色扮演：输入 (32K, 128K] 输入 1.2 元、输出 6 元，缓存命中仍是 0.16 元（不随段涨）
-	character := byID["doubao-seed-character-260628"]
-	requirePrice(t, cnyPerMillion(0.8), character.InputPrice)
-	require.Len(t, character.Intervals, 1)
-	require.Equal(t, 32000, character.Intervals[0].MinTokens)
-	require.Nil(t, character.Intervals[0].MaxTokens, "最后一段不封顶")
-	requirePrice(t, cnyPerMillion(1.2), character.Intervals[0].InputPrice)
-	requirePrice(t, cnyPerMillion(6.0), character.Intervals[0].OutputPrice)
-	requirePrice(t, cnyPerMillion(0.16), character.Intervals[0].CacheReadPrice)
+	// 豆包文本模型不接入（muqian 2026-10-07）：分段价仍在价格文件里（计费测试用），只是不进目录
+	for _, model := range []string{"doubao-seed-character-260628", "doubao-seed-2-0-lite-260428", "doubao-seed-2-1-pro-260915"} {
+		_, ok := byID[model]
+		require.False(t, ok, model)
+	}
 
-	// 豆包 2.0 lite：三段 32K / 128K / 256K；音频输入基础价 9 元
-	lite := byID["doubao-seed-2-0-lite-260428"]
-	requirePrice(t, cnyPerMillion(0.6), lite.InputPrice)
-	requirePrice(t, cnyPerMillion(9.0), lite.AudioInputPrice)
-	require.Len(t, lite.Intervals, 2)
-	require.Equal(t, 32000, lite.Intervals[0].MinTokens)
-	require.Equal(t, 128000, *lite.Intervals[0].MaxTokens)
-	requirePrice(t, cnyPerMillion(0.9), lite.Intervals[0].InputPrice)
-	requirePrice(t, cnyPerMillion(5.4), lite.Intervals[0].OutputPrice)
-	requirePrice(t, cnyPerMillion(0.18), lite.Intervals[0].CacheReadPrice)
-	require.Equal(t, 128000, lite.Intervals[1].MinTokens)
-	requirePrice(t, cnyPerMillion(1.8), lite.Intervals[1].InputPrice)
-	requirePrice(t, cnyPerMillion(10.8), lite.Intervals[1].OutputPrice)
-	_, deprecated := byID["doubao-seed-2-0-lite-260215"]
-	require.False(t, deprecated, "260215 官网标了即将下线，不收")
-
-	// 豆包 2.1 改按 6.8 换算
-	requirePrice(t, cnyPerMillion(6.0), byID["doubao-seed-2-1-pro-260915"].InputPrice)
-	requirePrice(t, cnyPerMillion(30.0), byID["doubao-seed-2-1-pro-260915"].OutputPrice)
-
-	// 通义（新加坡价）：qwen3.7-flash 三段，带缓存折扣的缓存命中按每段输入价 20%
+	// 通义（国内站人民币价 ÷ 6.8，muqian 2026-10-07）：qwen3.7-flash 三段，缓存命中 / 创建逐段按国内站单模型页
 	flash := byID["qwen3.7-flash"]
-	requirePrice(t, usdPerMillion(0.03), flash.InputPrice)
-	requirePrice(t, usdPerMillion(0.006), flash.CacheReadPrice)
+	requirePrice(t, cnyPerMillion(0.2), flash.InputPrice)
+	requirePrice(t, cnyPerMillion(0.04), flash.CacheReadPrice)
 	require.Len(t, flash.Intervals, 2)
 	require.Equal(t, 32000, flash.Intervals[0].MinTokens)
 	require.Equal(t, 256000, *flash.Intervals[0].MaxTokens)
-	requirePrice(t, usdPerMillion(0.1), flash.Intervals[0].InputPrice)
-	requirePrice(t, usdPerMillion(0.02), flash.Intervals[0].CacheReadPrice)
-	requirePrice(t, usdPerMillion(0.8), flash.Intervals[1].OutputPrice)
-	requirePrice(t, usdPerMillion(0.038), flash.CacheWritePrice, "显式缓存创建价")
-	requirePrice(t, usdPerMillion(0.125), flash.Intervals[0].CacheWritePrice)
+	requirePrice(t, cnyPerMillion(0.6), flash.Intervals[0].InputPrice)
+	requirePrice(t, cnyPerMillion(0.12), flash.Intervals[0].CacheReadPrice)
+	requirePrice(t, cnyPerMillion(4.8), flash.Intervals[1].OutputPrice)
+	requirePrice(t, cnyPerMillion(0.25), flash.CacheWritePrice, "显式缓存创建价")
+	requirePrice(t, cnyPerMillion(0.75), flash.Intervals[0].CacheWritePrice)
 	// 快照在不在缓存支持列表里各算各的：qwen3.7-flash-2026-07-15 在列表里，qwen3.6-flash-2026-04-16 不在
-	requirePrice(t, usdPerMillion(0.006), byID["qwen3.7-flash-2026-07-15"].CacheReadPrice)
+	requirePrice(t, cnyPerMillion(0.04), byID["qwen3.7-flash-2026-07-15"].CacheReadPrice)
 	require.Nil(t, byID["qwen3.6-flash-2026-04-16"].CacheReadPrice)
 	// 只有显式缓存的（qwen3.6-plus）：命中按显式读价、逐段
 	plus36 := byID["qwen3.6-plus"]
-	requirePrice(t, usdPerMillion(0.05), plus36.CacheReadPrice)
-	requirePrice(t, usdPerMillion(0.625), plus36.CacheWritePrice)
-	requirePrice(t, usdPerMillion(0.2), plus36.Intervals[0].CacheReadPrice)
-	requirePrice(t, usdPerMillion(2.5), plus36.Intervals[0].CacheWritePrice)
+	requirePrice(t, cnyPerMillion(0.2), plus36.CacheReadPrice)
+	requirePrice(t, cnyPerMillion(2.5), plus36.CacheWritePrice)
+	requirePrice(t, cnyPerMillion(0.8), plus36.Intervals[0].CacheReadPrice)
+	requirePrice(t, cnyPerMillion(10), plus36.Intervals[0].CacheWritePrice)
 	// 开源权重版不支持上下文缓存：不存缓存价
 	require.Nil(t, byID["qwen3.5-397b-a17b"].CacheReadPrice)
-	// qwen3.7-plus 限时 8 折 2026-09-30 结束（alibabacloud.com/campaign/qwen-plus-discount），回到列表价
-	requirePrice(t, usdPerMillion(0.4), byID["qwen3.7-plus"].InputPrice)
-	requirePrice(t, usdPerMillion(4.8), byID["qwen3.7-plus"].Intervals[0].OutputPrice)
-	requirePrice(t, usdPerMillion(0.4), byID["qwen3.7-plus-2026-05-26"].InputPrice)
+	// qwen3.7-plus 限时 8 折 2026-09-30 结束（alibabacloud.com/campaign/qwen-plus-discount），存列表价（国内站仍标限时 8 折）
+	requirePrice(t, cnyPerMillion(2), byID["qwen3.7-plus"].InputPrice)
+	requirePrice(t, cnyPerMillion(24), byID["qwen3.7-plus"].Intervals[0].OutputPrice)
+	requirePrice(t, cnyPerMillion(2), byID["qwen3.7-plus-2026-05-26"].InputPrice)
 	coder := byID["qwen3-coder-flash"]
 	require.Len(t, coder.Intervals, 3)
-	requirePrice(t, usdPerMillion(9.6), coder.Intervals[2].OutputPrice)
+	requirePrice(t, cnyPerMillion(25), coder.Intervals[2].OutputPrice)
 	// qwen-plus 系列开思考另价，目录分不出来：先不收（muqian 2026-10-06）
 	for _, model := range []string{"qwen-plus", "qwen-plus-2025-12-01", "qwen-plus-2025-09-11", "qwen-plus-2025-07-28"} {
 		_, ok := byID[model]
@@ -123,13 +99,15 @@ func TestCatalogSeedInputTokenTiersFollowOfficialPrices(t *testing.T) {
 	require.Equal(t, "minimax", m3.Vendor)
 	require.Len(t, m3.Intervals, 1)
 	require.Equal(t, 512000, m3.Intervals[0].MinTokens)
-	requirePrice(t, usdPerMillion(0.6), m3.Intervals[0].InputPrice)
-	requirePrice(t, usdPerMillion(2.4), m3.Intervals[0].OutputPrice)
-	requirePrice(t, usdPerMillion(0.12), m3.Intervals[0].CacheReadPrice)
+	// 国内站标准层，永久五折存现价（muqian 2026-10-07：国内模型按国内站人民币价 ÷ 6.8）
+	requirePrice(t, cnyPerMillion(2.1), m3.InputPrice)
+	requirePrice(t, cnyPerMillion(4.2), m3.Intervals[0].InputPrice)
+	requirePrice(t, cnyPerMillion(16.8), m3.Intervals[0].OutputPrice)
+	requirePrice(t, cnyPerMillion(0.84), m3.Intervals[0].CacheReadPrice)
 	for _, model := range []string{"MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"} {
 		entry, ok := byID[model]
 		require.True(t, ok, model)
-		requirePrice(t, usdPerMillion(0.375), entry.CacheWritePrice, model)
+		requirePrice(t, cnyPerMillion(2.625), entry.CacheWritePrice, model)
 	}
 
 	// 零散修正：gpt-image-2 文字没有输出价；gemini-embedding-2 图片 / 音频输入价

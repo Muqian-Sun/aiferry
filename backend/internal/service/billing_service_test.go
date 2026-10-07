@@ -127,10 +127,10 @@ func TestGetModelPricing_GLM52UsesOwnPrice(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	// 官方 z.ai 口径:与 glm-5.1 同价(见 TestGetFallbackPricing_FamilyMatching)。
-	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
-	require.InDelta(t, 4.4e-6, got.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 0.26e-6, got.CacheReadPricePerToken, 1e-12)
+	// 国内站人民币价 ÷ 6.8（muqian 2026-10-07）：¥8 / ¥28，缓存命中 ¥2。
+	require.InDelta(t, 8/6.8*1e-6, got.InputPricePerToken, 1e-12)
+	require.InDelta(t, 28/6.8*1e-6, got.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 2/6.8*1e-6, got.CacheReadPricePerToken, 1e-12)
 }
 
 func TestGetModelPricing_OpenAIGPT54Fallback(t *testing.T) {

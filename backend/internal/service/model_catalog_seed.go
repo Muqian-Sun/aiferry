@@ -345,6 +345,26 @@ var catalogExcludedModels = map[string]string{
 	"gpt-3.5-turbo-instruct-0914": "not_official",
 	"gpt-5-chat":                  "not_official",
 	"gpt-5-search-api-2025-10-14": "not_official",
+	// 豆包文本模型不接入（muqian 2026-10-07）
+	"doubao-seed-2-0-lite-260428":  "not_integrated",
+	"doubao-seed-2-0-mini-260428":  "not_integrated",
+	"doubao-seed-2-1-lite-260915":  "not_integrated",
+	"doubao-seed-2-1-pro-260628":   "not_integrated",
+	"doubao-seed-2-1-pro-260915":   "not_integrated",
+	"doubao-seed-2-1-turbo-260628": "not_integrated",
+	"doubao-seed-character-251128": "not_integrated",
+	"doubao-seed-character-260628": "not_integrated",
+	// 国内模型一律按国内站人民币价（muqian 2026-10-07）：国内站价目没有的不收
+	"qwen-plus-character-ja": "not_domestic",
+	"glm-4-32b-0414-128k":    "not_domestic",
+	"glm-4.5":                "not_domestic",
+	"glm-4.5-airx":           "not_domestic",
+	"glm-4.5-flash":          "not_domestic",
+	"glm-4.5-x":              "not_domestic",
+	"glm-4.6":                "not_domestic",
+	// 国内站按「输出是否少于 200 Token」另价，目录只能按输入长度分段：不收（muqian 2026-10-07）
+	"glm-4.7":     "output_tiered",
+	"glm-4.5-air": "output_tiered",
 	// 会自动换指向的别名（-latest、kimi-for-coding），目录只留固定 ID
 	"chat-latest":                          "moving_alias",
 	"gemini-2.5-flash-native-audio-latest": "moving_alias",
