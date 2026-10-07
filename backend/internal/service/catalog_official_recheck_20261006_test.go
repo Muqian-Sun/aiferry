@@ -28,13 +28,14 @@ func TestCatalogOfficialRecheck20261006(t *testing.T) {
 	requirePrice(t, *sol.CacheWritePrice, alias.CacheWritePrice)
 	require.Equal(t, sol.Intervals, alias.Intervals)
 
-	// Kimi：K3 缓存写 5 分钟 $3 / 1 小时 $6；K2.6 缓存命中 $0.16
+	// Kimi（国内站人民币价 ÷ 6.8）：K3 缓存写入 5 分钟 ¥20 / 1 小时 ¥40；K2.6 缓存命中 ¥1.1
 	k3 := byID["kimi-k3"]
-	requirePrice(t, usdPerMillion(3), k3.CacheWritePrice)
-	requirePrice(t, usdPerMillion(6), k3.CacheWrite1hPrice)
-	requirePrice(t, usdPerMillion(0.16), byID["kimi-k2.6"].CacheReadPrice)
+	requirePrice(t, cnyPerMillion(20), k3.InputPrice)
+	requirePrice(t, cnyPerMillion(20), k3.CacheWritePrice)
+	requirePrice(t, cnyPerMillion(40), k3.CacheWrite1hPrice)
+	requirePrice(t, cnyPerMillion(1.1), byID["kimi-k2.6"].CacheReadPrice)
 
-	// 智谱：国际站没有的按国内站人民币价换算，GLM-5-Turbo / GLM-5V-Turbo 分 [0, 32K) 与 ≥32K 两段
+	// 智谱（国内站人民币价 ÷ 6.8）：GLM-5-Turbo / GLM-5V-Turbo 分 [0, 32K) 与 ≥32K 两段
 	for _, model := range []string{"glm-5-turbo", "glm-5v-turbo"} {
 		entry := byID[model]
 		require.Equal(t, "zhipu", entry.Vendor, model)
@@ -56,10 +57,11 @@ func TestCatalogOfficialRecheck20261006(t *testing.T) {
 	_, evolving := byID["doubao-seed-evolving"]
 	require.False(t, evolving)
 
-	// 通义角色扮演：在隐式缓存支持列表里，命中价 = 输入价 20%
-	requirePrice(t, usdPerMillion(0.1), byID["qwen-plus-character"].CacheReadPrice)
-	requirePrice(t, usdPerMillion(0.01), byID["qwen-flash-character"].CacheReadPrice)
-	requirePrice(t, usdPerMillion(1.4), byID["qwen-plus-character-ja"].OutputPrice)
+	// 通义角色扮演（国内站人民币价 ÷ 6.8）：在隐式缓存支持列表里，命中价按国内站单模型页；-ja 国内站没有，不收
+	requirePrice(t, cnyPerMillion(0.16), byID["qwen-plus-character"].CacheReadPrice)
+	requirePrice(t, cnyPerMillion(0.05), byID["qwen-flash-character"].CacheReadPrice)
+	_, ja := byID["qwen-plus-character-ja"]
+	require.False(t, ja)
 }
 
 // 智谱国内站分段写的是「[0, 32K)」「≥32K」：恰好 32000 就进高段（分段左开右闭，价格文件第一段上限写 31999）。
@@ -83,8 +85,8 @@ func TestQwenExplicitCacheBilledAtOfficialPrices(t *testing.T) {
 	cost := costViaCatalog(t, bs, resolver, "qwen3.6-plus", UsageTokens{
 		InputTokens: 10_000, CacheReadTokens: 50_000, CacheCreationTokens: 20_000, OutputTokens: 1_000,
 	})
-	require.InEpsilon(t, 50_000*usdPerMillion(0.05), cost.CacheReadCost, 1e-9)
-	require.InEpsilon(t, 20_000*usdPerMillion(0.625), cost.CacheCreationCost, 1e-9)
+	require.InEpsilon(t, 50_000*cnyPerMillion(0.2), cost.CacheReadCost, 1e-5)
+	require.InEpsilon(t, 20_000*cnyPerMillion(2.5), cost.CacheCreationCost, 1e-5)
 }
 
 // 官网免费的文本模型（muqian 10-06「免费的文本模型加入」）：存显式 0 价——能上架、按 0 计费；
@@ -92,7 +94,7 @@ func TestQwenExplicitCacheBilledAtOfficialPrices(t *testing.T) {
 func TestFreeTextModelsSeedAsZeroPriced(t *testing.T) {
 	byID := seededBuiltinCatalog(t)
 	bs := NewBillingService()
-	for _, model := range []string{"glm-4.5-flash", "glm-4.7-flash", "glm-4-flash-250414"} {
+	for _, model := range []string{"glm-4.7-flash", "glm-4-flash-250414"} { // glm-4.5-flash 国内站没有，不收（10-07）
 		entry, ok := byID[model]
 		require.True(t, ok, model)
 		require.Equal(t, "zhipu", entry.Vendor, model)

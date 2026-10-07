@@ -76,7 +76,9 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 		require.False(t, catalogModelExcluded(entry.ModelID), "%s 在排除清单里，不该播进目录", entry.ModelID)
 		byID[entry.ModelID] = entry
 	}
-	for _, removed := range []string{"o3", "gpt-image-1", "gemini-2.0-flash", "gpt-4", "chat-latest", "grok-4.5-latest", "kimi-k2.5", "claude-3-5-haiku", "gemini-3.1-pro-high", "claude-opus-4-6-thinking", "doubao-embedding-vision", "qwq-plus", "qwen3-32b", "qwen3-vl-8b-instruct"} {
+	for _, removed := range []string{"o3", "gpt-image-1", "gemini-2.0-flash", "gpt-4", "chat-latest", "grok-4.5-latest", "kimi-k2.5", "claude-3-5-haiku", "gemini-3.1-pro-high", "claude-opus-4-6-thinking", "doubao-embedding-vision", "qwq-plus", "qwen3-32b", "qwen3-vl-8b-instruct",
+		// muqian 2026-10-07：豆包文本模型不接入；国内站价目没有的、按输出长度另价的不收
+		"doubao-seed-2-1-pro-260915", "doubao-seed-character-260628", "qwen-plus-character-ja", "glm-4.6", "glm-4.5", "glm-4.7", "glm-4.5-air"} {
 		require.True(t, catalogModelExcluded(removed), removed)
 		_, ok := byID[removed]
 		require.False(t, ok, removed)
@@ -86,20 +88,16 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 		require.True(t, ok, "%s 官网在售，要留在目录里", kept)
 	}
 
-	// 小米 MiMo 用官网海外美元价；豆包只有人民币价，按 1 美元 = 6.8 元换算（muqian 2026-10-06）
+	// 国内模型一律按国内站人民币价 ÷ 6.8（muqian 2026-10-07）：小米 MiMo 国内定价 ¥3 / ¥6
 	mimo := byID["mimo-v2.6-pro"]
 	require.Equal(t, "xiaomi", mimo.Vendor)
-	require.InDelta(t, 0.435e-6, *mimo.InputPrice, 1e-15)
-	require.InDelta(t, 0.87e-6, *mimo.OutputPrice, 1e-15)
-	doubao := byID["doubao-seed-2-1-pro-260915"]
-	require.Equal(t, "volcengine", doubao.Vendor)
-	require.InEpsilon(t, 6.0/6.8*1e-6, *doubao.InputPrice, 1e-5)
-	require.InEpsilon(t, 30.0/6.8*1e-6, *doubao.OutputPrice, 1e-5)
+	require.InEpsilon(t, 3.0/6.8*1e-6, *mimo.InputPrice, 1e-5)
+	require.InEpsilon(t, 6.0/6.8*1e-6, *mimo.OutputPrice, 1e-5)
 	embedding, ok := byID["doubao-embedding-vision-251215"]
 	require.True(t, ok, "豆包向量模型用带版本号的官方 ID")
 	require.Equal(t, "volcengine", embedding.Vendor)
 
 	for id, reason := range catalogExcludedModels {
-		require.Contains(t, []string{"deprecated", "shutdown", "retired", "not_listed", "not_priced", "not_official", "moving_alias"}, reason, id)
+		require.Contains(t, []string{"deprecated", "shutdown", "retired", "not_listed", "not_priced", "not_official", "moving_alias", "not_integrated", "not_domestic", "output_tiered"}, reason, id)
 	}
 }

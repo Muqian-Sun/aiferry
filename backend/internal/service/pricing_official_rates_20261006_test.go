@@ -29,10 +29,11 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 		"claude-sonnet-5": {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, cacheWrite1h: 4e-6},
 		"gpt-6-sol":       {input: 2e-6, output: 10e-6, cacheRead: 0.2e-6, cacheWrite: 2.5e-6, threshold: 272000, inMul: 2, outMul: 1.5},
 		"grok-4.7":        {input: 2e-6, output: 6e-6, cacheRead: 0.5e-6, threshold: 200000, inMul: 2, outMul: 2},
-		"kimi-k2.7-code":  {input: 0.95e-6, output: 4e-6, cacheRead: 0.19e-6},
-		// 通义缓存价按单模型页（新加坡 / 国际）：有隐式缓存的命中按隐式价，只有显式缓存的按显式读价；缓存写 = 显式创建价
-		"qwen3.5-flash": {input: 0.1e-6, output: 0.4e-6, cacheRead: 0.01e-6, cacheWrite: 0.125e-6}, // 只有显式缓存
-		"qwen3.8-max":   {input: 2e-6, output: 6e-6, cacheRead: 0.25e-6, cacheWrite: 2.5e-6},       // 隐式 0.25、显式创建 2.5
+		// 国内模型按国内站人民币价 ÷ 6.8（muqian 2026-10-07）；通义缓存价按国内站单模型页：
+		// 有隐式缓存的命中按隐式价，只有显式缓存的按显式读价；缓存写 = 显式创建价
+		"kimi-k2.7-code": {input: 6.5 / 6.8 * 1e-6, output: 27 / 6.8 * 1e-6, cacheRead: 1.3 / 6.8 * 1e-6},
+		"qwen3.5-flash":  {input: 0.2 / 6.8 * 1e-6, output: 2 / 6.8 * 1e-6, cacheRead: 0.02 / 6.8 * 1e-6, cacheWrite: 0.25 / 6.8 * 1e-6}, // 只有显式缓存
+		"qwen3.8-max":    {input: 12 / 6.8 * 1e-6, output: 36 / 6.8 * 1e-6, cacheRead: 1.5 / 6.8 * 1e-6, cacheWrite: 15 / 6.8 * 1e-6},    // 隐式 ¥1.5、显式创建 ¥15
 		// 修正
 		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 12e-6}, // 官网只有音频输出价 $12
 		"gpt-realtime-2":             {input: 4e-6, output: 24e-6, cacheRead: 0.4e-6},
@@ -44,11 +45,12 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 		t.Run(model, func(t *testing.T) {
 			got, ok := pricingData[model]
 			require.True(t, ok, "价格文件里要有 %s", model)
-			require.InDelta(t, want.input, got.InputCostPerToken, 1e-15)
-			require.InDelta(t, want.output, got.OutputCostPerToken, 1e-15)
-			require.InDelta(t, want.cacheRead, got.CacheReadInputTokenCost, 1e-15)
-			require.InDelta(t, want.cacheWrite, got.CacheCreationInputTokenCost, 1e-15)
-			require.InDelta(t, want.cacheWrite1h, got.CacheCreationInputTokenCostAbove1hr, 1e-15)
+			// 价格文件存 6 位有效数字（人民币换算的价不是整数美分）
+			require.InDelta(t, want.input, got.InputCostPerToken, want.input*1e-5+1e-15)
+			require.InDelta(t, want.output, got.OutputCostPerToken, want.output*1e-5+1e-15)
+			require.InDelta(t, want.cacheRead, got.CacheReadInputTokenCost, want.cacheRead*1e-5+1e-15)
+			require.InDelta(t, want.cacheWrite, got.CacheCreationInputTokenCost, want.cacheWrite*1e-5+1e-15)
+			require.InDelta(t, want.cacheWrite1h, got.CacheCreationInputTokenCostAbove1hr, want.cacheWrite1h*1e-5+1e-15)
 			require.Equal(t, want.threshold, got.LongContextInputTokenThreshold)
 			require.InDelta(t, want.inMul, got.LongContextInputCostMultiplier, 1e-12)
 			require.InDelta(t, want.outMul, got.LongContextOutputCostMultiplier, 1e-12)

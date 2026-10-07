@@ -31,7 +31,8 @@ func TestIsDeepSeekModel(t *testing.T) {
 	}
 }
 
-// 价格文件里的 DeepSeek 官方价（计费只认目录，目录按价格文件播种）：低谷价。deepseek-v4-pro 按 V4-Pro 价收——
+// 价格文件里的 DeepSeek 官方价（计费只认目录，目录按价格文件播种）：国内站空闲时段人民币价 ÷ 6.8（muqian 2026-10-07）。
+// deepseek-v4-flash / vision-exp 官网写明按 Flash 价格计费；deepseek-v4-pro 按 V4-Pro 价收——
 // 官方更新日志 2026-09-10：「continue providing API services for DeepSeek V4 Pro after September 14, 2026,
 // with the billing method remaining unchanged」（同日公告里「路由到 V4.1-Flash 按 Flash 价收」已撤回）。
 func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
@@ -48,17 +49,18 @@ func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
 		model                    string
 		input, output, cacheRead float64
 	}{
-		{"deepseek-flash", 1.5e-7, 6e-7, 3e-9},
-		{"deepseek-v4-flash", 1.5e-7, 6e-7, 3e-9},
-		{"deepseek-v4-flash-vision-exp", 1.5e-7, 6e-7, 3e-9},
-		{"deepseek-v4-pro", 6.6e-7, 1.98e-6, 2.2e-8},
+		{"deepseek-flash", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
+		{"deepseek-v4-flash", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
+		{"deepseek-v4-flash-vision-exp", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
+		{"deepseek-v4-pro", 4.5 / 6.8 * 1e-6, 13.5 / 6.8 * 1e-6, 0.15 / 6.8 * 1e-6},
 	} {
 		t.Run(tt.model, func(t *testing.T) {
 			entry, ok := pricingData[tt.model]
 			require.True(t, ok, "model %s must exist in pricing file", tt.model)
-			require.InDelta(t, tt.input, entry.InputCostPerToken, 1e-15)
-			require.InDelta(t, tt.output, entry.OutputCostPerToken, 1e-15)
-			require.InDelta(t, tt.cacheRead, entry.CacheReadInputTokenCost, 1e-15)
+			// 价格文件存 6 位有效数字
+			require.InEpsilon(t, tt.input, entry.InputCostPerToken, 1e-5)
+			require.InEpsilon(t, tt.output, entry.OutputCostPerToken, 1e-5)
+			require.InEpsilon(t, tt.cacheRead, entry.CacheReadInputTokenCost, 1e-5)
 		})
 	}
 }

@@ -394,46 +394,32 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// ============================================================
-	// 国产 LLM 兜底定价（数据源：各家官方定价页/USD 口径）
+	// 国产 LLM 兜底定价（muqian 2026-10-07：国内模型一律按国内站人民币价 ÷ 6.8；有分段的在价格文件里）
 	// 顺序：DeepSeek → 智谱 GLM → 月之暗面 Kimi → MiniMax
 	// 覆盖逻辑见同文件 getFallbackPricing()
 	// ============================================================
 
-	// ---- 智谱 GLM（Z.AI）----
-	// Source: https://docs.z.ai/guides/overview/pricing (USD per 1M tokens)
-	// 注意：CacheReadPricePerToken 即"缓存命中"价格，CacheCreationPricePerToken 留空（智谱未公开写入价，按 0 处理）。
-	// GLM-4.6 与 GLM-4.5 在 z.ai 国际版上定价一致；GLM-4.5 国内按 ¥0.8/¥2，汇率换算后约 $0.112/$0.28，与国际版 $0.6/$2.2 不同，本分支采用国际版 USD 口径与现有 Claude/GPT 一致。
-	// GLM-5.3 / GLM-5.2 与 GLM-5.1 在 z.ai 上同价。
-	// GLM-5.3-Flash 列表价 $0.15/$0.50（2026-09-09 前五折促销，此处按列表价，与其它模型口径一致）。
-	// 国际站没有、只在国内站 docs.bigmodel.cn 上架的（GLM-5-Turbo、GLM-5V-Turbo 等）在价格文件里按人民币价 ÷ 6.8 存，含分段。
+	// ---- 智谱 GLM ----
+	// Source: https://docs.bigmodel.cn/cn/guide/start/pricing（国内站人民币价 ÷ 6.8）
+	// 注意：CacheReadPricePerToken 即"缓存命中"价格，CacheCreationPricePerToken 留空（智谱缓存存储限时免费，按 0 处理）。
+	// 按输入长度分段的（GLM-5、GLM-5.1、GLM-5-Turbo、GLM-4.6V 等）在价格文件里，含分段。
+	// 国内站价目没有的（GLM-4.5 / 4.6 系列、GLM-4-32B）与按输出长度另价的 GLM-4.7、GLM-4.5-Air 目录不收（catalogExcludedModels）。
 	s.fallbackPrices["glm-5.3-flash"] = &ModelPricing{
-		InputPricePerToken:     0.15e-6, // $0.15 per MTok
-		OutputPricePerToken:    0.5e-6,  // $0.50 per MTok
-		CacheReadPricePerToken: 0.03e-6,
+		InputPricePerToken:     0.8 / 6.8 * 1e-6,  // ¥0.8/MTok
+		OutputPricePerToken:    2.8 / 6.8 * 1e-6,  // ¥2.8/MTok
+		CacheReadPricePerToken: 0.23 / 6.8 * 1e-6, // ¥0.23/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-5.3"] = &ModelPricing{
-		InputPricePerToken:     1.4e-6, // $1.40 per MTok
-		OutputPricePerToken:    4.4e-6, // $4.40 per MTok
-		CacheReadPricePerToken: 0.26e-6,
+		InputPricePerToken:     8 / 6.8 * 1e-6,  // ¥8/MTok
+		OutputPricePerToken:    28 / 6.8 * 1e-6, // ¥28/MTok
+		CacheReadPricePerToken: 2 / 6.8 * 1e-6,  // ¥2/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-5.2"] = &ModelPricing{
-		InputPricePerToken:     1.4e-6, // $1.40 per MTok
-		OutputPricePerToken:    4.4e-6, // $4.40 per MTok
-		CacheReadPricePerToken: 0.26e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-5.1"] = &ModelPricing{
-		InputPricePerToken:     1.4e-6, // $1.40 per MTok
-		OutputPricePerToken:    4.4e-6, // $4.40 per MTok
-		CacheReadPricePerToken: 0.26e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-5"] = &ModelPricing{
-		InputPricePerToken:     1e-6, // $1.00 per MTok
-		OutputPricePerToken:    3.2e-6,
-		CacheReadPricePerToken: 0.2e-6,
+		InputPricePerToken:     8 / 6.8 * 1e-6,  // ¥8/MTok
+		OutputPricePerToken:    28 / 6.8 * 1e-6, // ¥28/MTok
+		CacheReadPricePerToken: 2 / 6.8 * 1e-6,  // ¥2/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7"] = &ModelPricing{
@@ -443,9 +429,9 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7-flashx"] = &ModelPricing{
-		InputPricePerToken:     0.07e-6, // $0.07 per MTok
-		OutputPricePerToken:    0.4e-6,
-		CacheReadPricePerToken: 0.01e-6,
+		InputPricePerToken:     0.5 / 6.8 * 1e-6, // ¥0.5/MTok
+		OutputPricePerToken:    3 / 6.8 * 1e-6,   // ¥3/MTok
+		CacheReadPricePerToken: 0.1 / 6.8 * 1e-6, // ¥0.1/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.6"] = &ModelPricing{
@@ -502,27 +488,25 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// ---- 月之暗面 Kimi（K 系列）----
-	// Source: https://platform.moonshot.cn/docs/pricing/overview (元/百万 tokens 口径)
-	//       交叉验证：https://www.tmtpost.com/7961404.html (USD 口径)
+	// Source: https://platform.kimi.com/docs/pricing/chat（国内站人民币价 ÷ 6.8；K3 见 /docs/guide/kimi-k3-quickstart）
 	// Moonshot V1 (¥2/¥5/¥10 多 tier) 公开页未直接标注 USD 价，本分支不覆盖，避免误计价。
 	// K2-0905 / K2-0711 官方页面未保留定价，不覆盖。
-	// Kimi K3 国际站 USD 价目：https://platform.kimi.ai/docs/pricing/chat-k3.md
 	// Kimi Code bare aliases（k3 / k3-256k）官方无按 token 价目；复用 API Platform
 	// kimi-k3 档位作代理计费 fallback（同 kimi-for-coding 对 K2.6 的处理口径）。
-	// K3 缓存写：platform.kimi.ai/docs/guide/context-caching「Cache Write (5m) $3.00 / Cache Write (1h) $6.00」。
+	// K3 缓存写入：5 分钟 ¥20、1 小时 ¥40。
 	s.fallbackPrices["kimi-k3"] = &ModelPricing{
-		InputPricePerToken:         3e-6,    // $3.00 per MTok (cache miss)
-		OutputPricePerToken:        15e-6,   // $15.00 per MTok
-		CacheReadPricePerToken:     0.30e-6, // $0.30 per MTok (cache hit)
-		CacheCreationPricePerToken: 3e-6,    // $3.00 per MTok (5m)
-		CacheCreation5mPrice:       3e-6,
-		CacheCreation1hPrice:       6e-6, // $6.00 per MTok (1h)
+		InputPricePerToken:         20 / 6.8 * 1e-6,  // ¥20/MTok（缓存未命中）
+		OutputPricePerToken:        100 / 6.8 * 1e-6, // ¥100/MTok
+		CacheReadPricePerToken:     2 / 6.8 * 1e-6,   // ¥2/MTok（缓存命中）
+		CacheCreationPricePerToken: 20 / 6.8 * 1e-6,  // ¥20/MTok（缓存写入 5 分钟）
+		CacheCreation5mPrice:       20 / 6.8 * 1e-6,
+		CacheCreation1hPrice:       40 / 6.8 * 1e-6, // ¥40/MTok（缓存写入 1 小时）
 		SupportsCacheBreakdown:     true,
 	}
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{
-		InputPricePerToken:     0.95e-6, // $0.95 per MTok (cache miss)
-		OutputPricePerToken:    4e-6,    // $4.00 per MTok
-		CacheReadPricePerToken: 0.16e-6, // $0.16 per MTok (cache hit；国际站 platform.kimi.ai 美元价)
+		InputPricePerToken:     6.5 / 6.8 * 1e-6, // ¥6.5/MTok（缓存未命中）
+		OutputPricePerToken:    27 / 6.8 * 1e-6,  // ¥27/MTok
+		CacheReadPricePerToken: 1.1 / 6.8 * 1e-6, // ¥1.1/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	// kimi-for-coding 走 Kimi Coding endpoint，按当前 K2.6 coding 档位兜底计费。
