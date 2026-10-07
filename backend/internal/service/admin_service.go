@@ -180,6 +180,9 @@ type CreateAccountInput struct {
 	ExpiresAt   *int64
 	// ProtocolEndpoints 协议 → 上游地址映射，键必须是具体协议，见 NormalizeProtocolEndpoints。
 	ProtocolEndpoints map[string]string
+	// CopyKeyFromAccountID 复制渠道（muqian 2026-10-07：只复制 key 和端点，其余同新建）：第三方 key 的
+	// credentials.api_key 留空时，用这个渠道存着的 key（管理端读不到 key 原文，只能由后端带过去）。0 = 不复制。
+	CopyKeyFromAccountID int64
 }
 
 // ShadowOptions is the input for CreateShadow.

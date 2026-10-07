@@ -117,6 +117,8 @@ type CreateAccountRequest struct {
 	ExpiresAt   *int64         `json:"expires_at"`
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
+	// CopyKeyFromAccountID 复制渠道：credentials.api_key 留空时用这个渠道存着的 key。
+	CopyKeyFromAccountID int64 `json:"copy_key_from_account_id"`
 }
 
 // UpdateAccountRequest represents update account request
@@ -493,17 +495,18 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:              req.Name,
-			Notes:             req.Notes,
-			Platform:          req.Platform,
-			Type:              req.Type,
-			Credentials:       req.Credentials,
-			Extra:             req.Extra,
-			ProxyID:           req.ProxyID,
-			Concurrency:       req.Concurrency,
-			Priority:          req.Priority,
-			ExpiresAt:         req.ExpiresAt,
-			ProtocolEndpoints: req.ProtocolEndpoints,
+			Name:                 req.Name,
+			Notes:                req.Notes,
+			Platform:             req.Platform,
+			Type:                 req.Type,
+			Credentials:          req.Credentials,
+			Extra:                req.Extra,
+			ProxyID:              req.ProxyID,
+			Concurrency:          req.Concurrency,
+			Priority:             req.Priority,
+			ExpiresAt:            req.ExpiresAt,
+			ProtocolEndpoints:    req.ProtocolEndpoints,
+			CopyKeyFromAccountID: req.CopyKeyFromAccountID,
 		})
 		if execErr != nil {
 			return nil, execErr
