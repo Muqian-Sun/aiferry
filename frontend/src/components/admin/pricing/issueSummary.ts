@@ -21,5 +21,6 @@ export function issueSummary(t: Translate, name: string, issues: RowIssues): str
     if (error) parts.push(t('admin.pricing.issues.peak', { index: index + 1, error: t(`admin.pricing.peak.errors.${error}`) }))
   })
   if (issues.peakDatesInvalid) parts.push(t('admin.pricing.issues.peakDates'))
+  if (issues.reasoningInvalid) parts.push(t('admin.pricing.issues.reasoning'))
   return `${name}${t('common.labelSeparator')}${parts.join(t('admin.pricing.issueSeparator'))}`
 }

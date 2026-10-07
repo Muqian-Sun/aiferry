@@ -72,6 +72,8 @@
             v-model:peak="row.peak"
             peak-editable="upstream"
             :official-peak="officialPeakOf(row.id)"
+            reasoning="upstream"
+            :official-reasoning="entriesById.get(row.id)?.max_reasoning_effort_multiplier ?? null"
             :issues="rowIssues(row)"
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"

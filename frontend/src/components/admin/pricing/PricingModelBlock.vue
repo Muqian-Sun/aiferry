@@ -60,6 +60,7 @@
             v-model:prices="draft.official"
             v-model:peak="draft.officialPeak"
             peak-editable="official"
+            reasoning="official"
             :issues="officialRowIssues"
             test-id="pricing-official"
             :search-keys="searchKeys"
@@ -90,6 +91,8 @@
             v-model:peak="row.peak"
             peak-editable="upstream"
             :official-peak="draft.officialPeak"
+            reasoning="upstream"
+            :official-reasoning="draft.official.maxReasoning"
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
@@ -191,6 +194,7 @@ import {
   priceRowToRequest,
   saleRowChanges,
   samePeak,
+  reasoningMultiplierInvalid,
   saleRowInvalid,
   salePeakInvalid,
   saleRowToRequest,
@@ -317,6 +321,7 @@ const issueMessages = computed(() => {
   if (hasRowIssues(officialRowIssues.value)) messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value))
   if (saleRowInvalid(props.state.draft.sale, props.state.draft.official)) messages.push(t('admin.pricing.sale.invalid'))
   if (salePeakInvalid(props.state.draft.sale)) messages.push(t('admin.pricing.sale.peakInvalid'))
+  if (reasoningMultiplierInvalid(props.state.draft.sale.maxReasoning)) messages.push(t('admin.pricing.sale.reasoningInvalid'))
   for (const row of props.state.draft.rows) {
     const issues = rowIssues(row)
     if (hasRowIssues(issues)) messages.push(issueSummary(t, accountName(row.id), issues))

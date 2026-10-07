@@ -4,6 +4,7 @@
     五项与官方价同列；没单独定的格子灰字写实际按什么收（与后端计费同一规则，见 saleDefaults）。
     分段跟着官方价那一行的分段走（按下界对上），不能单独加删；展开后每段一行，同样可单独定或留空。
     「忙闲时」（muqian 2026-10-06：售价单独一套）：默认跟官方忙闲时，也可单独设（删光时段 = 全天一个价）。
+    「最高推理」（muqian 2026-10-07：同样单独一套）：空着跟官方，填了按它（1 = 不加价）；官方设了或自己填了才显示。
     sale（v-model:sale）是父组件草稿里的对象，这里原地改它。
   -->
   <tr :data-testid="testId">
@@ -44,6 +45,17 @@
         >
           {{ peakLabel }}
           <Icon :name="peakExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
+        <button
+          v-if="reasoningShown"
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', reasoningInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="reasoningExpanded"
+          :data-testid="`${testId}-reasoning-toggle`"
+          @click="reasoningExpanded = !reasoningExpanded"
+        >
+          {{ reasoningLabel }}
+          <Icon :name="reasoningExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
       </div>
     </td>
@@ -101,6 +113,23 @@
       </div>
     </td>
   </tr>
+  <tr v-if="reasoningShown && reasoningExpanded" :data-testid="`${testId}-reasoning`">
+    <td colspan="2" class="py-2 pl-0 pr-3 align-top">
+      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.reasoning.sale.title') }}</div>
+    </td>
+    <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
+      <div class="w-52">
+        <label class="mb-1 block text-xs text-af-ink-3">{{ t('admin.pricing.reasoning.field') }}</label>
+        <PriceInput
+          v-model="sale.maxReasoning"
+          unit="×"
+          :label="t('admin.pricing.reasoning.sale.title')"
+          :placeholder="reasoningPlaceholder"
+          :test-id="`${testId}-reasoning-input`"
+        />
+      </div>
+    </td>
+  </tr>
   <template v-if="expanded">
     <tr v-for="min in segmentMins" :key="min" :data-testid="`${testId}-segment`">
       <td colspan="2" class="py-2 pl-0 pr-3 align-middle">
@@ -135,6 +164,7 @@ import {
   peakDatesInvalid,
   peakErrors,
   peakMaxMultiplier,
+  reasoningMultiplierInvalid,
   saleDefaults,
   salePeakInvalid,
   type PeakForm,
@@ -169,6 +199,7 @@ const defaults = computed(() => saleDefaults(props.official, sale.value, props.r
 const hasAny = computed(
   () =>
     !sale.value.peakFollowsOfficial ||
+    sale.value.maxReasoning != null ||
     PRICE_KEYS.some((key) => sale.value.base[key] != null) ||
     Object.values(sale.value.segments).some((prices) => PRICE_KEYS.some((key) => prices[key] != null))
 )
@@ -197,6 +228,29 @@ const peakLabel = computed(() => {
   return sale.value.peak ? peakSummary(sale.value.peak) : t('admin.pricing.peak.sale.noneShort')
 })
 
+// ---- 售价最高推理倍率（官方价那一行的 maxReasoning 是可能还没保存的官方倍率）
+const officialReasoning = computed(() => props.official.maxReasoning)
+const reasoningShown = computed(() => officialReasoning.value != null || sale.value.maxReasoning != null)
+const reasoningInvalid = computed(() => reasoningMultiplierInvalid(sale.value.maxReasoning))
+const reasoningExpanded = ref(false)
+watch(
+  reasoningInvalid,
+  (invalid) => {
+    if (invalid) reasoningExpanded.value = true
+  },
+  { immediate: true }
+)
+const reasoningLabel = computed(() => {
+  const value = sale.value.maxReasoning
+  return value != null && value > 0 ? t('admin.pricing.reasoning.summary', { multiplier: value }) : t('admin.pricing.reasoning.followShort')
+})
+const reasoningPlaceholder = computed(() => {
+  const official = officialReasoning.value
+  return official != null && official > 0
+    ? t('admin.pricing.reasoning.follow', { multiplier: official })
+    : t('admin.pricing.reasoning.followNone')
+})
+
 function followOfficial() {
   sale.value.peakFollowsOfficial = true
   sale.value.peak = null
@@ -215,10 +269,11 @@ function setSegment(min: number, key: PriceKey, value: number | null) {
   target[key] = value
 }
 
-/** 全部清空 = 都按官方价 × 默认售价比例收，忙闲时跟官方 */
+/** 全部清空 = 都按官方价 × 默认售价比例收，忙闲时、最高推理倍率跟官方 */
 function clearAll() {
   for (const key of PRICE_KEYS) sale.value.base[key] = null
   sale.value.segments = {}
+  sale.value.maxReasoning = null
   followOfficial()
 }
 
