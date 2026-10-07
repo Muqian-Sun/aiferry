@@ -20,8 +20,11 @@ func TestSaleMaxReasoningMultiplier_FollowsOfficialUnlessSet(t *testing.T) {
 	require.Equal(t, 3.0, *entry.SaleMaxReasoningMultiplier(), "没单独定：跟官方")
 
 	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(1)
-	require.Equal(t, 1.0, *entry.SaleMaxReasoningMultiplier(), "售价定成 1 = 不加价")
+	require.Nil(t, entry.SaleMaxReasoningMultiplier(), "售价定成 1 = 不加价")
 	require.False(t, entry.SalePrices.IsZero(), "只定了最高推理倍率也算定了售价")
+
+	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(2)
+	require.Equal(t, 2.0, *entry.SaleMaxReasoningMultiplier())
 }
 
 // 向用户收钱：官方 × 3；售价没定跟官方 × 3，定成 1 不加、定成 2 按 2；不是 max 档一律不加。
@@ -130,15 +133,23 @@ func TestModelCatalogService_SaveEntryPricingStoresMaxReasoningMultipliers(t *te
 	require.Equal(t, ModelCatalogManagedByAdmin, repo.entries[0].ManagedBy, "官方倍率改了 = 运营者定价，播种不再刷新")
 }
 
-// 模型广场给用户看的最高推理倍率 = 实际向用户收的（售价的）。
+// 模型广场给用户看的最高推理倍率 = 实际向用户收的（售价的）；售价定成 1 = 不加价，不显示。
 func TestModelPlazaService_ShowsSaleMaxReasoningMultiplier(t *testing.T) {
-	entry := upstreamCostTestEntry()
-	entry.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
-	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(2)
-	catalog := NewModelCatalogService(&stubModelCatalogRepo{entries: []ModelCatalogEntry{entry}}, nil, ModelCatalogSeedInput{})
+	custom := upstreamCostTestEntry()
+	custom.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
+	custom.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(2)
+	flat := upstreamCostTestEntry()
+	flat.ID, flat.ModelID = 2, "flat-model"
+	flat.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
+	flat.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(1)
+	catalog := NewModelCatalogService(&stubModelCatalogRepo{entries: []ModelCatalogEntry{custom, flat}}, nil, ModelCatalogSeedInput{})
 
 	models := NewModelPlazaService(catalog, catalog).ListModels(context.Background())
-	require.Len(t, models, 1)
-	require.NotNil(t, models[0].Pricing)
-	require.Equal(t, 2.0, *models[0].Pricing.MaxReasoningEffortMultiplier)
+	require.Len(t, models, 2)
+	byID := map[string]PlazaCatalogModel{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	require.Equal(t, 2.0, *byID[custom.ModelID].Pricing.MaxReasoningEffortMultiplier)
+	require.Nil(t, byID["flat-model"].Pricing.MaxReasoningEffortMultiplier, "不加价：广场不显示")
 }

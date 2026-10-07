@@ -196,15 +196,19 @@ func (e *ModelCatalogEntry) SaleTimePricing() *TimePricing {
 }
 
 // SaleMaxReasoningMultiplier 向用户收钱时最高推理档整单乘的倍数：售价单独定了按售价的，没定跟官方；nil = 不加价。
-// 计费与模型广场都按它。
+// 计费与模型广场都按它；定成 1 也是不加价，返回 nil（广场不显示「整单 × 1」）。
 func (e *ModelCatalogEntry) SaleMaxReasoningMultiplier() *float64 {
 	if e == nil {
 		return nil
 	}
-	if m := e.SalePrices.MaxReasoningEffortMultiplier; m != nil {
-		return m
+	m := e.SalePrices.MaxReasoningEffortMultiplier
+	if m == nil {
+		m = e.MaxReasoningEffortMultiplier
 	}
-	return e.MaxReasoningEffortMultiplier
+	if m == nil || *m == 1 {
+		return nil
+	}
+	return m
 }
 
 // validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次；
