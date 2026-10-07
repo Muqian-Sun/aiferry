@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"sort"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
@@ -200,8 +201,6 @@ func (r *modelCatalogRepository) SaveEntryPricing(ctx context.Context, entry *se
 	return r.enqueueCatalogBindingsChanged(ctx, entry.ID)
 }
 
-// ReplaceAccountBindings 价格页按渠道保存：整份覆盖渠道的承接关系（删掉不在列表里的、改价、新增），
-// 同一事务；提交后按受影响的条目（原有 ∪ 新）通知调度。
 // SetEntriesStatus 只改这些条目的上架状态，不碰归属与价格。
 func (r *modelCatalogRepository) SetEntriesStatus(ctx context.Context, ids []int64, status string) error {
 	if len(ids) == 0 {
@@ -214,6 +213,28 @@ func (r *modelCatalogRepository) SetEntriesStatus(ctx context.Context, ids []int
 	return err
 }
 
+// SetEntriesSalePrices 价格页「按厂商填售价」：只改这些条目的售价，同一事务；不碰官方价、归属与承接。
+func (r *modelCatalogRepository) SetEntriesSalePrices(ctx context.Context, prices map[int64]service.CatalogSalePrices) error {
+	if len(prices) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(prices))
+	for id := range prices {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] }) // 按 id 顺序写：并发时加锁顺序一致
+	return r.withTx(ctx, func(tx *dbent.Tx) error {
+		for _, id := range ids {
+			if err := tx.ModelCatalogEntry.UpdateOneID(id).SetSalePrices(prices[id]).Exec(ctx); err != nil {
+				return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
+			}
+		}
+		return nil
+	})
+}
+
+// ReplaceAccountBindings 价格页按渠道保存：整份覆盖渠道的承接关系（删掉不在列表里的、改价、新增），
+// 同一事务；提交后按受影响的条目（原有 ∪ 新）通知调度。
 func (r *modelCatalogRepository) ReplaceAccountBindings(ctx context.Context, accountID int64, bindings []service.ModelCatalogBinding) error {
 	affected := make(map[int64]struct{})
 	err := r.withTx(ctx, func(tx *dbent.Tx) error {

@@ -94,6 +94,14 @@ export default {
       trigger: 'Fill sale prices by ratio',
       ratio: 'Ratio'
     },
+    vendorSale: {
+      trigger: 'Fill sale prices for the whole vendor',
+      title: 'Overwrite sale prices for {vendor}?',
+      message: 'Sale prices of {count} models (including unlisted) become official price × {ratio} and are saved; prices set one by one are overwritten.',
+      confirm: 'Fill and save',
+      done: 'Updated sale prices of {count} models',
+      unsaved: '{vendor} has unsaved blocks; save or undo them first'
+    },
     discountFill: {
       trigger: 'Fill cost by discount',
       prefix: 'Official ×',

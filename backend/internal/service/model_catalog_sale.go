@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -209,6 +211,77 @@ func (e *ModelCatalogEntry) SaleMaxReasoningMultiplier() *float64 {
 		return nil
 	}
 	return m
+}
+
+// saleByRatio 售价五项与各段按「官方价 × ratio」重填（与价格页单个模型的「按比例填售价」同一规则；每百万 Token 4 位小数的取整
+// 在 normalizeSalePrices 里做）；
+// 分段按计费的分段规则展开（段内没填的项沿用基础价，缓存价随本段输入价同比例折算）。官方价没有的项不填；
+// 售价忙闲时、最高推理倍率保持原样。
+func saleByRatio(e *ModelCatalogEntry, ratio float64) CatalogSalePrices {
+	scale := func(p *float64) *float64 {
+		if p == nil {
+			return nil
+		}
+		v := *p * ratio
+		return &v
+	}
+	out := CatalogSalePrices{
+		InputPrice: scale(e.InputPrice), OutputPrice: scale(e.OutputPrice),
+		CacheWritePrice: scale(e.CacheWritePrice), CacheWrite1hPrice: scale(e.CacheWrite1hPrice),
+		CacheReadPrice:               scale(e.CacheReadPrice),
+		TimePricing:                  e.SalePrices.TimePricing,
+		MaxReasoningEffortMultiplier: e.SalePrices.MaxReasoningEffortMultiplier,
+	}
+	official := segmentPriceBase{
+		input: e.InputPrice, output: e.OutputPrice,
+		cacheWrite: e.CacheWritePrice, cacheWrite1h: e.CacheWrite1hPrice, cacheRead: e.CacheReadPrice,
+		intervals: e.Intervals,
+	}
+	for _, iv := range e.Intervals {
+		seg := official.pricesAt(iv.MinTokens + 1)
+		out.Segments = append(out.Segments, CatalogSaleSegment{
+			MinTokens: iv.MinTokens, InputPrice: scale(seg[0]), OutputPrice: scale(seg[1]),
+			CacheWritePrice: scale(seg[2]), CacheWrite1hPrice: scale(seg[3]), CacheReadPrice: scale(seg[4]),
+		})
+	}
+	return out
+}
+
+// FillVendorSalePricesByRatio 价格页「按厂商填售价」（muqian 2026-10-07：一次性批量填并保存）：这个厂商全部按 token 计费的
+// 模型（含未上架），售价五项与各段重填为「官方价 × ratio」（见 saleByRatio），同一事务写库；官方价、归属、承接不动。
+// 返回改了几个模型。
+func (s *ModelCatalogService) FillVendorSalePricesByRatio(ctx context.Context, vendor string, ratio float64) (int, error) {
+	vendor = strings.TrimSpace(vendor)
+	if vendor == "" {
+		return 0, catalogValidationError("vendor is required")
+	}
+	if !(ratio > 0) || math.IsInf(ratio, 0) {
+		return 0, catalogValidationError("ratio must be > 0")
+	}
+	entries, err := s.ListPricingEntries(ctx)
+	if err != nil {
+		return 0, err
+	}
+	prices := make(map[int64]CatalogSalePrices)
+	for i := range entries {
+		entry := entries[i].Clone()
+		if !strings.EqualFold(entry.Vendor, vendor) {
+			continue
+		}
+		entry.SalePrices = normalizeSalePrices(saleByRatio(entry, ratio))
+		if err := validateSalePrices(entry); err != nil {
+			return 0, catalogValidationError(fmt.Sprintf("%s: %s", entry.ModelID, err.Error()))
+		}
+		prices[entry.ID] = entry.SalePrices
+	}
+	if len(prices) == 0 {
+		return 0, catalogValidationError(fmt.Sprintf("vendor %s has no token-billed models", vendor))
+	}
+	if err := s.repo.SetEntriesSalePrices(ctx, prices); err != nil {
+		return 0, err
+	}
+	s.invalidate(ctx)
+	return len(prices), nil
 }
 
 // validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次；

@@ -105,6 +105,17 @@ func (r *catalogRepoStub) SetEntriesStatus(_ context.Context, ids []int64, statu
 	return nil
 }
 
+func (r *catalogRepoStub) SetEntriesSalePrices(_ context.Context, prices map[int64]service.CatalogSalePrices) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.entries {
+		if sale, ok := prices[r.entries[i].ID]; ok {
+			r.entries[i].SalePrices = sale
+		}
+	}
+	return nil
+}
+
 func (r *catalogRepoStub) DeleteEntry(_ context.Context, id int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
