@@ -155,24 +155,34 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 }
 
 // catalogVendorAllowlist 模型目录只收这 11 家的模型（muqian 2026-10-06）：OpenAI、Anthropic、Google、xAI、DeepSeek、
-// 智谱、月之暗面（Kimi）、MiniMax、阿里（通义）、字节（豆包）、小米（MiMo）。键是条目的厂商串（价格文件 provider 口径，
-// Google 有 gemini 与 vertex_ai-* 两种写法、OpenAI 有 openai 与 text-completion-openai）。
+// 智谱、月之暗面（Kimi）、MiniMax、阿里（通义）、字节（豆包）、小米（MiMo）。键是条目的厂商串（catalogSeedVendor 归一后的写法）。
 // 只管播种（价格文件 / 兜底价表 → 目录）；管理员在后台手动建的条目不受限。
 var catalogVendorAllowlist = map[string]bool{
-	"openai":                     true,
-	"text-completion-openai":     true,
-	"anthropic":                  true,
-	"gemini":                     true,
-	"vertex_ai-language-models":  true,
-	"vertex_ai-embedding-models": true,
-	"xai":                        true,
-	"deepseek":                   true,
-	"zhipu":                      true,
-	"moonshot":                   true,
-	"minimax":                    true,
-	"dashscope":                  true,
-	"volcengine":                 true,
-	"xiaomi":                     true,
+	"openai":     true,
+	"anthropic":  true,
+	"gemini":     true,
+	"xai":        true,
+	"deepseek":   true,
+	"zhipu":      true,
+	"moonshot":   true,
+	"minimax":    true,
+	"dashscope":  true,
+	"volcengine": true,
+	"xiaomi":     true,
+}
+
+// catalogSeedVendor 价格文件的 provider 串 → 目录条目的厂商串：同一家只留一种写法（muqian 2026-10-08）。
+// Google 在价格文件里有 gemini 与 vertex_ai-*（language / embedding…）两种写法、OpenAI 有 openai 与 text-completion-openai；
+// 原样写进目录时价格页、模型页、按厂商填售价都按厂商串筛，同一家被拆成两个厂商。其余 provider 原样（小写、去首尾空白）。
+func catalogSeedVendor(provider string) string {
+	vendor := strings.ToLower(strings.TrimSpace(provider))
+	switch {
+	case strings.HasPrefix(vendor, "vertex_ai"):
+		return "gemini"
+	case vendor == "text-completion-openai":
+		return "openai"
+	}
+	return vendor
 }
 
 // catalogExcludedModels 目录不收的模型 ID（2026-10-06 按各家官网核对，muqian 定：目录只留官网在售、没宣布停服、
@@ -445,7 +455,7 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 	entry := ModelCatalogEntry{
 		ModelID:     name,
 		DisplayName: pricing.DisplayName,
-		Vendor:      strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
+		Vendor:      catalogSeedVendor(pricing.LiteLLMProvider),
 		// 默认 token；按张计价的生图模型下面改成 image。
 		BillingMode: BillingModeToken,
 		// 播种条目没有绑定资源，默认下架；管理员绑好资源再上架。

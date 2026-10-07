@@ -22,13 +22,73 @@ func TestCatalogSeedOnlyAllowlistedVendors(t *testing.T) {
 		BillingService: NewBillingService(),
 	})
 	require.NotEmpty(t, entries)
+	// 同一厂商族（同一平台）只能有一种厂商串：价格页 / 模型页 / 按厂商填售价都按厂商串筛，
+	// 两种写法就会把同一家拆成两个厂商（2026-10-08 Google 拆成 gemini 与 vertex_ai-language-models）。
+	vendorsByPlatform := map[string]map[string]bool{}
 	for _, entry := range entries {
 		require.True(t, CatalogVendorAllowed(entry.Vendor), "%s 的厂商 %q 不在目录白名单里", entry.ModelID, entry.Vendor)
+		platform := CatalogVendorPlatform(&entry)
+		if platform == "" {
+			continue
+		}
+		if vendorsByPlatform[platform] == nil {
+			vendorsByPlatform[platform] = map[string]bool{}
+		}
+		vendorsByPlatform[platform][entry.Vendor] = true
 	}
+	for platform, vendors := range vendorsByPlatform {
+		require.Len(t, vendors, 1, "平台 %s 的条目有多种厂商串：%v", platform, vendors)
+	}
+	require.NotEmpty(t, vendorsByPlatform[PlatformGemini], "价格文件里有 Google 的模型")
 	// 价格文件里也不该再有白名单外的条目（不然每次启动都打一条跳过日志）
 	for name, pricing := range pricingData {
-		require.True(t, CatalogVendorAllowed(pricing.LiteLLMProvider), "价格文件里 %s 的 provider %q 不在目录白名单里", name, pricing.LiteLLMProvider)
+		require.True(t, CatalogVendorAllowed(catalogSeedVendor(pricing.LiteLLMProvider)), "价格文件里 %s 的 provider %q 不在目录白名单里", name, pricing.LiteLLMProvider)
 	}
+}
+
+// 价格文件的 provider 串归一成目录厂商串：Google、OpenAI 各只留一种写法，其余原样。
+func TestCatalogSeedVendor(t *testing.T) {
+	for provider, want := range map[string]string{
+		"vertex_ai-language-models":  "gemini",
+		"vertex_ai-embedding-models": "gemini",
+		"Vertex_AI-Image-Models":     "gemini",
+		"gemini":                     "gemini",
+		"text-completion-openai":     "openai",
+		"openai":                     "openai",
+		" Anthropic ":                "anthropic",
+		"dashscope":                  "dashscope",
+		"":                           "",
+	} {
+		require.Equal(t, want, catalogSeedVendor(provider), provider)
+	}
+
+	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gemini-9-flash":  {InputCostPerToken: 1e-6, OutputCostPerToken: 4e-6, LiteLLMProvider: "vertex_ai-language-models", Mode: "chat"},
+		"gemini-9-embed":  {InputCostPerToken: 1e-7, LiteLLMProvider: "vertex_ai-embedding-models", Mode: "embedding"},
+		"gpt-9-instruct":  {InputCostPerToken: 1e-6, OutputCostPerToken: 2e-6, LiteLLMProvider: "text-completion-openai", Mode: "completion"},
+		"gemini-9-pro":    {InputCostPerToken: 2e-6, OutputCostPerToken: 8e-6, LiteLLMProvider: "gemini", Mode: "chat"},
+		"claude-9-sonnet": {InputCostPerToken: 3e-6, OutputCostPerToken: 15e-6, LiteLLMProvider: "anthropic", Mode: "chat"},
+	}}
+	entries := buildModelCatalogSeedEntries(ModelCatalogSeedInput{PricingService: pricingSvc})
+	vendors := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		if _, fromFile := pricingSvc.pricingData[entry.ModelID]; fromFile {
+			vendors[entry.ModelID] = entry.Vendor
+		}
+	}
+	require.Equal(t, map[string]string{
+		"gemini-9-flash":  "gemini",
+		"gemini-9-embed":  "gemini",
+		"gpt-9-instruct":  "openai",
+		"gemini-9-pro":    "gemini",
+		"claude-9-sonnet": "anthropic",
+	}, vendors, "播种按归一后的厂商串写条目，也按它过白名单")
+
+	// 「添加模型」按价格文件带出的条目同一口径
+	svc := NewModelCatalogService(&stubModelCatalogRepo{}, nil, ModelCatalogSeedInput{PricingService: pricingSvc})
+	looked, ok := svc.LookupPriceFileEntry("gemini-9-flash")
+	require.True(t, ok)
+	require.Equal(t, "gemini", looked.Vendor)
 }
 
 // 白名单外的厂商即使出现在价格文件里也不播进目录。
@@ -44,7 +104,7 @@ func TestCatalogSeedSkipsVendorsOutsideAllowlist(t *testing.T) {
 	}
 	require.Contains(t, ids, "gpt-6-sol")
 	require.NotContains(t, ids, "mistral-large-latest", "Mistral 不在 11 家里，不播进目录")
-	require.True(t, CatalogVendorAllowed("Vertex_AI-Language-Models"), "不分大小写")
+	require.True(t, CatalogVendorAllowed(" Gemini "), "不分大小写、去首尾空白")
 	require.False(t, CatalogVendorAllowed(""), "没有厂商的不收")
 }
 
