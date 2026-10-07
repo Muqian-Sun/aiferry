@@ -91,8 +91,8 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 	// 国内模型一律按国内站人民币价 ÷ 6.8（muqian 2026-10-07）：小米 MiMo 国内定价 ¥3 / ¥6
 	mimo := byID["mimo-v2.6-pro"]
 	require.Equal(t, "xiaomi", mimo.Vendor)
-	require.InEpsilon(t, 3.0/6.8*1e-6, *mimo.InputPrice, 1e-5)
-	require.InEpsilon(t, 6.0/6.8*1e-6, *mimo.OutputPrice, 1e-5)
+	require.InDelta(t, cnyPerMillion(3), *mimo.InputPrice, 1e-15)
+	require.InDelta(t, cnyPerMillion(6), *mimo.OutputPrice, 1e-15)
 	embedding, ok := byID["doubao-embedding-vision-251215"]
 	require.True(t, ok, "豆包向量模型用带版本号的官方 ID")
 	require.Equal(t, "volcengine", embedding.Vendor)

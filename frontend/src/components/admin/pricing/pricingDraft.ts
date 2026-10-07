@@ -340,9 +340,10 @@ export function parseDiscount(text: string, allowZero = false): number | null {
   return value > 0 || (allowZero && value === 0) ? value : null
 }
 
-// 只为去掉浮点乘法尾巴（0.000005 × 0.03 = 1.4999999999999999e-7）：12 位有效数字远超 $/token 价格的精度
+// 按比例 / 折扣算出的售价、成本价每百万 Token 最多保留 4 位小数（muqian 2026-10-07，与后端保存时的取整一致）：
+// 单价存的是每 Token 的美元价，所以按每 Token 10 位小数取整；toPrecision 去掉浮点除法尾巴
 function scaled(price: number, ratio: number): number {
-  return Number((price * ratio).toPrecision(12))
+  return Number((Math.round(price * ratio * 1e10) / 1e10).toPrecision(12))
 }
 
 /**

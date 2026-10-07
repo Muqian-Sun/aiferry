@@ -31,9 +31,9 @@ func TestPricingFileOfficialRates20261006(t *testing.T) {
 		"grok-4.7":        {input: 2e-6, output: 6e-6, cacheRead: 0.5e-6, threshold: 200000, inMul: 2, outMul: 2},
 		// 国内模型按国内站人民币价 ÷ 6.8（muqian 2026-10-07）；通义缓存价按国内站单模型页：
 		// 有隐式缓存的命中按隐式价，只有显式缓存的按显式读价；缓存写 = 显式创建价
-		"kimi-k2.7-code": {input: 6.5 / 6.8 * 1e-6, output: 27 / 6.8 * 1e-6, cacheRead: 1.3 / 6.8 * 1e-6},
-		"qwen3.5-flash":  {input: 0.2 / 6.8 * 1e-6, output: 2 / 6.8 * 1e-6, cacheRead: 0.02 / 6.8 * 1e-6, cacheWrite: 0.25 / 6.8 * 1e-6}, // 只有显式缓存
-		"qwen3.8-max":    {input: 12 / 6.8 * 1e-6, output: 36 / 6.8 * 1e-6, cacheRead: 1.5 / 6.8 * 1e-6, cacheWrite: 15 / 6.8 * 1e-6},    // 隐式 ¥1.5、显式创建 ¥15
+		"kimi-k2.7-code": {input: cnyPerMillion(6.5), output: cnyPerMillion(27), cacheRead: cnyPerMillion(1.3)},
+		"qwen3.5-flash":  {input: cnyPerMillion(0.2), output: cnyPerMillion(2), cacheRead: cnyPerMillion(0.02), cacheWrite: cnyPerMillion(0.25)}, // 只有显式缓存
+		"qwen3.8-max":    {input: cnyPerMillion(12), output: cnyPerMillion(36), cacheRead: cnyPerMillion(1.5), cacheWrite: cnyPerMillion(15)},    // 隐式 ¥1.5、显式创建 ¥15
 		// 修正
 		"gpt-4o-mini-tts":            {input: 0.6e-6, output: 12e-6}, // 官网只有音频输出价 $12
 		"gpt-realtime-2":             {input: 4e-6, output: 24e-6, cacheRead: 0.4e-6},

@@ -49,10 +49,10 @@ func TestDeepseekPricingFileMatchesOfficialRates(t *testing.T) {
 		model                    string
 		input, output, cacheRead float64
 	}{
-		{"deepseek-flash", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
-		{"deepseek-v4-flash", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
-		{"deepseek-v4-flash-vision-exp", 1 / 6.8 * 1e-6, 4 / 6.8 * 1e-6, 0.02 / 6.8 * 1e-6},
-		{"deepseek-v4-pro", 4.5 / 6.8 * 1e-6, 13.5 / 6.8 * 1e-6, 0.15 / 6.8 * 1e-6},
+		{"deepseek-flash", cnyPerMillion(1), cnyPerMillion(4), cnyPerMillion(0.02)},
+		{"deepseek-v4-flash", cnyPerMillion(1), cnyPerMillion(4), cnyPerMillion(0.02)},
+		{"deepseek-v4-flash-vision-exp", cnyPerMillion(1), cnyPerMillion(4), cnyPerMillion(0.02)},
+		{"deepseek-v4-pro", cnyPerMillion(4.5), cnyPerMillion(13.5), cnyPerMillion(0.15)},
 	} {
 		t.Run(tt.model, func(t *testing.T) {
 			entry, ok := pricingData[tt.model]

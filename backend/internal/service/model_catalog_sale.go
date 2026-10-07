@@ -265,20 +265,21 @@ func validateSalePrices(e *ModelCatalogEntry) error {
 }
 
 // normalizeSalePrices 去掉一项都没填的段，各段按下界排好；一项都没填时是零值（存成 {}）。
+// 售价每百万 Token 最多保留 4 位小数（muqian 2026-10-07）。
 func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
 	out := CatalogSalePrices{
-		InputPrice: clonePricePtr(p.InputPrice), OutputPrice: clonePricePtr(p.OutputPrice),
-		CacheWritePrice: clonePricePtr(p.CacheWritePrice), CacheWrite1hPrice: clonePricePtr(p.CacheWrite1hPrice),
-		CacheReadPrice: clonePricePtr(p.CacheReadPrice),
+		InputPrice: roundPricePtr(p.InputPrice), OutputPrice: roundPricePtr(p.OutputPrice),
+		CacheWritePrice: roundPricePtr(p.CacheWritePrice), CacheWrite1hPrice: roundPricePtr(p.CacheWrite1hPrice),
+		CacheReadPrice: roundPricePtr(p.CacheReadPrice),
 	}
 	for _, s := range p.Segments {
 		if s.InputPrice == nil && s.OutputPrice == nil && s.CacheWritePrice == nil && s.CacheWrite1hPrice == nil && s.CacheReadPrice == nil {
 			continue
 		}
 		out.Segments = append(out.Segments, CatalogSaleSegment{
-			MinTokens: s.MinTokens, InputPrice: clonePricePtr(s.InputPrice), OutputPrice: clonePricePtr(s.OutputPrice),
-			CacheWritePrice: clonePricePtr(s.CacheWritePrice), CacheWrite1hPrice: clonePricePtr(s.CacheWrite1hPrice),
-			CacheReadPrice: clonePricePtr(s.CacheReadPrice),
+			MinTokens: s.MinTokens, InputPrice: roundPricePtr(s.InputPrice), OutputPrice: roundPricePtr(s.OutputPrice),
+			CacheWritePrice: roundPricePtr(s.CacheWritePrice), CacheWrite1hPrice: roundPricePtr(s.CacheWrite1hPrice),
+			CacheReadPrice: roundPricePtr(s.CacheReadPrice),
 		})
 	}
 	sort.Slice(out.Segments, func(i, j int) bool { return out.Segments[i].MinTokens < out.Segments[j].MinTokens })
