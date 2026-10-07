@@ -799,6 +799,40 @@ func TestModelCatalogRepository_MaxReasoningMultipliersRoundTrip(t *testing.T) {
 	require.ErrorContains(t, err, "chk_model_catalog_bindings_max_reasoning_positive", "库里也挡住 <= 0")
 }
 
+// 按厂商填售价（10-07）：一次改多个条目的售价，同一事务；官方价、归属不动。
+func TestModelCatalogRepository_SetEntriesSalePrices(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-vendor-sale")
+	var ids []int64
+	for _, name := range []string{"a", "b"} {
+		entry := &service.ModelCatalogEntry{
+			ModelID: unique(name), Vendor: "dashscope", BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(1e-6), OutputPrice: float64Value(2e-6),
+		}
+		require.NoError(t, repo.CreateEntry(ctx, entry))
+		ids = append(ids, entry.ID)
+	}
+	require.NoError(t, repo.SetEntriesSalePrices(ctx, map[int64]service.CatalogSalePrices{
+		ids[0]: {InputPrice: float64Value(0.0667e-6)},
+		ids[1]: {OutputPrice: float64Value(0.1333e-6)},
+	}))
+	a, err := repo.GetEntryByID(ctx, ids[0])
+	require.NoError(t, err)
+	require.Equal(t, float64Value(0.0667e-6), a.SalePrices.InputPrice)
+	require.Equal(t, float64Value(1e-6), a.InputPrice, "官方价不动")
+	require.Equal(t, service.ModelCatalogManagedBySeed, a.ManagedBy)
+	b, err := repo.GetEntryByID(ctx, ids[1])
+	require.NoError(t, err)
+	require.Equal(t, float64Value(0.1333e-6), b.SalePrices.OutputPrice)
+
+	missing := ids[1] + 1_000_000_000 // 按 id 顺序写，不存在的这条最后写：前面写过的要一起回滚
+	require.Error(t, repo.SetEntriesSalePrices(ctx, map[int64]service.CatalogSalePrices{ids[0]: {}, missing: {}}), "有一条不存在就整批不写")
+	a, err = repo.GetEntryByID(ctx, ids[0])
+	require.NoError(t, err)
+	require.Equal(t, float64Value(0.0667e-6), a.SalePrices.InputPrice, "回滚")
+}
+
 // 播种条目带忙闲时（价格文件的 time_pricing，如 DeepSeek 高峰 × 2）：插入与刷新都写进目录。
 func TestModelCatalogRepository_SeedWritesTimePricing(t *testing.T) {
 	ctx := context.Background()

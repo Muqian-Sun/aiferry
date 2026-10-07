@@ -23,9 +23,19 @@
           :placeholder="view === 'model' ? t('admin.pricing.searchModels') : t('admin.pricing.searchChannels')"
         />
         <FilterChip v-if="view === 'model'" v-model="vendorFilter" :label="t('admin.pricing.filters.vendor')" :options="vendorOptions" test-id="pricing-filter-vendor" />
+        <!-- 选了厂商才出现：这个厂商全部模型的售价一次按「官方价 × 比例」填好并保存（muqian 2026-10-07） -->
+        <DiscountFillMenu
+          v-if="view === 'model' && vendorFilter"
+          kind="sale"
+          :label="t('admin.pricing.vendorSale.trigger')"
+          :disabled="vendorSale.busy"
+          test-id="pricing-vendor-sale"
+          @apply="requestVendorSale"
+        />
         <FilterChip v-if="view === 'model'" v-model="statusFilter" :label="t('admin.pricing.filters.status')" :options="statusOptions" test-id="pricing-filter-status" />
         <FilterChip v-model="focusFilter" :label="t('admin.pricing.filters.focus')" :options="focusOptions" test-id="pricing-filter-focus" />
         <template #end>
+          <span v-if="vendorSale.notice" class="mr-2 text-xs text-af-success" data-testid="pricing-vendor-sale-done">{{ vendorSale.notice }}</span>
           <span v-if="dirtyCount > 0" class="mr-2 text-xs text-af-warning" data-testid="pricing-dirty-count">
             {{ t('admin.pricing.unsavedBlocks', { count: dirtyCount }) }}
           </span>
@@ -47,6 +57,7 @@
       <StatusState v-else-if="loadError && !overview" kind="error" :title="loadError" :action-label="t('admin.pricing.reload')" @action="load(true)" />
       <template v-else-if="overview">
         <FormError v-if="loadError" :message="loadError" />
+        <FormError v-if="vendorSale.error" :message="vendorSale.error" />
         <StatusState v-if="visibleCount === 0" kind="empty" :title="t('admin.pricing.empty')" />
         <div v-else class="space-y-8">
           <template v-if="view === 'model'">
@@ -97,6 +108,15 @@
       @confirm="resolveLeave(true)"
       @cancel="resolveLeave(false)"
     />
+    <ConfirmDialog
+      :show="vendorSale.show"
+      :title="t('admin.pricing.vendorSale.title', { vendor: vendorSale.vendor })"
+      :message="t('admin.pricing.vendorSale.message', { count: vendorSale.count, ratio: vendorSale.ratio })"
+      :confirm-text="t('admin.pricing.vendorSale.confirm')"
+      :cancel-text="t('common.cancel')"
+      @confirm="applyVendorSale"
+      @cancel="vendorSale.show = false"
+    />
   </AppLayout>
 </template>
 
@@ -117,6 +137,7 @@ import StatusState from '@/components/user/shell/StatusState.vue'
 import { FilterChip, ListToolbar, type FilterOption } from '@/components/admin/list'
 import PricingModelBlock from '@/components/admin/pricing/PricingModelBlock.vue'
 import PricingChannelBlock from '@/components/admin/pricing/PricingChannelBlock.vue'
+import DiscountFillMenu from '@/components/admin/pricing/DiscountFillMenu.vue'
 import {
   belowMinMargin,
   channelDraftChanges,
@@ -298,6 +319,41 @@ const filteredAccounts = computed<PricingAccount[]>(() => {
 const visibleCount = computed(() => (view.value === 'model' ? filteredEntries.value.length : filteredAccounts.value.length))
 const pagedEntries = computed(() => filteredEntries.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 const pagedAccounts = computed(() => filteredAccounts.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+
+// ---- 按厂商填售价（muqian 2026-10-07：一次性批量填并保存）：后端同一事务改完，再重新加载。
+// 这个厂商有改到一半的块时先拦下：重新加载会保留草稿，保存那一块就会把刚填的售价盖回去。
+const vendorSale = reactive({ show: false, busy: false, vendor: '', ratio: 0, count: 0, error: '', notice: '' })
+
+function requestVendorSale(ratio: number) {
+  const vendor = vendorFilter.value
+  const entries = (overview.value?.entries ?? []).filter((entry) => entry.vendor === vendor)
+  vendorSale.error = ''
+  vendorSale.notice = ''
+  if (entries.some((entry) => { const state = modelStates.get(entry.id); return state != null && modelDraftChanges(state) > 0 })) {
+    vendorSale.error = t('admin.pricing.vendorSale.unsaved', { vendor })
+    return
+  }
+  Object.assign(vendorSale, { show: true, vendor, ratio, count: entries.length })
+}
+
+async function applyVendorSale() {
+  vendorSale.show = false
+  vendorSale.busy = true
+  try {
+    const { updated } = await adminAPI.pricing.fillVendorSale(vendorSale.vendor, vendorSale.ratio)
+    vendorSale.notice = t('admin.pricing.vendorSale.done', { count: updated })
+    await load(false)
+  } catch (error) {
+    vendorSale.error = extractApiErrorMessage(error, t('common.unknownError'))
+  } finally {
+    vendorSale.busy = false
+  }
+}
+
+watch(vendorFilter, () => {
+  vendorSale.error = ''
+  vendorSale.notice = ''
+})
 
 // ---- 有没保存的块时：切视图、离开页面先问；放弃就恢复成已保存的值
 const leaveDialog = reactive<{ show: boolean; resolve: ((leave: boolean) => void) | null }>({ show: false, resolve: null })

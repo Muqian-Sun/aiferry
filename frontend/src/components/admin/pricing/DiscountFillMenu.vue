@@ -1,12 +1,12 @@
 <template>
   <!--
     按官方价 × 折扣快填：只填这一块里空着的格子（含分段），填过的不动；填完还要点这一块的「保存」。
-    kind = upstream 填各渠道的成本价，sale 填售价（muqian 2026-10-06）。
+    kind = upstream 填各渠道的成本价，sale 填售价（muqian 2026-10-06）。价格页工具栏的「按厂商填售价」也用它（label / test-id 另给）。
   -->
   <PopoverMenu width-class="w-80" @open="onOpen">
     <template #trigger>
-      <button type="button" class="btn btn-ghost btn-sm" :disabled="disabled" :data-testid="kind === 'sale' ? 'pricing-sale-fill' : 'pricing-discount-fill'">
-        {{ t(`${textKey}.trigger`) }}<Icon name="chevronDown" size="xs" />
+      <button type="button" class="btn btn-ghost btn-sm" :disabled="disabled" :data-testid="testId ?? (kind === 'sale' ? 'pricing-sale-fill' : 'pricing-discount-fill')">
+        {{ label ?? t(`${textKey}.trigger`) }}<Icon name="chevronDown" size="xs" />
       </button>
     </template>
     <template #default="{ close }">
@@ -41,7 +41,12 @@ import Icon from '@/components/icons/Icon.vue'
 import { PopoverMenu } from '@/components/admin/list'
 import { parseDiscount } from './pricingDraft'
 
-const props = withDefaults(defineProps<{ disabled?: boolean; kind?: 'upstream' | 'sale' }>(), { disabled: false, kind: 'upstream' })
+const props = withDefaults(defineProps<{ disabled?: boolean; kind?: 'upstream' | 'sale'; label?: string; testId?: string }>(), {
+  disabled: false,
+  kind: 'upstream',
+  label: undefined,
+  testId: undefined
+})
 const textKey = computed(() => (props.kind === 'sale' ? 'admin.pricing.saleFill' : 'admin.pricing.discountFill'))
 
 const emit = defineEmits<{ apply: [ratio: number] }>()

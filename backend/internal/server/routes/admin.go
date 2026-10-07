@@ -606,6 +606,7 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		pricing.GET("", h.Admin.ModelCatalog.PricingOverview)
 		pricing.PUT("/models/:id", h.Admin.ModelCatalog.SavePricingModel)
 		pricing.PUT("/channels/:id", h.Admin.ModelCatalog.SavePricingChannel)
+		pricing.POST("/vendor-sale", h.Admin.ModelCatalog.FillVendorSalePrices)
 	}
 }
 

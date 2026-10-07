@@ -94,6 +94,14 @@ export default {
       trigger: '按比例填售价',
       ratio: '比例'
     },
+    vendorSale: {
+      trigger: '按比例填整个厂商的售价',
+      title: '覆盖 {vendor} 的售价？',
+      message: '{count} 个模型（含未上架）的售价改成官方价 × {ratio} 并保存，原来单独填的售价会被覆盖。',
+      confirm: '填入并保存',
+      done: '已更新 {count} 个模型的售价',
+      unsaved: '{vendor} 有没保存的块，先保存或撤销'
+    },
     discountFill: {
       trigger: '按折扣填成本价',
       prefix: '官方价 ×',

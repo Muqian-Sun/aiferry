@@ -163,6 +163,12 @@ type PricingChannelBindingRequest struct {
 	PricingPricesRequest
 }
 
+// PricingVendorSaleRequest 按厂商填售价：这个厂商全部按 token 计费的模型，售价按「官方价 × ratio」重填并保存。
+type PricingVendorSaleRequest struct {
+	Vendor string  `json:"vendor" binding:"required"`
+	Ratio  float64 `json:"ratio" binding:"required"`
+}
+
 // PricingChannelSaveRequest 按渠道保存一块：这个渠道承接的全部模型与上游价（整份覆盖）。
 type PricingChannelSaveRequest struct {
 	Bindings []PricingChannelBindingRequest `json:"bindings"`
@@ -306,6 +312,22 @@ func (h *ModelCatalogHandler) SavePricingChannel(c *gin.Context) {
 		out = append(out, pricingBindingResponse(entry, &saved[i]))
 	}
 	response.Success(c, out)
+}
+
+// FillVendorSalePrices 按厂商填售价（muqian 2026-10-07：一次性批量填并保存）。返回改了几个模型。
+// POST /api/v1/admin/pricing/vendor-sale
+func (h *ModelCatalogHandler) FillVendorSalePrices(c *gin.Context) {
+	var req PricingVendorSaleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updated, err := h.service.FillVendorSalePricesByRatio(c.Request.Context(), req.Vendor, req.Ratio)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"updated": updated})
 }
 
 // listAllAccounts 分页读完全部渠道（按优先级、ID 排序）。

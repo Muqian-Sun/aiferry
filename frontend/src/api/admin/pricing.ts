@@ -198,6 +198,11 @@ export const pricingAPI = {
   saveChannel: async (accountId: number, body: PricingChannelSaveRequest): Promise<PricingBinding[]> => {
     const { data } = await apiClient.put<PricingBinding[]>(`/admin/pricing/channels/${accountId}`, body)
     return data
+  },
+  /** 按厂商填售价：这个厂商全部按 token 计费的模型，售价按「官方价 × ratio」重填并保存（一次性），返回改了几个模型 */
+  fillVendorSale: async (vendor: string, ratio: number): Promise<{ updated: number }> => {
+    const { data } = await apiClient.post<{ updated: number }>('/admin/pricing/vendor-sale', { vendor, ratio })
+    return data
   }
 }
 

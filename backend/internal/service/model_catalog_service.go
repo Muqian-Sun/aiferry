@@ -34,6 +34,8 @@ type ModelCatalogRepository interface {
 	ReplaceAccountBindings(ctx context.Context, accountID int64, bindings []ModelCatalogBinding) error
 	// SetEntriesStatus 只改这些条目的上架状态，不碰归属与价格。
 	SetEntriesStatus(ctx context.Context, ids []int64, status string) error
+	// SetEntriesSalePrices 只改这些条目的售价（整份覆盖 sale_prices），同一事务；不碰官方价、归属与承接。
+	SetEntriesSalePrices(ctx context.Context, prices map[int64]CatalogSalePrices) error
 }
 
 // ModelCatalogCachePubSub 在多实例之间广播目录缓存失效。

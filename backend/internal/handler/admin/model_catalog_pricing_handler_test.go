@@ -47,6 +47,7 @@ func newPricingTestRouter(t *testing.T) (*gin.Engine, *catalogRepoStub) {
 	r.GET("/pricing", h.PricingOverview)
 	r.PUT("/pricing/models/:id", h.SavePricingModel)
 	r.PUT("/pricing/channels/:id", h.SavePricingChannel)
+	r.POST("/pricing/vendor-sale", h.FillVendorSalePrices)
 	return r, repo
 }
 
@@ -373,4 +374,23 @@ func TestModelCatalogHandler_PricingMarksWebSearchDelegate(t *testing.T) {
 		flags[entry.ModelID] = entry.WebSearchDelegate
 	}
 	require.Equal(t, map[string]bool{"gpt-5.5": false, service.WebSearchDelegateModel: true}, flags)
+}
+
+// 按厂商填售价：只改这个厂商按 token 计费的模型（gpt-image-2 按张计费不在价格页），返回改了几个。
+func TestModelCatalogHandler_FillVendorSalePrices(t *testing.T) {
+	router, repo := newPricingTestRouter(t)
+	rec := doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"vendor": "openai", "ratio": 0.1})
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, map[string]int{"updated": 1}, decodePricingData[map[string]int](t, rec))
+	require.NotNil(t, repo.entries[0].SalePrices.InputPrice)
+	require.InDelta(t, 0.5e-6, *repo.entries[0].SalePrices.InputPrice, 1e-18, "官方 5 × 0.1")
+	require.True(t, repo.entries[1].SalePrices.IsZero())
+
+	rec = doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"vendor": "openai", "ratio": -1})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "MODEL_CATALOG_INVALID")
+	rec = doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"vendor": "xai", "ratio": 0.1})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	rec = doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"ratio": 0.1})
+	require.Equal(t, http.StatusBadRequest, rec.Code, "vendor 必填")
 }
