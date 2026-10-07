@@ -40,7 +40,8 @@
       <!-- ① 整体 -->
       <section class="space-y-6" data-testid="service-status-summary">
         <StatRow :items="statItems" />
-        <div>
+        <!-- 有数据的段不到 2 个时不画趋势，只留上面的数字（muqian 2026-10-07） -->
+        <div v-if="showTrend">
           <div class="mb-3 flex items-center justify-between gap-4">
             <h2 class="text-13 font-medium text-af-ink-2">{{ t('userUi.serviceStatus.trend.title') }}</h2>
             <SegmentedControl v-model="trendMetric" :options="trendOptions" :label="t('userUi.serviceStatus.trend.title')" />
@@ -75,7 +76,9 @@
                 <span class="min-w-0 flex-1 truncate font-mono text-sm font-medium text-af-ink" :title="row.model">{{ row.model }}</span>
                 <span class="shrink-0 text-xs" :class="HEALTH_TEXT[row.health.overall]">{{ healthLabel(row.health.overall) }}</span>
               </div>
+              <!-- 一整段时间都评不出状态（每段请求都太少）就不画灰条，只留下面三个数（muqian 2026-10-07） -->
               <ServiceStatusStrip
+                v-if="hasRatedSlot(row.slots)"
                 class="mt-3"
                 :slots="row.slots"
                 :bucket-seconds="bucketSeconds"
@@ -158,7 +161,8 @@ import {
   HEALTH_TEXT,
   fillSlots,
   formatPercent,
-  formatLatency
+  formatLatency,
+  type StatusSlot
 } from '@/components/user/status/serviceStatus'
 
 const { t } = useI18n()
@@ -317,5 +321,13 @@ const trendOptions = computed<Array<{ key: ServiceTrendMetric; label: string }>>
   { key: 'ttft', label: t('userUi.serviceStatus.columns.ttft') },
   { key: 'cache', label: t('userUi.serviceStatus.columns.cache') }
 ])
+/** 至少两段有请求才画整体趋势 */
+const showTrend = computed(() => trendSlots.value.filter((slot) => slot.point != null).length >= 2)
+
+/** 有没有评得出状态的段（请求够数、不是「请求太少」） */
+function hasRatedSlot(slots: StatusSlot[]): boolean {
+  return slots.some((slot) => slot.point != null && slot.point.health.overall !== 'unknown')
+}
+
 const trendSlots = computed(() => (snapshot.value ? fillSlots(snapshot.value.coverage, snapshot.value.trend) : []))
 </script>
