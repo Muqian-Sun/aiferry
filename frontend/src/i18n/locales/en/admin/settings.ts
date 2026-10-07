@@ -10,7 +10,7 @@ export default {
       profitControl: {
         title: 'Minimum margin',
         description: 'A channel whose margin falls below this is skipped for the request.',
-        hint: '0.30 = 30%; 0 turns it off'
+        hint: '0.30 = 30%; 0 = never sell at a loss'
       },
       payment: {
         providerEasypay: 'EasyPay',

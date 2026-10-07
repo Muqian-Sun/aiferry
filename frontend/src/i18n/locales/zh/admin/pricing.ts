@@ -15,7 +15,6 @@ export default {
       unsaved: '未保存的'
     },
     basis: '$ / 百万 Token · 最低毛利 {margin}',
-    basisGateOff: '$ / 百万 Token · 利润门已关',
     unsavedBlocks: '{count} 块未保存',
     empty: '没有符合条件的模型或渠道',
     loadFailed: '价格加载失败',
@@ -111,6 +110,8 @@ export default {
       followShort: '最高推理跟官方',
       follow: '跟官方 ×{multiplier}',
       followNone: '跟官方（不加价）',
+      margin: '最高推理 {margin}',
+      gateSkips: '最高推理时利润门会跳过',
       official: { title: '官方最高推理' },
       sale: { title: '售价最高推理' },
       upstream: { title: '上游最高推理' }

@@ -236,8 +236,7 @@ const focusOptions = computed<FilterOption[]>(() => [
 
 const basisText = computed(() => {
   if (!overview.value) return ''
-  const minMargin = overview.value.min_margin
-  return minMargin > 0 ? t('admin.pricing.basis', { margin: `${Math.round(minMargin * 1000) / 10}%` }) : t('admin.pricing.basisGateOff')
+  return t('admin.pricing.basis', { margin: `${Math.round(overview.value.min_margin * 1000) / 10}%` })
 })
 
 function includesQuery(text: string, query: string): boolean {

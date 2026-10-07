@@ -15,7 +15,6 @@ export default {
       unsaved: 'Unsaved'
     },
     basis: '$ / 1M tokens · minimum margin {margin}',
-    basisGateOff: '$ / 1M tokens · profit gate off',
     unsavedBlocks: '{count} unsaved',
     empty: 'No models or channels match',
     loadFailed: 'Failed to load prices',
@@ -111,6 +110,8 @@ export default {
       followShort: 'Max reasoning: follow official',
       follow: 'Follow official ×{multiplier}',
       followNone: 'Follow official (no markup)',
+      margin: 'Max reasoning {margin}',
+      gateSkips: 'Profit gate skips it at max reasoning',
       official: { title: 'Official max reasoning' },
       sale: { title: 'Sale max reasoning' },
       upstream: { title: 'Upstream max reasoning' }

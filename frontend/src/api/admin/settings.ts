@@ -18,7 +18,7 @@ export interface SystemSettings {
   // 风控中心功能开关
   risk_control_enabled: boolean;
 
-  // 利润门（全站一档）：上游成本比（渠道给该模型的上游价 ÷ 官方价，逐项、逐段取最高）> 用户倍率 × (1 − profit_min_margin) 的渠道这次请求不派；0 = 关
+  // 利润门（全站一档）：上游成本比（渠道给该模型的上游价 ÷ 官方价，逐项、逐段取最高）> 用户倍率 × (1 − profit_min_margin) 的渠道这次请求不派；0 = 不能亏本（门一直开着）
   profit_min_margin: number;
 }
 

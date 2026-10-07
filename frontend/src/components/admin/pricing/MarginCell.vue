@@ -1,7 +1,8 @@
 <template>
   <!--
     毛利 = 1 − 上游成本比 ÷ 默认售价倍率；低于最低毛利率标红（利润门会跳过）。改过的行要保存后才重算。
-    上游忙时涨价、我们没涨时，下面再标一行忙时毛利（一周里最差的时段）。
+    上游忙时涨价、我们没涨时，下面再标一行忙时毛利（一周里最差的时段）；上游在最高推理档比售价涨得多时再标一行
+    最高推理毛利（含忙时，最差的情况）。
   -->
   <span v-if="margin === undefined" class="whitespace-nowrap text-xs text-af-ink-3">{{ t('admin.pricing.marginAfterSave') }}</span>
   <span v-else-if="margin === null" class="text-af-ink-3">—</span>
@@ -16,6 +17,13 @@
     >
       {{ t('admin.pricing.peak.margin', { margin: format(peakMargin) }) }}
     </span>
+    <span
+      v-if="maxReasoningMargin != null"
+      :class="['whitespace-nowrap text-xs tabular-nums', belowMinMargin(maxReasoningMargin, minMargin) ? 'text-af-danger' : 'text-af-ink-3']"
+      data-testid="pricing-max-reasoning-margin"
+    >
+      {{ t('admin.pricing.reasoning.margin', { margin: format(maxReasoningMargin) }) }}
+    </span>
   </span>
 </template>
 
@@ -28,6 +36,8 @@ const props = defineProps<{
   margin: number | null | undefined
   /** 忙时毛利；null / 不给 = 忙时不比平时差 */
   peakMargin?: number | null
+  /** 最高推理档毛利；null / 不给 = max 档不比平时差 */
+  maxReasoningMargin?: number | null
   minMargin: number
 }>()
 
@@ -38,7 +48,6 @@ function format(margin: number): string {
 }
 
 function toneOf(margin: number): string {
-  if (belowMinMargin(margin, props.minMargin)) return 'bg-af-danger-tint text-af-danger'
-  return props.minMargin > 0 ? 'bg-af-success-tint text-af-success' : 'bg-af-sunken text-af-ink-2'
+  return belowMinMargin(margin, props.minMargin) ? 'bg-af-danger-tint text-af-danger' : 'bg-af-success-tint text-af-success'
 }
 </script>

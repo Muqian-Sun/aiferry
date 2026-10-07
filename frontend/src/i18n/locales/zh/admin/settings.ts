@@ -10,7 +10,7 @@ export default {
       profitControl: {
         title: '最低毛利率',
         description: '渠道毛利低于它时，这次请求不派给这个渠道。',
-        hint: '0.30 = 30%，填 0 关闭'
+        hint: '0.30 = 30%，填 0 = 不能亏本'
       },
       payment: {
         providerEasypay: '易支付',

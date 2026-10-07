@@ -233,19 +233,20 @@ export function marginOf(costRatio: number | null | undefined, defaultSaleRatio:
   return 1 - costRatio / defaultSaleRatio
 }
 
-/** 利润门会跳过这条承接：最低毛利率 > 0 且毛利低于它 */
+/** 利润门会跳过这条承接：毛利低于最低毛利率（利润门一直开着，0 = 不能亏本；容差与后端越线判定同量级） */
 export function belowMinMargin(margin: number | null, minMargin: number): boolean {
-  return minMargin > 0 && margin != null && margin < minMargin
+  return margin != null && margin < minMargin - 1e-9
 }
 
-/** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利（平时或忙时）低于门槛 */
+/** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利（平时、忙时或最高推理档）低于门槛 */
 export function entryHasProblem(entry: PricingEntry, defaultSaleRatio: number, minMargin: number): boolean {
   if (entry.input_price == null || entry.output_price == null) return true
   if (entry.status === 'listed' && entry.bindings.length === 0) return true
   return entry.bindings.some(
     (binding) =>
       belowMinMargin(marginOf(binding.cost_ratio, defaultSaleRatio), minMargin) ||
-      belowMinMargin(marginOf(binding.peak_cost_ratio, defaultSaleRatio), minMargin)
+      belowMinMargin(marginOf(binding.peak_cost_ratio, defaultSaleRatio), minMargin) ||
+      belowMinMargin(marginOf(binding.max_reasoning_cost_ratio, defaultSaleRatio), minMargin)
   )
 }
 

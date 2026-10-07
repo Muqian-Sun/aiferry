@@ -125,7 +125,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	return result
 }
 
-// parseProfitControlRatio 解析利润门的最低毛利率：非法或越界回 0（= 不装门）。
+// parseProfitControlRatio 解析利润门的最低毛利率：非法或越界回 0（= 不能亏本）。
 func parseProfitControlRatio(raw string) float64 {
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > ProfitControlRatioMax {

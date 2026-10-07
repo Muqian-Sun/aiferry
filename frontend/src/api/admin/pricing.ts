@@ -98,6 +98,8 @@ export interface PricingBinding extends PricingPrices {
   cost_ratio: number | null
   /** 一周里最差的上游成本比（上游忙时涨、我们没涨的时段）；不比平时差时为 null */
   peak_cost_ratio: number | null
+  /** 最高推理档最差的上游成本比（上游在 max 档比售价涨得多，含忙时）；不比平时差时为 null */
+  max_reasoning_cost_ratio: number | null
   /** 上游忙闲时：渠道成本按请求时刻整单 × 倍数；null = 上游不分忙闲时 */
   time_pricing: TimePricing | null
 }
@@ -165,7 +167,7 @@ export interface PricingAccount {
 export interface PricingOverview {
   /** 默认售价比例：没单独定售价的项 = 官方价 × 它；毛利 = 1 − 上游成本比 ÷ 它 */
   default_sale_ratio: number
-  /** 利润门的最低毛利率，0 = 关闭 */
+  /** 利润门的最低毛利率，0 = 不能亏本（利润门一直开着） */
   min_margin: number
   entries: PricingEntry[]
   accounts: PricingAccount[]

@@ -80,7 +80,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
 
-	// 利润门只有最低毛利率一个数，0 = 关。
+	// 利润门只有最低毛利率一个数，0 = 不能亏本（门一直开着）。
 	if settings.ProfitMinMargin < 0 || settings.ProfitMinMargin > ProfitControlRatioMax {
 		return nil, infraerrors.BadRequest("INVALID_PROFIT_CONTROL", fmt.Sprintf("profit control: min_margin must be within [0, %g]", ProfitControlRatioMax))
 	}
