@@ -172,6 +172,12 @@ func NewBillingService() *BillingService {
 
 // initFallbackPricing 初始化硬编码回退价格（当动态价格不可用时使用）
 // 价格单位：USD per token（与LiteLLM格式一致）
+// cnyPerMillionTokens 国内站人民币价（元 / 百万 Token）折成美元单价：÷ 6.8，每百万 Token 最多保留 4 位小数
+// （muqian 2026-10-06 汇率 6.8；2026-10-07 折算最多保留 4 位）。
+func cnyPerMillionTokens(yuan float64) float64 {
+	return math.Round(yuan/6.8*1e4) / 1e4 * 1e-6
+}
+
 func (s *BillingService) initFallbackPricing() {
 	// Claude 4.5 Opus
 	s.fallbackPrices["claude-opus-4.5"] = &ModelPricing{
@@ -405,21 +411,21 @@ func (s *BillingService) initFallbackPricing() {
 	// 按输入长度分段的（GLM-5、GLM-5.1、GLM-5-Turbo、GLM-4.6V 等）在价格文件里，含分段。
 	// 国内站价目没有的（GLM-4.5 / 4.6 系列、GLM-4-32B）与按输出长度另价的 GLM-4.7、GLM-4.5-Air 目录不收（catalogExcludedModels）。
 	s.fallbackPrices["glm-5.3-flash"] = &ModelPricing{
-		InputPricePerToken:     0.8 / 6.8 * 1e-6,  // ¥0.8/MTok
-		OutputPricePerToken:    2.8 / 6.8 * 1e-6,  // ¥2.8/MTok
-		CacheReadPricePerToken: 0.23 / 6.8 * 1e-6, // ¥0.23/MTok（缓存命中）
+		InputPricePerToken:     cnyPerMillionTokens(0.8),  // ¥0.8/MTok
+		OutputPricePerToken:    cnyPerMillionTokens(2.8),  // ¥2.8/MTok
+		CacheReadPricePerToken: cnyPerMillionTokens(0.23), // ¥0.23/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-5.3"] = &ModelPricing{
-		InputPricePerToken:     8 / 6.8 * 1e-6,  // ¥8/MTok
-		OutputPricePerToken:    28 / 6.8 * 1e-6, // ¥28/MTok
-		CacheReadPricePerToken: 2 / 6.8 * 1e-6,  // ¥2/MTok（缓存命中）
+		InputPricePerToken:     cnyPerMillionTokens(8),  // ¥8/MTok
+		OutputPricePerToken:    cnyPerMillionTokens(28), // ¥28/MTok
+		CacheReadPricePerToken: cnyPerMillionTokens(2),  // ¥2/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-5.2"] = &ModelPricing{
-		InputPricePerToken:     8 / 6.8 * 1e-6,  // ¥8/MTok
-		OutputPricePerToken:    28 / 6.8 * 1e-6, // ¥28/MTok
-		CacheReadPricePerToken: 2 / 6.8 * 1e-6,  // ¥2/MTok（缓存命中）
+		InputPricePerToken:     cnyPerMillionTokens(8),  // ¥8/MTok
+		OutputPricePerToken:    cnyPerMillionTokens(28), // ¥28/MTok
+		CacheReadPricePerToken: cnyPerMillionTokens(2),  // ¥2/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7"] = &ModelPricing{
@@ -429,9 +435,9 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.7-flashx"] = &ModelPricing{
-		InputPricePerToken:     0.5 / 6.8 * 1e-6, // ¥0.5/MTok
-		OutputPricePerToken:    3 / 6.8 * 1e-6,   // ¥3/MTok
-		CacheReadPricePerToken: 0.1 / 6.8 * 1e-6, // ¥0.1/MTok（缓存命中）
+		InputPricePerToken:     cnyPerMillionTokens(0.5), // ¥0.5/MTok
+		OutputPricePerToken:    cnyPerMillionTokens(3),   // ¥3/MTok
+		CacheReadPricePerToken: cnyPerMillionTokens(0.1), // ¥0.1/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-4.6"] = &ModelPricing{
@@ -495,18 +501,18 @@ func (s *BillingService) initFallbackPricing() {
 	// kimi-k3 档位作代理计费 fallback（同 kimi-for-coding 对 K2.6 的处理口径）。
 	// K3 缓存写入：5 分钟 ¥20、1 小时 ¥40。
 	s.fallbackPrices["kimi-k3"] = &ModelPricing{
-		InputPricePerToken:         20 / 6.8 * 1e-6,  // ¥20/MTok（缓存未命中）
-		OutputPricePerToken:        100 / 6.8 * 1e-6, // ¥100/MTok
-		CacheReadPricePerToken:     2 / 6.8 * 1e-6,   // ¥2/MTok（缓存命中）
-		CacheCreationPricePerToken: 20 / 6.8 * 1e-6,  // ¥20/MTok（缓存写入 5 分钟）
-		CacheCreation5mPrice:       20 / 6.8 * 1e-6,
-		CacheCreation1hPrice:       40 / 6.8 * 1e-6, // ¥40/MTok（缓存写入 1 小时）
+		InputPricePerToken:         cnyPerMillionTokens(20),  // ¥20/MTok（缓存未命中）
+		OutputPricePerToken:        cnyPerMillionTokens(100), // ¥100/MTok
+		CacheReadPricePerToken:     cnyPerMillionTokens(2),   // ¥2/MTok（缓存命中）
+		CacheCreationPricePerToken: cnyPerMillionTokens(20),  // ¥20/MTok（缓存写入 5 分钟）
+		CacheCreation5mPrice:       cnyPerMillionTokens(20),
+		CacheCreation1hPrice:       cnyPerMillionTokens(40), // ¥40/MTok（缓存写入 1 小时）
 		SupportsCacheBreakdown:     true,
 	}
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{
-		InputPricePerToken:     6.5 / 6.8 * 1e-6, // ¥6.5/MTok（缓存未命中）
-		OutputPricePerToken:    27 / 6.8 * 1e-6,  // ¥27/MTok
-		CacheReadPricePerToken: 1.1 / 6.8 * 1e-6, // ¥1.1/MTok（缓存命中）
+		InputPricePerToken:     cnyPerMillionTokens(6.5), // ¥6.5/MTok（缓存未命中）
+		OutputPricePerToken:    cnyPerMillionTokens(27),  // ¥27/MTok
+		CacheReadPricePerToken: cnyPerMillionTokens(1.1), // ¥1.1/MTok（缓存命中）
 		SupportsCacheBreakdown: false,
 	}
 	// kimi-for-coding 走 Kimi Coding endpoint，按当前 K2.6 coding 档位兜底计费。
@@ -583,8 +589,8 @@ func (s *BillingService) initFallbackPricing() {
 	// embedding 无 output，OutputPricePerToken 置 0。
 	// 官方 ID 带版本号（火山方舟模型列表 2026-09-28：doubao-embedding-vision-251215；裸名只是定价页的产品名）
 	s.fallbackPrices["doubao-embedding-vision-251215"] = &ModelPricing{
-		InputPricePerToken:      0.7 / 6.8 * 1e-6, // ¥0.7/MTok（文本输入）
-		ImageInputPricePerToken: 1.8 / 6.8 * 1e-6, // ¥1.8/MTok（图片输入）
+		InputPricePerToken:      cnyPerMillionTokens(0.7), // ¥0.7/MTok（文本输入）
+		ImageInputPricePerToken: cnyPerMillionTokens(1.8), // ¥1.8/MTok（图片输入）
 		OutputPricePerToken:     0,
 		SupportsCacheBreakdown:  false,
 	}

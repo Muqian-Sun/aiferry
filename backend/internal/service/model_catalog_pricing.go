@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -105,6 +106,37 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 		return catalogValidationError(fmt.Sprintf("upstream time_pricing: %s", err.Error()))
 	}
 	return validatePriceSegments("upstream", b.Intervals)
+}
+
+// roundPricePerMillion 售价、成本价每百万 Token 最多保留 4 位小数（muqian 2026-10-07）；单价存的是每 Token 的美元价，
+// 所以按每 Token 10 位小数取整。
+func roundPricePerMillion(price float64) float64 {
+	return math.Round(price*1e10) / 1e10
+}
+
+func roundPricePtr(price *float64) *float64 {
+	if price == nil {
+		return nil
+	}
+	v := roundPricePerMillion(*price)
+	return &v
+}
+
+// roundBindingPrices 成本价（五项 token 价与各段）按每百万 Token 4 位小数取整；搜索价按次计，不在此列。
+func roundBindingPrices(b *ModelCatalogBinding) {
+	b.InputPrice = roundPricePerMillion(b.InputPrice)
+	b.OutputPrice = roundPricePerMillion(b.OutputPrice)
+	b.CacheWritePrice = roundPricePtr(b.CacheWritePrice)
+	b.CacheWrite1hPrice = roundPricePtr(b.CacheWrite1hPrice)
+	b.CacheReadPrice = roundPricePtr(b.CacheReadPrice)
+	for i := range b.Intervals {
+		iv := &b.Intervals[i]
+		iv.InputPrice = roundPricePtr(iv.InputPrice)
+		iv.OutputPrice = roundPricePtr(iv.OutputPrice)
+		iv.CacheWritePrice = roundPricePtr(iv.CacheWritePrice)
+		iv.CacheWrite1hPrice = roundPricePtr(iv.CacheWrite1hPrice)
+		iv.CacheReadPrice = roundPricePtr(iv.CacheReadPrice)
+	}
 }
 
 // normalizeTimePricing 没有时段的忙闲时等于不分忙闲时，存成 nil。
@@ -339,6 +371,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 		binding.EntryID = entryID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
+		roundBindingPrices(&binding)
 		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
@@ -379,6 +412,7 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 		binding.AccountID = accountID
 		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
 		binding.Intervals = normalizePriceSegments(binding.Intervals)
+		roundBindingPrices(&binding)
 		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err

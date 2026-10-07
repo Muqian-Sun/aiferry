@@ -127,10 +127,10 @@ func TestGetModelPricing_GLM52UsesOwnPrice(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	// 国内站人民币价 ÷ 6.8（muqian 2026-10-07）：¥8 / ¥28，缓存命中 ¥2。
-	require.InDelta(t, 8/6.8*1e-6, got.InputPricePerToken, 1e-12)
-	require.InDelta(t, 28/6.8*1e-6, got.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 2/6.8*1e-6, got.CacheReadPricePerToken, 1e-12)
+	// 国内站人民币价 ÷ 6.8、每百万 Token 4 位小数（muqian 2026-10-07）：¥8 / ¥28 → $1.1765 / $4.1176，缓存命中 ¥2 → $0.2941。
+	require.InDelta(t, 1.1765e-6, got.InputPricePerToken, 1e-15)
+	require.InDelta(t, 4.1176e-6, got.OutputPricePerToken, 1e-15)
+	require.InDelta(t, 0.2941e-6, got.CacheReadPricePerToken, 1e-15)
 }
 
 func TestGetModelPricing_OpenAIGPT54Fallback(t *testing.T) {
@@ -345,10 +345,10 @@ func TestCalculateCost_TokenSegmentAppliesToCacheCreation5mAnd1h(t *testing.T) {
 		"both 5m and 1h cache_creation prices should use the upper segment price")
 }
 
-// 豆包向量模型官网只有人民币价，按 1 美元 = 6.8 元换算（muqian 2026-10-06）。
+// 豆包向量模型官网只有人民币价，按 1 美元 = 6.8 元换算（muqian 2026-10-06），每百万 Token 4 位小数（10-07）。
 const (
-	doubaoEmbeddingTextRate  = 0.7 / 6.8 * 1e-6 // ¥0.7/MTok
-	doubaoEmbeddingImageRate = 1.8 / 6.8 * 1e-6 // ¥1.8/MTok
+	doubaoEmbeddingTextRate  = 0.1029e-6 // ¥0.7/MTok
+	doubaoEmbeddingImageRate = 0.2647e-6 // ¥1.8/MTok
 )
 
 // doubao-embedding-vision 是首个图文不同价的 embedding：文本 ¥0.7/MTok、图片 ¥1.8/MTok。

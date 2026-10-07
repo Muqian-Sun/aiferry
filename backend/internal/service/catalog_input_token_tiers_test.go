@@ -3,6 +3,7 @@
 package service
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,8 @@ import (
 )
 
 // 人民币价按 1 美元 = 6.8 元换算（muqian 2026-10-06：有美元官网价用美元，只有人民币价的按 6.8）。
-func cnyPerMillion(yuan float64) float64 { return yuan / 6.8 / 1e6 }
+// cnyPerMillion 国内站人民币价（元 / 百万 Token）折成每 Token 美元价：÷ 6.8，每百万 Token 最多保留 4 位小数（muqian 2026-10-07）。
+func cnyPerMillion(yuan float64) float64 { return math.Round(yuan/6.8*1e4) / 1e4 / 1e6 }
 
 func usdPerMillion(usd float64) float64 { return usd / 1e6 }
 
@@ -127,8 +129,10 @@ func TestCalculateTokenCost_InputTokenTierAppliesToWholeRequest(t *testing.T) {
 	high := costViaCatalog(t, bs, resolver, "doubao-seed-2-0-lite-260428", UsageTokens{
 		InputTokens: 100_000, AudioInputTokens: 1_000, CacheReadTokens: 10_000, OutputTokens: 1_000,
 	})
-	require.InEpsilon(t, 99_000*cnyPerMillion(0.9)+1_000*cnyPerMillion(13.5), high.InputCost, 1e-5)
-	require.InEpsilon(t, 1_000*cnyPerMillion(13.5), high.AudioInputCost, 1e-5, "音频 9 元 × 1.5 = 13.5 元")
+	// 音频按「本段输入价 ÷ 基础输入价」加价：官方 0.9 元 ÷ 0.6 元 = 1.5 倍；折成美元各自取 4 位小数后比例略有出入
+	highAudio := cnyPerMillion(9.0) * cnyPerMillion(0.9) / cnyPerMillion(0.6)
+	require.InEpsilon(t, 99_000*cnyPerMillion(0.9)+1_000*highAudio, high.InputCost, 1e-5)
+	require.InEpsilon(t, 1_000*highAudio, high.AudioInputCost, 1e-5, "音频 9 元 × 1.5")
 	require.InEpsilon(t, 10_000*cnyPerMillion(0.18), high.CacheReadCost, 1e-5)
 	require.InEpsilon(t, 1_000*cnyPerMillion(5.4), high.OutputCost, 1e-5)
 
