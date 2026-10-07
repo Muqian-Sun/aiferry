@@ -523,7 +523,7 @@
 
       <!-- 第三方 key 的 API Key -->
       <div v-if="form.type === 'apikey'">
-        <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+        <label class="input-label">{{ copyFrom ? t('admin.accounts.apiKey') : t('admin.accounts.apiKeyRequired') }}</label>
         <input
           v-model="apiKeyValue"
           type="password"
