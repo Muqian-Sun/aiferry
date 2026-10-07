@@ -199,11 +199,14 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 	}
 }
 
+// openAIResponsesRequiredCapability 只对 OpenAI 生图意图要求原生 Responses；普通文本请求没有端点要求（空），
+// 能不能承接由协议转换注册表（accountServesCatalogRoute）决定。不能写成 chat_completions：那会把
+// Antigravity / Gemini / Claude 成品号一律判成不支持，而它们有 Responses 转换实现（2026-10-08）。
 func openAIResponsesRequiredCapability(imageIntent bool, platform string) service.OpenAIEndpointCapability {
 	if imageIntent && platform == service.PlatformOpenAI {
 		return service.OpenAIEndpointCapabilityResponses
 	}
-	return service.OpenAIEndpointCapabilityChatCompletions
+	return ""
 }
 
 // openAIResponsesRequiredCapabilityForRequest returns the endpoint capability

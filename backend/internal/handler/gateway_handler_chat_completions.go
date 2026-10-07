@@ -170,7 +170,8 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
+		// 没有端点能力要求：能不能承接由协议转换注册表决定（成品号也能经 Antigravity / Gemini / Anthropic 转换承接）。
+		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, requestPlatform)
