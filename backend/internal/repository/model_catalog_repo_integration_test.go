@@ -796,7 +796,7 @@ func TestModelCatalogRepository_MaxReasoningMultipliersRoundTrip(t *testing.T) {
 
 	_, err = integrationDB.ExecContext(ctx,
 		"UPDATE model_catalog_bindings SET max_reasoning_effort_multiplier = 0 WHERE entry_id = $1 AND account_id = $2", entry.ID, accountB.ID)
-	require.Error(t, err, "库里也挡住 <= 0")
+	require.ErrorContains(t, err, "chk_model_catalog_bindings_max_reasoning_positive", "库里也挡住 <= 0")
 }
 
 // 播种条目带忙闲时（价格文件的 time_pricing，如 DeepSeek 高峰 × 2）：插入与刷新都写进目录。
