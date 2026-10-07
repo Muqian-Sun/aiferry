@@ -483,6 +483,8 @@ export default {
       createSparkShadowFailed: 'Failed to create Spark shadow channel',
       duplicateAccount: 'Duplicate Channel',
       duplicateFailed: 'Failed to duplicate channel',
+      copyDialogTitle: 'Copy channel · {name}',
+      copyKeyPlaceholder: 'Leave blank to reuse the key of “{name}”',
       refreshCredentialsFailed: 'Failed to refresh credentials',
       refreshMissingProjectId: 'Credentials refreshed, but project_id is not available yet; it will be retried automatically',
       selectAllFailed: 'Failed to select all results',

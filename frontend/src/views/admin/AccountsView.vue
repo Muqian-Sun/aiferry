@@ -308,7 +308,7 @@
       :model-id="diagnosisEntry?.model_id ?? ''"
       @close="diagnosisEntry = null"
     />
-    <CreateAccountModal :show="showCreate" :proxies="proxies" @close="showCreate = false" @created="handleCreated" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" :copy-from="copySource" @close="closeCreate" @created="handleCreated" />
     <EditAccountModal
       :show="showEdit"
       :account="editingAccount"
@@ -1092,7 +1092,14 @@ const loadAccountDetails = async (account: Pick<AccountListItem, 'id'>): Promise
 
 // 新建 / 编辑渠道是弹窗（2026-10-03 由整页改回）；编辑先开弹窗，再按 id 拉完整账号
 const openCreate = () => {
+  copySource.value = null
   showCreate.value = true
+}
+// 复制渠道（muqian 2026-10-07）：只带端点与 key（key 由后端从源渠道取），其余同新建 —— 开的就是新建弹窗
+const copySource = ref<Account | null>(null)
+const closeCreate = () => {
+  showCreate.value = false
+  copySource.value = null
 }
 let editLoadSeq = 0
 const handleEdit = async (a: Pick<AccountListItem, 'id'>) => {
@@ -1568,19 +1575,16 @@ const handleSchedule = (a: AccountListItem) => {
   openDetail(a, 'schedule')
 }
 const handleReAuth = (a: Account) => { reAuthAcc.value = a; showReAuth.value = true }
-const duplicatingAccountIDs = new Set<number>()
-const handleDuplicateAccount = async (a: Account) => {
-  if (duplicatingAccountIDs.has(a.id)) return
-  duplicatingAccountIDs.add(a.id)
+// 列表项不带协议地址：按 id 拉完整渠道再开新建弹窗
+const handleDuplicateAccount = async (a: Pick<AccountListItem, 'id'>) => {
   rowActionError.value = ''
-  try {
-    await adminAPI.accounts.duplicate(a.id)
-    reload()
-  } catch (error: any) {
-    rowActionFailed(error, 'admin.accounts.duplicateFailed')
-  } finally {
-    duplicatingAccountIDs.delete(a.id)
+  const account = await loadAccountDetails(a)
+  if (!account) {
+    rowActionError.value = t('admin.accounts.duplicateFailed')
+    return
   }
+  copySource.value = account
+  showCreate.value = true
 }
 const handleRefresh = async (a: Account) => {
   rowActionError.value = ''

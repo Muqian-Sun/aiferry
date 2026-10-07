@@ -593,6 +593,8 @@ export default {
       createSparkShadowFailed: '创建 Spark 影子渠道失败',
       duplicateAccount: '复制渠道',
       duplicateFailed: '复制渠道失败',
+      copyDialogTitle: '复制渠道 · {name}',
+      copyKeyPlaceholder: '留空沿用「{name}」的 Key',
       refreshCredentialsFailed: '刷新凭据失败',
       refreshMissingProjectId: '凭据已刷新，但 project_id 暂时没取到，系统会自动重试',
       selectAllFailed: '选中全部结果失败',

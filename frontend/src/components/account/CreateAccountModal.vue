@@ -2,8 +2,14 @@
   <!--
     新建渠道弹窗（2026-10-03 由整页改回弹窗）：与编辑同一外壳、同一分区顺序 ——
     上游 / 调度与限额 / 高级（默认收起）/ 备注；成品号点「下一步」进第二步授权。
+    复制渠道（copyFrom，muqian 2026-10-07）：只带过来端点与 key（key 留空 = 沿用源渠道存着的，由后端取），其余同新建。
   -->
-  <BaseDialog :show="show" :title="t('admin.accounts.createAccount')" :width="step === 3 ? 'extra-wide' : 'wide'" @close="handleClose">
+  <BaseDialog
+    :show="show"
+    :title="copyFrom ? t('admin.accounts.copyDialogTitle', { name: copyFrom.name }) : t('admin.accounts.createAccount')"
+    :width="step === 3 ? 'extra-wide' : 'wide'"
+    @close="handleClose"
+  >
     <!-- 步骤：第三方 key 是「连上游 → 承接模型」，成品号中间多一步授权 -->
     <ol class="mb-5 flex flex-wrap items-center gap-2 text-13" data-testid="create-account-steps">
       <li v-for="(item, index) in stepItems" :key="item.step" class="flex items-center gap-2">
@@ -29,7 +35,7 @@
     >
       <ChannelFormSection section="upstream" :title="t('admin.accounts.dialog.sections.upstream')">
       <!-- 先选接入方式与来源（muqian 2026-09-25）：第三方 key 不选平台，成品号只选哪家的账号 -->
-      <AccessSourcePicker v-model="accessSourceId" />
+      <AccessSourcePicker v-if="!copyFrom" v-model="accessSourceId" />
 
       <div
         v-if="form.platform === 'anthropic' && accountCategory === 'service_account'"
@@ -517,13 +523,14 @@
 
       <!-- 第三方 key 的 API Key -->
       <div v-if="form.type === 'apikey'">
-        <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+        <label class="input-label">{{ copyFrom ? t('admin.accounts.apiKey') : t('admin.accounts.apiKeyRequired') }}</label>
         <input
           v-model="apiKeyValue"
           type="password"
-          required
+          :required="!copyFrom"
           class="input font-mono"
-          :placeholder="apiKeyValuePlaceholder"
+          :placeholder="copyFrom ? t('admin.accounts.copyKeyPlaceholder', { name: copyFrom.name }) : apiKeyValuePlaceholder"
+          data-testid="channel-api-key"
         />
         <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
@@ -539,6 +546,7 @@
         :protocol-endpoints="protocolEndpoints"
         :draft-url="keyAddressDraft"
         :api-key="apiKeyValue"
+        :account-id="copyFrom?.id"
         :proxy-id="form.proxy_id"
         @select="applyProbedProtocol"
         @models="detected = $event"
@@ -1058,6 +1066,7 @@ import type { PricingOverview } from '@/api/admin/pricing'
 import type { ModelCatalogEntry, OfficialModelLookupResult } from '@/api/admin/modelCatalog'
 import {
   DEFAULT_ACCESS_SOURCE_ID,
+  KEY_SOURCE_ID,
   findAccessSource
 } from '@/components/account/accessSources'
 import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
@@ -1145,9 +1154,11 @@ const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.val
 interface Props {
   show: boolean
   proxies: Proxy[]
+  /** 复制渠道：从这个第三方 key 渠道带端点与 key 过来，其余同新建 */
+  copyFrom?: Account | null
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { copyFrom: null })
 const emit = defineEmits<{
   close: []
   created: []
@@ -1500,6 +1511,19 @@ watch(
   }
 )
 
+// 复制渠道：打开时只带端点过来（key 由后端从源渠道取），其余与新建一样从空白开始
+const copiedEndpoints = ref<ProtocolEndpoints>({})
+watch(
+  () => [props.show, props.copyFrom] as const,
+  ([show, source]) => {
+    if (!show || !source) return
+    accessSourceId.value = KEY_SOURCE_ID
+    copiedEndpoints.value = { ...(source.protocol_endpoints ?? {}) }
+    protocolEndpoints.value = { ...copiedEndpoints.value }
+  },
+  { immediate: true }
+)
+
 // Sync form.type based on accountCategory, addMethod, and platform-specific type
 watch(
   [accountCategory, addMethod, () => form.platform],
@@ -1714,7 +1738,11 @@ const hasUnsavedInput = () => {
     vertexServiceAccountJson.value
   ]
   const renamed = form.name.trim() !== '' && form.name !== nameSuggestion
-  return renamed || hasKeyAddress.value || typed.some((value) => (value ?? '').trim() !== '')
+  // 复制渠道带过来的端点不算「填过」：没改就直接关
+  const addressTyped = props.copyFrom
+    ? JSON.stringify(trimProtocolEndpoints(protocolEndpoints.value)) !== JSON.stringify(trimProtocolEndpoints(copiedEndpoints.value))
+    : hasKeyAddress.value
+  return renamed || addressTyped || typed.some((value) => (value ?? '').trim() !== '')
 }
 
 // 承接那一块改了没保存时不关（右上角关闭也一样）：先保存或点那一块的「撤销」
@@ -2084,8 +2112,9 @@ const handleSubmit = async () => {
     return
   }
 
-  // For apikey type, create directly
-  if (!apiKeyValue.value.trim()) {
+  // For apikey type, create directly（复制渠道时 key 可留空：沿用源渠道的）
+  const typedApiKey = apiKeyValue.value.trim()
+  if (!typedApiKey && !props.copyFrom) {
     submitError.value = t('admin.accounts.pleaseEnterApiKey')
     return
   }
@@ -2097,9 +2126,7 @@ const handleSubmit = async () => {
   }
 
   // Build credentials with optional model mapping
-  const credentials: Record<string, unknown> = {
-    api_key: apiKeyValue.value.trim()
-  }
+  const credentials: Record<string, unknown> = typedApiKey ? { api_key: typedApiKey } : {}
 
   // 国产厂商 / OpenCode：账号模式写入凭据，后端按 account_mode 路由额度 / 余额探测；
   // 厂商按地址识别，中转不写。转发协议由协议地址决定。
@@ -2130,7 +2157,8 @@ const handleSubmit = async () => {
   await doCreateAccount({
     ...form,
     protocol_endpoints: apiKeyEndpoints,
-    extra: withQuotaExtra(extra)
+    extra: withQuotaExtra(extra),
+    ...(props.copyFrom && !typedApiKey ? { copy_key_from_account_id: props.copyFrom.id } : {})
   })
 }
 

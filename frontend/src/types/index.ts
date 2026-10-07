@@ -977,6 +977,8 @@ export interface CreateAccountRequest {
   priority?: number
   expires_at?: number | null
   confirm_mixed_channel_risk?: boolean
+  /** 复制渠道：credentials.api_key 留空时，后端用这个渠道存着的 key */
+  copy_key_from_account_id?: number
 }
 
 export interface UpdateAccountRequest {

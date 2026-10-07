@@ -271,6 +271,36 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 	return duplicate, nil
 }
 
+// fillCopiedAPIKey 复制渠道：表单里 key 留空时，从源渠道取存着的 key 填进 credentials.api_key；
+// 表单里填了新 key 就用新 key。源渠道必须是第三方 key（与探测接口借 key 同一规则）。
+func (s *adminServiceImpl) fillCopiedAPIKey(ctx context.Context, input *CreateAccountInput) error {
+	if input.CopyKeyFromAccountID <= 0 {
+		return nil
+	}
+	if input.Type != AccountTypeAPIKey {
+		return infraerrors.BadRequest("ACCOUNT_COPY_KEY_UNSUPPORTED", "only API key channels can copy a key from another channel")
+	}
+	if typed, _ := input.Credentials["api_key"].(string); strings.TrimSpace(typed) != "" {
+		return nil
+	}
+	source, err := s.accountRepo.GetByID(ctx, input.CopyKeyFromAccountID)
+	if err != nil {
+		return err
+	}
+	if !source.IsThirdPartyKey() {
+		return infraerrors.BadRequest("ACCOUNT_COPY_KEY_UNSUPPORTED", "only API key channels can be copied")
+	}
+	key := strings.TrimSpace(source.GetOpenAIProtocolAPIKey())
+	if key == "" {
+		return infraerrors.BadRequest("ACCOUNT_COPY_KEY_MISSING", "the source channel has no API key")
+	}
+	if input.Credentials == nil {
+		input.Credentials = map[string]any{}
+	}
+	input.Credentials["api_key"] = key
+	return nil
+}
+
 func normalizeAccountConcurrency(platform, accountType string, concurrency int) int {
 	if platform == PlatformGrok && accountType == AccountTypeOAuth {
 		if concurrency <= 0 {
@@ -337,6 +367,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	if err := s.fillCopiedAPIKey(ctx, input); err != nil {
+		return nil, err
+	}
 	if err := resolveCreateAccountPlatform(input); err != nil {
 		return nil, err
 	}

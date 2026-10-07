@@ -13,14 +13,14 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getAllProxies,
-  duplicateAccount,
+  getAccountById,
   createSparkShadow,
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
-  duplicateAccount: vi.fn(),
+  getAccountById: vi.fn(),
   createSparkShadow: vi.fn(),
 }))
 
@@ -39,7 +39,7 @@ vi.mock('@/api/admin', () => ({
       list: listAccounts,
       listWithEtag,
       getBatchTodayStats,
-      duplicate: duplicateAccount,
+      getById: getAccountById,
       createSparkShadow,
       delete: vi.fn(),
       batchClearError: vi.fn(),
@@ -106,14 +106,14 @@ const mountView = () =>
 describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, getAccountById, createSparkShadow]) {
       fn.mockReset()
     }
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getAllProxies.mockResolvedValue([])
-    duplicateAccount.mockResolvedValue({ id: 998, name: 'parent-acc (Copy)' })
+    getAccountById.mockResolvedValue({ id: 42, name: 'parent-acc', type: 'apikey', protocol_endpoints: { chat_completions: 'https://relay.example.com' } })
     createSparkShadow.mockResolvedValue({ id: 999, name: 'parent-acc (Spark)' })
   })
 
@@ -121,33 +121,18 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     vi.unstubAllGlobals()
   })
 
-  it('AccountActionMenu 的 duplicate 事件一键复制账号并刷新列表', async () => {
+  // 复制渠道（2026-10-07）：不再直接建一个副本，而是拉完整渠道后打开新建弹窗，只带端点与 key 过去
+  it('AccountActionMenu 的 duplicate 事件打开新建弹窗并带上源渠道', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     wrapper.findComponent(AccountActionMenu).vm.$emit('duplicate', { id: 42, name: 'parent-acc' })
     await flushPromises()
 
-    expect(duplicateAccount).toHaveBeenCalledTimes(1)
-    expect(duplicateAccount).toHaveBeenCalledWith(42)
-    expect(listAccounts.mock.calls.length).toBeGreaterThan(1)
-    wrapper.unmount()
-  })
-
-  it('同一账号复制请求未完成时忽略重复点击', async () => {
-    let resolveDuplicate!: (account: { id: number; name: string }) => void
-    duplicateAccount.mockImplementationOnce(() => new Promise(resolve => { resolveDuplicate = resolve }))
-    const wrapper = mountView()
-    await flushPromises()
-
-    const menu = wrapper.findComponent(AccountActionMenu)
-    menu.vm.$emit('duplicate', { id: 42, name: 'parent-acc' })
-    menu.vm.$emit('duplicate', { id: 42, name: 'parent-acc' })
-    await flushPromises()
-
-    expect(duplicateAccount).toHaveBeenCalledTimes(1)
-    resolveDuplicate({ id: 998, name: 'parent-acc (Copy)' })
-    await flushPromises()
+    expect(getAccountById).toHaveBeenCalledWith(42)
+    const modal = wrapper.findComponent({ name: 'CreateAccountModal' })
+    expect(modal.props('show')).toBe(true)
+    expect(modal.props('copyFrom')).toMatchObject({ id: 42, protocol_endpoints: { chat_completions: 'https://relay.example.com' } })
     wrapper.unmount()
   })
 
@@ -244,7 +229,7 @@ const mountViewWithRow = () =>
 describe('admin AccountsView — 账号行展示', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, duplicateAccount, createSparkShadow]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getAllProxies, getAccountById, createSparkShadow]) {
       fn.mockReset()
     }
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })
