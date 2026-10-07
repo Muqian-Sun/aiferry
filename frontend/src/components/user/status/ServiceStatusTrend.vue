@@ -1,5 +1,6 @@
 <template>
-  <!-- 全站整体趋势：一条墨色线（可用率、首字延迟 P50 或缓存命中率），没有请求的段断开不连线 -->
+  <!-- 全站整体趋势：一条墨色线（可用率、首字延迟 P50 或缓存命中率）。请求少时没有请求的段跨过去连成线、平时不画圆点
+       （muqian 2026-10-07：「不要出现单个的点，很不好看」）；有数据的段不到 2 个时不画线 -->
   <div v-if="chartData" class="h-48">
     <Line :data="chartData" :options="lineOptions" />
   </div>
@@ -19,6 +20,9 @@ import { formatPercent, formatLatency, formatSlotTime, type StatusSlot } from '.
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 export type ServiceTrendMetric = 'availability' | 'ttft' | 'cache'
+
+/** 至少这么多段有数据才画线：一段画不成线，只会剩一个点 */
+const MIN_POINTS = 2
 
 const props = defineProps<{
   slots: StatusSlot[]
@@ -47,7 +51,7 @@ function formatValue(value: number): string {
 
 const chartData = computed(() => {
   const values = props.slots.map(valueOf)
-  if (!values.some((value) => value != null)) return null
+  if (values.filter((value) => value != null).length < MIN_POINTS) return null
   return {
     labels: props.slots.map((slot) => formatSlotTime(slot.start, props.bucketSeconds, locale.value)),
     datasets: [
@@ -57,9 +61,8 @@ const chartData = computed(() => {
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
         borderWidth: 2,
-        // 每段画一个小圆点：前后都没有请求的段连不成线，点半径为 0 时什么也看不到（2026-10-04 走查：
-        // 24 小时里隔了十个小时才又有请求的那一段没画出来，像是数据停在了凌晨）
-        pointRadius: 2,
+        // 平时不画圆点，鼠标移上去才显示；没有请求的段跨过去连线（spanGaps），不会剩下孤立的点
+        pointRadius: 0,
         pointBackgroundColor: theme.value.ink,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: theme.value.ink,
@@ -68,7 +71,7 @@ const chartData = computed(() => {
         fill: false,
         // 100% 的点压在顶线上，允许画出绘图区，不被裁掉半个
         clip: false as const,
-        spanGaps: false,
+        spanGaps: true,
         cubicInterpolationMode: 'monotone' as const
       }
     ]
