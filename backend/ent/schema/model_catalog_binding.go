@@ -50,7 +50,7 @@ func (ModelCatalogBinding) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,12)"}),
-		// 联网搜索的上游价（USD）：每次 web 搜索、每条 X 帖子、每个 X 主页；未填按官方搜索价记成本。
+		// 联网搜索的上游价（USD）：每次 web 搜索、每条 X 帖子、每个 X 主页；未填 = 上游不收搜索费。
 		field.Float("search_price_per_call").
 			Optional().
 			Nillable().
@@ -63,6 +63,11 @@ func (ModelCatalogBinding) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,12)"}),
+		// max_reasoning_effort_multiplier 上游在最高推理档（effort = max）整单乘的倍数；NULL = 跟官方。
+		field.Float("max_reasoning_effort_multiplier").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}),
 		// upstream_model 这个渠道给这个模型用的上游模型名，空串 = 与目录标识同名（按目录模型精确对应，不支持通配）。
 		field.String("upstream_model").
 			MaxLen(255).

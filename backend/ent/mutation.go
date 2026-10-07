@@ -22208,38 +22208,40 @@ func (m *IdentityAdoptionDecisionMutation) ResetEdge(name string) error {
 // ModelCatalogBindingMutation represents an operation that mutates the ModelCatalogBinding nodes in the graph.
 type ModelCatalogBindingMutation struct {
 	config
-	op                       Op
-	typ                      string
-	input_price              *float64
-	addinput_price           *float64
-	output_price             *float64
-	addoutput_price          *float64
-	cache_write_price        *float64
-	addcache_write_price     *float64
-	cache_write_1h_price     *float64
-	addcache_write_1h_price  *float64
-	cache_read_price         *float64
-	addcache_read_price      *float64
-	search_price_per_call    *float64
-	addsearch_price_per_call *float64
-	x_post_price             *float64
-	addx_post_price          *float64
-	x_user_price             *float64
-	addx_user_price          *float64
-	upstream_model           *string
-	price_intervals          *[]domain.PriceSegment
-	appendprice_intervals    []domain.PriceSegment
-	time_pricing             **domain.TimePricingSpec
-	created_at               *time.Time
-	updated_at               *time.Time
-	clearedFields            map[string]struct{}
-	entry                    *int64
-	clearedentry             bool
-	account                  *int64
-	clearedaccount           bool
-	done                     bool
-	oldValue                 func(context.Context) (*ModelCatalogBinding, error)
-	predicates               []predicate.ModelCatalogBinding
+	op                                 Op
+	typ                                string
+	input_price                        *float64
+	addinput_price                     *float64
+	output_price                       *float64
+	addoutput_price                    *float64
+	cache_write_price                  *float64
+	addcache_write_price               *float64
+	cache_write_1h_price               *float64
+	addcache_write_1h_price            *float64
+	cache_read_price                   *float64
+	addcache_read_price                *float64
+	search_price_per_call              *float64
+	addsearch_price_per_call           *float64
+	x_post_price                       *float64
+	addx_post_price                    *float64
+	x_user_price                       *float64
+	addx_user_price                    *float64
+	max_reasoning_effort_multiplier    *float64
+	addmax_reasoning_effort_multiplier *float64
+	upstream_model                     *string
+	price_intervals                    *[]domain.PriceSegment
+	appendprice_intervals              []domain.PriceSegment
+	time_pricing                       **domain.TimePricingSpec
+	created_at                         *time.Time
+	updated_at                         *time.Time
+	clearedFields                      map[string]struct{}
+	entry                              *int64
+	clearedentry                       bool
+	account                            *int64
+	clearedaccount                     bool
+	done                               bool
+	oldValue                           func(context.Context) (*ModelCatalogBinding, error)
+	predicates                         []predicate.ModelCatalogBinding
 }
 
 var _ ent.Mutation = (*ModelCatalogBindingMutation)(nil)
@@ -22714,6 +22716,59 @@ func (m *ModelCatalogBindingMutation) ResetXUserPrice() {
 	delete(m.clearedFields, modelcatalogbinding.FieldXUserPrice)
 }
 
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (m *ModelCatalogBindingMutation) SetMaxReasoningEffortMultiplier(f float64) {
+	m.max_reasoning_effort_multiplier = &f
+	m.addmax_reasoning_effort_multiplier = nil
+}
+
+// MaxReasoningEffortMultiplier returns the value of the "max_reasoning_effort_multiplier" field in the mutation.
+func (m *ModelCatalogBindingMutation) MaxReasoningEffortMultiplier() (r float64, exists bool) {
+	v := m.max_reasoning_effort_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddMaxReasoningEffortMultiplier adds f to the "max_reasoning_effort_multiplier" field.
+func (m *ModelCatalogBindingMutation) AddMaxReasoningEffortMultiplier(f float64) {
+	if m.addmax_reasoning_effort_multiplier != nil {
+		*m.addmax_reasoning_effort_multiplier += f
+	} else {
+		m.addmax_reasoning_effort_multiplier = &f
+	}
+}
+
+// AddedMaxReasoningEffortMultiplier returns the value that was added to the "max_reasoning_effort_multiplier" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedMaxReasoningEffortMultiplier() (r float64, exists bool) {
+	v := m.addmax_reasoning_effort_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (m *ModelCatalogBindingMutation) ClearMaxReasoningEffortMultiplier() {
+	m.max_reasoning_effort_multiplier = nil
+	m.addmax_reasoning_effort_multiplier = nil
+	m.clearedFields[modelcatalogbinding.FieldMaxReasoningEffortMultiplier] = struct{}{}
+}
+
+// MaxReasoningEffortMultiplierCleared returns if the "max_reasoning_effort_multiplier" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) MaxReasoningEffortMultiplierCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldMaxReasoningEffortMultiplier]
+	return ok
+}
+
+// ResetMaxReasoningEffortMultiplier resets all changes to the "max_reasoning_effort_multiplier" field.
+func (m *ModelCatalogBindingMutation) ResetMaxReasoningEffortMultiplier() {
+	m.max_reasoning_effort_multiplier = nil
+	m.addmax_reasoning_effort_multiplier = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (m *ModelCatalogBindingMutation) SetUpstreamModel(s string) {
 	m.upstream_model = &s
@@ -22925,7 +22980,7 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
@@ -22955,6 +23010,9 @@ func (m *ModelCatalogBindingMutation) Fields() []string {
 	}
 	if m.x_user_price != nil {
 		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
+	}
+	if m.max_reasoning_effort_multiplier != nil {
+		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
 	}
 	if m.upstream_model != nil {
 		fields = append(fields, modelcatalogbinding.FieldUpstreamModel)
@@ -22999,6 +23057,8 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.XPostPrice()
 	case modelcatalogbinding.FieldXUserPrice:
 		return m.XUserPrice()
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		return m.MaxReasoningEffortMultiplier()
 	case modelcatalogbinding.FieldUpstreamModel:
 		return m.UpstreamModel()
 	case modelcatalogbinding.FieldPriceIntervals:
@@ -23095,6 +23155,13 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetXUserPrice(v)
 		return nil
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaxReasoningEffortMultiplier(v)
+		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		v, ok := value.(string)
 		if !ok {
@@ -23162,6 +23229,9 @@ func (m *ModelCatalogBindingMutation) AddedFields() []string {
 	if m.addx_user_price != nil {
 		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
 	}
+	if m.addmax_reasoning_effort_multiplier != nil {
+		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+	}
 	return fields
 }
 
@@ -23186,6 +23256,8 @@ func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) 
 		return m.AddedXPostPrice()
 	case modelcatalogbinding.FieldXUserPrice:
 		return m.AddedXUserPrice()
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		return m.AddedMaxReasoningEffortMultiplier()
 	}
 	return nil, false
 }
@@ -23251,6 +23323,13 @@ func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) err
 		}
 		m.AddXUserPrice(v)
 		return nil
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMaxReasoningEffortMultiplier(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding numeric field %s", name)
 }
@@ -23276,6 +23355,9 @@ func (m *ModelCatalogBindingMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(modelcatalogbinding.FieldXUserPrice) {
 		fields = append(fields, modelcatalogbinding.FieldXUserPrice)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldMaxReasoningEffortMultiplier) {
+		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
 	}
 	if m.FieldCleared(modelcatalogbinding.FieldTimePricing) {
 		fields = append(fields, modelcatalogbinding.FieldTimePricing)
@@ -23311,6 +23393,9 @@ func (m *ModelCatalogBindingMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldXUserPrice:
 		m.ClearXUserPrice()
+		return nil
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		m.ClearMaxReasoningEffortMultiplier()
 		return nil
 	case modelcatalogbinding.FieldTimePricing:
 		m.ClearTimePricing()
@@ -23352,6 +23437,9 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldXUserPrice:
 		m.ResetXUserPrice()
+		return nil
+	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		m.ResetMaxReasoningEffortMultiplier()
 		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		m.ResetUpstreamModel()

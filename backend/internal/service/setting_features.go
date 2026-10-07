@@ -287,8 +287,8 @@ func (s *SettingService) DeleteAdminAPIKey(ctx context.Context) error {
 	return s.settingRepo.Delete(ctx, SettingKeyAdminAPIKey)
 }
 
-// GetProfitControlSettings 返回利润门设置（只有最低毛利率）；读不到 / 解析失败一律按 0 = 关
-// （fail-open：可用性优先，同原分组门）。
+// GetProfitControlSettings 返回利润门设置（只有最低毛利率）；读不到 / 解析失败一律按 0 = 不能亏本
+// （门照样装，只是不要求毛利：设置读不到时不把全站拦死，也不放过亏本的渠道）。
 func (s *SettingService) GetProfitControlSettings(ctx context.Context) ProfitControlSettings {
 	if s == nil || s.settingRepo == nil {
 		return ProfitControlSettings{}

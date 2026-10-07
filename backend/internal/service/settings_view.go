@@ -30,7 +30,7 @@ type SystemSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 
-	// 利润门（全站一档）：最低毛利率，0 = 关
+	// 利润门（全站一档）：最低毛利率，0 = 不能亏本
 	ProfitMinMargin float64
 }
 

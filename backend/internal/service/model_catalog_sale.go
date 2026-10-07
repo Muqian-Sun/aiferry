@@ -195,8 +195,24 @@ func (e *ModelCatalogEntry) SaleTimePricing() *TimePricing {
 	return tp
 }
 
+// SaleMaxReasoningMultiplier 向用户收钱时最高推理档整单乘的倍数：售价单独定了按售价的，没定跟官方；nil = 不加价。
+// 计费与模型广场都按它；定成 1 也是不加价，返回 nil（广场不显示「整单 × 1」）。
+func (e *ModelCatalogEntry) SaleMaxReasoningMultiplier() *float64 {
+	if e == nil {
+		return nil
+	}
+	m := e.SalePrices.MaxReasoningEffortMultiplier
+	if m == nil {
+		m = e.MaxReasoningEffortMultiplier
+	}
+	if m == nil || *m == 1 {
+		return nil
+	}
+	return m
+}
+
 // validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次；
-// 售价忙闲时与官方忙闲时同一套校验。
+// 售价忙闲时与官方忙闲时同一套校验；最高推理倍率与官方的一样须 > 0。
 func validateSalePrices(e *ModelCatalogEntry) error {
 	p := e.SalePrices
 	if p.IsZero() {
@@ -212,6 +228,9 @@ func validateSalePrices(e *ModelCatalogEntry) error {
 		if err := validateTimePricing(e.SaleTimePricing()); err != nil {
 			return catalogValidationError(fmt.Sprintf("sale_prices.time_pricing: %s", err.Error()))
 		}
+	}
+	if m := p.MaxReasoningEffortMultiplier; m != nil && *m <= 0 {
+		return catalogValidationError("sale max_reasoning_effort_multiplier must be > 0")
 	}
 	check := func(where string, items [5]*float64) error {
 		names := [5]string{"input_price", "output_price", "cache_write_price", "cache_write_1h_price", "cache_read_price"}
@@ -264,6 +283,7 @@ func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
 	}
 	sort.Slice(out.Segments, func(i, j int) bool { return out.Segments[i].MinTokens < out.Segments[j].MinTokens })
 	out.TimePricing = normalizeSaleTimePricing(p.TimePricing)
+	out.MaxReasoningEffortMultiplier = clonePricePtr(p.MaxReasoningEffortMultiplier)
 	return out
 }
 

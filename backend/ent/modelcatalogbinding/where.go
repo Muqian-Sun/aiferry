@@ -60,6 +60,11 @@ func XUserPrice(v float64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldXUserPrice, v))
 }
 
+// MaxReasoningEffortMultiplier applies equality check predicate on the "max_reasoning_effort_multiplier" field. It's identical to MaxReasoningEffortMultiplierEQ.
+func MaxReasoningEffortMultiplier(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldMaxReasoningEffortMultiplier, v))
+}
+
 // UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
 func UpstreamModel(v string) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpstreamModel, v))
@@ -493,6 +498,56 @@ func XUserPriceIsNil() predicate.ModelCatalogBinding {
 // XUserPriceNotNil applies the NotNil predicate on the "x_user_price" field.
 func XUserPriceNotNil() predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldXUserPrice))
+}
+
+// MaxReasoningEffortMultiplierEQ applies the EQ predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierNEQ applies the NEQ predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierIn applies the In predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldMaxReasoningEffortMultiplier, vs...))
+}
+
+// MaxReasoningEffortMultiplierNotIn applies the NotIn predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldMaxReasoningEffortMultiplier, vs...))
+}
+
+// MaxReasoningEffortMultiplierGT applies the GT predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierGTE applies the GTE predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierLT applies the LT predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierLTE applies the LTE predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldMaxReasoningEffortMultiplier, v))
+}
+
+// MaxReasoningEffortMultiplierIsNil applies the IsNil predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldMaxReasoningEffortMultiplier))
+}
+
+// MaxReasoningEffortMultiplierNotNil applies the NotNil predicate on the "max_reasoning_effort_multiplier" field.
+func MaxReasoningEffortMultiplierNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldMaxReasoningEffortMultiplier))
 }
 
 // UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.

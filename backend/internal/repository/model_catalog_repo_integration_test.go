@@ -742,6 +742,63 @@ func TestModelCatalogRepository_BindingTimePricingRoundTrips(t *testing.T) {
 	require.Nil(t, bindings[0].TimePricing)
 }
 
+// 最高推理倍率三套（muqian 2026-10-07）：官方写条目列、售价写 sale_prices、上游写承接列；没填存 NULL / 不写键。
+func TestModelCatalogRepository_MaxReasoningMultipliersRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-max-effort")
+	client := testEntClient(t)
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("fable"), Vendor: "anthropic", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedByAdmin,
+		InputPrice: float64Value(10e-6), OutputPrice: float64Value(50e-6),
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(),
+			"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID))
+	})
+	accountA := mustCreateAccount(t, client, &service.Account{Name: unique("a")})
+	accountB := mustCreateAccount(t, client, &service.Account{Name: unique("b")})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
+	})
+
+	entry.MaxReasoningEffortMultiplier = float64Value(3)
+	entry.SalePrices = service.CatalogSalePrices{MaxReasoningEffortMultiplier: float64Value(1)}
+	require.NoError(t, repo.SaveEntryPricing(ctx, entry, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6, MaxReasoningEffortMultiplier: float64Value(2)},
+		{AccountID: accountB.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
+	}))
+
+	got, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Equal(t, float64Value(3), got.MaxReasoningEffortMultiplier)
+	require.Equal(t, float64Value(1), got.SalePrices.MaxReasoningEffortMultiplier)
+	require.Len(t, got.Bindings, 2)
+	require.Equal(t, accountA.ID, got.Bindings[0].AccountID)
+	require.Equal(t, float64Value(2), got.Bindings[0].MaxReasoningEffortMultiplier)
+	require.Nil(t, got.Bindings[1].MaxReasoningEffortMultiplier)
+
+	var nulls int
+	require.NoError(t, integrationDB.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_catalog_bindings WHERE entry_id = $1 AND max_reasoning_effort_multiplier IS NULL", entry.ID).Scan(&nulls))
+	require.Equal(t, 1, nulls, "没填存 NULL = 跟官方")
+
+	// 按渠道保存：A 改成跟官方
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, accountA.ID, []service.ModelCatalogBinding{
+		{EntryID: entry.ID, InputPrice: 0.5e-6, OutputPrice: 1e-6},
+	}))
+	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Nil(t, bindings[0].MaxReasoningEffortMultiplier)
+
+	_, err = integrationDB.ExecContext(ctx,
+		"UPDATE model_catalog_bindings SET max_reasoning_effort_multiplier = 0 WHERE entry_id = $1 AND account_id = $2", entry.ID, accountB.ID)
+	require.ErrorContains(t, err, "chk_model_catalog_bindings_max_reasoning_positive", "库里也挡住 <= 0")
+}
+
 // 播种条目带忙闲时（价格文件的 time_pricing，如 DeepSeek 高峰 × 2）：插入与刷新都写进目录。
 func TestModelCatalogRepository_SeedWritesTimePricing(t *testing.T) {
 	ctx := context.Background()

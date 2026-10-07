@@ -72,6 +72,8 @@
             v-model:peak="row.peak"
             peak-editable="upstream"
             :official-peak="officialPeakOf(row.id)"
+            reasoning="upstream"
+            :official-reasoning="entriesById.get(row.id)?.max_reasoning_effort_multiplier ?? null"
             :issues="rowIssues(row)"
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
@@ -100,9 +102,20 @@
                 data-testid="pricing-upstream-model"
               />
             </template>
-            <template #margin><MarginCell :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" /></template>
+            <template #margin><MarginCell
+                :margin="savedMargin(row)"
+                :peak-margin="savedPeakMargin(row)"
+                :max-reasoning-margin="savedMaxReasoningMargin(row)"
+                :min-margin="minMargin"
+              /></template>
             <template #status>
-              <ChannelStatusCell :account="account" :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" />
+              <ChannelStatusCell
+                :account="account"
+                :margin="savedMargin(row)"
+                :peak-margin="savedPeakMargin(row)"
+                :max-reasoning-margin="savedMaxReasoningMargin(row)"
+                :min-margin="minMargin"
+              />
             </template>
             <template #actions>
               <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
@@ -242,6 +255,13 @@ function savedPeakMargin(row: KeyedRow): number | null {
   if (savedMargin(row) === undefined) return null
   const binding = entriesById.value.get(row.id)?.bindings.find((item) => item.account_id === props.account.id)
   return marginOf(binding?.peak_cost_ratio, props.defaultSaleRatio)
+}
+
+/** 最高推理档毛利：与平时毛利同样只对没改过的行显示 */
+function savedMaxReasoningMargin(row: KeyedRow): number | null {
+  if (savedMargin(row) === undefined) return null
+  const binding = entriesById.value.get(row.id)?.bindings.find((item) => item.account_id === props.account.id)
+  return marginOf(binding?.max_reasoning_cost_ratio, props.defaultSaleRatio)
 }
 
 const headerMeta = computed(() => {

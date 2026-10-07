@@ -133,6 +133,20 @@ func (_c *ModelCatalogBindingCreate) SetNillableXUserPrice(v *float64) *ModelCat
 	return _c
 }
 
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (_c *ModelCatalogBindingCreate) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetMaxReasoningEffortMultiplier(v)
+	return _c
+}
+
+// SetNillableMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillableMaxReasoningEffortMultiplier(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetMaxReasoningEffortMultiplier(*v)
+	}
+	return _c
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_c *ModelCatalogBindingCreate) SetUpstreamModel(v string) *ModelCatalogBindingCreate {
 	_c.mutation.SetUpstreamModel(v)
@@ -341,6 +355,10 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 	if value, ok := _c.mutation.XUserPrice(); ok {
 		_spec.SetField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64, value)
 		_node.XUserPrice = &value
+	}
+	if value, ok := _c.mutation.MaxReasoningEffortMultiplier(); ok {
+		_spec.SetField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
+		_node.MaxReasoningEffortMultiplier = &value
 	}
 	if value, ok := _c.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -649,6 +667,30 @@ func (u *ModelCatalogBindingUpsert) AddXUserPrice(v float64) *ModelCatalogBindin
 // ClearXUserPrice clears the value of the "x_user_price" field.
 func (u *ModelCatalogBindingUpsert) ClearXUserPrice() *ModelCatalogBindingUpsert {
 	u.SetNull(modelcatalogbinding.FieldXUserPrice)
+	return u
+}
+
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsert) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, v)
+	return u
+}
+
+// UpdateMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdateMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+	return u
+}
+
+// AddMaxReasoningEffortMultiplier adds v to the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsert) AddMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, v)
+	return u
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsert) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
 	return u
 }
 
@@ -986,6 +1028,34 @@ func (u *ModelCatalogBindingUpsertOne) UpdateXUserPrice() *ModelCatalogBindingUp
 func (u *ModelCatalogBindingUpsertOne) ClearXUserPrice() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearXUserPrice()
+	})
+}
+
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertOne) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetMaxReasoningEffortMultiplier(v)
+	})
+}
+
+// AddMaxReasoningEffortMultiplier adds v to the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertOne) AddMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddMaxReasoningEffortMultiplier(v)
+	})
+}
+
+// UpdateMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdateMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateMaxReasoningEffortMultiplier()
+	})
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertOne) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearMaxReasoningEffortMultiplier()
 	})
 }
 
@@ -1475,6 +1545,34 @@ func (u *ModelCatalogBindingUpsertBulk) UpdateXUserPrice() *ModelCatalogBindingU
 func (u *ModelCatalogBindingUpsertBulk) ClearXUserPrice() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearXUserPrice()
+	})
+}
+
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertBulk) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetMaxReasoningEffortMultiplier(v)
+	})
+}
+
+// AddMaxReasoningEffortMultiplier adds v to the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertBulk) AddMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddMaxReasoningEffortMultiplier(v)
+	})
+}
+
+// UpdateMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdateMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdateMaxReasoningEffortMultiplier()
+	})
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearMaxReasoningEffortMultiplier()
 	})
 }
 

@@ -181,7 +181,7 @@ func TestProfitGate_RejectsOnlyAtUpstreamPeak(t *testing.T) {
 	threshold := clampProfitControlThreshold(DefaultSalePriceRatio * (1 - 0.6))
 
 	for at, want := range map[time.Time]bool{time.Time{}: false, upstreamOffPeakAt: false, upstreamPeakAt: true} {
-		rejected, _ := profitGateRejectsBinding(&entry, &b, threshold, at)
+		rejected, _ := profitGateRejectsBinding(&entry, &b, threshold, at, false)
 		require.Equal(t, want, rejected, "at %s：忙时上游占售价 60%%，毛利 40%% 不到 60%%", at)
 	}
 }

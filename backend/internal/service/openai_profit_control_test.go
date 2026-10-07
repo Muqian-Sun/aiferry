@@ -59,9 +59,11 @@ func TestResolveOpenAIProfitControlGate(t *testing.T) {
 		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
 	})
 
-	t.Run("zero min margin yields no gate", func(t *testing.T) {
+	t.Run("zero min margin still gates at cost", func(t *testing.T) {
 		svc := profitControlTestService(t, 0)
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
+		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1))
+		require.NotNil(t, gate, "最低毛利率 0 = 不能亏本，门照样装")
+		require.InDelta(t, 1.0, gate.threshold, 1e-12)
 	})
 
 	t.Run("threshold is the user rate times one minus min margin", func(t *testing.T) {

@@ -285,6 +285,7 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 		SetNillableSearchPricePerCall(binding.SearchPricePerCall).
 		SetNillableXPostPrice(binding.XPostPrice).
 		SetNillableXUserPrice(binding.XUserPrice).
+		SetNillableMaxReasoningEffortMultiplier(binding.MaxReasoningEffortMultiplier).
 		SetPriceIntervals(segments).
 		Save(ctx)
 	return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
@@ -635,19 +636,20 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 // domain.PriceSegment 的 JSONB 数组，按数组下标排序：SortOrder = 下标，分段没有档位名。
 func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelCatalogBinding {
 	binding := service.ModelCatalogBinding{
-		EntryID:            row.EntryID,
-		AccountID:          row.AccountID,
-		UpstreamModel:      row.UpstreamModel,
-		InputPrice:         row.InputPrice,
-		OutputPrice:        row.OutputPrice,
-		CacheWritePrice:    row.CacheWritePrice,
-		CacheWrite1hPrice:  row.CacheWrite1hPrice,
-		CacheReadPrice:     row.CacheReadPrice,
-		SearchPricePerCall: row.SearchPricePerCall,
-		XPostPrice:         row.XPostPrice,
-		XUserPrice:         row.XUserPrice,
-		CreatedAt:          row.CreatedAt,
-		UpdatedAt:          row.UpdatedAt,
+		EntryID:                      row.EntryID,
+		AccountID:                    row.AccountID,
+		UpstreamModel:                row.UpstreamModel,
+		InputPrice:                   row.InputPrice,
+		OutputPrice:                  row.OutputPrice,
+		CacheWritePrice:              row.CacheWritePrice,
+		CacheWrite1hPrice:            row.CacheWrite1hPrice,
+		CacheReadPrice:               row.CacheReadPrice,
+		SearchPricePerCall:           row.SearchPricePerCall,
+		XPostPrice:                   row.XPostPrice,
+		XUserPrice:                   row.XUserPrice,
+		CreatedAt:                    row.CreatedAt,
+		UpdatedAt:                    row.UpdatedAt,
+		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
 	}
 	if spec := row.TimePricing; spec != nil && len(spec.Periods) > 0 {
 		tp := &service.TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly, ExcludeDates: spec.ExcludeDates}

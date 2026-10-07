@@ -28,6 +28,50 @@ func bindingCostRatioAt(entry *ModelCatalogEntry, b *ModelCatalogBinding, at tim
 	return ratio * b.TimePricing.MultiplierAt(at) / sale, true
 }
 
+// bindingCostRatioFor 这次请求的上游成本比：at 时刻的（bindingCostRatioAt），最高推理档再乘 maxReasoningCostFactor。
+func bindingCostRatioFor(entry *ModelCatalogEntry, b *ModelCatalogBinding, at time.Time, maxEffort bool) (float64, bool) {
+	ratio, ok := bindingCostRatioAt(entry, b, at)
+	if ok && maxEffort {
+		ratio *= maxReasoningCostFactor(entry, b)
+	}
+	return ratio, ok
+}
+
+// maxReasoningCostFactor 最高推理档（effort = max）时上游成本比要再乘的数 = 上游倍率 ÷ 售价倍率
+// （muqian 2026-10-07：利润门也算进去）。上游倍率 = 承接上填的，没填跟官方；售价倍率见 SaleMaxReasoningMultiplier；
+// 没有的按 1（倍率都由校验保证 > 0）。三套都跟官方时为 1。
+func maxReasoningCostFactor(entry *ModelCatalogEntry, b *ModelCatalogBinding) float64 {
+	upstream := 1.0
+	switch {
+	case b != nil && b.MaxReasoningEffortMultiplier != nil:
+		upstream = *b.MaxReasoningEffortMultiplier
+	case entry != nil && entry.MaxReasoningEffortMultiplier != nil:
+		upstream = *entry.MaxReasoningEffortMultiplier
+	}
+	sale := 1.0
+	if m := entry.SaleMaxReasoningMultiplier(); m != nil {
+		sale = *m
+	}
+	return upstream / sale
+}
+
+// bindingMaxReasoningCostRatio 最高推理档最差的上游成本比（价格页的「最高推理毛利」）：一周里最差的时段
+// （平时或忙时）× maxReasoningCostFactor。上游在 max 档不比售价涨得多（因子 <= 1）时 ok=false。
+func bindingMaxReasoningCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (float64, bool) {
+	factor := maxReasoningCostFactor(entry, b)
+	if factor <= 1+1e-9 {
+		return 0, false
+	}
+	worst, ok := bindingCostRatio(entry, b)
+	if !ok {
+		return 0, false
+	}
+	if peak, worse := bindingPeakCostRatio(entry, b); worse {
+		worst = peak
+	}
+	return worst * factor, true
+}
+
 // bindingPeakCostRatio 一周里最差的上游成本比（价格页的「忙时毛利」）：在上游忙闲时、条目分时的
 // 每个时段切点上各算一遍取最大。比平时还高时 ok=true；两边都不分时、或忙时不比平时差时 ok=false。
 func bindingPeakCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (float64, bool) {

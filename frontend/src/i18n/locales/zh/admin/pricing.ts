@@ -15,7 +15,6 @@ export default {
       unsaved: '未保存的'
     },
     basis: '$ / 百万 Token · 最低毛利 {margin}',
-    basisGateOff: '$ / 百万 Token · 利润门已关',
     unsavedBlocks: '{count} 块未保存',
     empty: '没有符合条件的模型或渠道',
     loadFailed: '价格加载失败',
@@ -88,7 +87,8 @@ export default {
       clear: '全部清空',
       segmentAbove: '超过 {tokens} Token',
       invalid: '售价：有格式不对的价',
-      peakInvalid: '售价忙闲时：有没填对的时段或日期'
+      peakInvalid: '售价忙闲时：有没填对的时段或日期',
+      reasoningInvalid: '售价最高推理倍数要大于 0'
     },
     saleFill: {
       trigger: '按比例填售价',
@@ -103,6 +103,19 @@ export default {
     priceFileMissing: '价格文件里没有这个模型的按 Token 价',
     marginAfterSave: '保存后计算',
     gateSkips: '利润门会跳过',
+    reasoning: {
+      field: '推理强度 max 时整单 ×',
+      summary: '最高推理 ×{multiplier}',
+      none: '最高推理不加价',
+      followShort: '最高推理跟官方',
+      follow: '跟官方 ×{multiplier}',
+      followNone: '跟官方（不加价）',
+      margin: '最高推理 {margin}',
+      gateSkips: '最高推理时利润门会跳过',
+      official: { title: '官方最高推理' },
+      sale: { title: '售价最高推理' },
+      upstream: { title: '上游最高推理' }
+    },
     peak: {
       toggle: '忙闲时',
       none: '不分忙闲时',
@@ -167,7 +180,8 @@ export default {
       segment: '第 {index} 段：{error}',
       upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格',
       peak: '忙闲时第 {index} 段：{error}',
-      peakDates: '忙闲时的节假日有写错的日期'
+      peakDates: '忙闲时的节假日有写错的日期',
+      reasoning: '最高推理倍数要大于 0'
     },
     discardTitle: '放弃未保存的修改？',
     discardMessage: '有 {count} 块改了还没保存，继续会丢掉这些修改。',

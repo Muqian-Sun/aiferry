@@ -33,6 +33,8 @@ const (
 	FieldXPostPrice = "x_post_price"
 	// FieldXUserPrice holds the string denoting the x_user_price field in the database.
 	FieldXUserPrice = "x_user_price"
+	// FieldMaxReasoningEffortMultiplier holds the string denoting the max_reasoning_effort_multiplier field in the database.
+	FieldMaxReasoningEffortMultiplier = "max_reasoning_effort_multiplier"
 	// FieldUpstreamModel holds the string denoting the upstream_model field in the database.
 	FieldUpstreamModel = "upstream_model"
 	// FieldPriceIntervals holds the string denoting the price_intervals field in the database.
@@ -81,6 +83,7 @@ var Columns = []string{
 	FieldSearchPricePerCall,
 	FieldXPostPrice,
 	FieldXUserPrice,
+	FieldMaxReasoningEffortMultiplier,
 	FieldUpstreamModel,
 	FieldPriceIntervals,
 	FieldTimePricing,
@@ -164,6 +167,11 @@ func ByXPostPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByXUserPrice orders the results by the x_user_price field.
 func ByXUserPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldXUserPrice, opts...).ToFunc()
+}
+
+// ByMaxReasoningEffortMultiplier orders the results by the max_reasoning_effort_multiplier field.
+func ByMaxReasoningEffortMultiplier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxReasoningEffortMultiplier, opts...).ToFunc()
 }
 
 // ByUpstreamModel orders the results by the upstream_model field.

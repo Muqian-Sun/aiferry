@@ -4,6 +4,8 @@
     有官方搜索工具的模型另有「联网搜索」开关，展开后填搜索价（存 $/次、$/条，按每千次 / 千条 / 千个显示）。
     peak 给了就有「忙闲时」开关（v-model:peak，null = 不分忙闲时）：官方价那一行是目录条目的分时（向用户收钱整单乘倍数），
     承接行是上游忙闲时（渠道成本整单乘倍数）；承接行可一键「按官方忙闲时」。
+    reasoning 给了就有「最高推理」开关（prices.maxReasoning）：官方价那一行空着 = 不加价，承接行空着 = 跟官方
+    （muqian 2026-10-07：与忙闲时一样官方 / 售价 / 成本各一套）。承接行只在官方设了或自己填了时显示。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
   -->
@@ -62,6 +64,17 @@
           {{ peakLabel }}
           <Icon :name="peakExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
+        <button
+          v-if="reasoningShown"
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', issues.reasoningInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="reasoningExpanded"
+          :data-testid="testId ? `${testId}-reasoning-toggle` : undefined"
+          @click="reasoningExpanded = !reasoningExpanded"
+        >
+          {{ reasoningLabel }}
+          <Icon :name="reasoningExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
       </div>
     </td>
     <td class="px-3 py-2 text-right align-middle"><slot name="margin" /></td>
@@ -103,6 +116,23 @@
         :official-peak="officialPeak"
         :test-id="testId"
       />
+    </td>
+  </tr>
+  <tr v-if="reasoningShown && reasoningExpanded" :data-testid="testId ? `${testId}-reasoning` : undefined">
+    <td colspan="2" class="py-2 pl-0 pr-3 align-top">
+      <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t(`admin.pricing.reasoning.${reasoning}.title`) }}</div>
+    </td>
+    <td :colspan="COLUMN_COUNT - 2" class="px-2 py-2 align-top">
+      <div class="w-52">
+        <label class="mb-1 block text-xs text-af-ink-3">{{ t('admin.pricing.reasoning.field') }}</label>
+        <PriceInput
+          v-model="prices.maxReasoning"
+          unit="×"
+          :label="t(`admin.pricing.reasoning.${reasoning}.title`)"
+          :placeholder="reasoningPlaceholder"
+          :test-id="testId ? `${testId}-reasoning-input` : undefined"
+        />
+      </div>
     </td>
   </tr>
   <template v-if="expanded">
@@ -207,6 +237,10 @@ const props = withDefaults(
     peakEditable?: 'official' | 'upstream'
     /** 承接行的快捷选项「按官方忙闲时」：这个模型（可能还没保存的）官方忙闲时 */
     officialPeak?: PeakForm | null
+    /** 显示「最高推理」开关：official = 官方价那一行，upstream = 承接行（空着跟官方） */
+    reasoning?: 'official' | 'upstream'
+    /** 承接行空着时跟的官方最高推理倍率；null = 官方不加价 */
+    officialReasoning?: number | null
   }>(),
   {
     refs: undefined,
@@ -216,7 +250,9 @@ const props = withDefaults(
     searchPlaceholders: undefined,
     searchHints: undefined,
     peakEditable: undefined,
-    officialPeak: null
+    officialPeak: null,
+    reasoning: undefined,
+    officialReasoning: null
   }
 )
 
@@ -256,6 +292,31 @@ const peakLabel = computed(() => {
   if (!peak.value || peak.value.periods.length === 0) return t('admin.pricing.peak.none')
   const max = peakMaxMultiplier(peak.value)
   return max == null ? t('admin.pricing.peak.toggle') : t('admin.pricing.peak.summary', { multiplier: max })
+})
+
+// ---- 最高推理倍率：大多数模型没有 max 档加价，承接行只在官方设了或自己填了时显示，免得每行多一个开关
+const reasoningShown = computed(
+  () => props.reasoning === 'official' || (props.reasoning === 'upstream' && (props.officialReasoning != null || prices.value.maxReasoning != null))
+)
+const reasoningExpanded = ref(false)
+watch(
+  () => props.issues.reasoningInvalid === true,
+  (invalid) => {
+    if (invalid) reasoningExpanded.value = true
+  },
+  { immediate: true }
+)
+const reasoningLabel = computed(() => {
+  const value = prices.value.maxReasoning
+  if (value != null && value > 0) return t('admin.pricing.reasoning.summary', { multiplier: value })
+  if (props.reasoning === 'upstream') return t('admin.pricing.reasoning.followShort')
+  return t('admin.pricing.reasoning.none')
+})
+const reasoningPlaceholder = computed(() => {
+  if (props.reasoning === 'official') return t('admin.pricing.reasoning.none')
+  return props.officialReasoning != null
+    ? t('admin.pricing.reasoning.follow', { multiplier: props.officialReasoning })
+    : t('admin.pricing.reasoning.followNone')
 })
 
 function addSegment() {

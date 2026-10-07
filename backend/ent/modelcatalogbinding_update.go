@@ -264,6 +264,33 @@ func (_u *ModelCatalogBindingUpdate) ClearXUserPrice() *ModelCatalogBindingUpdat
 	return _u
 }
 
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdate) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetMaxReasoningEffortMultiplier()
+	_u.mutation.SetMaxReasoningEffortMultiplier(v)
+	return _u
+}
+
+// SetNillableMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillableMaxReasoningEffortMultiplier(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetMaxReasoningEffortMultiplier(*v)
+	}
+	return _u
+}
+
+// AddMaxReasoningEffortMultiplier adds value to the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdate) AddMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddMaxReasoningEffortMultiplier(v)
+	return _u
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdate) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearMaxReasoningEffortMultiplier()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdate) SetUpstreamModel(v string) *ModelCatalogBindingUpdate {
 	_u.mutation.SetUpstreamModel(v)
@@ -464,6 +491,15 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if _u.mutation.XUserPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
+		_spec.SetField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedMaxReasoningEffortMultiplier(); ok {
+		_spec.AddField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -795,6 +831,33 @@ func (_u *ModelCatalogBindingUpdateOne) ClearXUserPrice() *ModelCatalogBindingUp
 	return _u
 }
 
+// SetMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdateOne) SetMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetMaxReasoningEffortMultiplier()
+	_u.mutation.SetMaxReasoningEffortMultiplier(v)
+	return _u
+}
+
+// SetNillableMaxReasoningEffortMultiplier sets the "max_reasoning_effort_multiplier" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillableMaxReasoningEffortMultiplier(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetMaxReasoningEffortMultiplier(*v)
+	}
+	return _u
+}
+
+// AddMaxReasoningEffortMultiplier adds value to the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdateOne) AddMaxReasoningEffortMultiplier(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddMaxReasoningEffortMultiplier(v)
+	return _u
+}
+
+// ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearMaxReasoningEffortMultiplier()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdateOne) SetUpstreamModel(v string) *ModelCatalogBindingUpdateOne {
 	_u.mutation.SetUpstreamModel(v)
@@ -1027,6 +1090,15 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 	}
 	if _u.mutation.XUserPriceCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldXUserPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.MaxReasoningEffortMultiplier(); ok {
+		_spec.SetField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedMaxReasoningEffortMultiplier(); ok {
+		_spec.AddField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)

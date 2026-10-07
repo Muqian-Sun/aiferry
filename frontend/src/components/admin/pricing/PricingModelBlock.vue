@@ -60,6 +60,7 @@
             v-model:prices="draft.official"
             v-model:peak="draft.officialPeak"
             peak-editable="official"
+            reasoning="official"
             :issues="officialRowIssues"
             test-id="pricing-official"
             :search-keys="searchKeys"
@@ -90,6 +91,8 @@
             v-model:peak="row.peak"
             peak-editable="upstream"
             :official-peak="draft.officialPeak"
+            reasoning="upstream"
+            :official-reasoning="draft.official.maxReasoning"
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
@@ -115,9 +118,20 @@
                 data-testid="pricing-upstream-model"
               />
             </template>
-            <template #margin><MarginCell :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" /></template>
+            <template #margin><MarginCell
+                :margin="savedMargin(row)"
+                :peak-margin="savedPeakMargin(row)"
+                :max-reasoning-margin="savedMaxReasoningMargin(row)"
+                :min-margin="minMargin"
+              /></template>
             <template #status>
-              <ChannelStatusCell :account="accounts.get(row.id)" :margin="savedMargin(row)" :peak-margin="savedPeakMargin(row)" :min-margin="minMargin" />
+              <ChannelStatusCell
+                :account="accounts.get(row.id)"
+                :margin="savedMargin(row)"
+                :peak-margin="savedPeakMargin(row)"
+                :max-reasoning-margin="savedMaxReasoningMargin(row)"
+                :min-margin="minMargin"
+              />
             </template>
             <template #actions>
               <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-danger" @click="removeRow(row.id)">
@@ -191,6 +205,7 @@ import {
   priceRowToRequest,
   saleRowChanges,
   samePeak,
+  reasoningMultiplierInvalid,
   saleRowInvalid,
   salePeakInvalid,
   saleRowToRequest,
@@ -267,6 +282,13 @@ function savedPeakMargin(row: KeyedRow): number | null {
   return marginOf(binding?.peak_cost_ratio, props.defaultSaleRatio)
 }
 
+/** 最高推理档毛利：与平时毛利同样只对没改过的行显示 */
+function savedMaxReasoningMargin(row: KeyedRow): number | null {
+  if (savedMargin(row) === undefined) return null
+  const binding = props.entry.bindings.find((item) => item.account_id === row.id)
+  return marginOf(binding?.max_reasoning_cost_ratio, props.defaultSaleRatio)
+}
+
 const headerMeta = computed(() =>
   [
     props.entry.vendor || t('admin.pricing.noVendor'),
@@ -317,6 +339,7 @@ const issueMessages = computed(() => {
   if (hasRowIssues(officialRowIssues.value)) messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value))
   if (saleRowInvalid(props.state.draft.sale, props.state.draft.official)) messages.push(t('admin.pricing.sale.invalid'))
   if (salePeakInvalid(props.state.draft.sale)) messages.push(t('admin.pricing.sale.peakInvalid'))
+  if (reasoningMultiplierInvalid(props.state.draft.sale.maxReasoning)) messages.push(t('admin.pricing.sale.reasoningInvalid'))
   for (const row of props.state.draft.rows) {
     const issues = rowIssues(row)
     if (hasRowIssues(issues)) messages.push(issueSummary(t, accountName(row.id), issues))

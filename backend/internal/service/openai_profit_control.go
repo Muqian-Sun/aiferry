@@ -11,8 +11,10 @@ package service
 //
 //   - D（用户售价倍率）= 认证用户的 rate_multiplier（ctx 里由认证中间件放入），
 //     与 RecordUsage 完全同源，一个请求不会中途变价。
-//   - profit_min_margin（最低毛利率）是全站一档的后台设置，也是唯一的开关：
-//     填 0 = 不装门。
+//   - profit_min_margin（最低毛利率）是全站一档的后台设置。门一直开着：
+//     填 0 = 不能亏本（muqian 2026-10-07），U <= D。
+//   - 最高推理档（请求的推理强度 = max，见 WithRequestedReasoningEffort）时 U 再乘
+//     「上游最高推理倍率 ÷ 售价最高推理倍率」（maxReasoningCostFactor；muqian 2026-10-07：利润门也算进去）。
 //   - U（上游成本比）= 这个渠道给这个模型的上游价 ÷ 官方价，逐项、逐段取最高的一个
 //     （bindingCostRatio；D3，muqian 2026-09-30）。模型取本请求的目录路由；找不到这个渠道的
 //     承接关系（没有上游价）时保守拒绝。
@@ -47,9 +49,8 @@ package service
 //     排队成功后复核，越线则释放槽位、加入本请求排除集重新选号，全池耗尽才
 //     返回标准 no available accounts。
 //
-// 失败语义：设置读取失败时放行并告警（fail-open）。这是"配置系统故障时
-// 可用性优先"的显式取舍——该异常窗口内利润保证不成立，靠 WARN 与采样观测
-// 暴露，绝不把瞬时 DB 抖动放大成全站不可调度。
+// 失败语义：设置读取失败时按最低毛利率 0 装门并告警：不要求毛利，但仍不派亏本的渠道；
+// 瞬时 DB 抖动不会放大成全站不可调度。
 //
 // 可观测性：按分组和平台累计装门/threshold 否决/invalid-rate 否决/终检刷新
 // 失败计数，≥5 分钟采样输出一条 Info（profit_control_activity），无逐请求日志。
@@ -144,8 +145,8 @@ func (s *OpenAIGatewayService) WithOpenAITurnPricingContext(ctx context.Context)
 	}
 	gate := s.resolveOpenAIProfitControlGate(ctx)
 	if gate == nil {
-		// 设置已关门（或读取失败 fail-open）：清除旧 turn 的门，后续 turn
-		// 按无门放行，与 HTTP 路径的开关语义一致。
+		// 没有设置服务（测试 / 内部构造）：清除旧 turn 的门，后续 turn 按无门放行，
+		// 与 HTTP 路径一致。
 		if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
 			return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, (*openAIProfitControlGate)(nil)), pricingAt
 		}
@@ -171,7 +172,7 @@ func OpenAIPricingAtFromContext(ctx context.Context) time.Time {
 }
 
 // withOpenAIProfitControlGate 按全局设置把预计算好的准入门装进 ctx。抑制标记、
-// 未启用 / 读不到设置时原样返回 ctx（门不存在，全部否决点自动放行）。ctx 已有门时
+// 没有设置服务时原样返回 ctx（门不存在，全部否决点自动放行）。ctx 已有门时
 // 直接复用：同一请求的全部 failover 重入共享同一阈值。
 func (s *OpenAIGatewayService) withOpenAIProfitControlGate(ctx context.Context) context.Context {
 	if _, suppressed := ctx.Value(openAIProfitControlSuppressCtxKey{}).(struct{}); suppressed {
@@ -193,9 +194,6 @@ func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Contex
 		return nil
 	}
 	settings := s.settingService.GetProfitControlSettings(ctx)
-	if !settings.Enabled() {
-		return nil
-	}
 
 	pricingAt, ok := openAIPricingAtFromContext(ctx)
 	if !ok {
@@ -251,7 +249,7 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 	if !ok || route.Entry == nil {
 		return false, ""
 	}
-	if rejected, reason := profitGateRejectsBinding(route.Entry, route.Entry.BindingFor(account.ID), gate.threshold, gate.pricingAt); rejected {
+	if rejected, reason := profitGateRejectsBinding(route.Entry, route.Entry.BindingFor(account.ID), gate.threshold, gate.pricingAt, requestIsMaxReasoningEffort(ctx)); rejected {
 		openAIProfitControlObserverInstance.recordVeto(gate.threshold, reason)
 		return true, reason
 	}
@@ -260,9 +258,10 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 
 // profitGateRejectsBinding 利润门是否跳过这条承接：上游成本比算不出（缺上游价 / 官方价）或超过阈值。
 // 按 at 时刻比（muqian 2026-10-06：按请求当时的价判断）：上游忙时涨、售价没涨就在忙时跳过；at 为零值 = 平时。
+// maxEffort = 这次请求是最高推理档：上游在 max 档比售价涨得多就在 max 档跳过。
 // 调度的否决点与上架提示（SchedulableBindings）共用这一个判断，两边口径不会分叉。
-func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, threshold float64, at time.Time) (bool, string) {
-	upstream, ok := bindingCostRatioAt(entry, b, at)
+func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, threshold float64, at time.Time, maxEffort bool) (bool, string) {
+	upstream, ok := bindingCostRatioFor(entry, b, at, maxEffort)
 	if !ok {
 		return true, openAIProfitFilterReasonMissingUpstreamPrice
 	}
@@ -270,6 +269,12 @@ func profitGateRejectsBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding, 
 		return true, openAIProfitFilterReasonThreshold
 	}
 	return false, ""
+}
+
+// requestIsMaxReasoningEffort 这次请求要的是最高推理档（handler 在调度前把请求体里的推理强度放进 ctx）。
+func requestIsMaxReasoningEffort(ctx context.Context) bool {
+	effort := RequestedReasoningEffortFromContext(ctx)
+	return effort != nil && NormalizeMaxReasoningEffort(*effort) == "max"
 }
 
 // OpenAIProfitControlVeto 是 handler 层槽位获取后终检的公开入口：语义与调度

@@ -15,7 +15,6 @@ export default {
       unsaved: 'Unsaved'
     },
     basis: '$ / 1M tokens · minimum margin {margin}',
-    basisGateOff: '$ / 1M tokens · profit gate off',
     unsavedBlocks: '{count} unsaved',
     empty: 'No models or channels match',
     loadFailed: 'Failed to load prices',
@@ -88,7 +87,8 @@ export default {
       clear: 'Clear all',
       segmentAbove: 'Above {tokens} tokens',
       invalid: 'Sale price: some prices are not valid numbers',
-      peakInvalid: 'Sale peak hours: a period or date is not filled in correctly'
+      peakInvalid: 'Sale peak hours: a period or date is not filled in correctly',
+      reasoningInvalid: 'Sale max-reasoning multiplier must be greater than 0'
     },
     saleFill: {
       trigger: 'Fill sale prices by ratio',
@@ -103,6 +103,19 @@ export default {
     priceFileMissing: 'The price file has no per-token price for this model',
     marginAfterSave: 'After save',
     gateSkips: 'Profit gate skips',
+    reasoning: {
+      field: 'Whole request × at effort max',
+      summary: 'Max reasoning ×{multiplier}',
+      none: 'No max-reasoning markup',
+      followShort: 'Max reasoning: follow official',
+      follow: 'Follow official ×{multiplier}',
+      followNone: 'Follow official (no markup)',
+      margin: 'Max reasoning {margin}',
+      gateSkips: 'Profit gate skips it at max reasoning',
+      official: { title: 'Official max reasoning' },
+      sale: { title: 'Sale max reasoning' },
+      upstream: { title: 'Upstream max reasoning' }
+    },
     peak: {
       toggle: 'Peak hours',
       none: 'No peak hours',
@@ -167,7 +180,8 @@ export default {
       segment: 'segment {index}: {error}',
       upstreamModel: 'upstream model must be a single name without * or spaces',
       peak: 'Peak period {index}: {error}',
-      peakDates: 'Peak-hours holidays contain an invalid date'
+      peakDates: 'Peak-hours holidays contain an invalid date',
+      reasoning: 'Max-reasoning multiplier must be greater than 0'
     },
     discardTitle: 'Discard unsaved changes?',
     discardMessage: '{count} blocks have unsaved changes; continuing discards them.',

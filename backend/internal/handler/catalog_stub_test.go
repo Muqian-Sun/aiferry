@@ -111,3 +111,19 @@ func withTestCatalogRoute(ctx context.Context, entryID int64, platform, model st
 		Entry: &service.ModelCatalogEntry{ID: entryID, ModelID: model, Vendor: testCatalogVendorForPlatform(platform), Status: service.ModelCatalogStatusListed},
 	})
 }
+
+// pricedCatalogStub 与 listAllCatalogStub 一样把所有模型路由到同一个条目，但条目带官方价和这些渠道的承接
+// （上游价 = 官方价 × 1%）：利润门一直开着（最低毛利率 0 = 不能亏本），没有承接的渠道会被当成缺价跳过。
+type pricedCatalogStub struct{ accountIDs []int64 }
+
+func (pricedCatalogStub) ListListedEntries(context.Context) []service.ModelCatalogEntry { return nil }
+
+func (s pricedCatalogStub) ResolveRoute(ctx context.Context, model string) (service.CatalogRoute, bool) {
+	route, ok := listAllCatalogStub{}.ResolveRoute(ctx, model)
+	in, out := 1e-6, 2e-6
+	route.Entry.InputPrice, route.Entry.OutputPrice = &in, &out
+	for _, id := range s.accountIDs {
+		route.Entry.Bindings = append(route.Entry.Bindings, service.ModelCatalogBinding{EntryID: route.EntryID, AccountID: id, InputPrice: in / 100, OutputPrice: out / 100})
+	}
+	return route, ok
+}

@@ -51,7 +51,7 @@ type SystemSettings struct {
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
-	// 利润门：最低毛利率（全站一档；0 = 关）
+	// 利润门：最低毛利率（全站一档；0 = 不能亏本）
 	ProfitMinMargin float64 `json:"profit_min_margin"`
 }
 

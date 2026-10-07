@@ -27,6 +27,8 @@ type OfficialPrices struct {
 	XUserPrice         *float64
 	// TimePricing 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱时整单乘倍数；nil = 不分忙闲时。
 	TimePricing *TimePricing
+	// MaxReasoningEffortMultiplier 官方最高推理倍率（如 claude-fable-5-1 的 effort = max 整单 × 3）；nil = 不加价。
+	MaxReasoningEffortMultiplier *float64
 }
 
 // UpstreamCostRatio 这条承接关系的上游成本比（上游价 ÷ 官方价，逐项、逐段取最高）；价格页的毛利
@@ -40,10 +42,16 @@ func (e *ModelCatalogEntry) UpstreamPeakCostRatio(b *ModelCatalogBinding) (ratio
 	return bindingPeakCostRatio(e, b)
 }
 
+// UpstreamMaxReasoningCostRatio 最高推理档最差的上游成本比（上游在 max 档比售价涨得多）；不比平时差时 ok=false。
+func (e *ModelCatalogEntry) UpstreamMaxReasoningCostRatio(b *ModelCatalogBinding) (ratio float64, ok bool) {
+	return bindingMaxReasoningCostRatio(e, b)
+}
+
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
 //   - 联网搜索价可不填：没填 = 上游不收搜索费（muqian 2026-10-06：「上游没填费用就是免费」）；
+//   - 最高推理倍率可不填（跟官方），填了须 > 0；
 //   - 分段与官方价同一套规则（ValidateIntervals），只用绝对价，每段至少一项价；
 //   - 上游模型名是一个具体的名字：不带通配、不含空白，最长 255 个字符。
 func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
@@ -81,6 +89,9 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 		if item.official != nil && item.upstream == nil {
 			return catalogValidationError(fmt.Sprintf("upstream %s is required because the official price has it", item.name))
 		}
+	}
+	if m := b.MaxReasoningEffortMultiplier; m != nil && *m <= 0 {
+		return catalogValidationError("upstream max_reasoning_effort_multiplier must be > 0")
 	}
 	if name := b.UpstreamModel; name != "" {
 		if strings.ContainsAny(name, "* \t\r\n") {
@@ -163,7 +174,7 @@ func validatePriceSegments(label string, intervals []PricingInterval) error {
 	return nil
 }
 
-// sameOfficialPrices 两份条目的五项 token 价、联网搜索价与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
+// sameOfficialPrices 两份条目的五项 token 价、联网搜索价、最高推理倍率、忙闲时与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
 func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 	pairs := [][2]*float64{
 		{a.InputPrice, b.InputPrice},
@@ -174,6 +185,7 @@ func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 		{a.SearchPricePerCall, b.SearchPricePerCall},
 		{a.XPostPrice, b.XPostPrice},
 		{a.XUserPrice, b.XUserPrice},
+		{a.MaxReasoningEffortMultiplier, b.MaxReasoningEffortMultiplier},
 	}
 	for _, p := range pairs {
 		if !samePricePtr(p[0], p[1]) {
@@ -298,6 +310,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 	entry.XPostPrice = clonePricePtr(official.XPostPrice)
 	entry.XUserPrice = clonePricePtr(official.XUserPrice)
 	entry.TimePricing = normalizeTimePricing(official.TimePricing)
+	entry.MaxReasoningEffortMultiplier = clonePricePtr(official.MaxReasoningEffortMultiplier)
 	// 售价整份覆盖（同一块一起保存）；改售价不改条目归属：官方价照旧跟着价格文件刷新，售价播种不碰。
 	entry.SalePrices = normalizeSalePrices(sale)
 	// 官方价（含忙闲时）真改了才算运营者定价：种子不再刷新它；只加 / 改承接渠道、改售价时保持原来的归属。
