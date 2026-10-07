@@ -32,7 +32,8 @@ func (e *ModelCatalogEntry) BindingFor(accountID int64) *ModelCatalogBinding {
 // upstreamCatalogEntry 用承接关系上的上游价替换条目的 token 价与分段，得到「上游价卡」：
 //   - 分时用承接上的上游忙闲时（muqian 2026-10-06：上游有没有忙闲时在填承接时定），不用条目给用户定的分时；
 //   - 上游价没填的缓存项只会是官方价也没单独配的（ValidateAgainst 要求官方有的项必填），按 0 算；
-//   - 图片 / 音频 token 价、最高推理倍率沿用条目（大语言模型用不到前两项）。
+//   - 最高推理倍率用承接上的（muqian 2026-10-07：成本单独一套），没填跟官方；
+//   - 图片 / 音频 token 价沿用条目（大语言模型用不到）。
 func upstreamCatalogEntry(entry *ModelCatalogEntry, b *ModelCatalogBinding) *ModelCatalogEntry {
 	up := entry.Clone()
 	input, output := b.InputPrice, b.OutputPrice
@@ -43,6 +44,9 @@ func upstreamCatalogEntry(entry *ModelCatalogEntry, b *ModelCatalogBinding) *Mod
 	up.CacheReadPrice = clonePricePtr(b.CacheReadPrice)
 	up.Intervals = append([]PricingInterval(nil), b.Intervals...)
 	up.TimePricing = b.TimePricing
+	if b.MaxReasoningEffortMultiplier != nil {
+		up.MaxReasoningEffortMultiplier = clonePricePtr(b.MaxReasoningEffortMultiplier)
+	}
 	up.SalePrices = CatalogSalePrices{}
 	up.Bindings = nil
 	return up

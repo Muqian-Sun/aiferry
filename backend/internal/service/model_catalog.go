@@ -108,10 +108,12 @@ type ModelCatalogBinding struct {
 	CacheWrite1hPrice *float64          `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64          `json:"cache_read_price"`
 	Intervals         []PricingInterval `json:"intervals"`
-	// 联网搜索的上游价（USD / 次、/ 条）：官方价显式设了的项必须填；没填的按官方搜索价记成本。
+	// 联网搜索的上游价（USD / 次、/ 条）：没填 = 上游不收搜索费。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
+	// MaxReasoningEffortMultiplier 上游在最高推理档（effort = max）整单乘的倍数：渠道成本跟着乘；nil = 跟官方。
+	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 	// TimePricing 上游忙闲时（muqian 2026-10-06：上游有没有忙闲时在填承接时定）：渠道成本按请求时刻整单 × 倍率；
 	// nil = 上游不分忙闲时。
 	TimePricing *TimePricing `json:"time_pricing"`
@@ -195,7 +197,7 @@ func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 		CacheWritePrice:              e.CacheWritePrice,
 		CacheWrite1hPrice:            e.CacheWrite1hPrice,
 		CacheReadPrice:               e.CacheReadPrice,
-		MaxReasoningEffortMultiplier: e.MaxReasoningEffortMultiplier,
+		MaxReasoningEffortMultiplier: e.SaleMaxReasoningMultiplier(),
 		ImageInputPrice:              e.ImageInputPrice,
 		ImageOutputPrice:             e.ImageOutputPrice,
 		PerRequestPrice:              e.PerRequestPrice,
@@ -296,8 +298,9 @@ func (e *ModelCatalogEntry) ApplyToModelPricing(pricing *ModelPricing) {
 		pricing.AudioOutputPricePerToken = *e.AudioOutputPrice
 	}
 
-	if e.MaxReasoningEffortMultiplier != nil {
-		pricing.MaxReasoningEffortMultiplier = e.MaxReasoningEffortMultiplier
+	// 向用户收钱的口径：最高推理倍率按售价的（没单独定跟官方）。
+	if m := e.SaleMaxReasoningMultiplier(); m != nil {
+		pricing.MaxReasoningEffortMultiplier = m
 	}
 }
 

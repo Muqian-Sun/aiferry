@@ -210,6 +210,28 @@ func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 		require.Contains(t, rec.Body.String(), "time_pricing")
 	})
 
+	// 最高推理倍率三套（muqian 2026-10-07）：顶层 = 官方，sale_prices 里 = 售价，承接上 = 上游；没填的跟官方。
+	t.Run("max reasoning multipliers round-trip", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		b := body()
+		b["max_reasoning_effort_multiplier"] = 3
+		b["sale_prices"] = map[string]any{"max_reasoning_effort_multiplier": 1}
+		b["bindings"].([]any)[0].(map[string]any)["max_reasoning_effort_multiplier"] = 2
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingEntryResponse](t, rec)
+		require.Equal(t, catalogPrice(3), got.MaxReasoningEffortMultiplier)
+		require.Equal(t, catalogPrice(1), got.SalePrices.MaxReasoningEffortMultiplier)
+		require.Equal(t, catalogPrice(2), got.Bindings[0].MaxReasoningEffortMultiplier)
+		require.Equal(t, catalogPrice(3), repo.entries[0].MaxReasoningEffortMultiplier)
+		require.Equal(t, catalogPrice(2), repo.bindings[1][0].MaxReasoningEffortMultiplier)
+
+		b["bindings"].([]any)[0].(map[string]any)["max_reasoning_effort_multiplier"] = 0
+		rec = doPricingJSON(router, http.MethodPut, "/pricing/models/1", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "upstream max_reasoning_effort_multiplier must be")
+	})
+
 	t.Run("upstream output price is required", func(t *testing.T) {
 		router, repo := newPricingTestRouter(t)
 		b := body()
@@ -248,7 +270,24 @@ func TestModelCatalogHandler_SavePricingChannel(t *testing.T) {
 		require.Equal(t, "claude-proxy-5.5", got[0].UpstreamModel)
 		require.Equal(t, int64(3), got[0].AccountID, "account id comes from the path")
 		require.InDelta(t, 0.05, *got[0].CostRatio, 1e-12)
+		require.Nil(t, got[0].MaxReasoningEffortMultiplier, "not set = follow official")
 		require.Len(t, repo.bindings[1], 2, "channel 1 on the same model untouched")
+	})
+
+	t.Run("upstream max reasoning multiplier round-trips", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/channels/3", map[string]any{
+			"bindings": []any{map[string]any{"entry_id": 1, "input_price": 0.25e-6, "output_price": 1.5e-6, "cache_read_price": 0.025e-6,
+				"max_reasoning_effort_multiplier": 1}},
+		})
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[[]PricingBindingResponse](t, rec)
+		require.Equal(t, catalogPrice(1), got[0].MaxReasoningEffortMultiplier)
+		for _, b := range repo.bindings[1] {
+			if b.AccountID == 3 {
+				require.Equal(t, catalogPrice(1), b.MaxReasoningEffortMultiplier)
+			}
+		}
 	})
 
 	t.Run("channel that cannot serve is 400", func(t *testing.T) {

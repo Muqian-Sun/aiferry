@@ -62,6 +62,9 @@ type PricingEntryResponse struct {
 	// TimePricing 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱整单乘倍数；
 	// 新加承接默认带上它作上游忙闲时。null = 不分忙闲时。
 	TimePricing *service.TimePricing `json:"time_pricing"`
+	// MaxReasoningEffortMultiplier 官方最高推理倍率（effort = max 整单乘它）；null = 不加价。
+	// 售价的在 sale_prices 里、上游的在各承接上，没填都跟它。
+	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 	// WebSearchDelegate 这条是「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项）。
 	WebSearchDelegate bool                     `json:"web_search_delegate"`
 	Bindings          []PricingBindingResponse `json:"bindings"`
@@ -88,7 +91,7 @@ type PricingBindingResponse struct {
 	CacheWrite1hPrice *float64                  `json:"cache_write_1h_price"`
 	CacheReadPrice    *float64                  `json:"cache_read_price"`
 	Intervals         []service.PricingInterval `json:"intervals"`
-	// 联网搜索的上游价（USD / 次、/ 条）；null = 没填，按官方搜索价记成本。
+	// 联网搜索的上游价（USD / 次、/ 条）；null = 没填，上游不收搜索费。
 	SearchPricePerCall *float64 `json:"search_price_per_call"`
 	XPostPrice         *float64 `json:"x_post_price"`
 	XUserPrice         *float64 `json:"x_user_price"`
@@ -99,6 +102,8 @@ type PricingBindingResponse struct {
 	PeakCostRatio *float64 `json:"peak_cost_ratio"`
 	// TimePricing 上游忙闲时：渠道成本按请求时刻整单 × 倍率；null = 上游不分忙闲时。
 	TimePricing *service.TimePricing `json:"time_pricing"`
+	// MaxReasoningEffortMultiplier 上游最高推理倍率：effort = max 时渠道成本整单乘它；null = 跟官方。
+	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 }
 
 // PricingAccountResponse 价格页上的一个渠道。
@@ -130,6 +135,9 @@ type PricingPricesRequest struct {
 	XUserPrice         *float64                  `json:"x_user_price"`
 	// TimePricing 忙闲时（null = 不分忙闲时）：按模型保存时顶层的是官方忙闲时，承接上的是上游忙闲时。
 	TimePricing *service.TimePricing `json:"time_pricing"`
+	// MaxReasoningEffortMultiplier 最高推理档（effort = max）整单乘的倍数：顶层的是官方的（null = 不加价），
+	// 承接上的是上游的（null = 跟官方）。
+	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
 }
 
 // PricingModelBindingRequest 按模型保存时的一条承接关系。
@@ -164,19 +172,20 @@ func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel
 		return service.ModelCatalogBinding{}, "upstream input_price and output_price are required"
 	}
 	return service.ModelCatalogBinding{
-		EntryID:            entryID,
-		AccountID:          accountID,
-		UpstreamModel:      upstreamModel,
-		InputPrice:         *r.InputPrice,
-		OutputPrice:        *r.OutputPrice,
-		CacheWritePrice:    r.CacheWritePrice,
-		CacheWrite1hPrice:  r.CacheWrite1hPrice,
-		CacheReadPrice:     r.CacheReadPrice,
-		Intervals:          r.Intervals,
-		SearchPricePerCall: r.SearchPricePerCall,
-		XPostPrice:         r.XPostPrice,
-		XUserPrice:         r.XUserPrice,
-		TimePricing:        r.TimePricing,
+		EntryID:                      entryID,
+		AccountID:                    accountID,
+		UpstreamModel:                upstreamModel,
+		InputPrice:                   *r.InputPrice,
+		OutputPrice:                  *r.OutputPrice,
+		CacheWritePrice:              r.CacheWritePrice,
+		CacheWrite1hPrice:            r.CacheWrite1hPrice,
+		CacheReadPrice:               r.CacheReadPrice,
+		Intervals:                    r.Intervals,
+		SearchPricePerCall:           r.SearchPricePerCall,
+		XPostPrice:                   r.XPostPrice,
+		XUserPrice:                   r.XUserPrice,
+		TimePricing:                  r.TimePricing,
+		MaxReasoningEffortMultiplier: r.MaxReasoningEffortMultiplier,
 	}, ""
 }
 
@@ -231,16 +240,17 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		bindings = append(bindings, binding)
 	}
 	official := service.OfficialPrices{
-		InputPrice:         req.InputPrice,
-		OutputPrice:        req.OutputPrice,
-		CacheWritePrice:    req.CacheWritePrice,
-		CacheWrite1hPrice:  req.CacheWrite1hPrice,
-		CacheReadPrice:     req.CacheReadPrice,
-		Intervals:          req.Intervals,
-		SearchPricePerCall: req.SearchPricePerCall,
-		XPostPrice:         req.XPostPrice,
-		XUserPrice:         req.XUserPrice,
-		TimePricing:        req.TimePricing,
+		InputPrice:                   req.InputPrice,
+		OutputPrice:                  req.OutputPrice,
+		CacheWritePrice:              req.CacheWritePrice,
+		CacheWrite1hPrice:            req.CacheWrite1hPrice,
+		CacheReadPrice:               req.CacheReadPrice,
+		Intervals:                    req.Intervals,
+		SearchPricePerCall:           req.SearchPricePerCall,
+		XPostPrice:                   req.XPostPrice,
+		XUserPrice:                   req.XUserPrice,
+		TimePricing:                  req.TimePricing,
+		MaxReasoningEffortMultiplier: req.MaxReasoningEffortMultiplier,
 	}
 	ctx := c.Request.Context()
 	entry, err := h.service.SaveEntryPricing(ctx, id, official, req.SalePrices, bindings, h.accounts)
@@ -313,25 +323,26 @@ func (h *ModelCatalogHandler) listAllAccounts(ctx context.Context) ([]service.Ac
 
 func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEntry, accounts []service.Account) PricingEntryResponse {
 	out := PricingEntryResponse{
-		ID:                 entry.ID,
-		ModelID:            entry.ModelID,
-		DisplayName:        entry.DisplayName,
-		Vendor:             entry.Vendor,
-		Status:             entry.Status,
-		InputPrice:         entry.InputPrice,
-		OutputPrice:        entry.OutputPrice,
-		CacheWritePrice:    entry.CacheWritePrice,
-		CacheWrite1hPrice:  entry.CacheWrite1hPrice,
-		CacheReadPrice:     entry.CacheReadPrice,
-		Intervals:          nonNilIntervals(entry.Intervals),
-		SalePrices:         nonNilSaleSegments(entry.SalePrices),
-		SearchPricePerCall: entry.SearchPricePerCall,
-		XPostPrice:         entry.XPostPrice,
-		XUserPrice:         entry.XUserPrice,
-		TimePricing:        entry.TimePricing,
-		Bindings:           make([]PricingBindingResponse, 0, len(entry.Bindings)),
-		BindableAccountIDs: make([]int64, 0),
-		WebSearchDelegate:  entry.ModelID == service.WebSearchDelegateModel,
+		ID:                           entry.ID,
+		ModelID:                      entry.ModelID,
+		DisplayName:                  entry.DisplayName,
+		Vendor:                       entry.Vendor,
+		Status:                       entry.Status,
+		InputPrice:                   entry.InputPrice,
+		OutputPrice:                  entry.OutputPrice,
+		CacheWritePrice:              entry.CacheWritePrice,
+		CacheWrite1hPrice:            entry.CacheWrite1hPrice,
+		CacheReadPrice:               entry.CacheReadPrice,
+		Intervals:                    nonNilIntervals(entry.Intervals),
+		SalePrices:                   nonNilSaleSegments(entry.SalePrices),
+		SearchPricePerCall:           entry.SearchPricePerCall,
+		XPostPrice:                   entry.XPostPrice,
+		XUserPrice:                   entry.XUserPrice,
+		TimePricing:                  entry.TimePricing,
+		Bindings:                     make([]PricingBindingResponse, 0, len(entry.Bindings)),
+		MaxReasoningEffortMultiplier: entry.MaxReasoningEffortMultiplier,
+		BindableAccountIDs:           make([]int64, 0),
+		WebSearchDelegate:            entry.ModelID == service.WebSearchDelegateModel,
 	}
 	if defaults := service.WebSearchDefaults(entry); defaults != nil {
 		out.SearchDefaults = &PricingSearchDefaults{
@@ -353,19 +364,20 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 
 func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCatalogBinding) PricingBindingResponse {
 	out := PricingBindingResponse{
-		EntryID:            b.EntryID,
-		AccountID:          b.AccountID,
-		UpstreamModel:      b.UpstreamModel,
-		InputPrice:         b.InputPrice,
-		OutputPrice:        b.OutputPrice,
-		CacheWritePrice:    b.CacheWritePrice,
-		CacheWrite1hPrice:  b.CacheWrite1hPrice,
-		CacheReadPrice:     b.CacheReadPrice,
-		Intervals:          nonNilIntervals(b.Intervals),
-		SearchPricePerCall: b.SearchPricePerCall,
-		XPostPrice:         b.XPostPrice,
-		XUserPrice:         b.XUserPrice,
-		TimePricing:        b.TimePricing,
+		EntryID:                      b.EntryID,
+		AccountID:                    b.AccountID,
+		UpstreamModel:                b.UpstreamModel,
+		InputPrice:                   b.InputPrice,
+		OutputPrice:                  b.OutputPrice,
+		CacheWritePrice:              b.CacheWritePrice,
+		CacheWrite1hPrice:            b.CacheWrite1hPrice,
+		CacheReadPrice:               b.CacheReadPrice,
+		Intervals:                    nonNilIntervals(b.Intervals),
+		SearchPricePerCall:           b.SearchPricePerCall,
+		XPostPrice:                   b.XPostPrice,
+		XUserPrice:                   b.XUserPrice,
+		TimePricing:                  b.TimePricing,
+		MaxReasoningEffortMultiplier: b.MaxReasoningEffortMultiplier,
 	}
 	if ratio, ok := entry.UpstreamCostRatio(b); ok {
 		out.CostRatio = &ratio
