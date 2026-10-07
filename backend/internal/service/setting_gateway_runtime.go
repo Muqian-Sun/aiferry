@@ -12,14 +12,10 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// ProfitControlSettings 利润门（全站一档）：后台只有「最低毛利率」一个数，填 0 = 不装门。
+// ProfitControlSettings 利润门（全站一档、一直开着）：后台只有「最低毛利率」一个数，
+// 填 0 = 不能亏本（muqian 2026-10-07：上游成本不能超过向用户收的钱）。
 type ProfitControlSettings struct {
 	MinMargin float64
-}
-
-// Enabled 最低毛利率 > 0 才装门。
-func (s ProfitControlSettings) Enabled() bool {
-	return s.MinMargin > 0
 }
 
 // cachedProfitControlSettings 缓存利润门设置（进程内缓存，60s TTL；调度热路径每次选号都读）

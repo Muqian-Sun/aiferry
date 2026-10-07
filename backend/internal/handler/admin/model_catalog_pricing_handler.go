@@ -32,7 +32,7 @@ var pricingAccountPageSize = 500
 type PricingOverviewResponse struct {
 	// DefaultSaleRatio 默认售价比例：没单独填售价的项按官方价 × 它收；毛利 = 1 − 上游成本比 ÷ 它。
 	DefaultSaleRatio float64 `json:"default_sale_ratio"`
-	// MinMargin 利润门的最低毛利率，0 = 利润门关闭。
+	// MinMargin 利润门的最低毛利率，0 = 不能亏本（利润门一直开着）。
 	MinMargin float64                  `json:"min_margin"`
 	Entries   []PricingEntryResponse   `json:"entries"`
 	Accounts  []PricingAccountResponse `json:"accounts"`
@@ -100,6 +100,8 @@ type PricingBindingResponse struct {
 	CostRatio *float64 `json:"cost_ratio"`
 	// PeakCostRatio 一周里最差的上游成本比（上游忙时涨、我们没涨的时段）；不比平时差时为 null。
 	PeakCostRatio *float64 `json:"peak_cost_ratio"`
+	// MaxReasoningCostRatio 最高推理档最差的上游成本比（上游在 max 档比售价涨得多，含忙时）；不比平时差时为 null。
+	MaxReasoningCostRatio *float64 `json:"max_reasoning_cost_ratio"`
 	// TimePricing 上游忙闲时：渠道成本按请求时刻整单 × 倍率；null = 上游不分忙闲时。
 	TimePricing *service.TimePricing `json:"time_pricing"`
 	// MaxReasoningEffortMultiplier 上游最高推理倍率：effort = max 时渠道成本整单乘它；null = 跟官方。
@@ -384,6 +386,9 @@ func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCa
 	}
 	if ratio, ok := entry.UpstreamPeakCostRatio(b); ok {
 		out.PeakCostRatio = &ratio
+	}
+	if ratio, ok := entry.UpstreamMaxReasoningCostRatio(b); ok {
+		out.MaxReasoningCostRatio = &ratio
 	}
 	return out
 }

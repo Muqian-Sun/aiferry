@@ -42,6 +42,11 @@ func (e *ModelCatalogEntry) UpstreamPeakCostRatio(b *ModelCatalogBinding) (ratio
 	return bindingPeakCostRatio(e, b)
 }
 
+// UpstreamMaxReasoningCostRatio 最高推理档最差的上游成本比（上游在 max 档比售价涨得多）；不比平时差时 ok=false。
+func (e *ModelCatalogEntry) UpstreamMaxReasoningCostRatio(b *ModelCatalogBinding) (ratio float64, ok bool) {
+	return bindingMaxReasoningCostRatio(e, b)
+}
+
 // ValidateAgainst 校验承接关系上的上游价：
 //   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；

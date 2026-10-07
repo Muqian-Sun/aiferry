@@ -20,7 +20,7 @@ func TestSchedulableBindings(t *testing.T) {
 	}
 	active := func(id int64) *Account { return &Account{ID: id, Status: StatusActive, Schedulable: true} }
 	gateOn := ProfitControlSettings{MinMargin: 0.3} // 阈值 = 1/15 × 0.7 ≈ 0.0467
-	gateOff := ProfitControlSettings{}
+	noLoss := ProfitControlSettings{}               // 最低毛利率 0 = 不能亏本：阈值 = 1/15 ≈ 0.0667
 
 	n, reason := SchedulableBindings(entry(), nil, gateOn)
 	require.Equal(t, 0, n)
@@ -38,10 +38,13 @@ func TestSchedulableBindings(t *testing.T) {
 	require.Equal(t, 0, n)
 	require.Equal(t, UnschedulableProfitGate, reason)
 
-	// 利润门关着：毛利再低也派得到
-	n, reason = SchedulableBindings(entry(binding(5, 0.10)), map[int64]*Account{5: active(5)}, gateOff)
+	// 最低毛利率 0：不亏的派得到，亏本的照样跳过
+	n, reason = SchedulableBindings(entry(binding(5, 0.05)), map[int64]*Account{5: active(5)}, noLoss)
 	require.Equal(t, 1, n)
 	require.Empty(t, reason)
+	n, reason = SchedulableBindings(entry(binding(5, 0.10)), map[int64]*Account{5: active(5)}, noLoss)
+	require.Equal(t, 0, n)
+	require.Equal(t, UnschedulableProfitGate, reason)
 
 	// 一个过门、一个被跳过：数 1 个
 	n, reason = SchedulableBindings(entry(binding(5, 0.10), binding(6, 0.03)), map[int64]*Account{5: active(5), 6: active(6)}, gateOn)

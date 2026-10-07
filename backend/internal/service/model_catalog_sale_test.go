@@ -97,7 +97,7 @@ func TestSalePrices_ProfitGateComparesUpstreamWithSalePrice(t *testing.T) {
 	ratio, ok := bindingCostRatio(&entry, &b)
 	require.True(t, ok)
 	require.InDelta(t, 0.03, ratio, 1e-12, "没定售价：比官方价")
-	rejected, _ := profitGateRejectsBinding(&entry, &b, threshold, time.Time{})
+	rejected, _ := profitGateRejectsBinding(&entry, &b, threshold, time.Time{}, false)
 	require.True(t, rejected, "售价 = 官方 / 15，上游占 45%，毛利 55% 不到 60%")
 
 	// 输入、输出、缓存读、>272K 一段都把售价定成官方价的 1/10：上游占售价的 30%，毛利 70%
@@ -108,12 +108,12 @@ func TestSalePrices_ProfitGateComparesUpstreamWithSalePrice(t *testing.T) {
 	ratio, ok = bindingCostRatio(&entry, &b)
 	require.True(t, ok)
 	require.InDelta(t, 0.3*DefaultSalePriceRatio, ratio, 1e-12)
-	rejected, _ = profitGateRejectsBinding(&entry, &b, threshold, time.Time{})
+	rejected, _ = profitGateRejectsBinding(&entry, &b, threshold, time.Time{}, false)
 	require.False(t, rejected)
 
 	// 有一项售价定低了（>272K 输出 2.25 = 官方 / 20）：取最差的一项，又过不了门
 	entry.SalePrices.Segments[0].OutputPrice = upstreamCostPtr(2.25e-6)
-	rejected, _ = profitGateRejectsBinding(&entry, &b, threshold, time.Time{})
+	rejected, _ = profitGateRejectsBinding(&entry, &b, threshold, time.Time{}, false)
 	require.True(t, rejected)
 }
 

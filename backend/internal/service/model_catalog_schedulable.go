@@ -14,7 +14,7 @@ const (
 // SchedulableBindings 承接这个模型、能派到请求的渠道数；为 0 时给出原因（否则原因为空）。
 //
 // 渠道要在（accounts 里有）、启用、调度开着；限流 / 过载 / 临时停调这类会自己恢复的状态不算。
-// 利润门开着时按新用户默认倍率判断，与调度器的否决点同一个判断（profitGateRejectsBinding）：
+// 利润门（一直开着）按新用户默认倍率判断，与调度器的否决点同一个判断（profitGateRejectsBinding）：
 // 单独设了更高倍率的用户可能仍派得到，但默认用户派不到，上架给所有人看就是坏的。
 func SchedulableBindings(entry *ModelCatalogEntry, accounts map[int64]*Account, profit ProfitControlSettings) (int, string) {
 	if entry == nil || len(entry.Bindings) == 0 {
@@ -29,11 +29,9 @@ func SchedulableBindings(entry *ModelCatalogEntry, accounts map[int64]*Account, 
 			continue
 		}
 		enabled++
-		if profit.Enabled() {
-			// 上架提示按平时价判断：忙时会被跳过的渠道平时仍能派到
-			if rejected, _ := profitGateRejectsBinding(entry, b, threshold, time.Time{}); rejected {
-				continue
-			}
+		// 上架提示按平时价、一般推理档判断：忙时 / max 档会被跳过的渠道平时仍能派到
+		if rejected, _ := profitGateRejectsBinding(entry, b, threshold, time.Time{}, false); rejected {
+			continue
 		}
 		schedulable++
 	}

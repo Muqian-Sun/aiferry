@@ -223,6 +223,9 @@ func TestModelCatalogHandler_SavePricingModel(t *testing.T) {
 		require.Equal(t, catalogPrice(3), got.MaxReasoningEffortMultiplier)
 		require.Equal(t, catalogPrice(1), got.SalePrices.MaxReasoningEffortMultiplier)
 		require.Equal(t, catalogPrice(2), got.Bindings[0].MaxReasoningEffortMultiplier)
+		require.Nil(t, got.Bindings[0].PeakCostRatio)
+		require.NotNil(t, got.Bindings[0].MaxReasoningCostRatio, "上游 max 档 × 2、售价不加：max 档成本比翻倍")
+		require.InDelta(t, 0.1, *got.Bindings[0].MaxReasoningCostRatio, 1e-12)
 		require.Equal(t, catalogPrice(3), repo.entries[0].MaxReasoningEffortMultiplier)
 		require.Equal(t, catalogPrice(2), repo.bindings[1][0].MaxReasoningEffortMultiplier)
 
@@ -271,6 +274,7 @@ func TestModelCatalogHandler_SavePricingChannel(t *testing.T) {
 		require.Equal(t, int64(3), got[0].AccountID, "account id comes from the path")
 		require.InDelta(t, 0.05, *got[0].CostRatio, 1e-12)
 		require.Nil(t, got[0].MaxReasoningEffortMultiplier, "not set = follow official")
+		require.Nil(t, got[0].MaxReasoningCostRatio, "max effort is no worse than usual")
 		require.Len(t, repo.bindings[1], 2, "channel 1 on the same model untouched")
 	})
 

@@ -82,13 +82,17 @@ func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
 		})
 	}
 
-	t.Run("zero margin", func(t *testing.T) {
+	// muqian 2026-10-07：最低毛利率 0 = 不能亏本，门照样装，上游成本比不超过用户倍率就放行。
+	t.Run("zero margin means no loss", func(t *testing.T) {
 		svc := &GatewayService{settingService: profitControlTestSettingService(t, 0)}
+		atCost := gatewayProfitTestAccount(prices, 102, PlatformOpenAI, gatewayProfitTestUserRate)
+		expensive := gatewayProfitTestAccount(prices, 103, PlatformOpenAI, 0.9)
 		ctx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(prices))
 		gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-		require.Nil(t, gate, "最低毛利率 0 = 关，不装门")
-		expensive := gatewayProfitTestAccount(prices, 103, PlatformOpenAI, 0.9)
-		require.True(t, svc.isGatewayAccountProfitEligible(ctx, &expensive))
+		require.NotNil(t, gate)
+		require.InDelta(t, gatewayProfitTestUserRate, gate.threshold, 1e-12, "阈值 = 用户倍率")
+		require.True(t, svc.isGatewayAccountProfitEligible(ctx, &atCost), "成本正好等于售价：不亏，放行")
+		require.False(t, svc.isGatewayAccountProfitEligible(ctx, &expensive), "亏本的渠道不派")
 	})
 
 	t.Run("no setting service", func(t *testing.T) {

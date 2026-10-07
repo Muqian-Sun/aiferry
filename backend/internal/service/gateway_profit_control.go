@@ -20,9 +20,6 @@ func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context) conte
 		return ctx
 	}
 	settings := s.settingService.GetProfitControlSettings(ctx)
-	if !settings.Enabled() {
-		return ctx
-	}
 
 	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
 

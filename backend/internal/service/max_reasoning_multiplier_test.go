@@ -153,3 +153,75 @@ func TestModelPlazaService_ShowsSaleMaxReasoningMultiplier(t *testing.T) {
 	require.Equal(t, 2.0, *byID[custom.ModelID].Pricing.MaxReasoningEffortMultiplier)
 	require.Nil(t, byID["flat-model"].Pricing.MaxReasoningEffortMultiplier, "不加价：广场不显示")
 }
+
+// 利润门也算最高推理档（muqian 2026-10-07）：max 档时成本比 × 上游倍率 ÷ 售价倍率。
+func TestMaxReasoningCostFactor(t *testing.T) {
+	entry := upstreamCostTestEntry()
+	b := upstreamCostTestBinding(7)
+	require.Equal(t, 1.0, maxReasoningCostFactor(&entry, &b), "三套都没设")
+
+	entry.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
+	require.Equal(t, 1.0, maxReasoningCostFactor(&entry, &b), "售价、上游都跟官方：两边一起 × 3")
+
+	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(1)
+	require.Equal(t, 3.0, maxReasoningCostFactor(&entry, &b), "上游跟官方 × 3、售价不加")
+
+	b.MaxReasoningEffortMultiplier = upstreamCostPtr(2)
+	require.Equal(t, 2.0, maxReasoningCostFactor(&entry, &b), "上游 × 2、售价不加")
+
+	entry.SalePrices.MaxReasoningEffortMultiplier = nil
+	require.InDelta(t, 2.0/3, maxReasoningCostFactor(&entry, &b), 1e-12, "上游 × 2、售价跟官方 × 3")
+}
+
+func TestOpenAIProfitControlVeto_MaxReasoningEffort(t *testing.T) {
+	entry := upstreamCostTestEntry() // 上游价 = 官方价 × 3%，成本比 0.03
+	entry.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
+	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(1) // 售价 max 档不加价，上游跟官方 × 3
+	entry.Bindings = []ModelCatalogBinding{upstreamCostTestBinding(1)}
+	base := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: entry.ID, CanonicalModel: entry.ModelID, RequestedModel: entry.ModelID, Entry: &entry})
+	base = context.WithValue(base, openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{threshold: 0.05})
+	account := upstreamCostTestAccount(1)
+
+	for name, tc := range map[string]struct {
+		effort string
+		vetoed bool
+	}{
+		"no effort": {"", false},
+		"high":      {"high", false},
+		"max":       {"max", true}, // 0.03 × 3 = 0.09 > 0.05
+		"MAX":       {" MAX ", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := WithRequestedReasoningEffort(base, tc.effort)
+			vetoed, reason := openAIProfitControlVetoReason(ctx, account)
+			require.Equal(t, tc.vetoed, vetoed)
+			if tc.vetoed {
+				require.Equal(t, openAIProfitFilterReasonThreshold, reason)
+			}
+		})
+	}
+
+	t.Run("sale follows official", func(t *testing.T) {
+		entry.SalePrices.MaxReasoningEffortMultiplier = nil
+		vetoed, _ := openAIProfitControlVetoReason(WithRequestedReasoningEffort(base, "max"), account)
+		require.False(t, vetoed, "两边一起 × 3，成本比不变")
+	})
+}
+
+// 价格页的「最高推理毛利」：一周里最差的时段 × 上游倍率 ÷ 售价倍率；max 档不比平时差时不给。
+func TestUpstreamMaxReasoningCostRatio(t *testing.T) {
+	entry := upstreamCostTestEntry()
+	b := upstreamCostTestBinding(7)
+	entry.MaxReasoningEffortMultiplier = upstreamCostPtr(3)
+	_, ok := entry.UpstreamMaxReasoningCostRatio(&b)
+	require.False(t, ok, "跟官方：max 档不比平时差")
+
+	entry.SalePrices.MaxReasoningEffortMultiplier = upstreamCostPtr(1)
+	got, ok := entry.UpstreamMaxReasoningCostRatio(&b)
+	require.True(t, ok)
+	require.InDelta(t, 0.09, got, 1e-12)
+
+	b.TimePricing = beijingDaytimeDouble() // 上游忙时 × 2：最差 = 0.06 × 3
+	got, _ = entry.UpstreamMaxReasoningCostRatio(&b)
+	require.InDelta(t, 0.18, got, 1e-12)
+}
