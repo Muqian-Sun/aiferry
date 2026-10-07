@@ -154,15 +154,15 @@ func TestOpenAIResponsesRequiredCapability(t *testing.T) {
 			want:        service.OpenAIEndpointCapabilityResponses,
 		},
 		{
-			name:        "Grok explicit image intent keeps chat capability",
+			name:        "Grok explicit image intent has no endpoint requirement",
 			imageIntent: true,
 			platform:    service.PlatformGrok,
-			want:        service.OpenAIEndpointCapabilityChatCompletions,
+			want:        "",
 		},
 		{
-			name:     "non-image intent keeps chat capability",
+			name:     "non-image intent has no endpoint requirement",
 			platform: service.PlatformOpenAI,
-			want:     service.OpenAIEndpointCapabilityChatCompletions,
+			want:     "",
 		},
 	}
 
