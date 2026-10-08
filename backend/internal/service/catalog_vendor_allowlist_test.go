@@ -161,3 +161,38 @@ func TestCatalogSeedSkipsExcludedModels(t *testing.T) {
 		require.Contains(t, []string{"deprecated", "shutdown", "retired", "not_listed", "not_priced", "not_official", "moving_alias", "not_integrated", "not_domestic", "output_tiered"}, reason, id)
 	}
 }
+
+// 联网搜索代执行的模型必须在播种目录里，且是官网价（2026-10-08 Haiku 5.5：提示 ≤ 10 万 token 与超过时两套价，
+// 搜索 $10 / 千次）；目录里没有这条时代执行直接报错。
+func TestCatalogSeedHasWebSearchDelegateModel(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+	pricingData, err := (&PricingService{}).parsePricingData(data)
+	require.NoError(t, err)
+	entries := buildModelCatalogSeedEntries(ModelCatalogSeedInput{PricingService: &PricingService{pricingData: pricingData}, BillingService: NewBillingService()})
+
+	var delegate *ModelCatalogEntry
+	for i := range entries {
+		if entries[i].ModelID == WebSearchDelegateModel {
+			delegate = &entries[i]
+		}
+	}
+	require.NotNil(t, delegate, "%s 不在播种目录里", WebSearchDelegateModel)
+	require.Equal(t, "anthropic", delegate.Vendor)
+	perMillion := func(p *float64) float64 { require.NotNil(t, p); return *p * 1e6 }
+	require.InDelta(t, 0.10, perMillion(delegate.InputPrice), 1e-9)
+	require.InDelta(t, 0.50, perMillion(delegate.OutputPrice), 1e-9)
+	require.InDelta(t, 0.125, perMillion(delegate.CacheWritePrice), 1e-9)
+	require.InDelta(t, 0.20, perMillion(delegate.CacheWrite1hPrice), 1e-9)
+	require.InDelta(t, 0.01, perMillion(delegate.CacheReadPrice), 1e-9)
+	require.Len(t, delegate.Intervals, 1, "超过 10 万 token 一段")
+	iv := delegate.Intervals[0]
+	require.Equal(t, 100000, iv.MinTokens)
+	require.Nil(t, iv.MaxTokens, "最后一段不封顶")
+	require.InDelta(t, 0.50, perMillion(iv.InputPrice), 1e-9)
+	require.InDelta(t, 2.50, perMillion(iv.OutputPrice), 1e-9)
+	require.InDelta(t, 0.05, perMillion(iv.CacheReadPrice), 1e-9)
+	require.InDelta(t, 0.625, perMillion(iv.CacheWritePrice), 1e-9)
+	require.NotNil(t, delegate.SearchPricePerCall)
+	require.InDelta(t, 0.01, *delegate.SearchPricePerCall, 1e-12, "联网搜索 $10 / 千次")
+}

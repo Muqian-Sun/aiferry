@@ -237,7 +237,7 @@ export default {
     webSearchCount: 'Web searches',
     webSearchCost: 'Web search fee',
     webSearchDelegatedHint: 'A Claude Code web search request: run by the platform, tokens billed at the web search rate plus a per-search fee',
-    webSearchDelegatedAdminHint: 'Claude Code with a third-party model: the search ran on claude-haiku-4-5 (billed at its official price)',
+    webSearchDelegatedAdminHint: 'Claude Code with a third-party model: the search ran on claude-haiku-5-5 (billed at its official price)',
     tokenDetails: 'Token Breakdown',
     cacheTtlOverriddenHint: 'Cache TTL Override enabled',
     cacheTtlOverriddenLabel: 'TTL Override',
