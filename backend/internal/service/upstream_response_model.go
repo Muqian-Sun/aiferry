@@ -271,18 +271,24 @@ func isUpstreamResponseModelTerminalEvent(eventType string) bool {
 	}
 }
 
-func upstreamModelMismatch(sentModel, responseModel string) *bool {
+func upstreamModelMismatch(account *Account, sentModel, responseModel string) *bool {
 	responseModel = strings.TrimSpace(responseModel)
 	if responseModel == "" {
 		return nil
 	}
 	sentModel = strings.TrimSpace(sentModel)
-	mismatch := sentModel == "" || !upstreamModelsMatchForAudit(sentModel, responseModel)
+	mismatch := sentModel == "" || !upstreamModelsMatchForAudit(account, sentModel, responseModel)
 	return &mismatch
 }
 
-func upstreamModelsMatchForAudit(sentModel, responseModel string) bool {
+func upstreamModelsMatchForAudit(account *Account, sentModel, responseModel string) bool {
 	if strings.EqualFold(sentModel, responseModel) {
+		return true
+	}
+
+	// Antigravity 成品号：思考档位别名在回包里报底层模型名，只为对账归一，原始回报照旧留存。
+	if account != nil && !account.IsThirdPartyKey() && account.IsAntigravity() &&
+		canonicalAntigravityServingModel(sentModel) == canonicalAntigravityServingModel(responseModel) {
 		return true
 	}
 
@@ -291,6 +297,22 @@ func upstreamModelsMatchForAudit(sentModel, responseModel string) bool {
 	// observability and for the separate response-model billing safeguards.
 	sentGrokModel := canonicalGrokBuildRuntimeModel(sentModel)
 	return sentGrokModel != "" && sentGrokModel == canonicalGrokBuildRuntimeModel(responseModel)
+}
+
+// antigravityServingSuffixes Antigravity 的思考档位别名与底层模型名后缀（10-08 实测回包的 modelVersion：
+// gemini-3.8-flash-high / -medium / -low → gemini-3.8-flash-n，gemini-3.7-flash-high → gemini-3.7-flash，
+// gemini-3.8-flash-tiered → 原样）。
+var antigravityServingSuffixes = []string{"-high", "-medium", "-low", "-n"}
+
+// canonicalAntigravityServingModel 去掉末尾一个档位 / 底层后缀；flash 与 flash-lite 这类不同模型仍然不同。
+func canonicalAntigravityServingModel(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	for _, suffix := range antigravityServingSuffixes {
+		if strings.HasSuffix(model, suffix) {
+			return strings.TrimSuffix(model, suffix)
+		}
+	}
+	return model
 }
 
 func canonicalGrokBuildRuntimeModel(model string) string {

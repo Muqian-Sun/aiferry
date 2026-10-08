@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/sjson"
 )
 
 type antigravityCompatProtocol uint8
@@ -288,6 +289,13 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 		if err != nil {
 			return nil, err
 		}
+		if antigravityCompatWantsThoughts(claudeRequest) {
+			// 客户端要推理（Codex 的 reasoning.effort 转成了 thinking）：让 Gemini 边想边流出思考摘要，
+			// 否则上游思考完之前连响应头都不发，首字要等整段思考（10-08 实测 -high 一道小题 23 秒）。
+			if body, err = sjson.SetBytes(body, "generationConfig.thinkingConfig.includeThoughts", true); err != nil {
+				return nil, err
+			}
+		}
 		body, err = enableMixedGeminiToolInvocations(body)
 		if err != nil {
 			return nil, err
@@ -306,6 +314,14 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	options := s.getClaudeTransformOptions(ctx)
 	options.EnableIdentityPatch = true
 	return antigravity.TransformClaudeToGeminiWithOptions(claudeRequest, projectID, mappedModel, options)
+}
+
+// antigravityCompatWantsThoughts 转换后的 Claude 请求开了思考（enabled / adaptive）。
+func antigravityCompatWantsThoughts(claudeRequest *antigravity.ClaudeRequest) bool {
+	if claudeRequest == nil || claudeRequest.Thinking == nil {
+		return false
+	}
+	return claudeRequest.Thinking.Type == "enabled" || claudeRequest.Thinking.Type == "adaptive"
 }
 
 // enableMixedGeminiToolInvocations reconciles Antigravity v1internal tool payloads.
