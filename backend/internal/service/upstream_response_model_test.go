@@ -48,13 +48,13 @@ func TestUpstreamResponseModelObservationAttemptReset(t *testing.T) {
 }
 
 func TestUpstreamModelMismatchThreeStateAndCaseInsensitiveComparison(t *testing.T) {
-	require.Nil(t, upstreamModelMismatch("gpt-5.5", ""))
+	require.Nil(t, upstreamModelMismatch(nil, "gpt-5.5", ""))
 
-	matched := upstreamModelMismatch("gpt-5.5", "GPT-5.5")
+	matched := upstreamModelMismatch(nil, "gpt-5.5", "GPT-5.5")
 	require.NotNil(t, matched)
 	require.False(t, *matched)
 
-	mismatched := upstreamModelMismatch("gpt-5.5", "gpt-5.4")
+	mismatched := upstreamModelMismatch(nil, "gpt-5.5", "gpt-5.4")
 	require.NotNil(t, mismatched)
 	require.True(t, *mismatched)
 }
@@ -89,7 +89,7 @@ func TestUpstreamModelMismatchTreatsGrokBuildRuntimeIDsAsAliases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mismatch := upstreamModelMismatch(tt.sentModel, tt.responseModel)
+			mismatch := upstreamModelMismatch(nil, tt.sentModel, tt.responseModel)
 
 			require.NotNil(t, mismatch)
 			require.False(t, *mismatch)
@@ -122,7 +122,7 @@ func TestUpstreamModelMismatchDoesNotCollapseDifferentModels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mismatch := upstreamModelMismatch(tt.sentModel, tt.responseModel)
+			mismatch := upstreamModelMismatch(nil, tt.sentModel, tt.responseModel)
 
 			require.NotNil(t, mismatch)
 			require.True(t, *mismatch)
@@ -269,4 +269,40 @@ func TestObservedUpstreamResponseServiceTierFromContext(t *testing.T) {
 	observer := beginUpstreamResponseModelObservation(c)
 	observer.ObserveOpenAI([]byte(`{"type":"response.completed","response":{"id":"resp_1","model":"gpt-5.6-sol","service_tier":"default"}}`), "response.completed")
 	require.Equal(t, "default", observedUpstreamResponseServiceTier(c))
+}
+
+// Antigravity 成品号：思考档位别名在回包里报底层模型名（10-08 实测），对账不算不一致；串成别的模型仍算。
+func TestUpstreamModelMismatchAntigravityServingNames(t *testing.T) {
+	subscription := &Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
+	for _, tt := range []struct{ sent, resp string }{
+		{"gemini-3.8-flash-high", "gemini-3.8-flash-n"},
+		{"gemini-3.8-flash-low", "gemini-3.8-flash-n"},
+		{"gemini-3.8-flash-medium", "gemini-3.8-flash-n"},
+		{"gemini-3.7-flash-high", "gemini-3.7-flash"},
+		{"gemini-3.8-flash-tiered", "gemini-3.8-flash-tiered"},
+	} {
+		mismatch := upstreamModelMismatch(subscription, tt.sent, tt.resp)
+		require.NotNil(t, mismatch)
+		require.False(t, *mismatch, "%s → %s", tt.sent, tt.resp)
+	}
+	for _, tt := range []struct{ sent, resp string }{
+		{"gemini-3.8-flash-high", "gemini-3.7-flash"},
+		{"gemini-3.8-flash-high", "gemini-3.8-flash-lite"},
+		{"gemini-3.8-flash-tiered", "gemini-3.8-flash-n"},
+	} {
+		mismatch := upstreamModelMismatch(subscription, tt.sent, tt.resp)
+		require.NotNil(t, mismatch)
+		require.True(t, *mismatch, "%s → %s 是不同模型", tt.sent, tt.resp)
+	}
+
+	// 只认 Antigravity 成品号：别的渠道、贴着 antigravity 标签的第三方 key 照旧逐字比
+	for _, account := range []*Account{
+		nil,
+		{Platform: PlatformGemini, Type: AccountTypeOAuth},
+		{Platform: PlatformAntigravity, Type: AccountTypeAPIKey},
+	} {
+		mismatch := upstreamModelMismatch(account, "gemini-3.8-flash-high", "gemini-3.8-flash-n")
+		require.NotNil(t, mismatch)
+		require.True(t, *mismatch)
+	}
 }

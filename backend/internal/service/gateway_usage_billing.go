@@ -773,7 +773,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		RequestedModel:           requestedModel,
 		UpstreamModel:            optionalTrimmedStringPtr(result.UpstreamModel),
 		UpstreamResponseModel:    optionalTrimmedStringPtr(result.UpstreamResponseModel),
-		UpstreamModelMismatch:    upstreamModelMismatch(sentModel, result.UpstreamResponseModel),
+		UpstreamModelMismatch:    upstreamModelMismatch(account, sentModel, result.UpstreamResponseModel),
 		WebSearchDelegated:       input.WebSearchDelegated,
 		ServiceTier:              result.ServiceTier,
 		ReasoningEffort:          result.ReasoningEffort,
