@@ -28,6 +28,7 @@ func TestAntigravityForwardAsResponses_RequestsThoughtSummaries(t *testing.T) {
 		wantThoughts bool
 	}{
 		{name: "high effort", reasoning: `,"reasoning":{"effort":"high","summary":"auto"}`, wantThoughts: true},
+		{name: "low effort", reasoning: `,"reasoning":{"effort":"low"}`, wantThoughts: false},
 		{name: "no reasoning", reasoning: "", wantThoughts: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

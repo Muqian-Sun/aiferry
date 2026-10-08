@@ -316,12 +316,10 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	return antigravity.TransformClaudeToGeminiWithOptions(claudeRequest, projectID, mappedModel, options)
 }
 
-// antigravityCompatWantsThoughts 转换后的 Claude 请求开了思考（enabled / adaptive）。
+// antigravityCompatWantsThoughts 转换后的 Claude 请求开了思考：Responses / Chat → Anthropic 转换只在推理档位不是 low 时
+// 写 thinking（且只写 enabled），所以有 thinking 就是客户端要推理。
 func antigravityCompatWantsThoughts(claudeRequest *antigravity.ClaudeRequest) bool {
-	if claudeRequest == nil || claudeRequest.Thinking == nil {
-		return false
-	}
-	return claudeRequest.Thinking.Type == "enabled" || claudeRequest.Thinking.Type == "adaptive"
+	return claudeRequest != nil && claudeRequest.Thinking != nil
 }
 
 // enableMixedGeminiToolInvocations reconciles Antigravity v1internal tool payloads.
