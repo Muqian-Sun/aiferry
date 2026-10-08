@@ -147,6 +147,32 @@
     "supports_tool_choice": true,
     "supports_vision": true
   },
+  "claude-haiku-5-5": {
+    "cache_creation_input_token_cost": 1.25e-07,
+    "cache_creation_input_token_cost_above_1hr": 2e-07,
+    "cache_read_input_token_cost": 1e-08,
+    "input_cost_per_token": 1e-07,
+    "litellm_provider": "anthropic",
+    "mode": "chat",
+    "output_cost_per_token": 5e-07,
+    "source": "https://platform.claude.com/docs/en/about-claude/pricing（提示 ≤ 100,000 token 与超过时两套价，2026-10-08 核对）",
+    "input_token_tiers": [
+      {
+        "max_input_tokens": 100000,
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 5e-07,
+        "cache_read_input_token_cost": 1e-08,
+        "cache_creation_input_token_cost": 1.25e-07
+      },
+      {
+        "max_input_tokens": 1000000,
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 2.5e-06,
+        "cache_read_input_token_cost": 5e-08,
+        "cache_creation_input_token_cost": 6.25e-07
+      }
+    ]
+  },
   "claude-haiku-4-5-20251001": {
     "cache_creation_input_token_cost": 1.25e-06,
     "cache_creation_input_token_cost_above_1hr": 2e-06,

@@ -17,7 +17,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Claude Code 配第三方模型时，那次单独的搜索请求交给 claude-haiku-4-5 执行（端到端：真实 handler → 调度 → Forward，
+// Claude Code 配第三方模型时，那次单独的搜索请求交给 Claude Haiku（WebSearchDelegateModel）执行（端到端：真实 handler → 调度 → Forward，
 // 假上游记下请求）。没有真实的 Haiku 上游，搜索结果块是假的。
 
 const (
@@ -28,7 +28,7 @@ const (
 // claudeCodeSearchBody 是 Claude Code 2.1.282 执行 WebSearch 时单独发的那次请求（2026-10-03 实测抓到的形状）。
 const claudeCodeSearchBody = `{"model":"gpt-5.5","max_tokens":2000,"messages":[{"role":"user","content":[{"type":"text","text":"Perform a web search for the query: Tokyo population 2026"}]}],"tools":[{"type":"web_search_20260209","name":"web_search","max_uses":8,"allowed_domains":["metro.tokyo.lg.jp"]}]}`
 
-const anthropicSearchResponse = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[` +
+const anthropicSearchResponse = `{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-5-5","content":[` +
 	`{"type":"server_tool_use","id":"srvtoolu_1","name":"web_search","input":{"query":"Tokyo population 2026"}},` +
 	`{"type":"web_search_tool_result","tool_use_id":"srvtoolu_1","content":[{"type":"web_search_result","url":"https://www.metro.tokyo.lg.jp","title":"Tokyo"}]},` +
 	`{"type":"text","text":"About 14 million."}],"stop_reason":"end_turn",` +
@@ -149,7 +149,7 @@ func TestGatewayHandlerMessages_DelegatesClaudeCodeWebSearchToHaiku(t *testing.T
 		sent := calls[0].body
 		require.Equal(t, service.WebSearchDelegateModel, gjson.GetBytes(sent, "model").String())
 		require.JSONEq(t, `[{"type":"web_search_20250305","name":"web_search","max_uses":8,"allowed_domains":["metro.tokyo.lg.jp"]}]`,
-			gjson.GetBytes(sent, "tools").Raw, "Haiku 4.5 只支持基础版工具；次数上限与域名限制保留")
+			gjson.GetBytes(sent, "tools").Raw, "代搜用基础版工具；次数上限与域名限制保留")
 		require.Equal(t, "Perform a web search for the query: Tokyo population 2026", gjson.GetBytes(sent, "messages.0.content.0.text").String())
 
 		logs := usageLogs.recorded()

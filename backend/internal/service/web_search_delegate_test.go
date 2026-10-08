@@ -43,6 +43,24 @@ func TestBuildWebSearchDelegateBody(t *testing.T) {
 		gjson.GetBytes(out, "tools").Raw)
 	require.True(t, gjson.GetBytes(out, "stream").Bool(), "其余字段原样保留")
 	require.Equal(t, int64(2000), gjson.GetBytes(out, "max_tokens").Int())
+	require.JSONEq(t, `{"type":"disabled"}`, gjson.GetBytes(out, "thinking").Raw, "代搜不思考")
+}
+
+// 客户端是为主模型写的思考预算 / 采样参数 / effort：Haiku 5.5 收到手动 budget_tokens 或非默认采样参数回 400，
+// effort 为 xhigh / max 时又不能关思考，代执行时一律去掉。
+func TestBuildWebSearchDelegateBodyDropsMainModelParams(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{"model":"gpt-5.5","max_tokens":2000,"temperature":0.2,"top_p":0.9,"top_k":40,` +
+		`"thinking":{"type":"enabled","budget_tokens":4096},"output_config":{"effort":"xhigh"},` +
+		`"messages":[{"role":"user","content":"q"}],"tools":[{"type":"web_search_20250305","name":"web_search"}]}`)
+	out, err := BuildWebSearchDelegateBody(body)
+	require.NoError(t, err)
+	for _, key := range []string{"temperature", "top_p", "top_k", "output_config"} {
+		require.False(t, gjson.GetBytes(out, key).Exists(), key)
+	}
+	require.JSONEq(t, `{"type":"disabled"}`, gjson.GetBytes(out, "thinking").Raw)
+	require.Equal(t, `[{"role":"user","content":"q"}]`, gjson.GetBytes(out, "messages").Raw)
 }
 
 func TestWithWebSearchDelegate(t *testing.T) {

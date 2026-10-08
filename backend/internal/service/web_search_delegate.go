@@ -13,16 +13,16 @@ import (
 // Claude Code 配第三方模型时的联网搜索（方案页 X8eQjqzjAEx3hF4xzCzKZr 第三版；muqian 2026-10-03 定）：
 // Claude Code 的 WebSearch 是个客户端工具，模型调用它之后，Claude Code 另发一次只带 Anthropic 云端搜索工具
 // （web_search_20250305）的 /v1/messages 请求去搜，用的是主模型。第三方模型执行不了这个工具（或搜了也拿不到
-// 结果块），所以这一次请求交给 claude-haiku-4-5 执行，拿 Anthropic 真实的搜索结果：
+// 结果块），所以这一次请求交给 Claude Haiku（muqian 2026-10-08 起用 claude-haiku-5-5）执行，拿 Anthropic 真实的搜索结果：
 //   - 只认 Claude Code（User-Agent）、tools 只有一个 web_search、请求的模型不是 Anthropic 厂商；
 //   - 「联网搜索」计费项就是这条目录条目的官方价，承接它的渠道就是执行渠道（上游价、利润门照旧）；
 //     它不对用户上架，用户站只显示客户端请求的模型和「联网搜索」字样；
 //   - 没有可用渠道就直接报错，不换别的路子。
 
 // WebSearchDelegateModel 代执行搜索的目录模型。
-const WebSearchDelegateModel = "claude-haiku-4-5"
+const WebSearchDelegateModel = "claude-haiku-5-5"
 
-// webSearchDelegateToolType Haiku 4.5 只支持基础版 web_search（不支持动态过滤的新版本）。
+// webSearchDelegateToolType 用基础版 web_search：动态过滤版会在回包里夹带代码执行的结果块，Claude Code 只要搜索结果。
 const webSearchDelegateToolType = "web_search_20250305"
 
 // IsWebSearchOnlyRequest 请求的 tools 只有一个 web_search 工具。
@@ -40,8 +40,13 @@ func NeedsWebSearchDelegate(route CatalogRoute) bool {
 	return CatalogVendorPlatform(route.Entry) != PlatformAnthropic
 }
 
+// webSearchDelegateDroppedFields Haiku 5.5 不接受的请求参数：手动思考预算（budget_tokens）与非默认采样参数都回 400，
+// effort 留着会和「关掉思考」冲突（xhigh / max 下不能关）。客户端是为主模型写的这些值，代执行时一律去掉。
+var webSearchDelegateDroppedFields = []string{"thinking", "output_config", "temperature", "top_p", "top_k"}
+
 // BuildWebSearchDelegateBody 把请求改成交给 Haiku 执行：模型换成 WebSearchDelegateModel，工具换成基础版
-// web_search，保留次数上限、域名白 / 黑名单与地理位置。
+// web_search，保留次数上限、域名白 / 黑名单与地理位置；思考关掉（只是代搜，和原来 Haiku 4.5 一样不思考，
+// Haiku 5.5 默认是开着的）。
 func BuildWebSearchDelegateBody(body []byte) ([]byte, error) {
 	original := gjson.GetBytes(body, "tools.0")
 	tool := map[string]any{"type": webSearchDelegateToolType, "name": "web_search"}
@@ -52,6 +57,14 @@ func BuildWebSearchDelegateBody(body []byte) ([]byte, error) {
 	}
 	out, err := sjson.SetBytes(body, "model", WebSearchDelegateModel)
 	if err != nil {
+		return nil, err
+	}
+	for _, key := range webSearchDelegateDroppedFields {
+		if out, err = sjson.DeleteBytes(out, key); err != nil {
+			return nil, err
+		}
+	}
+	if out, err = sjson.SetBytes(out, "thinking", map[string]any{"type": "disabled"}); err != nil {
 		return nil, err
 	}
 	return sjson.SetBytes(out, "tools", []any{tool})
