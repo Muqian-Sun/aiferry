@@ -82,7 +82,7 @@ func (s *AntigravityGatewayService) ForwardAsChatCompletions(
 	if err != nil {
 		return nil, s.writeAntigravityCompatConversionError(c, err)
 	}
-	preserveChatCompletionTokenLimit(&request, claudeRequest)
+	claudeRequest.MaxTokens = antigravityCompatOutputLimit(chatCompletionTokenLimit(&request))
 	claudeRequest.Stream = request.Stream
 	claudeBody, err := json.Marshal(claudeRequest)
 	if err != nil {
@@ -133,6 +133,7 @@ func (s *AntigravityGatewayService) ForwardAsResponses(
 	if err != nil {
 		return nil, s.writeAntigravityCompatConversionError(c, err)
 	}
+	claudeRequest.MaxTokens = antigravityCompatOutputLimit(request.MaxOutputTokens)
 	claudeRequest.Stream = request.Stream
 	claudeBody, err := json.Marshal(claudeRequest)
 	if err != nil {
@@ -163,17 +164,23 @@ func (s *AntigravityGatewayService) validateAntigravityCompatAccount(c *gin.Cont
 	)
 }
 
-func preserveChatCompletionTokenLimit(request *apicompat.ChatCompletionsRequest, claudeRequest *apicompat.AnthropicRequest) {
-	if request == nil || claudeRequest == nil {
-		return
+// antigravityCompatOutputLimit 发给 Antigravity 的输出上限：客户端给了正数就封顶到 antigravityCompatMaxTokens，
+// 没给（或给的不是正数）就用这个上限本身，不落到转换层的默认 8192——Gemini 的思考 token 也算在
+// maxOutputTokens 里，Codex 不传上限，-high 档一思考就把 8192 用光、回 MAX_TOKENS
+// （2026-10-08 生产：Codex「Incomplete response returned, reason: max_output_tokens」）。
+func antigravityCompatOutputLimit(clientLimit *int) int {
+	if clientLimit != nil && *clientLimit > 0 {
+		return min(*clientLimit, antigravityCompatMaxTokens)
 	}
-	limit := request.MaxTokens
+	return antigravityCompatMaxTokens
+}
+
+// chatCompletionTokenLimit Chat 请求的输出上限：max_completion_tokens 优先于 max_tokens。
+func chatCompletionTokenLimit(request *apicompat.ChatCompletionsRequest) *int {
 	if request.MaxCompletionTokens != nil {
-		limit = request.MaxCompletionTokens
+		return request.MaxCompletionTokens
 	}
-	if limit != nil && *limit > 0 {
-		claudeRequest.MaxTokens = min(*limit, antigravityCompatMaxTokens)
-	}
+	return request.MaxTokens
 }
 
 func (s *AntigravityGatewayService) forwardAntigravityCompat(
