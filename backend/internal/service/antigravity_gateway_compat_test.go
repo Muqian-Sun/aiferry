@@ -409,7 +409,8 @@ func TestAntigravityCompatPreservesChatTokenLimit(t *testing.T) {
 	}
 }
 
-func TestPreserveChatCompletionTokenLimitIgnoresAbsentAndNonPositiveValues(t *testing.T) {
+// 客户端没给（或给的不是正数）输出上限时用 Antigravity 的上限，不落到转换层默认的 8192。
+func TestAntigravityCompatOutputLimitDefaultsToCeiling(t *testing.T) {
 	tests := []struct {
 		name    string
 		request apicompat.ChatCompletionsRequest
@@ -421,9 +422,35 @@ func TestPreserveChatCompletionTokenLimitIgnoresAbsentAndNonPositiveValues(t *te
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			claudeRequest := &apicompat.AnthropicRequest{MaxTokens: 99}
-			preserveChatCompletionTokenLimit(&tt.request, claudeRequest)
-			require.Equal(t, 99, claudeRequest.MaxTokens)
+			require.Equal(t, antigravityCompatMaxTokens, antigravityCompatOutputLimit(chatCompletionTokenLimit(&tt.request)))
+		})
+	}
+}
+
+// Codex 走 /v1/responses 不传 max_output_tokens：发给 Gemini 的 maxOutputTokens 是 64000，不是 8192。
+func TestAntigravityForwardAsResponsesOutputLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name string
+		body string
+		want int64
+	}{
+		{name: "absent uses ceiling", body: `{"model":"gemini-3.1-pro-high","input":"ok"}`, want: 64000},
+		{name: "client limit kept", body: `{"model":"gemini-3.1-pro-high","input":"ok","max_output_tokens":2048}`, want: 2048},
+		{name: "client limit clamped", body: `{"model":"gemini-3.1-pro-high","input":"ok","max_output_tokens":100000}`, want: 64000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{antigravityCompatSuccessResponse()}}
+			svc := newAntigravityCompatService(config.GatewayConfig{MaxLineSize: defaultMaxLineSize}, upstream)
+			body := []byte(tt.body)
+			c, _ := newAntigravityCompatContext(http.MethodPost, "/v1/responses", body)
+
+			_, err := svc.ForwardAsResponses(context.Background(), c, newAntigravityCompatAccount(AccountTypeOAuth), body, nil)
+
+			require.NoError(t, err)
+			require.Len(t, upstream.requestBodies, 1)
+			require.Equal(t, tt.want, gjson.GetBytes(upstream.requestBodies[0], "request.generationConfig.maxOutputTokens").Int())
 		})
 	}
 }
