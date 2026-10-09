@@ -3,11 +3,12 @@
     登录公告弹窗（muqian 2026-09-24「登录之后要弹出公告页」「每次登录都默认弹，用户可以选择今日不弹」）：
     列出全部公告（新的在前，正文直接展开），底部「今日不再弹出」+「知道了」。关闭即全部标为已读。
     何时弹由 stores/announcements 的 requestNotice 决定（App.vue 在登录 / 进站时登记）。
+    产品首页不弹（muqian 2026-10-09）：登记的公告留着，进到别的页面再弹。
   -->
   <Teleport to="body">
     <Transition name="modal">
       <div
-        v-if="store.noticeOpen"
+        v-if="visible"
         class="modal-overlay"
         style="z-index: 70"
         role="dialog"
@@ -57,6 +58,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
@@ -65,7 +67,10 @@ import Icon from '@/components/icons/Icon.vue'
 import '@/styles/announcement-markdown.css'
 
 const { t } = useI18n()
+const route = useRoute()
 const store = useAnnouncementStore()
+// 产品首页（Home）不显示；锁滚动、Esc 关闭都跟着它走，免得首页被锁住
+const visible = computed(() => store.noticeOpen && route.name !== 'Home')
 const snoozeToday = ref(false)
 
 marked.setOptions({ breaks: true, gfm: true })
@@ -85,11 +90,11 @@ function close() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && store.noticeOpen) close()
+  if (event.key === 'Escape' && visible.value) close()
 }
 
 watch(
-  () => store.noticeOpen,
+  visible,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
     if (open) document.addEventListener('keydown', onKeydown)
