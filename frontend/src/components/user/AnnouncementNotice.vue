@@ -2,8 +2,7 @@
   <!--
     登录公告弹窗（muqian 2026-09-24「登录之后要弹出公告页」「每次登录都默认弹，用户可以选择今日不弹」）：
     列出全部公告（新的在前，正文直接展开），底部「今日不再弹出」+「知道了」。关闭即全部标为已读。
-    何时弹由 stores/announcements 的 requestNotice 决定（App.vue 在登录 / 进站时登记）。
-    产品首页不弹（muqian 2026-10-09）：登记的公告留着，进到别的页面再弹。
+    何时弹由 stores/announcements 的 requestNotice 决定（App.vue 在登录 / 进站时登记），并且只在控制台壳打开。
   -->
   <Teleport to="body">
     <Transition name="modal">
@@ -69,7 +68,7 @@ import '@/styles/announcement-markdown.css'
 const { t } = useI18n()
 const route = useRoute()
 const store = useAnnouncementStore()
-// 产品首页（Home）不显示；锁滚动、Esc 关闭都跟着它走，免得首页被锁住
+// 只在控制台壳打开。首页再挡一层：登记的瞬间不要把首页滚动锁住。
 const visible = computed(() => store.noticeOpen && route.name !== 'Home')
 const snoozeToday = ref(false)
 

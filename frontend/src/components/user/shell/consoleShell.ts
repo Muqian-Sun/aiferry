@@ -15,3 +15,35 @@ export function useShellVariant(): ComputedRef<'console' | 'public'> {
   const fromConsole = window.history.state?.shell === CONSOLE_SHELL_STATE.shell
   return computed(() => (fromConsole && authStore.isAuthenticated ? 'console' : 'public'))
 }
+
+/**
+ * 当前地址是不是控制台壳。登录公告只在这些页面弹出。
+ * 模型页和服务状态页要看是不是从控制台点进来；Stripe 带 method 时是支付弹窗，不挂控制台壳。
+ */
+const CONSOLE_EXACT_OR_CHILD = [
+  '/dashboard',
+  '/keys',
+  '/batch-image',
+  '/docs/batch-image',
+  '/usage',
+  '/billing',
+  '/profile',
+  '/payment/qrcode',
+  '/payment/airwallex',
+  '/custom',
+]
+
+function matchesPrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`)
+}
+
+export function isConsoleShellPath(
+  path: string,
+  options: { authenticated: boolean; stripePopup?: boolean; fromConsole?: boolean }
+): boolean {
+  if (matchesPrefix(path, '/model-plaza') || matchesPrefix(path, '/status')) {
+    return options.authenticated && !!options.fromConsole
+  }
+  if (path === '/payment/stripe' || path.startsWith('/payment/stripe/')) return !options.stripePopup
+  return CONSOLE_EXACT_OR_CHILD.some((prefix) => matchesPrefix(path, prefix))
+}

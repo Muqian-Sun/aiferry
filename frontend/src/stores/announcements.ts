@@ -8,6 +8,7 @@ const THROTTLE_MS = 20 * 60 * 1000 // 20 minutes
 // 登录公告弹窗（muqian 2026-09-24「每次登录都默认弹，用户可以选择今日不弹」）：
 // 「今日不再弹出」按用户记在本机（localStorage，值为本地日期）；本标签页弹过一次就不再弹（sessionStorage），刷新页面不重复弹。
 // 两者都只是本机便利：存储不可用时照常弹，不报错。
+// 只允许在控制台壳弹出（muqian 2026-10-16）：公开站先登记，进控制台再打开；离开控制台先收起，没点「知道了」就回来再弹。
 const snoozeKey = (userId: number) => `aiferry:announcement-notice:snoozed-on:${userId}`
 const shownKey = (userId: number) => `aiferry:announcement-notice:shown:${userId}`
 
@@ -40,9 +41,10 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   const loaded = ref(false)
   const noticeOpen = ref(false)
 
-  // 等公告取回后要弹窗的用户（登录 / 进站时登记）
+  // 等公告取回后要弹窗的用户（登录 / 进站时登记）。人在控制台才真正打开。
   let noticeRequestedFor: number | null = null
   let noticeUserId: number | null = null
+  let inConsole = false
 
   // Getters
   const unreadCount = computed(() =>
@@ -85,8 +87,21 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     openRequestedNotice()
   }
 
+  /** 当前页是不是控制台壳。离开时若弹窗还开着，先收起并保留登记，回到控制台再打开。 */
+  function setInConsole(active: boolean) {
+    inConsole = active
+    if (!active) {
+      if (noticeOpen.value && noticeUserId !== null) {
+        noticeRequestedFor = noticeUserId
+        noticeOpen.value = false
+      }
+      return
+    }
+    openRequestedNotice()
+  }
+
   function openRequestedNotice() {
-    if (noticeRequestedFor === null || !loaded.value) return
+    if (!inConsole || noticeRequestedFor === null || !loaded.value) return
     const userId = noticeRequestedFor
     noticeRequestedFor = null
     if (announcements.value.length === 0) return
@@ -156,6 +171,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     // Actions
     fetchAnnouncements,
     requestNotice,
+    setInConsole,
     closeNotice,
     markAsRead,
     markAllAsRead,
