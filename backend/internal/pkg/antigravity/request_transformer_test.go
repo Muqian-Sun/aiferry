@@ -390,25 +390,29 @@ func TestBuildGenerationConfig_ThinkingDynamicBudget(t *testing.T) {
 	}
 }
 
-func TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock(t *testing.T) {
+// Claude Code 的 billing header 块和 Claude Agent SDK 身份句发到 Antigravity 上游会被回 429
+// RESOURCE_EXHAUSTED（2026-10-18 生产：Claude Code 调 gemini-3.8-flash 全部 429/503）。
+func TestTransformClaudeToGeminiWithOptions_DropsClaudeClientSystemMarkers(t *testing.T) {
+	const billing = "x-anthropic-billing-header: cc_version=2.1.302.fc4; cc_entrypoint=sdk-cli;"
+	const sdkIdentity = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
 	tests := []struct {
 		name   string
 		system json.RawMessage
 	}{
 		{
 			name:   "system array",
-			system: json.RawMessage(`[{"type":"text","text":"x-anthropic-billing-header keep"}]`),
+			system: json.RawMessage(`[{"type":"text","text":"` + billing + `"},{"type":"text","text":"` + sdkIdentity + `"},{"type":"text","text":"keep this instruction"}]`),
 		},
 		{
-			name:   "system string",
-			system: json.RawMessage(`"x-anthropic-billing-header keep"`),
+			name:   "system string with identity",
+			system: json.RawMessage(`"` + sdkIdentity + `\nkeep this instruction"`),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			claudeReq := &ClaudeRequest{
-				Model:  "claude-3-5-sonnet-latest",
+				Model:  "gemini-3.8-flash",
 				System: tt.system,
 				Messages: []ClaudeMessage{
 					{
@@ -418,24 +422,42 @@ func TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock(t 
 				},
 			}
 
-			body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "gemini-2.5-flash", DefaultTransformOptions())
+			body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "gemini-3.8-flash-high", DefaultTransformOptions())
 			require.NoError(t, err)
 
 			var req V1InternalRequest
 			require.NoError(t, json.Unmarshal(body, &req))
 			require.NotNil(t, req.Request.SystemInstruction)
 
-			found := false
+			var texts []string
 			for _, part := range req.Request.SystemInstruction.Parts {
-				if strings.Contains(part.Text, "x-anthropic-billing-header keep") {
-					found = true
-					break
-				}
+				texts = append(texts, part.Text)
 			}
-
-			require.True(t, found, "转换后的 systemInstruction 应保留 x-anthropic-billing-header 内容")
+			joined := strings.Join(texts, "\n")
+			require.NotContains(t, joined, "x-anthropic-billing-header")
+			require.NotContains(t, joined, sdkIdentity)
+			require.Contains(t, joined, "keep this instruction")
 		})
 	}
+
+	t.Run("billing header string only", func(t *testing.T) {
+		claudeReq := &ClaudeRequest{
+			Model:    "gemini-3.8-flash",
+			System:   json.RawMessage(`"` + billing + `"`),
+			Messages: []ClaudeMessage{{Role: "user", Content: json.RawMessage(`"hello"`)}},
+		}
+		body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "gemini-3.8-flash-high", DefaultTransformOptions())
+		require.NoError(t, err)
+		require.NotContains(t, string(body), "x-anthropic-billing-header")
+	})
+}
+
+func TestStripClaudeAgentSDKIdentity(t *testing.T) {
+	const sdkIdentity = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
+	require.Equal(t, "", StripClaudeAgentSDKIdentity(sdkIdentity))
+	require.Equal(t, "Do the task.", StripClaudeAgentSDKIdentity(sdkIdentity+"\nDo the task."))
+	// 不含整句时原样返回，连首尾空白也不动
+	require.Equal(t, "\nYou are a Claude agent.\n", StripClaudeAgentSDKIdentity("\nYou are a Claude agent.\n"))
 }
 
 func TestTransformClaudeToGeminiWithOptions_MessageRoles(t *testing.T) {
