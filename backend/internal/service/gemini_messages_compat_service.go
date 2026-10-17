@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -2855,9 +2856,14 @@ func stripGeminiFunctionIDs(req map[string]any) {
 	}
 }
 
+// extractClaudeSystemText 拼出发往 Gemini 的 system 文本；x-anthropic-billing-header 块不发
+// （Antigravity 上游见到会回 429）。
 func extractClaudeSystemText(system any) string {
 	switch v := system.(type) {
 	case string:
+		if apicompat.IsAnthropicBillingHeaderText(v) {
+			return ""
+		}
 		return strings.TrimSpace(v)
 	case []any:
 		var parts []string
@@ -2869,7 +2875,7 @@ func extractClaudeSystemText(system any) string {
 			if t, _ := pm["type"].(string); t != "text" {
 				continue
 			}
-			if text, ok := pm["text"].(string); ok && strings.TrimSpace(text) != "" {
+			if text, ok := pm["text"].(string); ok && strings.TrimSpace(text) != "" && !apicompat.IsAnthropicBillingHeaderText(text) {
 				parts = append(parts, text)
 			}
 		}

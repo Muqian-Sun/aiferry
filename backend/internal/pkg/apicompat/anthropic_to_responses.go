@@ -152,7 +152,7 @@ func convertAnthropicToResponsesInput(system json.RawMessage, msgs []AnthropicMe
 func parseAnthropicSystemContentParts(raw json.RawMessage) ([]ResponsesContentPart, error) {
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
-		if isAnthropicBillingHeaderText(s) || s == "" {
+		if IsAnthropicBillingHeaderText(s) || s == "" {
 			return nil, nil
 		}
 		return []ResponsesContentPart{{Type: "input_text", Text: s}}, nil
@@ -163,14 +163,17 @@ func parseAnthropicSystemContentParts(raw json.RawMessage) ([]ResponsesContentPa
 	}
 	var parts []ResponsesContentPart
 	for _, b := range blocks {
-		if b.Type == "text" && b.Text != "" && !isAnthropicBillingHeaderText(b.Text) {
+		if b.Type == "text" && b.Text != "" && !IsAnthropicBillingHeaderText(b.Text) {
 			parts = append(parts, ResponsesContentPart{Type: "input_text", Text: b.Text})
 		}
 	}
 	return parts, nil
 }
 
-func isAnthropicBillingHeaderText(text string) bool {
+// IsAnthropicBillingHeaderText reports whether a system text block is Claude
+// Code's x-anthropic-billing-header metadata. Only Anthropic consumes it;
+// converters to other upstreams drop the block.
+func IsAnthropicBillingHeaderText(text string) bool {
 	return strings.HasPrefix(text, "x-anthropic-billing-header: ")
 }
 

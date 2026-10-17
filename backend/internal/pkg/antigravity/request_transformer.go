@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/google/uuid"
 )
 
@@ -293,6 +294,27 @@ func filterOpenCodePrompt(text string) string {
 	return ""
 }
 
+// claudeAgentSDKIdentity 是 Claude Agent SDK 默认 system 里的身份句。Antigravity 上游见到这整句
+// 就回 429 RESOURCE_EXHAUSTED（拆成两半不触发），账号随之按模型冷却。
+const claudeAgentSDKIdentity = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
+
+// StripClaudeAgentSDKIdentity 删掉 text 里的 Claude Agent SDK 身份句，不含这句时原样返回。
+func StripClaudeAgentSDKIdentity(text string) string {
+	if !strings.Contains(text, claudeAgentSDKIdentity) {
+		return text
+	}
+	return strings.TrimSpace(strings.ReplaceAll(text, claudeAgentSDKIdentity, ""))
+}
+
+// filterUserSystemText 过滤发往 Antigravity 的一段用户 system 文本，返回空串表示整段不发。
+// x-anthropic-billing-header 是 Anthropic 计费元数据，Antigravity 上游见到会回 429。
+func filterUserSystemText(text string) string {
+	if apicompat.IsAnthropicBillingHeaderText(text) {
+		return ""
+	}
+	return StripClaudeAgentSDKIdentity(filterOpenCodePrompt(text))
+}
+
 // buildSystemInstruction 构建 systemInstruction（与 Antigravity-Manager 保持一致）
 func buildSystemInstruction(system json.RawMessage, modelName string, opts TransformOptions, tools []ClaudeTool) *GeminiContent {
 	var parts []GeminiPart
@@ -309,8 +331,7 @@ func buildSystemInstruction(system json.RawMessage, modelName string, opts Trans
 				if strings.Contains(sysStr, "You are Antigravity") {
 					userHasAntigravityIdentity = true
 				}
-				// 过滤 OpenCode 默认提示词
-				filtered := filterOpenCodePrompt(sysStr)
+				filtered := filterUserSystemText(sysStr)
 				if filtered != "" {
 					userSystemParts = append(userSystemParts, GeminiPart{Text: filtered})
 				}
@@ -324,8 +345,7 @@ func buildSystemInstruction(system json.RawMessage, modelName string, opts Trans
 						if strings.Contains(block.Text, "You are Antigravity") {
 							userHasAntigravityIdentity = true
 						}
-						// 过滤 OpenCode 默认提示词
-						filtered := filterOpenCodePrompt(block.Text)
+						filtered := filterUserSystemText(block.Text)
 						if filtered != "" {
 							userSystemParts = append(userSystemParts, GeminiPart{Text: filtered})
 						}

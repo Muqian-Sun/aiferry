@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 type geminiCompatHTTPUpstreamStub struct {
@@ -705,6 +706,40 @@ func TestConvertClaudeMessagesToGeminiGenerateContent_AddsThoughtSignatureForToo
 	}
 	if !strings.Contains(s, "\"thoughtSignature\":\""+geminiDummyThoughtSignature+"\"") {
 		t.Fatalf("expected injected thoughtSignature %q, got: %s", geminiDummyThoughtSignature, s)
+	}
+}
+
+// billing header 是 Anthropic 计费元数据，发往 Gemini 的 systemInstruction 里不带；其余 system 原样。
+func TestConvertClaudeMessagesToGeminiGenerateContent_DropsBillingHeaderSystemBlock(t *testing.T) {
+	const billing = "x-anthropic-billing-header: cc_version=2.1.302.ea8; cc_entrypoint=cli;"
+	tests := []struct {
+		name       string
+		system     any
+		wantSystem string
+	}{
+		{
+			name: "system array",
+			system: []any{
+				map[string]any{"type": "text", "text": billing},
+				map[string]any{"type": "text", "text": "You are Claude Code, Anthropic's official CLI for Claude."},
+			},
+			wantSystem: "You are Claude Code, Anthropic's official CLI for Claude.",
+		},
+		{name: "system string", system: billing},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := json.Marshal(map[string]any{
+				"system":   tt.system,
+				"messages": []any{map[string]any{"role": "user", "content": "hello"}},
+			})
+			require.NoError(t, err)
+
+			out, err := convertClaudeMessagesToGeminiGenerateContent(b)
+			require.NoError(t, err)
+			require.NotContains(t, string(out), "x-anthropic-billing-header")
+			require.Equal(t, tt.wantSystem, gjson.GetBytes(out, "systemInstruction.parts.0.text").String())
+		})
 	}
 }
 

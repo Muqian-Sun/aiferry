@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -285,6 +286,10 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	mappedModel string,
 ) ([]byte, error) {
 	if strings.HasPrefix(strings.ToLower(mappedModel), "gemini-") {
+		claudeBody, err := stripClaudeAgentSDKIdentityFromSystem(claudeBody)
+		if err != nil {
+			return nil, err
+		}
 		body, err := convertClaudeMessagesToGeminiGenerateContent(claudeBody)
 		if err != nil {
 			return nil, err
@@ -314,6 +319,34 @@ func (s *AntigravityGatewayService) buildAntigravityCompatGeminiBody(
 	options := s.getClaudeTransformOptions(ctx)
 	options.EnableIdentityPatch = true
 	return antigravity.TransformClaudeToGeminiWithOptions(claudeRequest, projectID, mappedModel, options)
+}
+
+// stripClaudeAgentSDKIdentityFromSystem 删掉 Claude 形状 body 的 system（字符串或文本块数组）里的
+// Claude Agent SDK 身份句，规则见 antigravity.StripClaudeAgentSDKIdentity。
+func stripClaudeAgentSDKIdentityFromSystem(claudeBody []byte) ([]byte, error) {
+	system := gjson.GetBytes(claudeBody, "system")
+	if system.Type == gjson.String {
+		if stripped := antigravity.StripClaudeAgentSDKIdentity(system.String()); stripped != system.String() {
+			return sjson.SetBytes(claudeBody, "system", stripped)
+		}
+		return claudeBody, nil
+	}
+	if !system.IsArray() {
+		return claudeBody, nil
+	}
+	var err error
+	for i, block := range system.Array() {
+		text := block.Get("text")
+		if text.Type != gjson.String {
+			continue
+		}
+		if stripped := antigravity.StripClaudeAgentSDKIdentity(text.String()); stripped != text.String() {
+			if claudeBody, err = sjson.SetBytes(claudeBody, fmt.Sprintf("system.%d.text", i), stripped); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return claudeBody, nil
 }
 
 // antigravityCompatWantsThoughts 转换后的 Claude 请求开了思考：Responses / Chat → Anthropic 转换只在推理档位不是 low 时

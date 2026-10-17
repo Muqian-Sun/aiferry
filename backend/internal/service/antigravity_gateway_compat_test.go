@@ -290,6 +290,37 @@ func TestBuildAntigravityCompatGeminiBody_ConfiguresMixedToolInvocations(t *test
 	}
 }
 
+// Gemini 模型走的转换同样要丢掉 billing header 块和 Claude Agent SDK 身份句，否则 Antigravity 上游回 429。
+func TestBuildAntigravityCompatGeminiBody_DropsClaudeClientSystemMarkers(t *testing.T) {
+	svc := &AntigravityGatewayService{}
+	const sdkIdentity = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
+	tests := []struct {
+		name   string
+		system string
+	}{
+		{
+			name:   "system array",
+			system: `[{"type":"text","text":"x-anthropic-billing-header: cc_version=2.1.302.ea8; cc_entrypoint=cli;"},{"type":"text","text":"` + sdkIdentity + `"},{"type":"text","text":"keep this instruction"}]`,
+		},
+		{
+			name:   "system string",
+			system: `"` + sdkIdentity + `\nkeep this instruction"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			claudeBody := []byte(`{"system":` + tt.system + `,"messages":[{"role":"user","content":"hello"}]}`)
+			body, err := svc.buildAntigravityCompatGeminiBody(context.Background(), claudeBody, nil, "project-1", "gemini-3.8-flash-high")
+			require.NoError(t, err)
+
+			system := gjson.GetBytes(body, "request.systemInstruction").Raw
+			require.NotContains(t, system, "x-anthropic-billing-header")
+			require.NotContains(t, system, "Claude Agent SDK")
+			require.Contains(t, system, "keep this instruction")
+		})
+	}
+}
+
 func TestAntigravityCompatChatMixedBuiltInToolsPreferClientFunctions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &queuedHTTPUpstreamStub{responses: []*http.Response{antigravityCompatSuccessResponse()}}
