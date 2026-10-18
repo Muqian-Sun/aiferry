@@ -93,7 +93,7 @@ func TestGeminiResponseToChatCompletionsOmitsInvalidInlineData(t *testing.T) {
 	}
 }
 
-func TestConvertGeminiToClaudeMessageOmitsInlineDataForAnthropicMessages(t *testing.T) {
+func TestConvertGeminiToClaudeMessageRendersInlineImagesAsMarkdown(t *testing.T) {
 	geminiResp := map[string]any{
 		"candidates": []any{map[string]any{
 			"content": map[string]any{"parts": []any{
@@ -108,7 +108,7 @@ func TestConvertGeminiToClaudeMessageOmitsInlineDataForAnthropicMessages(t *test
 	rawData, err := json.Marshal(geminiResp)
 	require.NoError(t, err)
 
-	withInlineData, _ := convertGeminiToClaudeMessage(geminiResp, "gemini-test", rawData, true)
+	withInlineData, _ := convertGeminiToClaudeMessage(geminiResp, "gemini-test", rawData)
 	contentWithInlineData, ok := withInlineData["content"].([]any)
 	require.True(t, ok)
 	require.Len(t, contentWithInlineData, 4)
@@ -119,17 +119,6 @@ func TestConvertGeminiToClaudeMessageOmitsInlineDataForAnthropicMessages(t *test
 	require.Equal(t, "tool_use", toolUse["type"])
 	require.Equal(t, "get_weather", toolUse["name"])
 	require.Equal(t, map[string]any{"type": "text", "text": "after"}, contentWithInlineData[3])
-
-	withoutInlineData, _ := convertGeminiToClaudeMessage(geminiResp, "gemini-test", rawData, false)
-	contentWithoutInlineData, ok := withoutInlineData["content"].([]any)
-	require.True(t, ok)
-	require.Len(t, contentWithoutInlineData, 3)
-	require.Equal(t, map[string]any{"type": "text", "text": "before"}, contentWithoutInlineData[0])
-	toolUseWithoutInlineData, ok := contentWithoutInlineData[1].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "tool_use", toolUseWithoutInlineData["type"])
-	require.Equal(t, "get_weather", toolUseWithoutInlineData["name"])
-	require.Equal(t, map[string]any{"type": "text", "text": "after"}, contentWithoutInlineData[2])
 }
 
 func TestGeminiResponseToChatCompletionsRetainsTextAndToolBehavior(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -665,7 +664,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			collectedBytes, _ := json.Marshal(collected)
 			upstreamResponseModelObserverFromContext(c).ObserveGemini(collectedBytes)
 			observeGeminiImageOutputs(c, collectedBytes)
-			claudeResp, usageObj2 := convertGeminiToClaudeMessage(collected, originalModel, collectedBytes, false)
+			claudeResp, usageObj2 := convertGeminiToClaudeMessage(collected, originalModel, collectedBytes)
 			c.JSON(http.StatusOK, claudeResp)
 			usage = usageObj2
 			if usageObj != nil && (usageObj.InputTokens > 0 || usageObj.OutputTokens > 0) {
@@ -1639,7 +1638,7 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}
 
-	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel, unwrappedBody, false)
+	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel, unwrappedBody)
 	c.JSON(http.StatusOK, claudeResp)
 
 	return usage, nil
@@ -1690,6 +1689,61 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 	openToolID := ""
 	openToolName := ""
 	seenToolJSON := ""
+	var images geminiInlineImageTally
+
+	// Close an open tool_use block before starting text, mirroring
+	// the functionCall branch (which closes open text blocks) and
+	// the chat-completions sibling's closeOpenTool(). Otherwise a
+	// tool→text sequence keeps the tool_use block open while the
+	// text block starts, emitting overlapping Anthropic content
+	// blocks that violate the SSE contract.
+	closeOpenTool := func() {
+		if openToolIndex < 0 {
+			return
+		}
+		writeSSE(c.Writer, "content_block_stop", map[string]any{
+			"type":  "content_block_stop",
+			"index": openToolIndex,
+		})
+		openToolIndex = -1
+		openToolName = ""
+		seenToolJSON = ""
+	}
+	writeTextDelta := func(delta string) {
+		if openBlockType != "text" {
+			if openBlockIndex >= 0 {
+				writeSSE(c.Writer, "content_block_stop", map[string]any{
+					"type":  "content_block_stop",
+					"index": openBlockIndex,
+				})
+			}
+			openBlockType = "text"
+			openBlockIndex = nextBlockIndex
+			nextBlockIndex++
+			writeSSE(c.Writer, "content_block_start", map[string]any{
+				"type":  "content_block_start",
+				"index": openBlockIndex,
+				"content_block": map[string]any{
+					"type": "text",
+					"text": "",
+				},
+			})
+		}
+
+		if firstTokenMs == nil {
+			ms := int(time.Since(startTime).Milliseconds())
+			firstTokenMs = &ms
+		}
+		writeSSE(c.Writer, "content_block_delta", map[string]any{
+			"type":  "content_block_delta",
+			"index": openBlockIndex,
+			"delta": map[string]any{
+				"type": "text_delta",
+				"text": delta,
+			},
+		})
+		flusher.Flush()
+	}
 
 	reader := bufio.NewReader(resp.Body)
 	for {
@@ -1733,63 +1787,24 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 		}
 
 		parts := extractGeminiParts(geminiResp)
+		payloadImages := geminiInlineImagePayload{}
 		for _, part := range parts {
 			if text, ok := part["text"].(string); ok && text != "" {
-				// Close an open tool_use block before starting text, mirroring
-				// the functionCall branch (which closes open text blocks) and
-				// the chat-completions sibling's closeOpenTool(). Otherwise a
-				// tool→text sequence keeps the tool_use block open while the
-				// text block starts, emitting overlapping Anthropic content
-				// blocks that violate the SSE contract.
-				if openToolIndex >= 0 {
-					writeSSE(c.Writer, "content_block_stop", map[string]any{
-						"type":  "content_block_stop",
-						"index": openToolIndex,
-					})
-					openToolIndex = -1
-					openToolName = ""
-					seenToolJSON = ""
-				}
-
+				closeOpenTool()
 				delta, newSeen := computeGeminiTextDelta(seenText, text)
 				seenText = newSeen
 				if delta == "" {
 					continue
 				}
+				writeTextDelta(delta)
+				continue
+			}
 
-				if openBlockType != "text" {
-					if openBlockIndex >= 0 {
-						writeSSE(c.Writer, "content_block_stop", map[string]any{
-							"type":  "content_block_stop",
-							"index": openBlockIndex,
-						})
-					}
-					openBlockType = "text"
-					openBlockIndex = nextBlockIndex
-					nextBlockIndex++
-					writeSSE(c.Writer, "content_block_start", map[string]any{
-						"type":  "content_block_start",
-						"index": openBlockIndex,
-						"content_block": map[string]any{
-							"type": "text",
-							"text": "",
-						},
-					})
+			if mimeType, data, ok := geminiInlineImagePart(part); ok {
+				if images.admit(payloadImages, data) {
+					closeOpenTool()
+					writeTextDelta(geminiInlineImageMarkdown(mimeType, data))
 				}
-
-				if firstTokenMs == nil {
-					ms := int(time.Since(startTime).Milliseconds())
-					firstTokenMs = &ms
-				}
-				writeSSE(c.Writer, "content_block_delta", map[string]any{
-					"type":  "content_block_delta",
-					"index": openBlockIndex,
-					"delta": map[string]any{
-						"type": "text_delta",
-						"text": delta,
-					},
-				})
-				flusher.Flush()
 				continue
 			}
 
@@ -1981,9 +1996,39 @@ func unwrapIfNeeded(isOAuth bool, raw []byte) []byte {
 	return inner
 }
 
+// collectGeminiSSE 聚合对话入站要用的完整响应：文本按 chunk 拼接，内联图片按 geminiInlineImageTally
+// 去重后全部保留（聚合只留最后一个带 parts 的 chunk，增量流里前面 chunk 的图会丢）。
 func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsage, error) {
-	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, nil)
-	return collected, usage, err
+	var tally geminiInlineImageTally
+	var images []any
+	collected, usage, _, err := collectGeminiSSEObserved(body, isOAuth, func(rawBytes []byte) {
+		seen := geminiInlineImagePayload{}
+		forEachGeminiInlineImageOutput(rawBytes, func(mimeType, data string) {
+			if tally.admit(seen, data) {
+				images = append(images, map[string]any{"inlineData": map[string]any{"mimeType": mimeType, "data": data}})
+			}
+		})
+	})
+	if err != nil || len(images) == 0 {
+		return collected, usage, err
+	}
+	return replaceGeminiInlineImageParts(collected, images), usage, nil
+}
+
+// replaceGeminiInlineImageParts 把响应里的内联图片 part 换成 images（排在其余 part 之后）。
+func replaceGeminiInlineImageParts(response map[string]any, images []any) map[string]any {
+	result, existingParts, setParts := getOrCreateGeminiParts(response)
+	parts := make([]any, 0, len(existingParts)+len(images))
+	for _, part := range existingParts {
+		if pm, ok := part.(map[string]any); ok {
+			if _, _, isImage := geminiInlineImagePart(pm); isImage {
+				continue
+			}
+		}
+		parts = append(parts, part)
+	}
+	setParts(append(parts, images...))
+	return result
 }
 
 // geminiSSECollectStats 记录一次 SSE 聚合读到的 data 事件数，以及非 data 行的兜底内容。
@@ -2389,7 +2434,7 @@ func unwrapGeminiResponse(raw []byte) ([]byte, error) {
 	return raw, nil
 }
 
-func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel string, rawData []byte, includeInlineData bool) (map[string]any, *ClaudeUsage) {
+func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel string, rawData []byte) (map[string]any, *ClaudeUsage) {
 	usage := extractGeminiUsage(rawData)
 	if usage == nil {
 		usage = &ClaudeUsage{}
@@ -2412,15 +2457,11 @@ func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel strin
 								"text": text,
 							})
 						}
-						if inlineData, ok := pm["inlineData"].(map[string]any); includeInlineData && ok {
-							mimeType, _ := inlineData["mimeType"].(string)
-							data, _ := inlineData["data"].(string)
-							if isGeminiInlineImageMIMEType(mimeType) && isValidBase64(data) {
-								contentBlocks = append(contentBlocks, map[string]any{
-									"type": "text",
-									"text": fmt.Sprintf("![image](data:%s;base64,%s)", mimeType, data),
-								})
-							}
+						if mimeType, data, ok := geminiInlineImagePart(pm); ok {
+							contentBlocks = append(contentBlocks, map[string]any{
+								"type": "text",
+								"text": geminiInlineImageMarkdown(mimeType, data),
+							})
 						}
 						if fc, ok := pm["functionCall"].(map[string]any); ok {
 							name, _ := fc["name"].(string)
@@ -2471,14 +2512,6 @@ func isGeminiInlineImageMIMEType(mimeType string) bool {
 	default:
 		return false
 	}
-}
-
-func isValidBase64(data string) bool {
-	if data == "" {
-		return false
-	}
-	_, err := base64.StdEncoding.DecodeString(data)
-	return err == nil
 }
 
 func extractGeminiUsage(data []byte) *ClaudeUsage {

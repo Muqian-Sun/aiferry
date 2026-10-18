@@ -91,7 +91,7 @@ func TestCountGeminiInlineImageOutputs(t *testing.T) {
 }
 
 // 累积式 SSE 会把同一张图在后续 chunk 里整段重发，逐 chunk 累加会重复计费。
-// 计数器取单个 payload 内的最大值，正是为了挡住这一点。
+// 计数器按图片数据去重（跨 payload 取每份数据出现次数的最大值），正是为了挡住这一点。
 func TestObserveGeminiImageOutputs_CumulativeChunksDoNotDoubleCount(t *testing.T) {
 	c := newGeminiImageTestContext(t)
 	beginGeminiImageOutputObservation(c)
@@ -116,6 +116,31 @@ func TestObserveGeminiImageOutputs_KeepsLargestChunk(t *testing.T) {
 	observeGeminiImageOutputs(c, []byte(`{"usageMetadata":{"promptTokenCount":9}}`))
 
 	require.Equal(t, 2, observedGeminiImageOutputs(c))
+}
+
+// 增量式流（Antigravity / Gemini 官方）多张图分散在不同 chunk：每张都要算，不能被「单 chunk 最大值」压成 1。
+func TestObserveGeminiImageOutputs_IncrementalChunksCountEachImage(t *testing.T) {
+	c := newGeminiImageTestContext(t)
+	beginGeminiImageOutputObservation(c)
+
+	observeGeminiImageOutputs(c, []byte(geminiImageResponse(`{"inlineData":{"mimeType":"image/png","data":"aW1hZ2UtYQ=="}}`)))
+	// v1internal 封装（Antigravity 原始 SSE 行）同样要认。
+	observeGeminiImageOutputs(c, []byte(`{"response":`+geminiImageResponse(`{"inlineData":{"mimeType":"image/png","data":"aW1hZ2UtYg=="}}`)+`}`))
+	// 重发前面的图（累积式）不再加。
+	observeGeminiImageOutputs(c, []byte(geminiImageResponse(`{"inlineData":{"mimeType":"image/png","data":"aW1hZ2UtYQ=="}}`)))
+
+	require.Equal(t, 2, observedGeminiImageOutputs(c))
+}
+
+// 思考草图与数据不是合法 base64 的 part 都不计费（也不会回给客户端，见 geminiInlineImagePart）。
+func TestObserveGeminiImageOutputs_SkipsThoughtAndInvalidImages(t *testing.T) {
+	c := newGeminiImageTestContext(t)
+	beginGeminiImageOutputObservation(c)
+
+	observeGeminiImageOutputs(c, []byte(geminiImageResponse(
+		`{"inlineData":{"mimeType":"image/png","data":"`+geminiTestPNG+`"},"thought":true},`+
+			`{"inlineData":{"mimeType":"image/png","data":"not base64!"}}`)))
+	require.Equal(t, 0, observedGeminiImageOutputs(c))
 }
 
 // failover 会拿同一个 gin.Context 重跑 Forward，计数器必须按次重置，
