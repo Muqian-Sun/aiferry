@@ -33,6 +33,9 @@ func seedEntriesByModelID(entries []ModelCatalogEntry) map[string]ModelCatalogEn
 // xaiImagineSeeds 五条里 grok-imagine-image-quality 已弃用（xAI 2026-11-02 下线），在排除清单里，实际播进目录的是四条。
 const seededImagineCount = 4
 
+// officialVideoSeeds 十条官方视频条目（可灵 4、MiniMax 2、Seedance 4）。
+const seededMediaCount = seededImagineCount + 10
+
 func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 	repo := &stubModelCatalogRepo{}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
@@ -51,12 +54,12 @@ func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
 	// 2 条来自价格文件 / 兜底表 + 4 条 xAI Imagine 媒体种子
-	require.Equal(t, 2+seededImagineCount, result.Inserted)
+	require.Equal(t, 2+seededMediaCount, result.Inserted)
 	require.Zero(t, result.Refreshed)
 	require.Zero(t, result.SkippedAdmin)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 2+seededImagineCount)
+	require.Len(t, entries, 2+seededMediaCount)
 
 	sonnet := entries["claude-sonnet-4"]
 	require.Equal(t, ModelCatalogManagedBySeed, sonnet.ManagedBy)
@@ -86,7 +89,7 @@ func TestSeed_PricingFileWinsOverFallbackTableForSameModel(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 1+seededImagineCount)
+	require.Len(t, entries, 1+seededMediaCount)
 	require.InDelta(t, 3e-6, *entries["claude-sonnet-4"].InputPrice, 1e-12)
 }
 
@@ -154,7 +157,7 @@ func TestSeed_RefreshesSeedEntriesAndNeverOverwritesAdminEdits(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, seededImagineCount, result.Inserted, "只有 Imagine 媒体种子是新插入的")
+	require.Equal(t, seededMediaCount, result.Inserted, "只有媒体种子是新插入的")
 	require.Equal(t, 1, result.Refreshed)
 	require.Equal(t, 1, result.SkippedAdmin)
 
@@ -438,7 +441,7 @@ func TestSeed_ImagineSeedsSkippedWhenPricingFileHasModel(t *testing.T) {
 	require.Empty(t, image20.Intervals, "价格文件条目不带种子的分档")
 	// 其余 Imagine 种子照常播入
 	require.Contains(t, entries, "grok-imagine-video-1.5")
-	require.Len(t, entries, seededImagineCount)
+	require.Len(t, entries, seededMediaCount)
 }
 
 // Imagine 种子带分档一起落库；再次播种时分档随种子刷新。目录不存别名：种子的旧别名一个都查不到。

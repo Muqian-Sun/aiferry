@@ -160,7 +160,7 @@ func (p PricingCard) Clone() PricingCard {
 //   - BillingModeToken（含空值）：区间是上下文 token 数分段 (min, max]，
 //     按 MinTokens 排序后无重叠，无界区间（MaxTokens=nil）必须是最后一个。
 //   - BillingModeImage / BillingModeVideo：区间是按 tier_label 分档（图片按输出尺寸
-//     1K/2K/4K，视频按分辨率 480p/720p/1080p），每档必须带 tier_label 与 per_request_price，
+//     1K/2K/4K，视频按分辨率 480p/720p/768p/1080p/2k/4k），每档必须带 tier_label 与 per_request_price，
 //     tier_label 同条目内唯一且只接受上述取值（计费查档区分大小写）。
 //   - BillingModePerRequest：按 tier_label 分档，标签自由；跳过区间重叠与 last-unlimited 校验。
 //
@@ -186,7 +186,7 @@ func ValidateIntervals(intervals []PricingInterval, mode BillingMode) error {
 	case BillingModeImage:
 		return validateMediaTiers(intervals, mediaTierLabels(ImageBillingSize1K, ImageBillingSize2K, ImageBillingSize4K), "image")
 	case BillingModeVideo:
-		return validateMediaTiers(intervals, mediaTierLabels(VideoBillingResolution480P, VideoBillingResolution720P, VideoBillingResolution1080P), "video")
+		return validateMediaTiers(intervals, mediaTierLabels(VideoBillingResolutions()...), "video")
 	case BillingModePerRequest:
 		// 按 tier_label 匹配，不做 token 区间重叠校验
 		return nil

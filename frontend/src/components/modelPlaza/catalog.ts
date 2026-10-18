@@ -207,6 +207,9 @@ const VENDOR_LABELS: Record<string, string> = {
   minimax: 'MiniMax',
   zhipu: 'Zhipu AI',
   volcengine: 'Volcengine',
+  // 官方视频渠道的厂商（2026-10-18）：Seedance 是字节的视频模型，可灵是快手的
+  seedance: 'ByteDance',
+  kling: 'Kuaishou',
   // 目录只收 11 家（2026-10-06）：通义在价格文件里叫 dashscope，小米 MiMo 叫 xiaomi
   dashscope: 'Alibaba',
   xiaomi: 'Xiaomi',

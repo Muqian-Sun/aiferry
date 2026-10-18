@@ -307,8 +307,12 @@ func normalizePriceSegments(intervals []PricingInterval) []PricingInterval {
 	return out
 }
 
-// validateBindingAccount 渠道能承接这个模型：至少有一个入站协议能承接；经扩展端点调用的条目还要能承接扩展端点。
+// validateBindingAccount 渠道能承接这个模型：视频条目按视频适配器注册表；其余至少有一个入站协议能承接，
+// 经扩展端点调用的条目还要能承接扩展端点。
 func (s *ModelCatalogService) validateBindingAccount(entry *ModelCatalogEntry, account *Account) error {
+	if entry != nil && entry.EffectiveBillingMode() == BillingModeVideo {
+		return AccountServesCatalogVideoEntry(entry, account)
+	}
 	if err := AccountServesCatalogEntry(entry, account); err != nil {
 		return err
 	}

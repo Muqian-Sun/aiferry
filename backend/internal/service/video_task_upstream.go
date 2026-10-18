@@ -46,22 +46,33 @@ type videoTaskRouteKey struct {
 }
 
 // videoTaskRoutes 上游适配器注册表：（条目厂商, 账号形态）→ 适配器。先查精确厂商，再查通配。
-// 官方厂商适配器（Seedance / Kling / MiniMax …）在这里按 {厂商, vendor_key:厂商} 加一行，
-// 并在 newVideoTaskUpstreams 里注册实现即可，核心流程不用动。
+// 官方厂商适配器按 {厂商, vendor_key:厂商} 一行，并在 NewVideoTaskService 里注册实现。
 var videoTaskRoutes = map[videoTaskRouteKey]VideoUpstreamKind{
-	{PlatformGrok, videoAccountKindGrokOAuth}:      VideoUpstreamGrokOAuth,
-	{PlatformGrok, videoAccountKindRelayKey}:       VideoUpstreamXAIRelay,
-	{videoTaskAnyVendor, videoAccountKindRelayKey}: VideoUpstreamNewAPIRelay,
+	{PlatformGrok, videoAccountKindGrokOAuth}:                              VideoUpstreamGrokOAuth,
+	{PlatformGrok, videoAccountKindRelayKey}:                               VideoUpstreamXAIRelay,
+	{videoTaskAnyVendor, videoAccountKindRelayKey}:                         VideoUpstreamNewAPIRelay,
+	{PlatformSeedance, videoAccountKindVendorKeyPrefix + PlatformSeedance}: VideoUpstreamSeedanceOfficial,
+	{PlatformKling, videoAccountKindVendorKeyPrefix + PlatformKling}:       VideoUpstreamKlingOfficial,
+	{PlatformMiniMax, videoAccountKindVendorKeyPrefix + PlatformMiniMax}:   VideoUpstreamMiniMaxOfficial,
 }
 
 // videoAccountKind 账号在视频注册表里的形态；没有视频能力的形态返回空串。
+// 第三方 key：配了 video 地址的按地址认出的厂商（认不出没有形态）；指向厂商官方域名的对话 key 没有视频形态；
+// 其余是通用中转。
 func videoAccountKind(account *Account) string {
 	if account == nil {
 		return ""
 	}
 	if account.IsThirdPartyKey() {
-		if vendor := account.Vendor(); vendor != "" {
+		vendor := account.Vendor()
+		if account.ProtocolEndpoint(APIProtocolVideo) != "" {
+			if vendor == "" {
+				return ""
+			}
 			return videoAccountKindVendorKeyPrefix + vendor
+		}
+		if vendor != "" {
+			return ""
 		}
 		return videoAccountKindRelayKey
 	}

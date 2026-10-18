@@ -2388,7 +2388,7 @@ func sanitizeExtraBaseRPM(extra map[string]any) {
 // 再抄一份到前端就会出现两处需要同步维护的地址表。
 func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
 	platforms := service.PlatformsWithProtocolDefaults()
-	modes := []string{"", service.AccountModeCoding, service.AccountModeZen, service.AccountModeGo}
+	modes := service.ProtocolDefaultsModes()
 	out := make(map[string]map[string]map[string]string, len(platforms))
 	for _, platform := range platforms {
 		perMode := make(map[string]map[string]string, len(modes))
@@ -2409,9 +2409,11 @@ func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
 	}
 	// vendor_hosts：官方域名 → 厂商（只有国产厂商与 OpenCode），建第三方 key 时前端据此按地址提示厂商
 	//（key 不选平台）；认不出的地址（含海外四家官方域名）提示按中转处理。
+	// video_vendor_hosts：video 协议地址只按这张表认厂商（与 Account.Vendor 同口径）。
 	response.Success(c, gin.H{
-		"protocols":    service.UpstreamProtocols(),
-		"defaults":     out,
-		"vendor_hosts": service.OfficialVendorHosts(),
+		"protocols":          service.UpstreamProtocols(),
+		"defaults":           out,
+		"vendor_hosts":       service.OfficialVendorHosts(),
+		"video_vendor_hosts": service.OfficialVideoVendorHosts(),
 	})
 }

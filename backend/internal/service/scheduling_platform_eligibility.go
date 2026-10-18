@@ -45,6 +45,16 @@ func accountServesCatalogRoute(account *Account, platform, inboundProtocol strin
 	return account.ServesInbound(inboundProtocol)
 }
 
+// accountServesCatalogVideoRoute 视频创建的目录路由准入：不看对话协议注册表（官方视频 key 没有对话协议，
+// 扩展端点的入站为空也转不到 video），看账号在视频注册表里有没有形态；厂商与端点能力由 SelectOptions.admits 的
+// video_generation 门再判。
+func accountServesCatalogVideoRoute(account *Account, platform string) bool {
+	if account == nil || (platform == PlatformAntigravity && account.Vendor() != PlatformAntigravity) {
+		return false
+	}
+	return videoAccountKind(account) != ""
+}
+
 // AccountServesPlatformForAnyInbound 报告账号能否为 platform 形态的请求承接至少一种入站协议，
 // 供没有入站请求的模型列表使用（管理端模型候选、未映射模型补齐）。
 //
@@ -58,7 +68,7 @@ func AccountServesPlatformForAnyInbound(account *Account, platform string) bool 
 	if !account.IsThirdPartyKey() {
 		return account.Platform == platform
 	}
-	for _, inboundProtocol := range UpstreamProtocols() {
+	for _, inboundProtocol := range ConversationProtocols() {
 		if account.KeyUpstreamProtocolFor(platform, inboundProtocol) != "" {
 			return true
 		}
@@ -71,6 +81,11 @@ func AccountServesPlatformForAnyInbound(account *Account, platform string) bool 
 func requestPlatformPredicate(ctx context.Context, platform string) func(*Account) bool {
 	inboundProtocol := InboundProtocolFromContext(ctx)
 	if _, routed := CatalogRouteFromContext(ctx); routed {
+		if selectOptionsFromContext(ctx).Capability == OpenAIEndpointCapabilityVideoGeneration {
+			return func(account *Account) bool {
+				return accountServesCatalogVideoRoute(account, platform)
+			}
+		}
 		return func(account *Account) bool {
 			return accountServesCatalogRoute(account, platform, inboundProtocol)
 		}

@@ -132,7 +132,7 @@ func ParseGrokMediaRequest(contentType string, body []byte) GrokMediaRequestInfo
 	info.AspectRatio = strings.TrimSpace(info.AspectRatio)
 	info.ImageResolution = grokImagineImageResolution(info.ImageResolution)
 	info.Resolution = NormalizeVideoBillingResolutionOrDefault(info.Resolution)
-	info.DurationSeconds = NormalizeVideoBillingDurationSecondsOrDefault(info.DurationSeconds)
+	info.DurationSeconds = NormalizeGrokVideoDurationSecondsOrDefault(info.DurationSeconds)
 	if info.N <= 0 {
 		info.N = 1
 	}
@@ -448,7 +448,7 @@ func (s *OpenAIGatewayService) StoreGrokVideoPendingBilling(
 		pending.VideoResolution = NormalizeVideoBillingResolutionOrDefault(pending.VideoResolution)
 	}
 	if pending.VideoDurationSeconds > 0 {
-		pending.VideoDurationSeconds = NormalizeVideoBillingDurationSecondsOrDefault(pending.VideoDurationSeconds)
+		pending.VideoDurationSeconds = NormalizeGrokVideoDurationSecondsOrDefault(pending.VideoDurationSeconds)
 	}
 	// Always stamp create-accept time when missing so deferred duration_ms is E2E.
 	if strings.TrimSpace(pending.CreatedAt) == "" {
@@ -613,7 +613,7 @@ func ExtractGrokVideoBillingFromStatusBody(statusBody []byte, pending *GrokVideo
 		resolution = NormalizeVideoBillingResolutionOrDefault(resolution)
 	}
 	if durationSeconds > 0 {
-		durationSeconds = NormalizeVideoBillingDurationSecondsOrDefault(durationSeconds)
+		durationSeconds = NormalizeGrokVideoDurationSecondsOrDefault(durationSeconds)
 	}
 	responseID := extractGrokMediaVideoRequestID(statusBody)
 	if responseID == "" {

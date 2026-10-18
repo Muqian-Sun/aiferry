@@ -121,8 +121,8 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 		}
 	}
 
-	// xAI Imagine 官方媒体价：价格文件没有这些模型时才播（同硬编码兜底价的优先级）。
-	for _, entry := range xaiImagineSeeds() {
+	// 媒体模型官方价（xAI Imagine、官方视频厂商）：价格文件没有这些模型时才播（同硬编码兜底价的优先级）。
+	for _, entry := range mediaCatalogSeeds() {
 		key := NormalizeModelCatalogKey(entry.ModelID)
 		if _, exists := byKey[key]; exists {
 			continue
@@ -156,8 +156,11 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 
 // catalogVendorAllowlist 模型目录只收这 11 家的模型（muqian 2026-10-06）：OpenAI、Anthropic、Google、xAI、DeepSeek、
 // 智谱、月之暗面（Kimi）、MiniMax、阿里（通义）、字节（豆包）、小米（MiMo）。键是条目的厂商串（catalogSeedVendor 归一后的写法）。
+// 官方视频渠道（2026-10-18）另收 seedance（字节的视频，与豆包同一家，按视频渠道单列厂商）与 kling（快手可灵）。
 // 只管播种（价格文件 / 兜底价表 → 目录）；管理员在后台手动建的条目不受限。
 var catalogVendorAllowlist = map[string]bool{
+	"seedance":   true,
+	"kling":      true,
 	"openai":     true,
 	"anthropic":  true,
 	"gemini":     true,
@@ -405,7 +408,7 @@ func CatalogVendorAllowed(vendor string) bool {
 }
 
 // LookupPriceFileEntry 按模型标识构造一条建议条目，给「添加模型」自动带出厂商 / 计费方式 / 价格。
-// 与播种同一来源、同一优先级：价格文件（确定性识别，不按子串猜）→ 硬编码兜底价 → xAI Imagine 官方媒体价。
+// 与播种同一来源、同一优先级：价格文件（确定性识别，不按子串猜）→ 硬编码兜底价 → 媒体模型官方价（mediaCatalogSeeds）。
 // 带出的条目模型标识用管理员输入的写法、状态为下架；找不到时 ok=false。
 func (s *ModelCatalogService) LookupPriceFileEntry(modelID string) (entry ModelCatalogEntry, ok bool) {
 	modelID = strings.TrimSpace(modelID)
@@ -431,7 +434,7 @@ func (s *ModelCatalogService) LookupPriceFileEntry(modelID string) (entry ModelC
 			}
 		}
 	}
-	for _, seed := range xaiImagineSeeds() {
+	for _, seed := range mediaCatalogSeeds() {
 		if NormalizeModelCatalogKey(seed.ModelID) == key {
 			seed.ModelID = modelID
 			return seed, true

@@ -21,6 +21,8 @@ export function platformLabel(p: string): string {
     case 'deepseek': return 'DeepSeek'
     case 'minimax': return 'MiniMax'
     case 'opencode_go': return 'OpenCode'
+    case 'seedance': return 'Seedance'
+    case 'kling': return 'Kling'
     case 'composite': return 'Composite'
     default: return p || 'API'
   }

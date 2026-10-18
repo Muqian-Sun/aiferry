@@ -177,6 +177,38 @@ describe('PricingModelBlock: per-request models', () => {
     ])
   })
 
+  // 视频分档扩到 768p / 2k / 4k（官方视频厂商：MiniMax 768P / 2K，Seedance / 可灵 4k）
+  it('offers 768p / 2k / 4k video tiers and saves them with the backend labels', async () => {
+    const entry: PricingEntry = {
+      ...imageEntry(),
+      id: 5,
+      model_id: 'MiniMax-H3',
+      vendor: 'minimax',
+      billing_mode: 'video',
+      per_request_price: 0.08,
+      intervals: [tier('768p', 0.08, 0)],
+      bindings: [binding(5, 1, { per_request_price: 0.04 })]
+    }
+    const { wrapper } = mountModelBlock(entry)
+    await wrapper.find('[data-testid="pricing-official-tiers-toggle"]').trigger('click')
+    for (const label of ['480p', '720p', '1080p', '2k', '4k']) {
+      expect(wrapper.find(`[data-testid="pricing-official-tier-add-${label}"]`).exists(), label).toBe(true)
+    }
+    expect(wrapper.find('[data-testid="pricing-official-tier-add-768p"]').exists(), '已有的档不再列').toBe(false)
+    await wrapper.find('[data-testid="pricing-official-tier-add-2k"]').trigger('click')
+    await wrapper.find('[data-testid="pricing-official-tier-2k"]').setValue('0.13')
+    await wrapper.find('[data-testid="pricing-official-tier-add-4k"]').trigger('click')
+    await wrapper.find('[data-testid="pricing-official-tier-4k"]').setValue('0.5')
+    await wrapper.find('[data-testid="pricing-model-save"]').trigger('click')
+    await flushPromises()
+    const body = saveModel.mock.calls[0][1]
+    expect(body.intervals.map((iv: PricingInterval) => [iv.tier_label, iv.per_request_price])).toEqual([
+      ['768p', 0.08],
+      ['2k', 0.13],
+      ['4k', 0.5]
+    ])
+  })
+
   it('blocks saving while the upstream per-request price is missing', async () => {
     const { wrapper } = mountModelBlock(imageEntry())
     await wrapper.find('[data-testid="pricing-binding-1-per_request_price"]').setValue('')

@@ -8,7 +8,8 @@ const PROTOCOL_SHORT: Record<UpstreamProtocol, string> = {
   anthropic: 'Messages',
   chat_completions: 'Chat',
   responses: 'Responses',
-  gemini: 'Gemini'
+  gemini: 'Gemini',
+  video: 'Video'
 }
 
 // 两级公共后缀里常见的第二级（api.example.com.cn 取 example）

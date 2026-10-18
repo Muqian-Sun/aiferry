@@ -305,6 +305,7 @@ func TestVideoTaskSubmitErrorClassification(t *testing.T) {
 	t.Cleanup(svc.Stop)
 	account := videoTestRelayKey(2, "https://relay.example.com/v1")
 	req := VideoTaskRequest{Model: "sora-2", Prompt: "waves"}
+	openAIVideoEntry := &ModelCatalogEntry{ModelID: "sora-2", Vendor: "openai", BillingMode: BillingModeVideo}
 
 	opsKinds := func(c *gin.Context) []string {
 		var kinds []string
@@ -316,7 +317,7 @@ func TestVideoTaskSubmitErrorClassification(t *testing.T) {
 
 	status, body = http.StatusServiceUnavailable, `{"error":{"message":"overloaded"}}`
 	c := videoTestGinContext()
-	_, err := svc.Submit(context.Background(), c, account, "openai", req)
+	_, err := svc.Submit(context.Background(), c, account, openAIVideoEntry, req)
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusServiceUnavailable, failoverErr.StatusCode)
@@ -324,7 +325,7 @@ func TestVideoTaskSubmitErrorClassification(t *testing.T) {
 
 	status, body = http.StatusBadRequest, `{"error":{"message":"prompt too long"}}`
 	c = videoTestGinContext()
-	_, err = svc.Submit(context.Background(), c, account, "openai", req)
+	_, err = svc.Submit(context.Background(), c, account, openAIVideoEntry, req)
 	var clientErr *VideoTaskClientError
 	require.ErrorAs(t, err, &clientErr)
 	require.Equal(t, http.StatusBadRequest, clientErr.StatusCode)
@@ -332,12 +333,12 @@ func TestVideoTaskSubmitErrorClassification(t *testing.T) {
 	require.Equal(t, []string{"http_error"}, opsKinds(c))
 
 	status, body = http.StatusOK, `{"status":"queued"}`
-	_, err = svc.Submit(context.Background(), videoTestGinContext(), account, "openai", req)
+	_, err = svc.Submit(context.Background(), videoTestGinContext(), account, openAIVideoEntry, req)
 	require.ErrorAs(t, err, &failoverErr, "没回任务 ID 当上游故障换号")
 
 	upstream.transportErr["relay.example.com"] = errors.New("dial tcp: connection refused")
 	c = videoTestGinContext()
-	_, err = svc.Submit(context.Background(), c, account, "openai", req)
+	_, err = svc.Submit(context.Background(), c, account, openAIVideoEntry, req)
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
 	require.Equal(t, []string{"request_error"}, opsKinds(c))
@@ -345,9 +346,9 @@ func TestVideoTaskSubmitErrorClassification(t *testing.T) {
 
 	status, body = http.StatusOK, `{"task_id":"up-9"}`
 	account.CatalogUpstreamModels = map[string]string{"sora-2": "sora-2-relay"}
-	submission, err := svc.Submit(context.Background(), videoTestGinContext(), account, "openai", req)
+	submission, err := svc.Submit(context.Background(), videoTestGinContext(), account, openAIVideoEntry, req)
 	require.NoError(t, err)
-	require.Equal(t, VideoTaskSubmission{UpstreamKind: VideoUpstreamNewAPIRelay, UpstreamTaskID: "up-9", UpstreamModel: "sora-2-relay"}, submission)
+	require.Equal(t, VideoTaskSubmission{UpstreamKind: VideoUpstreamNewAPIRelay, UpstreamTaskID: "up-9", UpstreamModel: "sora-2-relay", Request: req}, submission)
 	calls := upstream.recorded()
 	require.Equal(t, "sora-2-relay", gjson.GetBytes(calls[len(calls)-1].Body, "model").String(), "发给上游的是承接上的上游模型名")
 }
@@ -387,7 +388,7 @@ func TestVideoTaskUpstreamRegistry(t *testing.T) {
 	require.True(t, admits(PlatformGrok, relay))
 	require.True(t, admits(PlatformOpenAI, relay))
 	require.False(t, admits(PlatformOpenAI, grok), "成品号没有非 xAI 厂商的视频适配器")
-	require.False(t, admits(PlatformMiniMax, vendorKey), "官方厂商 key 等 PR-D 的适配器")
+	require.False(t, admits(PlatformMiniMax, vendorKey), "MiniMax 对话 key 没有 video 地址，不承接视频")
 	noRoot := videoTestRelayKey(6, "")
 	noRoot.ProtocolEndpoints = map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}
 	require.False(t, admits(PlatformOpenAI, noRoot), "中转 key 要有扩展端点根地址")

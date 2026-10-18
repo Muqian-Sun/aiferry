@@ -105,7 +105,7 @@ const (
 	OpenAIEndpointCapabilityGrokImageGeneration OpenAIEndpointCapability = "grok_image_generation"
 	// OpenAIEndpointCapabilityVideoGeneration 是视频任务框架（/v1/videos、/v1/video/generations）的创建：
 	// Grok 成品号按 GrokMediaGeneration 同一套资格；通用中转 key 要有扩展端点根地址（chat_completions 地址）；
-	// 其余形态没有。账号形态之外，还要（条目厂商, 账号形态）在视频适配器注册表里有实现（SelectOptions.VideoVendor）。
+	// 官方视频 key 要有指向厂商官方域名的 video 地址；其余形态没有。账号形态之外，还要（条目厂商, 账号形态）在视频适配器注册表里有实现（SelectOptions.VideoVendor）。
 	OpenAIEndpointCapabilityVideoGeneration OpenAIEndpointCapability = "video_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
 	// 第三方 key 的支持状态来自 responses 协议地址。仅用于生图意图的 /v1/responses
@@ -1350,8 +1350,15 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		// 中转的 /v1/images/* 是 OpenAI 协议的扩展端点，与 OpenAI 图片同一个判定。
 		return a.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative)
 	case OpenAIEndpointCapabilityVideoGeneration:
-		// 中转的视频端点挂在扩展端点根地址下（与图片 / 向量同一个根）；指向厂商官方域名的 key 等官方适配器接入。
-		if a.Type != AccountTypeAPIKey || a.Vendor() != "" || openAIGatewayKeyExtensionBaseURL(a) == "" {
+		// 官方视频 key（video 地址指向厂商官方域名）走厂商适配器；通用中转的视频端点挂在扩展端点根地址下
+		// （与图片 / 向量同一个根）。指向厂商官方域名的对话 key 没有视频能力。
+		if a.Type != AccountTypeAPIKey {
+			return false
+		}
+		if a.ProtocolEndpoint(APIProtocolVideo) != "" {
+			return a.Vendor() != ""
+		}
+		if a.Vendor() != "" || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
 	default:

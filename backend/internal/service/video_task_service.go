@@ -34,9 +34,12 @@ func NewVideoTaskService(repo VideoTaskRepository, gateway *OpenAIGatewayService
 		repo:    repo,
 		gateway: gateway,
 		upstreams: map[VideoUpstreamKind]VideoTaskUpstream{
-			VideoUpstreamGrokOAuth:   grokOAuthVideoUpstream{s: gateway},
-			VideoUpstreamXAIRelay:    xaiRelayVideoUpstream{s: gateway},
-			VideoUpstreamNewAPIRelay: newAPIRelayVideoUpstream{s: gateway},
+			VideoUpstreamGrokOAuth:        grokOAuthVideoUpstream{s: gateway},
+			VideoUpstreamXAIRelay:         xaiRelayVideoUpstream{s: gateway},
+			VideoUpstreamNewAPIRelay:      newAPIRelayVideoUpstream{s: gateway},
+			VideoUpstreamSeedanceOfficial: seedanceVideoUpstream{s: gateway},
+			VideoUpstreamKlingOfficial:    klingVideoUpstream{s: gateway},
+			VideoUpstreamMiniMaxOfficial:  miniMaxVideoUpstream{s: gateway},
 		},
 		stop: make(chan struct{}),
 		done: make(chan struct{}),
@@ -80,17 +83,25 @@ func (s *VideoTaskService) purge() {
 	}
 }
 
-// VideoTaskSubmission 一次成功提交：哪个适配器、上游任务 ID、发给上游的模型名。
+// VideoTaskSubmission 一次成功提交：哪个适配器、上游任务 ID、发给上游的模型名，以及实际提交的请求
+// （适配器补齐了默认时长 / 分辨率；任务按它落库，没报实际时长 / 分辨率时按它计费）。
 type VideoTaskSubmission struct {
 	UpstreamKind   VideoUpstreamKind
 	UpstreamTaskID string
 	UpstreamModel  string
+	Request        VideoTaskRequest
 }
 
-// Submit 在选中的账号上提交任务。返回的错误：*UpstreamFailoverError（换号重试）、
+// videoTaskRequestPreparer 适配器按上游模型校验并补齐请求（时长 / 分辨率默认值、模型支持的取值）；
+// 请求不合这个模型时返回 *VideoTaskClientError（不换号：换哪个号模型都一样）。
+type videoTaskRequestPreparer interface {
+	PrepareRequest(req VideoTaskRequest, upstreamModel string) (VideoTaskRequest, error)
+}
+
+// Submit 在选中的账号上提交 entry 的任务。返回的错误：*UpstreamFailoverError（换号重试）、
 // *VideoTaskClientError（直接回客户端）、其余（客户端断开等）。上游错误已记进运维事件。
-func (s *VideoTaskService) Submit(ctx context.Context, c *gin.Context, account *Account, vendor string, req VideoTaskRequest) (VideoTaskSubmission, error) {
-	kind, ok := VideoTaskUpstreamKindFor(vendor, account)
+func (s *VideoTaskService) Submit(ctx context.Context, c *gin.Context, account *Account, entry *ModelCatalogEntry, req VideoTaskRequest) (VideoTaskSubmission, error) {
+	kind, ok := VideoTaskUpstreamKindFor(VideoTaskVendorFor(entry), account)
 	upstream := s.upstreams[kind]
 	if !ok || upstream == nil {
 		return VideoTaskSubmission{}, &UpstreamFailoverError{StatusCode: http.StatusBadGateway,
@@ -100,6 +111,16 @@ func (s *VideoTaskService) Submit(ctx context.Context, c *gin.Context, account *
 	if upstreamModel == "" {
 		upstreamModel = req.Model
 	}
+	if preparer, ok := upstream.(videoTaskRequestPreparer); ok {
+		prepared, err := preparer.PrepareRequest(req, upstreamModel)
+		if err != nil {
+			return VideoTaskSubmission{}, err
+		}
+		req = prepared
+	}
+	if err := validateVideoEntryTier(entry, req.Resolution); err != nil {
+		return VideoTaskSubmission{}, err
+	}
 	SetOpsUpstreamModel(c, upstreamModel)
 	upstreamStart := time.Now()
 	id, err := upstream.Create(ctx, c, account, req, upstreamModel)
@@ -107,7 +128,7 @@ func (s *VideoTaskService) Submit(ctx context.Context, c *gin.Context, account *
 	if err != nil {
 		return VideoTaskSubmission{}, s.classifyCreateError(ctx, c, account, upstreamModel, err)
 	}
-	return VideoTaskSubmission{UpstreamKind: kind, UpstreamTaskID: id, UpstreamModel: upstreamModel}, nil
+	return VideoTaskSubmission{UpstreamKind: kind, UpstreamTaskID: id, UpstreamModel: upstreamModel, Request: req}, nil
 }
 
 // classifyCreateError 创建失败的归类与账号副作用：成品号按 Grok 规则（内容审核拒绝不换号），

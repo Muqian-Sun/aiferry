@@ -28,6 +28,9 @@ const (
 	PlatformZhipu    = "zhipu"    // 智谱 GLM (bigmodel)
 	PlatformDeepseek = "deepseek" // DeepSeek
 	PlatformMiniMax  = "minimax"  // MiniMax (M 系列)
+	// 官方视频厂商（只以 video 协议的 key 接入，经视频任务框架转发）。
+	PlatformSeedance = "seedance" // 火山方舟 / BytePlus ModelArk 的 Seedance
+	PlatformKling    = "kling"    // 可灵
 	// PlatformOpenCodeGo 是 OpenCode 平台（账号类型 Zen 按量 / Go 订阅）。
 	// 值保持 opencode_go 以兼容已落库的分组、配额与 Composite 路由 CHECK。
 	PlatformOpenCodeGo = "opencode_go"
@@ -41,6 +44,9 @@ const (
 	AccountModeCoding = "coding" // Coding Plan：滚动用量窗口冷却（5h / weekly）
 	AccountModeZen    = "zen"    // OpenCode Zen：按量付费，https://opencode.ai/zen/v1
 	AccountModeGo     = "go"     // OpenCode Go：订阅额度窗口，https://opencode.ai/zen/go/v1
+	// 官方视频地址按站点分：只是官方地址预填表的模式键，不写进 credentials。
+	AccountModeCN   = "cn"
+	AccountModeIntl = "intl"
 )
 
 // API protocol constants 上游 API 协议，用作 accounts.protocol_endpoints 的键。
@@ -50,6 +56,9 @@ const (
 	APIProtocolAnthropic       = "anthropic"        // 原生 Anthropic /v1/messages（适配 Claude Code）
 	APIProtocolResponses       = "responses"        // OpenAI Responses（适配 Codex）
 	APIProtocolGemini          = "gemini"           // Gemini v1beta generateContent
+	// APIProtocolVideo 是官方视频厂商的任务 API（Seedance / 可灵 / MiniMax），地址是厂商官方根地址；
+	// 不是对话协议：没有任何入站协议能转成它，只由视频任务框架的官方适配器使用。
+	APIProtocolVideo = "video"
 )
 
 // Account type constants
@@ -64,7 +73,7 @@ const (
 // IsUpstreamProtocol 报告 p 是否为具体的上游协议，可用作 accounts.protocol_endpoints 的键。
 func IsUpstreamProtocol(p string) bool {
 	switch p {
-	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses, APIProtocolGemini:
+	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses, APIProtocolGemini, APIProtocolVideo:
 		return true
 	default:
 		return false

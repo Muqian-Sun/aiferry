@@ -159,7 +159,17 @@ export default {
       keyAddress: {
         presetPlaceholder: '从常用官方地址填入…',
         detected: '按地址识别为 {vendor}',
-        relay: '按中转处理，只走标准协议（只有国产厂商与 OpenCode 的官方地址按厂商识别）'
+        relay: '按中转处理，只走标准协议（只有国产厂商、OpenCode 与官方视频厂商的官方地址按厂商识别）',
+        // 官方视频地址的站点
+        site: {
+          cn: '国内站',
+          intl: '国际站'
+        },
+        // 官方视频厂商（只以视频协议接入）的名称
+        videoVendors: {
+          seedance: '火山方舟 / Seedance',
+          kling: '可灵'
+        }
       },
       // 检测上游（2026-10-03）：一次查协议与模型
       // 建渠道「承接模型」那一步的上游名单（2026-10-06）
@@ -242,7 +252,8 @@ export default {
         anthropic: 'Messages',
         chat_completions: 'Chat',
         responses: 'Responses',
-        gemini: 'Gemini'
+        gemini: 'Gemini',
+        video: '视频'
       },
       catalogUnlisted: '未上架',
       catalogUnlistedCount: '{count} 个未上架',
@@ -643,7 +654,8 @@ export default {
           anthropic: 'Anthropic Messages',
           chat_completions: 'OpenAI Chat Completions',
           responses: 'OpenAI Responses',
-          gemini: 'Gemini'
+          gemini: 'Gemini',
+          video: '视频生成（官方厂商）'
         }
       },
       apiKeyRequired: 'API Key *',

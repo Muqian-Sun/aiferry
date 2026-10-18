@@ -159,7 +159,17 @@ export default {
       keyAddress: {
         presetPlaceholder: 'Fill from a common official address…',
         detected: 'Detected from the address: {vendor}',
-        relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors and OpenCode are recognised as a vendor)'
+        relay: 'Treated as a relay, standard protocols only (only official addresses of Chinese vendors, OpenCode and official video vendors are recognised as a vendor)',
+        // Site of an official video address
+        site: {
+          cn: 'China',
+          intl: 'International'
+        },
+        // Official video vendors (connected through the video protocol only)
+        videoVendors: {
+          seedance: 'Volcengine Ark / Seedance',
+          kling: 'Kling AI'
+        }
       },
       // Upstream detection (2026-10-03): protocols and models in one go
       // Upstream model list in the "serve models" step of adding a channel (2026-10-06)
@@ -310,7 +320,8 @@ export default {
         anthropic: 'Messages',
         chat_completions: 'Chat',
         responses: 'Responses',
-        gemini: 'Gemini'
+        gemini: 'Gemini',
+        video: 'Video'
       },
       catalogUnlisted: 'Unlisted',
       catalogUnlistedCount: '{count} unlisted',
@@ -531,7 +542,8 @@ export default {
           anthropic: 'Anthropic Messages',
           chat_completions: 'OpenAI Chat Completions',
           responses: 'OpenAI Responses',
-          gemini: 'Gemini'
+          gemini: 'Gemini',
+          video: 'Video generation (official vendor)'
         }
       },
       apiKeyRequired: 'API Key *',

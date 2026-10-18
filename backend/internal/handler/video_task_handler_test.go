@@ -195,8 +195,8 @@ type videoHarness struct {
 }
 
 // newVideoHarness 三个渠道：Grok 成品号与两个中转 key（relay-a / relay-b，都配了 chat_completions 地址），
-// 都绑在同一个视频条目上；priority 决定选号先后。
-func newVideoHarness(t *testing.T, priorities map[int64]int) *videoHarness {
+// 都绑在同一个视频条目上；priority 决定选号先后。extra 是另加的渠道（排在这三个后面）。
+func newVideoHarness(t *testing.T, priorities map[int64]int, extra ...service.Account) *videoHarness {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	priority := func(id int64) int { return priorities[id] }
@@ -214,6 +214,10 @@ func newVideoHarness(t *testing.T, priorities map[int64]int) *videoHarness {
 			Status: service.StatusActive, Schedulable: true, Concurrency: 5, Priority: priority(videoRelayBID),
 			Credentials:       map[string]any{"api_key": "sk-relay-b"},
 			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://relay-b.example.com/v1"}},
+	}
+	for _, account := range extra {
+		account.Priority = priority(account.ID)
+		accounts = append(accounts, account)
 	}
 	h := &videoHarness{
 		accounts: accounts, repo: &videoTaskRepoStub{tasks: map[string]*service.VideoTask{}},

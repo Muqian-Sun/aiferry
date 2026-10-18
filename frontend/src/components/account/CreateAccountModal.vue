@@ -1077,6 +1077,8 @@ import {
   detectKeyVendor,
   keyAddressPresets,
   modeOfAddress,
+  videoKeyVendorLabel,
+  videoSiteOf,
   type KeyAddressPreset
 } from '@/components/account/keyAddress'
 import { platformLabel } from '@/utils/platformLabel'
@@ -1253,12 +1255,20 @@ const keyAddressDraft = ref('')
 const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
 // 按地址识别出的厂商（官方域名表由后端下发，与后端 Account.Vendor 同口径）；认不出的是中转
 const keyVendor = computed(() =>
-  isKeyMode.value ? detectKeyVendor(protocolEndpoints.value, protocolDefaults.value?.vendor_hosts) : null
+  isKeyMode.value
+    ? detectKeyVendor(protocolEndpoints.value, protocolDefaults.value?.vendor_hosts, protocolDefaults.value?.video_vendor_hosts)
+    : null
 )
 const hasKeyAddress = computed(() => Object.values(protocolEndpoints.value).some((url) => !!url?.trim()))
-// 按量 / Coding 套餐：只有 Kimi / 智谱 / MiniMax 有。地址能分出来就跟地址走，分不出来（MiniMax 同地址）由管理员选
+// 官方视频 key（video 协议）：没有套餐，按站点（国内 / 国际）区分官方地址
+const keyIsVideo = computed(() => currentProtocolOf(protocolEndpoints.value) === 'video')
+const keyVideoSite = computed(() => {
+  const vendor = keyVendor.value
+  return vendor && keyIsVideo.value ? videoSiteOf(keyPresets.value, vendor, protocolEndpoints.value) : null
+})
+// 按量 / Coding 套餐：只有 Kimi / 智谱 / MiniMax 的对话 key 有。地址能分出来就跟地址走，分不出来（MiniMax 同地址）由管理员选
 const keyPlanMode = ref<CnAccountMode>('payg')
-const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
+const keyHasCodingPlan = computed(() => !!keyVendor.value && !keyIsVideo.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
 // 地址本身定得了套餐就不问（识别提示里带上）；MiniMax 两种套餐同地址、智谱 Anthropic 同地址才要选
 const keyPlanFromAddress = computed(() => {
   const vendor = keyVendor.value
@@ -1270,6 +1280,7 @@ const keyPlanNeedsChoice = computed(() => keyHasCodingPlan.value && keyPlanFromA
 const keyVendorLabel = computed(() => {
   const vendor = keyVendor.value
   if (!vendor) return ''
+  if (keyIsVideo.value) return videoKeyVendorLabel(vendor, keyVideoSite.value, t)
   const plan = keyPlanFromAddress.value
   return plan ? `${platformLabel(vendor)} · ${t(`admin.accounts.cnProviders.accountMode.${plan}`)}` : platformLabel(vendor)
 })
@@ -1288,7 +1299,7 @@ watch(suggestedName, (next) => {
   if (!form.name.trim() || form.name === nameSuggestion) form.name = next
   nameSuggestion = next
 })
-// 写进 credentials.account_mode 的模式：国产厂商按量 / 套餐，OpenCode 的 Zen / Go 由地址定；中转不写
+// 写进 credentials.account_mode 的模式：国产厂商按量 / 套餐，OpenCode 的 Zen / Go 由地址定；中转不写（视频 key 没有套餐，也不写）
 const keyAccountMode = computed<string | undefined>(() => {
   const vendor = keyVendor.value
   if (!vendor) return undefined
@@ -1318,6 +1329,7 @@ watch(keyPlanMode, (mode, previous) => {
 const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
   const vendor = keyVendor.value
   if (!vendor) return {}
+  if (keyIsVideo.value) return protocolDefaultsFor(protocolDefaults.value, vendor, keyVideoSite.value ?? 'cn')
   const mode = vendor === 'opencode_go' ? keyAccountMode.value : keyHasCodingPlan.value ? keyPlanMode.value : undefined
   return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })

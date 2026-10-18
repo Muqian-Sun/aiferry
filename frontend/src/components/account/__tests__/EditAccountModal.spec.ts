@@ -423,6 +423,31 @@ describe('EditAccountModal', () => {
     expect(payload?.credentials).not.toHaveProperty('account_mode')
   })
 
+  // 官方视频 key：按 video 地址认出 MiniMax，但没有套餐可选，保存时不写 account_mode、地址原样保留
+  it('keeps a MiniMax video key without a plan choice', async () => {
+    getProtocolDefaultsMock.mockReset().mockResolvedValue({
+      ...PROTOCOL_DEFAULTS,
+      defaults: { ...PROTOCOL_DEFAULTS.defaults, minimax: { cn: { video: 'https://api.minimax.cn' }, intl: { video: 'https://api.minimax.io' } } },
+      vendor_hosts: { 'api.minimaxi.com': 'minimax' },
+      video_vendor_hosts: { 'api.minimax.cn': 'minimax', 'api.minimax.io': 'minimax' }
+    })
+    const account = buildAccount()
+    account.platform = 'minimax'
+    account.protocol_endpoints = { video: 'https://api.minimax.io' }
+    account.credentials = { api_key: 'sk-mm', account_mode: 'payg' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="key-vendor-detected"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="edit-key-plan-mode"]').exists()).toBe(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.protocol_endpoints).toEqual({ video: 'https://api.minimax.io' })
+    expect(payload?.credentials).not.toHaveProperty('account_mode')
+  })
+
   it('has no API protocol selector for Chinese provider keys', async () => {
     // 计费方式按地址识别（与新建同一规则）：地址认得出是智谱、又定不了套餐时才出选择
     getProtocolDefaultsMock.mockReset().mockResolvedValue({ ...PROTOCOL_DEFAULTS, vendor_hosts: { 'open.bigmodel.cn': 'zhipu' } })

@@ -46,16 +46,59 @@ func TestOfficialVendorOfURL(t *testing.T) {
 // TestBuildOfficialVendorHostsRejectsConflicts 一个域名被两个厂商认领时构建失败，
 // 而不是后写入的静默覆盖先写入的。
 func TestBuildOfficialVendorHostsRejectsConflicts(t *testing.T) {
-	hosts, err := buildOfficialVendorHosts()
+	hosts, videoHosts, err := buildOfficialVendorHosts()
 	require.NoError(t, err)
 	require.NotEmpty(t, hosts)
+	require.NotEmpty(t, videoHosts)
 
 	original := officialVendorExtraHosts
 	t.Cleanup(func() { officialVendorExtraHosts = original })
 	officialVendorExtraHosts = map[string][]string{PlatformDeepseek: {"api.moonshot.cn"}}
 
-	_, err = buildOfficialVendorHosts()
+	_, _, err = buildOfficialVendorHosts()
 	require.ErrorContains(t, err, "api.moonshot.cn")
+
+	originalVideo := officialVideoBaseURLs
+	t.Cleanup(func() { officialVideoBaseURLs = originalVideo })
+	officialVendorExtraHosts = original
+	officialVideoBaseURLs = map[string]map[string]string{
+		PlatformSeedance: {AccountModeCN: DefaultSeedanceCNBaseURL},
+		PlatformKling:    {AccountModeCN: DefaultSeedanceCNBaseURL},
+	}
+	_, _, err = buildOfficialVendorHosts()
+	require.ErrorContains(t, err, "ark.cn-beijing.volces.com", "video 表同样不许一个域名认两家")
+}
+
+// 官方视频厂商只按 video 地址认：video 表只有三家视频厂商，且只收 video 地址；对话表不收视频厂商，
+// 火山方舟上的对话 key（豆包，与 Seedance 同域名）仍按中转。
+func TestOfficialVideoVendorHosts(t *testing.T) {
+	video := OfficialVideoVendorHosts()
+	require.Equal(t, map[string]string{
+		"ark.cn-beijing.volces.com":       PlatformSeedance,
+		"ark.ap-southeast.bytepluses.com": PlatformSeedance,
+		"api-beijing.klingai.com":         PlatformKling,
+		"api-singapore.klingai.com":       PlatformKling,
+		"api.minimax.cn":                  PlatformMiniMax,
+		"api.minimax.io":                  PlatformMiniMax,
+	}, video)
+	for host, vendor := range OfficialVendorHosts() {
+		require.NotContains(t, []string{PlatformSeedance, PlatformKling}, vendor, host)
+	}
+	require.NotContains(t, OfficialVendorHosts(), "api.minimax.cn", "MiniMax 国内站的对话地址是 api.minimaxi.com，api.minimax.cn 只认 video")
+
+	key := func(protocol, address string) *Account {
+		return &Account{Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{protocol: address}}
+	}
+	require.Equal(t, PlatformSeedance, key(APIProtocolVideo, DefaultSeedanceCNBaseURL).Vendor())
+	require.Equal(t, PlatformSeedance, key(APIProtocolVideo, DefaultSeedanceIntlBaseURL).Vendor())
+	require.Equal(t, PlatformKling, key(APIProtocolVideo, DefaultKlingCNBaseURL).Vendor())
+	require.Equal(t, PlatformKling, key(APIProtocolVideo, DefaultKlingIntlBaseURL).Vendor())
+	require.Equal(t, PlatformMiniMax, key(APIProtocolVideo, DefaultMiniMaxVideoCNBaseURL).Vendor())
+	require.Equal(t, PlatformMiniMax, key(APIProtocolVideo, DefaultMiniMaxVideoIntlBaseURL).Vendor())
+	require.Equal(t, "", key(APIProtocolChatCompletions, DefaultSeedanceCNBaseURL).Vendor(), "方舟对话 key 按中转")
+	require.Equal(t, "", key(APIProtocolVideo, "https://api.minimaxi.com").Vendor(), "MiniMax 的对话域名不是视频地址")
+	require.Equal(t, "", key(APIProtocolVideo, "https://ark.cn-beijing.volces.com.evil.example/api/v3").Vendor())
+	require.Equal(t, PlatformSeedance, AccountModelFamily(key(APIProtocolVideo, DefaultSeedanceCNBaseURL)))
 }
 
 // TestOfficialVendorHostsOnlyDomesticProviders 官方域名表只有国产厂商与 OpenCode：海外四家的

@@ -288,7 +288,7 @@ func (h *OpenAIGatewayHandler) createVideoTask(c *gin.Context, shape service.Vid
 
 		submission, err := func() (service.VideoTaskSubmission, error) {
 			defer releaseAccount()
-			return h.videoTasks.Submit(requestCtx, c, account, vendor, req)
+			return h.videoTasks.Submit(requestCtx, c, account, route.Entry, req)
 		}()
 		if err != nil {
 			var clientErr *service.VideoTaskClientError
@@ -338,7 +338,7 @@ func (h *OpenAIGatewayHandler) createVideoTask(c *gin.Context, shape service.Vid
 		task := &service.VideoTask{
 			ID: taskID, UserID: subject.UserID, APIKeyID: apiKey.ID, AccountID: account.ID, CatalogEntryID: route.EntryID,
 			Model: req.Model, UpstreamModel: submission.UpstreamModel, UpstreamKind: submission.UpstreamKind,
-			UpstreamTaskID: submission.UpstreamTaskID, InboundShape: shape, Request: req,
+			UpstreamTaskID: submission.UpstreamTaskID, InboundShape: shape, Request: submission.Request,
 			State: service.VideoTaskQueued, CreatedAt: now, UpdatedAt: now,
 		}
 		// 上游已接单：客户端此时断开也要把任务记下来，否则后续查询找不回、成片无法交付。
