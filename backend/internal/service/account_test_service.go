@@ -2335,6 +2335,9 @@ func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, ac
 	if result.Text != "" {
 		s.sendEvent(c, TestEvent{Type: "content", Text: result.Text})
 	}
+	for _, image := range result.Images {
+		s.sendEvent(c, TestEvent{Type: "image", ImageURL: "data:" + image.MimeType + ";base64," + image.Data, MimeType: image.MimeType})
+	}
 
 	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
 	return nil
@@ -2917,10 +2920,11 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 		return s.sendErrorAndEnd(c, fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(body)))
 	}
 
-	// Parse {"data": [{"b64_json": "...", "revised_prompt": "..."}]}
+	// Parse {"data": [{"b64_json": "...", "revised_prompt": "..."}]}；部分中转不认 response_format，只回 url。
 	var result struct {
 		Data []struct {
 			B64JSON       string `json:"b64_json"`
+			URL           string `json:"url"`
 			RevisedPrompt string `json:"revised_prompt"`
 		} `json:"data"`
 	}
@@ -2942,6 +2946,8 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 				ImageURL: "data:image/png;base64," + item.B64JSON,
 				MimeType: "image/png",
 			})
+		} else if item.URL != "" {
+			s.sendEvent(c, TestEvent{Type: "image", ImageURL: item.URL})
 		}
 	}
 

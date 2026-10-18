@@ -57,8 +57,13 @@ func (s *AccountTestService) testKeyOpenAIFamilyConnection(c *gin.Context, accou
 	if testModelID == "" {
 		testModelID = openai.DefaultTestModel
 	}
-	if mode == AccountTestModeCompact || isOpenAIImageModel(account.GetMappedModel(testModelID)) {
+	mappedModel := account.GetMappedModel(testModelID)
+	if mode == AccountTestModeCompact || isOpenAIImageModel(mappedModel) {
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, mode)
+	}
+	// Grok 生图经 key 走与网关同一个 {chat_completions 根}/v1/images/generations。
+	if isGrokImageGenerationModel(mappedModel) {
+		return s.testOpenAIImageAPIKey(c, c.Request.Context(), account, mappedModel, resolveGrokImagePrompt(prompt))
 	}
 	return s.testKeyConfiguredOpenAIEndpoints(c, account, modelID, prompt)
 }

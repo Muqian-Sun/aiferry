@@ -40,6 +40,7 @@ func (s *AntigravityGatewayService) observeAntigravityGeminiSSELine(c *gin.Conte
 	// unwrap the same line for business processing, so unwrapping here would be
 	// duplicate work on every SSE event.
 	observer.ObserveGemini([]byte(payload))
+	observeGeminiImageOutputs(c, []byte(payload))
 }
 
 // antigravityClientWriter 封装流式响应的客户端写入，自动检测断开并标记。
@@ -623,20 +624,21 @@ func mergeImagePartsToResponse(response map[string]any, imageParts []map[string]
 
 	result, existingParts, setParts := getOrCreateGeminiParts(response)
 
-	// 检查现有 parts 中是否已经有图片
+	// 上游流是增量的，imageParts 是整条流里的全部图片；最后一个 chunk 自带的图也在其中，先去掉再整体追加，
+	// 否则多图分散在不同 chunk 时只剩最后一个 chunk 的图。
+	parts := make([]any, 0, len(existingParts)+len(imageParts))
 	for _, p := range existingParts {
 		if pm, ok := p.(map[string]any); ok {
 			if _, hasInline := pm["inlineData"]; hasInline {
-				return result // 已有图片，不重复添加
+				continue
 			}
 		}
+		parts = append(parts, p)
 	}
-
-	// 添加收集到的图片 parts
 	for _, imgPart := range imageParts {
-		existingParts = append(existingParts, imgPart)
+		parts = append(parts, imgPart)
 	}
-	setParts(existingParts)
+	setParts(parts)
 	return result
 }
 
@@ -902,6 +904,7 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponse(c *gin.Context, 
 				continue
 			}
 			upstreamResponseModelObserverFromContext(c).ObserveGemini(inner)
+			observeGeminiImageOutputs(c, inner)
 
 			var parsed map[string]any
 			if err := json.Unmarshal(inner, &parsed); err != nil {

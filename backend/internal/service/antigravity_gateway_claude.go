@@ -34,6 +34,7 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 		return nil, err
 	}
 	beginUpstreamResponseModelObservation(c)
+	beginGeminiImageOutputObservation(c)
 	startTime := time.Now()
 
 	sessionID := getSessionID(c)
@@ -479,6 +480,7 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 		Duration:                      time.Since(startTime),
 		FirstTokenMs:                  firstTokenMs,
 		ClientDisconnect:              clientDisconnect,
+		ImageCount:                    resolveGeminiImageCount(c, originalModel, billingModel),
 	}, nil
 }
 

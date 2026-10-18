@@ -98,6 +98,11 @@ const (
 	// entitlement probe was forbidden. Video status lookups intentionally do not
 	// require this capability so already-submitted requests remain queryable.
 	OpenAIEndpointCapabilityGrokMediaGeneration OpenAIEndpointCapability = "grok_media_generation"
+	// OpenAIEndpointCapabilityGrokImageGeneration 是 xAI 图片生成 / 编辑（/v1/images/*）：
+	// Grok 成品号按 GrokMediaGeneration 同一套资格；第三方 key 能承接 OpenAI 图片端点
+	// （SupportsOpenAIImageCapability）就能承接，转发到 {chat_completions 根}/v1/images/*。
+	// 视频仍只认 GrokMediaGeneration（成品号专属）。
+	OpenAIEndpointCapabilityGrokImageGeneration OpenAIEndpointCapability = "grok_image_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
 	// 第三方 key 的支持状态来自 responses 协议地址。仅用于生图意图的 /v1/responses
 	// 调度，避免把请求调度到会在 forward 阶段被降级为 Chat Completions 的账号（#4417）。
@@ -1276,7 +1281,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 		switch capability {
 		case OpenAIEndpointCapabilityChatCompletions:
 			return true
-		case OpenAIEndpointCapabilityGrokMediaGeneration:
+		case OpenAIEndpointCapabilityGrokMediaGeneration, OpenAIEndpointCapabilityGrokImageGeneration:
 			eligible, reason := a.GrokMediaGenerationEligibility()
 			// Unobserved OAuth accounts remain scheduler candidates only so the
 			// request path can run the billing probe before forwarding. The
@@ -1337,8 +1342,11 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		if a.Type != AccountTypeAPIKey || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
+	case OpenAIEndpointCapabilityGrokImageGeneration:
+		// 中转的 /v1/images/* 是 OpenAI 协议的扩展端点，与 OpenAI 图片同一个判定。
+		return a.SupportsOpenAIImageCapability(OpenAIImagesCapabilityNative)
 	default:
-		// live 是 ChatGPT OAuth 专属能力；xAI 图片 / 视频生成是 Grok 成品号专属的厂商私有端点
+		// live 是 ChatGPT OAuth 专属能力；xAI 视频生成是 Grok 成品号专属的厂商私有端点
 		// （指向 xAI 官方域名的 key 也按中转，2026-09-29 定）。第三方 key 都不具备。
 		return false
 	}

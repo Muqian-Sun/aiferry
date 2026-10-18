@@ -192,6 +192,7 @@ func (s *AntigravityGatewayService) forwardAntigravityCompat(
 	request antigravityCompatRequest,
 ) (*ForwardResult, error) {
 	beginUpstreamResponseModelObservation(c)
+	beginGeminiImageOutputObservation(c)
 	call, err := s.prepareAntigravityCompatCall(ctx, c, account, request)
 	if err != nil {
 		return nil, err
@@ -481,6 +482,7 @@ func (s *AntigravityGatewayService) consumeAntigravityCompatResponse(
 		FirstTokenMs:                  streamResult.firstTokenMs,
 		ReasoningEffort:               call.request.reasoningEffort,
 		ClientDisconnect:              streamResult.clientDisconnect,
+		ImageCount:                    resolveGeminiImageCount(c, call.request.originalModel, call.billingModel),
 	}, nil
 }
 

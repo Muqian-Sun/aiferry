@@ -287,7 +287,8 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		)
 
 		account := selection.Account
-		if endpoint.IsGenerationRequest() {
+		// 成品号的 xAI 付费资格探测；第三方 key 没有这个资格面，调度门已按图片端点能力放行。
+		if endpoint.IsGenerationRequest() && !account.IsThirdPartyKey() {
 			eligible, eligibilityReason, eligibilityErr := h.ensureGrokMediaAccountEligibility(requestCtx, account)
 			if !eligible {
 				releaseAccount()
@@ -338,7 +339,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer releaseAccount()
-			return h.gatewayService.ForwardGrokMedia(requestCtx, c, account, endpoint, requestID, body, contentType)
+			return h.forwardGrokMedia(requestCtx, c, account, endpoint, requestID, body, contentType)
 		}()
 
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
@@ -498,10 +499,27 @@ func (h *OpenAIGatewayHandler) ensureGrokMediaAccountEligibility(ctx context.Con
 }
 
 func grokMediaRequiredCapability(endpoint service.GrokMediaEndpoint) service.OpenAIEndpointCapability {
-	if endpoint.IsGenerationRequest() {
+	switch {
+	case isGrokImageEndpoint(endpoint):
+		return service.OpenAIEndpointCapabilityGrokImageGeneration
+	case endpoint.IsGenerationRequest():
 		return service.OpenAIEndpointCapabilityGrokMediaGeneration
+	default:
+		return ""
 	}
-	return ""
+}
+
+func isGrokImageEndpoint(endpoint service.GrokMediaEndpoint) bool {
+	return endpoint == service.GrokMediaEndpointImagesGenerations || endpoint == service.GrokMediaEndpointImagesEdits
+}
+
+// forwardGrokMedia 按选中的账号分发：第三方 key 只会因图片能力被选中（调度门 GrokImageGeneration），
+// 走 OpenAI 图片端点的 key 转发；Grok 成品号走 xAI 原生媒体端点。
+func (h *OpenAIGatewayHandler) forwardGrokMedia(ctx context.Context, c *gin.Context, account *service.Account, endpoint service.GrokMediaEndpoint, requestID string, body []byte, contentType string) (*service.OpenAIForwardResult, error) {
+	if account.IsThirdPartyKey() {
+		return h.gatewayService.ForwardGrokImagesAPIKey(ctx, c, account, endpoint, body, contentType)
+	}
+	return h.gatewayService.ForwardGrokMedia(ctx, c, account, endpoint, requestID, body, contentType)
 }
 
 func grokMediaScheduleModel(account *service.Account, routingModel string, result *service.OpenAIForwardResult) string {

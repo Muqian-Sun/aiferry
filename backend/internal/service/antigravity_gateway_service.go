@@ -312,8 +312,15 @@ func (s *AntigravityGatewayService) IsModelSupported(requestedModel string) bool
 
 // TestConnectionResult 测试连接结果
 type TestConnectionResult struct {
-	Text        string // 响应文本
-	MappedModel string // 实际使用的模型
+	Text        string                // 响应文本
+	MappedModel string                // 实际使用的模型
+	Images      []TestConnectionImage // 生图模型回的图
+}
+
+// TestConnectionImage 测试连接时上游回的一张内联图片。
+type TestConnectionImage struct {
+	MimeType string
+	Data     string // base64
 }
 
 // TestConnection 测试 Antigravity 账号连接。
@@ -341,9 +348,12 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 		return nil, fmt.Errorf("model %s not in whitelist", modelID)
 	}
 
-	// 构建请求体
+	// 构建请求体：生图模型要真的出一张图，"." + 1 个输出 token 永远出不了图，测不出生图能力。
+	imageTest := isImageGenerationModel(modelID) || isImageGenerationModel(mappedModel)
 	var requestBody []byte
-	if strings.HasPrefix(modelID, "gemini-") {
+	if imageTest {
+		requestBody, err = s.buildGeminiImageTestRequest(projectID, mappedModel)
+	} else if strings.HasPrefix(modelID, "gemini-") {
 		requestBody, err = s.buildGeminiTestRequest(projectID, mappedModel)
 	} else {
 		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)
@@ -391,17 +401,56 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 	}
 	defer func() { _ = result.resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(io.LimitReader(result.resp.Body, s.upstreamErrorBodyReadLimit()))
+	if result.resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(result.resp.Body, s.upstreamErrorBodyReadLimit()))
+		return nil, fmt.Errorf("API returned %d: %s", result.resp.StatusCode, string(respBody))
+	}
+
+	readLimit := s.upstreamErrorBodyReadLimit()
+	if imageTest {
+		// 一张图的 base64 就有几 MB，按正常响应的读取上限读。
+		readLimit = resolveUpstreamResponseReadLimit(s.settingService.cfg)
+	}
+	respBody, err := io.ReadAll(io.LimitReader(result.resp.Body, readLimit))
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	if result.resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API returned %d: %s", result.resp.StatusCode, string(respBody))
-	}
-
 	text := extractTextFromSSEResponse(respBody)
-	return &TestConnectionResult{Text: text, MappedModel: mappedModel}, nil
+	testResult := &TestConnectionResult{Text: text, MappedModel: mappedModel}
+	if imageTest {
+		testResult.Images = extractInlineImagesFromSSEResponse(respBody)
+		if len(testResult.Images) == 0 {
+			return nil, fmt.Errorf("image model %s returned no image: %s", mappedModel, truncateString(text, 512))
+		}
+	}
+	return testResult, nil
+}
+
+// buildGeminiImageTestRequest 生图模型的测试请求：与 Gemini 账号测连同一份出图载荷（responseModalities TEXT+IMAGE），
+// 再注入 Antigravity 上游要求的身份提示词。
+func (s *AntigravityGatewayService) buildGeminiImageTestRequest(projectID, model string) ([]byte, error) {
+	payload, err := injectIdentityPatchToGeminiRequest(createGeminiTestPayload(model, ""))
+	if err != nil {
+		return nil, err
+	}
+	return s.wrapV1InternalRequest(projectID, model, payload)
+}
+
+// extractInlineImagesFromSSEResponse 取 SSE 响应里的内联图片（v1internal 封装与裸响应都认），按 geminiInlineImageTally 去重。
+func extractInlineImagesFromSSEResponse(respBody []byte) []TestConnectionImage {
+	var images []TestConnectionImage
+	var tally geminiInlineImageTally
+	for _, line := range bytes.Split(respBody, []byte("\n")) {
+		line = bytes.TrimSpace(bytes.TrimPrefix(bytes.TrimSpace(line), []byte("data:")))
+		seen := geminiInlineImagePayload{}
+		forEachGeminiInlineImageOutput(line, func(mimeType, data string) {
+			if tally.admit(seen, data) {
+				images = append(images, TestConnectionImage{MimeType: mimeType, Data: data})
+			}
+		})
+	}
+	return images
 }
 
 // testConnectionHandleError 是 TestConnection 使用的轻量 handleError 回调。
