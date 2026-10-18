@@ -343,6 +343,8 @@ import {
   detectKeyVendor,
   keyAddressPresets,
   modeOfAddress,
+  videoKeyVendorLabel,
+  videoSiteOf,
   type KeyAddressPreset
 } from '@/components/account/keyAddress'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
@@ -428,13 +430,19 @@ const editProtocolEndpoints = ref<ProtocolEndpoints>({})
 const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
 const keyVendor = computed(() =>
   props.account?.type === 'apikey'
-    ? detectKeyVendor(editProtocolEndpoints.value, protocolDefaults.value?.vendor_hosts)
+    ? detectKeyVendor(editProtocolEndpoints.value, protocolDefaults.value?.vendor_hosts, protocolDefaults.value?.video_vendor_hosts)
     : null
 )
+// 官方视频 key（video 协议）：没有套餐，按站点（国内 / 国际）区分官方地址
+const keyIsVideo = computed(() => currentProtocolOf(editProtocolEndpoints.value) === 'video')
+const keyVideoSite = computed(() => {
+  const vendor = keyVendor.value
+  return vendor && keyIsVideo.value ? videoSiteOf(keyPresets.value, vendor, editProtocolEndpoints.value) : null
+})
 const hasKeyAddress = computed(() => Object.values(editProtocolEndpoints.value).some((url) => !!url?.trim()))
 // API Key 占位跟着按地址识别出的厂商走，与新建同一规则（不看平台标签）
 const apiKeyValuePlaceholder = computed(() => apiKeyPlaceholderFor(keyVendor.value))
-const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
+const keyHasCodingPlan = computed(() => !!keyVendor.value && !keyIsVideo.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
 const keyPlanFromAddress = computed(() => {
   const vendor = keyVendor.value
   if (!vendor || !keyHasCodingPlan.value) return null
@@ -446,6 +454,7 @@ const keyPlanNeedsChoice = computed(() => keyHasCodingPlan.value && keyPlanFromA
 const keyVendorLabel = computed(() => {
   const vendor = keyVendor.value
   if (!vendor) return ''
+  if (keyIsVideo.value) return videoKeyVendorLabel(vendor, keyVideoSite.value, t)
   const plan = keyPlanFromAddress.value
   return plan ? `${platformLabel(vendor)} · ${t(`admin.accounts.cnProviders.accountMode.${plan}`)}` : platformLabel(vendor)
 })
@@ -462,6 +471,7 @@ const keyAccountMode = computed<string | undefined>(() => {
 const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
   const vendor = keyVendor.value
   if (!vendor) return {}
+  if (keyIsVideo.value) return protocolDefaultsFor(protocolDefaults.value, vendor, keyVideoSite.value ?? 'cn')
   const mode = vendor === 'opencode_go' || keyHasCodingPlan.value ? keyAccountMode.value : undefined
   return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
 })

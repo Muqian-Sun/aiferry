@@ -9,7 +9,7 @@ import type { ProtocolEndpoints, UpstreamProtocol } from '@/types'
 // 可能列了好几个协议的地址，预填、切换、预设都只取其中一个（2026-09-25 修：以前全填上导致建 key 被拒）。
 
 /** 可配置的上游协议，顺序即编辑器展示顺序，与后端 service.UpstreamProtocols() 一致。 */
-export const UPSTREAM_PROTOCOLS: readonly UpstreamProtocol[] = ['anthropic', 'chat_completions', 'responses', 'gemini']
+export const UPSTREAM_PROTOCOLS: readonly UpstreamProtocol[] = ['anthropic', 'chat_completions', 'responses', 'gemini', 'video']
 
 let pendingDefaults: Promise<ProtocolDefaultsResponse> | null = null
 

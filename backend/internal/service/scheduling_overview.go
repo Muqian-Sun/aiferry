@@ -253,7 +253,7 @@ func (s *SchedulingOverviewService) Overview(ctx context.Context, window string)
 				bound = append(bound, acc)
 			}
 		}
-		for _, protocol := range UpstreamProtocols() {
+		for _, protocol := range ConversationProtocols() {
 			if !anyAccountServesInbound(bound, protocol) {
 				continue
 			}
@@ -327,7 +327,7 @@ func (s *SchedulingOverviewService) ListTraces(ctx context.Context, window strin
 	if !schedulingTraceOutcomeFilters[filter.Outcome] {
 		return nil, ErrSchedulingTraceFilterInvalid
 	}
-	if filter.InboundProtocol != "" && !IsUpstreamProtocol(filter.InboundProtocol) {
+	if filter.InboundProtocol != "" && !IsConversationProtocol(filter.InboundProtocol) {
 		return nil, ErrSchedulingTraceFilterInvalid
 	}
 	page = max(page, 1)

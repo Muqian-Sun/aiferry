@@ -496,13 +496,18 @@ func TestPrimaryUpstreamBaseURLOrderIgnoresLabel(t *testing.T) {
 		require.Equal(t, "http://chat.example/v1", keyProtocolTestAccount(platform, endpoints).PrimaryUpstreamBaseURL(), platform)
 	}
 
-	// 顺序表必须覆盖全部协议且不重复，否则只配了漏掉协议的 key 会拿到空地址。
+	// 顺序表必须覆盖全部对话协议且不重复，否则只配了漏掉协议的 key 会拿到空地址。
 	seen := map[string]int{}
 	for _, protocol := range primaryUpstreamProtocolOrder {
 		seen[protocol]++
 	}
-	for _, protocol := range UpstreamProtocols() {
+	for _, protocol := range ConversationProtocols() {
 		require.Equal(t, 1, seen[protocol], protocol)
 	}
-	require.Len(t, primaryUpstreamProtocolOrder, len(UpstreamProtocols()))
+	require.Len(t, primaryUpstreamProtocolOrder, len(ConversationProtocols()))
+
+	// video 地址不是 OpenAI 族的 API 根：模型同步、余额探测这些按主地址发对话族请求的地方不能拿到它。
+	video := keyProtocolTestAccount(PlatformSeedance, map[string]string{APIProtocolVideo: DefaultSeedanceCNBaseURL})
+	require.Empty(t, video.PrimaryUpstreamBaseURL())
+	require.Empty(t, video.PrimaryUpstreamProtocol())
 }

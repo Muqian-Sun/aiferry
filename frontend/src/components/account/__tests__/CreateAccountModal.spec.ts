@@ -56,7 +56,9 @@ vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
     ...actual,
-    useI18n: () => ({ t: (key: string) => key }),
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, unknown>) => (params ? `${key} ${JSON.stringify(params)}` : key),
+    }),
   }
 })
 
@@ -639,5 +641,132 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     // Anthropic OAuth 成品号；协议地址预填了官方 anthropic 地址也不展示
     expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
+  })
+})
+
+// 官方视频 key（2026-10-18）：从常用官方地址里选火山方舟 / 可灵 / MiniMax 的视频站点，协议与地址一起填好，
+// 厂商按 video 地址识别；没有套餐、不写 account_mode，平台由后端按地址推导。
+describe('CreateAccountModal official video keys', () => {
+  const VIDEO_DEFAULTS = {
+    ...PROTOCOL_DEFAULTS,
+    protocols: ['anthropic', 'chat_completions', 'responses', 'gemini', 'video'],
+    defaults: {
+      ...PROTOCOL_DEFAULTS.defaults,
+      minimax: {
+        ...PROTOCOL_DEFAULTS.defaults.minimax,
+        cn: { video: 'https://api.minimax.cn' },
+        intl: { video: 'https://api.minimax.io' },
+      },
+      seedance: {
+        cn: { video: 'https://ark.cn-beijing.volces.com/api/v3' },
+        intl: { video: 'https://ark.ap-southeast.bytepluses.com/api/v3' },
+      },
+      kling: {
+        cn: { video: 'https://api-beijing.klingai.com' },
+        intl: { video: 'https://api-singapore.klingai.com' },
+      },
+    },
+    video_vendor_hosts: {
+      'ark.cn-beijing.volces.com': 'seedance',
+      'ark.ap-southeast.bytepluses.com': 'seedance',
+      'api-beijing.klingai.com': 'kling',
+      'api-singapore.klingai.com': 'kling',
+      'api.minimax.cn': 'minimax',
+      'api.minimax.io': 'minimax',
+    },
+  }
+
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    getProtocolDefaultsMock.mockReset().mockResolvedValue(VIDEO_DEFAULTS)
+    createAccountMock.mockReset().mockResolvedValue({ id: 43, platform: 'seedance', type: 'apikey' })
+  })
+
+  async function submitVideoKey(wrapper: ReturnType<typeof mountModal>, apiKey: string) {
+    await wrapper.get('form#create-account-form input[type="password"]').setValue(apiKey)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    return createAccountMock.mock.calls[0]?.[0]
+  }
+
+  it('lists the video sites of Seedance / Kling / MiniMax in the preset menu', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper)
+    const menu = wrapper.get('[data-testid="key-address-preset"]')
+    const groups = menu.findAll('optgroup').map((group) => group.attributes('label'))
+    expect(groups).toEqual(expect.arrayContaining([
+      'admin.accounts.keyAddress.videoVendors.seedance',
+      'admin.accounts.keyAddress.videoVendors.kling',
+    ]))
+    const video = menu.findAll('option').filter((option) => option.attributes('data-protocol') === 'video')
+    expect(video.map((option) => [option.attributes('data-url'), option.attributes('data-mode')])).toEqual(expect.arrayContaining([
+      ['https://ark.cn-beijing.volces.com/api/v3', 'cn'],
+      ['https://ark.ap-southeast.bytepluses.com/api/v3', 'intl'],
+      ['https://api-beijing.klingai.com', 'cn'],
+      ['https://api-singapore.klingai.com', 'intl'],
+      ['https://api.minimax.cn', 'cn'],
+      ['https://api.minimax.io', 'intl'],
+    ]))
+    expect(video).toHaveLength(6)
+    expect(video[0].text()).toContain('admin.accounts.keyAddress.site.')
+  })
+
+  it('creating a Seedance video key prefills the official Ark address', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper, { protocol: 'video', url: 'https://ark.cn-beijing.volces.com/api/v3', mode: 'cn' })
+    expect((wrapper.get('[data-testid="protocol-endpoint-protocol"]').element as HTMLSelectElement).value).toBe('video')
+    expect((wrapper.get('[data-testid="protocol-endpoint-input-video"]').element as HTMLInputElement).value)
+      .toBe('https://ark.cn-beijing.volces.com/api/v3')
+    expect(wrapper.get('[data-testid="key-vendor-detected"]').text())
+      .toContain('admin.accounts.keyAddress.videoVendors.seedance · admin.accounts.keyAddress.site.cn')
+    expect(wrapper.find('[data-testid="key-plan-mode"]').exists()).toBe(false)
+    expect((wrapper.get('[data-testid="channel-name"]').element as HTMLInputElement).value).toBe('Seedance · Video')
+
+    const payload = await submitVideoKey(wrapper, 'ark-key')
+    expect(payload).not.toHaveProperty('platform')
+    expect(payload?.type).toBe('apikey')
+    expect(payload?.protocol_endpoints).toEqual({ video: 'https://ark.cn-beijing.volces.com/api/v3' })
+    expect(payload?.credentials).toMatchObject({ api_key: 'ark-key' })
+    expect(payload?.credentials).not.toHaveProperty('account_mode')
+  })
+
+  it('creating a Kling video key prefills the international address', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper, { protocol: 'video', url: 'https://api-singapore.klingai.com', mode: 'intl' })
+    expect((wrapper.get('[data-testid="protocol-endpoint-input-video"]').element as HTMLInputElement).value)
+      .toBe('https://api-singapore.klingai.com')
+    expect(wrapper.get('[data-testid="key-vendor-detected"]').text())
+      .toContain('admin.accounts.keyAddress.videoVendors.kling · admin.accounts.keyAddress.site.intl')
+
+    const payload = await submitVideoKey(wrapper, 'kling-key')
+    expect(payload?.protocol_endpoints).toEqual({ video: 'https://api-singapore.klingai.com' })
+    expect(payload?.credentials).not.toHaveProperty('account_mode')
+  })
+
+  it('a MiniMax video key has no plan to choose and writes no account mode', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper, { protocol: 'video', url: 'https://api.minimax.cn', mode: 'cn' })
+    expect(wrapper.find('[data-testid="key-plan-mode"]').exists()).toBe(false)
+    const payload = await submitVideoKey(wrapper, 'mm-key')
+    expect(payload?.protocol_endpoints).toEqual({ video: 'https://api.minimax.cn' })
+    expect(payload?.credentials).not.toHaveProperty('account_mode')
+  })
+
+  it('offers the video protocol for a manually typed official address', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper, { protocol: 'video', url: 'https://api-beijing.klingai.com', typed: true })
+    expect((wrapper.get('[data-testid="protocol-endpoint-protocol"]').element as HTMLSelectElement).value).toBe('video')
+    expect(wrapper.get('[data-testid="key-vendor-detected"]').text())
+      .toContain('admin.accounts.keyAddress.videoVendors.kling · admin.accounts.keyAddress.site.cn')
+    const payload = await submitVideoKey(wrapper, 'kling-key')
+    expect(payload?.protocol_endpoints).toEqual({ video: 'https://api-beijing.klingai.com' })
+  })
+
+  it('an Ark chat address is still a relay: only video addresses identify Seedance', async () => {
+    const wrapper = mountModal()
+    await selectKey(wrapper, { protocol: 'chat_completions', url: 'https://ark.cn-beijing.volces.com/api/v3', typed: true })
+    expect(wrapper.find('[data-testid="key-vendor-detected"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="key-vendor-relay"]').exists()).toBe(true)
   })
 })

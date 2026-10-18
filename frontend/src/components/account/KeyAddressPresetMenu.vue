@@ -8,7 +8,7 @@
     @change="onChange"
   >
     <option value="" disabled>{{ t('admin.accounts.keyAddress.presetPlaceholder') }}</option>
-    <optgroup v-for="group in groups" :key="group.vendor" :label="vendorLabel(group.vendor)">
+    <optgroup v-for="group in groups" :key="group.vendor" :label="groupLabel(group.vendor)">
       <option
         v-for="item in group.items"
         :key="item.index"
@@ -27,7 +27,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { vendorLabel } from '@/components/modelPlaza/catalog'
-import type { KeyAddressPreset } from './keyAddress'
+import { videoOnlyVendorName, type KeyAddressPreset } from './keyAddress'
 
 const props = defineProps<{
   presets: KeyAddressPreset[]
@@ -39,9 +39,14 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// 厂商分组按常用程度排：国产、OpenCode；表里没有的排最后。
+// 厂商分组按常用程度排：国产、OpenCode、官方视频厂商；表里没有的排最后。
 // 海外四家（Anthropic / OpenAI / Gemini / Grok）没有 key 的官方地址，指向它们的 key 按中转处理
-const VENDOR_ORDER = ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
+const VENDOR_ORDER = ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', 'seedance', 'kling']
+
+// 只有视频的厂商按产品名分组（火山方舟 / Seedance、可灵），其余按公司名
+function groupLabel(vendor: string): string {
+  return videoOnlyVendorName(vendor, t) ?? vendorLabel(vendor)
+}
 
 const groups = computed(() => {
   const byVendor = new Map<string, { index: number; preset: KeyAddressPreset }[]>()
@@ -62,6 +67,7 @@ const groups = computed(() => {
 function modeLabel(mode: KeyAddressPreset['mode']): string {
   if (mode === 'payg' || mode === 'coding') return t(`admin.accounts.cnProviders.accountMode.${mode}`)
   if (mode === 'zen' || mode === 'go') return t(`admin.accounts.opencodeGo.accountMode.${mode}`)
+  if (mode === 'cn' || mode === 'intl') return t(`admin.accounts.keyAddress.site.${mode}`)
   return ''
 }
 

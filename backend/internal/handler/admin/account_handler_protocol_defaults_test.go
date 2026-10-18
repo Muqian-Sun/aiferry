@@ -25,8 +25,10 @@ func TestAccountHandler_GetProtocolDefaults_VendorHosts(t *testing.T) {
 
 	var body struct {
 		Data struct {
-			Defaults    map[string]map[string]map[string]string `json:"defaults"`
-			VendorHosts map[string]string                       `json:"vendor_hosts"`
+			Protocols        []string                                `json:"protocols"`
+			Defaults         map[string]map[string]map[string]string `json:"defaults"`
+			VendorHosts      map[string]string                       `json:"vendor_hosts"`
+			VideoVendorHosts map[string]string                       `json:"video_vendor_hosts"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -45,4 +47,21 @@ func TestAccountHandler_GetProtocolDefaults_VendorHosts(t *testing.T) {
 	for host, vendor := range body.Data.VendorHosts {
 		require.Equal(t, vendor, service.OfficialVendorOfURL("https://"+host), host)
 	}
+
+	// 官方视频 key：video 协议可选，各厂商按站点（cn / intl）预填，video 地址按单独的域名表认厂商。
+	require.Contains(t, body.Data.Protocols, service.APIProtocolVideo)
+	require.Equal(t, map[string]map[string]string{
+		"cn":   {service.APIProtocolVideo: service.DefaultSeedanceCNBaseURL},
+		"intl": {service.APIProtocolVideo: service.DefaultSeedanceIntlBaseURL},
+	}, body.Data.Defaults[service.PlatformSeedance])
+	require.Equal(t, map[string]map[string]string{
+		"cn":   {service.APIProtocolVideo: service.DefaultKlingCNBaseURL},
+		"intl": {service.APIProtocolVideo: service.DefaultKlingIntlBaseURL},
+	}, body.Data.Defaults[service.PlatformKling])
+	require.Equal(t, map[string]string{service.APIProtocolVideo: service.DefaultMiniMaxVideoCNBaseURL}, body.Data.Defaults[service.PlatformMiniMax]["cn"])
+	require.Equal(t, map[string]string{service.APIProtocolVideo: service.DefaultMiniMaxVideoIntlBaseURL}, body.Data.Defaults[service.PlatformMiniMax]["intl"])
+	require.Contains(t, body.Data.Defaults[service.PlatformMiniMax]["default"], service.APIProtocolChatCompletions)
+	require.Equal(t, service.OfficialVideoVendorHosts(), body.Data.VideoVendorHosts)
+	require.Equal(t, service.PlatformSeedance, body.Data.VideoVendorHosts["ark.cn-beijing.volces.com"])
+	require.NotContains(t, body.Data.VendorHosts, "ark.cn-beijing.volces.com", "方舟对话 key 仍按中转")
 }

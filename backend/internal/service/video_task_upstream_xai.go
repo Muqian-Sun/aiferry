@@ -55,6 +55,14 @@ func buildXAIVideoCreateBody(req VideoTaskRequest, upstreamModel string) (map[st
 	return body, nil
 }
 
+// prepareXAIVideoRequest xAI 的 duration 只允许 1–15 秒（比框架的通用上限短）。
+func prepareXAIVideoRequest(req VideoTaskRequest) (VideoTaskRequest, error) {
+	if req.DurationSeconds > GrokVideoMaxDurationSeconds {
+		return req, newVideoTaskInvalidRequest("duration must be between %d and %d seconds for this video model", VideoBillingMinDurationSeconds, GrokVideoMaxDurationSeconds)
+	}
+	return req, nil
+}
+
 // parseXAIVideoStatus xAI 状态体 → 规范结果。done 却没有 video.url 时不算完成（老路径同样不计费），继续查。
 func parseXAIVideoStatus(body []byte) (VideoTaskResult, error) {
 	if !gjson.ValidBytes(body) {
@@ -87,7 +95,12 @@ func parseXAIVideoStatus(body []byte) (VideoTaskResult, error) {
 
 // extractVideoUpstreamTaskID 创建响应里的上游任务 ID；不能作为 URL 路径段的 ID 当作无效。
 func extractVideoUpstreamTaskID(body []byte) (string, error) {
-	id := extractGrokMediaVideoRequestID(body)
+	return checkVideoUpstreamTaskID(extractGrokMediaVideoRequestID(body), body)
+}
+
+// checkVideoUpstreamTaskID 校验适配器从创建响应里取出的上游任务 ID（规则同 extractVideoUpstreamTaskID）。
+func checkVideoUpstreamTaskID(id string, body []byte) (string, error) {
+	id = strings.TrimSpace(id)
 	if id == "" {
 		return "", &videoUpstreamHTTPError{StatusCode: http.StatusBadGateway, Body: body, Message: "upstream returned no video task id"}
 	}
@@ -101,6 +114,9 @@ type grokOAuthVideoUpstream struct{ s *OpenAIGatewayService }
 
 func (u grokOAuthVideoUpstream) Kind() VideoUpstreamKind  { return VideoUpstreamGrokOAuth }
 func (u grokOAuthVideoUpstream) UpstreamEndpoint() string { return xaiVideoGenerationsEndpoint }
+func (u grokOAuthVideoUpstream) PrepareRequest(req VideoTaskRequest, _ string) (VideoTaskRequest, error) {
+	return prepareXAIVideoRequest(req)
+}
 
 // applyAuth 成品号的认证与 CLI 网关头；账号级请求头覆写最后应用。
 func (u grokOAuthVideoUpstream) applyAuth(req *http.Request, account *Account, token string) {
@@ -196,6 +212,9 @@ type xaiRelayVideoUpstream struct{ s *OpenAIGatewayService }
 
 func (u xaiRelayVideoUpstream) Kind() VideoUpstreamKind  { return VideoUpstreamXAIRelay }
 func (u xaiRelayVideoUpstream) UpstreamEndpoint() string { return xaiVideoGenerationsEndpoint }
+func (u xaiRelayVideoUpstream) PrepareRequest(req VideoTaskRequest, _ string) (VideoTaskRequest, error) {
+	return prepareXAIVideoRequest(req)
+}
 
 func (u xaiRelayVideoUpstream) Create(ctx context.Context, _ *gin.Context, account *Account, req VideoTaskRequest, upstreamModel string) (string, error) {
 	root, err := u.s.keyVideoBaseURL(account)

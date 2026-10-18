@@ -855,6 +855,13 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
 		"api.kimi.com",
 		"api.moonshot.ai",
 		"api.moonshot.cn",
+		// 官方视频厂商的 API 根地址（与 service 的 Default*VideoBaseURL 一致）
+		"ark.cn-beijing.volces.com",
+		"ark.ap-southeast.bytepluses.com",
+		"api-beijing.klingai.com",
+		"api-singapore.klingai.com",
+		"api.minimax.cn",
+		"api.minimax.io",
 	}
 	hostSet := make(map[string]struct{}, len(cfg.Security.URLAllowlist.UpstreamHosts))
 	for _, h := range cfg.Security.URLAllowlist.UpstreamHosts {

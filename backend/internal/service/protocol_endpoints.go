@@ -18,14 +18,25 @@ const APIProtocolGemini = domain.APIProtocolGemini
 // IsUpstreamProtocol 报告是否为可用作 protocol_endpoints 键的具体协议。
 var IsUpstreamProtocol = domain.IsUpstreamProtocol
 
-// UpstreamProtocols 返回全部具体上游协议，顺序固定，供校验报错与前端选项使用。
+// UpstreamProtocols 返回全部具体上游协议（protocol_endpoints 的全部合法键），顺序固定，供校验报错与前端选项使用。
 func UpstreamProtocols() []string {
+	return append(ConversationProtocols(), APIProtocolVideo)
+}
+
+// ConversationProtocols 返回对话类上游协议，它们同时也是网关的入站协议：按入站协议逐个试承接的地方
+// （调度诊断、模型候选、协议探测）只认这几个。video 协议没有入站协议能转成它，不在其中。
+func ConversationProtocols() []string {
 	return []string{
 		APIProtocolAnthropic,
 		APIProtocolChatCompletions,
 		APIProtocolResponses,
 		APIProtocolGemini,
 	}
+}
+
+// IsConversationProtocol 报告 p 是否为对话类上游协议（可作为入站协议）。
+func IsConversationProtocol(p string) bool {
+	return IsUpstreamProtocol(p) && p != APIProtocolVideo
 }
 
 // NormalizeProtocolEndpoints 校验并规范化「协议 → 上游地址」映射。
@@ -64,6 +75,11 @@ func NormalizeProtocolEndpoints(in map[string]string) (map[string]string, error)
 		}
 		if _, exists := out[key]; exists {
 			return nil, fmt.Errorf("protocol %q is configured more than once", key)
+		}
+		// video 地址只有官方视频厂商的适配器会用：认不出厂商的地址存下来也永远调度不到，在入口挡住。
+		if key == APIProtocolVideo && OfficialVideoVendorOfURL(value) == "" {
+			return nil, fmt.Errorf("protocol %q base URL %q must be the official address of a video vendor (%s)",
+				key, value, strings.Join(OfficialVideoVendors(), ", "))
 		}
 		out[key] = value
 	}
@@ -107,7 +123,7 @@ func (a *Account) IsThirdPartyKey() bool {
 
 // WithInboundProtocol 把本次请求的入站协议放进 context，供调度做协议偏好。
 func WithInboundProtocol(ctx context.Context, protocol string) context.Context {
-	if ctx == nil || !IsUpstreamProtocol(protocol) {
+	if ctx == nil || !IsConversationProtocol(protocol) {
 		return ctx
 	}
 	return context.WithValue(ctx, ctxkey.InboundProtocol, protocol)
@@ -147,10 +163,17 @@ func (a *Account) ValidateProtocolEndpoints() error {
 // 只有国产厂商与 OpenCode：它们没有成品号，只能以 key 接入，官方地址上有厂商特化（余额 /
 // 额度探测、Coding Plan 等）。Anthropic、OpenAI、Gemini、Grok 不在表里——这四家只认成品号，
 // 指向它们官方域名的 key 一律按中转处理（muqian 2026-09-29 定）。
+// 官方视频厂商（Seedance / 可灵 / MiniMax）的 video 地址按站点分：模式 cn / intl 各一个。
 //
 // accountMode 用于区分同一平台的按量与 Coding 套餐端点，空串按按量处理。
 func PlatformProtocolDefaults(platform string, accountMode string) map[string]string {
 	coding := accountMode == AccountModeCoding
+	if accountMode == AccountModeCN || accountMode == AccountModeIntl {
+		if video, ok := officialVideoBaseURLs[platform][accountMode]; ok {
+			return map[string]string{APIProtocolVideo: video}
+		}
+		return map[string]string{}
+	}
 	switch platform {
 	case PlatformKimi:
 		if coding {
@@ -207,7 +230,29 @@ func PlatformProtocolDefaults(platform string, accountMode string) map[string]st
 // PlatformsWithProtocolDefaults 返回有官方端点可预填的平台列表。
 // 与 PlatformProtocolDefaults 放在一起维护，避免平台列表被抄成两份。
 func PlatformsWithProtocolDefaults() []string {
-	return []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo}
+	return []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, PlatformSeedance, PlatformKling}
+}
+
+// ProtocolDefaultsModes 返回官方地址表的全部模式键（空串 = 默认）：管理端下发与官方域名表都按它遍历。
+func ProtocolDefaultsModes() []string {
+	return []string{"", AccountModeCoding, AccountModeZen, AccountModeGo, AccountModeCN, AccountModeIntl}
+}
+
+// officialVideoBaseURLs 官方视频厂商的 video 地址：平台 → 站点模式 → 根地址。
+var officialVideoBaseURLs = map[string]map[string]string{
+	PlatformSeedance: {AccountModeCN: DefaultSeedanceCNBaseURL, AccountModeIntl: DefaultSeedanceIntlBaseURL},
+	PlatformKling:    {AccountModeCN: DefaultKlingCNBaseURL, AccountModeIntl: DefaultKlingIntlBaseURL},
+	PlatformMiniMax:  {AccountModeCN: DefaultMiniMaxVideoCNBaseURL, AccountModeIntl: DefaultMiniMaxVideoIntlBaseURL},
+}
+
+// OfficialVideoVendors 有官方视频适配器的厂商（平台标识），按名排序。
+func OfficialVideoVendors() []string {
+	out := make([]string, 0, len(officialVideoBaseURLs))
+	for vendor := range officialVideoBaseURLs {
+		out = append(out, vendor)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ResolveUpstreamBaseURL 决定最终使用的上游地址。
@@ -263,6 +308,7 @@ func (a *Account) PrimaryUpstreamProtocol() string {
 // OpenAI API 根地址（chat_completions，其次 responses）在前：余额查询、模型列表、
 // 图片等扩展端点都挂在它下面，与 KeyUpstreamProtocols 对扩展端点只认
 // chat_completions 地址一致。anthropic、gemini 地址是各自协议的专用根，排在后面。
+// video 地址不在表里：它是视频厂商的任务 API 根，按主地址发对话族请求（模型同步等）对它没有意义。
 var primaryUpstreamProtocolOrder = []string{
 	APIProtocolChatCompletions,
 	APIProtocolResponses,

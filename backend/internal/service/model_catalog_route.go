@@ -66,6 +66,8 @@ var catalogVendorPlatforms = map[string]string{
 	"zai":                    PlatformZhipu,
 	"deepseek":               PlatformDeepseek,
 	"minimax":                PlatformMiniMax,
+	"seedance":               PlatformSeedance,
+	"kling":                  PlatformKling,
 	"opencode":               PlatformOpenCodeGo,
 	"opencode_go":            PlatformOpenCodeGo,
 }
@@ -274,6 +276,23 @@ func AccountServesCatalogExtensionEndpoints(entry *ModelCatalogEntry, account *A
 	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
 		fmt.Sprintf("account %d cannot serve %s: image / video / embedding models are called through the extension endpoints, "+
 			"and a third-party key serves those only when it has a chat_completions endpoint", account.ID, entry.ModelID))
+}
+
+// AccountServesCatalogVideoEntry 视频条目的绑定校验，与视频创建的选号同一条规则：（条目厂商, 账号形态）在视频适配器
+// 注册表里有实现。官方视频 key 只能绑同厂商的条目，通用中转 key 按 new-api / xAI 形态承接，指向厂商官方域名的对话 key 不能绑。
+// 成品号只看形态（Grok 媒体付费资格是运行时探测的，不进绑定校验）。
+func AccountServesCatalogVideoEntry(entry *ModelCatalogEntry, account *Account) error {
+	if entry == nil || account == nil {
+		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE", "entry and account are required")
+	}
+	if _, ok := VideoTaskUpstreamKindFor(VideoTaskVendorFor(entry), account); ok {
+		if !account.IsThirdPartyKey() || account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityVideoGeneration) {
+			return nil
+		}
+	}
+	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
+		fmt.Sprintf("account %d cannot serve video model %s: it needs an official video key of the same vendor, "+
+			"or a relay key with a chat_completions endpoint", account.ID, entry.ModelID))
 }
 
 // EntryServedByExtensionEndpoints 条目是否经扩展端点（生图 / 视频 / 向量）承接，口径同绑定校验：

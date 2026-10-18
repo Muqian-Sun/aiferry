@@ -46,6 +46,8 @@ const (
 	PlatformZhipu      = domain.PlatformZhipu
 	PlatformDeepseek   = domain.PlatformDeepseek
 	PlatformMiniMax    = domain.PlatformMiniMax
+	PlatformSeedance   = domain.PlatformSeedance
+	PlatformKling      = domain.PlatformKling
 	PlatformOpenCodeGo = domain.PlatformOpenCodeGo
 	PlatformComposite  = domain.PlatformComposite
 	// PlatformKiro is retained for unsupported-platform threshold tests and legacy
@@ -59,6 +61,8 @@ const (
 	AccountModeCoding = domain.AccountModeCoding
 	AccountModeZen    = domain.AccountModeZen
 	AccountModeGo     = domain.AccountModeGo
+	AccountModeCN     = domain.AccountModeCN
+	AccountModeIntl   = domain.AccountModeIntl
 )
 
 // 上游 API 协议（国产供应商）：决定转发端点与格式，与接入模式正交。
@@ -66,6 +70,19 @@ const (
 	APIProtocolChatCompletions = domain.APIProtocolChatCompletions
 	APIProtocolAnthropic       = domain.APIProtocolAnthropic
 	APIProtocolResponses       = domain.APIProtocolResponses
+	APIProtocolVideo           = domain.APIProtocolVideo
+)
+
+// 官方视频厂商的 API 根地址（video 协议地址）。出处：Seedance 见 BytePlus ModelArk「Create a video generation task」
+// 与火山方舟同名文档；可灵见 kling.ai / klingai.com 的 document-api「Authentication」；MiniMax 见
+// platform.minimax.io / platform.minimaxi.com 的「video-generation-v2-create」servers 字段。
+const (
+	DefaultSeedanceCNBaseURL       = "https://ark.cn-beijing.volces.com/api/v3"
+	DefaultSeedanceIntlBaseURL     = "https://ark.ap-southeast.bytepluses.com/api/v3"
+	DefaultKlingCNBaseURL          = "https://api-beijing.klingai.com"
+	DefaultKlingIntlBaseURL        = "https://api-singapore.klingai.com"
+	DefaultMiniMaxVideoCNBaseURL   = "https://api.minimax.cn"
+	DefaultMiniMaxVideoIntlBaseURL = "https://api.minimax.io"
 )
 
 // 国产 OpenAI 兼容供应商各模式的默认 base_url。

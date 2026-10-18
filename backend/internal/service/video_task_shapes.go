@@ -62,7 +62,7 @@ func validateVideoTaskRequest(req VideoTaskRequest) error {
 	if req.Prompt == "" && len(req.Images) == 0 {
 		return newVideoTaskInvalidRequest("prompt is required")
 	}
-	// 计费按秒且封顶 VideoBillingMaxDurationSeconds：放行更长的请求会让超出部分不计费。
+	// 计费按秒且封顶 VideoBillingMaxDurationSeconds：放行更长的请求会让超出部分不计费。各适配器按模型再收窄。
 	if req.DurationSeconds < 0 || req.DurationSeconds > VideoBillingMaxDurationSeconds {
 		return newVideoTaskInvalidRequest("duration must be between %d and %d seconds", VideoBillingMinDurationSeconds, VideoBillingMaxDurationSeconds)
 	}

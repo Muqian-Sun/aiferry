@@ -44,10 +44,10 @@ func TestNormalizeVideoResolutionAndBillingTier(t *testing.T) {
 	for raw, want := range map[string][2]string{
 		"480P":  {VideoResolution480P, VideoBillingResolution480P},
 		"720p":  {VideoResolution720P, VideoBillingResolution720P},
-		"768P":  {VideoResolution768P, VideoBillingResolution1080P},
+		"768P":  {VideoResolution768P, VideoBillingResolution768P},
 		"1080":  {VideoResolution1080P, VideoBillingResolution1080P},
-		"2K":    {VideoResolution2K, VideoBillingResolution1080P},
-		"4k":    {VideoResolution4K, VideoBillingResolution1080P},
+		"2K":    {VideoResolution2K, VideoBillingResolution2K},
+		"4k":    {VideoResolution4K, VideoBillingResolution4K},
 		"bogus": {"", ""},
 	} {
 		require.Equal(t, want[0], NormalizeVideoResolution(raw), raw)
@@ -74,7 +74,7 @@ func TestParseOpenAIVideoJSON(t *testing.T) {
 	for name, body := range map[string]string{
 		"file_id":        `{"model":"sora-2","prompt":"x","input_reference":{"file_id":"file_1"}}`,
 		"bad size":       `{"model":"sora-2","prompt":"x","size":"big"}`,
-		"too long":       `{"model":"sora-2","prompt":"x","seconds":"20"}`,
+		"too long":       `{"model":"sora-2","prompt":"x","seconds":"31"}`,
 		"no model":       `{"prompt":"x"}`,
 		"no prompt":      `{"model":"sora-2"}`,
 		"bad image":      `{"model":"sora-2","prompt":"x","input_reference":"ftp://example.com/a.png"}`,

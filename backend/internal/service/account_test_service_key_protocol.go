@@ -42,6 +42,9 @@ func (s *AccountTestService) testKeyProtocolEndpointConnection(c *gin.Context, a
 	case APIProtocolGemini:
 		return s.testGeminiAccountConnection(c, account, modelID, prompt)
 	default:
+		if account.ProtocolEndpoint(APIProtocolVideo) != "" {
+			return s.sendErrorAndEnd(c, "video keys have no connection test: every probe would be a billed video generation")
+		}
 		return s.sendErrorAndEnd(c, MissingProtocolEndpointError(account, strings.Join(UpstreamProtocols(), " / ")).Error())
 	}
 }

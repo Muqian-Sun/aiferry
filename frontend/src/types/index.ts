@@ -545,7 +545,19 @@ export interface UpdateApiKeyRequest {
 
 // ==================== Account & Proxy Types ====================
 
-export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go'
+export type AccountPlatform =
+  | 'anthropic'
+  | 'openai'
+  | 'gemini'
+  | 'antigravity'
+  | 'grok'
+  | 'kimi'
+  | 'zhipu'
+  | 'deepseek'
+  | 'minimax'
+  | 'opencode_go'
+  | 'seedance'
+  | 'kling'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
@@ -708,7 +720,7 @@ export interface OllamaCloudUsageState {
 }
 
 /** 第三方 key 可配置地址的上游协议，与后端 service.UpstreamProtocols() 一致。 */
-export type UpstreamProtocol = 'anthropic' | 'chat_completions' | 'responses' | 'gemini'
+export type UpstreamProtocol = 'anthropic' | 'chat_completions' | 'responses' | 'gemini' | 'video'
 
 /** 协议 → 上游地址。第三方 key 只按这里的地址转发，没有任何隐式默认地址。 */
 export type ProtocolEndpoints = Partial<Record<UpstreamProtocol, string>>

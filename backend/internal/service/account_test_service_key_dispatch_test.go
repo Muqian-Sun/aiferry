@@ -186,5 +186,5 @@ func TestAccountTestService_KeyWithoutProtocolEndpointFailsClosed(t *testing.T) 
 
 	require.Error(t, err)
 	require.Empty(t, upstream.requests)
-	require.Contains(t, recorder.Body.String(), "has no anthropic / chat_completions / responses / gemini upstream address configured")
+	require.Contains(t, recorder.Body.String(), "has no anthropic / chat_completions / responses / gemini / video upstream address configured")
 }

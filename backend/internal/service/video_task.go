@@ -144,6 +144,10 @@ const (
 	VideoUpstreamGrokOAuth   VideoUpstreamKind = "grok_oauth"
 	VideoUpstreamXAIRelay    VideoUpstreamKind = "xai_relay"
 	VideoUpstreamNewAPIRelay VideoUpstreamKind = "newapi_relay"
+	// 官方视频厂商：key 的 video 地址指向厂商官方域名。
+	VideoUpstreamSeedanceOfficial VideoUpstreamKind = "seedance_official"
+	VideoUpstreamKlingOfficial    VideoUpstreamKind = "kling_official"
+	VideoUpstreamMiniMaxOfficial  VideoUpstreamKind = "minimax_official"
 )
 
 // VideoTask 一条视频任务记录。
@@ -326,20 +330,37 @@ func videoResolutionForShortSide(shortSide int) string {
 	return VideoResolution4K
 }
 
-// VideoBillingTierForResolution 规范分辨率 → 计费档。目录的视频价只分 480p / 720p / 1080p 三档（pricing_card.go），
-// 768p 与 2k / 4k 记 1080p 档（向上取，宁可多收不漏收）；认不出的交给计费默认档。
-// 这张映射是拍的，PR-D 接入官方厂商、目录有了更高档位后按实际档位校正。
+// VideoBillingTierForResolution 规范分辨率 → 计费档：每个规范分辨率都有同名的档，按实际分辨率计，
+// 不拿别的档顶（条目没有这一档时创建就拒绝，见 validateVideoEntryTier）；认不出的返回空串，交给计费默认档。
 func VideoBillingTierForResolution(resolution string) string {
-	switch NormalizeVideoResolution(resolution) {
-	case VideoResolution480P:
-		return VideoBillingResolution480P
-	case VideoResolution720P:
-		return VideoBillingResolution720P
-	case VideoResolution768P, VideoResolution1080P, VideoResolution2K, VideoResolution4K:
-		return VideoBillingResolution1080P
-	default:
+	tier, ok := LookupVideoBillingResolution(NormalizeVideoResolution(resolution))
+	if !ok {
 		return ""
 	}
+	return tier
+}
+
+// validateVideoEntryTier 条目分了视频档却没有这个分辨率的档：拒绝创建（不静默按别的档或基础价计）。
+// 没分档的条目按单一的每秒价计，不拦；分辨率为空（交给上游默认）也不拦。
+func validateVideoEntryTier(entry *ModelCatalogEntry, resolution string) error {
+	tier := VideoBillingTierForResolution(resolution)
+	if entry == nil || tier == "" {
+		return nil
+	}
+	tiered := false
+	for _, interval := range entry.Intervals {
+		if interval.TierLabel == "" {
+			continue
+		}
+		tiered = true
+		if interval.TierLabel == tier && interval.PerRequestPrice != nil {
+			return nil
+		}
+	}
+	if !tiered {
+		return nil
+	}
+	return newVideoTaskInvalidRequest("resolution %s is not available for model %s", tier, entry.ModelID)
 }
 
 // ParseVideoSize 解析 "1280x720"（也接受 "1280*720"、大写 X）。

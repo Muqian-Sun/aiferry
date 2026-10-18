@@ -74,7 +74,7 @@ export function entryToRequest(entry: ModelCatalogEntry): ModelCatalogEntryReque
 
 /** 图片 / 视频分档：档位只能是后端认的这几个（计费查档区分大小写），每档一个按次价。 */
 export const IMAGE_TIER_LABELS = ['1K', '2K', '4K'] as const
-export const VIDEO_TIER_LABELS = ['480p', '720p', '1080p'] as const
+export const VIDEO_TIER_LABELS = ['480p', '720p', '768p', '1080p', '2k', '4k'] as const
 
 export interface MediaTierForm {
   tier_label: string

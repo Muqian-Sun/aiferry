@@ -97,7 +97,7 @@ func (s *AccountTestService) ProbeUpstreamProtocols(ctx context.Context, account
 		return nil, newUpstreamModelSyncConfigError("Invalid upstream address: "+err.Error(), err)
 	}
 
-	protocols := UpstreamProtocols()
+	protocols := ConversationProtocols()
 	results := make([]ProbedUpstreamProtocol, len(protocols))
 	var wg sync.WaitGroup
 	for i, protocol := range protocols {
