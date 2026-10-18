@@ -17,6 +17,9 @@ type CatalogSalePrices struct {
 	// MaxReasoningEffortMultiplier 售价的最高推理倍率（muqian 2026-10-07：与忙闲时一样单独一套）：nil = 跟官方；
 	// 有值 = 最高推理档（effort = max）向用户收钱整单乘它（1 = 不加价）。
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
+	// PerRequestPrice 生图 / 视频 / 按次模型的按次售价（USD / 张、/ 秒、/ 次）：nil = 按官方按次价 × 默认售价比例；
+	// 各档与官方价同比例（售价 × 本档官方价 ÷ 官方按次价）。按 Token 计费的模型不用它。
+	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
 }
 
 // CatalogSaleSegment 是一段的售价：输入侧 Token 落在官方价那一段（下界 MinTokens）时用。
@@ -29,9 +32,9 @@ type CatalogSaleSegment struct {
 	CacheReadPrice    *float64 `json:"cache_read_price"`
 }
 
-// IsZero 报告一项售价都没填（忙闲时、最高推理倍率也跟官方）。
+// IsZero 报告一项售价都没填（忙闲时、最高推理倍率也跟官方，按次售价也没填）。
 func (p CatalogSalePrices) IsZero() bool {
-	if p.TimePricing != nil || p.MaxReasoningEffortMultiplier != nil {
+	if p.TimePricing != nil || p.MaxReasoningEffortMultiplier != nil || p.PerRequestPrice != nil {
 		return false
 	}
 	if p.InputPrice != nil || p.OutputPrice != nil || p.CacheWritePrice != nil || p.CacheWrite1hPrice != nil || p.CacheReadPrice != nil {

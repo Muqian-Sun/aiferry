@@ -219,11 +219,17 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		billingType = BillingTypeSubscription
 	}
 
-	// 渠道成本 = token 用量 × 这个渠道给这个模型的上游价（媒体用量与算不出用户价的请求记 0）
+	// 渠道成本 = 用量 × 这个渠道给这个模型的上游价：token 用量按上游 token 价，媒体用量按上游按次价
+	// （与用户价同一个计费模型）；算不出用户价的请求记 0
 	accountCost := 0.0
-	if tokenPath && err == nil {
+	switch {
+	case err != nil:
+	case tokenPath:
 		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, billingModels,
 			tokens, result.WebSearch, pricingAt, optionalStringValue(result.ReasoningEffort))
+	default:
+		accountCost = recordUsageMediaAccountCost(ctx, s.billingService, s.resolver, account.ID,
+			firstUsageBillingModel(billingModels), mediaUsageFromOpenAIForwardResult(result))
 	}
 
 	// Create usage log

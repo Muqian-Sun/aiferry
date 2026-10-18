@@ -31,6 +31,7 @@ export default {
       search_price_per_call: 'Web search',
       x_post_price: 'X search · posts',
       x_user_price: 'X search · profiles',
+      per_request_price: 'Per-request price',
       segments: 'Segments',
       margin: 'Margin',
       status: 'Status',
@@ -38,6 +39,30 @@ export default {
     },
     official: 'Official',
     costGroup: 'Cost',
+    media: {
+      units: {
+        image: '$ / image',
+        video: '$ / second',
+        per_request: '$ / request'
+      },
+      modes: {
+        image: 'Billed per image',
+        video: 'Billed per second',
+        per_request: 'Billed per request'
+      },
+      column: 'Per-request price ({unit})',
+      tiersTitle: 'Tiers',
+      tiersNone: 'No tiers',
+      tiersCount: '{count} tiers',
+      tiersHint: 'A matching tier uses its own price; otherwise the per-request price above applies.',
+      tiersFollow: 'Tiers scale with the official prices: {tiers}',
+      tier: '{label} tier',
+      tierAdd: 'Add {label} tier',
+      tierErrors: {
+        missing: 'price missing',
+        invalid: 'invalid (non-negative numbers only)'
+      }
+    },
     webSearchDelegate: 'Web search rate',
     webSearchDelegateHint: 'Runs web search for Claude Code on third-party models; not listed to users',
     search: {
@@ -189,7 +214,8 @@ export default {
       upstreamModel: 'upstream model must be a single name without * or spaces',
       peak: 'Peak period {index}: {error}',
       peakDates: 'Peak-hours holidays contain an invalid date',
-      reasoning: 'Max-reasoning multiplier must be greater than 0'
+      reasoning: 'Max-reasoning multiplier must be greater than 0',
+      tier: '{label} tier: {error}'
     },
     discardTitle: 'Discard unsaved changes?',
     discardMessage: '{count} blocks have unsaved changes; continuing discards them.',

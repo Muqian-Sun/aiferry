@@ -15,10 +15,10 @@ func saleTimeMultiplierAt(entry *ModelCatalogEntry, at time.Time) float64 {
 }
 
 // bindingCostRatioAt at 时刻的上游成本比：平时的比值（bindingCostRatio）× 上游当时的倍数 ÷ 我们当时的倍数。
-// at 为零值 = 平时（两边都不加）。
+// at 为零值 = 平时（两边都不加）。按次计价的模型不分忙闲时（媒体计费不乘分时），任何时刻都是平时的比值。
 func bindingCostRatioAt(entry *ModelCatalogEntry, b *ModelCatalogBinding, at time.Time) (float64, bool) {
 	ratio, ok := bindingCostRatio(entry, b)
-	if !ok || at.IsZero() {
+	if !ok || at.IsZero() || entry.IsPerRequestBilled() {
 		return ratio, ok
 	}
 	sale := saleTimeMultiplierAt(entry, at)

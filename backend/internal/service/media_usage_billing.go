@@ -55,7 +55,11 @@ func (s *BillingService) CalculateMediaCost(ctx context.Context, resolver *Model
 	if usage.VideoCount <= 0 && usage.ImageCount <= 0 {
 		return nil, false, nil
 	}
-	resolved := resolveIfPossible(ctx, resolver, model)
+	return s.calculateMediaCostResolved(ctx, resolver, resolveIfPossible(ctx, resolver, model), model, usage, multiplier)
+}
+
+// calculateMediaCostResolved 按已解析的价卡算媒体用量（用户价与上游价共用，保证两边的分档、张数、条 × 秒口径一致）。
+func (s *BillingService) calculateMediaCostResolved(ctx context.Context, resolver *ModelPricingResolver, resolved *ResolvedPricing, model string, usage mediaUsage, multiplier float64) (cost *CostBreakdown, handled bool, err error) {
 	if usage.VideoCount > 0 {
 		if resolved == nil || resolved.Source != PricingSourceCatalog {
 			return nil, true, fmt.Errorf("video usage for %q: %w", model, ErrModelPricingUnavailable)
@@ -96,6 +100,46 @@ func (s *BillingService) CalculateMediaCost(ctx context.Context, resolver *Model
 		// token 模式的生图条目（gpt-image-*）：按 image token 价走 token 路径。
 		return nil, false, nil
 	}
+}
+
+// CalculateUpstreamMediaCost 媒体用量的渠道成本（USD）：与 CalculateMediaCost 同一套分发（同一分档、张数、条 × 秒），
+// 价换成承接上的上游按次价（upstreamMediaEntry），倍率取 1。承接没填上游按次价时返回 ErrUpstreamPriceNotFound；
+// 这次用量走 token 路径（如 gpt-image-* 按 image token 价）时为 0。
+func (s *BillingService) CalculateUpstreamMediaCost(ctx context.Context, resolver *ModelPricingResolver, entry *ModelCatalogEntry, binding *ModelCatalogBinding, usage mediaUsage) (float64, error) {
+	if s == nil || resolver == nil || entry == nil || binding == nil || binding.PerRequestPrice == nil {
+		return 0, ErrUpstreamPriceNotFound
+	}
+	if usage.Audio != nil || (usage.VideoCount <= 0 && usage.ImageCount <= 0) {
+		return 0, nil
+	}
+	upstream := upstreamMediaEntry(entry, binding)
+	cost, handled, err := s.calculateMediaCostResolved(ctx, resolver, resolver.resolveCatalogPricing(upstream), entry.ModelID, usage, 1)
+	if err != nil || !handled || cost == nil {
+		return 0, err
+	}
+	return cost.TotalCost, nil
+}
+
+// upstreamMediaEntry 用承接上的上游按次价替换条目的按次价，得到媒体用量的「上游价卡」：
+// 各档的上游价按 perRequestTierPrice 与官方同比例（上游按次价是基础档的价，其余档 × 本档官方价 ÷ 官方按次价）；
+// 售价不进上游价卡。
+func upstreamMediaEntry(entry *ModelCatalogEntry, b *ModelCatalogBinding) *ModelCatalogEntry {
+	up := entry.Clone()
+	base := *b.PerRequestPrice
+	officialBase := 0.0
+	if entry.PerRequestPrice != nil {
+		officialBase = *entry.PerRequestPrice
+	}
+	up.PerRequestPrice = &base
+	for i := range up.Intervals {
+		if tier := up.Intervals[i].PerRequestPrice; tier != nil {
+			v := perRequestTierPrice(base, *tier, officialBase)
+			up.Intervals[i].PerRequestPrice = &v
+		}
+	}
+	up.SalePrices = CatalogSalePrices{}
+	up.Bindings = nil
+	return up
 }
 
 func resolveIfPossible(ctx context.Context, resolver *ModelPricingResolver, model string) *ResolvedPricing {

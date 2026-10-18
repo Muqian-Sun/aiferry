@@ -41,6 +41,8 @@ type ModelCatalogBinding struct {
 	XUserPrice *float64 `json:"x_user_price,omitempty"`
 	// MaxReasoningEffortMultiplier holds the value of the "max_reasoning_effort_multiplier" field.
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
+	// PerRequestPrice holds the value of the "per_request_price" field.
+	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
 	// UpstreamModel holds the value of the "upstream_model" field.
 	UpstreamModel string `json:"upstream_model,omitempty"`
 	// PriceIntervals holds the value of the "price_intervals" field.
@@ -97,7 +99,7 @@ func (*ModelCatalogBinding) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case modelcatalogbinding.FieldPriceIntervals, modelcatalogbinding.FieldTimePricing:
 			values[i] = new([]byte)
-		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice, modelcatalogbinding.FieldSearchPricePerCall, modelcatalogbinding.FieldXPostPrice, modelcatalogbinding.FieldXUserPrice, modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogbinding.FieldInputPrice, modelcatalogbinding.FieldOutputPrice, modelcatalogbinding.FieldCacheWritePrice, modelcatalogbinding.FieldCacheWrite1hPrice, modelcatalogbinding.FieldCacheReadPrice, modelcatalogbinding.FieldSearchPricePerCall, modelcatalogbinding.FieldXPostPrice, modelcatalogbinding.FieldXUserPrice, modelcatalogbinding.FieldMaxReasoningEffortMultiplier, modelcatalogbinding.FieldPerRequestPrice:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogbinding.FieldEntryID, modelcatalogbinding.FieldAccountID:
 			values[i] = new(sql.NullInt64)
@@ -192,6 +194,13 @@ func (_m *ModelCatalogBinding) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.MaxReasoningEffortMultiplier = new(float64)
 				*_m.MaxReasoningEffortMultiplier = value.Float64
+			}
+		case modelcatalogbinding.FieldPerRequestPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field per_request_price", values[i])
+			} else if value.Valid {
+				_m.PerRequestPrice = new(float64)
+				*_m.PerRequestPrice = value.Float64
 			}
 		case modelcatalogbinding.FieldUpstreamModel:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -316,6 +325,11 @@ func (_m *ModelCatalogBinding) String() string {
 	builder.WriteString(", ")
 	if v := _m.MaxReasoningEffortMultiplier; v != nil {
 		builder.WriteString("max_reasoning_effort_multiplier=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PerRequestPrice; v != nil {
+		builder.WriteString("per_request_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

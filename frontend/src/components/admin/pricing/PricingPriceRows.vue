@@ -8,11 +8,33 @@
     （muqian 2026-10-07：与忙闲时一样官方 / 售价 / 成本各一套）。承接行只在官方设了或自己填了时显示。
     prices（v-model:prices）是父组件草稿里的对象，这里原地改它（与模型编辑页的分段行同一套 TokenSegmentForm）。
     首列、上游模型名、毛利、状态、操作由父组件经插槽给出；refs 给了就在每格下面标官方价作参考（按渠道视图用）。
+    mode 是生图 / 视频 / 按次时（PR-A）五项价那几列合成一格按次价（$/张、$/秒、$/次），没有分段、搜索、忙闲时与最高推理；
+    tiers-editable 的那一行（官方价）另有「分档」开关，承接行在 tier-hint 里写各档按官方同比例折算出的价。
   -->
   <tr :class="rowClass" :data-testid="testId">
     <td class="py-2 pl-0 pr-3 align-middle"><slot name="lead" /></td>
     <td class="px-2 py-2 align-middle"><slot name="upstream" /></td>
-    <td v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right align-middle">
+    <td v-if="perRequest" :colspan="PRICE_KEYS.length" class="px-2 py-2 align-middle">
+      <div class="flex flex-col items-start gap-0.5">
+        <div class="flex items-center gap-2">
+          <PriceInput
+            v-model="prices.per_request_price"
+            compact
+            :unit="mediaUnit"
+            :label="t('admin.pricing.columns.per_request_price')"
+            :required="issues.missing.includes(PER_REQUEST_KEY)"
+            :placeholder="issues.missing.includes(PER_REQUEST_KEY) ? t('admin.pricing.required') : ''"
+            :test-id="testId ? `${testId}-${PER_REQUEST_KEY}` : undefined"
+          />
+          <span class="whitespace-nowrap text-xs text-af-ink-3">{{ mediaUnit }}</span>
+        </div>
+        <span v-if="refs" class="text-xs tabular-nums text-af-ink-3">
+          {{ refs[PER_REQUEST_KEY] == null ? t('admin.pricing.officialUnset') : t('admin.pricing.officialRef', { price: formatPerRequest(refs[PER_REQUEST_KEY]) }) }}
+        </span>
+        <span v-if="tierHint" class="text-xs tabular-nums text-af-ink-3" :data-testid="testId ? `${testId}-tier-hint` : undefined">{{ tierHint }}</span>
+      </div>
+    </td>
+    <td v-for="key in tokenPriceKeys" :key="key" class="px-2 py-2 text-right align-middle">
       <div class="inline-flex flex-col items-end">
         <PriceInput
           v-model="prices[key]"
@@ -32,6 +54,18 @@
     <td class="px-2 py-2 align-middle">
       <div class="flex flex-col items-start">
         <button
+          v-if="perRequest && tiersEditable"
+          type="button"
+          :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', tiersInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
+          :aria-expanded="tiersExpanded"
+          :data-testid="testId ? `${testId}-tiers-toggle` : undefined"
+          @click="tiersExpanded = !tiersExpanded"
+        >
+          {{ prices.tiers.length ? t('admin.pricing.media.tiersCount', { count: prices.tiers.length }) : t('admin.pricing.media.tiersNone') }}
+          <Icon :name="tiersExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
+        </button>
+        <button
+          v-if="!perRequest"
           type="button"
           :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', segmentsInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
           :aria-expanded="expanded"
@@ -43,7 +77,7 @@
           <Icon :name="expanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
         <button
-          v-if="searchKeys.length > 0"
+          v-if="!perRequest && searchKeys.length > 0"
           type="button"
           :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', searchInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
           :aria-expanded="searchExpanded"
@@ -54,7 +88,7 @@
           <Icon :name="searchExpanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
         <button
-          v-if="peakEditable"
+          v-if="!perRequest && peakEditable"
           type="button"
           :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', peakInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
           :aria-expanded="peakExpanded"
@@ -81,7 +115,55 @@
     <td class="px-3 py-2 align-middle"><slot name="status" /></td>
     <td class="py-2 pl-3 pr-0 text-right align-middle"><slot name="actions" /></td>
   </tr>
-  <tr v-if="searchExpanded && searchKeys.length > 0" :data-testid="testId ? `${testId}-search` : undefined">
+  <template v-if="perRequest && tiersEditable && tiersExpanded">
+    <tr v-for="(tier, index) in prices.tiers" :key="index" :data-testid="testId ? `${testId}-tier` : undefined">
+      <td colspan="2" class="py-2 pl-0 pr-3 align-middle">
+        <span class="whitespace-nowrap pl-4 text-13 text-af-ink-2">
+          {{ tier.label ? t('admin.pricing.media.tier', { label: tier.label }) : t('admin.pricing.sale.segmentAbove', { tokens: tier.minTokens }) }}
+        </span>
+      </td>
+      <td :colspan="PRICE_KEYS.length" class="px-2 py-2 align-middle">
+        <div class="flex items-center gap-2">
+          <PriceInput
+            v-model="tier.price"
+            compact
+            :unit="mediaUnit"
+            :label="t('admin.pricing.media.tier', { label: tier.label })"
+            :required="tierIssues[index] === 'missing'"
+            :placeholder="tierIssues[index] === 'missing' ? t('admin.pricing.required') : ''"
+            :test-id="testId ? `${testId}-tier-${tier.label || index}` : undefined"
+          />
+          <span class="whitespace-nowrap text-xs text-af-ink-3">{{ mediaUnit }}</span>
+        </div>
+      </td>
+      <td colspan="3" class="px-3 py-2 align-middle">
+        <span v-if="tierIssues[index]" class="text-xs text-af-danger">{{ t(`admin.pricing.media.tierErrors.${tierIssues[index]}`) }}</span>
+      </td>
+      <td class="py-2 pl-3 pr-0 text-right align-middle">
+        <button type="button" class="whitespace-nowrap text-13 text-af-ink-3 transition-colors hover:text-af-ink" @click="prices.tiers.splice(index, 1)">
+          {{ t('admin.pricing.remove') }}
+        </button>
+      </td>
+    </tr>
+    <tr>
+      <td :colspan="COLUMN_COUNT" class="py-2 pl-0 pr-3">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 pl-4">
+          <span class="text-xs text-af-ink-3">{{ t('admin.pricing.media.tiersHint') }}</span>
+          <button
+            v-for="label in addableTierLabels"
+            :key="label"
+            type="button"
+            class="text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+            :data-testid="testId ? `${testId}-tier-add-${label}` : undefined"
+            @click="addTier(label)"
+          >
+            {{ t('admin.pricing.media.tierAdd', { label }) }}
+          </button>
+        </div>
+      </td>
+    </tr>
+  </template>
+  <tr v-if="!perRequest && searchExpanded && searchKeys.length > 0" :data-testid="testId ? `${testId}-search` : undefined">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.search.title') }}</div>
     </td>
@@ -103,7 +185,7 @@
       </div>
     </td>
   </tr>
-  <tr v-if="peakEditable && peakExpanded" :data-testid="testId ? `${testId}-peak` : undefined">
+  <tr v-if="!perRequest && peakEditable && peakExpanded" :data-testid="testId ? `${testId}-peak` : undefined">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t(`admin.pricing.peak.${peakEditable}.title`) }}</div>
     </td>
@@ -135,7 +217,7 @@
       </div>
     </td>
   </tr>
-  <template v-if="expanded">
+  <template v-if="!perRequest && expanded">
     <tr
       v-for="(segment, index) in prices.segments"
       :key="index"
@@ -199,13 +281,17 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PriceInput from '@/components/admin/catalog/PriceInput.vue'
+import { IMAGE_TIER_LABELS, VIDEO_TIER_LABELS } from '@/components/admin/catalog/entryRequest'
 import PeakEditor from './PeakEditor.vue'
+import { formatPerRequest } from './mediaHints'
 import {
+  PER_REQUEST_KEY,
   PRICE_KEYS,
   SEARCH_KEYS,
+  isPerRequestMode,
   peakMaxMultiplier,
   type PeakForm,
-  type PriceKey,
+  type PriceField,
   type PriceRow,
   type RowIssues,
   type SearchKey
@@ -223,8 +309,8 @@ const peak = defineModel<PeakForm | null>('peak', { default: null })
 const props = withDefaults(
   defineProps<{
     issues: RowIssues
-    /** 每格下面标的官方价（$/token） */
-    refs?: Record<PriceKey, number | null>
+    /** 每格下面标的官方价（$/token；按次价是 $/张、$/秒、$/次） */
+    refs?: Partial<Record<PriceField, number | null>>
     rowClass?: string
     testId?: string
     /** 这一行能填的搜索价；空 = 这个模型的厂商没有官方搜索工具，不显示「联网搜索」 */
@@ -241,6 +327,12 @@ const props = withDefaults(
     reasoning?: 'official' | 'upstream'
     /** 承接行空着时跟的官方最高推理倍率；null = 官方不加价 */
     officialReasoning?: number | null
+    /** 这个模型的计费模式：image / video / per_request 时只有按次价 */
+    mode?: string
+    /** 显示「分档」开关（官方价那一行） */
+    tiersEditable?: boolean
+    /** 按次价下面的一行说明（承接行与售价：各档按官方同比例折算出的价） */
+    tierHint?: string
   }>(),
   {
     refs: undefined,
@@ -252,12 +344,35 @@ const props = withDefaults(
     peakEditable: undefined,
     officialPeak: null,
     reasoning: undefined,
-    officialReasoning: null
+    officialReasoning: null,
+    mode: 'token',
+    tiersEditable: false,
+    tierHint: undefined
   }
 )
 
 const { t } = useI18n()
 const unit = computed(() => t('admin.modelCatalog.editor.units.perMillion'))
+const perRequest = computed(() => isPerRequestMode(props.mode))
+const tokenPriceKeys = computed(() => (perRequest.value ? [] : PRICE_KEYS))
+const mediaUnit = computed(() => t(`admin.pricing.media.units.${perRequest.value ? props.mode : 'per_request'}`))
+
+// ---- 分档（官方价那一行）：档位名只能是计费认的那几个，按次模式按 Token 区间分的档只改价、不加档
+const tiersExpanded = ref(false)
+const tierIssues = computed(() => props.issues.tiers ?? [])
+const tiersInvalid = computed(() => tierIssues.value.some((error) => error != null))
+watch(tiersInvalid, (invalid) => {
+  if (invalid) tiersExpanded.value = true
+})
+const addableTierLabels = computed(() => {
+  const labels: readonly string[] = props.mode === 'image' ? IMAGE_TIER_LABELS : props.mode === 'video' ? VIDEO_TIER_LABELS : []
+  const used = new Set(prices.value.tiers.map((tier) => tier.label))
+  return labels.filter((label) => !used.has(label))
+})
+
+function addTier(label: string) {
+  prices.value.tiers.push({ label, price: null, minTokens: 0, maxTokens: null })
+}
 const expanded = ref(false)
 const segmentsInvalid = computed(() => props.issues.segments.some((error) => error != null))
 const searchExpanded = ref(false)
@@ -296,7 +411,9 @@ const peakLabel = computed(() => {
 
 // ---- 最高推理倍率：大多数模型没有 max 档加价，承接行只在官方设了或自己填了时显示，免得每行多一个开关
 const reasoningShown = computed(
-  () => props.reasoning === 'official' || (props.reasoning === 'upstream' && (props.officialReasoning != null || prices.value.maxReasoning != null))
+  () =>
+    !perRequest.value &&
+    (props.reasoning === 'official' || (props.reasoning === 'upstream' && (props.officialReasoning != null || prices.value.maxReasoning != null)))
 )
 const reasoningExpanded = ref(false)
 watch(
@@ -331,7 +448,7 @@ function addSegment() {
   expanded.value = true
 }
 
-function formatPerMillion(value: number | null): string {
+function formatPerMillion(value: number | null | undefined): string {
   return value == null ? '' : String(Number((value * PER_MILLION).toPrecision(6)))
 }
 </script>

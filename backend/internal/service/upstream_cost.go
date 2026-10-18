@@ -90,7 +90,7 @@ func (s *BillingService) CalculateUpstreamCost(ctx context.Context, resolver *Mo
 }
 
 // recordUsageAccountCost 两个网关记账时的渠道成本：按候选计费模型依次找这个渠道的承接关系，
-// 用第一个找得到的算。媒体用量（图片 / 视频 / 音频）不经这里，记 0。
+// 用第一个找得到的算。媒体用量（图片 / 视频）不经这里，见 recordUsageMediaAccountCost。
 // 找不到承接关系或算不出来时记 0 并告警：请求已经完成，不能再拒，只能把缺口暴露出来。
 //
 // 联网搜索的上游成本按承接关系上的搜索上游价算，没填的项不收（见 upstreamWebSearchPrices）。
@@ -114,6 +114,26 @@ func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolv
 	return 0
 }
 
+// recordUsageMediaAccountCost 两个网关记账时媒体用量（图片 / 视频）的渠道成本：用算用户价的同一个计费模型找这个渠道的
+// 承接关系，按上游按次价算（CalculateUpstreamMediaCost）。找不到承接、承接没填上游按次价或算不出来时记 0 并告警：
+// 请求已经完成，不能再拒，只能把缺口暴露出来。
+func recordUsageMediaAccountCost(ctx context.Context, billing *BillingService, resolver *ModelPricingResolver, accountID int64, model string, usage mediaUsage) float64 {
+	if billing == nil || resolver == nil {
+		return 0
+	}
+	entry, binding := resolver.LookupUpstreamPrice(ctx, model, accountID)
+	if binding == nil || binding.PerRequestPrice == nil {
+		slog.Warn("usage_account_cost_missing_upstream_price", "account_id", accountID, "models", []string{model}, "media", true)
+		return 0
+	}
+	cost, err := billing.CalculateUpstreamMediaCost(ctx, resolver, entry, binding, usage)
+	if err != nil {
+		slog.Warn("usage_account_cost_failed", "account_id", accountID, "model", entry.ModelID, "media", true, "error", err)
+		return 0
+	}
+	return cost
+}
+
 // bindingCostRatio 上游价相对售价口径（官方口径：定了售价的项 = 售价 ÷ 默认售价比例，没定的 = 官方价）的最高比值：
 // 逐项（输入、输出、缓存写 5 分钟 / 1 小时、缓存读）、逐段比，取最大的一个。两边分段切点不一样时，先把两边的切点
 // 合在一起，再在每个切点之后比。售价口径没有（或为 0）的项不参与比较；一项都比不了时 ok=false。
@@ -121,6 +141,9 @@ func recordUsageAccountCost(ctx context.Context, billing *BillingService, resolv
 func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio float64, ok bool) {
 	if entry == nil || b == nil {
 		return 0, false
+	}
+	if entry.IsPerRequestBilled() {
+		return perRequestBindingCostRatio(entry, b)
 	}
 	// 和售价比（muqian 2026-10-06：单独定了售价的项按售价，没定的按官方价 × 默认售价比例）；都在官方口径上比，
 	// 利润门的阈值 = 计费倍率 × (1 − 最低毛利率)，正好是「上游价 ≤ 售价 × 折扣 × (1 − 最低毛利率)」。
@@ -166,6 +189,30 @@ func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio f
 }
 
 func isZeroPrice(p *float64) bool { return p != nil && *p == 0 }
+
+// perRequestBindingCostRatio 按次计价模型的上游成本比：上游按次价 ÷ 售价口径的按次价（单独定了按次售价 = 售价 ÷ 默认售价比例，
+// 没定 = 官方按次价）。各档的上游价、售价都按 perRequestTierPrice 与官方同比例，所以每一档的比值都等于基础价的比值。
+// 上游没填按次价、或售价口径没有（为 0 时上游也收钱）时 ok=false；两边都是 0 按不亏（0）。
+func perRequestBindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (float64, bool) {
+	if b.PerRequestPrice == nil {
+		return 0, false
+	}
+	sale := entry.PerRequestPrice
+	if p := entry.SalePrices.PerRequestPrice; p != nil {
+		v := toOfficialBasis(*p)
+		sale = &v
+	}
+	switch {
+	case sale == nil:
+		return 0, false
+	case *sale > 0:
+		return *b.PerRequestPrice / *sale, true
+	case *b.PerRequestPrice == 0:
+		return 0, true
+	default:
+		return 0, false
+	}
+}
 
 // segmentPriceBase 一张价卡的五项 token 价与分段（官方价或上游价），用于按 token 数取某一段的价。
 type segmentPriceBase struct {

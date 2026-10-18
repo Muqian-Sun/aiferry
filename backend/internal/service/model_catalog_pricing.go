@@ -15,7 +15,8 @@ import (
 // 按渠道保存一块 = 这个渠道承接的全部模型与上游价。两种保存都是整份覆盖、一个事务。
 
 // OfficialPrices 价格页上改的官方价：五项 token 价（USD / token）、按 Token 分段，
-// 联网搜索价（USD / 次、/ 条；nil = 用厂商公开价）。
+// 联网搜索价（USD / 次、/ 条；nil = 用厂商公开价）。按次计价的条目（生图 / 视频 / 按次）只用 PerRequestPrice 与
+// Intervals（这时是按 tier_label 的分档，每档一个按次价）。
 type OfficialPrices struct {
 	InputPrice         *float64
 	OutputPrice        *float64
@@ -30,6 +31,8 @@ type OfficialPrices struct {
 	TimePricing *TimePricing
 	// MaxReasoningEffortMultiplier 官方最高推理倍率（如 claude-fable-5-1 的 effort = max 整单 × 3）；nil = 不加价。
 	MaxReasoningEffortMultiplier *float64
+	// PerRequestPrice 按次计价条目的官方按次价（USD / 张、/ 秒、/ 次），这类条目必填。
+	PerRequestPrice *float64
 }
 
 // UpstreamCostRatio 这条承接关系的上游成本比（上游价 ÷ 官方价，逐项、逐段取最高）；价格页的毛利
@@ -49,7 +52,7 @@ func (e *ModelCatalogEntry) UpstreamMaxReasoningCostRatio(b *ModelCatalogBinding
 }
 
 // ValidateAgainst 校验承接关系上的上游价：
-//   - 只有按 Token 计费的模型能设承接（现阶段只做大语言模型）；
+//   - 按次计价的模型（生图 / 视频 / 按次）只填上游按次价（必填、>= 0），见 validatePerRequestAgainst；
 //   - 各项价 >= 0；官方价有的缓存项（缓存写 5 分钟 / 1 小时、缓存读）上游价也必须填（muqian：「必须填，没填不能承接」）；
 //   - 联网搜索价可不填：没填 = 上游不收搜索费（muqian 2026-10-06：「上游没填费用就是免费」）；
 //   - 最高推理倍率可不填（跟官方），填了须 > 0；
@@ -59,8 +62,11 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 	if b == nil || entry == nil {
 		return catalogValidationError("binding and entry are required")
 	}
-	if entry.EffectiveBillingMode() != BillingModeToken {
-		return catalogValidationError(fmt.Sprintf("%s is not billed by token; only token models can be bound on the pricing page", entry.ModelID))
+	if err := validateBindingUpstreamModel(b.UpstreamModel); err != nil {
+		return err
+	}
+	if entry.IsPerRequestBilled() {
+		return b.validatePerRequestAgainst(entry)
 	}
 	prices := map[string]*float64{
 		"input_price":           &b.InputPrice,
@@ -94,18 +100,41 @@ func (b *ModelCatalogBinding) ValidateAgainst(entry *ModelCatalogEntry) error {
 	if m := b.MaxReasoningEffortMultiplier; m != nil && *m <= 0 {
 		return catalogValidationError("upstream max_reasoning_effort_multiplier must be > 0")
 	}
-	if name := b.UpstreamModel; name != "" {
-		if strings.ContainsAny(name, "* \t\r\n") {
-			return catalogValidationError("upstream_model must be a single model name without wildcards or spaces")
-		}
-		if utf8.RuneCountInString(name) > maxBindingUpstreamModelLength {
-			return catalogValidationError(fmt.Sprintf("upstream_model must be at most %d characters", maxBindingUpstreamModelLength))
-		}
-	}
 	if err := validateTimePricing(b.TimePricing); err != nil {
 		return catalogValidationError(fmt.Sprintf("upstream time_pricing: %s", err.Error()))
 	}
 	return validatePriceSegments("upstream", b.Intervals)
+}
+
+// validatePerRequestAgainst 按次计价模型的承接：上游按次价必填、>= 0（0 = 成品号这类不按次付钱的上游）；
+// token 价、分段、搜索价、忙闲时、最高推理倍率都不参与媒体计费，填了就拒，免得看着填了却不生效。
+func (b *ModelCatalogBinding) validatePerRequestAgainst(entry *ModelCatalogEntry) error {
+	if b.PerRequestPrice == nil {
+		return catalogValidationError(fmt.Sprintf("upstream per_request_price is required: %s is billed per request", entry.ModelID))
+	}
+	if *b.PerRequestPrice < 0 {
+		return catalogValidationError("upstream per_request_price must be >= 0")
+	}
+	if b.InputPrice != 0 || b.OutputPrice != 0 || b.CacheWritePrice != nil || b.CacheWrite1hPrice != nil || b.CacheReadPrice != nil ||
+		len(b.Intervals) > 0 || b.SearchPricePerCall != nil || b.XPostPrice != nil || b.XUserPrice != nil ||
+		b.MaxReasoningEffortMultiplier != nil || b.TimePricing != nil {
+		return catalogValidationError(fmt.Sprintf("%s is billed per request: upstream token prices, segments, search prices, peak hours and max reasoning do not apply", entry.ModelID))
+	}
+	return nil
+}
+
+// validateBindingUpstreamModel 上游模型名是一个具体的名字：不带通配、不含空白，最长 255 个字符；空 = 与目录标识同名。
+func validateBindingUpstreamModel(name string) error {
+	if name == "" {
+		return nil
+	}
+	if strings.ContainsAny(name, "* \t\r\n") {
+		return catalogValidationError("upstream_model must be a single model name without wildcards or spaces")
+	}
+	if utf8.RuneCountInString(name) > maxBindingUpstreamModelLength {
+		return catalogValidationError(fmt.Sprintf("upstream_model must be at most %d characters", maxBindingUpstreamModelLength))
+	}
+	return nil
 }
 
 // roundPricePerMillion 售价、成本价每百万 Token 最多保留 4 位小数（muqian 2026-10-07）；单价存的是每 Token 的美元价，
@@ -206,7 +235,7 @@ func validatePriceSegments(label string, intervals []PricingInterval) error {
 	return nil
 }
 
-// sameOfficialPrices 两份条目的五项 token 价、联网搜索价、最高推理倍率、忙闲时与按 Token 分段是否一致（分段按起点比，忽略 ID 与排序号）。
+// sameOfficialPrices 两份条目的五项 token 价、联网搜索价、最高推理倍率、按次价、忙闲时与分段 / 分档是否一致（按起点比，忽略 ID 与排序号）。
 func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 	pairs := [][2]*float64{
 		{a.InputPrice, b.InputPrice},
@@ -218,6 +247,7 @@ func sameOfficialPrices(a, b *ModelCatalogEntry) bool {
 		{a.XPostPrice, b.XPostPrice},
 		{a.XUserPrice, b.XUserPrice},
 		{a.MaxReasoningEffortMultiplier, b.MaxReasoningEffortMultiplier},
+		{a.PerRequestPrice, b.PerRequestPrice},
 	}
 	for _, p := range pairs {
 		if !samePricePtr(p[0], p[1]) {
@@ -293,26 +323,16 @@ func (s *ModelCatalogService) CanBindAccount(entry *ModelCatalogEntry, account *
 	return s.validateBindingAccount(entry, account) == nil
 }
 
-// ListPricingEntries 价格页的数据：按 Token 计费的条目（带官方价、分段与承接关系），直接读库，不走热路径快照。
-// 现阶段只做大语言模型，生图 / 视频 / 按次的条目不在价格页。
+// ListPricingEntries 价格页的数据：全部条目（按 Token 计费的带五项价与分段，生图 / 视频 / 按次的带按次价与分档，
+// 都带承接关系），直接读库，不走热路径快照。
 func (s *ModelCatalogService) ListPricingEntries(ctx context.Context) ([]ModelCatalogEntry, error) {
 	if s == nil || s.repo == nil {
 		return nil, nil
 	}
-	entries, err := s.repo.ListEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]ModelCatalogEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.EffectiveBillingMode() == BillingModeToken {
-			out = append(out, entry)
-		}
-	}
-	return out, nil
+	return s.repo.ListEntries(ctx)
 }
 
-// SaveEntryPricing 价格页按模型保存一块：官方价（输入 / 输出必填）+ 这个模型的全部承接关系（整份覆盖），
+// SaveEntryPricing 价格页按模型保存一块：官方价（输入 / 输出必填；按次计价的条目是按次价必填）+ 这个模型的全部承接关系（整份覆盖），
 // 同一事务；全部校验通过才写库，然后失效目录快照。返回保存后的条目（带承接关系）。
 func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int64, official OfficialPrices, sale CatalogSalePrices, bindings []ModelCatalogBinding, accounts CatalogBindingAccountSource) (*ModelCatalogEntry, error) {
 	if s == nil || s.repo == nil {
@@ -323,26 +343,13 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 		return nil, err
 	}
 	entry := current.Clone()
-	if entry.EffectiveBillingMode() != BillingModeToken {
-		return nil, catalogValidationError(fmt.Sprintf("%s is not billed by token; only token models are priced on the pricing page", entry.ModelID))
-	}
-	if official.InputPrice == nil || official.OutputPrice == nil {
-		return nil, catalogValidationError("official input_price and output_price are required")
-	}
-	if err := validatePriceSegments("official", official.Intervals); err != nil {
+	if entry.IsPerRequestBilled() {
+		if err := applyOfficialPerRequestPrices(entry, official); err != nil {
+			return nil, err
+		}
+	} else if err := applyOfficialTokenPrices(entry, official); err != nil {
 		return nil, err
 	}
-	entry.InputPrice = clonePricePtr(official.InputPrice)
-	entry.OutputPrice = clonePricePtr(official.OutputPrice)
-	entry.CacheWritePrice = clonePricePtr(official.CacheWritePrice)
-	entry.CacheWrite1hPrice = clonePricePtr(official.CacheWrite1hPrice)
-	entry.CacheReadPrice = clonePricePtr(official.CacheReadPrice)
-	entry.Intervals = normalizePriceSegments(official.Intervals)
-	entry.SearchPricePerCall = clonePricePtr(official.SearchPricePerCall)
-	entry.XPostPrice = clonePricePtr(official.XPostPrice)
-	entry.XUserPrice = clonePricePtr(official.XUserPrice)
-	entry.TimePricing = normalizeTimePricing(official.TimePricing)
-	entry.MaxReasoningEffortMultiplier = clonePricePtr(official.MaxReasoningEffortMultiplier)
 	// 售价整份覆盖（同一块一起保存）；改售价不改条目归属：官方价照旧跟着价格文件刷新，售价播种不碰。
 	entry.SalePrices = normalizeSalePrices(sale)
 	// 官方价（含忙闲时）真改了才算运营者定价：种子不再刷新它；只加 / 改承接渠道、改售价时保持原来的归属。
@@ -369,10 +376,7 @@ func (s *ModelCatalogService) SaveEntryPricing(ctx context.Context, entryID int6
 			return nil, err
 		}
 		binding.EntryID = entryID
-		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
-		binding.Intervals = normalizePriceSegments(binding.Intervals)
-		roundBindingPrices(&binding)
-		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
+		normalizePricingBinding(entry, &binding)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}
@@ -410,10 +414,7 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 			return nil, err
 		}
 		binding.AccountID = accountID
-		binding.UpstreamModel = normalizeBindingUpstreamModel(entry, binding.UpstreamModel)
-		binding.Intervals = normalizePriceSegments(binding.Intervals)
-		roundBindingPrices(&binding)
-		binding.TimePricing = normalizeTimePricing(binding.TimePricing)
+		normalizePricingBinding(entry, &binding)
 		if err := binding.ValidateAgainst(entry); err != nil {
 			return nil, err
 		}
@@ -424,6 +425,65 @@ func (s *ModelCatalogService) SaveAccountPricing(ctx context.Context, accountID 
 	}
 	s.invalidate(ctx)
 	return normalized, nil
+}
+
+// applyOfficialTokenPrices 按 Token 计费的条目：五项价（输入 / 输出必填）、按 Token 分段、搜索价、忙闲时与最高推理倍率整份覆盖。
+func applyOfficialTokenPrices(entry *ModelCatalogEntry, official OfficialPrices) error {
+	if official.InputPrice == nil || official.OutputPrice == nil {
+		return catalogValidationError("official input_price and output_price are required")
+	}
+	if err := validatePriceSegments("official", official.Intervals); err != nil {
+		return err
+	}
+	entry.InputPrice = clonePricePtr(official.InputPrice)
+	entry.OutputPrice = clonePricePtr(official.OutputPrice)
+	entry.CacheWritePrice = clonePricePtr(official.CacheWritePrice)
+	entry.CacheWrite1hPrice = clonePricePtr(official.CacheWrite1hPrice)
+	entry.CacheReadPrice = clonePricePtr(official.CacheReadPrice)
+	entry.Intervals = normalizePriceSegments(official.Intervals)
+	entry.SearchPricePerCall = clonePricePtr(official.SearchPricePerCall)
+	entry.XPostPrice = clonePricePtr(official.XPostPrice)
+	entry.XUserPrice = clonePricePtr(official.XUserPrice)
+	entry.TimePricing = normalizeTimePricing(official.TimePricing)
+	entry.MaxReasoningEffortMultiplier = clonePricePtr(official.MaxReasoningEffortMultiplier)
+	return nil
+}
+
+// applyOfficialPerRequestPrices 按次计价的条目：价格页只改按次价（必填）与分档（整份覆盖，档位名由 entry.Validate 按模式校验）。
+// 条目上照抄的 token 价（同一模型经对话入口、没有出图时按 token 算）、搜索价、忙闲时、最高推理倍率不在价格页上，保持原样。
+func applyOfficialPerRequestPrices(entry *ModelCatalogEntry, official OfficialPrices) error {
+	if official.PerRequestPrice == nil {
+		return catalogValidationError(fmt.Sprintf("official per_request_price is required: %s is billed per request", entry.ModelID))
+	}
+	tiers := make([]PricingInterval, len(official.Intervals))
+	for i, iv := range official.Intervals {
+		if iv.PerRequestPrice == nil {
+			return catalogValidationError(fmt.Sprintf("official tier %d has no per_request_price", i+1))
+		}
+		if iv.InputPrice != nil || iv.OutputPrice != nil || iv.CacheWritePrice != nil || iv.CacheWrite1hPrice != nil || iv.CacheReadPrice != nil ||
+			iv.InputMultiplier != nil || iv.OutputMultiplier != nil || iv.CacheWriteMultiplier != nil || iv.CacheReadMultiplier != nil {
+			return catalogValidationError(fmt.Sprintf("official tier %d must only have a per_request_price", i+1))
+		}
+		tiers[i] = PricingInterval{
+			MinTokens: iv.MinTokens, MaxTokens: iv.MaxTokens, TierLabel: strings.TrimSpace(iv.TierLabel),
+			PerRequestPrice: clonePricePtr(iv.PerRequestPrice), SortOrder: i,
+		}
+	}
+	entry.PerRequestPrice = clonePricePtr(official.PerRequestPrice)
+	entry.Intervals = tiers
+	return nil
+}
+
+// normalizePricingBinding 保存前把承接规整好：上游模型名、分段排序、成本价取整、忙闲时；
+// 按 Token 计费的模型不用上游按次价，请求里带了也丢掉。
+func normalizePricingBinding(entry *ModelCatalogEntry, b *ModelCatalogBinding) {
+	b.UpstreamModel = normalizeBindingUpstreamModel(entry, b.UpstreamModel)
+	b.Intervals = normalizePriceSegments(b.Intervals)
+	roundBindingPrices(b)
+	b.TimePricing = normalizeTimePricing(b.TimePricing)
+	if !entry.IsPerRequestBilled() {
+		b.PerRequestPrice = nil
+	}
 }
 
 // sameTimePricing 两份忙闲时是否一样（nil 与没有时段的一样，都是不分忙闲时）。

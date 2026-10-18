@@ -100,6 +100,15 @@ export function classifyUpstreamModels(names: string[], catalog: ModelCatalogEnt
   return result
 }
 
+/**
+ * 检测到的模型要不要默认勾上（承接）：生图 / 视频 / 按次的模型与经扩展端点调用的模型（extension_endpoints）默认不勾——
+ * 扩展端点另有承接条件，按次计价的还要另填上游按次价（commit 1d7306db4：「扩展端点，默认不要勾」）。
+ */
+export function bindByDefault(entry: Pick<ModelCatalogEntry, 'billing_mode' | 'extension_endpoints'>): boolean {
+  if (entry.extension_endpoints) return false
+  return !entry.billing_mode || entry.billing_mode === 'token'
+}
+
 /** 承接行的「上游模型名」：与目录标识逐字相同就留空（= 同名） */
 export function upstreamModelFor(match: DetectedMatch): string {
   return match.upstreamName === match.entry.model_id ? '' : match.upstreamName

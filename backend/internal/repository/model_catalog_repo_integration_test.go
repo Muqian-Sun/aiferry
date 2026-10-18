@@ -799,6 +799,88 @@ func TestModelCatalogRepository_MaxReasoningMultipliersRoundTrip(t *testing.T) {
 	require.ErrorContains(t, err, "chk_model_catalog_bindings_max_reasoning_positive", "库里也挡住 <= 0")
 }
 
+// 生图 / 视频 / 按次的模型（PR-A，迁移 274）：承接的上游按次价存 per_request_price 列（没填存 NULL，0 允许），
+// 按次售价存在 sale_prices 里；按模型、按渠道保存都写得进、读得回。
+func TestModelCatalogRepository_PerRequestPricesRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-per-request")
+	client := testEntClient(t)
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("imagine"), Vendor: "xai", BillingMode: service.BillingModeImage,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedByAdmin,
+		PerRequestPrice: float64Value(0.06),
+		Intervals: []service.PricingInterval{
+			{TierLabel: service.ImageBillingSize1K, PerRequestPrice: float64Value(0.06), SortOrder: 0},
+			{TierLabel: service.ImageBillingSize2K, PerRequestPrice: float64Value(0.08), SortOrder: 1},
+		},
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(),
+			"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID))
+	})
+	accountA := mustCreateAccount(t, client, &service.Account{Name: unique("a")})
+	accountB := mustCreateAccount(t, client, &service.Account{Name: unique("b")})
+	accountC := mustCreateAccount(t, client, &service.Account{Name: unique("c")})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID, accountC.ID}))
+	})
+
+	entry.SalePrices = service.CatalogSalePrices{PerRequestPrice: float64Value(0.0045)}
+	require.NoError(t, repo.SaveEntryPricing(ctx, entry, []service.ModelCatalogBinding{
+		{AccountID: accountA.ID, PerRequestPrice: float64Value(0.025)},
+		{AccountID: accountB.ID, PerRequestPrice: float64Value(0)},
+		{AccountID: accountC.ID},
+	}))
+
+	assertBindings := func(name string, bindings []service.ModelCatalogBinding) {
+		t.Helper()
+		require.Len(t, bindings, 3, name)
+		require.Equal(t, accountA.ID, bindings[0].AccountID, name)
+		require.Equal(t, float64Value(0.025), bindings[0].PerRequestPrice, name)
+		require.Equal(t, float64Value(0), bindings[1].PerRequestPrice, name+": 0 is stored, not NULL")
+		require.Nil(t, bindings[2].PerRequestPrice, name)
+	}
+	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	assertBindings("ListBindingsByEntry", bindings)
+	got, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	assertBindings("GetEntryByID", got.Bindings)
+	require.Equal(t, float64Value(0.0045), got.SalePrices.PerRequestPrice)
+	require.Len(t, got.Intervals, 2)
+	require.Equal(t, service.ImageBillingSize2K, got.Intervals[1].TierLabel)
+	all, err := repo.ListEntries(ctx)
+	require.NoError(t, err)
+	found := false
+	for i := range all {
+		if all[i].ID == entry.ID {
+			assertBindings("ListEntries", all[i].Bindings)
+			found = true
+		}
+	}
+	require.True(t, found, "entry missing from ListEntries")
+
+	var nulls int
+	require.NoError(t, integrationDB.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_catalog_bindings WHERE entry_id = $1 AND per_request_price IS NULL", entry.ID).Scan(&nulls))
+	require.Equal(t, 1, nulls, "没填存 NULL")
+
+	// 按渠道保存：A 改价
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, accountA.ID, []service.ModelCatalogBinding{
+		{EntryID: entry.ID, PerRequestPrice: float64Value(0.03)},
+	}))
+	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Equal(t, float64Value(0.03), bindings[0].PerRequestPrice)
+
+	_, err = integrationDB.ExecContext(ctx,
+		"UPDATE model_catalog_bindings SET per_request_price = -0.01 WHERE entry_id = $1 AND account_id = $2", entry.ID, accountB.ID)
+	require.ErrorContains(t, err, "chk_model_catalog_bindings_per_request_price_non_negative", "库里也挡住负数")
+}
+
 // 按厂商填售价（10-07）：一次改多个条目的售价，同一事务；官方价、归属不动。
 func TestModelCatalogRepository_SetEntriesSalePrices(t *testing.T) {
 	ctx := context.Background()

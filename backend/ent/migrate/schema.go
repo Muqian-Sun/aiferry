@@ -890,6 +890,7 @@ var (
 		{Name: "x_post_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "x_user_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "max_reasoning_effort_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "per_request_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "upstream_model", Type: field.TypeString, Size: 255, Default: ""},
 		{Name: "price_intervals", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "time_pricing", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
@@ -902,17 +903,17 @@ var (
 	ModelCatalogBindingsTable = &schema.Table{
 		Name:       "model_catalog_bindings",
 		Columns:    ModelCatalogBindingsColumns,
-		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[14], ModelCatalogBindingsColumns[15]},
+		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[15], ModelCatalogBindingsColumns[16]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "model_catalog_bindings_model_catalog_entries_entry",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[14]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[15]},
 				RefColumns: []*schema.Column{ModelCatalogEntriesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "model_catalog_bindings_accounts_account",
-				Columns:    []*schema.Column{ModelCatalogBindingsColumns[15]},
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[16]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -921,7 +922,7 @@ var (
 			{
 				Name:    "modelcatalogbinding_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{ModelCatalogBindingsColumns[15]},
+				Columns: []*schema.Column{ModelCatalogBindingsColumns[16]},
 			},
 		},
 	}

@@ -3,6 +3,7 @@
     按模型的一块：官方价、售价各一行，下面「成本价」一组、每个承接渠道一行（muqian 2026-10-06：三种价分清，少写说明）。
     给模型加一个渠道就是承接（muqian 2026-09-30，D1）。
     整块一起保存：官方价与全部承接关系一个事务整份覆盖；改过的块底部出现「改了 N 处 · 撤销 · 保存」。
+    生图 / 视频 / 按次的模型（PR-A）：官方价是按次价 + 分档，售价、成本价各一个按次价（各档与官方同比例）。
   -->
   <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
   <section class="border-t border-af-hairline pt-4" :data-testid="`pricing-model-${entry.id}`">
@@ -21,7 +22,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <span v-if="lookupMessage" class="text-xs text-af-ink-3">{{ lookupMessage }}</span>
-        <button type="button" class="btn btn-ghost btn-sm" :disabled="lookingUp" data-testid="pricing-model-lookup" @click="fillFromPriceFile">
+        <button v-if="!perRequest" type="button" class="btn btn-ghost btn-sm" :disabled="lookingUp" data-testid="pricing-model-lookup" @click="fillFromPriceFile">
           {{ t('admin.pricing.fillFromPriceFile') }}
         </button>
         <DiscountFillMenu kind="sale" @apply="fillSale" />
@@ -48,8 +49,11 @@
             <!-- 第一列是「官方价 / 售价 / 成本价」三组的名字，不写表头 -->
             <th class="py-2 pl-0 pr-3"><span class="sr-only">{{ t('admin.pricing.columns.channel') }}</span></th>
             <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.upstreamModel') }}</th>
-            <th v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
-            <th class="px-2 py-2 font-medium">{{ t('admin.pricing.columns.segments') }}</th>
+            <th v-if="perRequest" :colspan="PRICE_KEYS.length" class="px-2 py-2 font-medium">
+              {{ t('admin.pricing.media.column', { unit: t(`admin.pricing.media.units.${mode}`) }) }}
+            </th>
+            <th v-for="key in perRequest ? [] : PRICE_KEYS" :key="key" class="px-2 py-2 text-right font-medium">{{ t(`admin.pricing.columns.${key}`) }}</th>
+            <th class="px-2 py-2 font-medium">{{ perRequest ? t('admin.pricing.media.tiersTitle') : t('admin.pricing.columns.segments') }}</th>
             <th class="px-3 py-2 text-right font-medium">{{ t('admin.pricing.columns.margin') }}</th>
             <th class="px-3 py-2 font-medium">{{ t('admin.pricing.columns.status') }}</th>
             <th class="py-2 pl-3 pr-0"><span class="sr-only">{{ t('admin.pricing.columns.actions') }}</span></th>
@@ -61,6 +65,8 @@
             v-model:peak="draft.officialPeak"
             peak-editable="official"
             reasoning="official"
+            :mode="mode"
+            tiers-editable
             :issues="officialRowIssues"
             test-id="pricing-official"
             :search-keys="searchKeys"
@@ -76,6 +82,7 @@
             :official="draft.official"
             :ratio="defaultSaleRatio"
             :official-peak="draft.officialPeak"
+            :mode="mode"
             test-id="pricing-sale"
           />
           <tr data-testid="pricing-cost-group">
@@ -93,6 +100,8 @@
             :official-peak="draft.officialPeak"
             reasoning="upstream"
             :official-reasoning="draft.official.maxReasoning"
+            :mode="mode"
+            :tier-hint="perRequest ? perRequestTierHint(t, row.prices.per_request_price, draft.official) : undefined"
             :issues="rowIssues(row)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
             :test-id="`pricing-binding-${row.id}`"
@@ -192,6 +201,7 @@ import {
   fillByDiscount,
   fillSaleByRatio,
   hasRowIssues,
+  isPerRequestMode,
   keyedRowUnchanged,
   marginOf,
   modelDraftChanges,
@@ -217,6 +227,7 @@ import {
   type RowIssues
 } from './pricingDraft'
 import { issueSummary } from './issueSummary'
+import { perRequestTierHint } from './mediaHints'
 import { officialSearchPlaceholders, upstreamSearchPlaceholders } from './searchHints'
 
 const props = defineProps<{
@@ -237,6 +248,8 @@ const { t } = useI18n()
 // 草稿对象由页面保管，块内原地改
 const blockState = computed(() => props.state)
 const draft = computed(() => props.state.draft)
+const mode = computed(() => props.entry.billing_mode ?? 'token')
+const perRequest = computed(() => isPerRequestMode(mode.value))
 
 const changes = computed(() => modelDraftChanges(props.state))
 // 毛利按售价算（上游成本比由后端按售价口径算）：官方价（含官方忙闲时）或售价改了都要保存后重算
@@ -248,7 +261,7 @@ const officialChanged = computed(
 )
 
 const officialRowIssues = computed(() => ({
-  ...officialIssues(props.state.draft.official),
+  ...officialIssues(props.state.draft.official, mode.value),
   peak: peakErrors(props.state.draft.officialPeak),
   peakDatesInvalid: peakDatesInvalid(props.state.draft.officialPeak)
 }))
@@ -257,7 +270,7 @@ const officialRowIssues = computed(() => ({
 const searchKeys = computed(() => searchKeysOf(props.entry.search_defaults))
 
 function rowIssues(row: KeyedRow): RowIssues {
-  return bindingRowIssues(row, props.state.draft.official)
+  return bindingRowIssues(row, props.state.draft.official, mode.value)
 }
 
 function isNewRow(row: KeyedRow): boolean {
@@ -292,6 +305,7 @@ function savedMaxReasoningMargin(row: KeyedRow): number | null {
 const headerMeta = computed(() =>
   [
     props.entry.vendor || t('admin.pricing.noVendor'),
+    ...(perRequest.value ? [t(`admin.pricing.media.modes.${mode.value}`)] : []),
     t(`admin.pricing.status.${props.entry.status}`),
     t('admin.pricing.channelCount', { count: props.state.draft.rows.length })
   ].join(' · ')
@@ -316,7 +330,8 @@ function addChannel(account: PricingAccount) {
     id: account.id,
     upstreamModel: sibling?.upstreamModel ?? '',
     prices: sibling ? clonePriceRow(sibling.prices) : emptyPriceRow(),
-    peak: clonePeakForm(sibling ? sibling.peak : draft.value.officialPeak)
+    // 按次计价的模型不分忙闲时
+    peak: perRequest.value ? null : clonePeakForm(sibling ? sibling.peak : draft.value.officialPeak)
   })
 }
 
@@ -336,7 +351,10 @@ function fillSale(ratio: number) {
 
 const issueMessages = computed(() => {
   const messages: string[] = []
-  if (hasRowIssues(officialRowIssues.value)) messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value))
+  if (hasRowIssues(officialRowIssues.value)) {
+    const tierLabels = props.state.draft.official.tiers.map((tier) => tier.label)
+    messages.push(issueSummary(t, t('admin.pricing.official'), officialRowIssues.value, tierLabels))
+  }
   if (saleRowInvalid(props.state.draft.sale, props.state.draft.official)) messages.push(t('admin.pricing.sale.invalid'))
   if (salePeakInvalid(props.state.draft.sale)) messages.push(t('admin.pricing.sale.peakInvalid'))
   if (reasoningMultiplierInvalid(props.state.draft.sale.maxReasoning)) messages.push(t('admin.pricing.sale.reasoningInvalid'))
@@ -361,14 +379,14 @@ async function save() {
   saveError.value = ''
   try {
     await adminAPI.pricing.saveModel(props.entry.id, {
-      ...priceRowToRequest(props.state.draft.official),
+      ...priceRowToRequest(props.state.draft.official, mode.value),
       time_pricing: peakFormToRequest(props.state.draft.officialPeak),
-      sale_prices: saleRowToRequest(props.state.draft.sale, props.state.draft.official),
+      sale_prices: saleRowToRequest(props.state.draft.sale, props.state.draft.official, mode.value),
       bindings: props.state.draft.rows.map((row) => ({
         account_id: row.id,
         upstream_model: row.upstreamModel.trim(),
-        ...priceRowToRequest(row.prices),
-        time_pricing: peakFormToRequest(row.peak)
+        ...priceRowToRequest(row.prices, mode.value),
+        time_pricing: perRequest.value ? null : peakFormToRequest(row.peak)
       }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利

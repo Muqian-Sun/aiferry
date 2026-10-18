@@ -307,6 +307,7 @@ func createCatalogBinding(ctx context.Context, tx *dbent.Tx, entryID, accountID 
 		SetNillableXPostPrice(binding.XPostPrice).
 		SetNillableXUserPrice(binding.XUserPrice).
 		SetNillableMaxReasoningEffortMultiplier(binding.MaxReasoningEffortMultiplier).
+		SetNillablePerRequestPrice(binding.PerRequestPrice).
 		SetPriceIntervals(segments).
 		Save(ctx)
 	return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
@@ -671,6 +672,7 @@ func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelC
 		CreatedAt:                    row.CreatedAt,
 		UpdatedAt:                    row.UpdatedAt,
 		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
+		PerRequestPrice:              row.PerRequestPrice,
 	}
 	if spec := row.TimePricing; spec != nil && len(spec.Periods) > 0 {
 		tp := &service.TimePricing{Timezone: spec.Timezone, WeekdaysOnly: spec.WeekdaysOnly, ExcludeDates: spec.ExcludeDates}

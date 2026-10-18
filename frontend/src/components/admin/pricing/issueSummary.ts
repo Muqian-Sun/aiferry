@@ -2,8 +2,8 @@ import type { PriceField, RowIssues } from './pricingDraft'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
-/** 一行的问题写成一句话，显示在块底部：「fenno · Responses：输出、缓存读还没填；分段 2：……」 */
-export function issueSummary(t: Translate, name: string, issues: RowIssues): string {
+/** 一行的问题写成一句话，显示在块底部：「fenno · Responses：输出、缓存读还没填；分段 2：……」；tierLabels 是分档的档位名（官方价那一行） */
+export function issueSummary(t: Translate, name: string, issues: RowIssues, tierLabels?: string[]): string {
   const parts: string[] = []
   if (issues.missing.length > 0) {
     const fields = issues.missing.map((key: PriceField) => t(`admin.pricing.columns.${key}`)).join(t('admin.pricing.listSeparator'))
@@ -22,5 +22,8 @@ export function issueSummary(t: Translate, name: string, issues: RowIssues): str
   })
   if (issues.peakDatesInvalid) parts.push(t('admin.pricing.issues.peakDates'))
   if (issues.reasoningInvalid) parts.push(t('admin.pricing.issues.reasoning'))
+  issues.tiers?.forEach((error, index) => {
+    if (error) parts.push(t('admin.pricing.issues.tier', { label: tierLabels?.[index] ?? index + 1, error: t(`admin.pricing.media.tierErrors.${error}`) }))
+  })
   return `${name}${t('common.labelSeparator')}${parts.join(t('admin.pricing.issueSeparator'))}`
 }

@@ -147,6 +147,20 @@ func (_c *ModelCatalogBindingCreate) SetNillableMaxReasoningEffortMultiplier(v *
 	return _c
 }
 
+// SetPerRequestPrice sets the "per_request_price" field.
+func (_c *ModelCatalogBindingCreate) SetPerRequestPrice(v float64) *ModelCatalogBindingCreate {
+	_c.mutation.SetPerRequestPrice(v)
+	return _c
+}
+
+// SetNillablePerRequestPrice sets the "per_request_price" field if the given value is not nil.
+func (_c *ModelCatalogBindingCreate) SetNillablePerRequestPrice(v *float64) *ModelCatalogBindingCreate {
+	if v != nil {
+		_c.SetPerRequestPrice(*v)
+	}
+	return _c
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_c *ModelCatalogBindingCreate) SetUpstreamModel(v string) *ModelCatalogBindingCreate {
 	_c.mutation.SetUpstreamModel(v)
@@ -359,6 +373,10 @@ func (_c *ModelCatalogBindingCreate) createSpec() (*ModelCatalogBinding, *sqlgra
 	if value, ok := _c.mutation.MaxReasoningEffortMultiplier(); ok {
 		_spec.SetField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64, value)
 		_node.MaxReasoningEffortMultiplier = &value
+	}
+	if value, ok := _c.mutation.PerRequestPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64, value)
+		_node.PerRequestPrice = &value
 	}
 	if value, ok := _c.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -691,6 +709,30 @@ func (u *ModelCatalogBindingUpsert) AddMaxReasoningEffortMultiplier(v float64) *
 // ClearMaxReasoningEffortMultiplier clears the value of the "max_reasoning_effort_multiplier" field.
 func (u *ModelCatalogBindingUpsert) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsert {
 	u.SetNull(modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+	return u
+}
+
+// SetPerRequestPrice sets the "per_request_price" field.
+func (u *ModelCatalogBindingUpsert) SetPerRequestPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Set(modelcatalogbinding.FieldPerRequestPrice, v)
+	return u
+}
+
+// UpdatePerRequestPrice sets the "per_request_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsert) UpdatePerRequestPrice() *ModelCatalogBindingUpsert {
+	u.SetExcluded(modelcatalogbinding.FieldPerRequestPrice)
+	return u
+}
+
+// AddPerRequestPrice adds v to the "per_request_price" field.
+func (u *ModelCatalogBindingUpsert) AddPerRequestPrice(v float64) *ModelCatalogBindingUpsert {
+	u.Add(modelcatalogbinding.FieldPerRequestPrice, v)
+	return u
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (u *ModelCatalogBindingUpsert) ClearPerRequestPrice() *ModelCatalogBindingUpsert {
+	u.SetNull(modelcatalogbinding.FieldPerRequestPrice)
 	return u
 }
 
@@ -1056,6 +1098,34 @@ func (u *ModelCatalogBindingUpsertOne) UpdateMaxReasoningEffortMultiplier() *Mod
 func (u *ModelCatalogBindingUpsertOne) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertOne {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearMaxReasoningEffortMultiplier()
+	})
+}
+
+// SetPerRequestPrice sets the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertOne) SetPerRequestPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetPerRequestPrice(v)
+	})
+}
+
+// AddPerRequestPrice adds v to the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertOne) AddPerRequestPrice(v float64) *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddPerRequestPrice(v)
+	})
+}
+
+// UpdatePerRequestPrice sets the "per_request_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertOne) UpdatePerRequestPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdatePerRequestPrice()
+	})
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertOne) ClearPerRequestPrice() *ModelCatalogBindingUpsertOne {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearPerRequestPrice()
 	})
 }
 
@@ -1573,6 +1643,34 @@ func (u *ModelCatalogBindingUpsertBulk) UpdateMaxReasoningEffortMultiplier() *Mo
 func (u *ModelCatalogBindingUpsertBulk) ClearMaxReasoningEffortMultiplier() *ModelCatalogBindingUpsertBulk {
 	return u.Update(func(s *ModelCatalogBindingUpsert) {
 		s.ClearMaxReasoningEffortMultiplier()
+	})
+}
+
+// SetPerRequestPrice sets the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertBulk) SetPerRequestPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.SetPerRequestPrice(v)
+	})
+}
+
+// AddPerRequestPrice adds v to the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertBulk) AddPerRequestPrice(v float64) *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.AddPerRequestPrice(v)
+	})
+}
+
+// UpdatePerRequestPrice sets the "per_request_price" field to the value that was provided on create.
+func (u *ModelCatalogBindingUpsertBulk) UpdatePerRequestPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.UpdatePerRequestPrice()
+	})
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (u *ModelCatalogBindingUpsertBulk) ClearPerRequestPrice() *ModelCatalogBindingUpsertBulk {
+	return u.Update(func(s *ModelCatalogBindingUpsert) {
+		s.ClearPerRequestPrice()
 	})
 }
 
