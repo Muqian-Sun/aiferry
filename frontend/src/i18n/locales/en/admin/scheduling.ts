@@ -56,6 +56,7 @@ export default {
     reasons: {
       missing: 'Channel missing',
       disabled: 'Disabled',
+      error: 'Error',
       unschedulable: 'Scheduling off',
       expired: 'Expired',
       overloaded: 'Overload cooldown',

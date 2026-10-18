@@ -93,10 +93,13 @@ func TestPreviewCatalogScheduling_BlockedReasonsAndQueue(t *testing.T) {
 	disabled := anthropicOAuth
 	disabled.ID, disabled.Name, disabled.Status = 92003, "disabled", StatusDisabled
 
+	errored := anthropicOAuth
+	errored.ID, errored.Name, errored.Status, errored.ErrorMessage = 92005, "errored", StatusError, " 401 invalid api key "
+
 	full := anthropicOAuth
 	full.ID, full.Name = 92004, "full"
 
-	pool := []Account{responsesKey, rateLimited, modelLimited, disabled, full}
+	pool := []Account{responsesKey, rateLimited, modelLimited, disabled, full, errored}
 	svc := newProtocolMatchService(t, true, nil, pool...)
 	svc.concurrencyService = NewConcurrencyService(&mockConcurrencyCache{
 		skipDefaultLoad: true,
@@ -129,11 +132,16 @@ func TestPreviewCatalogScheduling_BlockedReasonsAndQueue(t *testing.T) {
 
 	require.Equal(t, "disabled", previewItem(t, items, disabled.ID).Reason)
 
+	// 出错停用与手动停用分开：渠道页显示为异常，并带上错误信息
+	erroredItem := previewItem(t, items, errored.ID)
+	require.Equal(t, schedulingPreviewError, erroredItem.Reason)
+	require.Equal(t, "401 invalid api key", erroredItem.Detail)
+
 	states := make([]string, 0, len(items))
 	for _, item := range items {
 		states = append(states, item.State)
 	}
-	require.Equal(t, []string{SchedulingPreviewReady, SchedulingPreviewQueue, SchedulingPreviewBlocked, SchedulingPreviewBlocked, SchedulingPreviewBlocked}, states)
+	require.Equal(t, []string{SchedulingPreviewReady, SchedulingPreviewQueue, SchedulingPreviewBlocked, SchedulingPreviewBlocked, SchedulingPreviewBlocked, SchedulingPreviewBlocked}, states)
 }
 
 // 承接不了本次入站协议的渠道（responses key 没有 gemini 入站的转换）标 protocol_unsupported。
