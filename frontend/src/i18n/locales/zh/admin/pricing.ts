@@ -31,6 +31,7 @@ export default {
       search_price_per_call: '每次 web 搜索',
       x_post_price: 'X 搜索 · 帖子',
       x_user_price: 'X 搜索 · 主页',
+      per_request_price: '按次价',
       segments: '分段',
       margin: '毛利',
       status: '状态',
@@ -38,6 +39,30 @@ export default {
     },
     official: '官方价',
     costGroup: '成本价',
+    media: {
+      units: {
+        image: '$ / 张',
+        video: '$ / 秒',
+        per_request: '$ / 次'
+      },
+      modes: {
+        image: '按张计费',
+        video: '按秒计费',
+        per_request: '按次计费'
+      },
+      column: '按次价（{unit}）',
+      tiersTitle: '分档',
+      tiersNone: '不分档',
+      tiersCount: '分 {count} 档',
+      tiersHint: '命中档位按档位价计，没命中按上面的按次价',
+      tiersFollow: '各档按官方同比例：{tiers}',
+      tier: '{label} 档',
+      tierAdd: '加 {label} 档',
+      tierErrors: {
+        missing: '价格没填',
+        invalid: '格式不对（只能填非负数）'
+      }
+    },
     webSearchDelegate: '联网搜索计费项',
     webSearchDelegateHint: 'Claude Code 第三方模型的联网搜索由它执行；不对用户上架',
     search: {
@@ -189,7 +214,8 @@ export default {
       upstreamModel: '上游模型名只能是一个具体的名字，不能带 * 或空格',
       peak: '忙闲时第 {index} 段：{error}',
       peakDates: '忙闲时的节假日有写错的日期',
-      reasoning: '最高推理倍数要大于 0'
+      reasoning: '最高推理倍数要大于 0',
+      tier: '{label} 档：{error}'
     },
     discardTitle: '放弃未保存的修改？',
     discardMessage: '有 {count} 块改了还没保存，继续会丢掉这些修改。',

@@ -291,6 +291,33 @@ func (_u *ModelCatalogBindingUpdate) ClearMaxReasoningEffortMultiplier() *ModelC
 	return _u
 }
 
+// SetPerRequestPrice sets the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdate) SetPerRequestPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.ResetPerRequestPrice()
+	_u.mutation.SetPerRequestPrice(v)
+	return _u
+}
+
+// SetNillablePerRequestPrice sets the "per_request_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdate) SetNillablePerRequestPrice(v *float64) *ModelCatalogBindingUpdate {
+	if v != nil {
+		_u.SetPerRequestPrice(*v)
+	}
+	return _u
+}
+
+// AddPerRequestPrice adds value to the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdate) AddPerRequestPrice(v float64) *ModelCatalogBindingUpdate {
+	_u.mutation.AddPerRequestPrice(v)
+	return _u
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdate) ClearPerRequestPrice() *ModelCatalogBindingUpdate {
+	_u.mutation.ClearPerRequestPrice()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdate) SetUpstreamModel(v string) *ModelCatalogBindingUpdate {
 	_u.mutation.SetUpstreamModel(v)
@@ -500,6 +527,15 @@ func (_u *ModelCatalogBindingUpdate) sqlSave(ctx context.Context) (_node int, er
 	}
 	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PerRequestPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPerRequestPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.PerRequestPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)
@@ -858,6 +894,33 @@ func (_u *ModelCatalogBindingUpdateOne) ClearMaxReasoningEffortMultiplier() *Mod
 	return _u
 }
 
+// SetPerRequestPrice sets the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdateOne) SetPerRequestPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.ResetPerRequestPrice()
+	_u.mutation.SetPerRequestPrice(v)
+	return _u
+}
+
+// SetNillablePerRequestPrice sets the "per_request_price" field if the given value is not nil.
+func (_u *ModelCatalogBindingUpdateOne) SetNillablePerRequestPrice(v *float64) *ModelCatalogBindingUpdateOne {
+	if v != nil {
+		_u.SetPerRequestPrice(*v)
+	}
+	return _u
+}
+
+// AddPerRequestPrice adds value to the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdateOne) AddPerRequestPrice(v float64) *ModelCatalogBindingUpdateOne {
+	_u.mutation.AddPerRequestPrice(v)
+	return _u
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (_u *ModelCatalogBindingUpdateOne) ClearPerRequestPrice() *ModelCatalogBindingUpdateOne {
+	_u.mutation.ClearPerRequestPrice()
+	return _u
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (_u *ModelCatalogBindingUpdateOne) SetUpstreamModel(v string) *ModelCatalogBindingUpdateOne {
 	_u.mutation.SetUpstreamModel(v)
@@ -1099,6 +1162,15 @@ func (_u *ModelCatalogBindingUpdateOne) sqlSave(ctx context.Context) (_node *Mod
 	}
 	if _u.mutation.MaxReasoningEffortMultiplierCleared() {
 		_spec.ClearField(modelcatalogbinding.FieldMaxReasoningEffortMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PerRequestPrice(); ok {
+		_spec.SetField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPerRequestPrice(); ok {
+		_spec.AddField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.PerRequestPriceCleared() {
+		_spec.ClearField(modelcatalogbinding.FieldPerRequestPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.UpstreamModel(); ok {
 		_spec.SetField(modelcatalogbinding.FieldUpstreamModel, field.TypeString, value)

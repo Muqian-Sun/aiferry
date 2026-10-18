@@ -65,6 +65,11 @@ func MaxReasoningEffortMultiplier(v float64) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldMaxReasoningEffortMultiplier, v))
 }
 
+// PerRequestPrice applies equality check predicate on the "per_request_price" field. It's identical to PerRequestPriceEQ.
+func PerRequestPrice(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldPerRequestPrice, v))
+}
+
 // UpstreamModel applies equality check predicate on the "upstream_model" field. It's identical to UpstreamModelEQ.
 func UpstreamModel(v string) predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldUpstreamModel, v))
@@ -548,6 +553,56 @@ func MaxReasoningEffortMultiplierIsNil() predicate.ModelCatalogBinding {
 // MaxReasoningEffortMultiplierNotNil applies the NotNil predicate on the "max_reasoning_effort_multiplier" field.
 func MaxReasoningEffortMultiplierNotNil() predicate.ModelCatalogBinding {
 	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldMaxReasoningEffortMultiplier))
+}
+
+// PerRequestPriceEQ applies the EQ predicate on the "per_request_price" field.
+func PerRequestPriceEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldEQ(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceNEQ applies the NEQ predicate on the "per_request_price" field.
+func PerRequestPriceNEQ(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNEQ(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceIn applies the In predicate on the "per_request_price" field.
+func PerRequestPriceIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIn(FieldPerRequestPrice, vs...))
+}
+
+// PerRequestPriceNotIn applies the NotIn predicate on the "per_request_price" field.
+func PerRequestPriceNotIn(vs ...float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotIn(FieldPerRequestPrice, vs...))
+}
+
+// PerRequestPriceGT applies the GT predicate on the "per_request_price" field.
+func PerRequestPriceGT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGT(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceGTE applies the GTE predicate on the "per_request_price" field.
+func PerRequestPriceGTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldGTE(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceLT applies the LT predicate on the "per_request_price" field.
+func PerRequestPriceLT(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLT(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceLTE applies the LTE predicate on the "per_request_price" field.
+func PerRequestPriceLTE(v float64) predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldLTE(FieldPerRequestPrice, v))
+}
+
+// PerRequestPriceIsNil applies the IsNil predicate on the "per_request_price" field.
+func PerRequestPriceIsNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldIsNull(FieldPerRequestPrice))
+}
+
+// PerRequestPriceNotNil applies the NotNil predicate on the "per_request_price" field.
+func PerRequestPriceNotNil() predicate.ModelCatalogBinding {
+	return predicate.ModelCatalogBinding(sql.FieldNotNull(FieldPerRequestPrice))
 }
 
 // UpstreamModelEQ applies the EQ predicate on the "upstream_model" field.

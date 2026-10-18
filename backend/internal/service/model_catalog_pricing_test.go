@@ -52,9 +52,9 @@ func TestModelCatalogBinding_ValidateAgainst(t *testing.T) {
 		{name: "negative price",
 			mutate:  func(b *ModelCatalogBinding, _ *ModelCatalogEntry) { b.OutputPrice = -1e-6 },
 			wantErr: "upstream output_price must be >= 0"},
-		{name: "non-token model",
+		{name: "per-request model needs the upstream per-request price",
 			mutate:  func(_ *ModelCatalogBinding, e *ModelCatalogEntry) { e.BillingMode = BillingModeImage },
-			wantErr: "is not billed by token"},
+			wantErr: "upstream per_request_price is required"},
 		{name: "segment with multiplier",
 			mutate: func(b *ModelCatalogBinding, _ *ModelCatalogEntry) {
 				b.Intervals = []PricingInterval{{MinTokens: 272000, InputMultiplier: upstreamCostPtr(2)}}
@@ -246,14 +246,6 @@ func TestModelCatalogService_SaveEntryPricing(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ModelCatalogManagedByAdmin, got.ManagedBy, "a changed segment price is operator pricing")
 	})
-
-	t.Run("rejects non-token model", func(t *testing.T) {
-		image := upstreamCostTestEntry()
-		image.BillingMode = BillingModeImage
-		svc, _ := newTestModelCatalogService(image)
-		_, err := svc.SaveEntryPricing(ctx, 1, official(), CatalogSalePrices{}, nil, accounts)
-		require.ErrorContains(t, err, "only token models are priced")
-	})
 }
 
 func TestModelCatalogService_SaveAccountPricing(t *testing.T) {
@@ -294,13 +286,13 @@ func TestModelCatalogService_SaveAccountPricing(t *testing.T) {
 		bindings func() []ModelCatalogBinding
 		wantErr  string
 	}{
-		{name: "non-token model", account: 1,
+		{name: "per-request model with token prices only", account: 1,
 			bindings: func() []ModelCatalogBinding {
 				b := upstreamCostTestBinding(0)
 				b.EntryID = 3
 				return []ModelCatalogBinding{b}
 			},
-			wantErr: "is not billed by token"},
+			wantErr: "upstream per_request_price is required"},
 		{name: "unknown model", account: 1,
 			bindings: func() []ModelCatalogBinding {
 				b := upstreamCostTestBinding(0)
@@ -332,13 +324,22 @@ func TestModelCatalogService_SaveAccountPricing(t *testing.T) {
 	}
 }
 
-func TestModelCatalogService_ListPricingEntriesOnlyTokenModels(t *testing.T) {
+// 价格页列全部条目：按 Token 计费的与生图 / 视频 / 按次的都在（PR-A）。
+func TestModelCatalogService_ListPricingEntriesIncludesMediaModels(t *testing.T) {
 	image := ModelCatalogEntry{ID: 3, ModelID: "image-model", BillingMode: BillingModeImage, Status: ModelCatalogStatusListed, ManagedBy: ModelCatalogManagedByAdmin}
-	svc, _ := newTestModelCatalogService(upstreamCostTestEntry(), image)
+	video := ModelCatalogEntry{ID: 4, ModelID: "video-model", BillingMode: BillingModeVideo, Status: ModelCatalogStatusUnlisted, ManagedBy: ModelCatalogManagedBySeed}
+	perRequest := ModelCatalogEntry{ID: 5, ModelID: "per-request-model", BillingMode: BillingModePerRequest, Status: ModelCatalogStatusUnlisted, ManagedBy: ModelCatalogManagedBySeed}
+	svc, _ := newTestModelCatalogService(upstreamCostTestEntry(), image, video, perRequest)
 	entries, err := svc.ListPricingEntries(context.Background())
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	require.Equal(t, "upstream-test-model", entries[0].ModelID)
+	modes := map[string]BillingMode{}
+	for _, e := range entries {
+		modes[e.ModelID] = e.EffectiveBillingMode()
+	}
+	require.Equal(t, map[string]BillingMode{
+		"upstream-test-model": BillingModeToken, "image-model": BillingModeImage,
+		"video-model": BillingModeVideo, "per-request-model": BillingModePerRequest,
+	}, modes)
 
 	accounts := newPricingTestAccounts()
 	require.True(t, svc.CanBindAccount(&entries[0], accounts[1]))

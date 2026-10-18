@@ -117,8 +117,11 @@ type ModelCatalogBinding struct {
 	// TimePricing 上游忙闲时（muqian 2026-10-06：上游有没有忙闲时在填承接时定）：渠道成本按请求时刻整单 × 倍率；
 	// nil = 上游不分忙闲时。
 	TimePricing *TimePricing `json:"time_pricing"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	// PerRequestPrice 生图 / 视频 / 按次模型的上游按次价（USD / 张、/ 秒、/ 次，与条目 PerRequestPrice 同单位）：
+	// 这类模型的承接只填它，token 价记 0；按 Token 计费的模型不用它（nil）。
+	PerRequestPrice *float64  `json:"per_request_price"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // NormalizeModelCatalogKey 返回查表用的规范化模型名。
@@ -174,6 +177,15 @@ func (e *ModelCatalogEntry) EffectiveBillingMode() BillingMode {
 		return BillingModeToken
 	}
 	return e.BillingMode
+}
+
+// IsPerRequestBilled 报告条目按次计价（生图 / 视频 / 按次）：价格页上它只有按次价与分档，承接只填上游按次价。
+func (e *ModelCatalogEntry) IsPerRequestBilled() bool {
+	switch e.EffectiveBillingMode() {
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
+		return true
+	}
+	return false
 }
 
 // IsOperatorAuthored 报告该条目的价格是不是管理员写的。

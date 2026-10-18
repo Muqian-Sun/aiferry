@@ -68,6 +68,11 @@ func (ModelCatalogBinding) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}),
+		// per_request_price 生图 / 视频 / 按次模型的上游按次价（USD / 张、/ 秒、/ 次）；NULL = 没填（按 Token 计费的模型不用）。
+		field.Float("per_request_price").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,12)"}),
 		// upstream_model 这个渠道给这个模型用的上游模型名，空串 = 与目录标识同名（按目录模型精确对应，不支持通配）。
 		field.String("upstream_model").
 			MaxLen(255).

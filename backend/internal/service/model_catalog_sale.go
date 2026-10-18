@@ -164,16 +164,50 @@ func (e *ModelCatalogEntry) saleEquivalentPriceBase() segmentPriceBase {
 }
 
 // SaleEquivalentPricingCard 模型广场用的价卡：五项与分段换成售价口径（官方口径，展示时 × 访问者的计费倍率 = 售价 × 折扣）；
-// 一项售价都没定时就是 PricingCard 本身。图片 / 音频 / 按次价不在这次售价范围里，照旧是官方价。
+// 一项售价都没定时就是 PricingCard 本身。按次计价的条目换的是按次价与各档（见 salePerRequestCard）；图片 / 音频 token 价照旧是官方价。
 func (e *ModelCatalogEntry) SaleEquivalentPricingCard() *PricingCard {
 	card := e.PricingCard()
-	if card == nil || e.SalePrices.IsZero() || e.EffectiveBillingMode() != BillingModeToken {
+	if card == nil || e.SalePrices.IsZero() {
 		return card
+	}
+	if e.IsPerRequestBilled() {
+		return e.salePerRequestCard(card)
 	}
 	base := e.saleEquivalentPriceBase()
 	card.InputPrice, card.OutputPrice = base.input, base.output
 	card.CacheWritePrice, card.CacheWrite1hPrice, card.CacheReadPrice = base.cacheWrite, base.cacheWrite1h, base.cacheRead
 	card.Intervals = base.intervals
+	return card
+}
+
+// perRequestTierPrice 按次价随档折算的唯一规则（售价与上游价共用）：base 是基础按次价，本档价 = base × 本档官方价 ÷ 官方按次价，
+// 即各档与官方价同比例（目录的分档存的是各档的绝对价，没有倍率）。官方按次价没有或为 0 时推不出比例，各档都按 base。
+func perRequestTierPrice(base, officialTier, officialBase float64) float64 {
+	if officialBase <= 0 {
+		return base
+	}
+	return base * officialTier / officialBase
+}
+
+// salePerRequestCard 按次计价条目的售价口径价卡：单独定了按次售价时，按次价与各档换成「售价 ÷ 默认售价比例」
+// （各档按 perRequestTierPrice 与官方同比例）；没定时就是官方价卡。
+func (e *ModelCatalogEntry) salePerRequestCard(card *PricingCard) *PricingCard {
+	sale := e.SalePrices.PerRequestPrice
+	if sale == nil {
+		return card
+	}
+	officialBase := 0.0
+	if e.PerRequestPrice != nil {
+		officialBase = *e.PerRequestPrice
+	}
+	base := toOfficialBasis(*sale)
+	card.PerRequestPrice = &base
+	for i := range card.Intervals {
+		if tier := card.Intervals[i].PerRequestPrice; tier != nil {
+			v := toOfficialBasis(perRequestTierPrice(*sale, *tier, officialBase))
+			card.Intervals[i].PerRequestPrice = &v
+		}
+	}
 	return card
 }
 
@@ -216,7 +250,7 @@ func (e *ModelCatalogEntry) SaleMaxReasoningMultiplier() *float64 {
 // saleByRatio 售价五项与各段按「官方价 × ratio」重填（与价格页单个模型的「按比例填售价」同一规则；每百万 Token 4 位小数的取整
 // 在 normalizeSalePrices 里做）；
 // 分段按计费的分段规则展开（段内没填的项沿用基础价，缓存价随本段输入价同比例折算）。官方价没有的项不填；
-// 售价忙闲时、最高推理倍率保持原样。
+// 售价忙闲时、最高推理倍率保持原样。按次计价的条目只有按次售价 = 官方按次价 × ratio（各档随它同比例）。
 func saleByRatio(e *ModelCatalogEntry, ratio float64) CatalogSalePrices {
 	scale := func(p *float64) *float64 {
 		if p == nil {
@@ -224,6 +258,9 @@ func saleByRatio(e *ModelCatalogEntry, ratio float64) CatalogSalePrices {
 		}
 		v := *p * ratio
 		return &v
+	}
+	if e.IsPerRequestBilled() {
+		return CatalogSalePrices{PerRequestPrice: scale(e.PerRequestPrice)}
 	}
 	out := CatalogSalePrices{
 		InputPrice: scale(e.InputPrice), OutputPrice: scale(e.OutputPrice),
@@ -247,8 +284,8 @@ func saleByRatio(e *ModelCatalogEntry, ratio float64) CatalogSalePrices {
 	return out
 }
 
-// FillVendorSalePricesByRatio 价格页「按厂商填售价」（muqian 2026-10-07：一次性批量填并保存）：这个厂商全部按 token 计费的
-// 模型（含未上架），售价五项与各段重填为「官方价 × ratio」（见 saleByRatio），同一事务写库；官方价、归属、承接不动。
+// FillVendorSalePricesByRatio 价格页「按厂商填售价」（muqian 2026-10-07：一次性批量填并保存）：这个厂商价格页上的全部
+// 模型（含未上架），售价重填为「官方价 × ratio」（见 saleByRatio），同一事务写库；官方价、归属、承接不动。
 // 返回改了几个模型。
 func (s *ModelCatalogService) FillVendorSalePricesByRatio(ctx context.Context, vendor string, ratio float64) (int, error) {
 	vendor = strings.TrimSpace(vendor)
@@ -275,7 +312,7 @@ func (s *ModelCatalogService) FillVendorSalePricesByRatio(ctx context.Context, v
 		prices[entry.ID] = entry.SalePrices
 	}
 	if len(prices) == 0 {
-		return 0, catalogValidationError(fmt.Sprintf("vendor %s has no token-billed models", vendor))
+		return 0, catalogValidationError(fmt.Sprintf("vendor %s has no models on the pricing page", vendor))
 	}
 	if err := s.repo.SetEntriesSalePrices(ctx, prices); err != nil {
 		return 0, err
@@ -284,15 +321,18 @@ func (s *ModelCatalogService) FillVendorSalePricesByRatio(ctx context.Context, v
 	return len(prices), nil
 }
 
-// validateSalePrices 售价不能为负；只有按 token 计费的模型能定售价；各段按下界对上官方价的分段，同一段不能写两次；
-// 售价忙闲时与官方忙闲时同一套校验；最高推理倍率与官方的一样须 > 0。
+// validateSalePrices 售价不能为负；按次计价的模型只定按次售价，按 token 计费的模型不定它；各段按下界对上官方价的分段，
+// 同一段不能写两次；售价忙闲时与官方忙闲时同一套校验；最高推理倍率与官方的一样须 > 0。
 func validateSalePrices(e *ModelCatalogEntry) error {
 	p := e.SalePrices
 	if p.IsZero() {
 		return nil
 	}
-	if e.EffectiveBillingMode() != BillingModeToken {
-		return catalogValidationError("sale prices are only for token-billed models")
+	if e.IsPerRequestBilled() {
+		return validatePerRequestSalePrices(p)
+	}
+	if p.PerRequestPrice != nil {
+		return catalogValidationError("sale per_request_price is only for image / video / per-request models")
 	}
 	if p.TimePricing != nil && len(p.TimePricing.Periods) > 0 {
 		if err := validateCatalogLength("sale_prices.time_pricing.timezone", p.TimePricing.Timezone, 64); err != nil {
@@ -337,6 +377,19 @@ func validateSalePrices(e *ModelCatalogEntry) error {
 	return nil
 }
 
+// validatePerRequestSalePrices 按次计价模型的售价：只有按次售价（>= 0）；五项、分段、忙闲时、最高推理倍率都不参与媒体计费。
+func validatePerRequestSalePrices(p CatalogSalePrices) error {
+	rest := p
+	rest.PerRequestPrice = nil
+	if !rest.IsZero() {
+		return catalogValidationError("sale prices of image / video / per-request models only have per_request_price")
+	}
+	if v := p.PerRequestPrice; v != nil && *v < 0 {
+		return catalogValidationError("sale per_request_price must be >= 0")
+	}
+	return nil
+}
+
 // normalizeSalePrices 去掉一项都没填的段，各段按下界排好；一项都没填时是零值（存成 {}）。
 // 售价每百万 Token 最多保留 4 位小数（muqian 2026-10-07）。
 func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
@@ -358,6 +411,7 @@ func normalizeSalePrices(p CatalogSalePrices) CatalogSalePrices {
 	sort.Slice(out.Segments, func(i, j int) bool { return out.Segments[i].MinTokens < out.Segments[j].MinTokens })
 	out.TimePricing = normalizeSaleTimePricing(p.TimePricing)
 	out.MaxReasoningEffortMultiplier = clonePricePtr(p.MaxReasoningEffortMultiplier)
+	out.PerRequestPrice = clonePricePtr(p.PerRequestPrice)
 	return out
 }
 

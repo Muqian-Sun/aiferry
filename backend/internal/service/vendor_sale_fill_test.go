@@ -54,5 +54,5 @@ func TestFillVendorSalePricesByRatio(t *testing.T) {
 	_, err = svc.FillVendorSalePricesByRatio(ctx, "dashscope", 0)
 	require.ErrorContains(t, err, "ratio must be > 0")
 	_, err = svc.FillVendorSalePricesByRatio(ctx, "volcengine", 0.1)
-	require.ErrorContains(t, err, "has no token-billed models")
+	require.ErrorContains(t, err, "has no models on the pricing page")
 }

@@ -2,6 +2,7 @@
   <!--
     按渠道的一块：这个渠道承接的每个模型一行（成本价），每格下面标官方价作参考；官方价要改请切回「按模型」。
     整块一起保存：这个渠道的承接关系一个事务整份覆盖（删掉不在列表里的、改价、新增），别的渠道不动。
+    生图 / 视频 / 按次的模型（PR-A）那一行只有上游按次价（五项价那几列合成一格），各档按官方同比例。
   -->
   <!-- 不做卡片（2026-10-04 muqian「一整个卡片」）：块与块之间一条发丝线 + 留白，表头不铺灰 -->
   <section class="border-t border-af-hairline pt-4" :data-testid="`pricing-channel-${account.id}`">
@@ -74,6 +75,8 @@
             :official-peak="officialPeakOf(row.id)"
             reasoning="upstream"
             :official-reasoning="entriesById.get(row.id)?.max_reasoning_effort_multiplier ?? null"
+            :mode="modeOf(row.id)"
+            :tier-hint="tierHintOf(row)"
             :issues="rowIssues(row)"
             :refs="officialOf(row.id)"
             :row-class="isNewRow(row) ? 'bg-af-warning-tint/50' : ''"
@@ -170,6 +173,7 @@ import {
   cloneChannelDraft,
   fillByDiscount,
   hasRowIssues,
+  isPerRequestMode,
   keyedRowUnchanged,
   marginOf,
   newChannelRow,
@@ -182,11 +186,11 @@ import {
   type BlockState,
   type ChannelDraft,
   type KeyedRow,
-  type PriceKey,
-  type RowIssues,
-  type SearchKey
+  type OfficialRef,
+  type RowIssues
 } from './pricingDraft'
 import { issueSummary } from './issueSummary'
+import { perRequestTierHint } from './mediaHints'
 import { upstreamSearchHints, upstreamSearchPlaceholders } from './searchHints'
 
 const props = defineProps<{
@@ -194,7 +198,7 @@ const props = defineProps<{
   /** 这一块的草稿，由页面保管（筛选、翻页不丢） */
   state: BlockState<ChannelDraft>
   accounts: PricingAccount[]
-  /** 价格页的全部模型（按 Token 计费） */
+  /** 价格页的全部模型 */
   entries: PricingEntry[]
   defaultSaleRatio: number
   minMargin: number
@@ -216,10 +220,23 @@ const draft = computed(() => props.state.draft)
 
 const changes = computed(() => channelDraftChanges(props.state))
 
-/** 官方价（搜索价只算显式设了的：没设的上游可不填） */
-function officialOf(entryId: number): Record<PriceKey, number | null> & Record<SearchKey, number | null> {
+/** 这个模型的计费模式 */
+function modeOf(entryId: number): string {
+  return entriesById.value.get(entryId)?.billing_mode ?? 'token'
+}
+
+/** 按次计价的模型：各档按官方同比例折算出的上游价（官方价只读，按服务端的值） */
+function tierHintOf(row: KeyedRow): string | undefined {
+  const entry = entriesById.value.get(row.id)
+  if (!entry || !isPerRequestMode(entry.billing_mode)) return undefined
+  return perRequestTierHint(t, row.prices.per_request_price, priceRowFrom(entry, entry.billing_mode))
+}
+
+/** 官方价（搜索价只算显式设了的：没设的上游可不填；按次价只作参考） */
+function officialOf(entryId: number): OfficialRef {
   const entry = entriesById.value.get(entryId)
   return {
+    per_request_price: entry?.per_request_price ?? null,
     input_price: entry?.input_price ?? null,
     output_price: entry?.output_price ?? null,
     cache_read_price: entry?.cache_read_price ?? null,
@@ -237,7 +254,7 @@ function officialPeakOf(entryId: number) {
 }
 
 function rowIssues(row: KeyedRow): RowIssues {
-  return bindingRowIssues(row, officialOf(row.id))
+  return bindingRowIssues(row, officialOf(row.id), modeOf(row.id))
 }
 
 function isNewRow(row: KeyedRow): boolean {
@@ -304,7 +321,7 @@ function copyFrom(sourceId: number) {
   for (const entry of props.entries) {
     const binding = entry.bindings.find((b) => b.account_id === sourceId)
     if (!binding || !entry.bindable_account_ids.includes(props.account.id)) continue
-    const copied = bindingRowFrom(binding)
+    const copied = bindingRowFrom(binding, entry.billing_mode)
     const existing = draft.value.rows.find((row) => row.id === entry.id)
     if (existing) Object.assign(existing, copied)
     else draft.value.rows.push({ id: entry.id, ...copied })
@@ -319,7 +336,7 @@ function removeRow(id: number) {
 function fillDiscount(ratio: number) {
   for (const row of draft.value.rows) {
     const entry = entriesById.value.get(row.id)
-    if (entry) fillByDiscount(row.prices, priceRowFrom(entry), ratio)
+    if (entry) fillByDiscount(row.prices, priceRowFrom(entry, entry.billing_mode), ratio)
   }
 }
 
@@ -347,8 +364,8 @@ async function save() {
       bindings: props.state.draft.rows.map((row) => ({
         entry_id: row.id,
         upstream_model: row.upstreamModel.trim(),
-        ...priceRowToRequest(row.prices),
-        time_pricing: peakFormToRequest(row.peak)
+        ...priceRowToRequest(row.prices, modeOf(row.id)),
+        time_pricing: isPerRequestMode(modeOf(row.id)) ? null : peakFormToRequest(row.peak)
       }))
     })
     // 先记成已保存（这一块变干净），页面重拉后按新数据重建，带上后端重算的毛利

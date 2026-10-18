@@ -154,7 +154,11 @@ func TestSalePrices_Validation(t *testing.T) {
 	e.BillingMode = BillingModeImage
 	e.PerRequestPrice = upstreamCostPtr(0.05)
 	e.Intervals = nil
-	require.ErrorContains(t, e.Validate(), "only for token-billed models")
+	require.ErrorContains(t, e.Validate(), "only have per_request_price", "按次计价的模型不能定 token 售价")
+
+	e = valid()
+	e.SalePrices = CatalogSalePrices{PerRequestPrice: upstreamCostPtr(0.01)}
+	require.ErrorContains(t, e.Validate(), "sale per_request_price is only for image / video / per-request models")
 }
 
 // 价格页只改售价：条目归属不变（官方价照旧跟着价格文件刷新）；空段丢掉、各段按下界排好。

@@ -577,12 +577,14 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		requestedModel = input.RequestedModel
 	}
 
-	// 计算费用；渠道成本 = token 用量 × 这个渠道给这个模型的上游价（媒体用量记 0）
+	// 计算费用；渠道成本 = 用量 × 这个渠道给这个模型的上游价（token 用量按上游 token 价，媒体用量按上游按次价）
 	cost, tokenPath := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, pricingAt)
-	accountCost := 0.0
+	var accountCost float64
 	if tokenPath {
 		accountCost = recordUsageAccountCost(ctx, s.billingService, s.resolver, account.ID, []string{billingModel},
 			recordUsageTokens(result), result.webSearchUsage(), pricingAt, optionalStringValue(result.ReasoningEffort))
+	} else {
+		accountCost = recordUsageMediaAccountCost(ctx, s.billingService, s.resolver, account.ID, billingModel, mediaUsageFromForwardResult(result))
 	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
@@ -631,7 +633,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 // calculateRecordUsageCost 根据请求类型计算费用：媒体用量（图片 / 音频）按目录条目，
 // 其余走 token 计费，联网搜索费叠加在 token 费上。tokenPath 报告是否走了
-// token 计费（渠道成本只在 token 路径上按上游价算）。
+// token 计费（渠道成本据此按上游 token 价或上游按次价算）。
 func (s *GatewayService) calculateRecordUsageCost(
 	ctx context.Context,
 	result *ForwardResult,

@@ -1039,6 +1039,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import UpstreamDetect from '@/components/account/channel/UpstreamDetect.vue'
 import {
+  bindByDefault,
   classifyUpstreamModels,
   upstreamModelFor,
   type DetectedMatch,
@@ -1828,11 +1829,12 @@ function newBindRow(entryId: number, upstreamModel: string): KeyedRow {
   return newChannelRow(entry, account, data.accounts, upstreamModel)
 }
 
-/** 上游名单里目录有的（已上架与未上架都算）、这个渠道能承接、还没加的：默认都加成新行（muqian 2026-10-06 定默认勾上） */
+/** 上游名单里目录有的（已上架与未上架都算）、这个渠道能承接、还没加的：默认都加成新行（muqian 2026-10-06 定默认勾上；生图 / 视频等见 bindByDefault） */
 function addDetectedRows(draft: ChannelDraft, data: PricingOverview, account: PricingOverview['accounts'][number]) {
   if (!detected.value) return
   const result = classifyUpstreamModels(detected.value.names, catalogEntries.value)
   for (const match of [...result.listed, ...result.unlisted]) {
+    if (!bindByDefault(match.entry)) continue
     const entry = data.entries.find((item) => item.id === match.entry.id)
     if (!entry || !entry.bindable_account_ids.includes(account.id)) continue
     if (draft.rows.some((row) => row.id === entry.id)) continue

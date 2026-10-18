@@ -22228,6 +22228,8 @@ type ModelCatalogBindingMutation struct {
 	addx_user_price                    *float64
 	max_reasoning_effort_multiplier    *float64
 	addmax_reasoning_effort_multiplier *float64
+	per_request_price                  *float64
+	addper_request_price               *float64
 	upstream_model                     *string
 	price_intervals                    *[]domain.PriceSegment
 	appendprice_intervals              []domain.PriceSegment
@@ -22769,6 +22771,59 @@ func (m *ModelCatalogBindingMutation) ResetMaxReasoningEffortMultiplier() {
 	delete(m.clearedFields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
 }
 
+// SetPerRequestPrice sets the "per_request_price" field.
+func (m *ModelCatalogBindingMutation) SetPerRequestPrice(f float64) {
+	m.per_request_price = &f
+	m.addper_request_price = nil
+}
+
+// PerRequestPrice returns the value of the "per_request_price" field in the mutation.
+func (m *ModelCatalogBindingMutation) PerRequestPrice() (r float64, exists bool) {
+	v := m.per_request_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddPerRequestPrice adds f to the "per_request_price" field.
+func (m *ModelCatalogBindingMutation) AddPerRequestPrice(f float64) {
+	if m.addper_request_price != nil {
+		*m.addper_request_price += f
+	} else {
+		m.addper_request_price = &f
+	}
+}
+
+// AddedPerRequestPrice returns the value that was added to the "per_request_price" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedPerRequestPrice() (r float64, exists bool) {
+	v := m.addper_request_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPerRequestPrice clears the value of the "per_request_price" field.
+func (m *ModelCatalogBindingMutation) ClearPerRequestPrice() {
+	m.per_request_price = nil
+	m.addper_request_price = nil
+	m.clearedFields[modelcatalogbinding.FieldPerRequestPrice] = struct{}{}
+}
+
+// PerRequestPriceCleared returns if the "per_request_price" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) PerRequestPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldPerRequestPrice]
+	return ok
+}
+
+// ResetPerRequestPrice resets all changes to the "per_request_price" field.
+func (m *ModelCatalogBindingMutation) ResetPerRequestPrice() {
+	m.per_request_price = nil
+	m.addper_request_price = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldPerRequestPrice)
+}
+
 // SetUpstreamModel sets the "upstream_model" field.
 func (m *ModelCatalogBindingMutation) SetUpstreamModel(s string) {
 	m.upstream_model = &s
@@ -22980,7 +23035,7 @@ func (m *ModelCatalogBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogBindingMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.entry != nil {
 		fields = append(fields, modelcatalogbinding.FieldEntryID)
 	}
@@ -23013,6 +23068,9 @@ func (m *ModelCatalogBindingMutation) Fields() []string {
 	}
 	if m.max_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+	}
+	if m.per_request_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldPerRequestPrice)
 	}
 	if m.upstream_model != nil {
 		fields = append(fields, modelcatalogbinding.FieldUpstreamModel)
@@ -23059,6 +23117,8 @@ func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.XUserPrice()
 	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
 		return m.MaxReasoningEffortMultiplier()
+	case modelcatalogbinding.FieldPerRequestPrice:
+		return m.PerRequestPrice()
 	case modelcatalogbinding.FieldUpstreamModel:
 		return m.UpstreamModel()
 	case modelcatalogbinding.FieldPriceIntervals:
@@ -23162,6 +23222,13 @@ func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) err
 		}
 		m.SetMaxReasoningEffortMultiplier(v)
 		return nil
+	case modelcatalogbinding.FieldPerRequestPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPerRequestPrice(v)
+		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		v, ok := value.(string)
 		if !ok {
@@ -23232,6 +23299,9 @@ func (m *ModelCatalogBindingMutation) AddedFields() []string {
 	if m.addmax_reasoning_effort_multiplier != nil {
 		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
 	}
+	if m.addper_request_price != nil {
+		fields = append(fields, modelcatalogbinding.FieldPerRequestPrice)
+	}
 	return fields
 }
 
@@ -23258,6 +23328,8 @@ func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) 
 		return m.AddedXUserPrice()
 	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
 		return m.AddedMaxReasoningEffortMultiplier()
+	case modelcatalogbinding.FieldPerRequestPrice:
+		return m.AddedPerRequestPrice()
 	}
 	return nil, false
 }
@@ -23330,6 +23402,13 @@ func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) err
 		}
 		m.AddMaxReasoningEffortMultiplier(v)
 		return nil
+	case modelcatalogbinding.FieldPerRequestPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPerRequestPrice(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ModelCatalogBinding numeric field %s", name)
 }
@@ -23358,6 +23437,9 @@ func (m *ModelCatalogBindingMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(modelcatalogbinding.FieldMaxReasoningEffortMultiplier) {
 		fields = append(fields, modelcatalogbinding.FieldMaxReasoningEffortMultiplier)
+	}
+	if m.FieldCleared(modelcatalogbinding.FieldPerRequestPrice) {
+		fields = append(fields, modelcatalogbinding.FieldPerRequestPrice)
 	}
 	if m.FieldCleared(modelcatalogbinding.FieldTimePricing) {
 		fields = append(fields, modelcatalogbinding.FieldTimePricing)
@@ -23396,6 +23478,9 @@ func (m *ModelCatalogBindingMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
 		m.ClearMaxReasoningEffortMultiplier()
+		return nil
+	case modelcatalogbinding.FieldPerRequestPrice:
+		m.ClearPerRequestPrice()
 		return nil
 	case modelcatalogbinding.FieldTimePricing:
 		m.ClearTimePricing()
@@ -23440,6 +23525,9 @@ func (m *ModelCatalogBindingMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogbinding.FieldMaxReasoningEffortMultiplier:
 		m.ResetMaxReasoningEffortMultiplier()
+		return nil
+	case modelcatalogbinding.FieldPerRequestPrice:
+		m.ResetPerRequestPrice()
 		return nil
 	case modelcatalogbinding.FieldUpstreamModel:
 		m.ResetUpstreamModel()

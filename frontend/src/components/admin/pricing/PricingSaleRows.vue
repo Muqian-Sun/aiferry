@@ -6,13 +6,31 @@
     「忙闲时」（muqian 2026-10-06：售价单独一套）：默认跟官方忙闲时，也可单独设（删光时段 = 全天一个价）。
     「最高推理」（muqian 2026-10-07：同样单独一套）：空着跟官方，填了按它（1 = 不加价）；官方设了或自己填了才显示。
     sale（v-model:sale）是父组件草稿里的对象，这里原地改它。
+    生图 / 视频 / 按次的模型（mode，PR-A）只有一个按次售价：没定 = 官方按次价 × 默认售价比例，各档与官方同比例；
+    没有分段、忙闲时与最高推理。
   -->
   <tr :data-testid="testId">
     <td class="py-2 pl-0 pr-3 align-middle">
       <div class="font-medium text-af-ink">{{ t('admin.pricing.sale.label') }}</div>
     </td>
     <td class="px-2 py-2 align-middle"></td>
-    <td v-for="key in PRICE_KEYS" :key="key" class="px-2 py-2 text-right align-middle">
+    <td v-if="perRequest" :colspan="PRICE_KEYS.length" class="px-2 py-2 align-middle">
+      <div class="flex flex-col items-start gap-0.5">
+        <div class="flex items-center gap-2">
+          <PriceInput
+            v-model="sale.per_request_price"
+            compact
+            :unit="mediaUnit"
+            :label="t('admin.pricing.sale.cell', { item: t('admin.pricing.columns.per_request_price') })"
+            :placeholder="formatPerRequest(defaults.perRequest)"
+            :test-id="`${testId}-per_request_price`"
+          />
+          <span class="whitespace-nowrap text-xs text-af-ink-3">{{ mediaUnit }}</span>
+        </div>
+        <span v-if="tierHint" class="text-xs tabular-nums text-af-ink-3" :data-testid="`${testId}-tier-hint`">{{ tierHint }}</span>
+      </div>
+    </td>
+    <td v-for="key in tokenPriceKeys" :key="key" class="px-2 py-2 text-right align-middle">
       <PriceInput
         v-model="sale.base[key]"
         compact
@@ -26,7 +44,7 @@
     <td class="px-2 py-2 align-middle">
       <div class="flex flex-col items-start">
         <button
-          v-if="segmentMins.length > 0"
+          v-if="!perRequest && segmentMins.length > 0"
           type="button"
           class="whitespace-nowrap rounded-md px-2 py-1 text-13 text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
           :aria-expanded="expanded"
@@ -37,6 +55,7 @@
           <Icon :name="expanded ? 'chevronDown' : 'chevronRight'" size="xs" class="ml-0.5 inline text-af-ink-3" />
         </button>
         <button
+          v-if="!perRequest"
           type="button"
           :class="['whitespace-nowrap rounded-md px-2 py-1 text-13 transition-colors hover:bg-af-sunken', peakInvalid ? 'text-af-danger' : 'text-af-ink-2 hover:text-af-ink']"
           :aria-expanded="peakExpanded"
@@ -73,7 +92,7 @@
       </button>
     </td>
   </tr>
-  <tr v-if="peakExpanded" :data-testid="`${testId}-peak`">
+  <tr v-if="!perRequest && peakExpanded" :data-testid="`${testId}-peak`">
     <td colspan="2" class="py-2 pl-0 pr-3 align-top">
       <div class="pl-4 text-13 font-medium text-af-ink-2">{{ t('admin.pricing.peak.sale.title') }}</div>
     </td>
@@ -130,7 +149,7 @@
       </div>
     </td>
   </tr>
-  <template v-if="expanded">
+  <template v-if="!perRequest && expanded">
     <tr v-for="min in segmentMins" :key="min" :data-testid="`${testId}-segment`">
       <td colspan="2" class="py-2 pl-0 pr-3 align-middle">
         <span class="whitespace-nowrap pl-4 text-13 text-af-ink-2">{{ t('admin.pricing.sale.segmentAbove', { tokens: min }) }}</span>
@@ -160,6 +179,7 @@ import PeakEditor from './PeakEditor.vue'
 import {
   PRICE_KEYS,
   clonePeakForm,
+  isPerRequestMode,
   officialSegmentMins,
   peakDatesInvalid,
   peakErrors,
@@ -172,6 +192,7 @@ import {
   type PriceRow,
   type SaleRow
 } from './pricingDraft'
+import { formatPerRequest, perRequestTierHint } from './mediaHints'
 
 /** 表格总列数：首列 + 上游模型名 + 五项价 + 分段 + 毛利 + 状态 + 操作 */
 const COLUMN_COUNT = 11
@@ -187,6 +208,8 @@ const props = defineProps<{
   /** 这一块（可能还没保存的）官方忙闲时：售价默认跟它 */
   officialPeak: PeakForm | null
   testId: string
+  /** 这个模型的计费模式：image / video / per_request 时只有按次售价 */
+  mode?: string
 }>()
 
 const { t } = useI18n()
@@ -195,10 +218,18 @@ const expanded = ref(false)
 
 const segmentMins = computed(() => officialSegmentMins(props.official))
 const defaults = computed(() => saleDefaults(props.official, sale.value, props.ratio))
+const perRequest = computed(() => isPerRequestMode(props.mode))
+const tokenPriceKeys = computed(() => (perRequest.value ? [] : PRICE_KEYS))
+const mediaUnit = computed(() => t(`admin.pricing.media.units.${perRequest.value ? props.mode : 'per_request'}`))
+/** 各档售价（单独定了按它，没定按默认）与官方同比例 */
+const tierHint = computed(() =>
+  perRequest.value ? perRequestTierHint(t, sale.value.per_request_price ?? defaults.value.perRequest, props.official) : ''
+)
 
 const hasAny = computed(
   () =>
     !sale.value.peakFollowsOfficial ||
+    sale.value.per_request_price != null ||
     sale.value.maxReasoning != null ||
     PRICE_KEYS.some((key) => sale.value.base[key] != null) ||
     Object.values(sale.value.segments).some((prices) => PRICE_KEYS.some((key) => prices[key] != null))
@@ -230,7 +261,7 @@ const peakLabel = computed(() => {
 
 // ---- 售价最高推理倍率（官方价那一行的 maxReasoning 是可能还没保存的官方倍率）
 const officialReasoning = computed(() => props.official.maxReasoning)
-const reasoningShown = computed(() => officialReasoning.value != null || sale.value.maxReasoning != null)
+const reasoningShown = computed(() => !perRequest.value && (officialReasoning.value != null || sale.value.maxReasoning != null))
 const reasoningInvalid = computed(() => reasoningMultiplierInvalid(sale.value.maxReasoning))
 const reasoningExpanded = ref(false)
 watch(
@@ -274,6 +305,7 @@ function clearAll() {
   for (const key of PRICE_KEYS) sale.value.base[key] = null
   sale.value.segments = {}
   sale.value.maxReasoning = null
+  sale.value.per_request_price = null
   followOfficial()
 }
 

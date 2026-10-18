@@ -5,9 +5,22 @@
  * 这里只放「超过某个 Token 数之后」的各段）+ 联网搜索价（$/次、$/条）+ 最高推理倍率。上游价的必填规则与后端
  * ModelCatalogBinding.ValidateAgainst 一致：输入 / 输出必填；官方价有的缓存项（缓存读、缓存写 5 分钟 / 1 小时）
  * 与官方价显式设了的搜索价，上游价也必填。
+ *
+ * 生图 / 视频 / 按次的模型（billing_mode 不是 token）一行只有按次价：官方价另有分档（每档一个按次价），
+ * 售价与上游价都只填一个按次价，各档与官方价同比例（perRequestTierPrice，与后端同一规则）。
  */
 
-import type { PricingAccount, PricingBinding, PricingEntry, PricingPrices, PricingSalePrices, PricingSearchDefaults, TimePricing } from '@/api/admin/pricing'
+import type {
+  BillingMode,
+  PricingAccount,
+  PricingBinding,
+  PricingEntry,
+  PricingInterval,
+  PricingPrices,
+  PricingSalePrices,
+  PricingSearchDefaults,
+  TimePricing
+} from '@/api/admin/pricing'
 import {
   numberOrNull,
   parseTokenThreshold,
@@ -28,14 +41,47 @@ const CACHE_KEYS: PriceKey[] = ['cache_read_price', 'cache_write_price', 'cache_
 /** 联网搜索价（$/次、$/条）：每次 web 搜索；xAI 另有 X 帖子、X 主页（按取回条目收） */
 export const SEARCH_KEYS = ['search_price_per_call', 'x_post_price', 'x_user_price'] as const
 export type SearchKey = (typeof SEARCH_KEYS)[number]
-export type PriceField = PriceKey | SearchKey
+/** 按次价（$/张、$/秒、$/次）：只有生图 / 视频 / 按次的模型用 */
+export const PER_REQUEST_KEY = 'per_request_price' as const
+export type PriceField = PriceKey | SearchKey | typeof PER_REQUEST_KEY
+
+/** 按次计价的模型：价格页上只有按次价与分档，承接只填上游按次价 */
+export function isPerRequestMode(mode: BillingMode | string | null | undefined): boolean {
+  return mode === 'image' || mode === 'video' || mode === 'per_request'
+}
+
+/** 图片 / 视频的分档（官方价那一行）：档位名 + 按次价；按次模式按 Token 区间分的档原样带着区间 */
+export interface MediaTierRow {
+  label: string
+  price: number | null
+  minTokens: number
+  maxTokens: number | null
+}
 
 export type PriceRow = Record<PriceKey, number | null> &
   Record<SearchKey, number | null> & {
     segments: TokenSegmentForm[]
     /** 最高推理档（effort = max）整单乘的倍数：官方价那一行 null = 不加价，承接行 null = 跟官方 */
     maxReasoning: number | null
+    /** 按次价：按 Token 计费的模型恒为 null */
+    per_request_price: number | null
+    /** 官方价的分档：按 Token 计费的模型与承接行恒为空 */
+    tiers: MediaTierRow[]
   }
+
+/** 按次价随档折算（与后端 perRequestTierPrice 同一规则）：本档价 = base × 本档官方价 ÷ 官方按次价；官方按次价没有或为 0 时各档都按 base */
+export function perRequestTierPrice(base: number, officialTier: number, officialBase: number | null): number {
+  if (officialBase == null || !(officialBase > 0)) return base
+  return base * officialTier / officialBase
+}
+
+/** 各档按 base 折算后的价（显示用）：官方价那一行没有分档时为空 */
+export function scaledTierPrices(base: number | null, official: PriceRow): Array<{ label: string; price: number }> {
+  if (base == null || Number.isNaN(base)) return []
+  return official.tiers
+    .filter((tier) => tier.price != null && !Number.isNaN(tier.price))
+    .map((tier) => ({ label: tier.label, price: perRequestTierPrice(base, tier.price as number, official.per_request_price) }))
+}
 
 /** 这个模型能填的搜索价：厂商没有官方搜索工具（search_defaults 为 null）时一项都没有；X 帖子 / 主页只有 xAI 有 */
 export function searchKeysOf(defaults: PricingSearchDefaults | null | undefined): SearchKey[] {
@@ -43,9 +89,21 @@ export function searchKeysOf(defaults: PricingSearchDefaults | null | undefined)
   return defaults.x_post_price != null ? [...SEARCH_KEYS] : ['search_price_per_call']
 }
 
+function tiersFromIntervals(intervals: PricingInterval[] | undefined): MediaTierRow[] {
+  return [...(intervals ?? [])]
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((iv) => ({ label: iv.tier_label ?? '', price: iv.per_request_price ?? null, minTokens: iv.min_tokens ?? 0, maxTokens: iv.max_tokens ?? null }))
+}
+
+/** mode 是这个模型的计费模式：按次计价的模型带按次价与分档（intervals 是分档），其余带五项价与按 Token 分段 */
 export function priceRowFrom(
-  prices: Pick<PricingPrices, PriceKey | 'intervals' | 'max_reasoning_effort_multiplier'> & Partial<Record<SearchKey, number | null>>
+  prices: Pick<PricingPrices, PriceKey | 'intervals' | 'max_reasoning_effort_multiplier'> &
+    Partial<Record<SearchKey, number | null>> & { per_request_price?: number | null },
+  mode: BillingMode | string = 'token'
 ): PriceRow {
+  if (isPerRequestMode(mode)) {
+    return { ...emptyPriceRow(), per_request_price: prices.per_request_price ?? null, tiers: tiersFromIntervals(prices.intervals) }
+  }
   return {
     input_price: prices.input_price ?? null,
     output_price: prices.output_price ?? null,
@@ -56,7 +114,9 @@ export function priceRowFrom(
     x_post_price: prices.x_post_price ?? null,
     x_user_price: prices.x_user_price ?? null,
     segments: tokenSegmentsFromIntervals(prices.intervals, prices),
-    maxReasoning: prices.max_reasoning_effort_multiplier ?? null
+    maxReasoning: prices.max_reasoning_effort_multiplier ?? null,
+    per_request_price: null,
+    tiers: []
   }
 }
 
@@ -71,16 +131,48 @@ export function emptyPriceRow(): PriceRow {
     x_post_price: null,
     x_user_price: null,
     segments: [],
-    maxReasoning: null
+    maxReasoning: null,
+    per_request_price: null,
+    tiers: []
   }
 }
 
 export function clonePriceRow(row: PriceRow): PriceRow {
-  return { ...row, segments: row.segments.map((segment) => ({ ...segment })) }
+  return { ...row, segments: row.segments.map((segment) => ({ ...segment })), tiers: row.tiers.map((tier) => ({ ...tier })) }
 }
 
-/** 提交用（调用前先确认 rowIssues 没有问题） */
-export function priceRowToRequest(row: PriceRow): PricingPrices {
+function tiersToIntervals(tiers: MediaTierRow[]): PricingInterval[] {
+  return tiers.map((tier, index) => ({
+    min_tokens: tier.minTokens,
+    max_tokens: tier.maxTokens,
+    tier_label: tier.label,
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_write_1h_price: null,
+    cache_read_price: null,
+    input_multiplier: null,
+    output_multiplier: null,
+    cache_write_multiplier: null,
+    cache_read_multiplier: null,
+    per_request_price: numberOrNull(tier.price),
+    sort_order: index
+  }))
+}
+
+/** 提交用（调用前先确认 rowIssues 没有问题）：按次计价的模型只带按次价与分档，按 Token 计费的与原来一样 */
+export function priceRowToRequest(row: PriceRow, mode: BillingMode | string = 'token'): PricingPrices {
+  if (isPerRequestMode(mode)) {
+    return {
+      input_price: null,
+      output_price: null,
+      cache_read_price: null,
+      cache_write_price: null,
+      cache_write_1h_price: null,
+      intervals: tiersToIntervals(row.tiers),
+      per_request_price: numberOrNull(row.per_request_price)
+    }
+  }
   return {
     input_price: numberOrNull(row.input_price),
     output_price: numberOrNull(row.output_price),
@@ -110,7 +202,12 @@ export interface RowIssues {
   peakDatesInvalid?: boolean
   /** 最高推理倍率填了但不是大于 0 的数 */
   reasoningInvalid?: boolean
+  /** 分档的问题（null = 没问题），与 prices.tiers 一一对应 */
+  tiers?: Array<TierError | null>
 }
+
+/** 分档的问题：价格没填、格式不对 */
+export type TierError = 'missing' | 'invalid'
 
 export function hasRowIssues(issues: RowIssues): boolean {
   return (
@@ -120,7 +217,8 @@ export function hasRowIssues(issues: RowIssues): boolean {
     issues.upstreamModelInvalid === true ||
     (issues.peak ?? []).some((error) => error != null) ||
     issues.peakDatesInvalid === true ||
-    issues.reasoningInvalid === true
+    issues.reasoningInvalid === true ||
+    (issues.tiers ?? []).some((error) => error != null)
   )
 }
 
@@ -131,7 +229,11 @@ export function reasoningMultiplierInvalid(value: number | null): boolean {
 
 /** 格式不对的价：输入框把负数、不是数字的输入回写成 NaN */
 function invalidKeys(row: PriceRow): PriceField[] {
-  return [...PRICE_KEYS, ...SEARCH_KEYS].filter((key) => Number.isNaN(row[key]))
+  return [...PRICE_KEYS, ...SEARCH_KEYS, PER_REQUEST_KEY].filter((key) => Number.isNaN(row[key]))
+}
+
+function tierErrors(tiers: MediaTierRow[]): Array<TierError | null> {
+  return tiers.map((tier) => (tier.price == null ? 'missing' : Number.isNaN(tier.price) ? 'invalid' : null))
 }
 
 /** 上游模型名只能是一个具体的名字：不带 *、不含空白（与后端 ValidateAgainst 同口径；首尾空白保存时去掉） */
@@ -139,8 +241,16 @@ export function upstreamModelInvalid(name: string): boolean {
   return /[*\s]/.test(name.trim())
 }
 
-/** 官方价：输入 / 输出必填 */
-export function officialIssues(row: PriceRow): RowIssues {
+/** 官方价：输入 / 输出必填；按次计价的模型是按次价与每一档的价必填 */
+export function officialIssues(row: PriceRow, mode: BillingMode | string = 'token'): RowIssues {
+  if (isPerRequestMode(mode)) {
+    return {
+      missing: row.per_request_price == null ? [PER_REQUEST_KEY] : [],
+      invalid: invalidKeys(row),
+      segments: [],
+      tiers: tierErrors(row.tiers)
+    }
+  }
   return {
     missing: (['input_price', 'output_price'] as PriceKey[]).filter((key) => row[key] == null),
     invalid: invalidKeys(row),
@@ -149,8 +259,12 @@ export function officialIssues(row: PriceRow): RowIssues {
   }
 }
 
-/** 成本价：输入 / 输出必填，官方价（official）有的缓存项也必填；搜索价可不填（空着 = 上游不收） */
-export function upstreamIssues(row: PriceRow, official: OfficialRef): RowIssues {
+/** 成本价：输入 / 输出必填，官方价（official）有的缓存项也必填；搜索价可不填（空着 = 上游不收）。
+ * 按次计价的模型只有上游按次价（必填，0 = 上游不按次收钱） */
+export function upstreamIssues(row: PriceRow, official: OfficialRef, mode: BillingMode | string = 'token'): RowIssues {
+  if (isPerRequestMode(mode)) {
+    return { missing: row.per_request_price == null ? [PER_REQUEST_KEY] : [], invalid: invalidKeys(row), segments: [] }
+  }
   const required: PriceField[] = ['input_price', 'output_price', ...CACHE_KEYS.filter((key) => official[key] != null)]
   return {
     missing: required.filter((key) => row[key] == null),
@@ -172,11 +286,18 @@ function sameSegments(a: TokenSegmentForm[], b: TokenSegmentForm[]): boolean {
   )
 }
 
-/** 两行价之间改了几处：每项价（含搜索价）、最高推理倍率各算一处，分段有任何不同算一处 */
+function sameTiers(a: MediaTierRow[], b: MediaTierRow[]): boolean {
+  return a.length === b.length && a.every((tier, i) => tier.label === b[i].label && sameNumber(tier.price, b[i].price))
+}
+
+/** 两行价之间改了几处：每项价（含搜索价、按次价）、最高推理倍率各算一处，分段 / 分档有任何不同各算一处 */
 export function priceRowChanges(current: PriceRow, initial: PriceRow): number {
-  const changed = [...PRICE_KEYS, ...SEARCH_KEYS].filter((key) => !sameNumber(current[key], initial[key])).length
+  const changed = [...PRICE_KEYS, ...SEARCH_KEYS, PER_REQUEST_KEY].filter((key) => !sameNumber(current[key], initial[key])).length
   return (
-    changed + (sameSegments(current.segments, initial.segments) ? 0 : 1) + (sameNumber(current.maxReasoning, initial.maxReasoning) ? 0 : 1)
+    changed +
+    (sameSegments(current.segments, initial.segments) ? 0 : 1) +
+    (sameNumber(current.maxReasoning, initial.maxReasoning) ? 0 : 1) +
+    (sameTiers(current.tiers, initial.tiers) ? 0 : 1)
   )
 }
 
@@ -190,13 +311,14 @@ export interface KeyedRow {
   peak: PeakForm | null
 }
 
-/** 上游价必填规则用的官方价：五项 token 价 + 显式设了的搜索价（没设 = null，上游可不填） */
-export type OfficialRef = Record<PriceKey, number | null | undefined> & Partial<Record<SearchKey, number | null | undefined>>
+/** 上游价必填规则用的官方价：五项 token 价 + 显式设了的搜索价（没设 = null，上游可不填）；按次计价的模型另有官方按次价（参考用） */
+export type OfficialRef = Record<PriceKey, number | null | undefined> &
+  Partial<Record<SearchKey, number | null | undefined>> & { per_request_price?: number | null }
 
 /** 承接行的问题：上游价 + 上游模型名 + 上游忙闲时 */
-export function bindingRowIssues(row: KeyedRow, official: OfficialRef): RowIssues {
+export function bindingRowIssues(row: KeyedRow, official: OfficialRef, mode: BillingMode | string = 'token'): RowIssues {
   return {
-    ...upstreamIssues(row.prices, official),
+    ...upstreamIssues(row.prices, official, mode),
     upstreamModelInvalid: upstreamModelInvalid(row.upstreamModel),
     peak: peakErrors(row.peak),
     peakDatesInvalid: peakDatesInvalid(row.peak)
@@ -238,9 +360,11 @@ export function belowMinMargin(margin: number | null, minMargin: number): boolea
   return margin != null && margin < minMargin - 1e-9
 }
 
-/** 模型的「问题」：官方价没填齐、上架了却没有渠道、有渠道毛利（平时、忙时或最高推理档）低于门槛 */
+/** 模型的「问题」：官方价没填齐（按次计价的模型看按次价）、上架了却没有渠道、有渠道毛利（平时、忙时或最高推理档）低于门槛 */
 export function entryHasProblem(entry: PricingEntry, defaultSaleRatio: number, minMargin: number): boolean {
-  if (entry.input_price == null || entry.output_price == null) return true
+  if (isPerRequestMode(entry.billing_mode)) {
+    if (entry.per_request_price == null) return true
+  } else if (entry.input_price == null || entry.output_price == null) return true
   if (entry.status === 'listed' && entry.bindings.length === 0) return true
   return entry.bindings.some(
     (binding) =>
@@ -278,17 +402,12 @@ export function cloneKeyedRows(rows: KeyedRow[]): KeyedRow[] {
 
 export function modelDraftFrom(entry: PricingEntry, accountOrder: (accountId: number) => number): ModelDraft {
   return {
-    official: priceRowFrom(entry),
+    official: priceRowFrom(entry, entry.billing_mode),
     officialPeak: peakFormFrom(entry.time_pricing),
     sale: saleRowFrom(entry.sale_prices),
     rows: [...entry.bindings]
       .sort((a, b) => accountOrder(a.account_id) - accountOrder(b.account_id))
-      .map((binding) => ({
-        id: binding.account_id,
-        upstreamModel: binding.upstream_model ?? '',
-        prices: priceRowFrom(binding),
-        peak: peakFormFrom(binding.time_pricing)
-      }))
+      .map((binding) => ({ id: binding.account_id, ...bindingRowFrom(binding, entry.billing_mode) }))
   }
 }
 
@@ -314,7 +433,7 @@ export function channelDraftFrom(accountId: number, entries: PricingEntry[]): Ch
   const rows: Array<KeyedRow & { modelId: string }> = []
   for (const entry of entries) {
     const binding = entry.bindings.find((item) => item.account_id === accountId)
-    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, ...bindingRowFrom(binding) })
+    if (binding) rows.push({ id: entry.id, modelId: entry.model_id, ...bindingRowFrom(binding, entry.billing_mode) })
   }
   rows.sort((a, b) => a.modelId.localeCompare(b.modelId))
   return { rows: rows.map(({ id, upstreamModel, prices, peak }) => ({ id, upstreamModel, prices, peak })) }
@@ -352,7 +471,7 @@ function scaled(price: number, ratio: number): number {
  */
 export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number): number {
   let changed = 0
-  for (const key of [...PRICE_KEYS, ...SEARCH_KEYS]) {
+  for (const key of [...PRICE_KEYS, ...SEARCH_KEYS, PER_REQUEST_KEY]) {
     const base = official[key]
     if (base == null) continue
     const next = scaled(base, ratio)
@@ -375,18 +494,22 @@ export function fillByDiscount(row: PriceRow, official: PriceRow, ratio: number)
   return changed
 }
 
-/** 一条已保存的承接关系在草稿里的样子（不含 id：按模型的块里是渠道 ID，按渠道的块里是模型条目 ID） */
-export function bindingRowFrom(binding: PricingBinding): Omit<KeyedRow, 'id'> {
-  return { upstreamModel: binding.upstream_model ?? '', prices: priceRowFrom(binding), peak: peakFormFrom(binding.time_pricing) }
+/** 一条已保存的承接关系在草稿里的样子（不含 id：按模型的块里是渠道 ID，按渠道的块里是模型条目 ID）；mode 是模型的计费模式 */
+export function bindingRowFrom(binding: PricingBinding, mode: BillingMode | string = 'token'): Omit<KeyedRow, 'id'> {
+  const prices = priceRowFrom(binding, mode)
+  // 承接没有分档（各档按官方同比例）
+  prices.tiers = []
+  return { upstreamModel: binding.upstream_model ?? '', prices, peak: peakFormFrom(binding.time_pricing) }
 }
 
 /**
  * 按渠道给模型新加的一行（id = 模型条目 ID）：同一上游的渠道承接过这个模型的，带上它的上游模型名、上游价与忙闲时；
- * 否则价格空着，上游忙闲时默认同官方（目录条目的分时，如 DeepSeek 高峰）。upstreamModel 给了就用它。
+ * 否则价格空着，上游忙闲时默认同官方（目录条目的分时，如 DeepSeek 高峰；按次计价的模型不分忙闲时）。upstreamModel 给了就用它。
  */
 export function newChannelRow(entry: PricingEntry, account: PricingAccount, accounts: PricingAccount[], upstreamModel?: string): KeyedRow {
   const sibling = siblingBindingOf(entry, account, accounts)
-  const base = sibling ? bindingRowFrom(sibling) : { upstreamModel: '', prices: emptyPriceRow(), peak: peakFormFrom(entry.time_pricing) }
+  const peak = isPerRequestMode(entry.billing_mode) ? null : peakFormFrom(entry.time_pricing)
+  const base = sibling ? bindingRowFrom(sibling, entry.billing_mode) : { upstreamModel: '', prices: emptyPriceRow(), peak }
   return { id: entry.id, ...base, upstreamModel: upstreamModel ?? base.upstreamModel }
 }
 
@@ -414,6 +537,8 @@ export interface SaleRow {
   peak: PeakForm | null
   /** 售价的最高推理倍率：null = 跟官方；有值 = effort = max 时整单乘它（1 = 不加价） */
   maxReasoning: number | null
+  /** 按次售价（按次计价的模型）：null = 官方按次价 × 默认售价比例；各档与官方同比例 */
+  per_request_price: number | null
 }
 
 function emptySalePrices(): SalePrices {
@@ -435,7 +560,8 @@ export function saleRowFrom(prices: PricingSalePrices | null | undefined): SaleR
     segments,
     peakFollowsOfficial: timePricing == null,
     peak: peakFormFrom(timePricing),
-    maxReasoning: prices?.max_reasoning_effort_multiplier ?? null
+    maxReasoning: prices?.max_reasoning_effort_multiplier ?? null,
+    per_request_price: prices?.per_request_price ?? null
   }
 }
 
@@ -447,7 +573,8 @@ export function cloneSaleRow(row: SaleRow): SaleRow {
     segments,
     peakFollowsOfficial: row.peakFollowsOfficial,
     peak: clonePeakForm(row.peak),
-    maxReasoning: row.maxReasoning
+    maxReasoning: row.maxReasoning,
+    per_request_price: row.per_request_price
   }
 }
 
@@ -473,6 +600,7 @@ export function saleRowChanges(current: SaleRow, initial: SaleRow): number {
   let changed = PRICE_KEYS.filter((key) => !sameNumber(current.base[key], initial.base[key])).length
   if (!sameSalePeak(current, initial)) changed += 1
   if (!sameNumber(current.maxReasoning, initial.maxReasoning)) changed += 1
+  if (!sameNumber(current.per_request_price, initial.per_request_price)) changed += 1
   const mins = new Set([...Object.keys(current.segments), ...Object.keys(initial.segments)].map(Number))
   for (const min of mins) {
     const a = current.segments[min] ?? emptySalePrices()
@@ -482,8 +610,19 @@ export function saleRowChanges(current: SaleRow, initial: SaleRow): number {
   return changed
 }
 
-/** 提交用：只带官方价现在还有的分段，一项都没填的段不带 */
-export function saleRowToRequest(row: SaleRow, official: PriceRow): PricingSalePrices {
+/** 提交用：只带官方价现在还有的分段，一项都没填的段不带；按次计价的模型只带按次售价 */
+export function saleRowToRequest(row: SaleRow, official: PriceRow, mode: BillingMode | string = 'token'): PricingSalePrices {
+  if (isPerRequestMode(mode)) {
+    return {
+      input_price: null,
+      output_price: null,
+      cache_write_price: null,
+      cache_write_1h_price: null,
+      cache_read_price: null,
+      segments: [],
+      per_request_price: numberOrNull(row.per_request_price)
+    }
+  }
   const segments = officialSegmentMins(official)
     .map((min) => ({ min, prices: row.segments[min] }))
     .filter(({ prices }) => prices != null && PRICE_KEYS.some((key) => prices[key] != null))
@@ -510,6 +649,7 @@ export function saleRowToRequest(row: SaleRow, official: PriceRow): PricingSaleP
 
 /** 填了但格式不对的售价（负数、不是数字） */
 export function saleRowInvalid(row: SaleRow, official: PriceRow): boolean {
+  if (Number.isNaN(row.per_request_price)) return true
   const cells = [row.base, ...officialSegmentMins(official).map((min) => row.segments[min]).filter((prices) => prices != null)]
   return cells.some((prices) => PRICE_KEYS.some((key) => Number.isNaN(prices[key])))
 }
@@ -534,7 +674,11 @@ function officialSegmentPrices(official: PriceRow, min: number): SalePrices {
  * 没单独定售价时实际按什么收（输入框的灰字）：基础价 = 官方价 × 默认售价比例；
  * 分段 = 基础售价定了的项按「基础售价 × 本段官方价 ÷ 基础官方价」，没定的按本段官方价 × 默认售价比例（与后端计费同一规则）。
  */
-export function saleDefaults(official: PriceRow, sale: SaleRow, ratio: number): { base: SalePrices; segments: Record<number, SalePrices> } {
+export function saleDefaults(
+  official: PriceRow,
+  sale: SaleRow,
+  ratio: number
+): { base: SalePrices; segments: Record<number, SalePrices>; perRequest: number | null } {
   const base = emptySalePrices()
   for (const key of PRICE_KEYS) base[key] = official[key] == null ? null : scaled(official[key] as number, ratio)
   const segments: Record<number, SalePrices> = {}
@@ -550,7 +694,8 @@ export function saleDefaults(official: PriceRow, sale: SaleRow, ratio: number): 
     }
     segments[min] = out
   }
-  return { base, segments }
+  const perRequest = official.per_request_price == null || Number.isNaN(official.per_request_price) ? null : scaled(official.per_request_price, ratio)
+  return { base, segments, perRequest }
 }
 
 /**
@@ -567,6 +712,13 @@ export function fillSaleByRatio(sale: SaleRow, official: PriceRow, ratio: number
     changed += 1
   }
   for (const key of PRICE_KEYS) fill(sale.base, key, official[key])
+  if (official.per_request_price != null && !Number.isNaN(official.per_request_price)) {
+    const next = scaled(official.per_request_price, ratio)
+    if (!sameNumber(sale.per_request_price, next)) {
+      sale.per_request_price = next
+      changed += 1
+    }
+  }
   for (const min of officialSegmentMins(official)) {
     const seg = officialSegmentPrices(official, min)
     const target = sale.segments[min] ?? (sale.segments[min] = emptySalePrices())

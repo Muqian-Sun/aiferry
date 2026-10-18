@@ -62,7 +62,7 @@ export interface PricingCard {
   time_pricing: TimePricing | null
 }
 
-/** 五项 token 价（$/token）、按 Token 分段与联网搜索价（$/次、$/条） */
+/** 五项 token 价（$/token）、按 Token 分段与联网搜索价（$/次、$/条）；生图 / 视频 / 按次的模型只用按次价（官方的 intervals 是分档） */
 export interface PricingPrices {
   input_price: number | null
   output_price: number | null
@@ -77,6 +77,8 @@ export interface PricingPrices {
   x_user_price?: number | null
   /** 最高推理档（effort = max）整单乘的倍数：官方价为 null = 不加价，上游价为 null = 跟官方 */
   max_reasoning_effort_multiplier?: number | null
+  /** 按次价（$/张、$/秒、$/次）：官方的与上游的；按 Token 计费的模型不用（承接上为 null） */
+  per_request_price?: number | null
 }
 
 /** 厂商公开的联网搜索价（$/次、$/条）：播种时写进官方价，价格页当参考；X 帖子 / 主页价只有 xAI 有 */
@@ -104,7 +106,6 @@ export interface PricingBinding extends PricingPrices {
   time_pricing: TimePricing | null
 }
 
-/** 价格页上的一个模型（只有按 Token 计费的模型） */
 /** 售价的一段：输入侧 Token 落在官方价那一段（下界 min_tokens）时用 */
 export interface PricingSaleSegment {
   min_tokens: number
@@ -127,14 +128,18 @@ export interface PricingSalePrices {
   time_pricing?: TimePricing | null
   /** 售价的最高推理倍率：不带 / null = 跟官方；有值 = effort = max 时整单乘它（1 = 不加价） */
   max_reasoning_effort_multiplier?: number | null
+  /** 按次售价（生图 / 视频 / 按次的模型）：不带 / null = 官方按次价 × 默认售价比例；各档与官方同比例 */
+  per_request_price?: number | null
 }
 
+/** 价格页上的一个模型：按 Token 计费的带五项价与分段，生图 / 视频 / 按次的带按次价与分档 */
 export interface PricingEntry extends PricingPrices {
   id: number
   model_id: string
   display_name: string
   vendor: string
   status: 'listed' | 'unlisted'
+  billing_mode: BillingMode
   /** 厂商公开的搜索价（播种时已写进官方价，这里只作参考）；null = 这个厂商没有官方搜索工具，不填搜索价 */
   search_defaults: PricingSearchDefaults | null
   /** 「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项） */
@@ -199,7 +204,7 @@ export const pricingAPI = {
     const { data } = await apiClient.put<PricingBinding[]>(`/admin/pricing/channels/${accountId}`, body)
     return data
   },
-  /** 按厂商填售价：这个厂商全部按 token 计费的模型，售价按「官方价 × ratio」重填并保存（一次性），返回改了几个模型 */
+  /** 按厂商填售价：这个厂商价格页上的全部模型，售价按「官方价 × ratio」重填并保存（一次性），返回改了几个模型 */
   fillVendorSale: async (vendor: string, ratio: number): Promise<{ updated: number }> => {
     const { data } = await apiClient.post<{ updated: number }>('/admin/pricing/vendor-sale', { vendor, ratio })
     return data

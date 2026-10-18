@@ -40,11 +40,15 @@ type PricingOverviewResponse struct {
 
 // PricingEntryResponse 价格页上的一个模型：官方价、分段与承接关系。
 type PricingEntryResponse struct {
-	ID                int64                     `json:"id"`
-	ModelID           string                    `json:"model_id"`
-	DisplayName       string                    `json:"display_name"`
-	Vendor            string                    `json:"vendor"`
-	Status            string                    `json:"status"`
+	ID          int64  `json:"id"`
+	ModelID     string `json:"model_id"`
+	DisplayName string `json:"display_name"`
+	Vendor      string `json:"vendor"`
+	Status      string `json:"status"`
+	// BillingMode token = 五项价与按 Token 分段；image / video / per_request = 按次价与 intervals 里的分档（tier_label + per_request_price）。
+	BillingMode string `json:"billing_mode"`
+	// PerRequestPrice 官方按次价（USD / 张、/ 秒、/ 次）；按 Token 计费的模型也可能带（价格页不改它）。
+	PerRequestPrice   *float64                  `json:"per_request_price"`
 	InputPrice        *float64                  `json:"input_price"`
 	OutputPrice       *float64                  `json:"output_price"`
 	CacheWritePrice   *float64                  `json:"cache_write_price"`
@@ -106,6 +110,8 @@ type PricingBindingResponse struct {
 	TimePricing *service.TimePricing `json:"time_pricing"`
 	// MaxReasoningEffortMultiplier 上游最高推理倍率：effort = max 时渠道成本整单乘它；null = 跟官方。
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
+	// PerRequestPrice 上游按次价（生图 / 视频 / 按次模型；各档与官方同比例）；按 Token 计费的模型为 null。
+	PerRequestPrice *float64 `json:"per_request_price"`
 }
 
 // PricingAccountResponse 价格页上的一个渠道。
@@ -124,7 +130,8 @@ type PricingAccountResponse struct {
 	UpstreamHost string `json:"upstream_host"`
 }
 
-// PricingPricesRequest 五项 token 价（USD / token）、按 Token 分段与联网搜索价（USD / 次、/ 条）。
+// PricingPricesRequest 五项 token 价（USD / token）、按 Token 分段与联网搜索价（USD / 次、/ 条）；
+// 生图 / 视频 / 按次的模型只用按次价（官方的另带 intervals 分档）。
 type PricingPricesRequest struct {
 	InputPrice         *float64                  `json:"input_price"`
 	OutputPrice        *float64                  `json:"output_price"`
@@ -140,6 +147,8 @@ type PricingPricesRequest struct {
 	// MaxReasoningEffortMultiplier 最高推理档（effort = max）整单乘的倍数：顶层的是官方的（null = 不加价），
 	// 承接上的是上游的（null = 跟官方）。
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier"`
+	// PerRequestPrice 按次价（USD / 张、/ 秒、/ 次）：顶层的是官方的，承接上的是上游的；按 Token 计费的模型不用。
+	PerRequestPrice *float64 `json:"per_request_price"`
 }
 
 // PricingModelBindingRequest 按模型保存时的一条承接关系。
@@ -163,7 +172,7 @@ type PricingChannelBindingRequest struct {
 	PricingPricesRequest
 }
 
-// PricingVendorSaleRequest 按厂商填售价：这个厂商全部按 token 计费的模型，售价按「官方价 × ratio」重填并保存。
+// PricingVendorSaleRequest 按厂商填售价：这个厂商价格页上的全部模型，售价按「官方价 × ratio」重填并保存。
 type PricingVendorSaleRequest struct {
 	Vendor string  `json:"vendor" binding:"required"`
 	Ratio  float64 `json:"ratio" binding:"required"`
@@ -174,17 +183,18 @@ type PricingChannelSaveRequest struct {
 	Bindings []PricingChannelBindingRequest `json:"bindings"`
 }
 
-// toBinding 上游价的输入 / 输出必填（muqian：「必须填，没填不能承接」）。
-func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel string) (service.ModelCatalogBinding, string) {
-	if r.InputPrice == nil || r.OutputPrice == nil {
+// toBinding 按 Token 计费的模型上游价的输入 / 输出必填（muqian：「必须填，没填不能承接」）；按次计价的模型只填上游按次价，
+// 必填与其余项不能填由 ValidateAgainst 查。
+func (r *PricingPricesRequest) toBinding(entry *service.ModelCatalogEntry, accountID int64, upstreamModel string) (service.ModelCatalogBinding, string) {
+	if !entry.IsPerRequestBilled() && (r.InputPrice == nil || r.OutputPrice == nil) {
 		return service.ModelCatalogBinding{}, "upstream input_price and output_price are required"
 	}
 	return service.ModelCatalogBinding{
-		EntryID:                      entryID,
+		EntryID:                      entry.ID,
 		AccountID:                    accountID,
 		UpstreamModel:                upstreamModel,
-		InputPrice:                   *r.InputPrice,
-		OutputPrice:                  *r.OutputPrice,
+		InputPrice:                   derefPrice(r.InputPrice),
+		OutputPrice:                  derefPrice(r.OutputPrice),
 		CacheWritePrice:              r.CacheWritePrice,
 		CacheWrite1hPrice:            r.CacheWrite1hPrice,
 		CacheReadPrice:               r.CacheReadPrice,
@@ -194,10 +204,18 @@ func (r *PricingPricesRequest) toBinding(entryID, accountID int64, upstreamModel
 		XUserPrice:                   r.XUserPrice,
 		TimePricing:                  r.TimePricing,
 		MaxReasoningEffortMultiplier: r.MaxReasoningEffortMultiplier,
+		PerRequestPrice:              r.PerRequestPrice,
 	}, ""
 }
 
-// PricingOverview 价格页的全部数据：按 Token 计费的模型（官方价、承接关系与上游成本比）、全部渠道、毛利口径。
+func derefPrice(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// PricingOverview 价格页的全部数据：全部模型（官方价、承接关系与上游成本比）、全部渠道、毛利口径。
 // GET /api/v1/admin/pricing
 func (h *ModelCatalogHandler) PricingOverview(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -238,9 +256,15 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	ctx := c.Request.Context()
+	current, err := h.service.GetEntry(ctx, id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
 	for i := range req.Bindings {
-		binding, msg := req.Bindings[i].toBinding(id, req.Bindings[i].AccountID, req.Bindings[i].UpstreamModel)
+		binding, msg := req.Bindings[i].toBinding(current, req.Bindings[i].AccountID, req.Bindings[i].UpstreamModel)
 		if msg != "" {
 			response.BadRequest(c, msg)
 			return
@@ -259,8 +283,8 @@ func (h *ModelCatalogHandler) SavePricingModel(c *gin.Context) {
 		XUserPrice:                   req.XUserPrice,
 		TimePricing:                  req.TimePricing,
 		MaxReasoningEffortMultiplier: req.MaxReasoningEffortMultiplier,
+		PerRequestPrice:              req.PerRequestPrice,
 	}
-	ctx := c.Request.Context()
 	entry, err := h.service.SaveEntryPricing(ctx, id, official, req.SalePrices, bindings, h.accounts)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -287,16 +311,21 @@ func (h *ModelCatalogHandler) SavePricingChannel(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	ctx := c.Request.Context()
 	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
 	for i := range req.Bindings {
-		binding, msg := req.Bindings[i].toBinding(req.Bindings[i].EntryID, accountID, req.Bindings[i].UpstreamModel)
+		entry, err := h.service.GetEntry(ctx, req.Bindings[i].EntryID)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		binding, msg := req.Bindings[i].toBinding(entry, accountID, req.Bindings[i].UpstreamModel)
 		if msg != "" {
 			response.BadRequest(c, msg)
 			return
 		}
 		bindings = append(bindings, binding)
 	}
-	ctx := c.Request.Context()
 	saved, err := h.service.SaveAccountPricing(ctx, accountID, bindings, h.accounts)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -352,6 +381,8 @@ func (h *ModelCatalogHandler) pricingEntryResponse(entry *service.ModelCatalogEn
 		DisplayName:                  entry.DisplayName,
 		Vendor:                       entry.Vendor,
 		Status:                       entry.Status,
+		BillingMode:                  string(entry.EffectiveBillingMode()),
+		PerRequestPrice:              entry.PerRequestPrice,
 		InputPrice:                   entry.InputPrice,
 		OutputPrice:                  entry.OutputPrice,
 		CacheWritePrice:              entry.CacheWritePrice,
@@ -402,6 +433,7 @@ func pricingBindingResponse(entry *service.ModelCatalogEntry, b *service.ModelCa
 		XUserPrice:                   b.XUserPrice,
 		TimePricing:                  b.TimePricing,
 		MaxReasoningEffortMultiplier: b.MaxReasoningEffortMultiplier,
+		PerRequestPrice:              b.PerRequestPrice,
 	}
 	if ratio, ok := entry.UpstreamCostRatio(b); ok {
 		out.CostRatio = &ratio

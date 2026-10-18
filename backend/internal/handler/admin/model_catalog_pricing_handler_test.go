@@ -15,7 +15,8 @@ import (
 )
 
 // 价格页夹具：条目 1 = gpt-5.5（官方 5 / 30 / 0.5，>272K 一段 10 / 45），渠道 1 按官方价的 3% 承接；
-// 条目 2 是生图模型（不上价格页）。渠道 1 = Chat 中转、2 = 没配地址的 key（承接不了）、3 = Claude 成品号。
+// 条目 2 = 按张计费的生图模型（标价 0.04，1K 0.04 / 2K 0.08；经扩展端点调用）。
+// 渠道 1 = Chat 中转、2 = 没配地址的 key（承接不了）、3 = Claude 成品号（承接不了扩展端点）。
 func newPricingTestRouter(t *testing.T) (*gin.Engine, *catalogRepoStub) {
 	t.Helper()
 	repo := &catalogRepoStub{
@@ -27,8 +28,13 @@ func newPricingTestRouter(t *testing.T) (*gin.Engine, *catalogRepoStub) {
 				Intervals: []service.PricingInterval{{MinTokens: 272000, InputPrice: catalogPrice(10e-6), OutputPrice: catalogPrice(45e-6)}},
 			},
 			{
-				ID: 2, ModelID: "gpt-image-2", Vendor: "openai", BillingMode: service.BillingModeImage,
-				Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+				ID: 2, ModelID: "dall-e-3", Vendor: "openai", BillingMode: service.BillingModeImage,
+				Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+				PerRequestPrice: catalogPrice(0.04),
+				Intervals: []service.PricingInterval{
+					{TierLabel: service.ImageBillingSize1K, PerRequestPrice: catalogPrice(0.04)},
+					{TierLabel: service.ImageBillingSize2K, PerRequestPrice: catalogPrice(0.08), SortOrder: 1},
+				},
 			},
 		},
 		bindings: map[int64][]service.ModelCatalogBinding{1: {{
@@ -80,9 +86,10 @@ func TestModelCatalogHandler_PricingOverview(t *testing.T) {
 	require.InDelta(t, 1.0/15, got.DefaultSaleRatio, 1e-12)
 	require.InDelta(t, 0.3, got.MinMargin, 1e-12)
 
-	require.Len(t, got.Entries, 1, "only token models are on the pricing page")
+	require.Len(t, got.Entries, 2, "token and per-request models are both on the pricing page")
 	entry := got.Entries[0]
 	require.Equal(t, "gpt-5.5", entry.ModelID)
+	require.Equal(t, "token", entry.BillingMode)
 	require.Equal(t, catalogPrice(5e-6), entry.InputPrice)
 	require.Len(t, entry.Intervals, 1)
 	require.Equal(t, []int64{1, 3}, entry.BindableAccountIDs, "the key without an address cannot serve")
@@ -373,18 +380,20 @@ func TestModelCatalogHandler_PricingMarksWebSearchDelegate(t *testing.T) {
 	for _, entry := range got.Entries {
 		flags[entry.ModelID] = entry.WebSearchDelegate
 	}
-	require.Equal(t, map[string]bool{"gpt-5.5": false, service.WebSearchDelegateModel: true}, flags)
+	require.Equal(t, map[string]bool{"gpt-5.5": false, "dall-e-3": false, service.WebSearchDelegateModel: true}, flags)
 }
 
-// 按厂商填售价：只改这个厂商按 token 计费的模型（gpt-image-2 按张计费不在价格页），返回改了几个。
+// 按厂商填售价：这个厂商价格页上的全部模型，按 token 计费的填五项，按张计费的填按次售价；返回改了几个。
 func TestModelCatalogHandler_FillVendorSalePrices(t *testing.T) {
 	router, repo := newPricingTestRouter(t)
 	rec := doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"vendor": "openai", "ratio": 0.1})
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	require.Equal(t, map[string]int{"updated": 1}, decodePricingData[map[string]int](t, rec))
+	require.Equal(t, map[string]int{"updated": 2}, decodePricingData[map[string]int](t, rec))
 	require.NotNil(t, repo.entries[0].SalePrices.InputPrice)
 	require.InDelta(t, 0.5e-6, *repo.entries[0].SalePrices.InputPrice, 1e-18, "官方 5 × 0.1")
-	require.True(t, repo.entries[1].SalePrices.IsZero())
+	require.Nil(t, repo.entries[0].SalePrices.PerRequestPrice)
+	require.InDelta(t, 0.004, *repo.entries[1].SalePrices.PerRequestPrice, 1e-12, "官方 0.04 × 0.1")
+	require.Nil(t, repo.entries[1].SalePrices.InputPrice, "按张计费的只填按次售价")
 
 	rec = doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"vendor": "openai", "ratio": -1})
 	require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -393,4 +402,107 @@ func TestModelCatalogHandler_FillVendorSalePrices(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = doPricingJSON(router, http.MethodPost, "/pricing/vendor-sale", map[string]any{"ratio": 0.1})
 	require.Equal(t, http.StatusBadRequest, rec.Code, "vendor 必填")
+}
+
+// 生图 / 视频 / 按次的模型（PR-A）：价格页列出按次价与分档，承接只填上游按次价（必填），按 Token 计费的不受影响。
+func TestModelCatalogHandler_PricingPerRequestModel(t *testing.T) {
+	t.Run("overview carries per-request prices and tiers", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		repo.bindings[2] = []service.ModelCatalogBinding{{EntryID: 2, AccountID: 1, PerRequestPrice: catalogPrice(0.002)}}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pricing", nil))
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingOverviewResponse](t, rec)
+		require.Len(t, got.Entries, 2)
+		image := got.Entries[1]
+		require.Equal(t, "dall-e-3", image.ModelID)
+		require.Equal(t, "image", image.BillingMode)
+		require.Equal(t, catalogPrice(0.04), image.PerRequestPrice)
+		require.Len(t, image.Intervals, 2)
+		require.Equal(t, service.ImageBillingSize2K, image.Intervals[1].TierLabel)
+		require.Equal(t, []int64{1}, image.BindableAccountIDs, "extension endpoints: only the Chat key can bind")
+		require.Len(t, image.Bindings, 1)
+		require.Equal(t, catalogPrice(0.002), image.Bindings[0].PerRequestPrice)
+		require.NotNil(t, image.Bindings[0].CostRatio)
+		require.InDelta(t, 0.05, *image.Bindings[0].CostRatio, 1e-12, "0.002 / 0.04")
+		require.Nil(t, got.Entries[0].Bindings[0].PerRequestPrice, "token bindings have no per-request price")
+	})
+
+	body := func() map[string]any {
+		return map[string]any{
+			"per_request_price": 0.05,
+			"intervals": []any{
+				map[string]any{"tier_label": "1K", "per_request_price": 0.05},
+				map[string]any{"tier_label": "2K", "per_request_price": 0.09},
+			},
+			"sale_prices": map[string]any{"per_request_price": 0.004},
+			"bindings":    []any{map[string]any{"account_id": 1, "per_request_price": 0.003}},
+		}
+	}
+
+	t.Run("saves the block", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/2", body())
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[PricingEntryResponse](t, rec)
+		require.Equal(t, catalogPrice(0.05), got.PerRequestPrice)
+		require.Len(t, got.Intervals, 2)
+		require.Equal(t, catalogPrice(0.09), got.Intervals[1].PerRequestPrice)
+		require.Equal(t, catalogPrice(0.004), got.SalePrices.PerRequestPrice)
+		require.Len(t, got.Bindings, 1)
+		require.Equal(t, catalogPrice(0.003), got.Bindings[0].PerRequestPrice)
+		require.InDelta(t, 0.003/(0.004*15), *got.Bindings[0].CostRatio, 1e-12, "compared with the sale price")
+		require.Equal(t, catalogPrice(0.003), repo.bindings[2][0].PerRequestPrice)
+		require.Zero(t, repo.bindings[2][0].InputPrice)
+	})
+
+	t.Run("upstream per-request price is required", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		b := body()
+		b["bindings"] = []any{map[string]any{"account_id": 1}}
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/2", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "upstream per_request_price is required")
+		require.Empty(t, repo.bindings[2], "nothing written")
+	})
+
+	t.Run("official per-request price is required", func(t *testing.T) {
+		router, _ := newPricingTestRouter(t)
+		b := body()
+		delete(b, "per_request_price")
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/models/2", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "official per_request_price is required")
+	})
+
+	t.Run("channel block saves a per-request binding without token prices", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/channels/1", map[string]any{
+			"bindings": []any{
+				map[string]any{"entry_id": 1, "input_price": 0.15e-6, "output_price": 0.9e-6, "cache_read_price": 0.015e-6},
+				map[string]any{"entry_id": 2, "per_request_price": 0},
+			},
+		})
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodePricingData[[]PricingBindingResponse](t, rec)
+		require.Len(t, got, 2)
+		require.Equal(t, catalogPrice(0), got[1].PerRequestPrice)
+		require.Equal(t, catalogPrice(0), repo.bindings[2][0].PerRequestPrice)
+
+		rec = doPricingJSON(router, http.MethodPut, "/pricing/channels/1", map[string]any{
+			"bindings": []any{map[string]any{"entry_id": 1, "per_request_price": 0.01}},
+		})
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "upstream input_price and output_price are required", "token models still need token prices")
+	})
+
+	t.Run("a channel that cannot serve extension endpoints cannot bind", func(t *testing.T) {
+		router, repo := newPricingTestRouter(t)
+		rec := doPricingJSON(router, http.MethodPut, "/pricing/channels/3", map[string]any{
+			"bindings": []any{map[string]any{"entry_id": 2, "per_request_price": 0.003}},
+		})
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "extension endpoints")
+		require.Empty(t, repo.bindings[2])
+	})
 }
