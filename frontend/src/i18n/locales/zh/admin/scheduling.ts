@@ -56,6 +56,7 @@ export default {
     reasons: {
       missing: '渠道不存在',
       disabled: '已停用',
+      error: '异常',
       unschedulable: '已停调',
       expired: '已过期',
       overloaded: '过载冷却中',

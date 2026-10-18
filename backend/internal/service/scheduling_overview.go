@@ -213,10 +213,11 @@ func (s *SchedulingOverviewService) Overview(ctx context.Context, window string)
 	overview.Channels = make([]SchedulingChannel, 0, len(accounts))
 	for _, acc := range accounts {
 		state := acc.SchedulingState(now)
+		reason, _ := displaySchedulingState(acc, state)
 		channel := SchedulingChannel{
 			ID: acc.ID, Name: acc.Name, Platform: acc.Platform, Type: acc.Type, Status: acc.Status,
 			Priority: acc.Priority, Concurrency: acc.Concurrency,
-			BlockedReason: state.Reason, BlockedUntil: state.BlockedUntil,
+			BlockedReason: reason, BlockedUntil: state.BlockedUntil,
 		}
 		if info := loads[acc.ID]; info != nil {
 			inUse, waiting := info.CurrentConcurrency, info.WaitingCount

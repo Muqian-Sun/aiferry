@@ -24,6 +24,17 @@ const (
 // schedulingPreviewModelRateLimited 是 candidateAdmits 的 not_schedulable 里「整体可用、按模型限流」那一种。
 const schedulingPreviewModelRateLimited = "model_rate_limited"
 
+// schedulingPreviewError 是整体状态 disabled 里「出错停用」那一种（渠道页显示为异常）。
+const schedulingPreviewError = "error"
+
+// displaySchedulingState 整体阻塞原因的展示版：出错停用单独标出并带上错误信息，其余照 SchedulingState。
+func displaySchedulingState(acc *Account, state SchedulingState) (reason, detail string) {
+	if state.Reason == "disabled" && acc.Status == StatusError {
+		return schedulingPreviewError, strings.TrimSpace(acc.ErrorMessage)
+	}
+	return state.Reason, state.Detail
+}
+
 // SchedulingPreviewItem 一个渠道在某条调度线上的位置。
 type SchedulingPreviewItem struct {
 	AccountID int64  `json:"account_id"`
@@ -139,7 +150,8 @@ func explainSchedulingReject(ctx context.Context, acc *Account, model, reason st
 	}
 	state := acc.SchedulingState(now)
 	if state.Blocked {
-		return state.Reason, state.BlockedUntil, state.Detail
+		reason, detail := displaySchedulingState(acc, state)
+		return reason, state.BlockedUntil, detail
 	}
 	var until *time.Time
 	var scopes []string
