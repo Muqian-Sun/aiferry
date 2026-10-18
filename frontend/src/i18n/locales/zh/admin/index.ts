@@ -8,6 +8,7 @@ import promptAudit from './promptAudit'
 import modelCatalog from './modelCatalog'
 import pricing from './pricing'
 import entity from './entity'
+import scheduling from './scheduling'
 
 export default {
   ...overview,
@@ -20,4 +21,5 @@ export default {
   ...modelCatalog,
   ...pricing,
   ...entity,
+  ...scheduling,
 }

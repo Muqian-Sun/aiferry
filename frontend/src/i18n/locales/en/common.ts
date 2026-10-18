@@ -165,6 +165,7 @@ export default {
     users: 'Users',
     channels: 'Channels',
     channelStatus: 'Channel status',
+    scheduling: 'Scheduling',
     subscriptions: 'Subscription',
     proxies: 'Proxies',
     pricing: 'Pricing',

@@ -124,6 +124,18 @@ export const adminRoutes: RouteRecordRaw[] = [
       titleKey: 'nav.channelStatus',
     }
   },
+  // 调度（2026-10-18）：每个模型的渠道此刻按什么顺序被挑、哪些不会被选及原因
+  {
+    path: '/scheduling',
+    name: 'AdminScheduling',
+    component: () => import('@/views/admin/SchedulingView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Scheduling',
+      titleKey: 'nav.scheduling',
+    }
+  },
   {
     path: '/announcements',
     name: 'AdminAnnouncements',

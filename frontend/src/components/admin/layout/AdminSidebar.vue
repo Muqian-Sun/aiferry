@@ -21,6 +21,7 @@ import SidebarFrame from '@/components/layout/sidebar/SidebarFrame.vue'
 import { applyFeatureFlags, type NavItem, type NavSection } from '@/components/layout/sidebar/navTypes'
 import {
   BellIcon,
+  ChannelIcon,
   ChartIcon,
   CogIcon,
   CreditCardIcon,
@@ -55,7 +56,7 @@ function visibleItems(items: NavItem[]): NavItem[] {
 }
 
 // A3 导航（管理站改造方案，muqian 2026-09-24「渠道在前」）；2026-10-04 改成方案 A（方案页 8ARyR9…）：
-// 概览 / 监控 / 供给 / 用户 / 安全 / 设置。监控三页按排查去处排：运维看全站 → 渠道状态看哪个渠道 → 用量查到那一条；
+// 概览 / 监控 / 供给 / 用户 / 安全 / 设置。监控按排查去处排：运维看全站 → 渠道状态看哪个渠道 → 调度看请求为什么落到它 → 用量查到那一条；
 // 公告是发给用户的，归「用户」。订阅、订单、审查各是一个入口，同组的页面在页头页签里切（activePaths 让同组页面都点亮这一项）；
 // 账号安全只在右上角头像菜单里。后台有开关的功能没开时入口显示为灰色，点进去是「未开启 · 去设置打开」；
 // 代码或部署配置关掉的功能入口直接不出现。
@@ -71,6 +72,7 @@ const sections = computed((): NavSection[] => {
       items: [
         { path: '/ops', label: t('nav.ops'), icon: ChartIcon, presentWhen: flagOpsMonitoring },
         { path: '/channels/status', label: t('nav.channelStatus'), icon: SignalIcon },
+        { path: '/scheduling', label: t('nav.scheduling'), icon: ChannelIcon },
         { path: '/usage', label: t('nav.usage'), icon: ChartIcon },
       ],
     },

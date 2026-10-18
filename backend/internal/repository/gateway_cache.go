@@ -53,6 +53,53 @@ func (c *gatewayCache) SetSessionAccountID(ctx context.Context, groupID int64, s
 	return c.rdb.Set(ctx, key, accountID, ttl).Err()
 }
 
+// NewStickySessionCounter 给调度总览数粘性会话（与网关读写同一组 key）。
+func NewStickySessionCounter(rdb *redis.Client) service.StickySessionCounter {
+	return &gatewayCache{rdb: rdb}
+}
+
+// stickySessionCountBatch SCAN 每页与 MGET 每批的 key 数。
+const stickySessionCountBatch = 500
+
+// CountStickySessions 数当前的粘性会话绑定：scope → 渠道 → 会话数。SCAN 到 MGET 之间过期的 key 跳过；
+// key 或值不是本文件写入的格式时报错，不静默少数。
+func (c *gatewayCache) CountStickySessions(ctx context.Context) (map[int64]map[int64]int, error) {
+	var keys []string
+	iter := c.rdb.Scan(ctx, 0, stickySessionPrefix+"*", stickySessionCountBatch).Iterator()
+	for iter.Next(ctx) {
+		keys = append(keys, iter.Val())
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	out := map[int64]map[int64]int{}
+	for start := 0; start < len(keys); start += stickySessionCountBatch {
+		batch := keys[start:min(start+stickySessionCountBatch, len(keys))]
+		values, err := c.rdb.MGet(ctx, batch...).Result()
+		if err != nil {
+			return nil, err
+		}
+		for i, value := range values {
+			if value == nil {
+				continue
+			}
+			rest := strings.TrimPrefix(batch[i], stickySessionPrefix)
+			scopeText, _, found := strings.Cut(rest, ":")
+			scope, scopeErr := strconv.ParseInt(scopeText, 10, 64)
+			raw, isString := value.(string)
+			accountID, accountErr := strconv.ParseInt(raw, 10, 64)
+			if !found || scopeErr != nil || !isString || accountErr != nil {
+				return nil, fmt.Errorf("unexpected sticky session entry %q", batch[i])
+			}
+			if out[scope] == nil {
+				out[scope] = map[int64]int{}
+			}
+			out[scope][accountID]++
+		}
+	}
+	return out, nil
+}
+
 func (c *gatewayCache) RefreshSessionTTL(ctx context.Context, groupID int64, sessionHash string, ttl time.Duration) error {
 	key := buildSessionKey(groupID, sessionHash)
 	return c.rdb.Expire(ctx, key, ttl).Err()
