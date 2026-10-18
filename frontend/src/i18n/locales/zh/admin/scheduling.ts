@@ -17,7 +17,6 @@ export default {
       inUse: '进行中',
       waiting: '排队',
       requests: '请求数',
-      dataThrough: '统计到 {time}',
       unrouted: '没选到渠道'
     },
     models: {
@@ -53,6 +52,44 @@ export default {
       sticky: '粘性会话 {count}',
       recoversIn: '{reason}，{duration}后恢复'
     },
+    tabs: { label: '视图', realtime: '实时', traces: '请求轨迹' },
+    trace: {
+      title: '最近的请求',
+      loadFailed: '请求轨迹没有加载出来',
+      empty: '这段时间没有请求轨迹',
+      total: '共 {count} 条',
+      prev: '上一页',
+      next: '下一页',
+      noChannel: '没选到渠道',
+      stickyHit: '粘性会话',
+      user: '用户 {id}',
+      key: '密钥 {id}',
+      filters: { model: '模型', protocol: '协议', outcome: '结果' },
+      outcomeFilters: { all: '全部', switched: '换过渠道', failed: '失败', no_channel: '没选到渠道' },
+      outcomes: { success: '成功', failed: '失败', no_channel: '没选到渠道', canceled: '已取消' },
+      fields: { outcome: '结果', duration: '耗时', finalChannel: '最终渠道', switches: '换渠道次数', requestId: '请求 ID' },
+      pickTitle: '第 {n} 次选渠道 · +{at}',
+      pickResult: '选中 {channel}（{layer}）',
+      layers: { sticky: '粘性会话', load: '按负载挑', legacy: '按优先级挑', queue: '排队等槽' },
+      errors: { no_available_accounts: '没有可用渠道', no_compact_accounts: '没有支持 compact 的渠道', canceled: '请求已取消', error: '选渠道出错', no_account: '没有选出渠道' },
+      columns: { channel: '渠道', decision: '判定', load: '负载' },
+      decisions: {
+        excluded: '已排除（本次失败过）',
+        skipped: '跳过',
+        eligible: '可用，没轮到',
+        full: '并发已满',
+        slot_busy: '没抢到并发槽',
+        session_full: '会话数已满',
+        picked: '选中',
+        queued: '选中，排队'
+      },
+      sticky: {
+        hit: '粘性会话：回到 {channel}',
+        wait: '粘性会话：回到 {channel}，排队等槽',
+        miss: '粘性会话：{channel} 这次不能用（{reason}）'
+      },
+      attemptsTitle: '失败的上游尝试'
+    },
     reasons: {
       missing: '渠道不存在',
       disabled: '已停用',
@@ -72,6 +109,11 @@ export default {
       compact_unsupported: '不支持 compact',
       protocol_unsupported: '承接不了该协议',
       rpm_limited: 'RPM 已满',
+      cleared: '绑定已失效',
+      not_in_pool: '不在可调度的渠道里',
+      excluded: '本次失败过',
+      session_full: '会话数已满',
+      slot_busy: '并发已满且排队已满',
       other: '其他原因（{reason}）'
     }
   }

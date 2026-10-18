@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -153,15 +154,40 @@ func TestPreviewCatalogScheduling_ProtocolUnsupported(t *testing.T) {
 	require.Equal(t, SchedulingPreviewReady, previewItem(t, items, geminiKey.ID).State)
 }
 
-type stubSchedulingTraffic struct {
-	rows    []SchedulingTrafficRow
-	through *time.Time
-	since   time.Time
+type stubSchedulingTraceRepo struct {
+	counts   []SchedulingTraceCount
+	since    time.Time
+	listed   SchedulingTraceFilter
+	items    []SchedulingTrace
+	inserted []SchedulingTrace
+	mu       sync.Mutex
 }
 
-func (s *stubSchedulingTraffic) SchedulingTraffic(_ context.Context, since time.Time) ([]SchedulingTrafficRow, *time.Time, error) {
+func (s *stubSchedulingTraceRepo) InsertSchedulingTraces(_ context.Context, traces []SchedulingTrace) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inserted = append(s.inserted, traces...)
+	return nil
+}
+
+func (s *stubSchedulingTraceRepo) DeleteSchedulingTracesBefore(context.Context, time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (s *stubSchedulingTraceRepo) ListSchedulingTraces(_ context.Context, filter SchedulingTraceFilter) ([]SchedulingTrace, int64, error) {
+	s.listed = filter
+	return s.items, int64(len(s.items)), nil
+}
+
+func (s *stubSchedulingTraceRepo) CountSchedulingTraces(_ context.Context, since time.Time) ([]SchedulingTraceCount, error) {
 	s.since = since
-	return s.rows, s.through, nil
+	return s.counts, nil
+}
+
+func (s *stubSchedulingTraceRepo) insertedTraces() []SchedulingTrace {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]SchedulingTrace(nil), s.inserted...)
 }
 
 type stubStickyCounter struct {
@@ -173,7 +199,7 @@ func (s *stubStickyCounter) CountStickySessions(context.Context) (map[int64]map[
 	return s.counts, s.err
 }
 
-func newSchedulingOverviewFixture(t *testing.T, traffic *stubSchedulingTraffic, sticky *stubStickyCounter) (*SchedulingOverviewService, Account, Account) {
+func newSchedulingOverviewFixture(t *testing.T, traces *stubSchedulingTraceRepo, sticky *stubStickyCounter) (*SchedulingOverviewService, Account, Account) {
 	t.Helper()
 	responsesKey, anthropicOAuth, _, _ := protocolMatchPool()
 	entry := ModelCatalogEntry{ID: protocolMatchEntryID, ModelID: previewModel, Status: ModelCatalogStatusListed}
@@ -185,40 +211,48 @@ func newSchedulingOverviewFixture(t *testing.T, traffic *stubSchedulingTraffic, 
 		retired.ID:           {{EntryID: retired.ID, AccountID: anthropicOAuth.ID}},
 	}
 	gateway := newProtocolMatchService(t, true, nil, responsesKey, anthropicOAuth)
-	return NewSchedulingOverviewService(catalog, gateway.accountRepo, gateway, traffic, sticky), responsesKey, anthropicOAuth
+	return NewSchedulingOverviewService(catalog, gateway.accountRepo, gateway, traces, sticky), responsesKey, anthropicOAuth
 }
 
-func TestSchedulingOverview_ComposesLanesTrafficAndSticky(t *testing.T) {
-	through := time.Now().Add(-time.Minute).UTC()
-	traffic := &stubSchedulingTraffic{through: &through}
+// 请求数来自轨迹：按入站协议分开；失败只算 failed，没选到渠道算进 unrouted。
+func TestSchedulingOverview_ComposesLanesTracesAndSticky(t *testing.T) {
+	traces := &stubSchedulingTraceRepo{}
 	_, oauth, _, _ := protocolMatchPool()
-	svc, responsesKey, anthropicOAuth := newSchedulingOverviewFixture(t, traffic, &stubStickyCounter{counts: map[int64]map[int64]int{protocolMatchEntryID: {oauth.ID: 2}}})
-	traffic.rows = []SchedulingTrafficRow{
-		{Model: previewModel, AccountID: anthropicOAuth.ID, Success: 3, Errors: 1},
-		{Model: previewModel, AccountID: 0, Errors: 2},
-		{Model: "not-in-catalog", AccountID: responsesKey.ID, Success: 5},
+	svc, responsesKey, anthropicOAuth := newSchedulingOverviewFixture(t, traces, &stubStickyCounter{counts: map[int64]map[int64]int{protocolMatchEntryID: {oauth.ID: 2}}})
+	traces.counts = []SchedulingTraceCount{
+		{CatalogEntryID: protocolMatchEntryID, InboundProtocol: APIProtocolAnthropic, AccountID: anthropicOAuth.ID, Outcome: SchedulingTraceOutcomeSuccess, Requests: 3},
+		{CatalogEntryID: protocolMatchEntryID, InboundProtocol: APIProtocolAnthropic, AccountID: anthropicOAuth.ID, Outcome: SchedulingTraceOutcomeFailed, Requests: 1},
+		{CatalogEntryID: protocolMatchEntryID, InboundProtocol: APIProtocolChatCompletions, AccountID: anthropicOAuth.ID, Outcome: SchedulingTraceOutcomeCanceled, Requests: 2},
+		{CatalogEntryID: protocolMatchEntryID, InboundProtocol: APIProtocolChatCompletions, AccountID: 0, Outcome: SchedulingTraceOutcomeNoChannel, Requests: 2},
+		{CatalogEntryID: 0, InboundProtocol: APIProtocolResponses, AccountID: responsesKey.ID, Outcome: SchedulingTraceOutcomeSuccess, Requests: 5},
 	}
 
 	overview, err := svc.Overview(context.Background(), "15m")
 	require.NoError(t, err)
-	require.WithinDuration(t, time.Now().Add(-15*time.Minute), traffic.since, 5*time.Second)
+	require.WithinDuration(t, time.Now().Add(-15*time.Minute), traces.since, 5*time.Second)
 	require.Equal(t, "15m", overview.Window)
-	require.Equal(t, &through, overview.DataThrough)
 	require.Empty(t, overview.Warnings)
 
 	require.Len(t, overview.Models, 1, "没有绑定也没有请求的条目、没上架的条目都不列")
 	model := overview.Models[0]
 	require.Equal(t, previewModel, model.ModelID)
-	require.Equal(t, int64(6), model.Requests)
-	require.Equal(t, int64(3), model.Failures)
+	require.Equal(t, int64(8), model.Requests)
+	require.Equal(t, int64(1), model.Failures, "取消不算失败")
 	require.Equal(t, int64(2), model.Unrouted)
+	require.Equal(t, map[string]SchedulingCounts{
+		APIProtocolAnthropic:       {Requests: 4, Failures: 1},
+		APIProtocolChatCompletions: {Requests: 4, Unrouted: 2},
+	}, model.ByProtocol)
 
 	perChannel := map[int64]SchedulingModelChannel{}
 	for _, channel := range model.Channels {
 		perChannel[channel.AccountID] = channel
 	}
-	require.Equal(t, SchedulingModelChannel{AccountID: anthropicOAuth.ID, Requests: 4, Failures: 1, StickySessions: 2}, perChannel[anthropicOAuth.ID])
-	require.Equal(t, SchedulingModelChannel{AccountID: responsesKey.ID}, perChannel[responsesKey.ID], "目录里没有的模型不归到条目")
+	require.Equal(t, SchedulingModelChannel{
+		AccountID: anthropicOAuth.ID, Requests: 6, Failures: 1, StickySessions: 2,
+		ByProtocol: map[string]SchedulingCounts{APIProtocolAnthropic: {Requests: 4, Failures: 1}, APIProtocolChatCompletions: {Requests: 2}},
+	}, perChannel[anthropicOAuth.ID])
+	require.Equal(t, SchedulingModelChannel{AccountID: responsesKey.ID, ByProtocol: map[string]SchedulingCounts{}}, perChannel[responsesKey.ID], "没命中目录条目的请求不归到条目")
 
 	lanes := map[string]SchedulingLane{}
 	for _, lane := range model.Lanes {
@@ -231,21 +265,41 @@ func TestSchedulingOverview_ComposesLanesTrafficAndSticky(t *testing.T) {
 	for _, channel := range overview.Channels {
 		channels[channel.ID] = channel
 	}
-	require.Equal(t, int64(5), channels[responsesKey.ID].Requests, "渠道合计含目录外模型")
+	require.Equal(t, int64(5), channels[responsesKey.ID].Requests, "渠道合计含没命中条目的请求")
 	require.NotNil(t, channels[anthropicOAuth.ID].InUse)
 }
 
 func TestSchedulingOverview_RejectsUnknownWindow(t *testing.T) {
-	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraffic{}, &stubStickyCounter{})
+	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraceRepo{}, &stubStickyCounter{})
 	_, err := svc.Overview(context.Background(), "7d")
 	require.ErrorIs(t, err, ErrSchedulingWindowInvalid)
 }
 
 // 粘性会话数拿不到时其余照常返回，并带上提示，不静默显示成 0。
 func TestSchedulingOverview_StickyFailureBecomesWarning(t *testing.T) {
-	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraffic{}, &stubStickyCounter{err: errors.New("redis down")})
+	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraceRepo{}, &stubStickyCounter{err: errors.New("redis down")})
 	overview, err := svc.Overview(context.Background(), "1h")
 	require.NoError(t, err)
 	require.Equal(t, []string{SchedulingWarningStickyUnavailable}, overview.Warnings)
 	require.Len(t, overview.Models, 1)
+}
+
+func TestSchedulingListTraces_ValidatesAndPages(t *testing.T) {
+	traces := &stubSchedulingTraceRepo{}
+	svc, _, _ := newSchedulingOverviewFixture(t, traces, &stubStickyCounter{})
+
+	page, err := svc.ListTraces(context.Background(), "24h", SchedulingTraceFilter{Outcome: "switched", InboundProtocol: APIProtocolResponses}, 3, 500)
+	require.NoError(t, err)
+	require.Equal(t, schedulingTraceMaxPageSize, page.PageSize)
+	require.Equal(t, 3, page.Page)
+	require.Equal(t, schedulingTraceMaxPageSize, traces.listed.Limit)
+	require.Equal(t, 2*schedulingTraceMaxPageSize, traces.listed.Offset)
+	require.WithinDuration(t, time.Now().Add(-24*time.Hour), traces.listed.Since, 5*time.Second)
+
+	_, err = svc.ListTraces(context.Background(), "1h", SchedulingTraceFilter{Outcome: "exploded"}, 1, 20)
+	require.ErrorIs(t, err, ErrSchedulingTraceFilterInvalid)
+	_, err = svc.ListTraces(context.Background(), "1h", SchedulingTraceFilter{InboundProtocol: "smtp"}, 1, 20)
+	require.ErrorIs(t, err, ErrSchedulingTraceFilterInvalid)
+	_, err = svc.ListTraces(context.Background(), "7d", SchedulingTraceFilter{}, 1, 20)
+	require.ErrorIs(t, err, ErrSchedulingWindowInvalid)
 }

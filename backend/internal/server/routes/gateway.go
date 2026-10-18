@@ -21,6 +21,7 @@ func RegisterGatewayRoutes(
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	modelCatalog middleware.CatalogAdmissionSource,
+	schedulingTraces *service.SchedulingTraceWriter,
 	cfg *config.Config,
 ) {
 	bodyLimit := middleware.RequestBodyLimit(cfg.Gateway.MaxBodySize)
@@ -36,6 +37,9 @@ func RegisterGatewayRoutes(
 
 	// 订阅模型集准入：订阅 key 只能调套餐里的条目，紧跟目录准入（要读 ctx 里的 CatalogRoute）。
 	subscriptionModelAdmission := middleware.SubscriptionModelAdmission()
+
+	// 请求级调度轨迹：准入通过后挂记录器，走到调度器的请求结束时落一条轨迹。
+	schedulingTrace := handler.SchedulingTraceMiddleware(schedulingTraces)
 
 	// 分组级模型白名单准入：在目录准入之后，只看客户端书写的模型名。
 
@@ -145,6 +149,7 @@ func RegisterGatewayRoutes(
 	gateway.GET("/sub2api/billing", h.Gateway.KeyBillingInfo)
 	gateway.Use(catalogAdmission)
 	gateway.Use(subscriptionModelAdmission)
+	gateway.Use(schedulingTrace)
 	{
 		// /v1/messages: 一条循环承接全部资源，转发实现按资源的上游协议定（compatForwardTargetFor）
 		gateway.POST("/messages", h.Gateway.Messages)
@@ -234,6 +239,7 @@ func RegisterGatewayRoutes(
 	gemini.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
 	gemini.Use(catalogAdmission)
 	gemini.Use(subscriptionModelAdmission)
+	gemini.Use(schedulingTrace)
 	{
 		gemini.GET("/models", h.Gateway.GeminiV1BetaListModels)
 		gemini.GET("/models/:model", h.Gateway.GeminiV1BetaGetModel)
@@ -246,7 +252,7 @@ func RegisterGatewayRoutes(
 	// 根路径别名共用中间件链：目录准入与白名单在 apiKeyAuth 之后，
 	// 避免逐条路由手工维护链导致漏挂。
 	rootRoute := func(method, path string, limit gin.HandlerFunc, handler gin.HandlerFunc) {
-		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, handler)
+		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, schedulingTrace, handler)
 	}
 	rootRoute(http.MethodPost, "/responses", bodyLimit, responsesHandler)
 	rootRoute(http.MethodPost, "/responses/*subpath", bodyLimit, guardResponsesSubpath(responsesHandler))
@@ -258,7 +264,7 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/models/:model", bodyLimit, h.Gateway.Models)
 	rootRoute(http.MethodPost, "/messages/count_tokens", bodyLimit, countTokensHandler)
 	codexDirect := r.Group("/backend-api/codex")
-	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission)
+	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, schedulingTrace)
 	{
 		codexDirect.POST("/realtime/calls", h.OpenAIGateway.Live)
 		codexDirect.GET("/:call_id", h.OpenAIGateway.LiveSideband)
@@ -327,6 +333,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
 	antigravityV1.Use(catalogAdmission)
 	antigravityV1.Use(subscriptionModelAdmission)
+	antigravityV1.Use(schedulingTrace)
 	{
 		antigravityV1.POST("/messages", h.Gateway.Messages)
 		antigravityV1.POST("/messages/count_tokens", h.Gateway.CountTokens)
@@ -343,6 +350,7 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
 	antigravityV1Beta.Use(catalogAdmission)
 	antigravityV1Beta.Use(subscriptionModelAdmission)
+	antigravityV1Beta.Use(schedulingTrace)
 	{
 		antigravityV1Beta.GET("/models", h.Gateway.GeminiV1BetaListModels)
 		antigravityV1Beta.GET("/models/:model", h.Gateway.GeminiV1BetaGetModel)

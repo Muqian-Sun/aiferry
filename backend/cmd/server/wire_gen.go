@@ -233,9 +233,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestService := service.ProvideScheduledTestService(scheduledTestPlanRepository, scheduledTestResultRepository)
 	scheduledTestHandler := admin.NewScheduledTestHandler(scheduledTestService)
 	modelCatalogHandler := admin.NewModelCatalogHandler(modelCatalogService, adminService, settingService)
-	schedulingTrafficSource := repository.NewSchedulingTrafficRepository(db)
+	schedulingTraceRepository := repository.NewSchedulingTraceRepository(db)
+	schedulingTraceWriter := service.NewSchedulingTraceWriter(schedulingTraceRepository)
 	stickySessionCounter := repository.NewStickySessionCounter(redisClient)
-	schedulingOverviewService := service.NewSchedulingOverviewService(modelCatalogService, accountRepository, gatewayService, schedulingTrafficSource, stickySessionCounter)
+	schedulingOverviewService := service.NewSchedulingOverviewService(modelCatalogService, accountRepository, gatewayService, schedulingTraceRepository, stickySessionCounter)
 	schedulingHandler := admin.NewSchedulingHandler(schedulingOverviewService)
 	channelMonitorHandler := admin.NewChannelMonitorHandler(channelMonitorService)
 	channelMonitorRequestTemplateRepository := repository.NewChannelMonitorRequestTemplateRepository(client, db)
@@ -299,7 +300,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
 	auditLogMiddleware := middleware.NewAuditLogMiddleware(auditLogService)
 	stepUpAuthMiddleware := middleware.NewStepUpAuthMiddleware(totpService, userService, settingService)
-	routers := server.ProvideRouters(configConfig, handlers, jwtAuthMiddleware, optionalJWTAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, modelCatalogService, redisClient)
+	routers := server.ProvideRouters(configConfig, handlers, jwtAuthMiddleware, optionalJWTAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, modelCatalogService, schedulingTraceWriter, redisClient)
 	httpServers := server.ProvideHTTPServers(configConfig, routers)
 	opsMetricsCollector := service.ProvideOpsMetricsCollector(opsRepository, settingRepository, accountRepository, concurrencyService, db, redisClient, configConfig)
 	opsAggregationService := service.ProvideOpsAggregationService(opsRepository, settingRepository, db, redisClient, configConfig)
@@ -319,7 +320,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorQuotaFetcher := service.NewChannelMonitorQuotaFetcher(accountUsageService, cnProviderQuotaService, cnProviderBalanceService, accountRepository, configConfig)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, channelMonitorQuotaFetcher)
 	channelMonitorV2Aggregator := service.ProvideChannelMonitorV2Aggregator(channelMonitorV2Repository, db, settingService)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, ollamaCloudUsageService, auditLogService, openAIQuotaAutoResetService, promptService)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, paymentOrderExpiryService, channelMonitorRunner, channelMonitorV2Aggregator, ollamaCloudUsageService, auditLogService, openAIQuotaAutoResetService, promptService, schedulingTraceWriter)
 	application := &Application{
 		Servers:      httpServers,
 		PromptAudit:  promptService,
@@ -385,6 +386,7 @@ func provideCleanup(
 	auditLog *service.AuditLogService,
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
+	schedulingTraces *service.SchedulingTraceWriter,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -396,6 +398,12 @@ func provideCleanup(
 		}
 
 		parallelSteps := []cleanupStep{
+			{"SchedulingTraceWriter", func() error {
+				if schedulingTraces != nil {
+					schedulingTraces.Stop()
+				}
+				return nil
+			}},
 			{"OpenAIQuotaAutoResetService", func() error {
 				if openAIAutoReset != nil {
 					openAIAutoReset.Stop()

@@ -17,7 +17,6 @@ export default {
       inUse: 'In flight',
       waiting: 'Queued',
       requests: 'Requests',
-      dataThrough: 'Counted through {time}',
       unrouted: 'No channel selected'
     },
     models: {
@@ -53,6 +52,44 @@ export default {
       sticky: '{count} sticky sessions',
       recoversIn: '{reason}, recovers in {duration}'
     },
+    tabs: { label: 'View', realtime: 'Live', traces: 'Request traces' },
+    trace: {
+      title: 'Recent requests',
+      loadFailed: 'Request traces failed to load',
+      empty: 'No request traces in this range',
+      total: '{count} total',
+      prev: 'Previous',
+      next: 'Next',
+      noChannel: 'No channel',
+      stickyHit: 'sticky session',
+      user: 'User {id}',
+      key: 'Key {id}',
+      filters: { model: 'Model', protocol: 'Protocol', outcome: 'Outcome' },
+      outcomeFilters: { all: 'All', switched: 'Switched', failed: 'Failed', no_channel: 'No channel' },
+      outcomes: { success: 'Success', failed: 'Failed', no_channel: 'No channel', canceled: 'Canceled' },
+      fields: { outcome: 'Outcome', duration: 'Duration', finalChannel: 'Final channel', switches: 'Channel switches', requestId: 'Request ID' },
+      pickTitle: 'Pick {n} · +{at}',
+      pickResult: 'picked {channel} ({layer})',
+      layers: { sticky: 'sticky session', load: 'by load', legacy: 'by priority', queue: 'queued for a slot' },
+      errors: { no_available_accounts: 'No channel available', no_compact_accounts: 'No channel supports compact', canceled: 'Request canceled', error: 'Channel selection failed', no_account: 'No channel picked' },
+      columns: { channel: 'Channel', decision: 'Decision', load: 'Load' },
+      decisions: {
+        excluded: 'Excluded (failed earlier)',
+        skipped: 'Skipped',
+        eligible: 'Eligible, not reached',
+        full: 'Concurrency full',
+        slot_busy: 'Slot not acquired',
+        session_full: 'Session limit full',
+        picked: 'Picked',
+        queued: 'Picked, queued'
+      },
+      sticky: {
+        hit: 'Sticky session: back to {channel}',
+        wait: 'Sticky session: back to {channel}, queued for a slot',
+        miss: 'Sticky session: {channel} unavailable this time ({reason})'
+      },
+      attemptsTitle: 'Failed upstream attempts'
+    },
     reasons: {
       missing: 'Channel missing',
       disabled: 'Disabled',
@@ -72,6 +109,11 @@ export default {
       compact_unsupported: 'Compact not supported',
       protocol_unsupported: 'Cannot serve this protocol',
       rpm_limited: 'RPM full',
+      cleared: 'Binding cleared',
+      not_in_pool: 'Not among schedulable channels',
+      excluded: 'Failed earlier in this request',
+      session_full: 'Session limit full',
+      slot_busy: 'Concurrency and queue full',
       other: 'Other ({reason})'
     }
   }

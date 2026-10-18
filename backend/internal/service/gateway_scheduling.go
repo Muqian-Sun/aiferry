@@ -43,7 +43,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, ses
 // errLoadBatchDisabled 负载图未启用（配置关了或没有并发服务）：L2 走优先级 + LRU 的回退排序。
 var errLoadBatchDisabled = errors.New("load batch disabled")
 
-func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (result *AccountSelectionResult, err error) {
+	trace := beginSchedulingTracePick(ctx)
+	defer func() { trace.finish(result, err) }()
+
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
@@ -117,6 +120,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 				// 检查账户是否需要清理粘性会话绑定
 				clearSticky := shouldClearStickySession(account, requestedModel)
 				if clearSticky {
+					trace.sticky(accountID, SchedulingTraceStickyMiss, "cleared")
 					slog.Debug("sticky.layer1_5_no_routing_clear",
 						"account_id", accountID,
 						"reason", "should_clear_sticky_session",
@@ -142,12 +146,14 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 				if !clearSticky && platformOK && admitOK && rpmOK {
 					if opts.NoSlot {
 						// 计 token：粘性命中即用，不抢槽、不等待
+						trace.sticky(accountID, SchedulingTraceStickyHit, "")
 						return s.newSelectionResult(ctx, account, false, nil, nil)
 					}
 					result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
 						if !s.checkAndRegisterSession(ctx, account, sessionHash) {
+							trace.sticky(accountID, SchedulingTraceStickyMiss, SchedulingTraceSessionFull)
 							result.ReleaseFunc() // 释放槽位，继续到 Layer 2
 							slog.Debug("sticky.layer1_5_no_routing_miss",
 								"account_id", accountID,
@@ -163,9 +169,11 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 							if s.cache != nil {
 								_ = s.cache.RefreshSessionTTL(ctx, SchedulingScopeID(ctx), sessionHash, stickySessionTTL)
 							}
+							trace.sticky(accountID, SchedulingTraceStickyHit, "")
 							return s.newSelectionResult(ctx, account, true, result.ReleaseFunc, nil)
 						}
 					} else {
+						trace.sticky(accountID, SchedulingTraceStickyMiss, SchedulingTraceSlotBusy)
 						slog.Debug("sticky.layer1_5_no_routing_slot_busy",
 							"account_id", accountID,
 							"session", shortSessionHash(sessionHash),
@@ -180,12 +188,14 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 						// 会话数量限制检查（等待计划也需要占用会话配额）
 						if !s.checkAndRegisterSession(ctx, account, sessionHash) {
 							// 会话限制已满，继续到 Layer 2
+							trace.sticky(accountID, SchedulingTraceStickyMiss, SchedulingTraceSessionFull)
 						} else {
 							slog.Debug("sticky.layer1_5_no_routing_hit",
 								"account_id", accountID,
 								"session", shortSessionHash(sessionHash),
 								"result", "wait_plan",
 							)
+							trace.sticky(accountID, SchedulingTraceStickyWait, "")
 							return s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{
 								AccountID:      accountID,
 								MaxConcurrency: account.Concurrency,
@@ -195,6 +205,14 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 						}
 					}
 				} else if !clearSticky {
+					switch {
+					case !platformOK:
+						trace.sticky(accountID, SchedulingTraceStickyMiss, admitReasonProtocolUnsupported)
+					case !admitOK:
+						trace.sticky(accountID, SchedulingTraceStickyMiss, admitReason)
+					default:
+						trace.sticky(accountID, SchedulingTraceStickyMiss, admitReasonRPMLimited)
+					}
 					slog.Debug("sticky.layer1_5_no_routing_miss",
 						"account_id", accountID,
 						"reason", "gate_check_failed",
@@ -202,6 +220,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 					)
 				}
 			} else {
+				trace.sticky(accountID, SchedulingTraceStickyMiss, "not_in_pool")
 				slog.Debug("sticky.layer1_5_no_routing_miss",
 					"account_id", accountID,
 					"reason", "account_not_in_map",
@@ -210,6 +229,9 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 			}
 		}
 	} else if sessionHash != "" {
+		if stickyAccountID > 0 {
+			trace.sticky(stickyAccountID, SchedulingTraceStickyMiss, SchedulingTraceExcluded)
+		}
 		slog.Debug("sticky.layer1_5_no_routing_skip",
 			"sticky_account_id", stickyAccountID,
 			"is_excluded", func() bool { return stickyAccountID > 0 && isExcluded(stickyAccountID) }(),
@@ -235,14 +257,17 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 	for i := range accounts {
 		acc := &accounts[i]
 		if isExcluded(acc.ID) {
+			trace.candidate(acc.ID, SchedulingTraceExcluded, "")
 			continue
 		}
 		if reason := s.layer2RejectReason(ctx, acc, platform, requestedModel); reason != "" {
+			trace.candidate(acc.ID, SchedulingTraceSkipped, reason)
 			if reason == admitReasonCompactUnsupported {
 				compactRejected++
 			}
 			continue
 		}
+		trace.candidate(acc.ID, SchedulingTraceEligible, "")
 		candidates = append(candidates, acc)
 	}
 
@@ -282,7 +307,8 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 		loadMap, loadErr = s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
 	}
 	if loadErr != nil {
-		if result, ok, legacyErr := s.tryAcquireByLegacyOrder(ctx, candidates, sessionHash, inbound); legacyErr != nil {
+		trace.markLegacy()
+		if result, ok, legacyErr := s.tryAcquireByLegacyOrder(ctx, candidates, sessionHash, inbound, trace); legacyErr != nil {
 			return nil, legacyErr
 		} else if ok {
 			return result, nil
@@ -294,11 +320,14 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 			if loadInfo == nil {
 				loadInfo = &AccountLoadInfo{AccountID: acc.ID}
 			}
+			trace.loadRate(acc.ID, loadInfo.LoadRate)
 			if loadInfo.LoadRate < 100 {
 				available = append(available, accountWithLoad{
 					account:  acc,
 					loadInfo: loadInfo,
 				})
+			} else {
+				trace.candidate(acc.ID, SchedulingTraceFull, "")
 			}
 		}
 
@@ -312,6 +341,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 			if err == nil && result.Acquired {
 				// 会话数量限制检查
 				if !s.checkAndRegisterSession(ctx, selected.account, sessionHash) {
+					trace.candidate(selected.account.ID, SchedulingTraceSessionFull, "")
 					result.ReleaseFunc() // 释放槽位，继续尝试下一个账号
 				} else {
 					if sessionHash != "" && s.cache != nil {
@@ -319,6 +349,8 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 					}
 					return s.newSelectionResult(ctx, selected.account, true, result.ReleaseFunc, nil)
 				}
+			} else {
+				trace.candidate(selected.account.ID, SchedulingTraceSlotBusy, "")
 			}
 
 			// 移除已尝试的账号，重新进行分层过滤
@@ -338,6 +370,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 	for _, acc := range candidates {
 		// 会话数量限制检查（等待计划也需要占用会话配额）
 		if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
+			trace.candidate(acc.ID, SchedulingTraceSessionFull, "")
 			continue // 会话限制已满，尝试下一个账号
 		}
 		return s.newSelectionResult(ctx, acc, false, nil, &AccountWaitPlan{
@@ -400,15 +433,19 @@ func (s *GatewayService) deleteStickySession(ctx context.Context, sessionHash st
 	_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx), sessionHash)
 }
 
-func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, sessionHash string, inbound string) (*AccountSelectionResult, bool, error) {
+func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, sessionHash string, inbound string, trace *schedulingTracePick) (*AccountSelectionResult, bool, error) {
 	ordered := append([]*Account(nil), candidates...)
 	sortAccountsByPriorityAndLastUsed(ordered, inbound)
 
 	for _, acc := range ordered {
 		result, err := s.tryAcquireAccountSlot(ctx, acc.ID, acc.Concurrency)
+		if err != nil || !result.Acquired {
+			trace.candidate(acc.ID, SchedulingTraceSlotBusy, "")
+		}
 		if err == nil && result.Acquired {
 			// 会话数量限制检查
 			if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
+				trace.candidate(acc.ID, SchedulingTraceSessionFull, "")
 				result.ReleaseFunc() // 释放槽位，继续尝试下一个账号
 				continue
 			}

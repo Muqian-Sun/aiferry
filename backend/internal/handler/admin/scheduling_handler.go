@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"strconv"
+
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -25,4 +27,29 @@ func (h *SchedulingHandler) Overview(c *gin.Context) {
 		return
 	}
 	response.Success(c, overview)
+}
+
+// Traces 请求级调度轨迹，新的在前。
+// GET /api/v1/admin/scheduling/traces?window=&entry_id=&protocol=&outcome=&account_id=&page=&page_size=
+// outcome：success / failed / no_channel / canceled / switched（换过渠道）。
+func (h *SchedulingHandler) Traces(c *gin.Context) {
+	filter := service.SchedulingTraceFilter{
+		CatalogEntryID:  queryInt64(c, "entry_id"),
+		InboundProtocol: c.Query("protocol"),
+		Outcome:         c.Query("outcome"),
+		AccountID:       queryInt64(c, "account_id"),
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	result, err := h.service.ListTraces(c.Request.Context(), c.DefaultQuery("window", "1h"), filter, page, pageSize)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func queryInt64(c *gin.Context, key string) int64 {
+	value, _ := strconv.ParseInt(c.Query(key), 10, 64)
+	return value
 }

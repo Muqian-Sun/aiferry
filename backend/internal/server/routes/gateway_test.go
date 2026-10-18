@@ -43,6 +43,7 @@ func newGatewayRoutesTestRouterWithConfig(cfg *config.Config, platform ...string
 		nil,
 		nil,
 		admitAllCatalog{},
+		nil,
 		cfg,
 	)
 
