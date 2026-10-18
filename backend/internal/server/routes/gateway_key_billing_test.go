@@ -70,6 +70,7 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, string) {
 		nil,
 		nil,
 		admitAllCatalog{},
+		nil,
 		cfg,
 	)
 	return router, apiKey.Key

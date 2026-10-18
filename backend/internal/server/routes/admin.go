@@ -106,6 +106,7 @@ func RegisterAdminRoutes(
 		admin.GET("/channel-status", h.ChannelMonitorV2.AdminChannels)
 		// 调度（每个模型的渠道调度顺序与不被选的原因）
 		admin.GET("/scheduling/overview", h.Admin.Scheduling.Overview)
+		admin.GET("/scheduling/traces", h.Admin.Scheduling.Traces)
 
 		// 风控中心
 		registerContentModerationRoutes(admin, h)
