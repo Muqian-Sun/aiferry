@@ -168,6 +168,7 @@ export default {
     users: '用户',
     channels: '渠道',
     channelStatus: '渠道状态',
+    scheduling: '调度',
     subscriptions: '订阅',
     proxies: '代理',
     pricing: '价格',

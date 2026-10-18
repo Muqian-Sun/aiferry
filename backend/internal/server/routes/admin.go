@@ -104,6 +104,8 @@ func RegisterAdminRoutes(
 		registerChannelMonitorRoutes(admin, h, settingService)
 		// 渠道状态（按渠道看可用率 / 首字延迟 / 缓存命中率，数据与用户站服务状态同源）
 		admin.GET("/channel-status", h.ChannelMonitorV2.AdminChannels)
+		// 调度（每个模型的渠道调度顺序与不被选的原因）
+		admin.GET("/scheduling/overview", h.Admin.Scheduling.Overview)
 
 		// 风控中心
 		registerContentModerationRoutes(admin, h)

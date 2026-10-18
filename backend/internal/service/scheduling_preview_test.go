@@ -1,0 +1,243 @@
+//go:build unit
+
+package service
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+const previewModel = "claude-sonnet-4-5"
+
+func previewEntry() *ModelCatalogEntry {
+	return &ModelCatalogEntry{ID: protocolMatchEntryID, ModelID: previewModel, Status: ModelCatalogStatusListed}
+}
+
+func previewAccounts(accounts ...Account) []*Account {
+	out := make([]*Account, 0, len(accounts))
+	for i := range accounts {
+		out = append(out, &accounts[i])
+	}
+	return out
+}
+
+func previewItem(t *testing.T, items []SchedulingPreviewItem, accountID int64) SchedulingPreviewItem {
+	t.Helper()
+	for _, item := range items {
+		if item.AccountID == accountID {
+			return item
+		}
+	}
+	t.Fatalf("account %d missing from preview", accountID)
+	return SchedulingPreviewItem{}
+}
+
+// 预览的第 1 名就是调度器此刻会选的渠道：两边走同一套准入与分层规则。
+func TestPreviewCatalogScheduling_FirstRankMatchesScheduler(t *testing.T) {
+	responsesKey, anthropicOAuth, _, _ := protocolMatchPool()
+	for _, loadBatch := range []bool{true, false} {
+		for _, inbound := range []string{APIProtocolAnthropic, APIProtocolChatCompletions} {
+			t.Run(map[bool]string{true: "load aware ", false: "legacy "}[loadBatch]+inbound, func(t *testing.T) {
+				svc := newProtocolMatchService(t, loadBatch, nil, responsesKey, anthropicOAuth)
+				result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, inbound), "", previewModel, nil)
+				require.NoError(t, err)
+
+				accounts := previewAccounts(responsesKey, anthropicOAuth)
+				loads, err := svc.SchedulingLoads(context.Background(), accounts)
+				if loadBatch {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, errLoadBatchDisabled)
+				}
+				items := svc.PreviewCatalogScheduling(context.Background(), previewEntry(), accounts, inbound, loads)
+				require.Len(t, items, 2)
+				require.Equal(t, SchedulingPreviewReady, items[0].State)
+				require.Equal(t, 1, items[0].Rank)
+				require.Equal(t, result.Account.ID, items[0].AccountID)
+				require.Equal(t, 2, items[1].Rank)
+			})
+		}
+	}
+}
+
+func TestPreviewCatalogScheduling_DirectFlagFollowsInbound(t *testing.T) {
+	responsesKey, anthropicOAuth, _, _ := protocolMatchPool()
+	svc := newProtocolMatchService(t, true, nil, responsesKey, anthropicOAuth)
+	accounts := previewAccounts(responsesKey, anthropicOAuth)
+	items := svc.PreviewCatalogScheduling(context.Background(), previewEntry(), accounts, APIProtocolAnthropic, nil)
+	require.True(t, previewItem(t, items, anthropicOAuth.ID).Direct)
+	require.False(t, previewItem(t, items, responsesKey.ID).Direct)
+}
+
+// 不被选的渠道写清原因与解除时间；ready 在前、queue 其次、blocked 最后。
+func TestPreviewCatalogScheduling_BlockedReasonsAndQueue(t *testing.T) {
+	responsesKey, anthropicOAuth, _, _ := protocolMatchPool()
+	future := time.Now().Add(30 * time.Minute).Truncate(time.Second)
+
+	rateLimited := anthropicOAuth
+	rateLimited.ID, rateLimited.Name = 92001, "rate-limited"
+	rateLimited.RateLimitResetAt = &future
+
+	modelLimited := anthropicOAuth
+	modelLimited.ID, modelLimited.Name = 92002, "model-limited"
+	modelLimited.Extra = map[string]any{
+		"model_rate_limits": map[string]any{
+			previewModel: map[string]any{"rate_limit_reset_at": future.Format(time.RFC3339)},
+		},
+	}
+
+	disabled := anthropicOAuth
+	disabled.ID, disabled.Name, disabled.Status = 92003, "disabled", StatusDisabled
+
+	full := anthropicOAuth
+	full.ID, full.Name = 92004, "full"
+
+	pool := []Account{responsesKey, rateLimited, modelLimited, disabled, full}
+	svc := newProtocolMatchService(t, true, nil, pool...)
+	svc.concurrencyService = NewConcurrencyService(&mockConcurrencyCache{
+		skipDefaultLoad: true,
+		loadMap:         map[int64]*AccountLoadInfo{full.ID: {AccountID: full.ID, CurrentConcurrency: 5, LoadRate: 100}},
+	})
+	accounts := previewAccounts(pool...)
+	loads, err := svc.SchedulingLoads(context.Background(), accounts)
+	require.NoError(t, err)
+	items := svc.PreviewCatalogScheduling(context.Background(), previewEntry(), accounts, APIProtocolAnthropic, loads)
+
+	ready := previewItem(t, items, responsesKey.ID)
+	require.Equal(t, SchedulingPreviewReady, ready.State)
+	require.Equal(t, 1, ready.Rank)
+
+	queued := previewItem(t, items, full.ID)
+	require.Equal(t, SchedulingPreviewQueue, queued.State)
+	require.Zero(t, queued.Rank)
+
+	limited := previewItem(t, items, rateLimited.ID)
+	require.Equal(t, SchedulingPreviewBlocked, limited.State)
+	require.Equal(t, "rate_limited", limited.Reason)
+	require.NotNil(t, limited.Until)
+	require.True(t, limited.Until.Equal(future))
+
+	byModel := previewItem(t, items, modelLimited.ID)
+	require.Equal(t, schedulingPreviewModelRateLimited, byModel.Reason)
+	require.NotNil(t, byModel.Until)
+	require.True(t, byModel.Until.Equal(future))
+	require.Equal(t, previewModel, byModel.Detail)
+
+	require.Equal(t, "disabled", previewItem(t, items, disabled.ID).Reason)
+
+	states := make([]string, 0, len(items))
+	for _, item := range items {
+		states = append(states, item.State)
+	}
+	require.Equal(t, []string{SchedulingPreviewReady, SchedulingPreviewQueue, SchedulingPreviewBlocked, SchedulingPreviewBlocked, SchedulingPreviewBlocked}, states)
+}
+
+// 承接不了本次入站协议的渠道（responses key 没有 gemini 入站的转换）标 protocol_unsupported。
+func TestPreviewCatalogScheduling_ProtocolUnsupported(t *testing.T) {
+	responsesKey, _, _, geminiKey := protocolMatchPool()
+	svc := newProtocolMatchService(t, true, nil, responsesKey, geminiKey)
+	items := svc.PreviewCatalogScheduling(context.Background(), previewEntry(), previewAccounts(responsesKey, geminiKey), APIProtocolGemini, nil)
+	require.Equal(t, admitReasonProtocolUnsupported, previewItem(t, items, responsesKey.ID).Reason)
+	require.Equal(t, SchedulingPreviewReady, previewItem(t, items, geminiKey.ID).State)
+}
+
+type stubSchedulingTraffic struct {
+	rows    []SchedulingTrafficRow
+	through *time.Time
+	since   time.Time
+}
+
+func (s *stubSchedulingTraffic) SchedulingTraffic(_ context.Context, since time.Time) ([]SchedulingTrafficRow, *time.Time, error) {
+	s.since = since
+	return s.rows, s.through, nil
+}
+
+type stubStickyCounter struct {
+	counts map[int64]map[int64]int
+	err    error
+}
+
+func (s *stubStickyCounter) CountStickySessions(context.Context) (map[int64]map[int64]int, error) {
+	return s.counts, s.err
+}
+
+func newSchedulingOverviewFixture(t *testing.T, traffic *stubSchedulingTraffic, sticky *stubStickyCounter) (*SchedulingOverviewService, Account, Account) {
+	t.Helper()
+	responsesKey, anthropicOAuth, _, _ := protocolMatchPool()
+	entry := ModelCatalogEntry{ID: protocolMatchEntryID, ModelID: previewModel, Status: ModelCatalogStatusListed}
+	unbound := ModelCatalogEntry{ID: 93, ModelID: "unbound-model", Status: ModelCatalogStatusListed}
+	retired := ModelCatalogEntry{ID: 94, ModelID: "retired-model", Status: "retired"}
+	catalog, repo := newTestModelCatalogService(entry, unbound, retired)
+	repo.bindings = map[int64][]ModelCatalogBinding{
+		protocolMatchEntryID: {{EntryID: protocolMatchEntryID, AccountID: responsesKey.ID}, {EntryID: protocolMatchEntryID, AccountID: anthropicOAuth.ID}},
+		retired.ID:           {{EntryID: retired.ID, AccountID: anthropicOAuth.ID}},
+	}
+	gateway := newProtocolMatchService(t, true, nil, responsesKey, anthropicOAuth)
+	return NewSchedulingOverviewService(catalog, gateway.accountRepo, gateway, traffic, sticky), responsesKey, anthropicOAuth
+}
+
+func TestSchedulingOverview_ComposesLanesTrafficAndSticky(t *testing.T) {
+	through := time.Now().Add(-time.Minute).UTC()
+	traffic := &stubSchedulingTraffic{through: &through}
+	_, oauth, _, _ := protocolMatchPool()
+	svc, responsesKey, anthropicOAuth := newSchedulingOverviewFixture(t, traffic, &stubStickyCounter{counts: map[int64]map[int64]int{protocolMatchEntryID: {oauth.ID: 2}}})
+	traffic.rows = []SchedulingTrafficRow{
+		{Model: previewModel, AccountID: anthropicOAuth.ID, Success: 3, Errors: 1},
+		{Model: previewModel, AccountID: 0, Errors: 2},
+		{Model: "not-in-catalog", AccountID: responsesKey.ID, Success: 5},
+	}
+
+	overview, err := svc.Overview(context.Background(), "15m")
+	require.NoError(t, err)
+	require.WithinDuration(t, time.Now().Add(-15*time.Minute), traffic.since, 5*time.Second)
+	require.Equal(t, "15m", overview.Window)
+	require.Equal(t, &through, overview.DataThrough)
+	require.Empty(t, overview.Warnings)
+
+	require.Len(t, overview.Models, 1, "没有绑定也没有请求的条目、没上架的条目都不列")
+	model := overview.Models[0]
+	require.Equal(t, previewModel, model.ModelID)
+	require.Equal(t, int64(6), model.Requests)
+	require.Equal(t, int64(3), model.Failures)
+	require.Equal(t, int64(2), model.Unrouted)
+
+	perChannel := map[int64]SchedulingModelChannel{}
+	for _, channel := range model.Channels {
+		perChannel[channel.AccountID] = channel
+	}
+	require.Equal(t, SchedulingModelChannel{AccountID: anthropicOAuth.ID, Requests: 4, Failures: 1, StickySessions: 2}, perChannel[anthropicOAuth.ID])
+	require.Equal(t, SchedulingModelChannel{AccountID: responsesKey.ID}, perChannel[responsesKey.ID], "目录里没有的模型不归到条目")
+
+	lanes := map[string]SchedulingLane{}
+	for _, lane := range model.Lanes {
+		lanes[lane.Protocol] = lane
+	}
+	require.Contains(t, lanes, APIProtocolAnthropic)
+	require.Equal(t, anthropicOAuth.ID, lanes[APIProtocolAnthropic].Items[0].AccountID)
+
+	channels := map[int64]SchedulingChannel{}
+	for _, channel := range overview.Channels {
+		channels[channel.ID] = channel
+	}
+	require.Equal(t, int64(5), channels[responsesKey.ID].Requests, "渠道合计含目录外模型")
+	require.NotNil(t, channels[anthropicOAuth.ID].InUse)
+}
+
+func TestSchedulingOverview_RejectsUnknownWindow(t *testing.T) {
+	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraffic{}, &stubStickyCounter{})
+	_, err := svc.Overview(context.Background(), "7d")
+	require.ErrorIs(t, err, ErrSchedulingWindowInvalid)
+}
+
+// 粘性会话数拿不到时其余照常返回，并带上提示，不静默显示成 0。
+func TestSchedulingOverview_StickyFailureBecomesWarning(t *testing.T) {
+	svc, _, _ := newSchedulingOverviewFixture(t, &stubSchedulingTraffic{}, &stubStickyCounter{err: errors.New("redis down")})
+	overview, err := svc.Overview(context.Background(), "1h")
+	require.NoError(t, err)
+	require.Equal(t, []string{SchedulingWarningStickyUnavailable}, overview.Warnings)
+	require.Len(t, overview.Models, 1)
+}

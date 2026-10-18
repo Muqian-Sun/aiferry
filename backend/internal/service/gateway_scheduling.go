@@ -237,20 +237,10 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 		if isExcluded(acc.ID) {
 			continue
 		}
-		if !isAccountSchedulableOnPlatform(ctx, acc, platform) {
-			continue
-		}
-		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
-		// candidateAdmits re-checks schedulability so recently rate-limited/overloaded
-		// accounts are not selected again before the bucket is rebuilt.
-		if ok, reason := s.candidateAdmits(ctx, acc, requestedModel); !ok {
+		if reason := s.layer2RejectReason(ctx, acc, platform, requestedModel); reason != "" {
 			if reason == admitReasonCompactUnsupported {
 				compactRejected++
 			}
-			continue
-		}
-		// RPM 检查（非粘性会话路径）
-		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 			continue
 		}
 		candidates = append(candidates, acc)
@@ -312,24 +302,8 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 			}
 		}
 
-		// 分层过滤选择：协议直连 → 优先级 →（可选）最早重置 → 负载率 → LRU
 		for len(available) > 0 {
-			// 0. 有能以入站协议直连的就只在它们里挑（协议匹配优先，系统特色之一）
-			candidates := filterByProtocolMatch(available, inbound)
-			// 0.5 /responses/compact：明确支持 compact 的先于「未探测」的（tier 2 > tier 1）
-			if selectOptionsFromContext(ctx).RequireCompact {
-				candidates = filterByMaxCompactTier(candidates)
-			}
-			// 1. 取优先级最小的集合
-			candidates = filterByMinPriority(candidates)
-			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
-			if cfg.PreferSoonestReset {
-				candidates = filterBySoonestReset(candidates)
-			}
-			// 3. 取负载率最低的集合
-			candidates = filterByMinLoadRate(candidates)
-			// 4. LRU 选择最久未用的账号
-			selected := selectByLRU(candidates)
+			selected := pickLayer2Candidate(ctx, available, inbound, cfg)
 			if selected == nil {
 				break
 			}
@@ -374,6 +348,48 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 		})
 	}
 	return nil, ErrNoAvailableAccounts
+}
+
+// 平台 / 协议准入与 RPM 不在 candidateAdmits 里，单独起名供调度预览展示。
+const (
+	admitReasonProtocolUnsupported = "protocol_unsupported"
+	admitReasonRPMLimited          = "rpm_limited"
+)
+
+// layer2RejectReason 是 Layer 2 对单个候选的准入：平台 / 协议 → candidateAdmits → RPM（非粘性）。
+// 空串 = 放行。调度器与调度预览共用这一份，判定顺序不会分叉。
+func (s *GatewayService) layer2RejectReason(ctx context.Context, acc *Account, platform, requestedModel string) string {
+	if !isAccountSchedulableOnPlatform(ctx, acc, platform) {
+		return admitReasonProtocolUnsupported
+	}
+	// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
+	// candidateAdmits re-checks schedulability so recently rate-limited/overloaded
+	// accounts are not selected again before the bucket is rebuilt.
+	if ok, reason := s.candidateAdmits(ctx, acc, requestedModel); !ok {
+		return reason
+	}
+	if !s.isAccountSchedulableForRPM(ctx, acc, false) {
+		return admitReasonRPMLimited
+	}
+	return ""
+}
+
+// pickLayer2Candidate 按分层规则从可用集合里挑下一个：协议直连 → compact tier → 优先级 →
+// （可选）最早重置 → 负载率 → LRU（同组随机）。调度器与调度预览共用。
+func pickLayer2Candidate(ctx context.Context, available []accountWithLoad, inbound string, cfg config.GatewaySchedulingConfig) *accountWithLoad {
+	// 有能以入站协议直连的就只在它们里挑（协议匹配优先，系统特色之一）
+	candidates := filterByProtocolMatch(available, inbound)
+	// /responses/compact：明确支持 compact 的先于「未探测」的（tier 2 > tier 1）
+	if selectOptionsFromContext(ctx).RequireCompact {
+		candidates = filterByMaxCompactTier(candidates)
+	}
+	candidates = filterByMinPriority(candidates)
+	// use-it-or-lose-it：优先选用会话窗口最早重置的账号
+	if cfg.PreferSoonestReset {
+		candidates = filterBySoonestReset(candidates)
+	}
+	candidates = filterByMinLoadRate(candidates)
+	return selectByLRU(candidates)
 }
 
 // deleteStickySession 清缓存里的会话绑定（缓存未配置时 no-op）。
