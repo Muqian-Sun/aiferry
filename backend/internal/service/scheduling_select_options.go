@@ -27,6 +27,9 @@ type SelectOptions struct {
 	// 贴着该平台标签的 key 也承接不了（2026-09-29 定，海外四家不再有官方 key）。
 	// 不是 ForcePlatform——不跳过任何门。空 = 由路由 / 分组决定。
 	Platform string
+	// VideoVendor 视频创建的条目厂商键（VideoTaskVendorFor）：Capability 为 video_generation 时，
+	// 候选还必须在视频适配器注册表里有（厂商, 账号形态）对应的实现。
+	VideoVendor string
 }
 
 type selectOptionsCtxKey struct{}
@@ -54,6 +57,11 @@ func (o SelectOptions) admits(cfg *config.Config, resolver OpenAIWSProtocolResol
 	}
 	if !account.SupportsOpenAIEndpointCapability(o.Capability) {
 		return false, "capability_mismatch"
+	}
+	if o.Capability == OpenAIEndpointCapabilityVideoGeneration {
+		if _, ok := VideoTaskUpstreamKindFor(o.VideoVendor, account); !ok {
+			return false, "video_upstream_unsupported"
+		}
 	}
 	if !account.SupportsOpenAIImageCapability(o.ImageCapability) {
 		return false, "image_capability_mismatch"

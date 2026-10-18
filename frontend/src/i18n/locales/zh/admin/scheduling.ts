@@ -109,6 +109,7 @@ export default {
       compact_unsupported: '不支持 compact',
       protocol_unsupported: '承接不了该协议',
       rpm_limited: 'RPM 已满',
+      video_upstream_unsupported: '不支持这家的视频接口',
       cleared: '绑定已失效',
       not_in_pool: '不在可调度的渠道里',
       excluded: '本次失败过',

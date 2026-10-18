@@ -332,7 +332,29 @@ func TestGatewayRoutesChatCompletionsWithGrokModelIsServed(t *testing.T) {
 	}
 }
 
-// 视频生成 / 编辑 / 扩展带模型：模型不是 grok 族时在平台门 404，与分组平台无关。
+// 视频生成走视频任务框架：任何厂商的条目都进同一个入口（承接与否由调度按条目厂商 × 账号形态决定），
+// 不再在平台门按 grok 族 404。
+func TestGatewayRoutesVideoCreationReachesTaskFrameworkForAnyVendor(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGrok)
+	for _, path := range []string{"/v1/videos", "/videos", "/v1/videos/generations", "/videos/generations", "/v1/video/generations", "/video/generations"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"sora-2","prompt":"waves"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s", path)
+		require.NotContains(t, w.Body.String(), "not supported for this platform", "path=%s", path)
+	}
+	registered := make(map[string]bool)
+	for _, route := range router.Routes() {
+		registered[route.Method+" "+route.Path] = true
+	}
+	for _, route := range []string{"GET /v1/video/generations/:task_id", "GET /video/generations/:task_id"} {
+		require.True(t, registered[route], "%s should be registered", route)
+	}
+}
+
+// 视频编辑 / 扩展仍是 Grok 成品号专属的旧路径：模型不是 grok 族时在平台门 404，与分组平台无关。
 func TestGatewayRoutesNonGrokVideoModelsAreRejectedAtPlatformGate(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 
@@ -341,10 +363,6 @@ func TestGatewayRoutesNonGrokVideoModelsAreRejectedAtPlatformGate(t *testing.T) 
 		path   string
 		body   string
 	}{
-		{http.MethodPost, "/v1/videos/generations", `{"model":"sora-2","prompt":"waves"}`},
-		{http.MethodPost, "/v1/videos", `{"model":"sora-2","prompt":"waves"}`},
-		{http.MethodPost, "/videos", `{"model":"sora-2","prompt":"waves"}`},
-		{http.MethodPost, "/videos/generations", `{"model":"sora-2","prompt":"waves"}`},
 		{http.MethodPost, "/v1/videos/edits", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
 		{http.MethodPost, "/videos/edits", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
 		{http.MethodPost, "/v1/videos/extensions", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},

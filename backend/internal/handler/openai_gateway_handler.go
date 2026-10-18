@@ -49,6 +49,7 @@ type OpenAIGatewayHandler struct {
 	cfg                        *config.Config
 	// modelCatalog 用户可见模型列表的来源：Codex 清单只露出目录上架的 slug。
 	modelCatalog service.CatalogListingSource
+	videoTasks   *service.VideoTaskService
 }
 
 // openAIWSTurnModelSnapshot 记住上一 turn 的请求模型：换模型时要求连接账号也承接新模型。

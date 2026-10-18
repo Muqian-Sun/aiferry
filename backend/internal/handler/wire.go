@@ -131,12 +131,14 @@ func ProvideOpenAIGatewayHandler(
 	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
 	imageLimiter *ImageConcurrencyLimiter,
+	videoTasks *service.VideoTaskService,
 ) *OpenAIGatewayHandler {
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
 		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg, modelCatalog)
 	h.securityAuditCoordinator = coordinator
 	h.grokMediaEligibilityProber = grokQuotaService
 	h.imageLimiter = imageLimiter
+	h.videoTasks = videoTasks
 	return h
 }
 

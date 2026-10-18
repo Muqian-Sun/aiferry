@@ -106,6 +106,7 @@ func provideCleanup(
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
 	schedulingTraces *service.SchedulingTraceWriter,
+	videoTasks *service.VideoTaskService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -121,6 +122,12 @@ func provideCleanup(
 			{"SchedulingTraceWriter", func() error {
 				if schedulingTraces != nil {
 					schedulingTraces.Stop()
+				}
+				return nil
+			}},
+			{"VideoTaskService", func() error {
+				if videoTasks != nil {
+					videoTasks.Stop()
 				}
 				return nil
 			}},
