@@ -788,6 +788,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAuthService,
 	NewSchedulingOverviewService,
 	NewSchedulingTraceWriter,
+	NewVideoTaskService,
 	NewPasskeyService,
 	NewUserService,
 	ProvideAPIKeyService,

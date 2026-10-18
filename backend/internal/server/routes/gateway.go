@@ -83,23 +83,18 @@ func RegisterGatewayRoutes(
 			})
 		}
 	}
-	videoGenerationHandler := func(c *gin.Context) {
-		if routePlatform(c) == service.PlatformGrok {
-			h.OpenAIGateway.GrokVideoGeneration(c)
-			return
-		}
-		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": gin.H{
-				"type":    "not_found_error",
-				"message": "Videos API is not supported for this platform",
-			},
-		})
-	}
-	// 视频状态 / 内容查询不带模型，只有 Grok 能生成视频：直接交给 Grok handler，
-	// 由它按 request_id 找回当初生成的账号。
-	videoStatusHandler := h.OpenAIGateway.GrokVideoStatus
-	videoContentHandler := h.OpenAIGateway.GrokVideoContent
+	// 视频生成走视频任务框架：三种客户端形态各一个创建入口，按条目厂商与账号形态选上游适配器。
+	// 查询不带模型：本网关的任务 ID（vtask_）按任务表找回承接账号，其余 ID 交给旧的 Grok 查询
+	// （编辑 / 扩展仍是 Grok 成品号专属的旧路径，它们的 request_id 也走这里）。
+	openAIVideoCreate := h.OpenAIGateway.VideoTaskCreate(service.VideoShapeOpenAI)
+	xaiVideoCreate := h.OpenAIGateway.VideoTaskCreate(service.VideoShapeXAI)
+	newAPIVideoCreate := h.OpenAIGateway.VideoTaskCreate(service.VideoShapeNewAPI)
+	videoStatusHandler := h.OpenAIGateway.VideoTaskStatus(service.VideoShapeOpenAI)
+	xaiVideoStatusHandler := h.OpenAIGateway.VideoTaskStatus(service.VideoShapeXAI)
+	newAPIVideoStatusHandler := h.OpenAIGateway.VideoTaskStatus(service.VideoShapeNewAPI)
+	videoContentHandler := h.OpenAIGateway.VideoTaskContent
+	legacyVideoStatusHandler := h.OpenAIGateway.GrokVideoStatus
+	legacyVideoContentHandler := h.OpenAIGateway.GrokVideoContent
 	videoEditHandler := func(c *gin.Context) {
 		if routePlatform(c) == service.PlatformGrok {
 			h.OpenAIGateway.GrokVideoEdit(c)
@@ -202,20 +197,20 @@ func RegisterGatewayRoutes(
 		gateway.POST("/images/batches/:id/cancel", h.BatchImage.Cancel)
 		gateway.DELETE("/images/batches/:id", h.BatchImage.DeleteRecord)
 		gateway.DELETE("/images/batches/:id/outputs", h.BatchImage.DeleteOutputs)
-		// OpenAI-compatible clients may create through /videos; xAI receives the
-		// canonical /videos/generations route inside the Grok media forwarder.
-		gateway.POST("/videos", videoGenerationHandler)
-		gateway.POST("/videos/generations", videoGenerationHandler)
+		gateway.POST("/videos", openAIVideoCreate)
+		gateway.POST("/videos/generations", xaiVideoCreate)
+		gateway.POST("/video/generations", newAPIVideoCreate)
 		gateway.POST("/videos/edits", videoEditHandler)
 		gateway.POST("/videos/extensions", videoExtensionHandler)
 		gateway.GET("/videos/generations/:request_id/content", videoContentHandler)
-		gateway.GET("/videos/edits/:request_id/content", videoContentHandler)
-		gateway.GET("/videos/extensions/:request_id/content", videoContentHandler)
-		gateway.GET("/videos/generations/:request_id", videoStatusHandler)
-		gateway.GET("/videos/edits/:request_id", videoStatusHandler)
-		gateway.GET("/videos/extensions/:request_id", videoStatusHandler)
+		gateway.GET("/videos/edits/:request_id/content", legacyVideoContentHandler)
+		gateway.GET("/videos/extensions/:request_id/content", legacyVideoContentHandler)
+		gateway.GET("/videos/generations/:request_id", xaiVideoStatusHandler)
+		gateway.GET("/videos/edits/:request_id", legacyVideoStatusHandler)
+		gateway.GET("/videos/extensions/:request_id", legacyVideoStatusHandler)
 		gateway.GET("/videos/:request_id", videoStatusHandler)
 		gateway.GET("/videos/:request_id/content", videoContentHandler)
+		gateway.GET("/video/generations/:task_id", newAPIVideoStatusHandler)
 
 		// xAI Voice APIs（tts / stt / realtime / custom-voices）已关（muqian 2026-10-06）：计费只认模型目录，
 		// 语音不在目录里、没有价。以后要卖时先进目录再接回 h.OpenAIGateway.GrokVoice / GrokRealtime。
@@ -296,18 +291,20 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodPost, "/images/generations/async", bodyLimit, h.AsyncImage.Submit)
 	rootRoute(http.MethodPost, "/images/edits/async", bodyLimit, h.AsyncImage.Submit)
 	rootRoute(http.MethodGet, "/images/tasks/:task_id", bodyLimit, h.AsyncImage.Get)
-	rootRoute(http.MethodPost, "/videos", bodyLimit, videoGenerationHandler)
-	rootRoute(http.MethodPost, "/videos/generations", bodyLimit, videoGenerationHandler)
+	rootRoute(http.MethodPost, "/videos", bodyLimit, openAIVideoCreate)
+	rootRoute(http.MethodPost, "/videos/generations", bodyLimit, xaiVideoCreate)
+	rootRoute(http.MethodPost, "/video/generations", bodyLimit, newAPIVideoCreate)
 	rootRoute(http.MethodPost, "/videos/edits", bodyLimit, videoEditHandler)
 	rootRoute(http.MethodPost, "/videos/extensions", bodyLimit, videoExtensionHandler)
 	rootRoute(http.MethodGet, "/videos/generations/:request_id/content", bodyLimit, videoContentHandler)
-	rootRoute(http.MethodGet, "/videos/edits/:request_id/content", bodyLimit, videoContentHandler)
-	rootRoute(http.MethodGet, "/videos/extensions/:request_id/content", bodyLimit, videoContentHandler)
-	rootRoute(http.MethodGet, "/videos/generations/:request_id", bodyLimit, videoStatusHandler)
-	rootRoute(http.MethodGet, "/videos/edits/:request_id", bodyLimit, videoStatusHandler)
-	rootRoute(http.MethodGet, "/videos/extensions/:request_id", bodyLimit, videoStatusHandler)
+	rootRoute(http.MethodGet, "/videos/edits/:request_id/content", bodyLimit, legacyVideoContentHandler)
+	rootRoute(http.MethodGet, "/videos/extensions/:request_id/content", bodyLimit, legacyVideoContentHandler)
+	rootRoute(http.MethodGet, "/videos/generations/:request_id", bodyLimit, xaiVideoStatusHandler)
+	rootRoute(http.MethodGet, "/videos/edits/:request_id", bodyLimit, legacyVideoStatusHandler)
+	rootRoute(http.MethodGet, "/videos/extensions/:request_id", bodyLimit, legacyVideoStatusHandler)
 	rootRoute(http.MethodGet, "/videos/:request_id", bodyLimit, videoStatusHandler)
 	rootRoute(http.MethodGet, "/videos/:request_id/content", bodyLimit, videoContentHandler)
+	rootRoute(http.MethodGet, "/video/generations/:task_id", bodyLimit, newAPIVideoStatusHandler)
 
 	// 语音接口已关（同 /v1 下）
 	rootRoute(http.MethodPost, "/tts", bodyLimit, voiceAPIUnavailable)

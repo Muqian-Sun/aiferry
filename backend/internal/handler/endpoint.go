@@ -29,7 +29,9 @@ const (
 	EndpointVideosEdits          = "/v1/videos/edits"
 	EndpointVideosExtensions     = "/v1/videos/extensions"
 	EndpointVideos               = "/v1/videos"
-	EndpointGeminiModels         = "/v1beta/models"
+	// EndpointVideoGenerations 是 new-api 形态的统一视频接口（单数 video）。
+	EndpointVideoGenerations = "/v1/video/generations"
+	EndpointGeminiModels     = "/v1beta/models"
 )
 
 const EndpointAntigravityGenerateContent = "/v1internal:streamGenerateContent"
@@ -105,6 +107,8 @@ func NormalizeInboundEndpoint(path string) string {
 		return EndpointVideosExtensions
 	case strings.Contains(path, EndpointVideos) || strings.Contains(path, "/videos/"):
 		return EndpointVideos
+	case strings.Contains(path, EndpointVideoGenerations) || strings.Contains(path, "/video/generations"):
+		return EndpointVideoGenerations
 	case strings.Contains(path, EndpointResponsesCompact) || isResponsesCompactAliasPath(path):
 		return EndpointResponsesCompact
 	case strings.Contains(path, EndpointResponses) || isResponsesRootAliasPath(path):
@@ -197,7 +201,7 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
 
 	switch platform {
 	case service.PlatformOpenAI, service.PlatformGrok:
-		if inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos {
+		if inbound == EndpointEmbeddings || inbound == EndpointAlphaSearch || inbound == EndpointResponsesInputTokens || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits || inbound == EndpointVideosGenerations || inbound == EndpointVideosEdits || inbound == EndpointVideosExtensions || inbound == EndpointVideos || inbound == EndpointVideoGenerations {
 			return inbound
 		}
 		// OpenAI forwards everything to the Responses API.

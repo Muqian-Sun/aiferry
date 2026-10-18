@@ -528,7 +528,7 @@ func StableGrokVideoBillingRequestID(taskRequestID string) string {
 	if taskRequestID == "" {
 		return ""
 	}
-	if strings.HasPrefix(taskRequestID, "grok-video:") {
+	if strings.HasPrefix(taskRequestID, "grok-video:") || IsVideoTaskID(taskRequestID) {
 		return taskRequestID
 	}
 	return "grok-video:" + taskRequestID
@@ -918,7 +918,13 @@ func (s *OpenAIGatewayService) forwardGrokMediaVideoContent(
 }
 
 func grokMediaSignedVideoContentURL(body []byte, requestID string) (string, error) {
-	rawURL := strings.TrimSpace(gjson.GetBytes(body, "video.url").String())
+	return grokSignedVideoURL(gjson.GetBytes(body, "video.url").String(), requestID)
+}
+
+// grokSignedVideoURL 校验状态里给的视频地址：只认 xAI 的签名下载域名；空串或上游 Sub2API 改写成的
+// 代理内容地址返回空串（调用方改走带凭据的 /videos/{id}/content）。
+func grokSignedVideoURL(rawURL, requestID string) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return "", nil
 	}

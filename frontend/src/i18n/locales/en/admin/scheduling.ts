@@ -109,6 +109,7 @@ export default {
       compact_unsupported: 'Compact not supported',
       protocol_unsupported: 'Cannot serve this protocol',
       rpm_limited: 'RPM full',
+      video_upstream_unsupported: 'No video adapter for this vendor',
       cleared: 'Binding cleared',
       not_in_pool: 'Not among schedulable channels',
       excluded: 'Failed earlier in this request',
