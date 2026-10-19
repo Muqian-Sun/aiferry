@@ -30,6 +30,8 @@ type BatchImageModelPricingResolver struct {
 	Resolver *ModelPricingResolver
 }
 
+// BatchImageUnitPrice 每张图的官方口径单价（用户价 = 它 × 用户计费倍率）：按次计价的条目按按次售价换成官方口径
+// （与 calculatePerRequestCost 同一规则，没单独定按次售价时是官方按次价 × DefaultMediaSalePriceRatio）。
 func (r *BatchImageModelPricingResolver) BatchImageUnitPrice(ctx context.Context, job *BatchImageJob) (float64, error) {
 	if r == nil || r.Resolver == nil || job == nil || strings.TrimSpace(job.Model) == "" {
 		return 0, ErrBatchImageSettlementPricingMissing
@@ -40,12 +42,17 @@ func (r *BatchImageModelPricingResolver) BatchImageUnitPrice(ctx context.Context
 	}
 	switch resolved.Mode {
 	case BillingModeImage, BillingModePerRequest:
-		if resolved.DefaultPerRequestPrice > 0 {
-			return resolved.DefaultPerRequestPrice, nil
+		unit := resolved.DefaultPerRequestPrice
+		if unit <= 0 {
+			if len(resolved.RequestTiers) != 1 || resolved.RequestTiers[0].PerRequestPrice == nil || *resolved.RequestTiers[0].PerRequestPrice < 0 {
+				break
+			}
+			unit = *resolved.RequestTiers[0].PerRequestPrice
 		}
-		if len(resolved.RequestTiers) == 1 && resolved.RequestTiers[0].PerRequestPrice != nil && *resolved.RequestTiers[0].PerRequestPrice >= 0 {
-			return *resolved.RequestTiers[0].PerRequestPrice, nil
+		if sale := resolved.sale.PerRequestPrice; sale != nil {
+			return toOfficialBasis(perRequestTierPrice(*sale, unit, resolved.DefaultPerRequestPrice)), nil
 		}
+		return unit, nil
 	case BillingModeToken:
 		if resolved.BasePricing != nil && (resolved.BasePricing.ImageOutputPriceExplicit || resolved.BasePricing.ImageOutputPricePerToken > 0) {
 			return resolved.BasePricing.ImageOutputPricePerToken, nil

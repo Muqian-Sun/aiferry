@@ -30,7 +30,7 @@ func profitControlTestSettingService(t *testing.T, minMargin float64) *SettingSe
 // 各渠道的上游成本比取自 prices（token 请求一律经目录路由，选号从条目的承接渠道里挑）。
 func gatewayProfitTestContext(prices profitTestPrices) context.Context {
 	ctx := WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: officialRate(gatewayProfitTestUserRate)})
-	ctx, _ = WithGatewayTokenRequestPricing(ctx)
+	ctx, _ = WithGatewayRequestPricing(ctx)
 	// 目录路由下选渠道要看能否承接入站协议；夹具渠道四种协议都配了，这里取 Messages。
 	ctx = WithInboundProtocol(ctx, APIProtocolAnthropic)
 	return prices.withRoute(ctx)

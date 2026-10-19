@@ -233,8 +233,12 @@ func newVideoHarness(t *testing.T, priorities map[int64]int, extra ...service.Ac
 	slots := &grokMediaSlotsCache{accounts: map[string]int64{}, users: map[string]int64{}}
 	concurrency := service.NewConcurrencyService(slots)
 	bindings := &grokMediaSlotBindings{}
+	// 利润门全站一档，最低毛利率 0 = 不能亏本（线上默认）
+	service.InvalidateProfitControlSettingsCache()
+	t.Cleanup(service.InvalidateProfitControlSettingsCache)
+	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{service.SettingKeyProfitMinMargin: "0"}}, &config.Config{})
 	scheduler := service.NewGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, settings, nil, nil, nil)
 	h.gateway = service.NewOpenAIGatewayService(repo, h.usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, bindings, cfg, nil,
 		concurrency, service.NewBillingService(), nil, nil, h.upstream, &service.DeferredService{}, nil, service.NewGrokTokenProvider(repo, nil),
 		service.NewModelPricingResolver(videoCatalogStub{entries: h.entries}), nil, nil, scheduler)
@@ -255,6 +259,7 @@ func newVideoHarness(t *testing.T, priorities map[int64]int, extra ...service.Ac
 		apiKey := &service.APIKey{ID: keyID, UserID: videoUserID, Status: service.StatusActive, User: &service.User{ID: videoUserID, Balance: 100, Concurrency: 10}}
 		c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: videoUserID, Concurrency: 10})
+		c.Request = c.Request.WithContext(service.WithUserRateMultiplier(c.Request.Context(), apiKey.User))
 		if c.Request.Method == http.MethodPost {
 			body, _ := io.ReadAll(c.Request.Body)
 			c.Request.Body = io.NopCloser(bytes.NewReader(body))
@@ -316,6 +321,7 @@ func requireVideoUsage(t *testing.T, logs *handlerUsageLogRepoStub, taskID strin
 	require.Equal(t, seconds, *log.VideoDurationSeconds)
 	require.Equal(t, string(service.BillingModeVideo), *log.BillingMode)
 	require.InDelta(t, userPerSecond*float64(seconds), log.TotalCost, 1e-9, "目录价：分辨率档单价 × 秒")
+	require.InDelta(t, userPerSecond*float64(seconds), log.ActualCost, 1e-9, "没定按次售价、用户不打折：按官方价收，不乘文本的默认售价比例")
 	require.InDelta(t, upstreamPerSecond*float64(seconds), log.AccountCost, 1e-9, "渠道成本：承接的上游按次价 × 秒")
 	require.Equal(t, inbound, *log.InboundEndpoint)
 	require.Equal(t, upstreamEndpoint, *log.UpstreamEndpoint)
@@ -634,6 +640,49 @@ func TestVideoTaskPollsAreNotTraced(t *testing.T) {
 	defer h.traces.mu.Unlock()
 	require.Len(t, h.traces.inserted, 1, "只有创建那一条")
 	require.Equal(t, videoRelayAID, *h.traces.inserted[0].FinalAccountID)
+}
+
+// 利润门：上游按秒价高于按秒售价（没定售价 = 官方价 0.08）或没填上游价的渠道不派，不碰它的上游。
+func TestVideoTaskProfitGateSkipsLossMakingChannels(t *testing.T) {
+	newRelayB := func(t *testing.T) *videoHarness {
+		h := newVideoHarness(t, map[int64]int{videoRelayAID: 0, videoRelayBID: 1, videoGrokID: 2})
+		h.mux.HandleFunc("POST relay-b.example.com/v1/video/generations", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSONBody(w, 200, `{"task_id":"nb-1"}`)
+		})
+		return h
+	}
+	for name, upstream := range map[string]*float64{"upstream above the official price": videoPrice(0.081), "no upstream price": nil} {
+		t.Run(name, func(t *testing.T) {
+			h := newRelayB(t)
+			h.entries["sora-2"].Bindings[1].PerRequestPrice = upstream
+			rec := h.do(t, http.MethodPost, "/v1/videos", `{"model":"sora-2","prompt":"waves","seconds":"4"}`)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			calls := h.upstream.recorded()
+			require.Len(t, calls, 1, "relay-a is never called")
+			require.Equal(t, videoRelayBID, calls[0].AccountID)
+			require.Equal(t, videoRelayBID, h.repo.only(t).AccountID)
+		})
+	}
+
+	t.Run("upstream at the official price is fine", func(t *testing.T) {
+		h := newRelayB(t)
+		h.mux.HandleFunc("POST relay-a.example.com/v1/video/generations", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSONBody(w, 200, `{"task_id":"na-1"}`)
+		})
+		h.entries["sora-2"].Bindings[1].PerRequestPrice = videoPrice(0.08)
+		rec := h.do(t, http.MethodPost, "/v1/videos", `{"model":"sora-2","prompt":"waves","seconds":"4"}`)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Equal(t, videoRelayAID, h.repo.only(t).AccountID)
+	})
+
+	t.Run("a sale price below every upstream leaves no channel", func(t *testing.T) {
+		h := newRelayB(t)
+		h.entries["sora-2"].SalePrices = service.CatalogSalePrices{PerRequestPrice: videoPrice(0.03)}
+		rec := h.do(t, http.MethodPost, "/v1/videos", `{"model":"sora-2","prompt":"waves","seconds":"4"}`)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+		require.Empty(t, h.upstream.recorded())
+		require.Empty(t, h.repo.tasks)
+	})
 }
 
 // token 计价的条目不能走视频生成（算不出视频价）。

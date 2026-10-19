@@ -149,7 +149,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 混合请求同样按 token 计费（外加图片部分），其 token 利润保护不因请求体
 	// 里的任何工具声明（含 Codex 被动 image_gen namespace）而关闭。生图意图
 	// 仅用于能力路由与图片计费；独立图片/视频端点才在利润门范围之外。
-	requestCtx, pricingAt := service.WithGatewayTokenRequestPricing(requestCtx)
+	requestCtx, pricingAt := service.WithGatewayRequestPricing(requestCtx)
 	// 显式生图意图（排除 Codex 被动 image_gen namespace）：能力路由与图片计费用；分组开关关着则 403
 	imageIntent := service.IsExplicitImageGenerationIntent("/v1/responses", reqModel, body)
 	if imageIntent {

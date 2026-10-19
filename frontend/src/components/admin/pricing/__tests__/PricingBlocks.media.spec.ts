@@ -115,7 +115,15 @@ function mountModelBlock(entry: PricingEntry) {
   const initial = modelDraftFrom(entry, (id) => id)
   const state = reactive<BlockState<ModelDraft>>({ initial, draft: cloneModelDraft(initial) })
   const wrapper = mount(PricingModelBlock, {
-    props: { entry, state, accounts: new Map(accounts.map((a) => [a.id, a])), accountOrder: (id: number) => id, defaultSaleRatio: 1 / 15, minMargin: 0 }
+    props: {
+      entry,
+      state,
+      accounts: new Map(accounts.map((a) => [a.id, a])),
+      accountOrder: (id: number) => id,
+      defaultSaleRatio: 1 / 15,
+      defaultMediaSaleRatio: 1,
+      minMargin: 0
+    }
   })
   return { wrapper, state }
 }
@@ -147,6 +155,18 @@ describe('PricingModelBlock: per-request models', () => {
     expect(wrapper.findAll('[data-testid="pricing-official-tier"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="pricing-official-tier-add-4K"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="pricing-official-tier-add-1K"]').exists()).toBe(false)
+  })
+
+  // 媒体没定按次售价按官方原价收（default_media_sale_ratio = 1），不跟文本的 1/15
+  it('shows the official per-request price as the default sale price', () => {
+    const { wrapper } = mountModelBlock(imageEntry())
+    expect(wrapper.find('[data-testid="pricing-sale-per_request_price"]').attributes('placeholder')).toBe('0.06')
+    const hint = wrapper.find('[data-testid="pricing-sale-tier-hint"]').text()
+    expect(hint).toContain('1K 0.06')
+    expect(hint).toContain('2K 0.08')
+
+    const token = mountModelBlock(tokenEntry()).wrapper
+    expect(token.find('[data-testid="pricing-sale-input_price"]').attributes('placeholder')).toBe('0.2')
   })
 
   it('saves per-request official, sale and upstream prices', async () => {

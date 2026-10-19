@@ -919,7 +919,8 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 
 	totalCost := unitPrice * units
 	actualCost := totalCost * input.RateMultiplier
-	// 单独定了按次售价：实付按售价换算成的官方口径算（× 计费倍率 = 售价 × 折扣），命中的档与官方同比例；TotalCost 仍是官方价合计。
+	// 按次售价（单独定的，或默认的官方按次价 × DefaultMediaSalePriceRatio）：实付按售价换算成的官方口径算
+	// （× 计费倍率 = 售价 × 折扣），命中的档与官方同比例；TotalCost 仍是官方价合计。
 	if sale := resolved.sale.PerRequestPrice; sale != nil {
 		actualCost = toOfficialBasis(perRequestTierPrice(*sale, unitPrice, resolved.DefaultPerRequestPrice)) * units * input.RateMultiplier
 	}

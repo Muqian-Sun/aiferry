@@ -424,7 +424,8 @@ func TestModelCatalogHandler_PricingPerRequestModel(t *testing.T) {
 		require.Len(t, image.Bindings, 1)
 		require.Equal(t, catalogPrice(0.002), image.Bindings[0].PerRequestPrice)
 		require.NotNil(t, image.Bindings[0].CostRatio)
-		require.InDelta(t, 0.05, *image.Bindings[0].CostRatio, 1e-12, "0.002 / 0.04")
+		require.InDelta(t, 0.002/(0.04*15), *image.Bindings[0].CostRatio, 1e-12, "no sale price: compared with the official price as the sale price")
+		require.Equal(t, 1.0, got.DefaultMediaSaleRatio, "media sells at the official price by default")
 		require.Nil(t, got.Entries[0].Bindings[0].PerRequestPrice, "token bindings have no per-request price")
 	})
 

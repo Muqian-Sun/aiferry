@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithGatewayTokenRequestPricingMarksOnlyExplicitTokenRequests(t *testing.T) {
-	ctx, pricingAt := WithGatewayTokenRequestPricing(context.Background())
+func TestWithGatewayRequestPricingMarksOnlyExplicitRequests(t *testing.T) {
+	ctx, pricingAt := WithGatewayRequestPricing(context.Background())
 
-	got, ok := gatewayTokenRequestPricingAtFromContext(ctx)
+	got, ok := gatewayRequestPricingAtFromContext(ctx)
 	require.True(t, ok)
 	require.Equal(t, pricingAt, got)
-	require.Equal(t, pricingAt, GatewayTokenRequestPricingAtFromContext(ctx))
-	require.True(t, GatewayTokenRequestPricingAtFromContext(context.Background()).IsZero())
+	require.Equal(t, pricingAt, GatewayRequestPricingAtFromContext(ctx))
+	require.True(t, GatewayRequestPricingAtFromContext(context.Background()).IsZero())
 }

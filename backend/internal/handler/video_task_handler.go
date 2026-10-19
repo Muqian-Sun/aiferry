@@ -199,8 +199,8 @@ func (h *OpenAIGatewayHandler) createVideoTask(c *gin.Context, shape service.Vid
 		return
 	}
 
-	// 视频与 Grok 媒体一样按目录按次价计费，豁免按 token 价算的利润门（同 handleGrokMedia）。
-	requestCtx := service.WithOpenAIProfitControlSuppressed(c.Request.Context())
+	// 利润门：承接的上游按秒价高于按秒售价（扣掉最低毛利率）或没填上游价的渠道不派。
+	requestCtx, _ := service.WithGatewayRequestPricing(c.Request.Context())
 	opts := service.SelectOptions{
 		Capability:  service.OpenAIEndpointCapabilityVideoGeneration,
 		Transport:   service.OpenAIUpstreamTransportHTTPSSE,

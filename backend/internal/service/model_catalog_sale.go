@@ -14,8 +14,9 @@ import (
 //
 // 计费、利润门、模型广场内部一律用「官方价口径」：用户的计费倍率 = 售价折扣 × DefaultSalePriceRatio。
 // 填了售价的项先换算成官方口径（售价 ÷ DefaultSalePriceRatio），再乘计费倍率，正好是「售价 × 折扣」；
-// 没填的项就是官方价本身，乘计费倍率是「官方价 × 默认售价比例 × 折扣」。所以一项售价都没填的模型
-// 与以前（统一 1/15）完全一样。
+// 没填的项就是官方价本身，乘计费倍率是「官方价 × 默认售价比例 × 折扣」。所以一项售价都没填的 token 模型
+// 与以前（统一 1/15）完全一样。按次计价的条目例外：没填按次售价时按「官方按次价 × DefaultMediaSalePriceRatio」
+// 当作已填（salePerRequestPrice），计费、利润门、模型广场都按它。
 
 // CatalogSalePrices / CatalogSaleSegment 见 domain：整份存成 model_catalog_entries.sale_prices。
 type (
@@ -68,6 +69,31 @@ func saleExplicitAt(p CatalogSalePrices, segmentMin *int, officialBase, official
 // toOfficialBasis 售价换算成官方口径：售价 ÷ 默认售价比例。
 func toOfficialBasis(sale float64) float64 {
 	return sale / DefaultSalePriceRatio
+}
+
+// salePerRequestPrice 按次计价条目的基础按次售价：单独定了用它，没定按官方按次价 × DefaultMediaSalePriceRatio；
+// 不是按次计价、或两者都没有时为 nil。
+func (e *ModelCatalogEntry) salePerRequestPrice() *float64 {
+	if e == nil || !e.IsPerRequestBilled() {
+		return nil
+	}
+	if p := e.SalePrices.PerRequestPrice; p != nil {
+		return p
+	}
+	if e.PerRequestPrice == nil {
+		return nil
+	}
+	v := *e.PerRequestPrice * DefaultMediaSalePriceRatio
+	return &v
+}
+
+// billingSalePrices 计费用的售价：按次计价条目的按次售价按 salePerRequestPrice 补上默认值，其余原样。
+func (e *ModelCatalogEntry) billingSalePrices() CatalogSalePrices {
+	sale := e.SalePrices
+	if p := e.salePerRequestPrice(); p != nil {
+		sale.PerRequestPrice = p
+	}
+	return sale
 }
 
 // modelPricingItems 价卡的五项（0 视为没有）。
@@ -164,14 +190,18 @@ func (e *ModelCatalogEntry) saleEquivalentPriceBase() segmentPriceBase {
 }
 
 // SaleEquivalentPricingCard 模型广场用的价卡：五项与分段换成售价口径（官方口径，展示时 × 访问者的计费倍率 = 售价 × 折扣）；
-// 一项售价都没定时就是 PricingCard 本身。按次计价的条目换的是按次价与各档（见 salePerRequestCard）；图片 / 音频 token 价照旧是官方价。
+// 一项售价都没定时就是 PricingCard 本身。按次计价的条目换的是按次价与各档（见 salePerRequestCard，没定按次售价也换）；
+// 图片 / 音频 token 价照旧是官方价。
 func (e *ModelCatalogEntry) SaleEquivalentPricingCard() *PricingCard {
 	card := e.PricingCard()
-	if card == nil || e.SalePrices.IsZero() {
+	if card == nil {
 		return card
 	}
 	if e.IsPerRequestBilled() {
 		return e.salePerRequestCard(card)
+	}
+	if e.SalePrices.IsZero() {
+		return card
 	}
 	base := e.saleEquivalentPriceBase()
 	card.InputPrice, card.OutputPrice = base.input, base.output
@@ -189,10 +219,10 @@ func perRequestTierPrice(base, officialTier, officialBase float64) float64 {
 	return base * officialTier / officialBase
 }
 
-// salePerRequestCard 按次计价条目的售价口径价卡：单独定了按次售价时，按次价与各档换成「售价 ÷ 默认售价比例」
-// （各档按 perRequestTierPrice 与官方同比例）；没定时就是官方价卡。
+// salePerRequestCard 按次计价条目的售价口径价卡：按次价与各档换成「按次售价（salePerRequestPrice）÷ 默认售价比例」
+// （各档按 perRequestTierPrice 与官方同比例）；没有官方按次价也没定售价时就是官方价卡。
 func (e *ModelCatalogEntry) salePerRequestCard(card *PricingCard) *PricingCard {
-	sale := e.SalePrices.PerRequestPrice
+	sale := e.salePerRequestPrice()
 	if sale == nil {
 		return card
 	}

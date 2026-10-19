@@ -32,6 +32,8 @@ var pricingAccountPageSize = 500
 type PricingOverviewResponse struct {
 	// DefaultSaleRatio 默认售价比例：没单独填售价的项按官方价 × 它收；毛利 = 1 − 上游成本比 ÷ 它。
 	DefaultSaleRatio float64 `json:"default_sale_ratio"`
+	// DefaultMediaSaleRatio 按次计价的模型（生图、生视频、按次）没单独填按次售价时，按次售价 = 官方按次价 × 它。
+	DefaultMediaSaleRatio float64 `json:"default_media_sale_ratio"`
 	// MinMargin 利润门的最低毛利率，0 = 不能亏本（利润门一直开着）。
 	MinMargin float64                  `json:"min_margin"`
 	Entries   []PricingEntryResponse   `json:"entries"`
@@ -230,10 +232,11 @@ func (h *ModelCatalogHandler) PricingOverview(c *gin.Context) {
 		return
 	}
 	out := PricingOverviewResponse{
-		DefaultSaleRatio: service.DefaultSalePriceRatio,
-		MinMargin:        h.settings.GetProfitControlSettings(ctx).MinMargin,
-		Entries:          make([]PricingEntryResponse, 0, len(entries)),
-		Accounts:         make([]PricingAccountResponse, 0, len(accounts)),
+		DefaultSaleRatio:      service.DefaultSalePriceRatio,
+		DefaultMediaSaleRatio: service.DefaultMediaSalePriceRatio,
+		MinMargin:             h.settings.GetProfitControlSettings(ctx).MinMargin,
+		Entries:               make([]PricingEntryResponse, 0, len(entries)),
+		Accounts:              make([]PricingAccountResponse, 0, len(accounts)),
 	}
 	for i := range entries {
 		out.Entries = append(out.Entries, h.pricingEntryResponse(&entries[i], accounts))

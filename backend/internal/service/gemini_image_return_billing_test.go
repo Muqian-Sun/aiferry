@@ -346,7 +346,7 @@ func recordImgUsage(t *testing.T, entry ModelCatalogEntry, accountID int64, resu
 	result.Duration = time.Second
 	require.NoError(t, svc.RecordUsage(context.Background(), &RecordUsageInput{
 		Result: result, APIKey: apiKey,
-		User:    &User{ID: 1, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 1, RateMultiplier: customRate(1)},
 		Account: &Account{ID: accountID, Platform: PlatformAntigravity},
 	}))
 	require.NotNil(t, usageRepo.lastLog)

@@ -190,15 +190,15 @@ func bindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (ratio f
 
 func isZeroPrice(p *float64) bool { return p != nil && *p == 0 }
 
-// perRequestBindingCostRatio 按次计价模型的上游成本比：上游按次价 ÷ 售价口径的按次价（单独定了按次售价 = 售价 ÷ 默认售价比例，
-// 没定 = 官方按次价）。各档的上游价、售价都按 perRequestTierPrice 与官方同比例，所以每一档的比值都等于基础价的比值。
-// 上游没填按次价、或售价口径没有（为 0 时上游也收钱）时 ok=false；两边都是 0 按不亏（0）。
+// perRequestBindingCostRatio 按次计价模型的上游成本比：上游按次价 ÷ 售价口径的按次价（按次售价 salePerRequestPrice ÷ 默认售价比例；
+// 没单独定时按次售价是官方按次价 × DefaultMediaSalePriceRatio）。各档的上游价、售价都按 perRequestTierPrice 与官方同比例，
+// 所以每一档的比值都等于基础价的比值。上游没填按次价、或售价口径没有（为 0 时上游也收钱）时 ok=false；两边都是 0 按不亏（0）。
 func perRequestBindingCostRatio(entry *ModelCatalogEntry, b *ModelCatalogBinding) (float64, bool) {
 	if b.PerRequestPrice == nil {
 		return 0, false
 	}
-	sale := entry.PerRequestPrice
-	if p := entry.SalePrices.PerRequestPrice; p != nil {
+	var sale *float64
+	if p := entry.salePerRequestPrice(); p != nil {
 		v := toOfficialBasis(*p)
 		sale = &v
 	}
