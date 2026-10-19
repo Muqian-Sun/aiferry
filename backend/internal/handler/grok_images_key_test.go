@@ -103,8 +103,12 @@ func newGrokImageMixedHandler(t *testing.T, keyFirst bool, response func(account
 	concurrency := service.NewConcurrencyService(slots)
 	upstream := &grokImageUpstream{response: response}
 	usageLogs := &handlerUsageLogRepoStub{}
+	// 利润门全站一档，最低毛利率 0 = 不能亏本（线上默认）
+	service.InvalidateProfitControlSettingsCache()
+	t.Cleanup(service.InvalidateProfitControlSettingsCache)
+	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{service.SettingKeyProfitMinMargin: "0"}}, &config.Config{})
 	scheduler := service.NewGatewayService(repo, nil, nil, nil, nil, &grokMediaSlotBindings{}, cfg, nil, concurrency,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, settings, nil, nil, nil)
 	gateway := service.NewOpenAIGatewayService(repo, usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, &grokMediaSlotBindings{}, cfg, nil,
 		concurrency, service.NewBillingService(), nil, nil, upstream, &service.DeferredService{}, nil, service.NewGrokTokenProvider(repo, nil),
 		service.NewModelPricingResolver(grokImageCatalogStub{entry: grokImageCatalogEntry()}), nil, nil, scheduler)
@@ -116,15 +120,38 @@ func newGrokImageMixedHandler(t *testing.T, keyFirst bool, response func(account
 }
 
 func newGrokImageContext(path string, body string) (*gin.Context, *httptest.ResponseRecorder) {
-	ctx := withTestCatalogRoute(context.Background(), listAllCatalogEntryID, service.PlatformGrok, grokImageModel)
+	return newGrokImageContextFor(path, body, grokImageCatalogEntry())
+}
+
+// newGrokImageContextFor 目录路由带上 entry（官方价与承接的上游价，利润门按它比）；用户倍率同认证中间件。
+func newGrokImageContextFor(path string, body string, entry *service.ModelCatalogEntry) (*gin.Context, *httptest.ResponseRecorder) {
+	user := &service.User{ID: 10, Balance: 100}
+	ctx := service.WithUserRateMultiplier(context.Background(), user)
+	ctx = service.WithCatalogRoute(ctx, service.CatalogRoute{EntryID: entry.ID, CanonicalModel: entry.ModelID, RequestedModel: entry.ModelID, Entry: entry})
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)).WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 20, UserID: 10, User: &service.User{ID: 10, Balance: 100}})
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 20, UserID: 10, User: user})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 10, Concurrency: 5})
 	return c, rec
+}
+
+// 利润门：key 的上游按张价高于按张售价（没定售价 = 官方价 0.02），排在前面也不派，由成品号接。
+func TestGrokImagesProfitGateSkipsLossMakingKey(t *testing.T) {
+	h, upstream, logs := newGrokImageMixedHandler(t, true, func(int64) *http.Response {
+		return grokImageJSON(http.StatusOK, grokImageTwoImages)
+	})
+	entry := grokImageCatalogEntry()
+	entry.Bindings[1].PerRequestPrice = func(v float64) *float64 { return &v }(0.021)
+	c, rec := newGrokImageContextFor("/v1/images/generations", grokImageRequest, entry)
+
+	h.GrokImages(c)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []int64{grokImageOAuthID}, upstream.calls)
+	requireGrokImageUsage(t, logs, grokImageOAuthID, 0)
 }
 
 const grokImageRequest = `{"model":"grok-imagine-image","prompt":"a cat","n":2,"size":"1024x1024","response_format":"b64_json"}`
@@ -151,6 +178,7 @@ func requireGrokImageUsage(t *testing.T, logs *handlerUsageLogRepoStub, accountI
 	require.Equal(t, 2, log.ImageCount)
 	require.Equal(t, string(service.BillingModeImage), *log.BillingMode)
 	require.InDelta(t, 2*0.02, log.TotalCost, 1e-12, "xai entry per-request price × images")
+	require.InDelta(t, 2*0.02, log.ActualCost, 1e-12, "no sale price, no discount: the official price")
 	require.InDelta(t, accountCost, log.AccountCost, 1e-12, "binding per-request upstream price × images")
 }
 

@@ -324,12 +324,43 @@ func TestPerRequestSalePrice(t *testing.T) {
 	plainCatalog, _ := newTestModelCatalogService(plain)
 	cost, _, err = bs.CalculateMediaCost(ctx, NewModelPricingResolver(plainCatalog), plain.ModelID, mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize2K}, DefaultSalePriceRatio)
 	require.NoError(t, err)
-	require.InDelta(t, 0.08*DefaultSalePriceRatio, cost.ActualCost, 1e-12, "no sale price: official × default ratio (unchanged)")
+	require.InDelta(t, 0.08, cost.TotalCost, 1e-12)
+	require.InDelta(t, 0.08, cost.ActualCost, 1e-12, "no sale price: the official price, not × the text default ratio")
+	cost, _, err = bs.CalculateMediaCost(ctx, NewModelPricingResolver(plainCatalog), plain.ModelID, mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize2K}, 0.5*DefaultSalePriceRatio)
+	require.NoError(t, err)
+	require.InDelta(t, 0.04, cost.ActualCost, 1e-12, "the user discount still applies")
 
 	card := entry.SaleEquivalentPricingCard()
 	require.InDelta(t, 0.0045, *card.PerRequestPrice*DefaultSalePriceRatio, 1e-12)
 	require.InDelta(t, 0.006, *card.Intervals[1].PerRequestPrice*DefaultSalePriceRatio, 1e-12)
-	require.Equal(t, plain.PricingCard(), plain.SaleEquivalentPricingCard(), "no sale price: the official card")
+	plainCard := plain.SaleEquivalentPricingCard()
+	require.InDelta(t, 0.06, *plainCard.PerRequestPrice*DefaultSalePriceRatio, 1e-12, "no sale price: the plaza shows the official price")
+	require.InDelta(t, 0.08, *plainCard.Intervals[1].PerRequestPrice*DefaultSalePriceRatio, 1e-12)
+	require.InDelta(t, 0.06, *plain.PerRequestPrice, 1e-12, "the entry itself is untouched")
+}
+
+// 批量生图的单价（× 用户计费倍率 = 用户价）与实时生图同一口径：没定按次售价按官方价收，定了按售价；token 计价的条目照旧。
+func TestBatchImageUnitPriceUsesPerRequestSalePrice(t *testing.T) {
+	ctx := context.Background()
+	unitFor := func(entry ModelCatalogEntry) float64 {
+		catalog, _ := newTestModelCatalogService(entry)
+		unit, err := (&BatchImageModelPricingResolver{Resolver: NewModelPricingResolver(catalog)}).BatchImageUnitPrice(ctx, &BatchImageJob{Model: entry.ModelID})
+		require.NoError(t, err)
+		return unit
+	}
+	discount := func(d float64) float64 { return UserRateMultiplier(&User{RateMultiplier: &d}) }
+
+	plain := mediaTestImageEntry()
+	require.InDelta(t, 0.06, unitFor(plain)*discount(1), 1e-12, "no sale price: the official price")
+	require.InDelta(t, 0.03, unitFor(plain)*discount(0.5), 1e-12, "the user discount still applies")
+
+	withSale := mediaTestImageEntry()
+	withSale.SalePrices = CatalogSalePrices{PerRequestPrice: upstreamCostPtr(0.0045)}
+	require.InDelta(t, 0.0045, unitFor(withSale)*discount(1), 1e-12)
+
+	token := ModelCatalogEntry{ID: 1, ModelID: "token-image-test", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
+		ManagedBy: ModelCatalogManagedBySeed, InputPrice: upstreamCostPtr(5e-6), OutputPrice: upstreamCostPtr(1e-5), ImageOutputPrice: upstreamCostPtr(4e-5)}
+	require.InDelta(t, 4e-5, unitFor(token), 1e-18, "token-priced image models keep the official token price (× the text default ratio)")
 }
 
 // 利润门 / 价格页毛利：按次计价的模型比上游按次价与售价口径的按次价；不分忙闲时、没有推理档。
@@ -339,7 +370,7 @@ func TestPerRequestBindingCostRatio(t *testing.T) {
 
 	ratio, ok := entry.UpstreamCostRatio(&b)
 	require.True(t, ok)
-	require.InDelta(t, 0.05, ratio, 1e-12, "0.003 / 0.06")
+	require.InDelta(t, 0.003/(0.06*15), ratio, 1e-12, "no sale price: compared with the official price as the sale price, on the official basis")
 
 	withSale := entry
 	withSale.SalePrices = CatalogSalePrices{PerRequestPrice: upstreamCostPtr(0.0045)}
@@ -357,7 +388,7 @@ func TestPerRequestBindingCostRatio(t *testing.T) {
 	at := time.Date(2026, 10, 19, 2, 0, 0, 0, time.UTC) // 北京 10:00
 	ratio, ok = bindingCostRatioFor(&peaky, &b, at, true)
 	require.True(t, ok)
-	require.InDelta(t, 0.05, ratio, 1e-12)
+	require.InDelta(t, 0.003/(0.06*15), ratio, 1e-12)
 
 	_, ok = entry.UpstreamCostRatio(&ModelCatalogBinding{EntryID: 1, AccountID: 7})
 	require.False(t, ok, "no upstream per-request price")
@@ -369,13 +400,21 @@ func TestPerRequestBindingCostRatio(t *testing.T) {
 	_, ok = free.UpstreamCostRatio(&b)
 	require.False(t, ok, "free officially but the upstream charges")
 
+	// 不打折、最低毛利率 0：上游按次价不超过官方按次价（= 默认按次售价）就派
 	threshold := clampProfitControlThreshold(DefaultSalePriceRatio)
 	rejected, _ := profitGateRejectsBinding(&entry, &b, threshold, time.Time{}, false)
-	require.False(t, rejected, "0.003 ≤ 0.06 / 15")
-	pricey := mediaTestBinding(1, 7, 0.005)
+	require.False(t, rejected, "0.003 ≤ 0.06")
+	atOfficial := mediaTestBinding(1, 7, 0.06)
+	rejected, _ = profitGateRejectsBinding(&entry, &atOfficial, threshold, time.Time{}, false)
+	require.False(t, rejected, "upstream at the official price does not lose money")
+	pricey := mediaTestBinding(1, 7, 0.061)
 	rejected, reason := profitGateRejectsBinding(&entry, &pricey, threshold, time.Time{}, false)
-	require.True(t, rejected)
+	require.True(t, rejected, "0.061 > 0.06")
 	require.Equal(t, openAIProfitFilterReasonThreshold, reason)
+	rejected, _ = profitGateRejectsBinding(&withSale, &b, threshold, time.Time{}, false)
+	require.False(t, rejected, "0.003 ≤ sale 0.0045")
+	rejected, _ = profitGateRejectsBinding(&withSale, ptrBinding(mediaTestBinding(1, 7, 0.005)), threshold, time.Time{}, false)
+	require.True(t, rejected, "a sale price below the official price lowers the bar: 0.005 > 0.0045")
 }
 
 func ptrBinding(b ModelCatalogBinding) *ModelCatalogBinding { return &b }

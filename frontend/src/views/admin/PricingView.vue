@@ -69,6 +69,7 @@
               :accounts="accountsById"
               :account-order="accountOrder"
               :default-sale-ratio="overview.default_sale_ratio"
+              :default-media-sale-ratio="overview.default_media_sale_ratio"
               :min-margin="overview.min_margin"
               @saved="load(false)"
             />

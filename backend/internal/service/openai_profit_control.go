@@ -24,9 +24,10 @@ package service
 //     固定 pricingAt。生图意图只用于能力路由与图片计费，不决定是否装门：混合
 //     /v1/responses 请求（含声明了生图工具的请求）的 token 计费部分仍受利润门
 //     保护，请求体内的任何工具声明都不能作为关门开关。
-//   - 门范围之外的路径显式携带 WithOpenAIProfitControlSuppressed 标记：独立
-//     图片/视频端点与 Grok 媒体（媒体计费另有倍率来源）、count_tokens（不计费）、
-//     live（按时长计费）。所有装门点（含防御性装门）都尊重该标记。
+//   - 门范围之外的路径显式携带 WithOpenAIProfitControlSuppressed 标记：Grok 视频
+//     查询、count_tokens（不计费）、live（按时长计费）。所有装门点（含防御性装门）
+//     都尊重该标记。生图 / 生视频的生成请求在共享调度器上经 WithGatewayRequestPricing
+//     装门（按次价比，见 perRequestBindingCostRatio）。
 //   - selectAccountWithScheduler 顶部：唯一文本调度入口的防御性装门（ctx 已有
 //     同分组门则复用，保证 failover 阈值稳定）；requiredImageCapability != ""
 //     的专用图片调度不装门。
@@ -81,8 +82,8 @@ const (
 
 type openAIProfitControlGateCtxKey struct{}
 
-// openAIProfitControlSuppressCtxKey 标记本请求显式跳过利润门（独立图片/视频
-// 端点、Grok 媒体、count_tokens、live 等利润门范围外流量）。所有装门点看到该
+// openAIProfitControlSuppressCtxKey 标记本请求显式跳过利润门（Grok 视频查询、
+// count_tokens、live 等利润门范围外流量）。所有装门点看到该
 // 标记后一律不装门，防止 service 层防御性装门把边界外流量重新拉回利润过滤。
 type openAIProfitControlSuppressCtxKey struct{}
 
@@ -127,8 +128,8 @@ func (s *OpenAIGatewayService) WithOpenAIRequestPricingContext(ctx context.Conte
 	return s.withOpenAIProfitControlGate(ctx), pricingAt
 }
 
-// WithOpenAIProfitControlSuppressed 标记本请求在利润门范围之外（独立图片/视频
-// 端点、Grok 媒体、count_tokens、live）。所有装门点（含 service 层防御性装门）
+// WithOpenAIProfitControlSuppressed 标记本请求在利润门范围之外（Grok 视频查询、
+// count_tokens、live）。所有装门点（含 service 层防御性装门）
 // 都尊重该标记；它只关闭利润准入过滤，不影响定价上下文与计费。
 func WithOpenAIProfitControlSuppressed(ctx context.Context) context.Context {
 	return context.WithValue(ctx, openAIProfitControlSuppressCtxKey{}, struct{}{})

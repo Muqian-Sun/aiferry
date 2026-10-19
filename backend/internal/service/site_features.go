@@ -84,6 +84,9 @@ const (
 	// 计费内部一律用「官方价口径」：用户的计费倍率 = 售价折扣 × 它（见 UserRateMultiplier），
 	// 填了售价的项先换算成官方口径（售价 ÷ 它）再乘。
 	DefaultSalePriceRatio = 1.0 / 15
+	// DefaultMediaSalePriceRatio 按次计价条目（生图、生视频、按次）没单独填按次售价时，按次售价 = 官方按次价 × 它
+	// （muqian 2026-10-19：媒体按官方原价收，不跟文本的默认售价比例）。用户折扣照样在它上面打。
+	DefaultMediaSalePriceRatio = 1.0
 )
 
 // newUserDefaultSubscriptions 新用户（自助注册、后台新建）自动赠送的订阅：写死为空（2026-09-26 定）。

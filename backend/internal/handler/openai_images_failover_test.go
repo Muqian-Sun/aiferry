@@ -202,3 +202,45 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 	require.Equal(t, "failover", events[0].Kind)
 	require.Equal(t, "failover", events[1].Kind)
 }
+
+// 利润门：上游按张价高于按张售价（没定售价 = 官方价 0.04）的渠道不派，不碰它的上游。
+func TestOpenAIGatewayHandlerImages_ProfitGateSkipsLossMakingChannel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	account := func(id int64, priority int) service.Account {
+		return service.Account{ID: id, Name: "image-account", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
+			Status: service.StatusActive, Schedulable: true, Priority: priority, Credentials: map[string]any{"access_token": "token"}}
+	}
+	accountRepo := openAIImagesFailoverAccountRepo{accounts: []service.Account{account(1, 0), account(2, 1)}}
+	upstream := &openAIImagesFailoverHTTPUpstream{}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	service.InvalidateProfitControlSettingsCache()
+	t.Cleanup(service.InvalidateProfitControlSettingsCache)
+	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{service.SettingKeyProfitMinMargin: "0"}}, &config.Config{})
+	scheduler := service.NewGatewayService(accountRepo, nil, nil, nil, nil, nil, cfg,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, settings, nil, nil, nil)
+	gatewayService := service.NewOpenAIGatewayService(accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, upstream,
+		nil, nil, nil, nil, nil, nil, scheduler)
+	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
+	t.Cleanup(billing.Stop)
+	handler := NewOpenAIGatewayHandler(gatewayService, service.NewConcurrencyService(nil), billing,
+		service.NewAPIKeyService(nil, nil, nil, cfg), nil, nil, nil, nil, cfg, nil)
+
+	price := func(v float64) *float64 { return &v }
+	entry := &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-image-1", Vendor: "openai", BillingMode: service.BillingModeImage,
+		Status: service.ModelCatalogStatusListed, PerRequestPrice: price(0.04),
+		Bindings: []service.ModelCatalogBinding{{EntryID: 1, AccountID: 1, PerRequestPrice: price(0.05)}, {EntryID: 1, AccountID: 2, PerRequestPrice: price(0.01)}}}
+	user := &service.User{ID: 100}
+	ctx := service.WithUserRateMultiplier(context.Background(), user)
+	ctx = service.WithCatalogRoute(ctx, service.CatalogRoute{EntryID: 1, CanonicalModel: entry.ModelID, RequestedModel: entry.ModelID, Entry: entry})
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader([]byte(`{"model":"gpt-image-1","prompt":"draw a cat"}`))).WithContext(ctx)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 99, User: user})
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 100})
+
+	handler.Images(c)
+
+	require.Equal(t, []int64{2}, upstream.calls(), "account 1 costs more upstream than the sale price")
+}

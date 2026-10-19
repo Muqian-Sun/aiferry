@@ -144,7 +144,7 @@ export interface PricingEntry extends PricingPrices {
   search_defaults: PricingSearchDefaults | null
   /** 「联网搜索」计费项：Claude Code 配第三方模型时代执行搜索的模型（它的官方价就是计费项） */
   web_search_delegate?: boolean
-  /** 售价（muqian 2026-10-06：每项单独填，没填的按官方价 × default_sale_ratio） */
+  /** 售价（muqian 2026-10-06：每项单独填，没填的按官方价 × default_sale_ratio；按次售价没填按官方按次价 × default_media_sale_ratio） */
   sale_prices: PricingSalePrices
   /** 官方忙闲时（目录条目的分时，如 DeepSeek 工作日高峰 × 2）：向用户收钱整单乘倍数；新加承接默认带上它。null = 不分忙闲时 */
   time_pricing: TimePricing | null
@@ -172,6 +172,8 @@ export interface PricingAccount {
 export interface PricingOverview {
   /** 默认售价比例：没单独定售价的项 = 官方价 × 它；毛利 = 1 − 上游成本比 ÷ 它 */
   default_sale_ratio: number
+  /** 按次计价的模型（生图、生视频、按次）没单独定按次售价时，按次售价 = 官方按次价 × 它 */
+  default_media_sale_ratio: number
   /** 利润门的最低毛利率，0 = 不能亏本（利润门一直开着） */
   min_margin: number
   entries: PricingEntry[]

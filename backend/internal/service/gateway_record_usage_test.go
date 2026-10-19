@@ -268,7 +268,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			Duration:       time.Second,
 		},
 		APIKey:  &APIKey{ID: 801},
-		User:    &User{ID: 601, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 601, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 701},
 	})
 

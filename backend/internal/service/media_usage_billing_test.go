@@ -29,6 +29,8 @@ func TestCalculateMediaCost(t *testing.T) {
 	seedEntry.ID = 1
 	seedCatalog, _ := newTestModelCatalogService(seedEntry)
 	seedResolver := NewModelPricingResolver(seedCatalog)
+	// 计费倍率 = 用户折扣 × 默认售价比例；按次计价条目没定按次售价时按官方价收，实付 = 官方价 × 折扣
+	r := DefaultSalePriceRatio
 
 	cases := []struct {
 		name       string
@@ -42,12 +44,12 @@ func TestCalculateMediaCost(t *testing.T) {
 		actual     float64
 		mode       string
 	}{
-		{"image 1K x2 (admin)", adminResolver, "img", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1.5, true, false, 0.20, 0.30, "image"},
-		{"image 1K x2 (seed entry honored)", seedResolver, "img", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1.5, true, false, 0.20, 0.30, "image"},
-		{"image 4K falls back to default price", adminResolver, "img", mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize4K}, 1, true, false, 0.10, 0.10, "image"},
-		{"video 720p x1 8s", adminResolver, "vid", mediaUsage{VideoCount: 1, VideoResolution: VideoBillingResolution720P, VideoDurationSeconds: 8}, 1, true, false, 1.12, 1.12, "video"},
-		{"video 480p (no tier) default per second x 5s", adminResolver, "vid", mediaUsage{VideoCount: 1, VideoResolution: VideoBillingResolution480P, VideoDurationSeconds: 5}, 2, true, false, 0.25, 0.50, "video"},
-		{"video on per_request entry bills per clip not per second", adminResolver, "vid-per-request", mediaUsage{VideoCount: 2, VideoDurationSeconds: 10}, 1, true, false, 4.0, 4.0, "per_request"},
+		{"image 1K x2 (admin)", adminResolver, "img", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1.5 * r, true, false, 0.20, 0.30, "image"},
+		{"image 1K x2 (seed entry honored)", seedResolver, "img", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1.5 * r, true, false, 0.20, 0.30, "image"},
+		{"image 4K falls back to default price", adminResolver, "img", mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize4K}, r, true, false, 0.10, 0.10, "image"},
+		{"video 720p x1 8s", adminResolver, "vid", mediaUsage{VideoCount: 1, VideoResolution: VideoBillingResolution720P, VideoDurationSeconds: 8}, r, true, false, 1.12, 1.12, "video"},
+		{"video 480p (no tier) default per second x 5s", adminResolver, "vid", mediaUsage{VideoCount: 1, VideoResolution: VideoBillingResolution480P, VideoDurationSeconds: 5}, 2 * r, true, false, 0.25, 0.50, "video"},
+		{"video on per_request entry bills per clip not per second", adminResolver, "vid-per-request", mediaUsage{VideoCount: 2, VideoDurationSeconds: 10}, r, true, false, 4.0, 4.0, "per_request"},
 		{"image on token entry goes to token path", adminResolver, "tok", mediaUsage{ImageCount: 2, ImageSizeTier: ImageBillingSize1K}, 1, false, false, 0, 0, ""},
 		{"video on token entry is an error, not zero", adminResolver, "tok", mediaUsage{VideoCount: 1, VideoDurationSeconds: 5}, 1, true, true, 0, 0, ""},
 		{"image on unknown model is an error", adminResolver, "nope", mediaUsage{ImageCount: 1, ImageSizeTier: ImageBillingSize1K}, 1, true, true, 0, 0, ""},
@@ -79,7 +81,7 @@ func TestCalculateMediaCost(t *testing.T) {
 	}
 }
 
-// 用户价 = 目录价 × 用户倍率：seed 与 admin 条目在图片路径上给出同一个价（原来只认 admin 条目）。
+// 用户价 = 目录价 × 用户折扣：seed 与 admin 条目在图片路径上给出同一个价（原来只认 admin 条目）。
 func TestCalculateMediaCost_SeedAndAdminEntriesPriceTheSame(t *testing.T) {
 	bs := NewBillingService()
 	price := 0.25
@@ -89,7 +91,7 @@ func TestCalculateMediaCost_SeedAndAdminEntriesPriceTheSame(t *testing.T) {
 		entry.ID = 1
 		catalog, _ := newTestModelCatalogService(entry)
 		resolver := NewModelPricingResolver(catalog)
-		cost, handled, err := bs.CalculateMediaCost(context.Background(), resolver, "gpt-image-x", mediaUsage{ImageCount: 3, ImageSizeTier: ImageBillingSize1K}, 2)
+		cost, handled, err := bs.CalculateMediaCost(context.Background(), resolver, "gpt-image-x", mediaUsage{ImageCount: 3, ImageSizeTier: ImageBillingSize1K}, 2*DefaultSalePriceRatio)
 		require.NoError(t, err, managedBy)
 		require.True(t, handled, managedBy)
 		require.InDelta(t, 0.75, cost.TotalCost, 1e-9, managedBy)

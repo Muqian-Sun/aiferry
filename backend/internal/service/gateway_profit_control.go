@@ -6,11 +6,12 @@ import (
 )
 
 // withGatewayProfitControlGate installs the gate only for explicitly marked
-// token requests. This keeps media, metadata, and models-list paths outside
-// the profit-control surface by construction. 门是全站一档（全局设置），同一
-// 请求的 failover 重入复用 ctx 里已装的门（阈值稳定）。
+// billed requests (token requests and media generation, see
+// WithGatewayRequestPricing). Metadata, models-list, and media-task lookup
+// paths stay outside the profit-control surface by construction. 门是全站一档
+// （全局设置），同一请求的 failover 重入复用 ctx 里已装的门（阈值稳定）。
 func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context) context.Context {
-	if _, ok := gatewayTokenRequestPricingAtFromContext(ctx); !ok {
+	if _, ok := gatewayRequestPricingAtFromContext(ctx); !ok {
 		return ctx
 	}
 	if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
@@ -21,7 +22,7 @@ func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context) conte
 	}
 	settings := s.settingService.GetProfitControlSettings(ctx)
 
-	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
+	pricingAt, _ := gatewayRequestPricingAtFromContext(ctx)
 
 	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；阈值 = D × (1 − 最低毛利率)。
 	downstream := UserRateMultiplierFromContext(ctx)

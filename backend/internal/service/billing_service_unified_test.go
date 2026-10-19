@@ -73,7 +73,8 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 		Model:          "claude-sonnet-4",
 		Tokens:         UsageTokens{InputTokens: 100, OutputTokens: 50},
 		RequestCount:   3,
-		RateMultiplier: 2.0,
+		// 用户折扣 2：计费倍率 = 折扣 × 默认售价比例
+		RateMultiplier: 2.0 * DefaultSalePriceRatio,
 		Resolver:       resolver,
 	}
 	cost, err := bs.CalculateCostUnified(input)
@@ -82,7 +83,7 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 
 	// 3 requests * $0.05 = $0.15
 	require.InDelta(t, 0.15, cost.TotalCost, 1e-10)
-	// ActualCost = 0.15 * 2.0 = 0.30
+	// 没定按次售价 = 按官方按次价收：ActualCost = 0.15 * 折扣 2 = 0.30
 	require.InDelta(t, 0.30, cost.ActualCost, 1e-10)
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 }
@@ -102,14 +103,14 @@ func TestCalculateCostUnified_ImageMode(t *testing.T) {
 		Model:          "gemini-image",
 		Tokens:         UsageTokens{},
 		RequestCount:   2,
-		RateMultiplier: 1.0,
+		RateMultiplier: DefaultSalePriceRatio,
 		Resolver:       resolver,
 	}
 	cost, err := bs.CalculateCostUnified(input)
 	require.NoError(t, err)
 	require.NotNil(t, cost)
 
-	// 2 * $0.10 = $0.20
+	// 2 * $0.10 = $0.20；没定按次售价、不打折 = 按官方价收
 	require.InDelta(t, 0.20, cost.TotalCost, 1e-10)
 	require.InDelta(t, 0.20, cost.ActualCost, 1e-10)
 	require.Equal(t, string(BillingModeImage), cost.BillingMode)

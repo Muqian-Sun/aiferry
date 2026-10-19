@@ -80,7 +80,7 @@
           <PricingSaleRows
             v-model:sale="draft.sale"
             :official="draft.official"
-            :ratio="defaultSaleRatio"
+            :ratio="perRequest ? defaultMediaSaleRatio : defaultSaleRatio"
             :official-peak="draft.officialPeak"
             :mode="mode"
             test-id="pricing-sale"
@@ -238,6 +238,8 @@ const props = defineProps<{
   /** 渠道排序键（渠道优先级、再按 ID） */
   accountOrder: (accountId: number) => number
   defaultSaleRatio: number
+  /** 按次计价的模型没单独定按次售价时，按次售价 = 官方按次价 × 它 */
+  defaultMediaSaleRatio: number
   minMargin: number
 }>()
 

@@ -1447,7 +1447,7 @@ func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndP
 		APIKey: &APIKey{
 			ID: 11201,
 		},
-		User:    &User{ID: 21201, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 21201, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 31201},
 	})
 
@@ -1486,7 +1486,7 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 		APIKey: &APIKey{
 			ID: 11202,
 		},
-		User:    &User{ID: 21202, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 21202, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 31202},
 	})
 
@@ -1529,7 +1529,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTo
 		APIKey: &APIKey{
 			ID: 1008,
 		},
-		User:    &User{ID: 2008, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 2008, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 3008},
 	})
 
@@ -1562,7 +1562,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 		APIKey: &APIKey{
 			ID: 10121,
 		},
-		User:    &User{ID: 20121, RateMultiplier: officialRate(0.15)},
+		User:    &User{ID: 20121, RateMultiplier: customRate(0.15)},
 		Account: &Account{ID: 30121},
 	})
 
@@ -1570,7 +1570,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 	require.NotNil(t, usageRepo.lastLog)
 	require.InDelta(t, 0.2, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.03, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.15, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.15*DefaultSalePriceRatio, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
 }
@@ -1597,7 +1597,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.
 		APIKey: &APIKey{
 			ID: 10125,
 		},
-		User:    &User{ID: 20125, RateMultiplier: officialRate(0.2)},
+		User:    &User{ID: 20125, RateMultiplier: customRate(0.2)},
 		Account: &Account{ID: 30125},
 	})
 
@@ -1605,7 +1605,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.
 	require.NotNil(t, usageRepo.lastLog)
 	require.InDelta(t, 0.5, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.1, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.2, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.2*DefaultSalePriceRatio, usageRepo.lastLog.RateMultiplier, 1e-12)
 }
 
 // 视频按秒倍率就是用户倍率：分组倍率不参与。
@@ -1631,7 +1631,7 @@ func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 		APIKey: &APIKey{
 			ID: 10126,
 		},
-		User:    &User{ID: 20126, RateMultiplier: officialRate(0.25)},
+		User:    &User{ID: 20126, RateMultiplier: customRate(0.25)},
 		Account: &Account{ID: 30126, Platform: PlatformGrok},
 	})
 
@@ -1642,7 +1642,7 @@ func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 	require.Nil(t, usageRepo.lastLog.ImageSize)
 	require.InDelta(t, 0.08, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.02, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.25, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.25*DefaultSalePriceRatio, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeVideo), *usageRepo.lastLog.BillingMode)
 	require.Equal(t, 1, usageRepo.lastLog.VideoCount)
@@ -1672,7 +1672,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesSeededImagineEntry(t *test
 		APIKey: &APIKey{
 			ID: 101261,
 		},
-		User:    &User{ID: 201261, RateMultiplier: officialRate(1)},
+		User:    &User{ID: 201261, RateMultiplier: customRate(1)},
 		Account: &Account{ID: 301261, Platform: PlatformGrok},
 	})
 
@@ -1746,7 +1746,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 		APIKey: &APIKey{
 			ID: 10123,
 		},
-		User:    &User{ID: 20123, RateMultiplier: officialRate(0.15)},
+		User:    &User{ID: 20123, RateMultiplier: customRate(0.15)},
 		Account: &Account{ID: 30123},
 	})
 
@@ -1754,7 +1754,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 	require.NotNil(t, usageRepo.lastLog)
 	require.InDelta(t, 0.75, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.1125, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.15, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.15*DefaultSalePriceRatio, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.Equal(t, 3, usageRepo.lastLog.ImageCount)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
@@ -1803,7 +1803,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCoun
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "1K"},
 		&APIKey{},
 		"gemini-image",
-		1.0,
+		DefaultSalePriceRatio,
 		time.Time{},
 	)
 
@@ -1835,7 +1835,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "4K"},
 		&APIKey{},
 		"gemini-image",
-		1.0,
+		DefaultSalePriceRatio,
 		time.Time{},
 	)
 
@@ -1916,7 +1916,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMis
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: ""},
 		&APIKey{},
 		"gemini-image",
-		1.0,
+		DefaultSalePriceRatio,
 		time.Time{},
 	)
 
