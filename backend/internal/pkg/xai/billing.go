@@ -19,7 +19,9 @@ const (
 	// repository and service layers build their own client identity from it, so
 	// one bump here covers OAuth traffic and billing probes together.
 	// Keep in sync with https://x.ai/cli/stable.
-	CLIClientVersion = "0.2.120"
+	// cli-chat-proxy rejects anything below 1.0.13 (HTTP 426); pin the current
+	// stable so we stay ahead of the next floor bump without an emergency release.
+	CLIClientVersion = "1.0.70"
 	// billingCLIUserAgent is the legacy pager/shell UA used by billing probes.
 	// Distinct from CLIUserAgent() in cli_identity.go (workspace-style UA).
 	billingCLIUserAgent = "grok-pager/" + CLIClientVersion + " grok-shell/" + CLIClientVersion + " (macos; aarch64)"
